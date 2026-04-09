@@ -1,0 +1,261 @@
+---
+# Data Contract: base.cip_soc_crosswalk
+# Spec: crosswalk-cip-soc
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-08
+
+table: base.cip_soc_crosswalk
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - cipcode
+  - soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/crosswalk-cip-soc.md
+physical_model: governance/models/crosswalk-cip-soc-physical.md
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row, ['cipcode',
+      'soc_code'], prefix='xw'). Format: xw-<16 hex chars>. Stable across
+      pipeline re-runs. Not a business identifier.
+
+  - name: cipcode
+    type: varchar
+    required: true
+    business_term: BT-003
+    is_cde: true
+    cde_rationale: >
+      Composite natural key (1 of 2) and primary join key to
+      base.college_scorecard.cipcode. This column is the CIP-side anchor of
+      the crosswalk bridge table -- it connects academic programs to occupation
+      data. Without correct cipcode values, the entire CIP-to-SOC integration
+      chain breaks: no student query can reach occupation outcomes. Feeds all
+      downstream Gold products that join programs to careers.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      CIP code in XX.XXXX format. Composite natural key (1 of 2). Join key to
+      base.college_scorecard.cipcode. Must be treated as string, never float.
+    constraints:
+      - "CHECK (cipcode ~ '^\\d{2}\\.\\d{4}$')"
+
+  - name: cip_title
+    type: varchar
+    required: true
+    business_term: BT-004
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Program name from the NCES crosswalk source file. Human-readable label
+      for the CIP code. Not used for joins or downstream computation.
+
+  - name: cip_family
+    type: varchar
+    required: true
+    business_term: BT-005
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit CIP family code derived from first 2 characters of cipcode
+      (e.g., "52" from "52.0201"). Groups related programs for aggregation.
+      Matches base.college_scorecard.cip_family.
+
+  - name: soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Composite natural key (2 of 2) and primary join key to
+      base.bls_ooh.soc_code and base.onet_occupations.bls_soc_code. This
+      column is the SOC-side anchor of the crosswalk bridge table -- it
+      connects occupation data back to academic programs. Without correct
+      soc_code values, BLS employment projections, wage data, and O*NET task
+      profiles cannot be reached from any student query. Feeds all downstream
+      Gold products that present career outcomes.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC code in XX-XXXX format. Composite natural key (2 of 2). Join key to
+      base.bls_ooh.soc_code and base.onet_occupations.bls_soc_code. No-match
+      sentinel (99-9999) excluded at transformation time.
+    constraints:
+      - "CHECK (soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: soc_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Occupation name from the NCES crosswalk source file. Human-readable
+      label for the SOC code. Not used for joins or downstream computation.
+
+  - name: soc_major_group
+    type: varchar
+    required: true
+    business_term: BT-029
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit SOC major group code derived from first 2 characters of
+      soc_code. One of 22 valid major group codes. Matches
+      base.bls_ooh.soc_major_group.
+    constraints:
+      - "CHECK (soc_major_group IN ('11','13','15','17','19','21','23','25','27','29','31','33','35','37','39','41','43','45','47','49','51','53'))"
+
+  - name: has_scorecard_match
+    type: boolean
+    required: true
+    business_term: BT-075
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if this cipcode exists in at least one row of
+      base.college_scorecard. Derived via EXISTS lookup at transformation
+      time. Expected 60-90% true. Input to match_quality derivation.
+
+  - name: has_bls_match
+    type: boolean
+    required: true
+    business_term: BT-075
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if this soc_code exists in base.bls_ooh. Derived via EXISTS
+      lookup at transformation time. Expected 70-95% true. Input to
+      match_quality derivation.
+
+  - name: has_onet_match
+    type: boolean
+    required: true
+    business_term: BT-075
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if this soc_code exists in base.onet_occupations (matched on
+      bls_soc_code). Derived via EXISTS lookup at transformation time.
+      Expected 65-90% true. Input to match_quality derivation.
+
+  - name: match_quality
+    type: varchar
+    required: true
+    business_term: BT-076
+    is_cde: true
+    cde_rationale: >
+      Business-critical classification that determines which FutureProof
+      statistics can be computed for each program-occupation pair. Downstream
+      Gold products use match_quality to decide whether to compute earnings,
+      growth, O*NET task profiles, or flag incomplete data. A 'full' match
+      enables all stats (ERN, GRW, HMN, Burnout, Market); lower tiers
+      progressively reduce what can be computed. Incorrect match_quality
+      values would cause Gold products to either omit available data or
+      present incomplete data without disclosure. This column drives
+      confidence scoring and data completeness transparency for end users.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived categorical classification computed from has_scorecard_match,
+      has_bls_match, and has_onet_match. Values: full, partial_no_onet,
+      partial_no_bls, scorecard_only, no_scorecard. Determines which
+      FutureProof stats can be computed for this pairing.
+    constraints:
+      - "CHECK (match_quality IN ('full', 'partial_no_onet', 'partial_no_bls', 'scorecard_only', 'no_scorecard'))"
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source crosswalk data was loaded into the Bronze zone.
+      Renamed from Bronze load_date. Pipeline metadata.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to the Silver zone base table.
+      Generated at transformation time. Pipeline metadata.
+
+# Quality thresholds based on DQ rules and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    cipcode_format: "^\\d{2}\\.\\d{4}$"
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    soc_major_group_values: ["11","13","15","17","19","21","23","25","27","29","31","33","35","37","39","41","43","45","47","49","51","53"]
+    match_quality_values: ["full", "partial_no_onet", "partial_no_bls", "scorecard_only", "no_scorecard"]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+  volume:
+    row_count_range: [5500, 6200]
+  consistency:
+    cip_family_matches_cipcode_prefix: true
+    soc_major_group_matches_soc_code_prefix: true
+    no_sentinel_rows: true
+  freshness_sla: >
+    Full table replace on each pipeline run. No incremental loads. Freshness
+    depends on NCES crosswalk release schedule (approximately every 10 years
+    when CIP or SOC taxonomies are updated).
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/crosswalk-cip-soc.json
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: raw.cip_soc_crosswalk
+  transformation: src/silver/cip_soc_crosswalk_transformer.py
+  lookup_tables:
+    - base.college_scorecard
+    - base.bls_ooh
+    - base.onet_occupations

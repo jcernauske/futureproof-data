@@ -1,0 +1,775 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-09T12:00:00.000000Z",
+    "run": {
+      "runId": "d8e4f1a2-3b7c-4d9e-a5f6-1c2d3e4f5a6b",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-futureproof-engine.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone cross-source join transformation producing the core FutureProof product table. Reads career_outcomes (Gold), cip_soc_crosswalk (Silver), occupation_profiles (Gold), and onet_work_profiles (Gold). Joins career_outcomes to crosswalk via 4-digit CIP prefix match (co.cipcode = LEFT(xw.cipcode, 5)) because College Scorecard uses XX.XX format while crosswalk uses XX.XXXX format. LEFT JOINs to occupation_profiles on soc_code and onet_work_profiles on bls_soc_code to enrich with BLS and O*NET data. Deduplicates on grain (unitid, cipcode, soc_code) via ROW_NUMBER partitioned by grain fields ordered by stat_richness DESC, keeping the row with most non-null stat values. Computes stat_ern as 0.6 * cip_family_earnings_rank + 0.4 * wage_percentile_overall mapped to 1-10 scale. Computes stat_roi via piecewise linear interpolation from debt_to_earnings_annual (4 segments: 0.25-0.75 maps to 10-8, 0.75-1.5 maps to 8-5, 1.5-2.5 maps to 5-3, 2.5-4.0 maps to 3-1). Sets stat_res to null (Karpathy integration pending). Carries stat_grw from grw_score_rounded, stat_hmn from hmn_score_rounded. Computes boss_loans_score as 11 - stat_roi, boss_ceiling_score as round(10 - 9 * wage_percentile_education_tier), carries boss_market_score from market_score_rounded, boss_burnout_score from burnout_score_rounded, boss_ai_score null placeholder. Derives match_quality from join flags (has_bls, has_onet) at Gold time instead of using crosswalk Silver has_scorecard_match (which is FALSE for all rows). Computes stats_available_count and bosses_available_count as count of non-null stats/bosses. Derives overall_confidence from stats count and match_quality. Computes record_id via compute_grain_id with 'pcp' prefix. Promotes via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {
+            "career_outcomes": "source Gold table",
+            "cip_soc_crosswalk": "source Silver table (5903 rows)",
+            "occupation_profiles": "source Gold table (832 rows)",
+            "onet_work_profiles": "source Gold table"
+          },
+          "rowsTransformed": 626406,
+          "rowsSkippedTransform": 0,
+          "promoted": 626406,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "fieldsDerived": 14,
+          "fieldsCarriedDirect": 25,
+          "fieldsDroppedFromSources": 0,
+          "cipPrefixJoinCoverage": "91.0% of distinct CIP codes, 97.1% of rows",
+          "dedupStrategy": "ROW_NUMBER OVER (PARTITION BY unitid, cipcode, soc_code ORDER BY stat_richness DESC)"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-program-career-paths",
+      "facets": {
+        "documentation": {
+          "description": "Transform and join 4 Gold tables + 1 Silver crosswalk into the consumable.program_career_paths unified data product. This is the core FutureProof query table: school + major -> career outcomes with pentagon stats, boss fight scores, and confidence tiers. Uses 4-digit CIP prefix join (LEFT(crosswalk.cipcode, 5)) to bridge College Scorecard's XX.XX format to crosswalk's XX.XXXX format, achieving 91% CIP code coverage. LEFT JOINs to BLS and O*NET for occupation enrichment. Deduplicates grain (unitid, cipcode, soc_code) keeping richest stat row. Computes ERN (blended earnings/wage percentile), ROI (piecewise from debt-to-earnings), carries GRW and HMN from upstream Gold, sets RES placeholder null. Computes boss scores: Loans (inverse of ROI), Ceiling (inverse of wage percentile within education tier), carries Market and Burnout, AI placeholder null. Derives match_quality, stats/bosses available counts, and overall_confidence at Gold time."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/futureproof_engine.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.career_outcomes",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "program_name", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "cip_family_name", "type": "STRING"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "earnings_1yr_p25", "type": "DOUBLE"},
+              {"name": "earnings_1yr_p75", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"},
+              {"name": "debt_to_earnings_annual", "type": "DOUBLE"},
+              {"name": "cip_family_earnings_rank", "type": "DOUBLE"},
+              {"name": "confidence_tier", "type": "STRING"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.cip_soc_crosswalk",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "soc_title", "type": "STRING"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.occupation_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "soc_major_group_name", "type": "STRING"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "wage_percentile_overall", "type": "DOUBLE"},
+              {"name": "wage_percentile_education_tier", "type": "DOUBLE"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "education_level_name", "type": "STRING"},
+              {"name": "grw_score_rounded", "type": "INTEGER"},
+              {"name": "market_score_rounded", "type": "INTEGER"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.onet_work_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "primary_title", "type": "STRING"},
+              {"name": "hmn_score_rounded", "type": "INTEGER"},
+              {"name": "burnout_score_rounded", "type": "INTEGER"},
+              {"name": "top_5_activities", "type": "STRING"},
+              {"name": "top_human_activities", "type": "STRING"},
+              {"name": "burnout_drivers", "type": "STRING"},
+              {"name": "time_pressure", "type": "DOUBLE"},
+              {"name": "work_hours", "type": "DOUBLE"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.program_career_paths",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "program_name", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "cip_family_name", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "soc_major_group_name", "type": "STRING"},
+              {"name": "stat_ern", "type": "INTEGER"},
+              {"name": "stat_roi", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "stat_grw", "type": "INTEGER"},
+              {"name": "stat_hmn", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "boss_loans_score", "type": "INTEGER"},
+              {"name": "boss_market_score", "type": "INTEGER"},
+              {"name": "boss_burnout_score", "type": "INTEGER"},
+              {"name": "boss_ceiling_score", "type": "INTEGER"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "earnings_1yr_p25", "type": "DOUBLE"},
+              {"name": "earnings_1yr_p75", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"},
+              {"name": "debt_to_earnings_annual", "type": "DOUBLE"},
+              {"name": "confidence_tier_program", "type": "STRING"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "education_level_name", "type": "STRING"},
+              {"name": "top_5_activities", "type": "STRING"},
+              {"name": "top_human_activities", "type": "STRING"},
+              {"name": "burnout_drivers", "type": "STRING"},
+              {"name": "time_pressure", "type": "DOUBLE"},
+              {"name": "work_hours", "type": "DOUBLE"},
+              {"name": "match_quality", "type": "STRING"},
+              {"name": "stats_available_count", "type": "INTEGER"},
+              {"name": "bosses_available_count", "type": "INTEGER"},
+              {"name": "overall_confidence", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "unitid"},
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "base.cip_soc_crosswalk", "field": "soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash via compute_grain_id(row, ['unitid', 'cipcode', 'soc_code'], prefix='pcp'). SHA-256 of concatenated grain fields with 'pcp' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "unitid"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. IPEDS institution ID.",
+                "transformationType": "DIRECT"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "institution_name"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes.",
+                "transformationType": "DIRECT"
+              },
+              "cipcode": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cipcode"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. Retains the 4-digit XX.XX format from College Scorecard (not the 6-digit crosswalk format).",
+                "transformationType": "DIRECT"
+              },
+              "program_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "program_name"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cip_family"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. 2-digit CIP family code.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cip_family_name"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes.",
+                "transformationType": "DIRECT"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.cip_soc_crosswalk", "field": "soc_code"}
+                ],
+                "transformationDescription": "Brought in via INNER JOIN from crosswalk. The join key is career_outcomes.cipcode = LEFT(crosswalk.cipcode, 5) -- 4-digit CIP prefix match. One Scorecard CIP may match multiple crosswalk entries, each bringing a different SOC code.",
+                "transformationType": "DERIVED"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "occupation_title"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "primary_title"},
+                  {"namespace": "brightsmith", "name": "base.cip_soc_crosswalk", "field": "soc_title"}
+                ],
+                "transformationDescription": "COALESCE(occupation_profiles.occupation_title, onet_work_profiles.primary_title, crosswalk.soc_title, 'Unknown'). Prefers BLS title, falls back to O*NET, then crosswalk, then literal 'Unknown'.",
+                "transformationType": "DERIVED"
+              },
+              "soc_major_group_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "soc_major_group_name"}
+                ],
+                "transformationDescription": "Direct carry from occupation_profiles via LEFT JOIN on soc_code. Null if BLS join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "stat_ern": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cip_family_earnings_rank"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_percentile_overall"}
+                ],
+                "transformationDescription": "Earning Power stat (1-10). Computed as round_half_up(1.0 + 9.0 * (0.6 * cip_family_earnings_rank + 0.4 * wage_percentile_overall)). Blends 60% program-level earnings rank (school-specific from Scorecard) with 40% occupation-level wage percentile (career-level from BLS). Null if either input is null.",
+                "transformationType": "DERIVED"
+              },
+              "stat_roi": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"}
+                ],
+                "transformationDescription": "Return on Investment stat (1-10). Piecewise linear interpolation from debt_to_earnings_annual: <=0.25 -> 10, 0.25-0.75 -> 10-8, 0.75-1.5 -> 8-5, 1.5-2.5 -> 5-3, 2.5-4.0 -> 3-1, >4.0 -> 1. Uses round_half_up() for DuckDB-consistent rounding. Null if debt_to_earnings_annual is null.",
+                "transformationType": "DERIVED"
+              },
+              "stat_res": {
+                "inputFields": [],
+                "transformationDescription": "AI Resilience stat placeholder. Set to null for all rows. Requires Karpathy AI exposure scores and task-level AI scoring (separate spec). Will be populated post-hackathon.",
+                "transformationType": "DERIVED"
+              },
+              "stat_grw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "grw_score_rounded"}
+                ],
+                "transformationDescription": "Direct carry from occupation_profiles.grw_score_rounded via LEFT JOIN. Growth stat (1-10) computed upstream in BLS Gold. Null if BLS join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "stat_hmn": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "hmn_score_rounded"}
+                ],
+                "transformationDescription": "Direct carry from onet_work_profiles.hmn_score_rounded via LEFT JOIN. Human Edge stat (1-10) computed upstream in O*NET Gold. Null if O*NET join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "boss_ai_score": {
+                "inputFields": [],
+                "transformationDescription": "AI boss fight placeholder. Set to null for all rows. Same dependency as stat_res -- requires Karpathy integration.",
+                "transformationType": "DERIVED"
+              },
+              "boss_loans_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"}
+                ],
+                "transformationDescription": "Student Loans boss score (1-10). Computed as 11 - stat_roi. Inverse of ROI: ROI of 10 -> Loans boss is 1 (easy fight); ROI of 1 -> Loans boss is 10 (devastating). Null if stat_roi is null.",
+                "transformationType": "DERIVED"
+              },
+              "boss_market_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "market_score_rounded"}
+                ],
+                "transformationDescription": "Direct carry from occupation_profiles.market_score_rounded via LEFT JOIN. Market boss score (1-10) computed upstream in BLS Gold. Null if BLS join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "boss_burnout_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "burnout_score_rounded"}
+                ],
+                "transformationDescription": "Direct carry from onet_work_profiles.burnout_score_rounded via LEFT JOIN. Burnout boss score (1-10) computed upstream in O*NET Gold. Null if O*NET join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "boss_ceiling_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_percentile_education_tier"}
+                ],
+                "transformationDescription": "Ceiling boss score (1-10). Computed as round_half_up(10.0 - 9.0 * wage_percentile_education_tier). Low earner within education tier -> strong boss (ceiling is real, score near 10). High earner -> weak boss (already pushed past it, score near 1). Null if wage_percentile_education_tier is null.",
+                "transformationType": "DERIVED"
+              },
+              "earnings_1yr_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "earnings_1yr_median"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. Median earnings 1 year post-graduation.",
+                "transformationType": "DIRECT"
+              },
+              "earnings_1yr_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "earnings_1yr_p25"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. 25th percentile earnings (effort slider: low focus).",
+                "transformationType": "DIRECT"
+              },
+              "earnings_1yr_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "earnings_1yr_p75"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. 75th percentile earnings (effort slider: high focus).",
+                "transformationType": "DIRECT"
+              },
+              "debt_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_median"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. Median cumulative debt at graduation.",
+                "transformationType": "DIRECT"
+              },
+              "debt_to_earnings_annual": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"}
+                ],
+                "transformationDescription": "Direct carry from career_outcomes. Key affordability ratio used as input to stat_roi and boss_loans_score derivations.",
+                "transformationType": "DIRECT"
+              },
+              "confidence_tier_program": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "confidence_tier"}
+                ],
+                "transformationDescription": "Renamed from career_outcomes.confidence_tier to confidence_tier_program to distinguish from the Gold-level overall_confidence field. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "median_annual_wage": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "Direct carry from occupation_profiles via LEFT JOIN. Occupation-level median wage. Null if BLS join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "growth_category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "growth_category"}
+                ],
+                "transformationDescription": "Direct carry from occupation_profiles via LEFT JOIN. BLS growth tier (declining_fast through booming). Null if BLS join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "employment_current": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "employment_current"}
+                ],
+                "transformationDescription": "Direct carry from occupation_profiles via LEFT JOIN. Current employment count. Null if BLS join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "education_level_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "education_level_name"}
+                ],
+                "transformationDescription": "Direct carry from occupation_profiles via LEFT JOIN. Typical education requirement. Null if BLS join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "top_5_activities": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "top_5_activities"}
+                ],
+                "transformationDescription": "Direct carry from onet_work_profiles via LEFT JOIN. JSON array of top 5 work activities. Null if O*NET join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "top_human_activities": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "top_human_activities"}
+                ],
+                "transformationDescription": "Direct carry from onet_work_profiles via LEFT JOIN. JSON array of top human-edge activities. Null if O*NET join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "burnout_drivers": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "burnout_drivers"}
+                ],
+                "transformationDescription": "Direct carry from onet_work_profiles via LEFT JOIN. JSON array of top burnout contributors. Null if O*NET join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "time_pressure": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "time_pressure"}
+                ],
+                "transformationDescription": "Direct carry from onet_work_profiles via LEFT JOIN. Individual burnout element score. Null if O*NET join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "work_hours": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "work_hours"}
+                ],
+                "transformationDescription": "Direct carry from onet_work_profiles via LEFT JOIN. Duration of typical work week. Null if O*NET join did not succeed.",
+                "transformationType": "DIRECT"
+              },
+              "match_quality": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Derived at Gold time from LEFT JOIN success flags. CASE: both BLS and O*NET joined -> 'full'; BLS only -> 'partial_no_onet'; O*NET only -> 'partial_no_bls'; neither -> 'scorecard_only'. Intentionally does NOT use crosswalk Silver has_scorecard_match flag (which is FALSE for all 5,903 rows due to strict 6-digit matching). Instead derives from actual join results.",
+                "transformationType": "DERIVED"
+              },
+              "stats_available_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cip_family_earnings_rank"},
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "grw_score_rounded"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "hmn_score_rounded"}
+                ],
+                "transformationDescription": "Count of non-null values among the 5 pentagon stats (stat_ern, stat_roi, stat_res, stat_grw, stat_hmn). Range 0-5. stat_res is always null so maximum in current data is 4. Required field, never null.",
+                "transformationType": "DERIVED"
+              },
+              "bosses_available_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "market_score_rounded"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "burnout_score_rounded"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_percentile_education_tier"}
+                ],
+                "transformationDescription": "Count of non-null values among the 5 boss scores (boss_ai_score, boss_loans_score, boss_market_score, boss_burnout_score, boss_ceiling_score). Range 0-5. boss_ai_score is always null so maximum in current data is 4. Required field, never null.",
+                "transformationType": "DERIVED"
+              },
+              "overall_confidence": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cip_family_earnings_rank"},
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Tiered confidence label derived from stats_available_count and match_quality. 'high' if stats_available_count >= 4 AND match_quality = 'full'. 'medium' if stats_available_count >= 2 AND match_quality contains 'partial'. 'low' otherwise (stats_available_count < 2 OR match_quality = 'scorecard_only'). Required field, never null.",
+                "transformationType": "DERIVED"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Set after all derivations are complete.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-09T12:00:00.000000Z",
+    "run": {
+      "runId": "e9f5a2b3-4c8d-5e0f-b6a7-2d3e4f5a6b7c",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-futureproof-engine.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone transition enrichment producing career branch data. Reads career_transitions (Gold), occupation_profiles (Gold), and onet_work_profiles (Gold). For each career transition pair (soc_code, related_soc_code), looks up both source and related occupation stats from BLS (grw_score_rounded, median_annual_wage) and O*NET (hmn_score_rounded, burnout_score_rounded) using dict lookups keyed by soc_code/bls_soc_code. Computes 4 delta fields (grw_delta, hmn_delta, burnout_delta, wage_delta) as related minus source, null-safe (null if either side is null). Derives branch_has_full_data as True when related occupation has both BLS grw and O*NET hmn data. 1:1 enrichment of career_transitions (no fan-out). Computes record_id via compute_grain_id with 'br' prefix. Promotes via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {
+            "career_transitions": "source Gold table (15944 rows)",
+            "occupation_profiles": "source Gold table (832 rows)",
+            "onet_work_profiles": "source Gold table"
+          },
+          "rowsTransformed": 15944,
+          "rowsSkippedTransform": 0,
+          "promoted": 15944,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "fieldsDerived": 7,
+          "fieldsCarriedDirect": 16
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-career-branches",
+      "facets": {
+        "documentation": {
+          "description": "Enrich consumable.career_transitions with full stat profiles for both source and target occupations, producing consumable.career_branches. For each transition pair, looks up GRW, HMN, Burnout, and wage stats from occupation_profiles and onet_work_profiles for both the source occupation and the related (branch target) occupation. Computes stat deltas (related - source) to show how branching affects each dimension. Derives branch_has_full_data flag indicating whether the branch target has complete BLS + O*NET coverage. 1:1 with career_transitions (no fan-out or filtering). Enables the frontend to render branch trees with full pentagon stats without additional queries."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/futureproof_engine.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.career_transitions",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "source_title", "type": "STRING"},
+              {"name": "related_bls_soc_code", "type": "STRING"},
+              {"name": "related_title", "type": "STRING"},
+              {"name": "best_index", "type": "INTEGER"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.occupation_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "grw_score_rounded", "type": "INTEGER"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "education_level_name", "type": "STRING"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.onet_work_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "hmn_score_rounded", "type": "INTEGER"},
+              {"name": "burnout_score_rounded", "type": "INTEGER"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.career_branches",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "source_title", "type": "STRING"},
+              {"name": "related_soc_code", "type": "STRING"},
+              {"name": "related_title", "type": "STRING"},
+              {"name": "best_index", "type": "INTEGER"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"},
+              {"name": "source_grw", "type": "INTEGER"},
+              {"name": "source_hmn", "type": "INTEGER"},
+              {"name": "source_burnout", "type": "INTEGER"},
+              {"name": "source_wage", "type": "DOUBLE"},
+              {"name": "related_grw", "type": "INTEGER"},
+              {"name": "related_hmn", "type": "INTEGER"},
+              {"name": "related_burnout", "type": "INTEGER"},
+              {"name": "related_wage", "type": "DOUBLE"},
+              {"name": "related_growth_category", "type": "STRING"},
+              {"name": "related_education_level", "type": "STRING"},
+              {"name": "grw_delta", "type": "INTEGER"},
+              {"name": "hmn_delta", "type": "INTEGER"},
+              {"name": "burnout_delta", "type": "INTEGER"},
+              {"name": "wage_delta", "type": "DOUBLE"},
+              {"name": "branch_has_full_data", "type": "BOOLEAN"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "bls_soc_code"},
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash via compute_grain_id(row, ['soc_code', 'related_soc_code'], prefix='br'). SHA-256 of concatenated grain fields with 'br' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Renamed from career_transitions.bls_soc_code to soc_code. Source occupation SOC code.",
+                "transformationType": "DIRECT"
+              },
+              "source_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "source_title"}
+                ],
+                "transformationDescription": "Direct carry from career_transitions.",
+                "transformationType": "DIRECT"
+              },
+              "related_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "Renamed from career_transitions.related_bls_soc_code to related_soc_code. Branch target occupation SOC code.",
+                "transformationType": "DIRECT"
+              },
+              "related_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "related_title"}
+                ],
+                "transformationDescription": "Direct carry from career_transitions.",
+                "transformationType": "DIRECT"
+              },
+              "best_index": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "best_index"}
+                ],
+                "transformationDescription": "Direct carry from career_transitions. Similarity rank (1 = most similar).",
+                "transformationType": "DIRECT"
+              },
+              "relatedness_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "relatedness_tier"}
+                ],
+                "transformationDescription": "Direct carry from career_transitions. Primary-Short / Primary-Long / Supplemental.",
+                "transformationType": "DIRECT"
+              },
+              "is_primary": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.career_transitions", "field": "is_primary"}
+                ],
+                "transformationDescription": "Direct carry from career_transitions. True for top 10 related occupations.",
+                "transformationType": "DIRECT"
+              },
+              "source_grw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "grw_score_rounded"}
+                ],
+                "transformationDescription": "Looked up from occupation_profiles dict keyed by soc_code (source occupation). Null if source occupation not found in BLS data.",
+                "transformationType": "DIRECT"
+              },
+              "source_hmn": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "hmn_score_rounded"}
+                ],
+                "transformationDescription": "Looked up from onet_work_profiles dict keyed by bls_soc_code (source occupation). Null if source occupation not found in O*NET data.",
+                "transformationType": "DIRECT"
+              },
+              "source_burnout": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "burnout_score_rounded"}
+                ],
+                "transformationDescription": "Looked up from onet_work_profiles dict keyed by bls_soc_code (source occupation). Null if source occupation not found in O*NET data.",
+                "transformationType": "DIRECT"
+              },
+              "source_wage": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "Looked up from occupation_profiles dict keyed by soc_code (source occupation). Null if source occupation not found in BLS data.",
+                "transformationType": "DIRECT"
+              },
+              "related_grw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "grw_score_rounded"}
+                ],
+                "transformationDescription": "Looked up from occupation_profiles dict keyed by related_soc_code (branch target occupation). Null if target occupation not found in BLS data.",
+                "transformationType": "DIRECT"
+              },
+              "related_hmn": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "hmn_score_rounded"}
+                ],
+                "transformationDescription": "Looked up from onet_work_profiles dict keyed by bls_soc_code (branch target occupation). Null if target occupation not found in O*NET data.",
+                "transformationType": "DIRECT"
+              },
+              "related_burnout": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "burnout_score_rounded"}
+                ],
+                "transformationDescription": "Looked up from onet_work_profiles dict keyed by bls_soc_code (branch target occupation). Null if target occupation not found in O*NET data.",
+                "transformationType": "DIRECT"
+              },
+              "related_wage": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "Looked up from occupation_profiles dict keyed by related_soc_code (branch target occupation). Null if target occupation not found in BLS data.",
+                "transformationType": "DIRECT"
+              },
+              "related_growth_category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "growth_category"}
+                ],
+                "transformationDescription": "Looked up from occupation_profiles dict keyed by related_soc_code (branch target occupation). Null if target not found in BLS data.",
+                "transformationType": "DIRECT"
+              },
+              "related_education_level": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "education_level_name"}
+                ],
+                "transformationDescription": "Looked up from occupation_profiles dict keyed by related_soc_code (branch target occupation). Null if target not found in BLS data.",
+                "transformationType": "DIRECT"
+              },
+              "grw_delta": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "grw_score_rounded"}
+                ],
+                "transformationDescription": "related_grw - source_grw. Positive = branch target grows faster. Null if either source_grw or related_grw is null.",
+                "transformationType": "DERIVED"
+              },
+              "hmn_delta": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "hmn_score_rounded"}
+                ],
+                "transformationDescription": "related_hmn - source_hmn. Positive = branch target has more human edge. Null if either side is null.",
+                "transformationType": "DERIVED"
+              },
+              "burnout_delta": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "burnout_score_rounded"}
+                ],
+                "transformationDescription": "related_burnout - source_burnout. Positive = branch target has more burnout risk. Null if either side is null.",
+                "transformationType": "DERIVED"
+              },
+              "wage_delta": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "related_wage - source_wage. Positive = branch target pays more. Null if either side is null.",
+                "transformationType": "DERIVED"
+              },
+              "branch_has_full_data": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "grw_score_rounded"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "hmn_score_rounded"}
+                ],
+                "transformationDescription": "True if the related (branch target) occupation has both BLS data (related_grw is not null) and O*NET data (related_hmn is not null). Required field, never null.",
+                "transformationType": "DERIVED"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Same timestamp as Table 1 (both tables promoted in the same transform() call).",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

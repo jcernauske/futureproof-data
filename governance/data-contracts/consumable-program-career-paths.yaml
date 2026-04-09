@@ -1,0 +1,704 @@
+---
+# Data Contract: consumable.program_career_paths
+# Spec: gold-futureproof-engine
+# Zone: Gold (Consumable)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-09
+
+table: consumable.program_career_paths
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - unitid
+  - cipcode
+  - soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/gold-futureproof-engine.md
+physical_model: governance/models/gold-futureproof-engine-physical.md
+
+columns:
+  # ---- Core Identity ----
+
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row, ['unitid',
+      'cipcode', 'soc_code'], prefix='pcp'). Format: pcp-<16 hex chars>. Stable
+      across pipeline re-runs.
+
+  - name: unitid
+    type: bigint
+    required: true
+    business_term: BT-001
+    is_cde: true
+    cde_rationale: >
+      Natural key component identifying the institution. Required for the core
+      FutureProof query pattern (school + major -> career outcomes). Every
+      consumer query filters or groups by institution. As a Gold consumable key,
+      incorrect or missing values break the MCP layer, frontend rendering, and
+      all downstream comparison queries (e.g., "Compare ISU vs Michigan").
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS 6-digit institution identifier. Natural key component (composite
+      with cipcode, soc_code). Source: consumable.career_outcomes.unitid.
+    constraints:
+      - "UNIQUE (composite with cipcode, soc_code)"
+
+  - name: institution_name
+    type: varchar
+    required: true
+    business_term: BT-002
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Official institution name from IPEDS. Display label only; unitid is the
+      authoritative identifier. Source: consumable.career_outcomes.institution_name.
+
+  - name: cipcode
+    type: varchar
+    required: true
+    business_term: BT-003
+    is_cde: true
+    cde_rationale: >
+      Natural key component identifying the academic program. The CIP-to-SOC
+      crosswalk join pivots on this field (4-digit prefix match). Incorrect
+      cipcode values produce wrong career path mappings, corrupting the entire
+      product output. Feeds the MCP layer for program-level career guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      CIP program code in 4-digit XX.XX format (Scorecard granularity). Natural
+      key component (composite with unitid, soc_code). Source:
+      consumable.career_outcomes.cipcode.
+    constraints:
+      - "UNIQUE (composite with unitid, soc_code)"
+      - "CHECK (cipcode ~ '^\\d{2}\\.\\d{2}$')"
+
+  - name: program_name
+    type: varchar
+    required: true
+    business_term: BT-004
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable program description. Display label; cipcode is the
+      authoritative identifier. Source: consumable.career_outcomes.program_name.
+
+  - name: cip_family
+    type: varchar
+    required: true
+    business_term: BT-005
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit CIP family prefix. Source: consumable.career_outcomes.cip_family.
+    constraints:
+      - "CHECK (cip_family ~ '^\\d{2}$')"
+
+  - name: cip_family_name
+    type: varchar
+    required: true
+    business_term: BT-006
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable CIP family label. Source:
+      consumable.career_outcomes.cip_family_name.
+
+  - name: soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Natural key component identifying the occupation. The product's entire
+      value proposition depends on correct program-to-career mapping via SOC
+      codes. This field joins to BLS occupation_profiles and O*NET
+      onet_work_profiles to populate the five-stat pentagon. Incorrect values
+      map students to wrong careers with wrong stats.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC occupation code in XX-XXXX format. Natural key component (composite
+      with unitid, cipcode). Source: base.cip_soc_crosswalk.soc_code (via CIP
+      prefix join).
+    constraints:
+      - "UNIQUE (composite with unitid, cipcode)"
+      - "CHECK (soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: occupation_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Official occupation name. Display label; soc_code is the authoritative
+      identifier. Source: consumable.occupation_profiles.occupation_title
+      (preferred) or consumable.onet_work_profiles.occupation_title (fallback).
+
+  - name: soc_major_group_name
+    type: varchar
+    required: false
+    business_term: BT-030
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC major group label. Source:
+      consumable.occupation_profiles.soc_major_group_name. Null if BLS LEFT
+      JOIN fails.
+
+  # ---- Pentagon Stats (1-10 Scale) ----
+
+  - name: stat_ern
+    type: integer
+    required: false
+    business_term: BT-078
+    is_cde: true
+    cde_rationale: >
+      Earning Power is one of the five pentagon stats that define the product's
+      core visualization and decision framework. Directly consumed by the MCP
+      layer and frontend pentagon rendering. Blends program-level earnings
+      (school-specific) with occupation-level wage position, making it the
+      primary financial attractiveness signal for career guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Earning Power score (1-10). Blended: 60% program earnings rank + 40%
+      occupation wage percentile. Null if either input is null.
+    constraints:
+      - "CHECK (stat_ern IS NULL OR (stat_ern >= 1 AND stat_ern <= 10))"
+
+  - name: stat_roi
+    type: integer
+    required: false
+    business_term: BT-079
+    is_cde: true
+    cde_rationale: >
+      Return on Investment is one of the five pentagon stats. Maps
+      debt-to-earnings ratio to a 1-10 scale aligned with Department of
+      Education Gainful Employment methodology. Directly consumed by the MCP
+      layer and frontend. Also feeds boss_loans_score derivation (inverse
+      relationship). Errors here propagate to both the pentagon and the boss
+      fight system.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Return on Investment score (1-10). Piecewise linear inverse of
+      debt-to-earnings ratio. Null if debt_to_earnings_annual is null.
+    constraints:
+      - "CHECK (stat_roi IS NULL OR (stat_roi >= 1 AND stat_roi <= 10))"
+
+  - name: stat_res
+    type: integer
+    required: false
+    business_term: BT-080
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      AI Resilience score (1-10). PLACEHOLDER: always null in MVP. Pending
+      Karpathy AI exposure score integration.
+    constraints:
+      - "CHECK (stat_res IS NULL)"
+
+  - name: stat_grw
+    type: integer
+    required: false
+    business_term: BT-047
+    is_cde: true
+    cde_rationale: >
+      Growth is one of the five pentagon stats. Carried from BLS OOH Gold
+      grw_score_rounded. Represents the labor market demand trajectory for
+      this occupation. Directly consumed by the MCP layer and frontend pentagon.
+      A key signal for students evaluating career viability.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Growth score (1-10). Carried from
+      consumable.occupation_profiles.grw_score_rounded. Null if BLS LEFT JOIN
+      fails.
+    constraints:
+      - "CHECK (stat_grw IS NULL OR (stat_grw >= 1 AND stat_grw <= 10))"
+
+  - name: stat_hmn
+    type: integer
+    required: false
+    business_term: BT-066
+    is_cde: true
+    cde_rationale: >
+      Human Edge is one of the five pentagon stats. Carried from O*NET Gold
+      hmn_score_rounded. Measures the degree to which this occupation relies
+      on uniquely human capabilities. Directly consumed by the MCP layer and
+      frontend pentagon. Central to the AI resilience narrative.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human Edge score (1-10). Carried from
+      consumable.onet_work_profiles.hmn_score_rounded. Null if O*NET LEFT JOIN
+      fails.
+    constraints:
+      - "CHECK (stat_hmn IS NULL OR (stat_hmn >= 1 AND stat_hmn <= 10))"
+
+  # ---- Boss Fight Profile (1-10 Scale) ----
+
+  - name: boss_ai_score
+    type: integer
+    required: false
+    business_term: BT-083
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      AI Boss strength (1-10). PLACEHOLDER: always null in MVP. Same
+      dependency as stat_res.
+    constraints:
+      - "CHECK (boss_ai_score IS NULL)"
+
+  - name: boss_loans_score
+    type: integer
+    required: false
+    business_term: BT-084
+    is_cde: true
+    cde_rationale: >
+      Student Loans Boss is one of five boss fight scores powering the gamified
+      career guidance UI. Derived as 11 - stat_roi. Directly consumed by the
+      MCP layer and frontend boss fight rendering. Represents the financial
+      challenge a student faces from debt burden relative to earnings.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Student Loans Boss strength (1-10). Computed as 11 - stat_roi. Null when
+      stat_roi is null.
+    constraints:
+      - "CHECK (boss_loans_score IS NULL OR (boss_loans_score >= 1 AND boss_loans_score <= 10))"
+
+  - name: boss_market_score
+    type: integer
+    required: false
+    business_term: BT-051
+    is_cde: true
+    cde_rationale: >
+      Market Boss is one of five boss fight scores. Carried from BLS OOH Gold
+      market_score_rounded. Represents the difficulty of entering this
+      occupation's labor market. Directly consumed by the MCP layer and
+      frontend boss fight rendering.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Market Boss strength (1-10). Carried from
+      consumable.occupation_profiles.market_score_rounded. Null if BLS LEFT
+      JOIN fails.
+    constraints:
+      - "CHECK (boss_market_score IS NULL OR (boss_market_score >= 1 AND boss_market_score <= 10))"
+
+  - name: boss_burnout_score
+    type: integer
+    required: false
+    business_term: BT-068
+    is_cde: true
+    cde_rationale: >
+      Burnout Boss is one of five boss fight scores. Carried from O*NET Gold
+      burnout_score_rounded. Represents the occupational health risk of this
+      career path. Directly consumed by the MCP layer and frontend boss fight
+      rendering.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Burnout Boss strength (1-10). Carried from
+      consumable.onet_work_profiles.burnout_score_rounded. Null if O*NET LEFT
+      JOIN fails.
+    constraints:
+      - "CHECK (boss_burnout_score IS NULL OR (boss_burnout_score >= 1 AND boss_burnout_score <= 10))"
+
+  - name: boss_ceiling_score
+    type: integer
+    required: false
+    business_term: BT-085
+    is_cde: true
+    cde_rationale: >
+      Ceiling Boss is one of five boss fight scores. Derived from wage
+      percentile within education tier. Represents the earnings growth
+      constraint for this career. Directly consumed by the MCP layer and
+      frontend boss fight rendering.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Ceiling Boss strength (1-10). Computed as ROUND(10.0 - 9.0 *
+      wage_percentile_education_tier). Null if wage percentile unavailable.
+    constraints:
+      - "CHECK (boss_ceiling_score IS NULL OR (boss_ceiling_score >= 1 AND boss_ceiling_score <= 10))"
+
+  # ---- Program Context (College Scorecard) ----
+
+  - name: earnings_1yr_median
+    type: double
+    required: false
+    business_term: BT-009
+    is_cde: true
+    cde_rationale: >
+      Primary business metric powering FutureProof's core query. In this Gold
+      consumable table, it is the school-specific earnings signal that feeds
+      stat_ern derivation (60% weight). Incorrect values corrupt the Earning
+      Power pentagon stat. Also directly displayed to students via the MCP
+      layer as the headline earnings figure.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median 1-year post-completion earnings. Subject to privacy suppression.
+      Source: consumable.career_outcomes.earnings_1yr_median.
+    constraints:
+      - "CHECK (earnings_1yr_median IS NULL OR (earnings_1yr_median >= 1000 AND earnings_1yr_median <= 250000))"
+
+  - name: earnings_1yr_p25
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      25th percentile 1yr earnings across CIP family (effort slider: low
+      focus). Source: consumable.career_outcomes.earnings_1yr_p25.
+    constraints:
+      - "CHECK (earnings_1yr_p25 IS NULL OR earnings_1yr_p25 >= 0)"
+
+  - name: earnings_1yr_p75
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      75th percentile 1yr earnings across CIP family (effort slider: high
+      focus). Source: consumable.career_outcomes.earnings_1yr_p75.
+    constraints:
+      - "CHECK (earnings_1yr_p75 IS NULL OR earnings_1yr_p75 >= 0)"
+
+  - name: debt_median
+    type: double
+    required: false
+    business_term: BT-011
+    is_cde: true
+    cde_rationale: >
+      Primary debt metric. In this Gold consumable table, feeds
+      debt_to_earnings_annual which in turn feeds stat_roi and
+      boss_loans_score. Incorrect values corrupt the ROI pentagon stat, the
+      Student Loans boss fight, and the affordability assessment. Central to
+      FutureProof's cost-benefit analysis for students.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median cumulative federal loan debt. Subject to privacy suppression.
+      Source: consumable.career_outcomes.debt_median.
+    constraints:
+      - "CHECK (debt_median IS NULL OR (debt_median >= 1000 AND debt_median <= 100000))"
+
+  - name: debt_to_earnings_annual
+    type: double
+    required: false
+    business_term: BT-019
+    is_cde: true
+    cde_rationale: >
+      Key affordability ratio aligned with Department of Education Gainful
+      Employment methodology. Direct input to stat_roi (piecewise linear
+      mapping) and boss_loans_score (inverse). Errors propagate to two
+      pentagon/boss outputs. Also directly consumed by the MCP layer for
+      affordability guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Debt-to-earnings ratio: debt_median / earnings_1yr_median. Values < 1.0
+      manageable, > 2.0 concerning. Null if either input is null. Source:
+      consumable.career_outcomes.debt_to_earnings_annual.
+    constraints:
+      - "CHECK (debt_to_earnings_annual IS NULL OR debt_to_earnings_annual > 0)"
+
+  - name: confidence_tier_program
+    type: varchar
+    required: false
+    business_term: BT-024
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Scorecard-level confidence tier. Source:
+      consumable.career_outcomes.confidence_tier (renamed for disambiguation).
+    constraints:
+      - "CHECK (confidence_tier_program IS NULL OR confidence_tier_program IN ('high', 'medium', 'low', 'insufficient'))"
+
+  # ---- Occupation Context (BLS + O*NET) ----
+
+  - name: median_annual_wage
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: true
+    cde_rationale: >
+      BLS occupation-level median annual wage. Feeds the occupation wage
+      percentile component of stat_ern (40% weight). Also directly displayed
+      to students as the career-level earnings benchmark. Incorrect values
+      corrupt the Earning Power pentagon stat and mislead wage expectations.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS median annual wage. Source:
+      consumable.occupation_profiles.median_annual_wage. Null if BLS LEFT JOIN
+      fails.
+    constraints:
+      - "CHECK (median_annual_wage IS NULL OR (median_annual_wage >= 15000 AND median_annual_wage <= 300000))"
+
+  - name: growth_category
+    type: varchar
+    required: false
+    business_term: BT-041
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS growth classification. Source:
+      consumable.occupation_profiles.growth_category.
+    constraints:
+      - "CHECK (growth_category IS NULL OR growth_category IN ('declining_fast', 'declining', 'stable', 'growing', 'growing_fast', 'booming'))"
+
+  - name: employment_current
+    type: bigint
+    required: false
+    business_term: BT-031
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Current employment count. Source:
+      consumable.occupation_profiles.employment_current.
+    constraints:
+      - "CHECK (employment_current IS NULL OR employment_current >= 0)"
+
+  - name: education_level_name
+    type: varchar
+    required: false
+    business_term: BT-039
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Typical entry-level education requirement. Source:
+      consumable.occupation_profiles.education_level_name.
+
+  - name: top_5_activities
+    type: varchar
+    required: false
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON string: top 5 work activities by importance. Source:
+      consumable.onet_work_profiles.top_5_activities.
+
+  - name: top_human_activities
+    type: varchar
+    required: false
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON string: top activities with highest human edge. Source:
+      consumable.onet_work_profiles.top_human_activities.
+
+  - name: burnout_drivers
+    type: varchar
+    required: false
+    business_term: BT-068
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON string: top burnout-contributing work conditions. Source:
+      consumable.onet_work_profiles.burnout_drivers.
+
+  - name: time_pressure
+    type: double
+    required: false
+    business_term: BT-068
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Burnout element: time pressure score (1.0-5.0 CX scale). Source:
+      consumable.onet_work_profiles.time_pressure.
+    constraints:
+      - "CHECK (time_pressure IS NULL OR (time_pressure >= 1.0 AND time_pressure <= 5.0))"
+
+  - name: work_hours
+    type: double
+    required: false
+    business_term: BT-068
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Duration of typical work week (1.0-3.0 CT scale). Source:
+      consumable.onet_work_profiles.work_hours.
+    constraints:
+      - "CHECK (work_hours IS NULL OR (work_hours >= 1.0 AND work_hours <= 3.0))"
+
+  # ---- Data Quality ----
+
+  - name: match_quality
+    type: varchar
+    required: true
+    business_term: BT-093
+    is_cde: true
+    cde_rationale: >
+      Classification of cross-source join success. This is the primary data
+      quality signal for this table -- it tells consumers which data sources
+      contributed to each row. Directly consumed by the MCP layer to surface
+      data completeness. Feeds overall_confidence derivation. Incorrect values
+      cause consumers to trust incomplete data or distrust complete data.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Classification of cross-source join success: full, partial_no_onet,
+      partial_no_bls, or scorecard_only. Derived at Gold time from actual join
+      results. NOT from crosswalk Silver's has_scorecard_match flag.
+    constraints:
+      - "CHECK (match_quality IN ('full', 'partial_no_onet', 'partial_no_bls', 'scorecard_only'))"
+
+  - name: stats_available_count
+    type: integer
+    required: true
+    business_term: BT-087
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of non-null pentagon stats (0-5). Maximum 4 in MVP since stat_res
+      always null.
+    constraints:
+      - "CHECK (stats_available_count >= 0 AND stats_available_count <= 5)"
+
+  - name: bosses_available_count
+    type: integer
+    required: true
+    business_term: BT-088
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of non-null boss fight scores (0-5). Maximum 4 in MVP since
+      boss_ai_score always null.
+    constraints:
+      - "CHECK (bosses_available_count >= 0 AND bosses_available_count <= 5)"
+
+  - name: overall_confidence
+    type: varchar
+    required: true
+    business_term: BT-089
+    is_cde: true
+    cde_rationale: >
+      Synthesized quality tier consumed by the MCP layer and frontend to
+      determine how prominently to display results. Controls whether the
+      product shows a "high confidence" or "limited data" badge. Incorrect
+      values mislead students about the reliability of career guidance shown.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Synthesized quality tier from stats_available_count and match_quality:
+      high, medium, or low.
+    constraints:
+      - "CHECK (overall_confidence IN ('high', 'medium', 'low'))"
+
+  # ---- Pipeline Metadata ----
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    business_term: BT-026
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was promoted to the Gold consumable table.
+      Generated at promotion time.
+
+# Quality thresholds
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    earnings_1yr_median_max_null_pct: 70.0
+    debt_median_max_null_pct: 68.0
+  validity:
+    cipcode_format: "^\\d{2}\\.\\d{2}$"
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    stat_range: [1, 10]
+    boss_range: [1, 10]
+    match_quality_values: ["full", "partial_no_onet", "partial_no_bls", "scorecard_only"]
+    overall_confidence_values: ["high", "medium", "low"]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+  volume:
+    row_count_range: [150000, 500000]
+  consistency:
+    boss_loans_inverse_of_roi: true
+    null_propagation_through_stats: true
+
+# Breaking change policy
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference
+lineage:
+  source_tables:
+    - consumable.career_outcomes
+    - base.cip_soc_crosswalk
+    - consumable.occupation_profiles
+    - consumable.onet_work_profiles
+  transformation: src/gold/futureproof_engine.py

@@ -1,0 +1,339 @@
+---
+# Data Contract: base.college_scorecard
+# Spec: silver-base-college-scorecard
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Enhanced by: @doc-generator (quality thresholds, versioning, lineage, breaking change policy)
+# Date: 2026-04-06
+
+table: base.college_scorecard
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - unitid
+  - cipcode
+  - credential_level
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/silver-base-college-scorecard.md
+physical_model: governance/models/silver-base-college-scorecard-physical.md
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row, ['unitid',
+      'cipcode', 'credlev'], prefix='cs'). Format: cs-<16 hex chars>. Stable
+      across pipeline re-runs.
+
+  - name: unitid
+    type: bigint
+    required: true
+    business_term: BT-001
+    is_cde: true
+    cde_rationale: >
+      Natural key component identifying the institution. Required for all
+      downstream joins (CIP-to-SOC crosswalk, Gold zone program comparisons,
+      institution-level aggregations). Incorrect or missing values would orphan
+      rows from institutional context and break grain integrity.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS 6-digit institution identifier. Public federal identifier assigned
+      by NCES. Natural key component (composite with cipcode, credential_level).
+
+  - name: institution_name
+    type: varchar
+    required: true
+    business_term: BT-002
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Official institution name as reported to IPEDS. Display label only;
+      unitid is the authoritative identifier. 10 names map to multiple UNITIDs
+      (multi-campus systems).
+
+  - name: institution_control
+    type: varchar
+    required: true
+    business_term: "*pending BT-018*"
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Type of institutional governance. Derived from raw CONTROL field:
+      1='Public', 2='Private nonprofit', 3='Private for-profit'. Used for Gold
+      zone segmentation analysis.
+    constraints:
+      - "CHECK (institution_control IN ('Public', 'Private nonprofit', 'Private for-profit'))"
+
+  - name: cipcode
+    type: varchar
+    required: true
+    business_term: BT-003
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      CIP code normalized to XX.XXXX format. Natural key component (composite
+      with unitid, credential_level). Foundation for CIP-to-SOC crosswalk join.
+    constraints:
+      - "CHECK (cipcode ~ '^\\d{2}\\.\\d{2,4}$')"
+
+  - name: program_name
+    type: varchar
+    required: true
+    business_term: BT-004
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable program description from the CIP taxonomy. Display label
+      only; cipcode is the authoritative identifier.
+
+  - name: cip_family
+    type: varchar
+    required: true
+    business_term: BT-005
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit CIP family code derived from the first 2 characters of normalized
+      cipcode. Used for broad discipline-area grouping.
+    constraints:
+      - "CHECK (cip_family ~ '^\\d{2}$')"
+
+  - name: cip_family_name
+    type: varchar
+    required: true
+    business_term: BT-006
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable label for the CIP family (e.g., "Business, Management,
+      Marketing"). Derived via CIP 2020 taxonomy lookup on cip_family.
+
+  - name: credential_level
+    type: integer
+    required: true
+    business_term: BT-007
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Integer code for credential type. Categorical, not aggregatable -- do not
+      SUM or AVG. Natural key component. MVP value: 3 (Bachelor's).
+    constraints:
+      - "CHECK (credential_level BETWEEN 1 AND 8)"
+
+  - name: credential_description
+    type: varchar
+    required: true
+    business_term: BT-008
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable credential label (e.g., "Bachelor's Degree"). Display
+      label for credential_level.
+
+  - name: earnings_1yr_median
+    type: double
+    required: false
+    business_term: BT-009
+    is_cde: true
+    cde_rationale: >
+      Primary business metric -- median earnings 1 year post-completion. Core
+      to the FutureProof career guidance value proposition. Feeds downstream
+      program comparison rankings, debt-to-earnings ratio calculations (related
+      to Gainful Employment rules), and Gold zone data products. Privacy-
+      suppressed for ~64% of rows by FERPA design; null values must be preserved.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median earnings (high estimate) 1 year after completion. Cohort-level
+      aggregate, not individual. NULL when privacy-suppressed by Department of
+      Education.
+    constraints:
+      - "CHECK (earnings_1yr_median IS NULL OR (earnings_1yr_median >= 1000 AND earnings_1yr_median <= 250000))"
+
+  - name: earnings_2yr_median
+    type: double
+    required: false
+    business_term: BT-010
+    is_cde: true
+    cde_rationale: >
+      Primary business metric -- median earnings 2 years post-completion.
+      Together with 1yr earnings, provides the multi-horizon view of graduate
+      outcomes central to FutureProof career guidance. Feeds program ranking and
+      trend analysis in Gold zone. Different cohort from 1yr (not longitudinal).
+      Privacy-suppressed for ~64% of rows.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median earnings (high estimate) 2 years after completion. Different
+      cohort measurement window than 1yr -- not longitudinal tracking. NULL when
+      privacy-suppressed.
+    constraints:
+      - "CHECK (earnings_2yr_median IS NULL OR (earnings_2yr_median >= 1000 AND earnings_2yr_median <= 250000))"
+
+  - name: debt_median
+    type: double
+    required: false
+    business_term: BT-011
+    is_cde: true
+    cde_rationale: >
+      Primary business metric -- median cumulative federal loan debt at program
+      completion. Required for debt-to-earnings ratio analysis (related to
+      Gainful Employment rules) and cost-benefit assessment of programs. Central
+      to the student decision-making use case that FutureProof serves. Privacy-
+      suppressed for ~60% of rows.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median cumulative federal loan debt at program completion. Cohort-level
+      aggregate. NULL when privacy-suppressed.
+    constraints:
+      - "CHECK (debt_median IS NULL OR (debt_median >= 1000 AND debt_median <= 100000))"
+
+  - name: completions_count_1
+    type: bigint
+    required: false
+    business_term: BT-012
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS completions count (first major measurement window). Indicates
+      program size and drives small_cohort_flag derivation.
+    constraints:
+      - "CHECK (completions_count_1 IS NULL OR completions_count_1 >= 0)"
+
+  - name: completions_count_2
+    type: bigint
+    required: false
+    business_term: BT-012
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS completions count (second major measurement window). Supplementary;
+      highly correlated with completions_count_1 (r=0.984).
+    constraints:
+      - "CHECK (completions_count_2 IS NULL OR completions_count_2 >= 0)"
+
+  - name: small_cohort_flag
+    type: boolean
+    required: true
+    business_term: BT-014
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived flag. True when completions_count_1 IS NULL OR
+      completions_count_1 < 30. Conservative default: NULL completions treated
+      as small cohort.
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the raw zone. Pipeline metadata.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to the Silver zone base table.
+      Generated at transformation time. Pipeline metadata.
+
+# Quality thresholds based on DQ rules (SLV-CS-001 through SLV-CS-035)
+# and EDA findings (governance/eda/silver-college-scorecard-eda.md).
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    earnings_1yr_median_max_null_pct: 70.0
+    earnings_2yr_median_max_null_pct: 65.0
+    debt_median_max_null_pct: 68.0
+    completions_count_1_max_null_pct: 12.0
+    completions_count_2_max_null_pct: 12.0
+  validity:
+    cipcode_format: "^\\d{2}\\.\\d{2,4}$"
+    cip_family_format: "^\\d{2}$"
+    credential_level_range: [1, 8]
+    credential_level_mvp_value: 3
+    earnings_1yr_range: [1000, 250000]
+    earnings_2yr_range: [1000, 250000]
+    debt_range: [1000, 100000]
+    institution_control_values: ["Public", "Private nonprofit", "Private for-profit"]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+  volume:
+    row_count_range: [60000, 80000]
+    distinct_institutions_range: [2200, 3000]
+    distinct_cip_families_range: [40, 50]
+    distinct_cip_codes_range: [350, 450]
+  consistency:
+    cip_family_matches_cipcode_prefix: true
+    small_cohort_flag_matches_derivation: true
+    row_count_within_5pct_of_raw: true
+  freshness_sla: >
+    Full table replace on each pipeline run. No incremental loads. Freshness
+    depends on College Scorecard release schedule (approximately annual).
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/silver-base-college-scorecard.json
+  total_rules: 35
+  p0_rules: 15
+  p1_rules: 12
+  p2_rules: 8
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: raw.college_scorecard
+  lineage_file: governance/lineage/silver-base-college-scorecard-20260406T200000Z.json
+  transformation: src/silver/college_scorecard_transformer.py

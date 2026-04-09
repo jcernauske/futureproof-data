@@ -1,0 +1,92 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T17:00:00.000000Z",
+    "run": {
+      "runId": "a1b2c3d4-full-ingest-bls-ooh-832rows",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-bls-ooh.md",
+          "specVersion": "1.1"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Full production ingest of BLS Employment Projections data (2024-2034 cycle). Source: data.bls.gov interactive export. 833 raw rows, 1 summary filtered (00-0000), 832 detail occupations loaded. Education/experience/training codes derived from string labels (interactive export omits code columns). Projection years updated from 2023-2033 to 2024-2034."
+        },
+        "brightsmith_runMetrics": {
+          "inputRowCount": 833,
+          "filteredSummaryRows": 1,
+          "outputRowCount": 832,
+          "nullWages": 23,
+          "nullWageRate": 0.028,
+          "cappedWages": 0,
+          "decliningOccupations": 232,
+          "educationCodesPresent": [1, 2, 3, 4, 5, 6, 7, 8],
+          "trainingCodesPresent": [1, 2, 3, 4, 5, 6],
+          "workExperienceCodesPresent": [1, 2, 3],
+          "socMajorGroups": 22,
+          "dataVintage": "2024-2034",
+          "sourceUrl": "https://data.bls.gov/projections/occupationProj"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw-ingest-bls-ooh"
+    },
+    "inputs": [
+      {
+        "namespace": "data.bls.gov",
+        "name": "employment-projections.occupational-projections-and-characteristics",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "Occupation Title", "type": "STRING"},
+              {"name": "Occupation Code", "type": "STRING"},
+              {"name": "Employment 2024", "type": "DOUBLE"},
+              {"name": "Employment 2034", "type": "DOUBLE"},
+              {"name": "Employment Change 2024-2034", "type": "DOUBLE"},
+              {"name": "Employment Percent Change 2024-2034", "type": "DOUBLE"},
+              {"name": "Occupational Openings 2024-2034 Annual Average", "type": "DOUBLE"},
+              {"name": "Median Annual Wage 2024", "type": "INTEGER"},
+              {"name": "Typical Entry-Level Education", "type": "STRING"},
+              {"name": "Work Experience in a Related Occupation", "type": "STRING"},
+              {"name": "Typical On-the-Job Training", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING", "transformation": "DIRECT from Occupation Code, string preserved"},
+              {"name": "occupation_title", "type": "STRING", "transformation": "DIRECT"},
+              {"name": "employment_current", "type": "LONG", "transformation": "DERIVED: Employment 2024 * 1000, rounded"},
+              {"name": "employment_projected", "type": "LONG", "transformation": "DERIVED: Employment 2034 * 1000, rounded"},
+              {"name": "employment_change", "type": "LONG", "transformation": "DERIVED: Employment Change * 1000, rounded"},
+              {"name": "employment_change_pct", "type": "DOUBLE", "transformation": "DIRECT"},
+              {"name": "openings_annual_avg", "type": "LONG", "transformation": "DERIVED: Openings * 1000, rounded"},
+              {"name": "median_annual_wage", "type": "DOUBLE", "transformation": "DERIVED: parsed from integer/string, null for N/A"},
+              {"name": "median_wage_capped", "type": "BOOLEAN", "transformation": "DERIVED: True if >= notation detected"},
+              {"name": "education_typical", "type": "STRING", "transformation": "DIRECT"},
+              {"name": "education_code", "type": "INTEGER", "transformation": "DERIVED: mapped from education_typical via _EDUCATION_CODE_MAP"},
+              {"name": "work_experience", "type": "STRING", "transformation": "DIRECT"},
+              {"name": "work_experience_code", "type": "INTEGER", "transformation": "DERIVED: mapped from work_experience via _WORK_EXPERIENCE_CODE_MAP"},
+              {"name": "training_typical", "type": "STRING", "transformation": "DIRECT"},
+              {"name": "training_code", "type": "INTEGER", "transformation": "DERIVED: mapped from training_typical via _TRAINING_CODE_MAP"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "transformation": "FRAMEWORK: current timestamp"},
+              {"name": "source_url", "type": "STRING", "transformation": "FRAMEWORK: source URL"},
+              {"name": "source_method", "type": "STRING", "transformation": "FRAMEWORK: xlsx_download"},
+              {"name": "load_date", "type": "DATE", "transformation": "FRAMEWORK: current date"}
+            ]
+          }
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,94 @@
+name: futureproof-data
+version: '0.1'
+description: "FutureProof data pipeline \u2014 ingests education and career data to\
+  \ map school + major choices to career outcomes and AI exposure analysis.\n"
+sources:
+- name: college_scorecard
+  source_config: domain/sources/college_scorecard.yaml
+  zone: raw
+  status: scaffolded
+- name: bls_ooh
+  source_config: domain/sources/bls_ooh.yaml
+  zone: raw
+  status: draft
+- name: onet
+  source_config: domain/sources/onet.yaml
+  zone: raw
+  status: draft
+- name: cip_soc_crosswalk
+  source_config: domain/sources/cip_soc_crosswalk.yaml
+  zone: raw
+  status: active
+pipeline:
+  zones:
+    silver:
+      - name: college_scorecard
+        module: src/silver/college_scorecard_transformer.py
+        function: transform
+        source_table: bronze.college_scorecard
+        target_table: base.college_scorecard
+        spec: docs/specs/silver-base-college-scorecard.md
+        status: active
+      - name: bls_ooh
+        module: src/silver/bls_ooh_transformer.py
+        function: transform
+        source_table: bronze.bls_ooh
+        target_table: base.bls_ooh
+        spec: docs/specs/silver-base-bls-ooh.md
+        status: active
+      - name: onet
+        module: src/silver/onet_transformer.py
+        function: transform
+        source_table: raw.onet_*
+        target_table: base.onet_*
+        spec: docs/specs/silver-base-onet.md
+        status: active
+      - name: cip_soc_crosswalk
+        module: src/silver/cip_soc_crosswalk_transformer.py
+        function: transform
+        source_table: raw.cip_soc_crosswalk
+        target_table: base.cip_soc_crosswalk
+        spec: docs/specs/crosswalk-cip-soc.md
+        status: active
+    gold:
+      - name: career_outcomes
+        module: src/gold/college_scorecard_career_outcomes.py
+        function: transform
+        source_table: base.college_scorecard
+        target_table: consumable.career_outcomes
+        spec: docs/specs/gold-career-outcomes-college-scorecard.md
+        status: active
+      - name: occupation_profiles
+        module: src/gold/bls_ooh_occupation_profiles.py
+        function: transform
+        source_table: base.bls_ooh
+        target_table: consumable.occupation_profiles
+        spec: docs/specs/gold-occupation-profiles-bls-ooh.md
+        status: active
+      - name: onet_work_profiles
+        module: src/gold/onet_work_profiles.py
+        function: transform
+        source_table: base.onet_occupations,base.onet_activity_profiles,base.onet_context_profiles
+        target_table: consumable.onet_work_profiles
+        spec: docs/specs/gold-onet-profiles.md
+        status: active
+      - name: career_transitions
+        module: src/gold/onet_career_transitions.py
+        function: transform
+        source_table: base.onet_career_transitions,base.onet_occupations,consumable.onet_work_profiles
+        target_table: consumable.career_transitions
+        spec: docs/specs/gold-onet-profiles.md
+        status: active
+      - name: futureproof_engine
+        module: src/gold/futureproof_engine.py
+        function: transform
+        source_table: consumable.career_outcomes,consumable.occupation_profiles,consumable.onet_work_profiles,consumable.career_transitions,base.cip_soc_crosswalk
+        target_table: consumable.program_career_paths,consumable.career_branches
+        spec: docs/specs/gold-futureproof-engine.md
+        status: active
+domain:
+  name: Higher Education Outcomes
+  sub_domain: Program-Level Career Outcomes (College Scorecard)
+  confidence: High
+  assigned_by: '@domain-context'
+  assigned_at: '2026-04-06'

@@ -1,0 +1,276 @@
+{
+  "spec": "gold-career-outcomes-college-scorecard",
+  "zone": "gold",
+  "mode": "greenfield",
+  "started": "2026-04-07T02:04:52.458133+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:07:19.121956+00:00",
+      "output": "governance/reviews/gold-career-outcomes-college-scorecard-pre-review.md",
+      "output_hash": "sha256:60ca1fb577ea7042c67179f38199026e5ed01aa5dfcc1f411af67c91e8f08104"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:13:33.698025+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:ed2aee451a8ff3630fe2f77db30d75af5a059510f3d24ee998036de201d322d2"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:23:26.720351+00:00",
+      "output": "governance/models/gold-career-outcomes-college-scorecard-conceptual.md",
+      "output_hash": "sha256:c797ba24fe92e0919112417b1f86d13830620354129a6de5b754bcfc675bd656"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:32:10.415187+00:00",
+      "output": "governance/models/gold-career-outcomes-college-scorecard-logical.md",
+      "output_hash": "sha256:2ffcfb085cc5e09cf6efb750d8f4fd83088dada7a64aba1e300c137311fe3cca"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:42:06.874834+00:00",
+      "output": "governance/eda/gold-career-outcomes-eda.md",
+      "output_hash": "sha256:b69ce3d6f61779220885121bbcf41af410320a696422a049676a0c044c4cc873"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:48:59.467105+00:00",
+      "output": "governance/dq-rules/gold-career-outcomes-college-scorecard.json",
+      "output_hash": "sha256:19b4041c64480bee1a149f594a646b877215997a45d535a87169701da7963126"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:37:36.425224+00:00",
+      "output": "governance/models/gold-career-outcomes-college-scorecard-physical.md",
+      "output_hash": "sha256:7bcb8c4274d2e2659fb9602d0a6099701e99496daa9815a9f295abfdeda405ac"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:54:44.594133+00:00",
+      "output": "src/gold/college_scorecard_career_outcomes.py",
+      "output_hash": "sha256:2708f026134736acda6c686c9841b27268b4f58ed33e88239307d46029670de8"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T02:56:47.007946+00:00",
+      "output": "governance/dq-scorecards/gold-career-outcomes-college-scorecard-scorecard.md",
+      "output_hash": "sha256:d480650244a8ca6ab6fd4c97959136f24f076c1367d6e40df30568523c1951ae"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:06:27.605187+00:00",
+      "output": "governance/chaos-manifests/gold-career-outcomes-college-scorecard-chaos.md",
+      "output_hash": "sha256:b4ed6202f6933a4c6d33a70fc33b11b1b48711326b7de03bdd5642faa382c4b2"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:08:05.514552+00:00",
+      "output": "governance/reviews/gold-career-outcomes-college-scorecard-entity-resolution.md",
+      "output_hash": "sha256:291bd81a70f3f1c10ecdbea0d2c25da11b7ecc952fbf3e2cd36b6afd35e11c69"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:08:35.981874+00:00",
+      "output": "governance/pii-scans/gold-career-outcomes-college-scorecard-pii-scan.md",
+      "output_hash": "sha256:fc028c59ae3c9b8dc7da825cb458f03116eb6795cdb6308a243890dc52c59e7b"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:08:23.192028+00:00",
+      "output": "governance/reviews/gold-career-outcomes-college-scorecard-temporal-assessment.md",
+      "output_hash": "sha256:02b6a9ef5ca033a05faa1277aeb62b82a4cd5f53f1533563821a0398c5dda0eb"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:09:05.137035+00:00",
+      "output": "governance/lineage/gold-career-outcomes-college-scorecard-20260406T220000Z.json",
+      "output_hash": "sha256:f2b4fd131730d7fbdbf02850fdc0913b6391507f6094b7afac566a32f72013cb"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:10:51.788277+00:00",
+      "output": "governance/reviews/gold-career-outcomes-college-scorecard-cde-tags.md",
+      "output_hash": "sha256:1591403ca46e081bbcfba718022fae6f7a5b30515b17db7a819fd8c340e020ab"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:20:30.660953+00:00",
+      "output": "governance/golden-datasets/gold-career-outcomes-college-scorecard-golden.json",
+      "output_hash": "sha256:190a58bf36c991c7ded0cb68c0a676df8b3594a9dc33690655e42f1a843b270c"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:11:16.372986+00:00",
+      "output": "governance/reviews/gold-career-outcomes-college-scorecard-adversarial-audit.md",
+      "output_hash": "sha256:c0bcbb4bc3f8c311fac86a30a748b9d5acb80a6cb21ecfd407c19bbc2fd48986"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:24:50.454183+00:00",
+      "output": "governance/reviews/gold-career-outcomes-college-scorecard-post-review.md",
+      "output_hash": "sha256:8c4d053790c6bb1e0cbe0f71eae3f468d362f429af2c8e09e7ac4c20317f585b"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T03:28:14.780506+00:00",
+      "output": "governance/reviews/gold-career-outcomes-college-scorecard-staff-review.md",
+      "output_hash": "sha256:0440ff5349350f5fb9b6750083ae22ff27d537ba1d027840fa060bd07899dac2"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "Table consumable.career_outcomes is new \u2014 no existing contract to review",
+      "evidence": "docs/specs/gold-career-outcomes-college-scorecard.md",
+      "skipped_at": "2026-04-07T02:08:16.826437+00:00"
+    }
+  },
+  "approvals": {
+    "business-terms": {
+      "status": "APPROVED",
+      "decided_by": "human:jeff",
+      "decided_at": "2026-04-07T02:20:33.452760+00:00",
+      "document": "governance/approvals/gold-career-outcomes-college-scorecard-business-terms-approval.md",
+      "notes": "6 terms approved as-is, BT-021 renamed to Cross-Cohort Earnings Differential, BT-023 clarified with inverse relationship note"
+    },
+    "conceptual-model": {
+      "status": "APPROVED",
+      "decided_by": "human:jeff",
+      "decided_at": "2026-04-07T02:26:17.013235+00:00",
+      "document": "governance/approvals/gold-career-outcomes-college-scorecard-conceptual-approval.md",
+      "notes": "Approved as-is"
+    },
+    "logical-model": {
+      "status": "APPROVED",
+      "decided_by": "human:jeff",
+      "decided_at": "2026-04-07T02:33:02.395674+00:00",
+      "document": "governance/approvals/gold-career-outcomes-college-scorecard-logical-approval.md",
+      "notes": "Approved as-is"
+    }
+  }
+}

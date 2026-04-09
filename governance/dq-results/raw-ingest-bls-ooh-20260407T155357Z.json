@@ -1,0 +1,11 @@
+{
+  "run_id": "9d3eaa57",
+  "spec": "raw-ingest-bls-ooh",
+  "executed_at": "2026-04-07T15:53:57.869914+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

@@ -1,0 +1,11 @@
+{
+  "run_id": "88d69b78",
+  "spec": "silver-base-college-scorecard",
+  "executed_at": "2026-04-07T00:55:21.412114+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

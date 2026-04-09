@@ -1,0 +1,81 @@
+# O*NET Database — Task-Level Occupation Data
+# O*NET Resource Center (U.S. Department of Labor / ETA)
+#
+# Seven tables extracted from the O*NET 30.2 bulk ZIP archive.
+# Each table is ingested by a separate thin ingestor subclass
+# sharing a common ZIP download/cache mechanism.
+
+name: onet
+namespace: bronze
+
+# The O*NET source produces 7 tables. Each ingestor subclass
+# targets one table. The table names below are used for documentation;
+# actual table routing is handled per-ingestor.
+
+tables:
+  onet_occupations:
+    source_file: "Occupation Data.txt"
+    dedup_grain:
+      - onet_soc_code
+  onet_task_statements:
+    source_file: "Task Statements.txt"
+    dedup_grain:
+      - onet_soc_code
+      - task_id
+  onet_work_activities:
+    source_file: "Work Activities.txt"
+    dedup_grain:
+      - onet_soc_code
+      - element_id
+      - scale_id
+  onet_work_context:
+    source_file: "Work Context.txt"
+    dedup_grain:
+      - onet_soc_code
+      - element_id
+      - scale_id
+      - category
+  onet_related_occupations:
+    source_file: "Related Occupations.txt"
+    dedup_grain:
+      - onet_soc_code
+      - related_onet_soc_code
+
+# Fetch config
+fetch:
+  bulk_zip_download:
+    url: https://www.onetcenter.org/dl_files/database/db_30_2_text.zip
+    fallback_path: data/raw/onet_cache
+    user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    format: tsv_in_zip
+    size_estimate: "~450MB uncompressed"
+
+# Single logical entity representing the full O*NET database
+entities:
+  onet: "O*NET 30.2 Database — 7 Target Tables"
+
+# Cache directory for extracted text files
+cache_dir: data/raw/onet_cache
+
+# --- Domain Documentation (not consumed by loader) ---
+
+# Source metadata
+# authority: O*NET Resource Center, U.S. Department of Labor / ETA
+# url: https://www.onetcenter.org/database.html
+# license: Creative Commons Attribution 4.0 International (CC BY 4.0)
+# version: 30.2 (current as of 2026)
+
+# SOC code format: O*NET uses extended XX-XXXX.XX (8-digit with 2-digit suffix)
+# The base 6-digit SOC (XX-XXXX) maps to BLS. The .XX suffix distinguishes
+# O*NET-specific detailed occupations within a BLS occupation.
+
+# Key files (7 of 40):
+#   Tier 1 (stats + bosses): Occupation Data, Task Statements, Work Activities, Work Context
+#   Tier 2 (Stage 3 branching): Career Changers Matrix, Career Starters Matrix, Related Occupations
+
+# Data quality notes:
+#   - recommend_suppress and not_relevant are O*NET DQ flags — preserve in Bronze
+#   - Work Context has an extra Category column vs Work Activities
+#   - Career matrices have up to 10 rows per occupation (variable across releases)
+#   - Related Occupations has 20 rows per occupation (10 primary + 10 supplemental)
+#   - ~886 O*NET-SOC coded occupations in current release

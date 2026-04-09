@@ -1,0 +1,212 @@
+{
+  "spec": "raw-ingest-college-scorecard",
+  "zone": "bronze",
+  "mode": "greenfield",
+  "started": "2026-04-06T02:20:17.657747+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T02:23:07.142219+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-pre-review.md",
+      "output_hash": "sha256:87bf5aebfdeea8740ee27c0283083203da8d59c71c68ea7330f4853a06369f6f"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T02:34:35.160606+00:00",
+      "output": "src/raw/college_scorecard_ingestor.py",
+      "output_hash": "sha256:5340e82e67c533e0eeff51a0cc0845d34431f5222b0962b2de57b6059e0fe141"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T02:40:32.182351+00:00",
+      "output": "governance/eda/raw-college-scorecard-eda.md",
+      "output_hash": "sha256:15393b9790dcd251b54e19abf0434d39beaa0ba29834ddf0475c19bf482c6842"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T23:39:32.884473+00:00",
+      "output": "governance/domain-context.md",
+      "output_hash": "sha256:0acb172a6988a68909090781d52c902db87e257130f21ec87bd71b623ad8c84e"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:52:35.184881+00:00",
+      "output": "governance/dq-rules/raw-ingest-college-scorecard.json",
+      "output_hash": "sha256:68c1d2ecac740f37cdfe77c15a76916fa3c3ddeca7db56ea7975efbe37f4b971"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T02:59:58.807159+00:00",
+      "output": "governance/dq-scorecards/raw-ingest-college-scorecard-scorecard.md",
+      "output_hash": "sha256:a1c095eb385f1bcb0f7b9a50a754cc676a4e30de3ebf9753856810fffdb4222f"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:08:50.252361+00:00",
+      "output": "governance/chaos-manifests/raw-ingest-college-scorecard-chaos.md",
+      "output_hash": "sha256:b8a2b46f155de8256f8696cfcc39be06ca71f2c3012afcd46522a31c76b8199f"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:11:06.019417+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-entity-resolution.md",
+      "output_hash": "sha256:f3960d8f63b98596d5ea259432a56566b1299aae6ed06c077d4b09ed0f527507"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:12:17.520799+00:00",
+      "output": "governance/pii-scans/raw-ingest-college-scorecard-pii-scan.md",
+      "output_hash": "sha256:26cf6be742416ab4730a19b6ede8b9f4e397319a95053912fae3f35ec70e04c1"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:11:16.956965+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-temporal-assessment.md",
+      "output_hash": "sha256:618b94889e8bb4e6bdce92dac8cd113ed4e2e99bea11769b305ef5d0b51c2f4c"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:12:32.452122+00:00",
+      "output": "governance/lineage/raw-ingest-college-scorecard-20260406T031047Z.json",
+      "output_hash": "sha256:ee5b8d34f68995d1c4295e7957ddb6b4f3c6133f6828fb8dccd35339157d9197"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:11:19.471486+00:00",
+      "output": "governance/data-contracts/raw-college-scorecard.yaml",
+      "output_hash": "sha256:5560342d641e2308a926c9e32c2cc7529696541c8a66cf611e8a8b6733b8f796"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T23:39:33.766209+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:51:00.702338+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-adversarial-audit.md",
+      "output_hash": "sha256:d02c58d1cca326fe8235f4e42cfc6a5e78fce113bd6258099e7a09160d938307"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:31:47.520550+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-post-review.md",
+      "output_hash": "sha256:d61eb21fcd079d569f8f516d2d78d8d88e6237608234fbd33e2ce79895664fb6"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T03:41:47.632056+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-staff-review.md",
+      "output_hash": "sha256:1e27144689d10057c466074d41c4ac8213783bb1bf8c041fe56470bac6869124"
+    },
+    "principal-data-architect": {
+      "agent": "@principal-data-architect",
+      "requires": [
+        "staff-engineer"
+      ],
+      "blocking": true,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-06T12:05:13.808605+00:00",
+      "output": "governance/reviews/bronze-architecture-review.md",
+      "output_hash": "sha256:1179dc7165df7fcb51ca6eea57d2c5d422162117d6dd9123226d4e18b6f569bd"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

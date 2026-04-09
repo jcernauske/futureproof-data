@@ -1,0 +1,55 @@
+# NCES CIP-to-SOC Crosswalk (CIP 2020 x SOC 2018)
+# National Center for Education Statistics + Bureau of Labor Statistics
+#
+# Many-to-many bridge table mapping instructional programs (CIP codes)
+# to occupations (SOC codes). This is the critical link between
+# College Scorecard and BLS/O*NET data sources.
+
+name: cip_soc_crosswalk
+namespace: raw
+table: cip_soc_crosswalk
+
+# Fetch config
+fetch:
+  xlsx_download:
+    url: https://nces.ed.gov/ipeds/cipcode/Files/CIP2020_SOC2018_Crosswalk.xlsx
+    fallback_path: data/raw/xlsx_cache/CIP2020_SOC2018_Crosswalk.xlsx
+    user_agent: "FutureProof/0.1 (jeff@hyenastudios.com)"
+    format: xlsx
+    size_estimate: "~500KB"
+    sheet: CIP-SOC
+
+# Single logical entity representing the full crosswalk dataset
+entities:
+  crosswalk: "NCES CIP 2020 to SOC 2018 Crosswalk"
+
+# Dedup grain -- one row per CIP-SOC pairing
+dedup_grain:
+  - cipcode
+  - soc_code
+
+# Cache directory for downloaded files
+cache_dir: data/raw/xlsx_cache
+
+# --- Domain Documentation (not consumed by loader) ---
+
+# Source metadata
+# authority: National Center for Education Statistics (NCES) / Bureau of Labor Statistics (BLS)
+# url: https://nces.ed.gov/ipeds/cipcode/
+# documentation: https://nces.ed.gov/ipeds/cipcode/cipdetail.aspx?y=56&cip=52.0201
+
+# Grain description: One row per CIP-SOC pairing (many-to-many)
+# Relationship: One CIP can map to multiple SOC codes and vice versa
+
+# Key fields:
+#   CIP2020Code: CIP code in XX.XXXX format (may arrive as float from openpyxl)
+#   CIP2020Title: Program name
+#   SOC2018Code: SOC code in XX-XXXX format
+#   SOC2018Title: Occupation name
+
+# Data quality notes:
+#   - CIP codes may be parsed as floats by openpyxl -- must convert to string XX.XXXX
+#   - SOC 99-9999 is the "no match" sentinel (CIPs with no occupation correspondence)
+#   - Row count: ~6,097 (EDA confirmed, above spec estimate of 3,000-5,000)
+#   - XLSX has multiple sheets; use "CIP-SOC" as authoritative
+#   - License: Public domain (U.S. government publication)

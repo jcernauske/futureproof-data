@@ -1,0 +1,547 @@
+---
+# Data Contract: consumable.career_outcomes
+# Spec: gold-career-outcomes-college-scorecard
+# Zone: Gold (Consumable)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-06
+
+table: consumable.career_outcomes
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - unitid
+  - cipcode
+  - credential_level
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/gold-career-outcomes-college-scorecard.md
+physical_model: governance/models/gold-career-outcomes-college-scorecard-physical.md
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row, ['unitid',
+      'cipcode', 'credlev'], prefix='co'). Format: co-<16 hex chars>. Stable
+      across pipeline re-runs.
+
+  - name: unitid
+    type: bigint
+    required: true
+    business_term: BT-001
+    is_cde: true
+    cde_rationale: >
+      Natural key component identifying the institution. Required for all
+      downstream joins (Gold zone program comparisons, MCP layer queries,
+      institution-level aggregations, and future CIP-to-SOC crosswalk
+      integration). As a consumable-layer key, incorrect or missing values
+      would break every consumer query pattern that filters or groups by
+      institution.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS 6-digit institution identifier. Public federal identifier assigned
+      by NCES. Natural key component (composite with cipcode, credential_level).
+    constraints:
+      - "UNIQUE (composite with cipcode, credential_level)"
+
+  - name: institution_name
+    type: varchar
+    required: true
+    business_term: BT-002
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Official institution name as reported to IPEDS. Display label only;
+      unitid is the authoritative identifier.
+
+  - name: institution_control
+    type: varchar
+    required: true
+    business_term: "*pending*"
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Type of institutional governance: Public, Private nonprofit, or Private
+      for-profit. Used for segmentation analysis.
+    constraints:
+      - "CHECK (institution_control IN ('Public', 'Private nonprofit', 'Private for-profit'))"
+
+  - name: cipcode
+    type: varchar
+    required: true
+    business_term: BT-003
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      CIP code in normalized XX.XXXX format. Natural key component (composite
+      with unitid, credential_level). Foundation for CIP-to-SOC crosswalk join
+      in future specs.
+    constraints:
+      - "CHECK (cipcode ~ '^\\d{2}\\.\\d{2,4}$')"
+
+  - name: program_name
+    type: varchar
+    required: true
+    business_term: BT-004
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable program description from the CIP taxonomy. Display label
+      only; cipcode is the authoritative identifier.
+
+  - name: cip_family
+    type: varchar
+    required: true
+    business_term: BT-005
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit CIP family code. Partition key for percentile band and rank
+      computations. Derived from first 2 characters of cipcode.
+    constraints:
+      - "CHECK (cip_family ~ '^\\d{2}$')"
+
+  - name: cip_family_name
+    type: varchar
+    required: true
+    business_term: BT-006
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable label for the CIP family (e.g., "Business, Management,
+      Marketing").
+
+  - name: credential_level
+    type: integer
+    required: true
+    business_term: BT-007
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Integer code for credential type. Categorical, not aggregatable. Natural
+      key component. MVP value: 3 (Bachelor's).
+    constraints:
+      - "CHECK (credential_level BETWEEN 1 AND 8)"
+
+  - name: earnings_1yr_median
+    type: double
+    required: false
+    business_term: BT-009
+    is_cde: true
+    cde_rationale: >
+      Primary business metric powering FutureProof's core query pattern
+      (school + major = earnings). In the Gold consumable layer, this column
+      directly feeds the effort slider UI, debt-to-earnings ratio (Gainful
+      Employment rule alignment), CIP-family earnings rank, program value
+      index, and percentile band derivations. Incorrect values propagate to 5
+      downstream derived columns and corrupt all consumer-facing affordability
+      and outcome metrics.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median earnings 1 year post-completion. Cohort-level aggregate, not
+      individual. NULL when privacy-suppressed by Department of Education.
+    constraints:
+      - "CHECK (earnings_1yr_median IS NULL OR (earnings_1yr_median >= 1000 AND earnings_1yr_median <= 250000))"
+
+  - name: earnings_2yr_median
+    type: double
+    required: false
+    business_term: BT-010
+    is_cde: true
+    cde_rationale: >
+      Primary business metric providing the multi-horizon view of graduate
+      outcomes. In the Gold consumable layer, feeds earnings growth rate
+      calculation and 2-year percentile band derivations. Together with 1yr
+      earnings, enables the cross-cohort trajectory analysis central to
+      FutureProof career guidance. Different cohort from 1yr (not
+      longitudinal). Privacy-suppressed for ~64% of rows.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median earnings 2 years post-completion. Different cohort measurement
+      window than 1yr -- not longitudinal tracking. NULL when
+      privacy-suppressed.
+    constraints:
+      - "CHECK (earnings_2yr_median IS NULL OR (earnings_2yr_median >= 1000 AND earnings_2yr_median <= 250000))"
+
+  - name: debt_median
+    type: double
+    required: false
+    business_term: BT-011
+    is_cde: true
+    cde_rationale: >
+      Primary business metric for student debt exposure. In the Gold
+      consumable layer, feeds debt-to-earnings ratio (Gainful Employment rule
+      alignment), debt-to-earnings tier, program value index, and debt
+      percentile bands. Central to the affordability assessment that
+      FutureProof provides to students and families. Incorrect values corrupt
+      4 downstream derived columns.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median cumulative federal loan debt at program completion. Cohort-level
+      aggregate. NULL when privacy-suppressed.
+    constraints:
+      - "CHECK (debt_median IS NULL OR (debt_median >= 1000 AND debt_median <= 100000))"
+
+  - name: completions_count
+    type: bigint
+    required: false
+    business_term: BT-012
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS completions count (first major measurement window). Renamed from
+      Silver's completions_count_1. Indicates program size and drives
+      small_cohort_flag derivation.
+    constraints:
+      - "CHECK (completions_count IS NULL OR completions_count >= 0)"
+
+  - name: small_cohort_flag
+    type: boolean
+    required: true
+    business_term: BT-014
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived flag. True when completions_count < 30 or completions data is
+      null. Conservative default: NULL completions treated as small cohort.
+      Feeds confidence tier derivation.
+
+  - name: earnings_1yr_p25
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: true
+    cde_rationale: >
+      Powers the lower bound of the effort slider UI for 1-year earnings.
+      This cross-institution 25th percentile within CIP family provides the
+      realistic floor of outcomes that students can expect in their chosen
+      field. Directly consumed by the MCP layer and product UI. Errors here
+      mislead students about worst-case earnings scenarios.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      25th percentile of 1yr median earnings across all institutions in the
+      same CIP family. Null if fewer than 3 non-null values in the CIP family.
+    constraints:
+      - "CHECK (earnings_1yr_p25 IS NULL OR earnings_1yr_p25 >= 0)"
+
+  - name: earnings_1yr_p75
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: true
+    cde_rationale: >
+      Powers the upper bound of the effort slider UI for 1-year earnings.
+      This cross-institution 75th percentile within CIP family provides the
+      realistic ceiling of outcomes that students can expect. Directly
+      consumed by the MCP layer and product UI. Errors here mislead students
+      about best-case earnings scenarios.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      75th percentile of 1yr median earnings across CIP family. Null if fewer
+      than 3 non-null values. Invariant: >= earnings_1yr_p25.
+    constraints:
+      - "CHECK (earnings_1yr_p75 IS NULL OR earnings_1yr_p75 >= 0)"
+
+  - name: earnings_2yr_p25
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: true
+    cde_rationale: >
+      Provides the lower bound of the 2-year earnings range within CIP
+      family. Enables the product to show medium-term outcome trajectory
+      context alongside the 1-year slider. Consumed by MCP layer for
+      multi-horizon career guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      25th percentile of 2yr median earnings across CIP family. Null if fewer
+      than 3 non-null values.
+    constraints:
+      - "CHECK (earnings_2yr_p25 IS NULL OR earnings_2yr_p25 >= 0)"
+
+  - name: earnings_2yr_p75
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: true
+    cde_rationale: >
+      Provides the upper bound of the 2-year earnings range within CIP
+      family. Enables the product to show medium-term outcome trajectory
+      context alongside the 1-year slider. Consumed by MCP layer for
+      multi-horizon career guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      75th percentile of 2yr median earnings across CIP family. Null if fewer
+      than 3 non-null values. Invariant: >= earnings_2yr_p25.
+    constraints:
+      - "CHECK (earnings_2yr_p75 IS NULL OR earnings_2yr_p75 >= 0)"
+
+  - name: debt_p25
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: true
+    cde_rationale: >
+      Provides the lower bound of the debt range within CIP family.
+      Essential for affordability context -- students need to see not just
+      their program's debt but where it falls relative to the discipline.
+      Consumed by MCP layer for cost-benefit guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      25th percentile of median debt across CIP family. Null if fewer than 3
+      non-null values.
+    constraints:
+      - "CHECK (debt_p25 IS NULL OR debt_p25 >= 0)"
+
+  - name: debt_p75
+    type: double
+    required: false
+    business_term: BT-018
+    is_cde: true
+    cde_rationale: >
+      Provides the upper bound of the debt range within CIP family.
+      Essential for affordability context -- students need to see where their
+      program's debt falls relative to the discipline. Consumed by MCP layer
+      for cost-benefit guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      75th percentile of median debt across CIP family. Null if fewer than 3
+      non-null values. Invariant: >= debt_p25.
+    constraints:
+      - "CHECK (debt_p75 IS NULL OR debt_p75 >= 0)"
+
+  - name: debt_to_earnings_annual
+    type: double
+    required: false
+    business_term: BT-019
+    is_cde: true
+    cde_rationale: >
+      Key affordability metric aligned with Department of Education Gainful
+      Employment rule methodology. This ratio (debt / 1yr earnings) is the
+      primary measure students and policymakers use to evaluate whether a
+      program's debt burden is manageable relative to post-graduation income.
+      Directly consumed by the MCP layer and product UI. Feeds
+      debt_to_earnings_tier derivation.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Debt-to-earnings ratio: debt_median / earnings_1yr_median. Values < 1.0
+      manageable, > 2.0 concerning. Null if either input is null.
+    constraints:
+      - "CHECK (debt_to_earnings_annual IS NULL OR debt_to_earnings_annual > 0)"
+
+  - name: debt_to_earnings_tier
+    type: varchar
+    required: false
+    business_term: BT-020
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Categorical bucketing of debt-to-earnings ratio: Low (< 0.75), Moderate
+      (0.75-1.5), High (1.5-2.5), Very High (>= 2.5). Null if ratio is null.
+    constraints:
+      - "CHECK (debt_to_earnings_tier IS NULL OR debt_to_earnings_tier IN ('Low', 'Moderate', 'High', 'Very High'))"
+
+  - name: earnings_growth_rate
+    type: double
+    required: false
+    business_term: BT-021
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Cross-cohort earnings differential: (earnings_2yr_median -
+      earnings_1yr_median) / earnings_1yr_median. NOT longitudinal growth --
+      compares different cohorts. Negative values expected (~44% of programs).
+      Null if either input is null.
+
+  - name: cip_family_earnings_rank
+    type: double
+    required: false
+    business_term: BT-022
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Relative position within CIP family based on 1yr median earnings. Range
+      0.0 (lowest) to 1.0 (highest). PERCENT_RANK window function. Null if
+      earnings_1yr_median is null.
+    constraints:
+      - "CHECK (cip_family_earnings_rank IS NULL OR (cip_family_earnings_rank >= 0.0 AND cip_family_earnings_rank <= 1.0))"
+
+  - name: program_value_index
+    type: double
+    required: false
+    business_term: BT-023
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      ROI proxy: earnings_1yr_median / debt_median. Higher = better value.
+      Null if either input is null.
+    constraints:
+      - "CHECK (program_value_index IS NULL OR program_value_index > 0)"
+
+  - name: confidence_tier
+    type: varchar
+    required: true
+    business_term: BT-024
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Four-level data quality classification: high (large cohort + earnings +
+      debt), medium (large cohort + partial data), low (small cohort + some
+      data), insufficient (no outcome data). Every row receives a tier.
+    constraints:
+      - "CHECK (confidence_tier IN ('high', 'medium', 'low', 'insufficient'))"
+
+  - name: has_earnings
+    type: boolean
+    required: true
+    business_term: BT-024
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Convenience flag: True if earnings_1yr_median IS NOT NULL OR
+      earnings_2yr_median IS NOT NULL.
+
+  - name: has_debt
+    type: boolean
+    required: true
+    business_term: BT-024
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Convenience flag: True if debt_median IS NOT NULL.
+
+  - name: outcome_completeness
+    type: double
+    required: true
+    business_term: BT-025
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Proportion of non-null core outcome fields (3 fields: earnings_1yr_median,
+      earnings_2yr_median, debt_median). Exact value set: {0.0, 0.33, 0.67,
+      1.0}.
+    constraints:
+      - "CHECK (outcome_completeness IN (0.0, 0.33, 0.67, 1.0))"
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the raw zone. Pipeline metadata
+      carried from Silver.
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    business_term: BT-026
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was promoted to the Gold zone. Generated at
+      promotion time. Replaces Silver's ingested_at.
+
+# Quality thresholds based on physical model constraints and spec expectations.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    earnings_1yr_median_max_null_pct: 70.0
+    earnings_2yr_median_max_null_pct: 65.0
+    debt_median_max_null_pct: 68.0
+  validity:
+    cipcode_format: "^\\d{2}\\.\\d{2,4}$"
+    cip_family_format: "^\\d{2}$"
+    credential_level_range: [1, 8]
+    earnings_1yr_range: [1000, 250000]
+    earnings_2yr_range: [1000, 250000]
+    debt_range: [1000, 100000]
+    debt_to_earnings_range: [0.01, 10.0]
+    earnings_growth_range: [-0.5, 2.0]
+    institution_control_values: ["Public", "Private nonprofit", "Private for-profit"]
+    confidence_tier_values: ["high", "medium", "low", "insufficient"]
+    debt_to_earnings_tier_values: ["Low", "Moderate", "High", "Very High"]
+    outcome_completeness_values: [0.0, 0.33, 0.67, 1.0]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+  volume:
+    row_count_range: [59000, 81000]
+  consistency:
+    percentile_band_ordering: true
+    has_earnings_matches_derivation: true
+    has_debt_matches_derivation: true
+    null_propagation_debt_to_earnings: true
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: base.college_scorecard
+  transformation: src/gold/college_scorecard_career_outcomes.py

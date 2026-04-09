@@ -1,0 +1,253 @@
+{
+  "spec": "gold-occupation-profiles-bls-ooh",
+  "zone": "gold",
+  "mode": "greenfield",
+  "started": "2026-04-07T19:10:57.847795+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T19:14:52.847604+00:00",
+      "output": "governance/reviews/gold-occupation-profiles-bls-ooh-pre-review.md",
+      "output_hash": "sha256:8935706f864734361c4efb2ce3094078b68590df6c666e1677f09de8d1a05309"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T19:24:09.661643+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:ed2aee451a8ff3630fe2f77db30d75af5a059510f3d24ee998036de201d322d2"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:09:26.043928+00:00",
+      "output": "governance/models/gold-occupation-profiles-bls-ooh-conceptual.md",
+      "output_hash": "sha256:3a280e11e8c6cc4557d0051ff9ec48062987deced8e66320758d455a475b92ef"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:09:26.785608+00:00",
+      "output": "governance/models/gold-occupation-profiles-bls-ooh-logical.md",
+      "output_hash": "sha256:abaa1f72b194293a7c760661253e23871d69134e2cb668cf7a694f80c217a0d3"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:02:31.189304+00:00",
+      "output": "governance/eda/gold-occupation-profiles-eda.md",
+      "output_hash": "sha256:a07e533e57d8a5d30199c69a8c7f9a281229c73ae2af5594fccbce214872dc5f"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:09:28.986972+00:00",
+      "output": "governance/dq-rules/gold-occupation-profiles-bls-ooh.json",
+      "output_hash": "sha256:50b820aae4b8ac483aecff1c5e8cf28129535b347111b98d062eda90168f8e8e"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:09:27.512356+00:00",
+      "output": "governance/models/gold-occupation-profiles-bls-ooh-physical.md",
+      "output_hash": "sha256:9128143d069e5e336afa4dbf8f1d3f128b10759b240531c436861e7f72e80c0d"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:09:28.249487+00:00",
+      "output": "src/gold/bls_ooh_occupation_profiles.py",
+      "output_hash": "sha256:ae6ec48196ed2a15a8f466b085b75aa98ee68d7676ae28f0e7bbadda814be46e"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:25:53.636991+00:00",
+      "output": "governance/dq-scorecards/gold-occupation-profiles-bls-ooh-scorecard.md",
+      "output_hash": "sha256:260882cc3eb5ce70f3c92e7476ef1c79e412cf742a1865afbe90a9b93a457cc5"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:39:08.136277+00:00",
+      "output": "governance/chaos-manifests/gold-occupation-profiles-bls-ooh-chaos.md",
+      "output_hash": "sha256:c9193bf6296b8920a1cc6cf28edf7dcf84092f68b5a9e298796ee5dcef939ac8"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:43:23.588595+00:00",
+      "output": "governance/reviews/gold-occupation-profiles-bls-ooh-entity-resolution.md",
+      "output_hash": "sha256:67ba83643cd155ca92ccc94db5ff788cc16fabb15ed366c777e456d8465550b1"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:42:13.330165+00:00",
+      "output": "governance/pii-scans/gold-occupation-profiles-bls-ooh-pii-scan.md",
+      "output_hash": "sha256:f0d8475683453ee0ae6fb661ed32b378466cd492bfa599049ecab7020aad9498"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:42:35.504278+00:00",
+      "output": "governance/audit-trail/gold-occupation-profiles-bls-ooh-temporal-assessment.md",
+      "output_hash": "sha256:6088125185473c93b8f7d3c3bf90e9353cdc698af98e02fe301781ba3b715898"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:43:03.181934+00:00",
+      "output": "governance/lineage/gold-occupation-profiles-bls-ooh-20260407T230000Z.json",
+      "output_hash": "sha256:59d69f88ef64b54a9f078a373365fb79efca0f700100e130c865b95e581ba3f9"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:09:29.793653+00:00",
+      "output": "governance/data-contracts/consumable-occupation-profiles.yaml",
+      "output_hash": "sha256:dbf07862d5e45d3d3c921e84597eacbc59876b569476909d235da6d02a36a97c"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:51:22.564260+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T20:57:13.411635+00:00",
+      "output": "governance/reviews/gold-occupation-profiles-bls-ooh-adversarial-audit.md"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:03:29.614674+00:00",
+      "output": "governance/reviews/gold-occupation-profiles-bls-ooh-post-review.md",
+      "output_hash": "sha256:4ab013bd8d576706eaa478e39d3b536924f6f76ebb5ef12893925e3974123e62"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T21:07:53.280072+00:00",
+      "output": "governance/reviews/gold-occupation-profiles-bls-ooh-staff-review.md",
+      "output_hash": "sha256:bbc4395439e20792b508fa856cdb3085b791d1d976ff4aaf2682ee9b06aaa230"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "New table (greenfield) \u2014 CAB review is skipped for new tables",
+      "evidence": "Greenfield mode confirmed at pipeline init. Same skip applied to silver-base-bls-ooh.",
+      "skipped_at": "2026-04-07T20:20:03.531565+00:00"
+    }
+  },
+  "approvals": {}
+}

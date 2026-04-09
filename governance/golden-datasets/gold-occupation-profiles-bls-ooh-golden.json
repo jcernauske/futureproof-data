@@ -1,0 +1,134 @@
+{
+  "spec": "gold-occupation-profiles-bls-ooh",
+  "table": "consumable.occupation_profiles",
+  "grain": ["soc_code"],
+  "created": "2026-04-07",
+  "agent": "@primary-agent",
+  "description": "Golden dataset for consumable.occupation_profiles. Each chain traces from Silver input through Gold derivation formula to expected output, independently verifiable.",
+  "values": [
+    {"soc_code": "15-1252", "field": "grw_score", "expected": 8.37, "tolerance": 0.01},
+    {"soc_code": "29-1141", "field": "grw_score", "expected": 6.4625, "tolerance": 0.001},
+    {"soc_code": "29-1211", "field": "confidence_tier", "expected": "low"}
+  ],
+  "verification_chains": [
+    {
+      "name": "Software Developers (15-1252) — high growth, high wage",
+      "silver_input": {
+        "soc_code": "15-1252",
+        "occupation_title": "Software Developers",
+        "employment_change_pct": 15.8,
+        "median_annual_wage": 133080.0,
+        "openings_annual_avg": 115200,
+        "employment_current": 1847900,
+        "employment_projected": 2139600,
+        "broad_occupation_flag": false,
+        "catchall_flag": false,
+        "wage_available": true,
+        "education_code": 3,
+        "growth_category": "growing_fast"
+      },
+      "derivation_steps": {
+        "grw_score": "Band 10.0–20.0: 7.5 + (15.8 - 10.0) / (20.0 - 10.0) * 1.5 = 7.5 + 0.87 = 8.37",
+        "grw_score_rounded": "ROUND(8.37) = 8",
+        "wage_percentile_overall": "PERCENT_RANK among 809 non-null wages. $133,080 is in the top 5%, expected ~0.958",
+        "wage_tier": "percentile >= 0.90 → very_high",
+        "confidence_tier": "broad=False, catchall=False, wage_available=True → high",
+        "data_completeness": "4/4 core fields non-null → 1.0"
+      },
+      "expected_output": {
+        "grw_score": 8.37,
+        "grw_score_rounded": 8,
+        "wage_tier": "very_high",
+        "confidence_tier": "high",
+        "data_completeness": 1.0,
+        "backs_stats": "ERN,GRW",
+        "backs_bosses": "Market,Ceiling"
+      },
+      "tolerance": {
+        "grw_score": 0.01
+      }
+    },
+    {
+      "name": "Registered Nurses (29-1141) — moderate growth, highest openings",
+      "silver_input": {
+        "soc_code": "29-1141",
+        "occupation_title": "Registered Nurses",
+        "employment_change_pct": 4.9,
+        "median_annual_wage": 93600.0,
+        "openings_annual_avg": 189100,
+        "employment_current": 3386200,
+        "broad_occupation_flag": false,
+        "catchall_flag": false,
+        "wage_available": true,
+        "education_code": 3,
+        "growth_category": "growing"
+      },
+      "derivation_steps": {
+        "grw_score": "Band 1.0–5.0: 5.0 + (4.9 - 1.0) / (5.0 - 1.0) * 1.5 = 5.0 + 1.4625 = 6.4625",
+        "grw_score_rounded": "ROUND(6.4625) = 6",
+        "openings_score": "1.0 + 9.0 * PERCENT_RANK(openings) — RN has among highest openings (189,100)",
+        "market_score": "0.6 * 6.4625 + 0.4 * openings_score — expected ~7.8 due to very high openings",
+        "wage_percentile_overall": "PERCENT_RANK among 809 non-null wages. $93,600 expected ~0.835",
+        "wage_tier": "0.75 <= 0.835 < 0.90 → high",
+        "confidence_tier": "broad=False, catchall=False, wage_available=True → high",
+        "data_completeness": "4/4 core fields non-null → 1.0"
+      },
+      "expected_output": {
+        "grw_score": 6.4625,
+        "grw_score_rounded": 6,
+        "wage_tier": "high",
+        "confidence_tier": "high",
+        "data_completeness": 1.0,
+        "backs_stats": "ERN,GRW",
+        "backs_bosses": "Market,Ceiling"
+      },
+      "tolerance": {
+        "grw_score": 0.001,
+        "market_score": 0.5
+      }
+    },
+    {
+      "name": "Anesthesiologists (29-1211) — null wage, confidence=low",
+      "note": "Replaces spec's original 29-1215 which actually has wage=$238,380. EDA confirmed 29-1211 is a true null-wage occupation.",
+      "silver_input": {
+        "soc_code": "29-1211",
+        "occupation_title": "Anesthesiologists",
+        "employment_change_pct": 3.2,
+        "median_annual_wage": null,
+        "openings_annual_avg": 1300,
+        "employment_current": 33200,
+        "broad_occupation_flag": false,
+        "catchall_flag": false,
+        "wage_available": false,
+        "education_code": 1,
+        "growth_category": "growing"
+      },
+      "derivation_steps": {
+        "grw_score": "Band 1.0–5.0: 5.0 + (3.2 - 1.0) / (5.0 - 1.0) * 1.5 = 5.0 + 0.825 = 5.825",
+        "grw_score_rounded": "ROUND(5.825) = 6",
+        "wage_percentile_overall": "NULL — excluded from PERCENT_RANK because wage is null",
+        "wage_percentile_education_tier": "NULL — excluded from PERCENT_RANK because wage is null",
+        "wage_tier": "NULL — no wage data",
+        "confidence_tier": "wage_available=False → low (regardless of broad/catchall)",
+        "market_score": "0.6 * 5.825 + 0.4 * openings_score — computes because employment data exists",
+        "data_completeness": "3/4 core fields non-null (missing: median_annual_wage) → 0.75"
+      },
+      "expected_output": {
+        "grw_score": 5.825,
+        "grw_score_rounded": 6,
+        "median_annual_wage": null,
+        "wage_percentile_overall": null,
+        "wage_percentile_education_tier": null,
+        "wage_tier": null,
+        "confidence_tier": "low",
+        "data_completeness": 0.75,
+        "market_score_is_not_null": true,
+        "backs_stats": "ERN,GRW",
+        "backs_bosses": "Market,Ceiling"
+      },
+      "tolerance": {
+        "grw_score": 0.001
+      }
+    }
+  ]
+}

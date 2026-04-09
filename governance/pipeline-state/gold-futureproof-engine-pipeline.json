@@ -1,0 +1,254 @@
+{
+  "spec": "gold-futureproof-engine",
+  "zone": "gold",
+  "mode": "greenfield",
+  "started": "2026-04-09T05:09:01.841602+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T05:12:29.134382+00:00",
+      "output": "governance/reviews/gold-futureproof-engine-pre-review.md",
+      "output_hash": "sha256:990dd8148ae4155240785391dca09bd5a84280d8d07838f16ad121666d69e738"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T05:19:50.135176+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:6758315f82a9a40f9b7962a1c050ece011364d94a0df1232b9ab65fd9341bdde"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T15:16:36.314187+00:00",
+      "output": "governance/models/gold-futureproof-engine-conceptual.md",
+      "output_hash": "sha256:96da223d41b348ba7e4d72349cb85c0b83fa70bb818b92934a82126b84d31c11"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T15:16:37.267471+00:00",
+      "output": "governance/models/gold-futureproof-engine-logical.md",
+      "output_hash": "sha256:552c492f2e2037373b3846aa9df4b677f77d200196fc65c49c1baff3e3f6bcbd"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T05:46:31.080207+00:00",
+      "output": "governance/eda/gold-futureproof-engine-eda.md",
+      "output_hash": "sha256:2b7b6548dd6afaa488f33d4258365ffca0a8c1bc37bc4ea0e454481e9726aa3c"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T15:16:38.218680+00:00",
+      "output": "governance/dq-rules/gold-futureproof-engine.json",
+      "output_hash": "sha256:674d2cad4db13ccf3c290f59551507a8dbf4ab634cd2771b50c74edddd092852"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T06:01:08.213909+00:00",
+      "output": "governance/models/gold-futureproof-engine-physical.md",
+      "output_hash": "sha256:2ea48786d9166ac60b8b0c4ba2b9fee3ca9c94d946a872639baf7ee2feca3f75"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T06:09:53.974504+00:00",
+      "output": "src/gold/futureproof_engine.py",
+      "output_hash": "sha256:7016a394cded9fafeafb00df1b172a6300fe8c4c84e9d370e718ce8413001e91"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T15:16:39.180436+00:00",
+      "output": "governance/dq-scorecards/gold-futureproof-engine-scorecard.md",
+      "output_hash": "sha256:047663fb2e270054f8735bccf7831f41dc1473fe65c4bce38ea1596f4bac5276"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T14:33:39.331693+00:00",
+      "output": "governance/chaos-manifests/gold-futureproof-engine-chaos.md",
+      "output_hash": "sha256:5e0396c69362adeeeb225f9b9b89272066393403b2027dbd82b987c1632532c6"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T14:34:44.114308+00:00",
+      "output": "governance/audit-trail/gold-futureproof-engine-entity-resolver.md",
+      "output_hash": "sha256:0d634ee64c8a8be7590919956e903ce9fe7aba7150f250715277d7e3ab5dd9f9"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T14:36:21.962502+00:00",
+      "output": "governance/audit-trail/pii-scan-gold-futureproof-engine-2026-04-09.md",
+      "output_hash": "sha256:fad794778c0c790b28b4763196c504123b1598c8b59f84894b7f938bcac72e5a"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T14:34:59.186923+00:00",
+      "output": "governance/audit-trail/gold-futureproof-engine-temporal-modeler.md",
+      "output_hash": "sha256:53529fc9680ea55e123a66abdc3e91adb85c82c9837612416bb803cbf36f526b"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T14:48:18.015763+00:00",
+      "output": "governance/lineage/gold-futureproof-engine-20260409T120000Z.json",
+      "output_hash": "sha256:b317e1f4f25c0b153bdb759426a59a5bcce31cc071ff171fd390a1231b705e7f"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T14:52:36.458801+00:00",
+      "output": "governance/data-contracts/consumable-program-career-paths.yaml",
+      "output_hash": "sha256:5e58e32672d1dab0c26175eba9da23faef9166ed19f7507e5c23544818d64b57"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T15:04:28.583757+00:00",
+      "output": "governance/data-contracts/program-career-paths.yaml",
+      "output_hash": "sha256:19e3e5143a87f07e41e3d2c8c6ca01e0c556bf5f9bcfdca7a3fa2c3ba0ff676e"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T14:40:00.340080+00:00",
+      "output": "governance/audit-trail/gold-futureproof-engine-adversarial-audit.md",
+      "output_hash": "sha256:8656ad70654a6c28d3b87cd8bb8006f14a012a6e237a68544da8bcb67b010383"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T15:07:29.020585+00:00",
+      "output": "governance/reviews/gold-futureproof-engine-post-review.md",
+      "output_hash": "sha256:5053493a76373608ebabc0e16537806c63a7862863f7d57ca60b0a54fa560217"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T15:16:25.117599+00:00",
+      "output": "governance/reviews/gold-futureproof-engine-staff-review.md",
+      "output_hash": "sha256:3bd14bc21a3d5a6f1238a88f3dc859d2a7c8d5e8fef00c091dec0c31c02df7da"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "New tables (greenfield mode) \u2014 no existing schema to review changes against. CAB is skipped for new tables per silver-gold-pipeline.md workflow.",
+      "evidence": "governance/models/gold-futureproof-engine-physical.md",
+      "skipped_at": "2026-04-09T06:10:03.427069+00:00"
+    }
+  },
+  "approvals": {}
+}

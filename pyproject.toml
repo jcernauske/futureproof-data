@@ -1,0 +1,23 @@
+[project]
+name = "futureproof-data"
+version = "0.1.0"
+description = "FutureProof data pipeline — maps school + major to career outcomes and AI exposure analysis using Brightsmith"
+requires-python = ">=3.11"
+dependencies = [
+    "brightsmith @ git+https://github.com/jcernauske/brightsmith.git",
+    "openpyxl>=3.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "network: tests that require network access",
+]
+addopts = "-m 'not network'"

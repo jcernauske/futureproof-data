@@ -1,0 +1,472 @@
+---
+# Data Contract: base.bls_ooh
+# Spec: silver-base-bls-ooh
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Updated by: @doc-generator
+# Date: 2026-04-07
+
+table: base.bls_ooh
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/silver-base-bls-ooh.md
+physical_model: governance/models/silver-base-bls-ooh-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['soc_code'], prefix='ooh'). Format: ooh-<16 hex chars>. Stable across
+      pipeline re-runs. Technical infrastructure field, not consumed by business
+      processes.
+
+  - name: soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Natural key and primary crosswalk anchor for the CIP-to-SOC bridge that
+      links College Scorecard programs to career outcomes. Every downstream Gold
+      zone join (ERN stat, GRW stat, market boss fight, ceiling boss fight) keys
+      on soc_code. Also the join key for O*NET task-level data. Incorrect or
+      missing values would sever the program-to-occupation linkage that is the
+      core analytical capability of FutureProof.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC occupation code in XX-XXXX format. Natural key. Primary join key for
+      O*NET and CIP-SOC crosswalk. 832 unique values expected.
+    constraints:
+      - "UNIQUE"
+      - "CHECK (soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: occupation_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Official BLS occupation name. Display label; soc_code is the
+      authoritative identifier. Each SOC code maps to exactly one title.
+
+  - name: soc_major_group
+    type: varchar
+    required: true
+    business_term: BT-029
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit SOC major group code derived from the first 2 characters of
+      soc_code. One of 22 valid codes. Used for occupation-family grouping and
+      fallback crosswalk matching.
+    constraints:
+      - "CHECK (soc_major_group IN ('11','13','15','17','19','21','23','25','27','29','31','33','35','37','39','41','43','45','47','49','51','53'))"
+
+  - name: soc_major_group_name
+    type: varchar
+    required: true
+    business_term: BT-030
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable label for the SOC major group (e.g., "Management",
+      "Computer and Mathematical"). Derived via lookup from soc_major_group.
+
+  - name: broad_occupation_flag
+    type: boolean
+    required: true
+    business_term: BT-040
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True for 7 rolled-up/broad occupation codes (13-1020, 13-2020, 29-2010,
+      31-1120, 39-7010, 47-4090, 51-2090). These aggregate multiple detailed
+      occupations and need special handling in crosswalk joins.
+
+  - name: catchall_flag
+    type: boolean
+    required: true
+    business_term: BT-043
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True for occupations with "all other" in title (case-insensitive). These
+      are residual categories with weaker crosswalk signal. 70 rows per Silver
+      EDA (corrected from initial estimate of 46).
+
+  - name: employment_current
+    type: bigint
+    required: false
+    business_term: BT-031
+    is_cde: true
+    cde_rationale: >
+      Current employment count is a primary input to Gold zone employment
+      statistics. Backs the baseline for employment change calculations and
+      market size assessments. Required for the Market boss fight (current labor
+      market size by occupation). Incorrect values would distort employment
+      statistics presented to students making career decisions.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Current employment actual count (converted from thousands in Bronze).
+      Positive when present. 0 nulls expected in current cycle.
+    constraints:
+      - "CHECK (employment_current IS NULL OR employment_current > 0)"
+
+  - name: employment_projected
+    type: bigint
+    required: false
+    business_term: BT-032
+    is_cde: true
+    cde_rationale: >
+      Projected employment count at end of the 10-year BLS projection horizon.
+      Together with employment_current, this enables the forward-looking
+      employment change metrics that feed Gold zone GRW stats and Market boss
+      fight. Students rely on projected employment to assess whether their
+      target occupation is growing or shrinking.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Projected employment at end of 10-year horizon (actual count). Positive
+      when present. 0 nulls expected in current cycle.
+    constraints:
+      - "CHECK (employment_projected IS NULL OR employment_projected > 0)"
+
+  - name: employment_change
+    type: bigint
+    required: false
+    business_term: BT-033
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Absolute change in employment (projected minus current). Can be negative
+      for declining occupations. Derived from employment_current and
+      employment_projected; not independently critical since it can be
+      recomputed.
+
+  - name: employment_change_pct
+    type: double
+    required: false
+    business_term: BT-034
+    is_cde: true
+    cde_rationale: >
+      Percentage change in employment over the BLS 10-year projection cycle.
+      Directly backs the GRW (growth) stat in Gold zone career outcomes. Drives
+      growth_category derivation. This is the primary metric students see when
+      evaluating whether an occupation is growing or declining. Incorrect values
+      would misclassify occupation growth tiers and mislead career guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Percent change in employment over projection cycle. Can be negative for
+      declining occupations. Backs GRW stat. 0 nulls expected.
+    constraints:
+      - "CHECK (employment_change_pct IS NULL OR (employment_change_pct >= -50.0 AND employment_change_pct <= 60.0))"
+
+  - name: openings_annual_avg
+    type: bigint
+    required: false
+    business_term: BT-035
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Projected annual average job openings (growth + replacement).
+      Non-negative. Used in Market boss fight but not a primary Gold stat on
+      its own.
+    constraints:
+      - "CHECK (openings_annual_avg IS NULL OR openings_annual_avg >= 0)"
+
+  - name: growth_category
+    type: varchar
+    required: false
+    business_term: BT-041
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived categorical growth tier bucketing employment_change_pct into one
+      of 6 tiers: declining_fast, declining, stable, growing, growing_fast,
+      booming. Null only when employment_change_pct is null. Derived field;
+      not independently critical.
+    constraints:
+      - "CHECK (growth_category IS NULL OR growth_category IN ('declining_fast', 'declining', 'stable', 'growing', 'growing_fast', 'booming'))"
+
+  - name: median_annual_wage
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: true
+    cde_rationale: >
+      Median annual wage is the primary compensation metric for occupations.
+      Directly backs the ERN (earnings) stat in Gold zone career outcomes.
+      This is the headline number students see when evaluating occupation
+      earning potential. Feeds debt-to-earnings comparisons when combined with
+      College Scorecard debt data via the CIP-SOC crosswalk. Null for 23
+      occupations where BLS does not report wage data (physicians, performers,
+      dental specialists). Incorrect values would directly mislead career
+      earnings guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median annual wage in dollars. Null for 23 occupations where BLS does
+      not report wage data. Backs ERN stat.
+    constraints:
+      - "CHECK (median_annual_wage IS NULL OR (median_annual_wage >= 25000 AND median_annual_wage <= 250000))"
+
+  - name: median_wage_capped
+    type: boolean
+    required: true
+    business_term: BT-037
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if BLS top-coded the wage at $239,200. Currently 0 True values in
+      the interactive export. Preserved as defensive measure against future
+      data source changes.
+
+  - name: wage_available
+    type: boolean
+    required: true
+    business_term: BT-042
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived convenience flag: True when median_annual_wage is not null. 809
+      True, 23 False expected.
+
+  - name: education_typical
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Typical entry-level education label as reported by BLS (original text).
+      Retained for reference; normalized version is education_level_name.
+
+  - name: education_code
+    type: integer
+    required: false
+    business_term: BT-038
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS education level code (1=Doctoral through 8=No formal credential).
+      Categorical, not aggregatable. Do not SUM or AVG.
+    constraints:
+      - "CHECK (education_code IS NULL OR (education_code >= 1 AND education_code <= 8))"
+
+  - name: education_level_name
+    type: varchar
+    required: false
+    business_term: BT-039
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Normalized education level label derived from education_code via 8-row
+      lookup. Null when education_code is null.
+    constraints:
+      - "CHECK (education_level_name IS NULL OR education_level_name IN ('Doctoral or professional degree', 'Master''s degree', 'Bachelor''s degree', 'Associate''s degree', 'Postsecondary nondegree award', 'Some college, no degree', 'High school diploma or equivalent', 'No formal educational credential'))"
+
+  - name: work_experience
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Work experience requirement label as reported by BLS (original text).
+      Retained for reference; coded version is work_experience_code.
+
+  - name: work_experience_code
+    type: integer
+    required: false
+    business_term: BT-044
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS work experience code (1=5+ years, 2=Less than 5 years, 3=None).
+      Categorical, not aggregatable.
+    constraints:
+      - "CHECK (work_experience_code IS NULL OR (work_experience_code >= 1 AND work_experience_code <= 3))"
+
+  - name: training_typical
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Typical on-the-job training label as reported by BLS (original text).
+      Retained for reference; coded version is training_code.
+
+  - name: training_code
+    type: integer
+    required: false
+    business_term: BT-045
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS training code (1=Internship/residency through 6=None). Categorical,
+      not aggregatable.
+    constraints:
+      - "CHECK (training_code IS NULL OR (training_code >= 1 AND training_code <= 6))"
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the raw zone. Pipeline metadata.
+      Renamed from Bronze load_date.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to the Silver zone base table.
+      Generated at transformation time. Pipeline metadata.
+
+# Quality thresholds based on DQ rules (SLV-OOH-001 through SLV-OOH-036)
+# and EDA findings (governance/eda/silver-bls-ooh-eda.md).
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    median_annual_wage_max_null_pct: 5.0
+    employment_fields_max_null_pct: 1.0
+    education_code_max_null_pct: 1.0
+  validity:
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    soc_major_group_values: ["11","13","15","17","19","21","23","25","27","29","31","33","35","37","39","41","43","45","47","49","51","53"]
+    growth_category_values: ["declining_fast", "declining", "stable", "growing", "growing_fast", "booming"]
+    employment_change_pct_range: [-50.0, 60.0]
+    median_annual_wage_range: [25000, 250000]
+    education_code_range: [1, 8]
+    work_experience_code_range: [1, 3]
+    training_code_range: [1, 6]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    soc_code_unique: true
+  volume:
+    row_count_exact: 832
+    broad_occupation_flag_true_count: 7
+    catchall_flag_true_count: 70
+    median_annual_wage_null_count: 23
+  consistency:
+    soc_major_group_matches_soc_code_prefix: true
+    growth_category_matches_employment_change_pct_buckets: true
+    wage_available_matches_median_annual_wage_not_null: true
+    education_level_name_matches_education_code_lookup: true
+  freshness_sla: >
+    Full table replace on each pipeline run. No incremental loads. Freshness
+    depends on BLS Employment Projections release schedule (biennial, next
+    expected 2026).
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/silver-base-bls-ooh.json
+  total_rules: 36
+  p0_rules: 15
+  p1_rules: 10
+  p2_rules: 6
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: raw.bls_ooh
+  transformation: src/silver/bls_ooh_transformer.py
+  lineage_file: governance/lineage/silver-base-bls-ooh-20260407T210000Z.json
+
+# Consumers — downstream tables and processes that depend on this contract.
+consumers:
+  - name: "Gold career outcomes (CIP-SOC crosswalk)"
+    type: table
+    description: >
+      Gold zone career outcomes products will join to this table via soc_code
+      through the CIP-SOC crosswalk. Depends on soc_code format, grain
+      integrity, and all CDE fields (employment_current, employment_projected,
+      employment_change_pct, median_annual_wage).
+    contact: "@primary-agent"
+    status: planned
+  - name: "O*NET Silver join"
+    type: table
+    description: >
+      Future O*NET Silver base table will join directly on soc_code for
+      task-level data enrichment. Depends on soc_code format and uniqueness.
+    contact: "@primary-agent"
+    status: planned
+  - name: "MCP grounding documents"
+    type: grounding
+    description: >
+      AI-ready grounding documents consume occupation-level statistics
+      (wages, growth, education requirements) for career guidance generation.
+    contact: "@doc-generator"
+    status: planned

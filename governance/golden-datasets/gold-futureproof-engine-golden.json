@@ -1,0 +1,231 @@
+{
+  "spec": "gold-futureproof-engine",
+  "tables": ["consumable.program_career_paths", "consumable.career_branches"],
+  "created": "2026-04-09",
+  "agent": "@primary-agent",
+  "description": "Golden dataset for the FutureProof Engine. Each chain traces from source inputs through join chain and derivation formulas to expected outputs. All values independently verified against warehouse tables on 2026-04-09.",
+  "values": [
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 151324, "cipcode": "52.02", "soc_code": "11-1021"}, "field": "stat_ern", "expected": 5},
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 190725, "cipcode": "30.18", "soc_code": "19-2099"}, "field": "stat_roi", "expected": 1},
+    {"table": "consumable.career_branches", "grain": {"soc_code": "11-1011", "related_soc_code": "11-3031"}, "field": "grw_delta", "expected": 2}
+  ],
+  "verification_chains": [
+    {
+      "name": "ISU Business Admin -> General & Operations Managers (full join chain)",
+      "table": "consumable.program_career_paths",
+      "grain": {"unitid": 151324, "cipcode": "52.02", "soc_code": "11-1021"},
+      "source_inputs": {
+        "career_outcomes": {
+          "unitid": 151324,
+          "cipcode": "52.02",
+          "institution_name": "Indiana State University",
+          "program_name": "Business Administration, Management and Operations.",
+          "cip_family": "52",
+          "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+          "cip_family_earnings_rank": 0.12487992315081652,
+          "debt_to_earnings_annual": 0.6274476026414011,
+          "confidence_tier": "high",
+          "earnings_1yr_median": 34830.0,
+          "debt_median": 21854.0
+        },
+        "crosswalk": {
+          "cipcode": "52.0201",
+          "soc_code": "11-1021",
+          "soc_title": "General and Operations Managers",
+          "note": "Scorecard 52.02 matches crosswalk 52.0201 via LEFT(cipcode, 5)"
+        },
+        "occupation_profiles": {
+          "soc_code": "11-1021",
+          "occupation_title": "General and operations managers",
+          "wage_percentile_overall": 0.8898514851485149,
+          "wage_percentile_education_tier": 0.7231638418079096,
+          "grw_score_rounded": 6,
+          "market_score_rounded": 8,
+          "median_annual_wage": 102950.0,
+          "growth_category": "growing",
+          "employment_current": 3712900,
+          "education_level_name": "Bachelor's degree"
+        },
+        "onet_work_profiles": {
+          "bls_soc_code": "11-1021",
+          "hmn_score_rounded": 5,
+          "burnout_score_rounded": 6
+        }
+      },
+      "derivation_steps": {
+        "stat_ern": "ROUND(1 + 9 * (0.6 * cip_family_earnings_rank + 0.4 * wage_percentile_overall)) = ROUND(1 + 9 * (0.6 * 0.1249 + 0.4 * 0.8899)) = ROUND(1 + 9 * 0.4309) = ROUND(4.878) = 5",
+        "stat_roi": "DTE=0.627 in band [0.25, 0.75]: frac=(0.627-0.25)/(0.75-0.25)=0.755, roi=10+0.755*(8-10)=10-1.509=8.491 -> ROUND=8",
+        "stat_grw": "Direct from occupation_profiles.grw_score_rounded = 6",
+        "stat_hmn": "Direct from onet_work_profiles.hmn_score_rounded = 5",
+        "stat_res": "Always null (placeholder)",
+        "boss_loans_score": "11 - stat_roi = 11 - 8 = 3",
+        "boss_ceiling_score": "ROUND(10 - 9 * wage_percentile_education_tier) = ROUND(10 - 9 * 0.7232) = ROUND(3.491) = 3",
+        "boss_market_score": "Direct from occupation_profiles.market_score_rounded = 8",
+        "boss_burnout_score": "Direct from onet_work_profiles.burnout_score_rounded = 6",
+        "match_quality": "BLS joined AND O*NET joined -> full",
+        "stats_available_count": "4 non-null: ERN, ROI, GRW, HMN",
+        "bosses_available_count": "4 non-null: Loans, Market, Burnout, Ceiling",
+        "overall_confidence": "stats>=4 AND match=full -> high"
+      },
+      "expected_output": {
+        "record_id": "pcp-9308882939252e44",
+        "stat_ern": 5,
+        "stat_roi": 8,
+        "stat_res": null,
+        "stat_grw": 6,
+        "stat_hmn": 5,
+        "boss_ai_score": null,
+        "boss_loans_score": 3,
+        "boss_market_score": 8,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 3,
+        "match_quality": "full",
+        "stats_available_count": 4,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      }
+    },
+    {
+      "name": "Daemen University Natural Sciences -> Physical Scientists (poor ROI, high DTE)",
+      "table": "consumable.program_career_paths",
+      "grain": {"unitid": 190725, "cipcode": "30.18", "soc_code": "19-2099"},
+      "source_inputs": {
+        "career_outcomes": {
+          "unitid": 190725,
+          "cipcode": "30.18",
+          "institution_name": "Daemen University",
+          "program_name": "Natural Sciences.",
+          "cip_family": "30",
+          "cip_family_name": "Multi/Interdisciplinary Studies",
+          "cip_family_earnings_rank": 0.0,
+          "debt_to_earnings_annual": 4.6688569946394605,
+          "confidence_tier": "high",
+          "earnings_1yr_median": 5783.0,
+          "debt_median": 27000.0,
+          "note": "Very high debt relative to earnings (DTE=4.67), likely due to low 1yr median earnings of $5,783"
+        },
+        "crosswalk": {
+          "cipcode": "30.1801",
+          "soc_code": "19-2099",
+          "soc_title": "Physical Scientists, All Other",
+          "note": "Scorecard 30.18 matches crosswalk 30.1801 via LEFT(cipcode, 5)"
+        },
+        "occupation_profiles": {
+          "soc_code": "19-2099",
+          "occupation_title": "Physical scientists, all other",
+          "wage_percentile_overall": 0.9306930693069307,
+          "wage_percentile_education_tier": 0.8248587570621468,
+          "grw_score_rounded": 5,
+          "market_score_rounded": 4,
+          "median_annual_wage": 117960.0,
+          "growth_category": "stable"
+        },
+        "onet_work_profiles": {
+          "bls_soc_code": "19-2099",
+          "hmn_score_rounded": 3,
+          "burnout_score_rounded": 5
+        }
+      },
+      "derivation_steps": {
+        "stat_ern": "ROUND(1 + 9 * (0.6 * cip_family_earnings_rank + 0.4 * wage_percentile_overall)) = ROUND(1 + 9 * (0.6 * 0.0 + 0.4 * 0.9307)) = ROUND(1 + 9 * 0.3723) = ROUND(4.350) = 4",
+        "stat_roi": "DTE=4.669 in band [4.0, inf): roi=1 (floor) -> ROUND=1",
+        "stat_grw": "Direct from occupation_profiles.grw_score_rounded = 5",
+        "stat_hmn": "Direct from onet_work_profiles.hmn_score_rounded = 3",
+        "stat_res": "Always null (placeholder)",
+        "boss_loans_score": "11 - stat_roi = 11 - 1 = 10 (devastating student loan burden)",
+        "boss_ceiling_score": "ROUND(10 - 9 * wage_percentile_education_tier) = ROUND(10 - 9 * 0.8249) = ROUND(2.576) = 3",
+        "boss_market_score": "Direct from occupation_profiles.market_score_rounded = 4",
+        "boss_burnout_score": "Direct from onet_work_profiles.burnout_score_rounded = 5",
+        "match_quality": "BLS joined AND O*NET joined -> full",
+        "stats_available_count": "4 non-null: ERN, ROI, GRW, HMN",
+        "bosses_available_count": "4 non-null: Loans, Market, Burnout, Ceiling",
+        "overall_confidence": "stats>=4 AND match=full -> high"
+      },
+      "expected_output": {
+        "record_id": "pcp-0958e2ccfd30dcfd",
+        "stat_ern": 4,
+        "stat_roi": 1,
+        "stat_res": null,
+        "stat_grw": 5,
+        "stat_hmn": 3,
+        "boss_ai_score": null,
+        "boss_loans_score": 10,
+        "boss_market_score": 4,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 3,
+        "match_quality": "full",
+        "stats_available_count": 4,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      }
+    },
+    {
+      "name": "Career branch: Chief Executives -> Financial Managers",
+      "table": "consumable.career_branches",
+      "grain": {"soc_code": "11-1011", "related_soc_code": "11-3031"},
+      "source_inputs": {
+        "career_transitions": {
+          "bls_soc_code": "11-1011",
+          "related_bls_soc_code": "11-3031",
+          "source_title": "Chief Executives",
+          "related_title": "Financial Managers",
+          "best_index": 3,
+          "relatedness_tier": "Primary-Short",
+          "is_primary": true
+        },
+        "occupation_profiles_source": {
+          "soc_code": "11-1011",
+          "grw_score_rounded": 6,
+          "median_annual_wage": 206420.0,
+          "growth_category": "growing",
+          "education_level_name": "Bachelor's degree"
+        },
+        "occupation_profiles_related": {
+          "soc_code": "11-3031",
+          "grw_score_rounded": 8,
+          "median_annual_wage": 161700.0,
+          "growth_category": "growing_fast",
+          "education_level_name": "Bachelor's degree"
+        },
+        "onet_source": {
+          "bls_soc_code": "11-1011",
+          "hmn_score_rounded": 5,
+          "burnout_score_rounded": 6
+        },
+        "onet_related": {
+          "bls_soc_code": "11-3031",
+          "hmn_score_rounded": 4,
+          "burnout_score_rounded": 7
+        }
+      },
+      "derivation_steps": {
+        "grw_delta": "related_grw - source_grw = 8 - 6 = 2 (faster growth at target)",
+        "hmn_delta": "related_hmn - source_hmn = 4 - 5 = -1 (less human edge at target)",
+        "burnout_delta": "related_burnout - source_burnout = 7 - 6 = 1 (more burnout risk at target)",
+        "wage_delta": "related_wage - source_wage = 161700 - 206420 = -44720 (lower pay at target)",
+        "branch_has_full_data": "related has BLS (grw not null) AND O*NET (hmn not null) -> True"
+      },
+      "expected_output": {
+        "record_id": "br-37463cac0c718404",
+        "source_grw": 6,
+        "source_hmn": 5,
+        "source_burnout": 6,
+        "source_wage": 206420.0,
+        "related_grw": 8,
+        "related_hmn": 4,
+        "related_burnout": 7,
+        "related_wage": 161700.0,
+        "grw_delta": 2,
+        "hmn_delta": -1,
+        "burnout_delta": 1,
+        "wage_delta": -44720.0,
+        "branch_has_full_data": true,
+        "related_growth_category": "growing_fast",
+        "related_education_level": "Bachelor's degree",
+        "best_index": 3,
+        "relatedness_tier": "Primary-Short",
+        "is_primary": true
+      }
+    }
+  ]
+}

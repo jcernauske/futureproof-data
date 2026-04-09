@@ -1,0 +1,52 @@
+# BLS Occupational Outlook Handbook — Employment Projections Data
+# Bureau of Labor Statistics
+#
+# Structured occupation-level data from the Employment Projections program,
+# which powers the OOH. Covers ~832 detailed occupations keyed by SOC code.
+
+name: bls_ooh
+namespace: bronze
+table: bls_ooh
+
+# Fetch config
+fetch:
+  xlsx_download:
+    url: https://www.bls.gov/emp/tables/occupational-projections-and-characteristics.htm
+    fallback_path: data/raw/xlsx_cache/bls_ooh.xlsx
+    user_agent: "FutureProof/0.1 (jeff@hyenastudios.com)"
+    format: xlsx
+    size_estimate: "~1MB"
+
+# Single logical entity representing the full EP occupation dataset
+entities:
+  ooh: "BLS Employment Projections — All Detailed Occupations"
+
+# Dedup grain — one row per SOC-coded occupation
+dedup_grain:
+  - soc_code
+
+# Cache directory for downloaded files
+cache_dir: data/raw/xlsx_cache
+
+# --- Domain Documentation (not consumed by loader) ---
+
+# Source metadata
+# authority: Bureau of Labor Statistics, U.S. Department of Labor
+# url: https://www.bls.gov/ooh/
+# data_tables: https://www.bls.gov/emp/tables.htm
+# interactive: https://data.bls.gov/projections/occupationProj
+
+# Grain description: One row per detailed occupation (SOC 2018)
+
+# Key fields:
+#   Identity: soc_code (XX-XXXX), occupation_title
+#   Projections: employment_current, employment_projected, employment_change, employment_change_pct, openings_annual_avg
+#   Compensation: median_annual_wage, median_wage_capped
+#   Requirements: education_typical, education_code, work_experience, work_experience_code, training_typical, training_code
+
+# Data quality notes:
+#   - BLS blocks bot User-Agents with 403; may need manual download
+#   - Employment figures reported "in thousands" — convert to actual counts
+#   - Median wage has special values: ">=239,200" (top-coded) and "N/A"
+#   - SOC code format is XX-XXXX — treat as string, preserve hyphens
+#   - ~832 detailed occupations in current projections cycle

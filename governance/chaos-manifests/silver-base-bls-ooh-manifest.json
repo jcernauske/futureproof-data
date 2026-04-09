@@ -1,0 +1,1673 @@
+{
+  "spec": "silver-base-bls-ooh",
+  "table": "base.bls_ooh",
+  "run_timestamp": "2026-04-07T18:01:44.326769+00:00",
+  "cycles_completed": 5,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "corruptions": 12,
+      "row_count": 725,
+      "dq_passed": 27,
+      "dq_failed": 9,
+      "dq_total": 36,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-OOH-001",
+            "raw_value": 63
+          },
+          {
+            "rule_id": "SLV-OOH-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-006",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-007",
+            "raw_value": 63
+          },
+          {
+            "rule_id": "SLV-OOH-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-023",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-024",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-027",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-036",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-OOH-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-010",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-021",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-022",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-025",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-026",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-028",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-029",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-030",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-031",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-032",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-033",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-034",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-035",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.25,
+        "rules_fired": 9,
+        "rules_silent": 27,
+        "total_rules": 36
+      },
+      "manifest_entries": [
+        {
+          "row": 292,
+          "dimension": "completeness",
+          "field": "median_wage_capped",
+          "strategy": "null_median_wage_capped",
+          "old_value": "False",
+          "new_value": "null"
+        },
+        {
+          "row": 378,
+          "dimension": "validity",
+          "field": "median_annual_wage",
+          "strategy": "wage_out_of_range",
+          "old_value": "48790.0",
+          "new_value": "-10000.0"
+        },
+        {
+          "row": 832,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_442 (soc=23-1011)",
+          "new_value": "duplicate at position 832"
+        },
+        {
+          "row": 560,
+          "dimension": "consistency",
+          "field": "wage_available",
+          "strategy": "wage_available_contradiction",
+          "old_value": "wage=43630.0, available=True",
+          "new_value": "available=False (contradicts wage)"
+        },
+        {
+          "row": 127,
+          "dimension": "accuracy",
+          "field": "employment_current,employment_projected",
+          "strategy": "swapped_employment",
+          "old_value": "current=32500,projected=31600",
+          "new_value": "current=31600,projected=32500"
+        },
+        {
+          "row": 164,
+          "dimension": "reasonableness",
+          "field": "openings_annual_avg",
+          "strategy": "extreme_openings",
+          "old_value": "20600",
+          "new_value": "90078548"
+        },
+        {
+          "row": 186,
+          "dimension": "freshness",
+          "field": "source_load_date",
+          "strategy": "future_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "2030-06-15"
+        },
+        {
+          "row": 50,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "25-1051",
+          "new_value": "94-3715"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "833",
+          "new_value": "916"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_29",
+          "old_value": "group=29, count=80",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_49",
+          "old_value": "group=49, count=57",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_19",
+          "old_value": "group=19, count=54",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "corruptions": 12,
+      "row_count": 736,
+      "dq_passed": 25,
+      "dq_failed": 11,
+      "dq_total": 36,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-OOH-001",
+            "raw_value": 68
+          },
+          {
+            "rule_id": "SLV-OOH-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-007",
+            "raw_value": 68
+          },
+          {
+            "rule_id": "SLV-OOH-009",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-019",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-021",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-022",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-023",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-036",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-OOH-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-024",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-025",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-026",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-027",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-028",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-029",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-030",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-031",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-032",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-033",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-034",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-035",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.306,
+        "rules_fired": 11,
+        "rules_silent": 25,
+        "total_rules": 36
+      },
+      "manifest_entries": [
+        {
+          "row": 418,
+          "dimension": "completeness",
+          "field": "occupation_title",
+          "strategy": "null_occupation_title",
+          "old_value": "Inspectors, testers, sorters, samplers, and weighers",
+          "new_value": "null"
+        },
+        {
+          "row": 230,
+          "dimension": "validity",
+          "field": "growth_category",
+          "strategy": "bad_growth_category",
+          "old_value": "growing",
+          "new_value": "fast_growing"
+        },
+        {
+          "row": 832,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_705 (soc=33-9094)",
+          "new_value": "duplicate at position 832"
+        },
+        {
+          "row": 387,
+          "dimension": "consistency",
+          "field": "broad_occupation_flag",
+          "strategy": "broad_flag_wrong",
+          "old_value": "soc=47-3019, flag=False",
+          "new_value": "flag=True (wrong for soc)"
+        },
+        {
+          "row": 707,
+          "dimension": "accuracy",
+          "field": "median_annual_wage",
+          "strategy": "wage_off_by_10x",
+          "old_value": "64580.0",
+          "new_value": "645800.0"
+        },
+        {
+          "row": 289,
+          "dimension": "reasonableness",
+          "field": "median_annual_wage",
+          "strategy": "extreme_wage",
+          "old_value": "41270.0",
+          "new_value": "999999.0"
+        },
+        {
+          "row": 322,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-07 17:54:09.381584",
+          "new_value": "2035-01-01T00:00:00"
+        },
+        {
+          "row": 98,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "43-5011",
+          "new_value": "26-3130"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "833",
+          "new_value": "916"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_53",
+          "old_value": "group=53, count=56",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_43",
+          "old_value": "group=43, count=57",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_47",
+          "old_value": "group=47, count=67",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "corruptions": 12,
+      "row_count": 726,
+      "dq_passed": 25,
+      "dq_failed": 11,
+      "dq_total": 36,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-OOH-001",
+            "raw_value": 62
+          },
+          {
+            "rule_id": "SLV-OOH-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-006",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-007",
+            "raw_value": 62
+          },
+          {
+            "rule_id": "SLV-OOH-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-013",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-019",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-021",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-022",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "SLV-OOH-023",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-036",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-OOH-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-010",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-024",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-025",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-026",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-027",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-028",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-029",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-030",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-031",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-032",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-033",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-034",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-035",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.306,
+        "rules_fired": 11,
+        "rules_silent": 25,
+        "total_rules": 36
+      },
+      "manifest_entries": [
+        {
+          "row": 499,
+          "dimension": "completeness",
+          "field": "broad_occupation_flag",
+          "strategy": "null_broad_occupation_flag",
+          "old_value": "False",
+          "new_value": "null"
+        },
+        {
+          "row": 495,
+          "dimension": "validity",
+          "field": "growth_category",
+          "strategy": "bad_growth_category",
+          "old_value": "growing",
+          "new_value": "Stable"
+        },
+        {
+          "row": 832,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_138 (soc=15-1221)",
+          "new_value": "duplicate at position 832"
+        },
+        {
+          "row": 157,
+          "dimension": "consistency",
+          "field": "soc_major_group",
+          "strategy": "major_group_mismatch",
+          "old_value": "soc_code=49-9012, group=49",
+          "new_value": "group=51 (mismatches soc prefix)"
+        },
+        {
+          "row": 146,
+          "dimension": "accuracy",
+          "field": "median_annual_wage",
+          "strategy": "wage_off_by_10x",
+          "old_value": "98670.0",
+          "new_value": "986700.0"
+        },
+        {
+          "row": 257,
+          "dimension": "reasonableness",
+          "field": "openings_annual_avg",
+          "strategy": "extreme_openings",
+          "old_value": "2200",
+          "new_value": "56028273"
+        },
+        {
+          "row": 324,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-07 17:54:09.381588",
+          "new_value": "2035-01-01T00:00:00"
+        },
+        {
+          "row": 679,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "49-3092",
+          "new_value": "36-3555"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "833",
+          "new_value": "916"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_25",
+          "old_value": "group=25, count=73",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_49",
+          "old_value": "group=49, count=57",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_43",
+          "old_value": "group=43, count=60",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "corruptions": 18,
+      "row_count": 667,
+      "dq_passed": 24,
+      "dq_failed": 12,
+      "dq_total": 36,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-OOH-001",
+            "raw_value": 64
+          },
+          {
+            "rule_id": "SLV-OOH-002",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-006",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "SLV-OOH-007",
+            "raw_value": 64
+          },
+          {
+            "rule_id": "SLV-OOH-009",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-023",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-025",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-030",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-032",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-036",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-OOH-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-010",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-021",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-022",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-024",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-026",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-027",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-028",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-029",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-031",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-033",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-034",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-035",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 2,
+          "validity": 2,
+          "uniqueness": 2,
+          "consistency": 2,
+          "accuracy": 1,
+          "reasonableness": 2,
+          "freshness": 2,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.333,
+        "rules_fired": 12,
+        "rules_silent": 24,
+        "total_rules": 36
+      },
+      "manifest_entries": [
+        {
+          "row": 234,
+          "dimension": "completeness",
+          "field": "occupation_title",
+          "strategy": "null_occupation_title",
+          "old_value": "Electrical and electronics repairers, commercial and industrial equipment",
+          "new_value": "null"
+        },
+        {
+          "row": 600,
+          "dimension": "completeness",
+          "field": "source_load_date",
+          "strategy": "null_source_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "null"
+        },
+        {
+          "row": 32,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_format",
+          "old_value": "19-1011",
+          "new_value": "XX-XXXX"
+        },
+        {
+          "row": 550,
+          "dimension": "validity",
+          "field": "training_code",
+          "strategy": "bad_training_code",
+          "old_value": "6",
+          "new_value": "99"
+        },
+        {
+          "row": 832,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_490 (soc=15-2021)",
+          "new_value": "duplicate at position 832"
+        },
+        {
+          "row": 833,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_369 (soc=51-9022)",
+          "new_value": "duplicate at position 833"
+        },
+        {
+          "row": 766,
+          "dimension": "consistency",
+          "field": "median_wage_capped,median_annual_wage",
+          "strategy": "capped_wrong_wage",
+          "old_value": "capped=False,wage=72740.0",
+          "new_value": "capped=True,wage=72740.0"
+        },
+        {
+          "row": 470,
+          "dimension": "consistency",
+          "field": "soc_major_group",
+          "strategy": "major_group_mismatch",
+          "old_value": "soc_code=29-2035, group=29",
+          "new_value": "group=39 (mismatches soc prefix)"
+        },
+        {
+          "row": 518,
+          "dimension": "accuracy",
+          "field": "employment_current,employment_projected",
+          "strategy": "swapped_employment",
+          "old_value": "current=7000,projected=7000",
+          "new_value": "current=7000,projected=7000"
+        },
+        {
+          "row": 70,
+          "dimension": "reasonableness",
+          "field": "employment_projected",
+          "strategy": "extreme_employment",
+          "old_value": "64500",
+          "new_value": "661992184"
+        },
+        {
+          "row": 343,
+          "dimension": "reasonableness",
+          "field": "employment_change_pct",
+          "strategy": "extreme_change_pct",
+          "old_value": "-25.9",
+          "new_value": "500.0"
+        },
+        {
+          "row": 728,
+          "dimension": "freshness",
+          "field": "source_load_date",
+          "strategy": "future_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "2030-06-15"
+        },
+        {
+          "row": 254,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-07 17:54:09.381442",
+          "new_value": "2035-01-01T00:00:00"
+        },
+        {
+          "row": 187,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "51-9032",
+          "new_value": "90-3810"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "834",
+          "new_value": "917"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_47",
+          "old_value": "group=47, count=68",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_51",
+          "old_value": "group=51, count=109",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_25",
+          "old_value": "group=25, count=73",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "corruptions": 20,
+      "row_count": 716,
+      "dq_passed": 22,
+      "dq_failed": 14,
+      "dq_total": 36,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-OOH-001",
+            "raw_value": 65
+          },
+          {
+            "rule_id": "SLV-OOH-002",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-006",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "SLV-OOH-007",
+            "raw_value": 65
+          },
+          {
+            "rule_id": "SLV-OOH-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-015",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "SLV-OOH-017",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-021",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-023",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-032",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "SLV-OOH-033",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-OOH-036",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-OOH-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-022",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-024",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-025",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-026",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-027",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-028",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-029",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-030",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-031",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-034",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-OOH-035",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 2,
+          "validity": 2,
+          "uniqueness": 2,
+          "consistency": 2,
+          "accuracy": 2,
+          "reasonableness": 2,
+          "freshness": 2,
+          "referential_integrity": 2,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.389,
+        "rules_fired": 14,
+        "rules_silent": 22,
+        "total_rules": 36
+      },
+      "manifest_entries": [
+        {
+          "row": 351,
+          "dimension": "completeness",
+          "field": "source_load_date",
+          "strategy": "null_source_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "null"
+        },
+        {
+          "row": 566,
+          "dimension": "completeness",
+          "field": "record_id",
+          "strategy": "null_record_id",
+          "old_value": "ooh-079ea05ade189fca",
+          "new_value": "null"
+        },
+        {
+          "row": 811,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_format",
+          "old_value": "51-6093",
+          "new_value": ""
+        },
+        {
+          "row": 0,
+          "dimension": "validity",
+          "field": "employment_current",
+          "strategy": "negative_employment",
+          "old_value": "1579800",
+          "new_value": "-375355"
+        },
+        {
+          "row": 832,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_733 (soc=25-1069)",
+          "new_value": "duplicate at position 832"
+        },
+        {
+          "row": 833,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_704 (soc=51-7041)",
+          "new_value": "duplicate at position 833"
+        },
+        {
+          "row": 361,
+          "dimension": "consistency",
+          "field": "growth_category",
+          "strategy": "growth_category_mismatch",
+          "old_value": "pct=9.3, category=growing",
+          "new_value": "category=declining_fast (wrong for pct)"
+        },
+        {
+          "row": 615,
+          "dimension": "consistency",
+          "field": "soc_major_group",
+          "strategy": "major_group_mismatch",
+          "old_value": "soc_code=19-2012, group=19",
+          "new_value": "group=35 (mismatches soc prefix)"
+        },
+        {
+          "row": 99,
+          "dimension": "accuracy",
+          "field": "median_annual_wage",
+          "strategy": "wage_off_by_10x",
+          "old_value": "59310.0",
+          "new_value": "593100.0"
+        },
+        {
+          "row": 392,
+          "dimension": "accuracy",
+          "field": "occupation_title",
+          "strategy": "occupation_title_wrong",
+          "old_value": "Helpers--installation, maintenance, and repair workers",
+          "new_value": "WRONG TITLE - 2804"
+        },
+        {
+          "row": 691,
+          "dimension": "reasonableness",
+          "field": "median_annual_wage",
+          "strategy": "extreme_wage",
+          "old_value": "47460.0",
+          "new_value": "5000000.0"
+        },
+        {
+          "row": 619,
+          "dimension": "reasonableness",
+          "field": "employment_change_pct",
+          "strategy": "extreme_change_pct",
+          "old_value": "1.6",
+          "new_value": "300.0"
+        },
+        {
+          "row": 404,
+          "dimension": "freshness",
+          "field": "source_load_date",
+          "strategy": "stale_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "2015-01-01"
+        },
+        {
+          "row": 818,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "epoch_ingested_at",
+          "old_value": "2026-04-07 17:54:09.382574",
+          "new_value": "1970-01-01T00:00:00"
+        },
+        {
+          "row": 259,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "17-2081",
+          "new_value": "30-9376"
+        },
+        {
+          "row": 497,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "27-3099",
+          "new_value": "94-9959"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "834",
+          "new_value": "917"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_29",
+          "old_value": "group=29, count=78",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_47",
+          "old_value": "group=47, count=68",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_major_group",
+          "strategy": "remove_all_group_53",
+          "old_value": "group=53, count=55",
+          "new_value": "removed"
+        }
+      ]
+    }
+  ]
+}

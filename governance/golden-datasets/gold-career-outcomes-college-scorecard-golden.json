@@ -1,0 +1,170 @@
+{
+  "spec": "gold-career-outcomes-college-scorecard",
+  "table": "consumable.career_outcomes",
+  "description": "Golden dataset with 3 independently verifiable programs from well-known institutions. Each value is traceable from Silver source row through Gold derivation to expected output. Selected programs: MIT Computer Science (high earnings CS), UPenn Nursing (moderate earnings healthcare), UF Business Administration (typical business program for debt-to-earnings math verification).",
+  "created": "2026-04-06",
+  "created_by": "@doc-generator",
+  "iceberg_path": "data/gold/iceberg_warehouse/consumable/career_outcomes",
+  "silver_source": "data/silver/iceberg_warehouse/base/college_scorecard",
+  "values": [
+    {
+      "description": "MIT Computer Science — 1yr median earnings (highest-earning CS program, verifiable against College Scorecard public data)",
+      "filters": {"unitid": "166683", "cipcode": "11.07", "credential_level": "3"},
+      "column": "earnings_1yr_median",
+      "expected_value": 118191.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "silver_source": "base.college_scorecard WHERE unitid=166683 AND cipcode='11.07' AND credential_level=3",
+        "silver_value": 118191.0,
+        "derivation": "Direct copy from Silver earnings_1yr_median — no transformation applied",
+        "verification_note": "MIT CS is one of the highest-earning bachelor's programs in the country. $118K median 1yr earnings is consistent with publicly reported College Scorecard data for MIT CIPCODE 11.07."
+      }
+    },
+    {
+      "description": "MIT Computer Science — debt-to-earnings ratio (verifies division: 11077 / 118191 = 0.0937)",
+      "filters": {"unitid": "166683", "cipcode": "11.07", "credential_level": "3"},
+      "column": "debt_to_earnings_annual",
+      "expected_value": 0.09372118012369808,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "silver_source": "base.college_scorecard WHERE unitid=166683 AND cipcode='11.07' — debt_median=11077.0, earnings_1yr_median=118191.0",
+        "silver_value_debt": 11077.0,
+        "silver_value_earnings": 118191.0,
+        "derivation": "debt_median / earnings_1yr_median = 11077.0 / 118191.0 = 0.09372118012369808",
+        "expected_tier": "Low (ratio < 0.75)",
+        "verification_note": "MIT's low debt ($11K) relative to high CS earnings ($118K) produces a very low DTE ratio of ~0.094, well within the 'Low' tier. This is independently verifiable: MIT has need-blind admission with generous financial aid, explaining the low median debt."
+      }
+    },
+    {
+      "description": "MIT Computer Science — debt-to-earnings tier (verifies tier bucketing logic for 'Low' tier)",
+      "filters": {"unitid": "166683", "cipcode": "11.07", "credential_level": "3"},
+      "column": "debt_to_earnings_tier",
+      "expected_value": "Low",
+      "tolerance_pct": 0.0,
+      "tolerance_type": "exact_string",
+      "traceability": {
+        "derivation": "debt_to_earnings_annual = 0.0937 < 0.75 => 'Low' per CASE WHEN logic in spec",
+        "verification_note": "Ratio of 0.094 is far below the 0.75 threshold for 'Low' tier."
+      }
+    },
+    {
+      "description": "MIT Computer Science — confidence tier (verifies derivation: large cohort + has earnings + has debt = 'high')",
+      "filters": {"unitid": "166683", "cipcode": "11.07", "credential_level": "3"},
+      "column": "confidence_tier",
+      "expected_value": "high",
+      "tolerance_pct": 0.0,
+      "tolerance_type": "exact_string",
+      "traceability": {
+        "silver_source": "small_cohort_flag=False, earnings_1yr_median=118191 (not null), earnings_2yr_median=127993 (not null), debt_median=11077 (not null)",
+        "derivation": "small_cohort_flag=False AND has_earnings=True AND has_debt=True => 'high'",
+        "verification_note": "MIT CS has 424 completions (well above 30 threshold) and all three outcome fields populated."
+      }
+    },
+    {
+      "description": "MIT Computer Science — program value index (verifies inverse: 118191 / 11077 = 10.67)",
+      "filters": {"unitid": "166683", "cipcode": "11.07", "credential_level": "3"},
+      "column": "program_value_index",
+      "expected_value": 10.669946736480997,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "derivation": "earnings_1yr_median / debt_median = 118191.0 / 11077.0 = 10.6699. This is the mathematical inverse of debt_to_earnings_annual (1/0.0937 = 10.67).",
+        "verification_note": "PVI of 10.67 means MIT CS grads earn ~10.7x their debt in the first year — exceptional ROI."
+      }
+    },
+    {
+      "description": "UPenn Nursing — 1yr median earnings (moderate earnings healthcare program)",
+      "filters": {"unitid": "215062", "cipcode": "51.38", "credential_level": "3"},
+      "column": "earnings_1yr_median",
+      "expected_value": 68279.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "silver_source": "base.college_scorecard WHERE unitid=215062 AND cipcode='51.38' AND credential_level=3",
+        "silver_value": 68279.0,
+        "derivation": "Direct copy from Silver earnings_1yr_median",
+        "verification_note": "UPenn BSN graduates earning ~$68K in year 1 is consistent with Philadelphia-area RN salaries and College Scorecard public data."
+      }
+    },
+    {
+      "description": "UPenn Nursing — debt-to-earnings ratio (verifies: 23288 / 68279 = 0.3411)",
+      "filters": {"unitid": "215062", "cipcode": "51.38", "credential_level": "3"},
+      "column": "debt_to_earnings_annual",
+      "expected_value": 0.34107119319263607,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "silver_source": "debt_median=23288.0, earnings_1yr_median=68279.0",
+        "derivation": "23288.0 / 68279.0 = 0.34107119319263607",
+        "expected_tier": "Low (ratio < 0.75)",
+        "verification_note": "UPenn Nursing has higher debt ($23K) than MIT but strong nursing earnings, yielding DTE of 0.34 — still comfortably in the 'Low' tier."
+      }
+    },
+    {
+      "description": "UPenn Nursing — earnings growth rate (verifies cross-cohort: (70009 - 68279) / 68279 = 0.0253)",
+      "filters": {"unitid": "215062", "cipcode": "51.38", "credential_level": "3"},
+      "column": "earnings_growth_rate",
+      "expected_value": 0.02533721935001977,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "silver_source": "earnings_1yr_median=68279.0, earnings_2yr_median=70009.0",
+        "derivation": "(70009.0 - 68279.0) / 68279.0 = 1730.0 / 68279.0 = 0.02533721935001977",
+        "verification_note": "Modest 2.5% positive differential between 1yr and 2yr cohorts. This is a cross-cohort comparison, not longitudinal growth."
+      }
+    },
+    {
+      "description": "UPenn Nursing — outcome completeness (all 3 fields present = 1.0)",
+      "filters": {"unitid": "215062", "cipcode": "51.38", "credential_level": "3"},
+      "column": "outcome_completeness",
+      "expected_value": 1.0,
+      "tolerance_pct": 0.0,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "derivation": "earnings_1yr_median (68279, not null) + earnings_2yr_median (70009, not null) + debt_median (23288, not null) = 3 non-null / 3 = 1.0",
+        "verification_note": "All three core outcome fields are populated, so completeness is exactly 1.0."
+      }
+    },
+    {
+      "description": "UF Business Admin — debt-to-earnings ratio (verifies: 15000 / 46557 = 0.3222)",
+      "filters": {"unitid": "134130", "cipcode": "52.02", "credential_level": "3"},
+      "column": "debt_to_earnings_annual",
+      "expected_value": 0.3221857078420001,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "silver_source": "base.college_scorecard WHERE unitid=134130 AND cipcode='52.02' — debt_median=15000.0, earnings_1yr_median=46557.0",
+        "derivation": "15000.0 / 46557.0 = 0.3221857078420001",
+        "expected_tier": "Low (ratio < 0.75)",
+        "verification_note": "UF Business at a large public university shows $15K debt vs $46.5K earnings — typical 'Low' DTE for a state school business program."
+      }
+    },
+    {
+      "description": "UF Business Admin — program value index (inverse of DTE: 46557 / 15000 = 3.1038)",
+      "filters": {"unitid": "134130", "cipcode": "52.02", "credential_level": "3"},
+      "column": "program_value_index",
+      "expected_value": 3.1038,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "derivation": "earnings_1yr_median / debt_median = 46557.0 / 15000.0 = 3.1038",
+        "verification_note": "PVI of 3.1 means first-year earnings are about 3x the total debt — a solid value proposition for a state university business degree. Inverse of DTE: 1/0.3222 = 3.1038."
+      }
+    },
+    {
+      "description": "UF Business Admin — earnings growth rate (negative value: (44821 - 46557) / 46557 = -0.0373)",
+      "filters": {"unitid": "134130", "cipcode": "52.02", "credential_level": "3"},
+      "column": "earnings_growth_rate",
+      "expected_value": -0.03728762592091415,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "silver_source": "earnings_1yr_median=46557.0, earnings_2yr_median=44821.0",
+        "derivation": "(44821.0 - 46557.0) / 46557.0 = -1736.0 / 46557.0 = -0.03728762592091415",
+        "verification_note": "Negative growth rate (-3.7%) is expected and valid — the 1yr and 2yr figures come from different graduating cohorts, not the same people tracked over time. About 44% of programs show this pattern."
+      }
+    }
+  ]
+}

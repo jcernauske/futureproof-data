@@ -1,0 +1,694 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T12:00:00.000000Z",
+    "run": {
+      "runId": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of raw.onet_occupations into base.onet_occupations. Groups 1,016 O*NET-SOC codes (XX-XXXX.XX) into ~867 BLS-level SOC codes (XX-XXXX) by truncating the detail suffix. For the 76 BLS SOCs with multiple O*NET details, concatenates titles/descriptions and flags as multi_detail_flag=True. Excludes ~93 structurally empty 'All Other'/Military occupations that have zero data in all child tables. Computes has_work_activities/has_work_context/has_tasks/has_related boolean flags by joining to child table presence sets. Derives data_completeness_tier as 'full' (all 4 flags) or 'partial' (some flags). Computes deterministic record_id via compute_grain_id with 'on' prefix."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 1016,
+          "rowsTransformed": 867,
+          "rowsSkippedTransform": 149,
+          "promoted": 867,
+          "skippedDedup": 0,
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-onet-occupations",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw.onet_occupations into base.onet_occupations. Aggregates 1,016 O*NET-SOC codes to ~867 BLS-level SOC codes by truncating detail suffix (.XX). Multi-detail O*NET codes (76 BLS SOCs with 2+ O*NET details) are grouped: primary_title and description taken from the .00 base code (or first detail if no .00 exists), all detail codes preserved in onet_detail_codes JSON array. Computes data completeness flags by joining to child table (work_activities, work_context, task_statements, related_occupations) presence sets. Excludes structurally empty BLS SOCs with no data in any child table (~93 'All Other'/Military codes). Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/onet_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "title", "type": "STRING"},
+              {"name": "description", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_work_activities",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"}
+            ]
+          },
+          "note": "Used only for has_work_activities flag derivation (presence check by bls_soc_code)"
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_work_context",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"}
+            ]
+          },
+          "note": "Used only for has_work_context flag derivation (presence check by bls_soc_code)"
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_task_statements",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"}
+            ]
+          },
+          "note": "Used only for has_tasks flag derivation (presence check by bls_soc_code)"
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_related_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"}
+            ]
+          },
+          "note": "Used only for has_related flag derivation (presence check by bls_soc_code)"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "primary_title", "type": "STRING"},
+              {"name": "description", "type": "STRING"},
+              {"name": "onet_detail_codes", "type": "STRING"},
+              {"name": "onet_detail_count", "type": "INTEGER"},
+              {"name": "multi_detail_flag", "type": "BOOLEAN"},
+              {"name": "has_work_activities", "type": "BOOLEAN"},
+              {"name": "has_work_context", "type": "BOOLEAN"},
+              {"name": "has_tasks", "type": "BOOLEAN"},
+              {"name": "has_related", "type": "BOOLEAN"},
+              {"name": "data_completeness_tier", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(record, ['bls_soc_code'], prefix='on'). SHA-256 of the bls_soc_code (which is derived from onet_soc_code truncation) with 'on' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Truncated from O*NET-SOC format (XX-XXXX.XX) to BLS SOC format (XX-XXXX) via split('.')[0]. E.g., '15-1252.00' becomes '15-1252'. Multiple O*NET detail codes sharing the same 6-digit prefix are grouped under one BLS SOC.",
+                "transformationType": "DERIVED"
+              },
+              "primary_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "title"}
+                ],
+                "transformationDescription": "For single-detail BLS SOCs (.00 codes): direct copy of title. For multi-detail BLS SOCs: title of the .00 base code if it exists, otherwise title of the first detail code (sorted alphabetically by onet_soc_code).",
+                "transformationType": "DIRECT"
+              },
+              "description": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "description"}
+                ],
+                "transformationDescription": "For single-detail BLS SOCs: direct copy. For multi-detail BLS SOCs: description of the .00 base code if it exists, otherwise description of the first detail code.",
+                "transformationType": "DIRECT"
+              },
+              "onet_detail_codes": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "JSON array of all O*NET-SOC codes that map to this BLS SOC, sorted alphabetically. E.g., '[\"15-1252.00\"]' for single-detail or '[\"29-1229.01\",\"29-1229.02\",\"29-1229.03\"]' for multi-detail. Serialized via json.dumps().",
+                "transformationType": "DERIVED"
+              },
+              "onet_detail_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Count of O*NET detail codes grouped under this BLS SOC. 1 for most occupations, 2+ for the 76 multi-detail BLS SOCs.",
+                "transformationType": "AGGREGATION"
+              },
+              "multi_detail_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True when onet_detail_count > 1 (76 BLS SOCs have multiple O*NET detail codes). Derived from count of grouped detail codes.",
+                "transformationType": "DERIVED"
+              },
+              "has_work_activities": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if ANY O*NET detail code for this BLS SOC has at least one row in raw.onet_work_activities. Computed by truncating all work_activities onet_soc_codes to BLS level and checking set membership.",
+                "transformationType": "DERIVED"
+              },
+              "has_work_context": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if ANY O*NET detail code for this BLS SOC has at least one row in raw.onet_work_context. Computed by truncating all work_context onet_soc_codes to BLS level and checking set membership.",
+                "transformationType": "DERIVED"
+              },
+              "has_tasks": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_task_statements", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if ANY O*NET detail code for this BLS SOC has at least one row in raw.onet_task_statements. Computed by truncating all task_statements onet_soc_codes to BLS level and checking set membership.",
+                "transformationType": "DERIVED"
+              },
+              "has_related": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if ANY O*NET detail code for this BLS SOC has at least one row in raw.onet_related_occupations. Computed by truncating all related_occupations onet_soc_codes to BLS level and checking set membership.",
+                "transformationType": "DERIVED"
+              },
+              "data_completeness_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "onet_soc_code"},
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "onet_soc_code"},
+                  {"namespace": "brightsmith", "name": "bronze.onet_task_statements", "field": "onet_soc_code"},
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Derived from the 4 has_* boolean flags. 'full' if all 4 are True, 'partial' if some are True. BLS SOCs where all 4 are False are excluded from Silver entirely (structurally empty). Expected: majority 'full', ~29 'partial'.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_occupations", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. For multi-detail groups, uses the load_date from the .00 base code (or first detail code). No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T12:00:00.000000Z",
+    "run": {
+      "runId": "b2c3d4e5-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of raw.onet_work_activities into base.onet_activity_profiles. Filters to IM (importance) scale only, discarding LV (level) scale rows which cuts data roughly in half. Aggregates multi-detail O*NET codes to BLS SOC level by averaging importance values (unweighted). Ranks activities within each occupation by importance descending (1 = most important). Flags activities with importance >= 3.5 as is_high_importance. Preserves recommend_suppress='Y' rows with suppress_flag rather than dropping them. Excludes occupations not in base.onet_occupations (the 93 structurally empty ones)."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 73308,
+          "rowsTransformed": 35547,
+          "rowsSkippedTransform": 37761,
+          "promoted": 35547,
+          "skippedDedup": 0,
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-onet-activity-profiles",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw.onet_work_activities into base.onet_activity_profiles. Filters 73,308 Bronze rows to IM scale only (drops ~50% LV scale rows). Aggregates to BLS SOC level by averaging importance across O*NET details for multi-detail codes. Ranks 41 activities within each occupation by importance descending. Flags is_high_importance (>=3.5) and suppress_flag (recommend_suppress='Y' in any contributing row). Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/onet_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_work_activities",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "data_value", "type": "DOUBLE"},
+              {"name": "recommend_suppress", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_activity_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "importance", "type": "DOUBLE"},
+              {"name": "importance_rank", "type": "INTEGER"},
+              {"name": "is_high_importance", "type": "BOOLEAN"},
+              {"name": "onet_details_averaged", "type": "INTEGER"},
+              {"name": "suppress_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "onet_soc_code"},
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "element_id"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(record, ['bls_soc_code', 'element_id'], prefix='wa'). SHA-256 of the concatenated bls_soc_code and element_id with 'wa' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Truncated from O*NET-SOC format (XX-XXXX.XX) to BLS SOC format (XX-XXXX) via split('.')[0]. Multiple O*NET detail codes are grouped under one BLS SOC for aggregation.",
+                "transformationType": "DERIVED"
+              },
+              "element_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "element_id"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Content Model element ID (e.g., '4.A.1.a.1'). 41 distinct values representing Work Activity dimensions.",
+                "transformationType": "DIRECT"
+              },
+              "element_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "element_name"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. For multi-detail aggregation, takes element_name from the first encountered O*NET detail row for that (bls_soc, element_id) group.",
+                "transformationType": "DIRECT"
+              },
+              "importance": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "data_value"}
+                ],
+                "transformationDescription": "For single-detail BLS SOCs: direct copy of data_value from the IM scale row. For multi-detail BLS SOCs: unweighted arithmetic mean of data_value across all O*NET detail codes, rounded to 2 decimal places. Range 1.0-5.0. Only IM (importance) scale rows included; LV (level) scale rows are filtered out.",
+                "transformationType": "AGGREGATION"
+              },
+              "importance_rank": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "data_value"}
+                ],
+                "transformationDescription": "Rank of this activity within the occupation, computed after aggregation. Activities sorted by importance descending, then element_id ascending for deterministic tie-breaking. Rank 1 = most important, 41 = least important. Assigned via enumerate(sorted_activities, start=1).",
+                "transformationType": "DERIVED"
+              },
+              "is_high_importance": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "data_value"}
+                ],
+                "transformationDescription": "Boolean flag: True if importance >= 3.5 (top ~40% of the 1-5 IM scale). Derived from the aggregated importance value, not from individual Bronze rows.",
+                "transformationType": "DERIVED"
+              },
+              "onet_details_averaged": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Count of distinct O*NET detail codes that contributed data_value values to the importance average for this (bls_soc_code, element_id) pair. 1 for most rows, 2+ for multi-detail BLS SOCs.",
+                "transformationType": "AGGREGATION"
+              },
+              "suppress_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "recommend_suppress"}
+                ],
+                "transformationDescription": "Boolean flag: True if recommend_suppress = 'Y' in ANY contributing Bronze row for this (bls_soc_code, element_id) group. Uses OR-aggregation across O*NET details: if any detail code is flagged, the BLS-level record is flagged. Signals unreliable data but does not cause row exclusion.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_activities", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. For multi-detail aggregation, takes load_date from the first encountered row. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T12:00:00.000000Z",
+    "run": {
+      "runId": "c3d4e5f6-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of raw.onet_work_context into base.onet_context_profiles. Filters to CX (context, 1-5 point estimate) and CT (context typicality, 1-3) scales only, excluding CXP and CTP category-percentage rows which represent ~82% of Bronze Work Context data. Aggregates multi-detail O*NET codes to BLS SOC level by averaging context_value (unweighted). Flags 9 burnout-relevant elements via BURNOUT_ELEMENT_IDS lookup (EDA-corrected IDs). Preserves suppress_flag rows. Excludes structurally empty occupations."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 297676,
+          "rowsTransformed": 49419,
+          "rowsSkippedTransform": 248257,
+          "promoted": 49419,
+          "skippedDedup": 0,
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-onet-context-profiles",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw.onet_work_context into base.onet_context_profiles. Filters 297,676 Bronze rows to CX and CT scales only, excluding CXP/CTP category-percentage rows (~82% of data). Aggregates to BLS SOC level by averaging context_value across O*NET details for multi-detail codes. Flags 9 burnout-relevant elements (Time Pressure, Duration of Typical Work Week, Consequence of Error, Pace Determined by Speed of Equipment, Frequency of Decision Making, Importance of Being Exact or Accurate, Importance of Repeating Same Tasks, Work Schedules, Impact of Decisions) using EDA-corrected element IDs from BURNOUT_ELEMENT_IDS constant. Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/onet_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_work_context",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "data_value", "type": "DOUBLE"},
+              {"name": "recommend_suppress", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_context_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "context_value", "type": "DOUBLE"},
+              {"name": "is_burnout_element", "type": "BOOLEAN"},
+              {"name": "onet_details_averaged", "type": "INTEGER"},
+              {"name": "suppress_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "onet_soc_code"},
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "element_id"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(record, ['bls_soc_code', 'element_id'], prefix='wc'). SHA-256 of the concatenated bls_soc_code and element_id with 'wc' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Truncated from O*NET-SOC format (XX-XXXX.XX) to BLS SOC format (XX-XXXX) via split('.')[0]. Multiple O*NET detail codes are grouped under one BLS SOC for aggregation.",
+                "transformationType": "DERIVED"
+              },
+              "element_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "element_id"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Content Model element ID (e.g., '4.C.3.d.1'). 57 distinct values representing Work Context dimensions.",
+                "transformationType": "DIRECT"
+              },
+              "element_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "element_name"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. For multi-detail aggregation, takes element_name from the first encountered O*NET detail row for that (bls_soc, element_id) group.",
+                "transformationType": "DIRECT"
+              },
+              "scale_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "scale_id"}
+                ],
+                "transformationDescription": "Direct copy from Bronze, after filtering to CX and CT values only. CXP and CTP rows are excluded. Each element_id has exactly one scale (CX or CT), so no ambiguity during multi-detail aggregation.",
+                "transformationType": "DIRECT"
+              },
+              "context_value": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "data_value"}
+                ],
+                "transformationDescription": "For single-detail BLS SOCs: direct copy of data_value from the CX or CT scale row. For multi-detail BLS SOCs: unweighted arithmetic mean of data_value across all O*NET detail codes, rounded to 2 decimal places. CX scale range 1.0-5.0, CT scale range 1.0-3.0.",
+                "transformationType": "AGGREGATION"
+              },
+              "is_burnout_element": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "element_id"}
+                ],
+                "transformationDescription": "Boolean flag: True if element_id is in the BURNOUT_ELEMENT_IDS frozenset of 9 EDA-corrected burnout-relevant Work Context elements. IDs: 4.C.3.d.1 (Time Pressure), 4.C.3.d.8 (Duration of Typical Work Week), 4.C.3.a.1 (Consequence of Error), 4.C.3.d.3 (Pace Determined by Speed of Equipment), 4.C.3.a.2.b (Frequency of Decision Making), 4.C.3.b.4 (Importance of Being Exact or Accurate), 4.C.3.b.7 (Importance of Repeating Same Tasks), 4.C.3.d.4 (Work Schedules), 4.C.3.a.2.a (Impact of Decisions on Co-workers or Company Results).",
+                "transformationType": "DERIVED"
+              },
+              "onet_details_averaged": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Count of distinct O*NET detail codes that contributed data_value values to the context_value average for this (bls_soc_code, element_id) pair. 1 for most rows, 2+ for multi-detail BLS SOCs.",
+                "transformationType": "AGGREGATION"
+              },
+              "suppress_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "recommend_suppress"}
+                ],
+                "transformationDescription": "Boolean flag: True if recommend_suppress = 'Y' in ANY contributing Bronze row for this (bls_soc_code, element_id) group. Uses OR-aggregation across O*NET details.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_work_context", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. For multi-detail aggregation, takes load_date from the first encountered row. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T12:00:00.000000Z",
+    "run": {
+      "runId": "d4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f9a",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of raw.onet_related_occupations into base.onet_career_transitions. Truncates both source and related O*NET-SOC codes to 6-digit BLS SOC. Removes self-references that emerge when two O*NET details of the same BLS SOC relate to each other. Deduplicates by keeping the best (lowest) related_index per BLS pair. Derives relatedness_tier (Primary-Short 1-5, Primary-Long 6-10, Supplemental 11-20) and is_primary boolean. Sets relationship_type='similarity' as static value documenting that this is occupational similarity, not actual career transition data. Excludes pairs where either SOC is structurally empty."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 18460,
+          "rowsTransformed": 17000,
+          "rowsSkippedTransform": 1460,
+          "promoted": 17000,
+          "skippedDedup": 0,
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-onet-career-transitions",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw.onet_related_occupations into base.onet_career_transitions. Career similarity graph for Stage 3 branching. Truncates both source and related O*NET-SOC codes to BLS-level (XX-XXXX). Removes self-references (same BLS SOC on both sides). Deduplicates by keeping best (lowest) index per (source_bls, target_bls) pair. Derives relatedness_tier from best_index: Primary-Short (1-5), Primary-Long (6-10), Supplemental (11-20). Sets static relationship_type='similarity'. Excludes pairs involving structurally empty occupations. Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/onet_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.onet_related_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "related_onet_soc_code", "type": "STRING"},
+              {"name": "related_index", "type": "INTEGER"},
+              {"name": "related_title", "type": "STRING"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_career_transitions",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "related_bls_soc_code", "type": "STRING"},
+              {"name": "best_index", "type": "INTEGER"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"},
+              {"name": "relationship_type", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "onet_soc_code"},
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "related_onet_soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(record, ['bls_soc_code', 'related_bls_soc_code'], prefix='ct'). SHA-256 of the concatenated BLS-level source and target SOC codes with 'ct' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Source occupation SOC code truncated from O*NET-SOC format (XX-XXXX.XX) to BLS SOC format (XX-XXXX) via split('.')[0].",
+                "transformationType": "DERIVED"
+              },
+              "related_bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "related_onet_soc_code"}
+                ],
+                "transformationDescription": "Related/target occupation SOC code truncated from O*NET-SOC format (XX-XXXX.XX) to BLS SOC format (XX-XXXX) via split('.')[0].",
+                "transformationType": "DERIVED"
+              },
+              "best_index": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "related_index"}
+                ],
+                "transformationDescription": "For single-detail BLS SOC pairs: direct copy of related_index. For multi-detail pairs (multiple O*NET detail pairings map to the same BLS pair): minimum (best) related_index across all contributing O*NET detail pairings. Range 1-20. Lower = more related.",
+                "transformationType": "AGGREGATION"
+              },
+              "relatedness_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "related_index"}
+                ],
+                "transformationDescription": "Derived from best_index via derive_relatedness_tier(): index 1-5 -> 'Primary-Short', index 6-10 -> 'Primary-Long', index 11-20 -> 'Supplemental'. Applied to the aggregated best_index, not to individual Bronze rows.",
+                "transformationType": "DERIVED"
+              },
+              "is_primary": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "related_index"}
+                ],
+                "transformationDescription": "Boolean flag: True when relatedness_tier is 'Primary-Short' or 'Primary-Long' (best_index <= 10). Derived from the tier value for convenience in downstream filtering.",
+                "transformationType": "DERIVED"
+              },
+              "relationship_type": {
+                "inputFields": [],
+                "transformationDescription": "Static string value 'similarity'. Documents that Related Occupations measures occupational similarity (shared skills/knowledge profiles), not actual observed career transitions. Post-hackathon, if transition data becomes available, this field distinguishes data sources.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.onet_related_occupations", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. For deduplicated pairs, takes load_date from the row with the best (lowest) index. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

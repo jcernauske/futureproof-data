@@ -1,0 +1,241 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-06T20:00:00.000000Z",
+    "run": {
+      "runId": "a1f3c8d2-9e47-4b6a-bf12-7d3e5a0c9f84",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-college-scorecard.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of College Scorecard data. Reads 69,947 rows from bronze.college_scorecard, normalizes CIP codes to XX.XXXX format, extracts CIP family codes and names, renames columns to business-meaningful names, derives small_cohort_flag and record_id, drops md_earn_wne (structurally empty), and promotes to base.college_scorecard via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 69947,
+          "rowsTransformed": 69947,
+          "rowsSkippedTransform": 0,
+          "promoted": 69947,
+          "skippedDedup": 0,
+          "snapshotId": 8709179988001255822
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-college-scorecard",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw College Scorecard data from Bronze into clean, modeled base table in Silver. Normalizes CIP codes (4-digit to XX.XXXX), extracts CIP family codes with taxonomy lookup, maps institution control codes, renames columns to business-meaningful names, derives small_cohort_flag for programs with fewer than 30 completers, computes deterministic record_id via grain hash, drops structurally empty md_earn_wne field, and promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/college_scorecard_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.college_scorecard",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG"},
+              {"name": "instnm", "type": "STRING"},
+              {"name": "control", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "cipdesc", "type": "STRING"},
+              {"name": "creddesc", "type": "STRING"},
+              {"name": "credlev", "type": "INTEGER"},
+              {"name": "md_earn_wne", "type": "DOUBLE"},
+              {"name": "earn_mdn_hi_1yr", "type": "DOUBLE"},
+              {"name": "earn_mdn_hi_2yr", "type": "DOUBLE"},
+              {"name": "debt_all_stgp_eval_mdn", "type": "DOUBLE"},
+              {"name": "ipedscount1", "type": "LONG"},
+              {"name": "ipedscount2", "type": "LONG"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.college_scorecard",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "institution_control", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "program_name", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "cip_family_name", "type": "STRING"},
+              {"name": "credential_level", "type": "INTEGER"},
+              {"name": "credential_description", "type": "STRING"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "earnings_2yr_median", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"},
+              {"name": "completions_count_1", "type": "LONG"},
+              {"name": "completions_count_2", "type": "LONG"},
+              {"name": "small_cohort_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "unitid"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "credlev"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(row, ['unitid', 'cipcode', 'credential_level'], prefix='cs'). SHA-256 of concatenated grain fields with 'cs' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. IPEDS 6-digit institution identifier, no transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "instnm"}
+                ],
+                "transformationDescription": "Column rename from 'instnm' to 'institution_name'. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "institution_control": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "control"}
+                ],
+                "transformationDescription": "Mapped from numeric code to human-readable label via CONTROL_MAP lookup: 1='Public', 2='Private nonprofit', 3='Private for-profit'. Null if source value not in map.",
+                "transformationType": "DERIVED"
+              },
+              "cipcode": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "cipcode"}
+                ],
+                "transformationDescription": "Normalized via normalize_cipcode(): inserts dot at position 2 for 4-digit codes (e.g., '5202' -> '52.02'). Already-dotted codes pass through unchanged.",
+                "transformationType": "DERIVED"
+              },
+              "program_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "cipdesc"}
+                ],
+                "transformationDescription": "Column rename from 'cipdesc' to 'program_name'. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "cipcode"}
+                ],
+                "transformationDescription": "First 2 characters of normalized cipcode. Extracts the 2-digit CIP family code (e.g., '52.02' -> '52').",
+                "transformationType": "DERIVED"
+              },
+              "cip_family_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "cipcode"}
+                ],
+                "transformationDescription": "Derived from cip_family (first 2 chars of normalized cipcode) via CIP_FAMILIES dictionary lookup. Maps 2-digit CIP family code to full taxonomy description (e.g., '52' -> 'Business, Management, Marketing, and Related Support Services'). Falls back to 'Unknown CIP Family (XX)' if not in dictionary.",
+                "transformationType": "DERIVED"
+              },
+              "credential_level": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "credlev"}
+                ],
+                "transformationDescription": "Column rename from 'credlev' to 'credential_level'. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "credential_description": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "creddesc"}
+                ],
+                "transformationDescription": "Column rename from 'creddesc' to 'credential_description'. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "earnings_1yr_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "earn_mdn_hi_1yr"}
+                ],
+                "transformationDescription": "Column rename from 'earn_mdn_hi_1yr' to 'earnings_1yr_median'. Null values preserved (privacy suppressed programs).",
+                "transformationType": "DIRECT"
+              },
+              "earnings_2yr_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "earn_mdn_hi_2yr"}
+                ],
+                "transformationDescription": "Column rename from 'earn_mdn_hi_2yr' to 'earnings_2yr_median'. Null values preserved (privacy suppressed programs).",
+                "transformationType": "DIRECT"
+              },
+              "debt_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "debt_all_stgp_eval_mdn"}
+                ],
+                "transformationDescription": "Column rename from 'debt_all_stgp_eval_mdn' to 'debt_median'. Null values preserved (privacy suppressed programs).",
+                "transformationType": "DIRECT"
+              },
+              "completions_count_1": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "ipedscount1"}
+                ],
+                "transformationDescription": "Column rename from 'ipedscount1' to 'completions_count_1'. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "completions_count_2": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "ipedscount2"}
+                ],
+                "transformationDescription": "Column rename from 'ipedscount2' to 'completions_count_2'. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "small_cohort_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "ipedscount1"}
+                ],
+                "transformationDescription": "Boolean flag: True if completions_count_1 is None or completions_count_1 < 30. Flags programs with small cohorts where privacy suppression is likely.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. Preserves the Bronze zone ingest date.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "md_earn_wne": {
+                "reason": "100% null at field-of-study grain. Institution-level metric that does not populate in this file. Confirmed by user."
+              },
+              "source_url": {
+                "reason": "Raw metadata field not needed in Silver zone."
+              },
+              "source_method": {
+                "reason": "Raw metadata field not needed in Silver zone."
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

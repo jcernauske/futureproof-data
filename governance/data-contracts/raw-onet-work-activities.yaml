@@ -1,0 +1,219 @@
+---
+# Data Contract: raw.onet_work_activities
+# Spec: raw-ingest-onet
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-07
+
+table: raw.onet_work_activities
+namespace: raw
+zone: bronze
+grain:
+  - onet_soc_code
+  - element_id
+  - scale_id
+status: ACTIVE
+record_count: 73308
+data_vintage: "O*NET 30.2 (2026)"
+source: "O*NET Resource Center bulk download (onetcenter.org)"
+
+columns:
+  - name: onet_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field and foreign key to raw.onet_occupations. Required to associate
+      work activity ratings with their occupation for the HMN (Human Edge) stat
+      calculation. Work activity ratings per occupation are the primary input
+      for human-skill intensity profiling. Without this field, activity data
+      cannot be attributed to any occupation. Also enables cross-source
+      integration via SOC truncation to BLS OOH.
+    is_pii: false
+    pii_rationale: ""
+    description: "O*NET-SOC occupation code (XX-XXXX.XX format). Foreign key to raw.onet_occupations."
+
+  - name: element_id
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Content Model element identifier (e.g., "4.A.1.a.1") — part of the table
+      grain and the structural key that identifies which of the 41 generalized
+      work activities is being rated. Each element_id maps to a specific human-skill
+      dimension in FutureProof's HMN stat. Without correct element_ids, activity
+      ratings cannot be mapped to the right skill dimensions and the HMN stat
+      calculation breaks. The 41 fixed elements are the backbone of the activity
+      rating system.
+    is_pii: false
+    pii_rationale: ""
+    description: "Content Model element ID (e.g., '4.A.1.a.1'). 41 distinct generalized work activities."
+
+  - name: element_name
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable activity name (e.g., "Getting Information"). 1:1 mapping
+      with element_id. Display label — element_id is the computational key.
+
+  - name: scale_id
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Measurement scale: "IM" (Importance, 1-5) or "LV" (Level, 0-7). Part of
+      the table grain. Determines the interpretation and valid range of data_value.
+      Perfectly balanced: 50% IM, 50% LV. Not flagged as CDE because it is a
+      structural classifier, not an independently critical analytical value —
+      its purpose is to contextualize data_value.
+
+  - name: data_value
+    type: double
+    required: true
+    is_cde: true
+    cde_rationale: >
+      The actual work activity rating — the core measurement in this table. This
+      is the quantitative input to the HMN (Human Edge) stat: how important is
+      each activity (IM scale, 1-5) and at what level is it performed (LV scale,
+      0-7) for each occupation. These ratings are aggregated across the 41 activities
+      to produce the occupation's human-skill profile. data_value is also an input
+      to the AI boss fight (combined with task-level data to assess which human
+      activities are resistant to automation). Precision matters — ratings are
+      continuous doubles, not rounded integers.
+    is_pii: false
+    pii_rationale: ""
+    description: "Rating value. IM scale: 1.00-4.99 (importance). LV scale: 0.00-6.81 (level)."
+
+  - name: n
+    type: int
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Survey sample size. Null for 1.8% of rows (Analyst-Transition sources).
+      Range 9-99 when populated. Useful for data quality assessment but not a
+      primary analytical input.
+
+  - name: standard_error
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Standard error of the rating estimate. Null for 25.3% of rows (Occupational
+      Expert and Analyst-Transition sources where no sampling distribution applies).
+      Statistical metadata, not an analytical input.
+
+  - name: lower_ci_bound
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Lower bound of confidence interval. Null pattern matches standard_error (25.3%)."
+
+  - name: upper_ci_bound
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Upper bound of confidence interval. Null pattern matches standard_error (25.3%)."
+
+  - name: recommend_suppress
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      O*NET data quality flag: "N" (74.9%), "n/a" (23.6%), "Y" (1.5%). When "Y",
+      O*NET recommends suppressing the value due to small sample size. Silver zone
+      should filter these. Not a CDE — it is a data quality indicator, not an
+      analytical value.
+
+  - name: not_relevant
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Relevance flag: "n/a" (50% — all IM rows), "N" (48.5% — LV, relevant),
+      "Y" (1.5% — LV, activity not relevant to occupation). When "Y",
+      data_value is near zero (0.00-1.79). Silver zone should interpret accordingly.
+      Not a CDE — it modifies data_value interpretation rather than being
+      independently critical.
+
+  - name: date
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Data collection date (MM/YYYY format). Range: 12/2005 to 08/2025."
+
+  - name: domain_source
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source of the rating: Incumbent (74.7%), Occupational Expert (23.5%),
+      Analyst-Transition (1.8%). Affects data quality characteristics but is
+      not itself an analytical input.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which O*NET ZIP was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (bulk_zip_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

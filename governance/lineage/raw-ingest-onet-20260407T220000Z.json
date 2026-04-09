@@ -1,0 +1,855 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T22:00:00.000000Z",
+    "run": {
+      "runId": "4811a9b7-2ed0-4203-b770-de6ba9a1905a",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of O*NET Occupation Data. Downloads ZIP archive from onetcenter.org, extracts Occupation Data.txt (tab-delimited), parses O*NET-SOC codes (XX-XXXX.XX format), titles, and descriptions. Rows with null grain fields (onet_soc_code) or null required fields (title, description) are skipped."
+        },
+        "brightsmith_runtimeMetrics": {
+          "inputRowCount": 1016,
+          "outputRowCount": 1016,
+          "skippedRows": 0,
+          "sourceFile": "Occupation Data.txt",
+          "sourceArchive": "db_30_2_text.zip",
+          "sourceUrl": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-onet-occupations",
+      "facets": {
+        "documentation": {
+          "description": "Ingest O*NET Occupation Data into raw.onet_occupations. Downloads O*NET 30.2 ZIP archive, extracts Occupation Data.txt, parses tab-delimited rows with O*NET-SOC code, title, and description. Coerces string fields via _coerce_onet_soc and _coerce_string. Appends to Iceberg table with dedup on grain (onet_soc_code)."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/onet_ingestor.py",
+          "sourceCodeClass": "OnetOccupationsIngestor"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "onetcenter.org",
+        "name": "onet-database-30.2.occupation-data",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+            "sourceFile": "Occupation Data.txt",
+            "format": "tab-delimited text with headers"
+          },
+          "schema": {
+            "fields": [
+              {"name": "O*NET-SOC Code", "type": "STRING"},
+              {"name": "Title", "type": "STRING"},
+              {"name": "Description", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.onet_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "title", "type": "STRING"},
+              {"name": "description", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "onet_soc_code": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.occupation-data", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_onet_soc(). Preserves O*NET-SOC XX-XXXX.XX format. Stripped of leading/trailing whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "title": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.occupation-data", "field": "Title"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Stripped of whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "description": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.occupation-data", "field": "Description"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Stripped of whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the ZIP download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_zip_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T22:00:00.000000Z",
+    "run": {
+      "runId": "879b673f-7b88-4e08-bd2e-eecf8d5e9f12",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of O*NET Task Statements. Extracts Task Statements.txt from the shared ZIP archive. Parses tab-delimited rows with O*NET-SOC codes, task IDs, task descriptions, and optional metadata (task_type, incumbents_responding, date, domain_source). Task IDs coerced to long via _coerce_long(). Rows with null grain fields (onet_soc_code, task_id) or null required fields (task) are skipped."
+        },
+        "brightsmith_runtimeMetrics": {
+          "inputRowCount": 18796,
+          "outputRowCount": 18796,
+          "skippedRows": 0,
+          "sourceFile": "Task Statements.txt",
+          "sourceArchive": "db_30_2_text.zip",
+          "sourceUrl": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-onet-task-statements",
+      "facets": {
+        "documentation": {
+          "description": "Ingest O*NET Task Statements into raw.onet_task_statements. Extracts Task Statements.txt from O*NET 30.2 ZIP archive. Parses tab-delimited rows at grain (onet_soc_code, task_id). Coerces SOC codes via _coerce_onet_soc, task_id via _coerce_long, optional fields via _coerce_string/_coerce_int. Appends to Iceberg table with dedup on grain."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/onet_ingestor.py",
+          "sourceCodeClass": "OnetTaskStatementsIngestor"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "onetcenter.org",
+        "name": "onet-database-30.2.task-statements",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+            "sourceFile": "Task Statements.txt",
+            "format": "tab-delimited text with headers"
+          },
+          "schema": {
+            "fields": [
+              {"name": "O*NET-SOC Code", "type": "STRING"},
+              {"name": "Task ID", "type": "STRING"},
+              {"name": "Task", "type": "STRING"},
+              {"name": "Task Type", "type": "STRING"},
+              {"name": "Incumbents Responding", "type": "STRING"},
+              {"name": "Date", "type": "STRING"},
+              {"name": "Domain Source", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.onet_task_statements",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "task_id", "type": "LONG"},
+              {"name": "task", "type": "STRING"},
+              {"name": "task_type", "type": "STRING"},
+              {"name": "incumbents_responding", "type": "INTEGER"},
+              {"name": "date", "type": "STRING"},
+              {"name": "domain_source", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "onet_soc_code": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.task-statements", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_onet_soc(). Preserves O*NET-SOC XX-XXXX.XX format. Stripped of whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "task_id": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.task-statements", "field": "Task ID"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to long integer via _coerce_long() (int(float(value))). Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "task": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.task-statements", "field": "Task"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Stripped of whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "task_type": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.task-statements", "field": "Task Type"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Optional field. Values are 'Core' or 'Supplemental'. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "incumbents_responding": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.task-statements", "field": "Incumbents Responding"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to integer via _coerce_int() (int(float(value))). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "date": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.task-statements", "field": "Date"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Data collection date. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "domain_source": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.task-statements", "field": "Domain Source"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Values are 'Occupational Expert' or 'Incumbent'. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the ZIP download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_zip_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T22:00:00.000000Z",
+    "run": {
+      "runId": "b72ffbd2-71e4-4e8c-8655-1c13e8a238f4",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of O*NET Work Activities. Extracts Work Activities.txt from the shared ZIP archive. Parses tab-delimited rows at grain (onet_soc_code, element_id, scale_id). Contains importance (IM, 1-5) and level (LV, 0-7) ratings for 41 generalized work activities across 886+ occupations. Optional statistical fields (n, standard_error, CI bounds) and O*NET metadata flags (recommend_suppress, not_relevant) preserved as-is. Rows with null grain or required fields are skipped."
+        },
+        "brightsmith_runtimeMetrics": {
+          "inputRowCount": 73308,
+          "outputRowCount": 73308,
+          "skippedRows": 0,
+          "sourceFile": "Work Activities.txt",
+          "sourceArchive": "db_30_2_text.zip",
+          "sourceUrl": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-onet-work-activities",
+      "facets": {
+        "documentation": {
+          "description": "Ingest O*NET Work Activities into raw.onet_work_activities. Extracts Work Activities.txt from O*NET 30.2 ZIP archive. Parses tab-delimited rows at grain (onet_soc_code, element_id, scale_id). Coerces rating values via _coerce_double with full precision, statistical fields via _coerce_int/_coerce_double, and O*NET metadata flags (recommend_suppress, not_relevant) via _coerce_string. Appends to Iceberg table with dedup on grain."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/onet_ingestor.py",
+          "sourceCodeClass": "OnetWorkActivitiesIngestor"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "onetcenter.org",
+        "name": "onet-database-30.2.work-activities",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+            "sourceFile": "Work Activities.txt",
+            "format": "tab-delimited text with headers"
+          },
+          "schema": {
+            "fields": [
+              {"name": "O*NET-SOC Code", "type": "STRING"},
+              {"name": "Element ID", "type": "STRING"},
+              {"name": "Element Name", "type": "STRING"},
+              {"name": "Scale ID", "type": "STRING"},
+              {"name": "Data Value", "type": "STRING"},
+              {"name": "N", "type": "STRING"},
+              {"name": "Standard Error", "type": "STRING"},
+              {"name": "Lower CI Bound", "type": "STRING"},
+              {"name": "Upper CI Bound", "type": "STRING"},
+              {"name": "Recommend Suppress", "type": "STRING"},
+              {"name": "Not Relevant", "type": "STRING"},
+              {"name": "Date", "type": "STRING"},
+              {"name": "Domain Source", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.onet_work_activities",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "data_value", "type": "DOUBLE"},
+              {"name": "n", "type": "INTEGER"},
+              {"name": "standard_error", "type": "DOUBLE"},
+              {"name": "lower_ci_bound", "type": "DOUBLE"},
+              {"name": "upper_ci_bound", "type": "DOUBLE"},
+              {"name": "recommend_suppress", "type": "STRING"},
+              {"name": "not_relevant", "type": "STRING"},
+              {"name": "date", "type": "STRING"},
+              {"name": "domain_source", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "onet_soc_code": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_onet_soc(). Preserves O*NET-SOC XX-XXXX.XX format. Stripped of whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "element_id": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Element ID"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Content Model element ID (e.g. '4.A.1.a.1'). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "element_name": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Element Name"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Activity name (e.g. 'Getting Information'). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "scale_id": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Scale ID"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Values are 'IM' (importance, scale 1-5) or 'LV' (level, scale 0-7). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "data_value": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Data Value"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double() (float(value)). Full precision preserved. Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "n": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "N"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to integer via _coerce_int(). Sample size. Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "standard_error": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Standard Error"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "lower_ci_bound": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Lower CI Bound"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "upper_ci_bound": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Upper CI Bound"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "recommend_suppress": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Recommend Suppress"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). O*NET data quality flag. Values are 'Y' or 'N'. Preserved as-is for Silver zone filtering.",
+                "transformationType": "DIRECT"
+              },
+              "not_relevant": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Not Relevant"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). O*NET metadata flag. Values are 'Y', 'N', or 'n/a'. Preserved as-is.",
+                "transformationType": "DIRECT"
+              },
+              "date": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Date"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Data collection date. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "domain_source": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-activities", "field": "Domain Source"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Values are 'Analyst' or 'Incumbent'. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the ZIP download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_zip_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T22:00:00.000000Z",
+    "run": {
+      "runId": "088af9e9-2022-4e8b-8321-24b2be07a748",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of O*NET Work Context. Extracts Work Context.txt from the shared ZIP archive. Same structure as Work Activities but includes an additional 'category' column for categorical context items. Contains ratings for 57 work context elements (hours, stress, time pressure, physical demands, social environment) across occupations. O*NET metadata flags (recommend_suppress, not_relevant) preserved as-is. Rows with null grain or required fields are skipped."
+        },
+        "brightsmith_runtimeMetrics": {
+          "inputRowCount": 297676,
+          "outputRowCount": 297676,
+          "skippedRows": 0,
+          "sourceFile": "Work Context.txt",
+          "sourceArchive": "db_30_2_text.zip",
+          "sourceUrl": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-onet-work-context",
+      "facets": {
+        "documentation": {
+          "description": "Ingest O*NET Work Context into raw.onet_work_context. Extracts Work Context.txt from O*NET 30.2 ZIP archive. Parses tab-delimited rows at grain (onet_soc_code, element_id, scale_id). Same coercion as Work Activities plus an additional 'category' integer field for categorical context items. Appends to Iceberg table with dedup on grain."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/onet_ingestor.py",
+          "sourceCodeClass": "OnetWorkContextIngestor"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "onetcenter.org",
+        "name": "onet-database-30.2.work-context",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+            "sourceFile": "Work Context.txt",
+            "format": "tab-delimited text with headers"
+          },
+          "schema": {
+            "fields": [
+              {"name": "O*NET-SOC Code", "type": "STRING"},
+              {"name": "Element ID", "type": "STRING"},
+              {"name": "Element Name", "type": "STRING"},
+              {"name": "Scale ID", "type": "STRING"},
+              {"name": "Data Value", "type": "STRING"},
+              {"name": "N", "type": "STRING"},
+              {"name": "Standard Error", "type": "STRING"},
+              {"name": "Lower CI Bound", "type": "STRING"},
+              {"name": "Upper CI Bound", "type": "STRING"},
+              {"name": "Recommend Suppress", "type": "STRING"},
+              {"name": "Not Relevant", "type": "STRING"},
+              {"name": "Date", "type": "STRING"},
+              {"name": "Domain Source", "type": "STRING"},
+              {"name": "Category", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.onet_work_context",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "data_value", "type": "DOUBLE"},
+              {"name": "n", "type": "INTEGER"},
+              {"name": "standard_error", "type": "DOUBLE"},
+              {"name": "lower_ci_bound", "type": "DOUBLE"},
+              {"name": "upper_ci_bound", "type": "DOUBLE"},
+              {"name": "recommend_suppress", "type": "STRING"},
+              {"name": "not_relevant", "type": "STRING"},
+              {"name": "date", "type": "STRING"},
+              {"name": "domain_source", "type": "STRING"},
+              {"name": "category", "type": "INTEGER"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "onet_soc_code": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_onet_soc(). Preserves O*NET-SOC XX-XXXX.XX format. Stripped of whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "element_id": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Element ID"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Content Model element ID (e.g. '4.C.1.a.2.a'). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "element_name": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Element Name"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Context dimension name (e.g. 'Time Pressure'). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "scale_id": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Scale ID"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Context-specific scale identifier. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "data_value": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Data Value"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double() (float(value)). Full precision preserved. Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "n": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "N"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to integer via _coerce_int(). Sample size. Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "standard_error": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Standard Error"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "lower_ci_bound": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Lower CI Bound"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "upper_ci_bound": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Upper CI Bound"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "recommend_suppress": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Recommend Suppress"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). O*NET data quality flag. Values are 'Y' or 'N'. Preserved as-is for Silver zone filtering.",
+                "transformationType": "DIRECT"
+              },
+              "not_relevant": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Not Relevant"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). O*NET metadata flag. Values are 'Y', 'N', or 'n/a'. Preserved as-is.",
+                "transformationType": "DIRECT"
+              },
+              "date": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Date"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Data collection date. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "domain_source": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Domain Source"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "category": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.work-context", "field": "Category"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to integer via _coerce_int(). Response category for categorical context items. Not present in Work Activities. Null for non-categorical items.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the ZIP download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_zip_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T22:00:00.000000Z",
+    "run": {
+      "runId": "d1788897-f3d9-41a5-a8a7-7442efe61922",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-onet.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of O*NET Related Occupations. Extracts Related Occupations.txt from the shared ZIP archive. Contains primary (1-10) and supplemental (11-20) related occupations for each O*NET occupation. Derives is_primary boolean from Relatedness Tier column (O*NET 30.2+), falling back to index range (<=10 = primary). Also preserves the relatedness_tier string field. Rows with null grain fields (onet_soc_code, related_onet_soc_code, related_index) are skipped."
+        },
+        "brightsmith_runtimeMetrics": {
+          "inputRowCount": 18460,
+          "outputRowCount": 18460,
+          "skippedRows": 0,
+          "sourceFile": "Related Occupations.txt",
+          "sourceArchive": "db_30_2_text.zip",
+          "sourceUrl": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-onet-related-occupations",
+      "facets": {
+        "documentation": {
+          "description": "Ingest O*NET Related Occupations into raw.onet_related_occupations. Extracts Related Occupations.txt from O*NET 30.2 ZIP archive. Parses tab-delimited rows at grain (onet_soc_code, related_onet_soc_code). Coerces SOC codes via _coerce_onet_soc, index via _coerce_int. Derives is_primary from Relatedness Tier column or index range. Appends to Iceberg table with dedup on grain."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/onet_ingestor.py",
+          "sourceCodeClass": "OnetRelatedOccupationsIngestor"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "onetcenter.org",
+        "name": "onet-database-30.2.related-occupations",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+            "sourceFile": "Related Occupations.txt",
+            "format": "tab-delimited text with headers"
+          },
+          "schema": {
+            "fields": [
+              {"name": "O*NET-SOC Code", "type": "STRING"},
+              {"name": "Related O*NET-SOC Code", "type": "STRING"},
+              {"name": "Index", "type": "STRING"},
+              {"name": "Relatedness Tier", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.onet_related_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "related_onet_soc_code", "type": "STRING"},
+              {"name": "related_index", "type": "INTEGER"},
+              {"name": "is_primary", "type": "BOOLEAN"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "onet_soc_code": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.related-occupations", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_onet_soc(). Preserves O*NET-SOC XX-XXXX.XX format. Source occupation code. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "related_onet_soc_code": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.related-occupations", "field": "Related O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_onet_soc(). Related occupation code in XX-XXXX.XX format. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "related_index": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.related-occupations", "field": "Index"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to integer via _coerce_int() (int(float(value))). Rank position (1-10 primary, 11-20 supplemental). Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "is_primary": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.related-occupations", "field": "Relatedness Tier"},
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.related-occupations", "field": "Index"}
+                ],
+                "transformationDescription": "Derived boolean. If Relatedness Tier column is present (O*NET 30.2+): True when tier starts with 'Primary'. Fallback: True when index <= 10, False otherwise. Not present in source data as a direct field.",
+                "transformationType": "DERIVED"
+              },
+              "relatedness_tier": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.related-occupations", "field": "Relatedness Tier"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). O*NET 30.2+ column indicating tier classification. Null if column not present in source.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the ZIP download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_zip_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

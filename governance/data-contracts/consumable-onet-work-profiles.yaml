@@ -1,0 +1,552 @@
+---
+# Data Contract: consumable.onet_work_profiles
+# Spec: gold-onet-profiles
+# Zone: Gold (Consumable)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-08
+
+table: consumable.onet_work_profiles
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - bls_soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/gold-onet-profiles.md
+physical_model: governance/models/gold-onet-profiles-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  # --- Occupation Identity (Carried from Silver) ---
+
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['bls_soc_code'], prefix='wp'). Format: wp-<16 hex chars>. Stable across
+      pipeline re-runs. Technical infrastructure field, not consumed by business
+      processes.
+
+  - name: bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Natural key and primary join anchor for the consumable work profiles table.
+      Every downstream consumer queries by bls_soc_code: Gemma agent lookups,
+      cross-table joins to consumable.occupation_profiles (BLS OOH) and
+      consumable.career_transitions, pentagon stat rendering for HMN, Burnout
+      boss fight engine, and Stage 3 branching. As the sole grain field of this
+      Gold consumable table, an incorrect or missing bls_soc_code would sever the
+      linkage between O*NET work characteristics and the occupation-level
+      statistics that power FutureProof's HMN stat and AI/Burnout boss fights.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      6-digit BLS SOC code in XX-XXXX format. Natural key. Primary join key to
+      consumable.occupation_profiles and consumable.career_transitions. 798
+      unique values expected.
+    constraints:
+      - "UNIQUE"
+      - "CHECK (bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: primary_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Occupation title from O*NET. Display label consumed by Gemma for career
+      descriptions. Not independently critical because consumable.occupation_profiles
+      already carries the authoritative display title (occupation_title) from BLS.
+
+  - name: description
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Occupation description from O*NET. Provides additional context for Gemma
+      career descriptions. Informational, not used in scoring or joins.
+
+  - name: multi_detail_flag
+    type: boolean
+    required: true
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True for 76 BLS SOCs with multiple O*NET detailed codes aggregated.
+      Informational flag carried from Silver; input to confidence_tier but not
+      independently critical.
+
+  - name: data_completeness_tier
+    type: varchar
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      "full" (774 rows) or "partial" (24 rows). Source:
+      base.onet_occupations.data_completeness_tier. Input to confidence_tier
+      derivation. Not independently consumed by downstream applications.
+    constraints:
+      - "CHECK (data_completeness_tier IN ('full', 'partial'))"
+
+  # --- Human Edge Assessment (Derived) ---
+
+  - name: hmn_score
+    type: double
+    required: false
+    business_term: BT-066
+    is_cde: true
+    cde_rationale: >
+      Human Edge stat on a 1-10 scale that directly backs the HMN pentagon stat
+      in the FutureProof five-stat system. This is the primary scored output for
+      "how much does this occupation rely on distinctly human skills?" Consumed
+      by the game engine for pentagon display, by Gemma for human-edge narrative,
+      and by the AI boss fight for contextualizing automation exposure. Derived
+      from the human_ratio of importance-weighted work activities. As a
+      consumable-layer stat score, an incorrect hmn_score would directly
+      misrepresent the human edge potential of an occupation to students. Null
+      for 24 partial-data occupations.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human Edge stat on 1-10 scale. Derived from human_ratio via
+      1.0 + 9.0 * human_ratio. Null for 24 partial-data occupations.
+      Backs the HMN pentagon stat.
+    constraints:
+      - "CHECK (hmn_score IS NULL OR (hmn_score >= 1.0 AND hmn_score <= 10.0))"
+
+  - name: hmn_score_rounded
+    type: integer
+    required: false
+    business_term: BT-066
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Integer 1-10 for pentagon display. ROUND(hmn_score). Null if hmn_score is
+      null. Derived from hmn_score; not independently critical.
+    constraints:
+      - "CHECK (hmn_score_rounded IS NULL OR (hmn_score_rounded >= 1 AND hmn_score_rounded <= 10))"
+
+  - name: top_human_activities
+    type: varchar
+    required: false
+    business_term: BT-067
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON array of top 5 human-intensive activities by importance.
+      Format: [{"activity": "name", "importance": 4.5}, ...]. Null if no
+      activity profile. Powers Gemma's "what the human edge looks like"
+      narrative. Informational detail supporting hmn_score; not independently
+      critical for scoring or joins.
+
+  - name: human_activity_count
+    type: integer
+    required: false
+    business_term: BT-067
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of the 14 human-intensive activities with data for this occupation.
+      Always 14 when data present. Null if no activity profile.
+    constraints:
+      - "CHECK (human_activity_count IS NULL OR (human_activity_count >= 0 AND human_activity_count <= 14))"
+
+  # --- Burnout Assessment (Derived) ---
+
+  - name: burnout_score
+    type: double
+    required: false
+    business_term: BT-068
+    is_cde: true
+    cde_rationale: >
+      Burnout risk stat on a 1-10 scale that directly backs the Burnout boss
+      fight in the FutureProof game engine. This is the primary scored output
+      for "how high is the burnout risk for this occupation?" Derived from the
+      normalized average of 9 burnout-relevant Work Context elements. Consumed
+      by the game engine for Burnout boss fight difficulty calibration, by Gemma
+      for burnout risk narrative, and by the compare screen for cross-occupation
+      burnout comparison. An incorrect burnout_score would directly miscalibrate
+      the Burnout boss fight and mislead students about occupational burnout
+      risk. Null for 24 partial-data occupations.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Burnout risk on 1-10 scale. Derived from normalized average of 9 burnout
+      elements mapped to 1-10. Higher = more burnout risk. Null for 24
+      partial-data occupations. Backs the Burnout boss fight.
+    constraints:
+      - "CHECK (burnout_score IS NULL OR (burnout_score >= 1.0 AND burnout_score <= 10.0))"
+
+  - name: burnout_score_rounded
+    type: integer
+    required: false
+    business_term: BT-068
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Integer 1-10 for boss fight display. ROUND(burnout_score). Null if
+      burnout_score is null. Derived from burnout_score; not independently
+      critical.
+    constraints:
+      - "CHECK (burnout_score_rounded IS NULL OR (burnout_score_rounded >= 1 AND burnout_score_rounded <= 10))"
+
+  - name: burnout_drivers
+    type: varchar
+    required: false
+    business_term: BT-069
+    is_cde: true
+    cde_rationale: >
+      JSON array of the top 3 burnout-contributing Work Context elements with
+      normalized values. Directly consumed by Gemma for burnout narrative --
+      this is the field that tells students WHY an occupation has high burnout
+      risk (e.g., "high time pressure", "long work hours", "high consequence
+      of error"). Without this field, the burnout_score is an opaque number;
+      burnout_drivers provides the actionable explanation that students need
+      to understand burnout risk. Incorrect driver identification would mislead
+      students about the specific sources of occupational stress.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON array of top 3 burnout-contributing elements. Format:
+      [{"element": "name", "value": 0.85}, ...]. Null when burnout_score is
+      null. Powers Gemma's burnout narrative.
+
+  - name: time_pressure
+    type: double
+    required: false
+    business_term: BT-059
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Time Pressure (CX scale, 1-5). Direct from Silver context profile for
+      element 4.C.3.d.1. Null if no context profile. Individual burnout
+      element; the composite burnout_score carries the analytical weight.
+    constraints:
+      - "CHECK (time_pressure IS NULL OR (time_pressure >= 1.0 AND time_pressure <= 5.0))"
+
+  - name: work_hours
+    type: double
+    required: false
+    business_term: BT-059
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Duration of Typical Work Week (CT scale, 1-3, where 3 = ">40 hrs").
+      Direct from Silver for element 4.C.3.d.8. Null if no context profile.
+      Individual burnout element; the composite burnout_score carries the
+      analytical weight.
+    constraints:
+      - "CHECK (work_hours IS NULL OR (work_hours >= 1.0 AND work_hours <= 3.0))"
+
+  - name: consequence_of_error
+    type: double
+    required: false
+    business_term: BT-059
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Consequence of Error (CX scale, 1-5). Direct from Silver for element
+      4.C.3.a.1. Null if no context profile. Individual burnout element; the
+      composite burnout_score carries the analytical weight.
+    constraints:
+      - "CHECK (consequence_of_error IS NULL OR (consequence_of_error >= 1.0 AND consequence_of_error <= 5.0))"
+
+  # --- Activity Profile Summary (Derived) ---
+
+  - name: activity_importance_mean
+    type: double
+    required: false
+    business_term: BT-072
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Arithmetic mean of all 41 IM importance values. Measures overall activity
+      intensity. Null when no activity profile. Informational summary metric;
+      not directly consumed for scoring or boss fights.
+    constraints:
+      - "CHECK (activity_importance_mean IS NULL OR (activity_importance_mean >= 1.0 AND activity_importance_mean <= 5.0))"
+
+  - name: top_5_activities
+    type: varchar
+    required: false
+    business_term: BT-057
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON array of 5 highest-importance activities. Format:
+      [{"activity": "name", "importance": 4.2}, ...]. Null if no activity
+      profile. Powers Gemma descriptions. Informational detail; not
+      independently critical for scoring.
+
+  - name: activity_profile_available
+    type: boolean
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if base.onet_activity_profiles has rows for this SOC. False for 24
+      partial-data occupations. Informational flag.
+
+  # --- Context Profile Summary (Derived) ---
+
+  - name: context_profile_available
+    type: boolean
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if base.onet_context_profiles has rows for this SOC. False for 24
+      partial-data occupations. Informational flag.
+
+  # --- Data Quality Context (Derived) ---
+
+  - name: confidence_tier
+    type: varchar
+    required: true
+    business_term: BT-071
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Three-level data quality classification: "high" (772 rows), "medium" (2
+      rows), "low" (24 rows). Every row receives a tier.
+      Informational metadata; not consumed as a primary business metric.
+    constraints:
+      - "CHECK (confidence_tier IN ('high', 'medium', 'low'))"
+
+  - name: suppress_pct_activities
+    type: double
+    required: false
+    business_term: BT-062
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Percentage of activity profile rows with suppress_flag = True. Null if
+      no activity profile (24 rows). Data quality metadata.
+    constraints:
+      - "CHECK (suppress_pct_activities IS NULL OR (suppress_pct_activities >= 0.0 AND suppress_pct_activities <= 100.0))"
+
+  - name: suppress_pct_context
+    type: double
+    required: false
+    business_term: BT-062
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Percentage of context profile rows with suppress_flag = True. Null if
+      no context profile (24 rows). Data quality metadata.
+    constraints:
+      - "CHECK (suppress_pct_context IS NULL OR (suppress_pct_context >= 0.0 AND suppress_pct_context <= 100.0))"
+
+  # --- FutureProof Stat Mapping (Static) ---
+
+  - name: backs_stats
+    type: varchar
+    required: true
+    business_term: BT-054
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      FutureProof pentagon stats this table feeds. Always "HMN" for all 798
+      rows. Documentation metadata.
+    constraints:
+      - "CHECK (backs_stats = 'HMN')"
+
+  - name: backs_bosses
+    type: varchar
+    required: true
+    business_term: BT-054
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Boss fights this table feeds. Always "AI,Burnout" for all 798 rows.
+      Documentation metadata.
+    constraints:
+      - "CHECK (backs_bosses = 'AI,Burnout')"
+
+  # --- Pipeline Metadata ---
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the raw zone. Pipeline metadata
+      carried from Silver.
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    business_term: BT-026
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was promoted to the Gold zone consumable table.
+      Generated at promotion time.
+
+# Quality thresholds based on physical model constraints, DQ rules, and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    hmn_score_max_null_count: 24
+    burnout_score_max_null_count: 24
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    data_completeness_tier_values: ["full", "partial"]
+    hmn_score_range: [1.0, 10.0]
+    burnout_score_range: [1.0, 10.0]
+    time_pressure_range: [1.0, 5.0]
+    work_hours_range: [1.0, 3.0]
+    consequence_of_error_range: [1.0, 5.0]
+    activity_importance_mean_range: [1.0, 5.0]
+    confidence_tier_values: ["high", "medium", "low"]
+    suppress_pct_range: [0.0, 100.0]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    bls_soc_code_unique: true
+  volume:
+    row_count_exact: 798
+    hmn_score_null_count: 24
+    burnout_score_null_count: 24
+    confidence_tier_high_count: 772
+    confidence_tier_medium_count: 2
+    confidence_tier_low_count: 24
+  consistency:
+    hmn_score_rounded_equals_round_hmn_score: true
+    burnout_score_rounded_equals_round_burnout_score: true
+    backs_stats_constant: "HMN"
+    backs_bosses_constant: "AI,Burnout"
+  freshness_sla: >
+    Full table replace on each pipeline run. Freshness depends on O*NET
+    release schedule (annual, current version 30.2).
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/gold-onet-profiles.json
+  total_rules: 43
+  work_profiles_rules: 29
+  scorecard: governance/dq-scorecards/gold-onet-profiles-scorecard.md
+  pass_rate: "100%"
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_tables:
+    - base.onet_occupations
+    - base.onet_activity_profiles
+    - base.onet_context_profiles
+  transformation: src/gold/onet_work_profiles.py
+
+# Consumers -- downstream tables and processes that depend on this contract.
+consumers:
+  - name: "FutureProof Game Engine (Pentagon Stats)"
+    type: application
+    description: >
+      Consumes hmn_score_rounded for HMN pentagon stat. Depends on score
+      ranges (1-10), grain integrity, and CDE fields.
+    contact: "@primary-agent"
+    status: planned
+  - name: "FutureProof Game Engine (Boss Fights)"
+    type: application
+    description: >
+      Consumes burnout_score for Burnout boss fight and burnout_drivers for
+      boss fight narrative. Also consumes hmn_score for AI boss fight context.
+    contact: "@primary-agent"
+    status: planned
+  - name: "Gemma Career Guidance Agent"
+    type: grounding
+    description: >
+      Consumes primary_title, description, hmn_score, burnout_score,
+      top_human_activities, burnout_drivers, top_5_activities for
+      natural-language career descriptions and human-edge/burnout narratives.
+    contact: "@doc-generator"
+    status: planned
+  - name: "consumable.career_transitions"
+    type: table
+    description: >
+      Checks bls_soc_code existence for source_has_work_profile and
+      related_has_work_profile flags. Depends on bls_soc_code uniqueness
+      and grain integrity.
+    contact: "@primary-agent"
+    status: planned
+  - name: "Cross-source Gold product (CIP-SOC crosswalk)"
+    type: table
+    description: >
+      Future cross-source Gold product will join to this table via
+      bls_soc_code through the CIP-SOC crosswalk. Depends on bls_soc_code
+      format and grain integrity.
+    contact: "@primary-agent"
+    status: planned

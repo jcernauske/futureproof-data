@@ -1,0 +1,11 @@
+{
+  "run_id": "258bb0a3",
+  "spec": "raw-ingest-onet",
+  "executed_at": "2026-04-08T03:14:56.684405+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

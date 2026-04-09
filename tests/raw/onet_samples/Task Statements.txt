@@ -1,0 +1,9 @@
+O*NET-SOC Code	Task ID	Task	Task Type	Incumbents Responding	Date	Domain Source
+11-1011.00	8823	Direct or coordinate an organization's financial or budget activities to fund operations, maximize investments, or increase efficiency.	Core	95	08/2023	Incumbent
+11-1011.00	8824	Confer with board members, organization officials, or staff members to discuss issues, coordinate activities, or resolve problems.	Core	95	08/2023	Incumbent
+11-1011.00	8827	Prepare budgets for approval, including those for funding or implementation of programs.	Core	95	08/2023	Incumbent
+11-1011.00	8826	Direct, plan, or implement policies, objectives, or activities of organizations or businesses to ensure continuing operations, to maximize returns on investments, or to increase productivity.	Core	94	08/2023	Incumbent
+11-1011.00	8834	Prepare or present reports concerning activities, expenses, budgets, government statutes or rulings, or other items affecting businesses or program services.	Core	95	08/2023	Incumbent
+11-1011.00	8836	Implement corrective action plans to solve organizational or departmental problems.	Core	94	08/2023	Incumbent
+11-1011.00	8825	Analyze operations to evaluate performance of a company or its staff in meeting objectives or to determine areas of potential cost reduction, program improvement, or policy change.	Core	94	08/2023	Incumbent
+11-1011.00	8828	Direct or coordinate activities of businesses or departments concerned with production, pricing, sales, or distribution of products.	Core	94	08/2023	Incumbent

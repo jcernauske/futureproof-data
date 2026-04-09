@@ -1,0 +1,365 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-06T22:00:00.000000Z",
+    "run": {
+      "runId": "c7e29a14-5b83-4d1f-a6c0-8f2d4e7b3a91",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-career-outcomes-college-scorecard.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone transformation of College Scorecard data. Reads 69,947 rows from base.college_scorecard (Silver), computes CIP-family percentile bands via window functions, derives financial ratios (debt-to-earnings, earnings growth, program value index), assigns confidence tiers and convenience flags, computes deterministic record_id via grain hash, and promotes to consumable.career_outcomes via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 69947,
+          "rowsTransformed": 69947,
+          "rowsSkippedTransform": 0,
+          "promoted": 69947,
+          "skippedDedup": 0
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-career-outcomes",
+      "facets": {
+        "documentation": {
+          "description": "Transform Silver base.college_scorecard into Gold consumable.career_outcomes. Computes cross-institution CIP-family percentile bands (p25/p75) for earnings and debt via PERCENTILE_CONT window functions with minimum sample guard (>=3 non-null values). Derives debt-to-earnings ratio and tier classification, earnings growth rate, CIP-family earnings rank via PERCENT_RANK, program value index (ROI proxy), confidence tier from cohort size and data availability, convenience flags (has_earnings, has_debt), and outcome completeness score. Renames completions_count_1 to completions_count. Drops credential_description, completions_count_2, and ingested_at from Silver. Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/college_scorecard_career_outcomes.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.college_scorecard",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "institution_control", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "program_name", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "cip_family_name", "type": "STRING"},
+              {"name": "credential_level", "type": "INTEGER"},
+              {"name": "credential_description", "type": "STRING"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "earnings_2yr_median", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"},
+              {"name": "completions_count_1", "type": "LONG"},
+              {"name": "completions_count_2", "type": "LONG"},
+              {"name": "small_cohort_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.career_outcomes",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "institution_control", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "program_name", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "cip_family_name", "type": "STRING"},
+              {"name": "credential_level", "type": "INTEGER"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "earnings_2yr_median", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"},
+              {"name": "completions_count", "type": "LONG"},
+              {"name": "small_cohort_flag", "type": "BOOLEAN"},
+              {"name": "earnings_1yr_p25", "type": "DOUBLE"},
+              {"name": "earnings_1yr_p75", "type": "DOUBLE"},
+              {"name": "earnings_2yr_p25", "type": "DOUBLE"},
+              {"name": "earnings_2yr_p75", "type": "DOUBLE"},
+              {"name": "debt_p25", "type": "DOUBLE"},
+              {"name": "debt_p75", "type": "DOUBLE"},
+              {"name": "debt_to_earnings_annual", "type": "DOUBLE"},
+              {"name": "debt_to_earnings_tier", "type": "STRING"},
+              {"name": "earnings_growth_rate", "type": "DOUBLE"},
+              {"name": "cip_family_earnings_rank", "type": "DOUBLE"},
+              {"name": "program_value_index", "type": "DOUBLE"},
+              {"name": "confidence_tier", "type": "STRING"},
+              {"name": "has_earnings", "type": "BOOLEAN"},
+              {"name": "has_debt", "type": "BOOLEAN"},
+              {"name": "outcome_completeness", "type": "DOUBLE"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "credential_level"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(row, ['unitid', 'cipcode', 'credlev'], prefix='co'). SHA-256 of concatenated grain fields with 'co' prefix. Note: credential_level from Silver is mapped to 'credlev' key in the grain dict before hashing.",
+                "transformationType": "DERIVED"
+              },
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "Direct copy from Silver. IPEDS institution identifier, no transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "institution_name"}
+                ],
+                "transformationDescription": "Direct copy from Silver. No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "institution_control": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "institution_control"}
+                ],
+                "transformationDescription": "Direct copy from Silver. No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "cipcode": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cipcode"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Normalized CIP code in XX.XX format.",
+                "transformationType": "DIRECT"
+              },
+              "program_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "program_name"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Human-readable program description.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "Direct copy from Silver. 2-digit CIP family code.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family_name"}
+                ],
+                "transformationDescription": "Direct copy from Silver. CIP family taxonomy description.",
+                "transformationType": "DIRECT"
+              },
+              "credential_level": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "credential_level"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Integer credential level (e.g., 3=Bachelor's).",
+                "transformationType": "DIRECT"
+              },
+              "earnings_1yr_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Median earnings 1 year post-completion. Null values preserved.",
+                "transformationType": "DIRECT"
+              },
+              "earnings_2yr_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Median earnings 2 years post-completion. Null values preserved.",
+                "transformationType": "DIRECT"
+              },
+              "debt_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Median debt at graduation. Null values preserved.",
+                "transformationType": "DIRECT"
+              },
+              "completions_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "completions_count_1"}
+                ],
+                "transformationDescription": "Column rename from 'completions_count_1' to 'completions_count'. First-major IPEDS completions count. Second-major completions (completions_count_2) dropped per spec.",
+                "transformationType": "DIRECT"
+              },
+              "small_cohort_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "small_cohort_flag"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Boolean flag for programs with fewer than 30 completers.",
+                "transformationType": "DIRECT"
+              },
+              "earnings_1yr_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.25) of earnings_1yr_median across all institutions within the same cip_family. Only CIP families with >= 3 non-null earnings_1yr_median values get a percentile; otherwise null. Computed via DuckDB window function with minimum sample guard.",
+                "transformationType": "AGGREGATION"
+              },
+              "earnings_1yr_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.75) of earnings_1yr_median across all institutions within the same cip_family. Only CIP families with >= 3 non-null values get a percentile; otherwise null.",
+                "transformationType": "AGGREGATION"
+              },
+              "earnings_2yr_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.25) of earnings_2yr_median across all institutions within the same cip_family. Only CIP families with >= 3 non-null earnings_2yr_median values get a percentile; otherwise null.",
+                "transformationType": "AGGREGATION"
+              },
+              "earnings_2yr_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.75) of earnings_2yr_median across all institutions within the same cip_family. Only CIP families with >= 3 non-null values get a percentile; otherwise null.",
+                "transformationType": "AGGREGATION"
+              },
+              "debt_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.25) of debt_median across all institutions within the same cip_family. Only CIP families with >= 3 non-null debt_median values get a percentile; otherwise null.",
+                "transformationType": "AGGREGATION"
+              },
+              "debt_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.75) of debt_median across all institutions within the same cip_family. Only CIP families with >= 3 non-null values get a percentile; otherwise null.",
+                "transformationType": "AGGREGATION"
+              },
+              "debt_to_earnings_annual": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"}
+                ],
+                "transformationDescription": "debt_median / earnings_1yr_median. Null-safe: returns null if either debt_median or earnings_1yr_median is null. Key affordability metric per Department of Education Gainful Employment guidance.",
+                "transformationType": "DERIVED"
+              },
+              "debt_to_earnings_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"}
+                ],
+                "transformationDescription": "Bucketed classification of debt_to_earnings_annual: 'Low' (< 0.75), 'Moderate' (0.75-1.5), 'High' (1.5-2.5), 'Very High' (>= 2.5). Null if debt_to_earnings_annual is null. Based on DoE Gainful Employment rule thresholds.",
+                "transformationType": "DERIVED"
+              },
+              "earnings_growth_rate": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"}
+                ],
+                "transformationDescription": "(earnings_2yr_median - earnings_1yr_median) / earnings_1yr_median. Null-safe: null if either input is null. Negative values valid (cohort differences between measurement years, not individual regression).",
+                "transformationType": "DERIVED"
+              },
+              "cip_family_earnings_rank": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENT_RANK() OVER (PARTITION BY cip_family ORDER BY earnings_1yr_median). Range 0.0-1.0 where 1.0 = highest earner in CIP family. Null for rows where earnings_1yr_median is null (LEFT JOIN excludes nulls from ranking).",
+                "transformationType": "AGGREGATION"
+              },
+              "program_value_index": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "earnings_1yr_median / debt_median. ROI proxy — higher values indicate better value (more earnings per dollar of debt). Null-safe: null if either input is null.",
+                "transformationType": "DERIVED"
+              },
+              "confidence_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "small_cohort_flag"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "Data quality classification: 'high' (large cohort + has earnings + has debt), 'medium' (large cohort + has earnings or debt), 'low' (small cohort + has some data), 'insufficient' (no earnings and no debt). Every row gets a tier. Derived from small_cohort_flag and nullity of earnings/debt fields.",
+                "transformationType": "DERIVED"
+              },
+              "has_earnings": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"}
+                ],
+                "transformationDescription": "Boolean convenience flag: True if earnings_1yr_median IS NOT NULL OR earnings_2yr_median IS NOT NULL. Simplifies downstream filtering.",
+                "transformationType": "DERIVED"
+              },
+              "has_debt": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "Boolean convenience flag: True if debt_median IS NOT NULL. Simplifies downstream filtering.",
+                "transformationType": "DERIVED"
+              },
+              "outcome_completeness": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "Fraction of 3 core outcome fields (earnings_1yr_median, earnings_2yr_median, debt_median) that are non-null. Computed as count_non_null / 3.0, snapped to exact value set {0.0, 0.33, 0.67, 1.0} via _snap_outcome_completeness() to prevent floating-point drift.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "source_load_date"}
+                ],
+                "transformationDescription": "Direct copy from Silver. Original data load date preserved through zone transition.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Records when data was promoted to consumable.career_outcomes.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "completions_count_2": {
+                "reason": "Second-major completions not relevant to career outcomes query pattern. Retained completions_count_1 as completions_count per spec."
+              },
+              "credential_description": {
+                "reason": "Redundant with credential_level (always 'Bachelor's Degree' in MVP). Dropped per spec."
+              },
+              "ingested_at": {
+                "reason": "Silver metadata timestamp replaced by promoted_at in Gold zone per spec."
+              },
+              "record_id (Silver)": {
+                "reason": "Silver grain hash (prefix 'cs') replaced by Gold grain hash (prefix 'co') with same grain fields. New record_id computed for Gold zone identity."
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

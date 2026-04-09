@@ -1,0 +1,255 @@
+---
+# Data Contract: base.onet_occupations
+# Spec: silver-base-onet
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-08
+
+table: base.onet_occupations
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - bls_soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/silver-base-onet.md
+physical_model: governance/models/silver-base-onet-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key: compute_grain_id(row, ['bls_soc_code'],
+      prefix='on'). Format: on-<16 hex chars>. Technical infrastructure field,
+      not consumed by business processes.
+
+  - name: bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Natural key and primary join key for cross-source integration. Every
+      downstream Gold zone join (HMN stat, Burnout boss fight, career branching)
+      keys on bls_soc_code. Also the crosswalk anchor linking O*NET occupation
+      data to BLS OOH employment/wage statistics and College Scorecard program
+      outcomes via the CIP-SOC bridge. Incorrect or missing values would sever
+      the occupation-to-program linkage that is core to FutureProof.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      6-digit BLS SOC code (XX-XXXX). Natural key. Primary join key for BLS OOH
+      and CIP-SOC crosswalk. 798 unique values.
+    constraints:
+      - "UNIQUE"
+      - "CHECK (bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: primary_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Title of the .00 base code, or first detailed code's title if no .00
+      exists. Display label; bls_soc_code is the authoritative identifier.
+
+  - name: description
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Description of the .00 base code. Functional summary from O*NET.
+      Standardized federal description of job duties.
+
+  - name: onet_detail_codes
+    type: varchar
+    required: true
+    business_term: BT-055
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON array of all O*NET-SOC codes (XX-XXXX.XX) mapping to this BLS SOC,
+      sorted ascending. Used for traceability back to O*NET detail level.
+
+  - name: onet_detail_count
+    type: integer
+    required: true
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of O*NET detailed codes mapping to this BLS SOC. Range: 1-10.
+    constraints:
+      - "CHECK (onet_detail_count >= 1 AND onet_detail_count <= 10)"
+
+  - name: multi_detail_flag
+    type: boolean
+    required: true
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True when onet_detail_count > 1. Exactly 76 BLS SOCs have this flag set.
+
+  - name: has_work_activities
+    type: boolean
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if any O*NET detail code for this BLS SOC has Work Activities data
+      in Bronze.
+
+  - name: has_work_context
+    type: boolean
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if any O*NET detail code for this BLS SOC has Work Context data in
+      Bronze.
+
+  - name: has_tasks
+    type: boolean
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if any O*NET detail code for this BLS SOC has Task Statements in
+      Bronze.
+
+  - name: has_related
+    type: boolean
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if any O*NET detail code for this BLS SOC has Related Occupations in
+      Bronze.
+
+  - name: data_completeness_tier
+    type: varchar
+    required: true
+    business_term: BT-064
+    is_cde: true
+    cde_rationale: >
+      Determines whether downstream Gold zone processes can use this occupation
+      for full stat generation or must apply partial-data handling. Occupations
+      with tier='partial' may produce incomplete HMN stats or Burnout scores.
+      Gold consumers filter or flag based on this tier. Incorrect classification
+      would cause Gold zone to silently produce stats from incomplete data,
+      misleading career guidance outputs.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      "full" (all 4 data types present) or "partial" (some present). "none"
+      excluded from Silver.
+    constraints:
+      - "CHECK (data_completeness_tier IN ('full', 'partial'))"
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the Bronze zone. Pipeline metadata.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to Silver. Generated at transformation
+      time. Pipeline metadata.
+
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    data_completeness_tier_values: ["full", "partial"]
+    onet_detail_count_range: [1, 10]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    bls_soc_code_unique: true
+  volume:
+    row_count_exact: 798
+    multi_detail_flag_true_count: 76
+  freshness_sla: >
+    Full table replace on each pipeline run. No incremental loads. Freshness
+    depends on O*NET release schedule (annual, version 30.2 current).
+
+lineage:
+  source_table: raw.onet_occupations
+  transformation: src/silver/onet_transformer.py
+  physical_model: governance/models/silver-base-onet-physical.md
+
+consumers:
+  - name: "base.onet_activity_profiles"
+    type: table
+    description: >
+      FK join on bls_soc_code for occupation-level context.
+    contact: "@primary-agent"
+    status: active
+  - name: "base.onet_context_profiles"
+    type: table
+    description: >
+      FK join on bls_soc_code for occupation-level context.
+    contact: "@primary-agent"
+    status: active
+  - name: "base.onet_career_transitions"
+    type: table
+    description: >
+      FK join on bls_soc_code (source and target) for occupation-level context.
+    contact: "@primary-agent"
+    status: active
+  - name: "Gold zone career outcomes"
+    type: table
+    description: >
+      Gold zone joins O*NET occupation data with BLS OOH and College Scorecard
+      via bls_soc_code for career guidance stat generation.
+    contact: "@primary-agent"
+    status: planned

@@ -1,0 +1,579 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T18:00:00.000000Z",
+    "run": {
+      "runId": "d7a3e1f4-2c8b-4d9a-b5e6-3f1a7c9d2e08",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-onet-profiles.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone transformation 1 of 2 for O*NET profiles spec. Reads 798 rows from base.onet_occupations, 31,734 rows from base.onet_activity_profiles, and 44,118 rows from base.onet_context_profiles (Silver). Pivots per-occupation activity rows (41 per SOC) into human_ratio via sum of importance values for 14 human-intensive activities divided by total importance, then min/max rescales across all 774 occupations with data to HMN score (1-10). Pivots per-occupation context rows (57 per SOC) by extracting 9 burnout elements (identified by is_burnout_element flag from Silver), normalizing CX 1-5 and CT 1-3 scales to 0-1, averaging, then mapping to burnout_score (1-10). Extracts individual burnout element values (time_pressure, work_hours, consequence_of_error). Builds JSON arrays for top_5_activities, top_human_activities (top 5 from 14 human-intensive), and burnout_drivers (top 3 by normalized value). Computes confidence_tier from data_completeness_tier and suppress percentages. Sets static FutureProof mapping fields. Computes deterministic record_id via compute_grain_id with 'wp' prefix. Promotes to consumable.onet_work_profiles via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 76650,
+          "rowsReadBreakdown": {
+            "base.onet_occupations": 798,
+            "base.onet_activity_profiles": 31734,
+            "base.onet_context_profiles": 44118
+          },
+          "rowsTransformed": 798,
+          "rowsWithFullScores": 774,
+          "rowsWithPartialData": 24,
+          "promoted": 798,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "fieldsDerived": 17,
+          "fieldsCarriedDirect": 6,
+          "fieldsStatic": 2,
+          "fieldsMetadata": 2
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-onet-work-profiles",
+      "facets": {
+        "documentation": {
+          "description": "Transform Silver base.onet_occupations, base.onet_activity_profiles, and base.onet_context_profiles into the consumable.onet_work_profiles Gold data product. Pivots many-rows-per-occupation activity and context profiles into a single row per occupation with derived HMN score (Human Edge, 1-10, min/max rescaled from human_ratio across 774 occupations), Burnout score (1-10, normalized weighted average of 9 context elements), JSON activity and burnout summaries, individual burnout element extracts, suppression percentages, and confidence tier. Adds static FutureProof stat/boss mappings. Computes deterministic record_id with 'wp' prefix. Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/onet_work_profiles.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "primary_title", "type": "STRING"},
+              {"name": "description", "type": "STRING"},
+              {"name": "multi_detail_flag", "type": "BOOLEAN"},
+              {"name": "data_completeness_tier", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_activity_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "importance", "type": "DOUBLE"},
+              {"name": "suppress_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_context_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "context_value", "type": "DOUBLE"},
+              {"name": "is_burnout_element", "type": "BOOLEAN"},
+              {"name": "suppress_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.onet_work_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "primary_title", "type": "STRING"},
+              {"name": "description", "type": "STRING"},
+              {"name": "multi_detail_flag", "type": "BOOLEAN"},
+              {"name": "data_completeness_tier", "type": "STRING"},
+              {"name": "hmn_score", "type": "DOUBLE"},
+              {"name": "hmn_score_rounded", "type": "INTEGER"},
+              {"name": "top_human_activities", "type": "STRING"},
+              {"name": "human_activity_count", "type": "INTEGER"},
+              {"name": "burnout_score", "type": "DOUBLE"},
+              {"name": "burnout_score_rounded", "type": "INTEGER"},
+              {"name": "burnout_drivers", "type": "STRING"},
+              {"name": "time_pressure", "type": "DOUBLE"},
+              {"name": "work_hours", "type": "DOUBLE"},
+              {"name": "consequence_of_error", "type": "DOUBLE"},
+              {"name": "activity_importance_mean", "type": "DOUBLE"},
+              {"name": "top_5_activities", "type": "STRING"},
+              {"name": "activity_profile_available", "type": "BOOLEAN"},
+              {"name": "context_profile_available", "type": "BOOLEAN"},
+              {"name": "confidence_tier", "type": "STRING"},
+              {"name": "suppress_pct_activities", "type": "DOUBLE"},
+              {"name": "suppress_pct_context", "type": "DOUBLE"},
+              {"name": "backs_stats", "type": "STRING"},
+              {"name": "backs_bosses", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(row, ['bls_soc_code'], prefix='wp'). SHA-256 of concatenated grain fields with 'wp' prefix. Different from Silver record_id which uses different prefixes per table.",
+                "transformationType": "DERIVED"
+              },
+              "bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver base.onet_occupations. 6-digit BLS SOC code (XX-XXXX). Primary grain key and join key to consumable.occupation_profiles.",
+                "transformationType": "DIRECT"
+              },
+              "primary_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "primary_title"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Occupation title from O*NET.",
+                "transformationType": "DIRECT"
+              },
+              "description": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "description"}
+                ],
+                "transformationDescription": "Direct carry from Silver. O*NET occupation description.",
+                "transformationType": "DIRECT"
+              },
+              "multi_detail_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "multi_detail_flag"}
+                ],
+                "transformationDescription": "Direct carry from Silver. True for 76 BLS SOCs that aggregate multiple O*NET detailed occupations.",
+                "transformationType": "DIRECT"
+              },
+              "data_completeness_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "data_completeness_tier"}
+                ],
+                "transformationDescription": "Direct carry from Silver. 'full' or 'partial' indicating whether O*NET has complete data for this occupation. Used as input to confidence_tier derivation.",
+                "transformationType": "DIRECT"
+              },
+              "hmn_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "importance"},
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "element_id"}
+                ],
+                "transformationDescription": "Human Edge score on 1-10 scale. Two-phase computation: Phase 1 computes human_ratio per occupation as sum(importance for 14 human-intensive activities) / sum(importance for all 41 activities). The 14 human-intensive element IDs are statically classified (leadership, creativity, interpersonal, physical presence activities). Phase 2 applies min/max rescaling across all 774 occupations with activity data: hmn_score = 1.0 + 9.0 * (human_ratio - observed_min) / (observed_max - observed_min), clamped to [1.0, 10.0]. This normalization ensures full use of the 1-10 scale. Null for 24 partial-data occupations without activity profiles.",
+                "transformationType": "DERIVED"
+              },
+              "hmn_score_rounded": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "importance"},
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "element_id"}
+                ],
+                "transformationDescription": "Integer rounding of hmn_score via _round_half_up() (floor(x + 0.5) to match DuckDB ROUND behavior, not Python banker's rounding). Produces integer 1-10 for pentagon display. Null if hmn_score is null.",
+                "transformationType": "DERIVED"
+              },
+              "top_human_activities": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "element_id"},
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "element_name"},
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "importance"}
+                ],
+                "transformationDescription": "JSON array of top 5 human-intensive activities by importance value. Filters the 41 activity rows per occupation to only the 14 human-intensive element IDs, sorts by importance descending, takes top 5, serializes as [{\"activity\": name, \"importance\": value}, ...]. Powers Gemma's 'what the human edge looks like' narrative. Null for occupations without activity profiles.",
+                "transformationType": "DERIVED"
+              },
+              "human_activity_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "element_id"}
+                ],
+                "transformationDescription": "Count of the 14 human-intensive activity element IDs present in this occupation's activity profile rows. Expected to be 14 for occupations with full activity data (all 41 activities present). Null for occupations without activity profiles.",
+                "transformationType": "DERIVED"
+              },
+              "burnout_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "context_value"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "scale_id"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "is_burnout_element"}
+                ],
+                "transformationDescription": "Burnout risk score on 1-10 scale. Filters context rows to those with is_burnout_element=True (9 elements per occupation). Normalizes each value to 0-1: CX scale (1-5) via (value-1)/4, CT scale (1-3) via (value-1)/2. Computes unweighted average of all 9 normalized values. Maps to 1-10: burnout_score = 1.0 + 9.0 * average. Higher = more burnout risk. Null for 24 partial-data occupations without context profiles.",
+                "transformationType": "DERIVED"
+              },
+              "burnout_score_rounded": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "context_value"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "scale_id"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "is_burnout_element"}
+                ],
+                "transformationDescription": "Integer rounding of burnout_score via _round_half_up() (floor(x + 0.5)). Produces integer 1-10 for boss fight display. Null if burnout_score is null.",
+                "transformationType": "DERIVED"
+              },
+              "burnout_drivers": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "element_name"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "context_value"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "scale_id"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "is_burnout_element"}
+                ],
+                "transformationDescription": "JSON array of top 3 burnout-contributing Work Context elements by normalized value. Filters to is_burnout_element=True rows, normalizes each value, sorts descending, takes top 3, serializes as [{\"element\": name, \"value\": normalized_value}, ...]. Powers Gemma's burnout narrative. Null for occupations without context profiles.",
+                "transformationType": "DERIVED"
+              },
+              "time_pressure": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "context_value"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "element_id"}
+                ],
+                "transformationDescription": "Direct extraction of context_value for element_id '4.C.3.d.1' (Time Pressure) from context profiles. CX scale 1-5 where higher = more time pressure. Looked up by indexing context rows by element_id. Null if occupation has no context profile or element is missing.",
+                "transformationType": "DERIVED"
+              },
+              "work_hours": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "context_value"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "element_id"}
+                ],
+                "transformationDescription": "Direct extraction of context_value for element_id '4.C.3.d.8' (Duration of Typical Work Week) from context profiles. CT scale 1-3 where 3 = >40 hours/week. Looked up by indexing context rows by element_id. Null if occupation has no context profile or element is missing.",
+                "transformationType": "DERIVED"
+              },
+              "consequence_of_error": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "context_value"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "element_id"}
+                ],
+                "transformationDescription": "Direct extraction of context_value for element_id '4.C.3.a.1' (Consequence of Error) from context profiles. CX scale 1-5 where higher = more pressure from errors. Looked up by indexing context rows by element_id. Null if occupation has no context profile or element is missing.",
+                "transformationType": "DERIVED"
+              },
+              "activity_importance_mean": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "importance"}
+                ],
+                "transformationDescription": "Mean of importance values across all 41 work activity rows for this occupation. Computed as sum(importance) / count(non-null importance). Indicates overall activity intensity of the occupation. Null for occupations without activity profiles.",
+                "transformationType": "AGGREGATION"
+              },
+              "top_5_activities": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "element_name"},
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "importance"}
+                ],
+                "transformationDescription": "JSON array of top 5 activities by importance across all 41 work activities (not limited to human-intensive). Sorts by importance descending, takes top 5, serializes as [{\"activity\": name, \"importance\": value}, ...]. Powers Gemma career descriptions. Null for occupations without activity profiles.",
+                "transformationType": "DERIVED"
+              },
+              "activity_profile_available": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if base.onet_activity_profiles has at least one row for this bls_soc_code, False otherwise. Derived by checking if the activities_by_soc index contains the SOC code. Expected: 774 True, 24 False.",
+                "transformationType": "DERIVED"
+              },
+              "context_profile_available": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if base.onet_context_profiles has at least one row for this bls_soc_code, False otherwise. Derived by checking if the contexts_by_soc index contains the SOC code. Expected: 774 True, 24 False.",
+                "transformationType": "DERIVED"
+              },
+              "confidence_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "data_completeness_tier"},
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "suppress_flag"},
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "suppress_flag"}
+                ],
+                "transformationDescription": "Occupation-level data quality tier. Priority order: (1) data_completeness_tier = 'partial' -> 'low' (24 occupations without full O*NET data), (2) suppress_pct_activities >= 5% OR suppress_pct_context >= 5% -> 'medium' (high suppression rate), (3) else -> 'high'. Required field, never null. Expected distribution: majority 'high', some 'medium', 24 'low'.",
+                "transformationType": "DERIVED"
+              },
+              "suppress_pct_activities": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_activity_profiles", "field": "suppress_flag"}
+                ],
+                "transformationDescription": "Percentage of activity profile rows with suppress_flag = True for this occupation. Computed as (count of suppressed rows / total activity rows) * 100. Used as input to confidence_tier. Null for occupations without activity profiles.",
+                "transformationType": "AGGREGATION"
+              },
+              "suppress_pct_context": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_context_profiles", "field": "suppress_flag"}
+                ],
+                "transformationDescription": "Percentage of context profile rows with suppress_flag = True for this occupation. Computed as (count of suppressed rows / total context rows) * 100. Used as input to confidence_tier. Null for occupations without context profiles.",
+                "transformationType": "AGGREGATION"
+              },
+              "backs_stats": {
+                "inputFields": [],
+                "transformationDescription": "Static literal string 'HMN' set for all 798 rows. Documents which FutureProof pentagon stat this work profile data product feeds (Human Edge). No input fields; value is a constant defined by the spec.",
+                "transformationType": "DERIVED"
+              },
+              "backs_bosses": {
+                "inputFields": [],
+                "transformationDescription": "Static literal string 'AI,Burnout' set for all 798 rows. Documents which FutureProof boss fights this work profile data product feeds. No input fields; value is a constant defined by the spec.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "source_load_date"}
+                ],
+                "transformationDescription": "Direct carry from Silver base.onet_occupations. Date the original O*NET data entered the raw zone. Preserves provenance chain: Bronze load_date -> Silver source_load_date -> Gold source_load_date.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Set in add_record_ids() after all derivations are complete. Independent of any Silver timestamp.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T18:00:00.000000Z",
+    "run": {
+      "runId": "e8b4f2a5-3d9c-4e0b-a6f7-4g2b8d0e3f19",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-onet-profiles.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone transformation 2 of 2 for O*NET profiles spec. Depends on Table 1 (consumable.onet_work_profiles) being built first. Reads 15,944 rows from base.onet_career_transitions, 798 rows from base.onet_occupations (Silver), and 798 rows from consumable.onet_work_profiles (Gold). Enriches each transition row with source_title and related_title via lookup join on bls_soc_code to occupations. Derives source_has_work_profile and related_has_work_profile boolean flags by checking if each SOC exists in the work profiles table with activity_profile_available=True. Sets static backs_feature='Stage3Branching'. Computes deterministic record_id via compute_grain_id with 'tr' prefix on grain [bls_soc_code, related_bls_soc_code]. Promotes to consumable.career_transitions via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 17540,
+          "rowsReadBreakdown": {
+            "base.onet_career_transitions": 15944,
+            "base.onet_occupations": 798,
+            "consumable.onet_work_profiles": 798
+          },
+          "rowsTransformed": 15944,
+          "promoted": 15944,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "fieldsCarriedDirect": 5,
+          "fieldsEnrichedViaJoin": 4,
+          "fieldsDerived": 2,
+          "fieldsStatic": 1,
+          "fieldsMetadata": 2
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-career-transitions",
+      "facets": {
+        "documentation": {
+          "description": "Transform Silver base.onet_career_transitions into the consumable.career_transitions Gold data product. Enriches the career similarity graph with occupation titles from base.onet_occupations (joined on bls_soc_code for source and related occupations) and work profile availability flags from consumable.onet_work_profiles (checks activity_profile_available for each SOC). Adds static FutureProof feature mapping. Computes deterministic record_id with 'tr' prefix on compound grain [bls_soc_code, related_bls_soc_code]. Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/onet_career_transitions.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_career_transitions",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "related_bls_soc_code", "type": "STRING"},
+              {"name": "best_index", "type": "INTEGER"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"},
+              {"name": "relationship_type", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "primary_title", "type": "STRING"},
+              {"name": "description", "type": "STRING"},
+              {"name": "multi_detail_flag", "type": "BOOLEAN"},
+              {"name": "data_completeness_tier", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.onet_work_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "activity_profile_available", "type": "BOOLEAN"}
+            ],
+            "note": "Only bls_soc_code and activity_profile_available are used from this table for the work profile availability lookup."
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.career_transitions",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "source_title", "type": "STRING"},
+              {"name": "related_bls_soc_code", "type": "STRING"},
+              {"name": "related_title", "type": "STRING"},
+              {"name": "best_index", "type": "INTEGER"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"},
+              {"name": "relationship_type", "type": "STRING"},
+              {"name": "source_has_work_profile", "type": "BOOLEAN"},
+              {"name": "related_has_work_profile", "type": "BOOLEAN"},
+              {"name": "backs_feature", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "bls_soc_code"},
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(row, ['bls_soc_code', 'related_bls_soc_code'], prefix='tr'). SHA-256 of concatenated compound grain fields with 'tr' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver base.onet_career_transitions. Source occupation BLS SOC code.",
+                "transformationType": "DIRECT"
+              },
+              "source_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "primary_title"},
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Lookup join: title_lookup.get(bls_soc_code, 'Unknown'). Retrieves primary_title from base.onet_occupations by matching bls_soc_code. Falls back to 'Unknown' if SOC not found in occupations table.",
+                "transformationType": "DERIVED"
+              },
+              "related_bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver base.onet_career_transitions. Related occupation BLS SOC code.",
+                "transformationType": "DIRECT"
+              },
+              "related_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "primary_title"},
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "Lookup join: title_lookup.get(related_bls_soc_code, 'Unknown'). Retrieves primary_title from base.onet_occupations by matching related_bls_soc_code. Falls back to 'Unknown' if SOC not found.",
+                "transformationType": "DERIVED"
+              },
+              "best_index": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "best_index"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Similarity rank where 1 = most similar related occupation.",
+                "transformationType": "DIRECT"
+              },
+              "relatedness_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "relatedness_tier"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Career transition tier: Primary-Short, Primary-Long, or Supplemental.",
+                "transformationType": "DIRECT"
+              },
+              "is_primary": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "is_primary"}
+                ],
+                "transformationDescription": "Direct carry from Silver. True for Primary-Short or Primary-Long transitions, False for Supplemental.",
+                "transformationType": "DIRECT"
+              },
+              "relationship_type": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "relationship_type"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Always 'similarity' in current data.",
+                "transformationType": "DIRECT"
+              },
+              "source_has_work_profile": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "bls_soc_code"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "activity_profile_available"},
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Lookup flag: wp_lookup.get(bls_soc_code, False). Checks if the source occupation exists in consumable.onet_work_profiles with activity_profile_available=True. Indicates whether full HMN/Burnout scores are available for the source occupation in Stage 3 branching display.",
+                "transformationType": "DERIVED"
+              },
+              "related_has_work_profile": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "bls_soc_code"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "activity_profile_available"},
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "Lookup flag: wp_lookup.get(related_bls_soc_code, False). Checks if the related occupation exists in consumable.onet_work_profiles with activity_profile_available=True. Indicates whether full HMN/Burnout scores are available for the related occupation in Stage 3 branching display.",
+                "transformationType": "DERIVED"
+              },
+              "backs_feature": {
+                "inputFields": [],
+                "transformationDescription": "Static literal string 'Stage3Branching' set for all 15,944 rows. Documents which FutureProof feature this career transitions data product feeds. No input fields; value is a constant defined by the spec.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.onet_career_transitions", "field": "source_load_date"}
+                ],
+                "transformationDescription": "Direct carry from Silver base.onet_career_transitions. Date the original O*NET career changers data entered the raw zone. Preserves provenance chain: Bronze load_date -> Silver source_load_date -> Gold source_load_date.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Set in add_record_ids() after all derivations are complete. Independent of any Silver timestamp.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

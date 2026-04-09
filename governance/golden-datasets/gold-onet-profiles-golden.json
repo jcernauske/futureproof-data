@@ -1,0 +1,133 @@
+{
+  "spec": "gold-onet-profiles",
+  "tables": ["consumable.onet_work_profiles", "consumable.career_transitions"],
+  "grain_work_profiles": ["bls_soc_code"],
+  "grain_career_transitions": ["bls_soc_code", "related_bls_soc_code"],
+  "created": "2026-04-08",
+  "agent": "@primary-agent",
+  "description": "Golden dataset for consumable.onet_work_profiles and consumable.career_transitions. Each chain traces from Silver input through Gold derivation formula to expected output. HMN score uses min/max rescaling of human_ratio to fill 1-10 range.",
+  "hmn_rescaling_parameters": {
+    "observed_min_human_ratio": "~0.273 (Court Reporters 27-3092)",
+    "observed_max_human_ratio": "~0.438 (Choreographers 27-2032)",
+    "formula": "hmn_score = 1.0 + 9.0 * (human_ratio - observed_min) / (observed_max - observed_min), clamped [1.0, 10.0]",
+    "post_rescale_range": "1.0 to 10.0 (full spread achieved)"
+  },
+  "values": [
+    {"table": "consumable.onet_work_profiles", "bls_soc_code": "15-1252", "field": "hmn_score", "expected": 2.11, "tolerance": 0.1},
+    {"table": "consumable.onet_work_profiles", "bls_soc_code": "15-1252", "field": "burnout_score", "expected": 4.80, "tolerance": 0.1},
+    {"table": "consumable.onet_work_profiles", "bls_soc_code": "29-1141", "field": "hmn_score", "expected": 5.84, "tolerance": 0.1},
+    {"table": "consumable.onet_work_profiles", "bls_soc_code": "29-1141", "field": "burnout_score", "expected": 6.47, "tolerance": 0.1},
+    {"table": "consumable.onet_work_profiles", "bls_soc_code": "27-3092", "field": "hmn_score", "expected": 1.0, "tolerance": 0.01},
+    {"table": "consumable.onet_work_profiles", "bls_soc_code": "27-2032", "field": "hmn_score", "expected": 10.0, "tolerance": 0.01},
+    {"table": "consumable.career_transitions", "bls_soc_code": "15-1252", "related_bls_soc_code": "15-1299", "field": "source_title", "expected": "Software Developers"},
+    {"table": "consumable.career_transitions", "bls_soc_code": "15-1252", "related_bls_soc_code": "15-1299", "field": "source_has_work_profile", "expected": true}
+  ],
+  "verification_chains": [
+    {
+      "name": "Software Developers (15-1252) — Low HMN, Low Burnout",
+      "silver_input": {
+        "bls_soc_code": "15-1252",
+        "primary_title": "Software Developers",
+        "data_completeness_tier": "full",
+        "activity_count": 41,
+        "context_count": 57
+      },
+      "derivation_steps": {
+        "human_ratio": "Sum of 14 human-intensive activity importances / sum of all 41 activity importances. Software development is technology-focused with lower leadership/interpersonal scores, so human_ratio is relatively low.",
+        "hmn_score": "1.0 + 9.0 * (human_ratio - observed_min) / (observed_max - observed_min). With low human_ratio, this yields ~2.11 on the 1-10 scale.",
+        "hmn_score_rounded": "round_half_up(2.11) = 2",
+        "burnout_score": "1.0 + 9.0 * avg(normalized burnout elements). CX: (val-1)/4, CT: (val-1)/2. Software Developers have moderate time pressure (3.5) but low physical demands -> 4.80",
+        "burnout_score_rounded": "round_half_up(4.80) = 5",
+        "confidence_tier": "data_completeness_tier=full, suppress_pct_activities=0%, suppress_pct_context=0% -> high"
+      },
+      "expected_output": {
+        "hmn_score": 2.11,
+        "hmn_score_rounded": 2,
+        "burnout_score": 4.80,
+        "burnout_score_rounded": 5,
+        "confidence_tier": "high",
+        "activity_profile_available": true,
+        "context_profile_available": true,
+        "backs_stats": "HMN",
+        "backs_bosses": "AI,Burnout"
+      }
+    },
+    {
+      "name": "Registered Nurses (29-1141) — Mid HMN, High Burnout",
+      "silver_input": {
+        "bls_soc_code": "29-1141",
+        "primary_title": "Registered Nurses",
+        "data_completeness_tier": "full"
+      },
+      "derivation_steps": {
+        "human_ratio": "Nurses score high on interpersonal activities (Assisting and Caring for Others, Establishing Relationships, Coordinating Work), yielding a mid-range human_ratio.",
+        "hmn_score": "1.0 + 9.0 * (human_ratio - observed_min) / (observed_max - observed_min) -> ~5.84",
+        "burnout_score": "High time_pressure (4.12), consequence_of_error (4.13), importance of being exact (4.56) -> avg normalized ~0.61 -> burnout_score ~6.47",
+        "burnout_drivers_top3": "Importance of Being Exact (0.89), Impact of Decisions on Co-workers (0.81), Consequence of Error (0.78)"
+      },
+      "expected_output": {
+        "hmn_score": 5.84,
+        "hmn_score_rounded": 6,
+        "burnout_score": 6.47,
+        "burnout_score_rounded": 6,
+        "confidence_tier": "high",
+        "time_pressure": 4.12,
+        "work_hours": 2.25,
+        "consequence_of_error": 4.13
+      }
+    },
+    {
+      "name": "Court Reporters (27-3092) — Lowest HMN occupation",
+      "silver_input": {
+        "bls_soc_code": "27-3092",
+        "primary_title": "Court Reporters and Simultaneous Captioners",
+        "data_completeness_tier": "full"
+      },
+      "derivation_steps": {
+        "human_ratio": "Court Reporters have the lowest human_ratio in the dataset. Their work is primarily transcription, minimal interpersonal/leadership activity, resulting in the lowest observed human_ratio (~0.273).",
+        "hmn_score": "As the minimum human_ratio, rescaling produces: 1.0 + 9.0 * (0 / range) = 1.0"
+      },
+      "expected_output": {
+        "hmn_score": 1.0,
+        "hmn_score_rounded": 1,
+        "confidence_tier": "high"
+      }
+    },
+    {
+      "name": "Software Developers Career Transition (15-1252 -> 15-1299)",
+      "silver_input": {
+        "bls_soc_code": "15-1252",
+        "related_bls_soc_code": "15-1299",
+        "best_index": 1,
+        "relatedness_tier": "Primary-Short"
+      },
+      "derivation_steps": {
+        "source_title": "Lookup 15-1252 in base.onet_occupations -> 'Software Developers'",
+        "related_title": "Lookup 15-1299 in base.onet_occupations -> 'Computer Occupations, All Other'",
+        "source_has_work_profile": "Lookup 15-1252 in consumable.onet_work_profiles -> activity_profile_available=True",
+        "related_has_work_profile": "Lookup 15-1299 in consumable.onet_work_profiles -> activity_profile_available=True"
+      },
+      "expected_output": {
+        "source_title": "Software Developers",
+        "related_title": "Computer Occupations, All Other",
+        "best_index": 1,
+        "relatedness_tier": "Primary-Short",
+        "is_primary": true,
+        "source_has_work_profile": true,
+        "related_has_work_profile": true,
+        "backs_feature": "Stage3Branching"
+      }
+    }
+  ],
+  "aggregate_checks": {
+    "work_profiles_row_count": 798,
+    "work_profiles_null_hmn_count": 24,
+    "work_profiles_null_burnout_count": 24,
+    "work_profiles_hmn_min": 1.0,
+    "work_profiles_hmn_max": 10.0,
+    "work_profiles_confidence_high": 772,
+    "work_profiles_confidence_medium": 2,
+    "work_profiles_confidence_low": 24,
+    "career_transitions_row_count": 15944
+  }
+}

@@ -1,0 +1,99 @@
+---
+# Data Contract: raw.onet_occupations
+# Spec: raw-ingest-onet
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-07
+
+table: raw.onet_occupations
+namespace: raw
+zone: bronze
+grain:
+  - onet_soc_code
+status: ACTIVE
+record_count: 1016
+data_vintage: "O*NET 30.2 (2026)"
+source: "O*NET Resource Center bulk download (onetcenter.org)"
+
+columns:
+  - name: onet_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Primary identifier and grain field for the O*NET occupation master table.
+      This is the JOIN KEY for all 4 other O*NET raw tables (task_statements,
+      work_activities, work_context, related_occupations) and the cross-source
+      bridge to BLS OOH via 6-digit SOC truncation. Every downstream FutureProof
+      analysis — AI exposure scoring (RES stat), human-skill profiling (HMN stat),
+      burnout assessment, and career branching — depends on this field to link
+      occupation-level data. A malformed or missing value orphans an entire
+      occupation from the pipeline.
+    is_pii: false
+    pii_rationale: ""
+    description: "O*NET-SOC occupation code (XX-XXXX.XX format). 867 are base BLS codes (.00), 149 are O*NET detailed splits."
+
+  - name: title
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Human-readable occupation name required for all consumer-facing outputs
+      including MCP server responses, Gold zone career guidance products, and
+      FutureProof's career exploration UI. While onet_soc_code is the join key,
+      title is the only field that makes occupation data interpretable to end users.
+      Also used as the label in Gemma career descriptions. A null or incorrect
+      title renders the data product unusable for career guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: "Occupation title (e.g., 'Software Developers'). 1:1 mapping with onet_soc_code."
+
+  - name: description
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Occupation definition text (25-811 characters). Provides context for career
+      guidance but is not a join key or computational input. Feeds Gemma career
+      descriptions as supplementary text. Not flagged as CDE because downstream
+      products can function without it (title + task data suffice).
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which O*NET ZIP was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (bulk_zip_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

@@ -1,0 +1,56 @@
+# College Scorecard — Field of Study Level Data
+# U.S. Department of Education
+#
+# Human-readable documentation and domain notes are preserved in comments.
+# The top-level keys below match the SourceConfig dataclass expected by
+# brightsmith.domain_loader.
+
+name: college_scorecard
+namespace: bronze
+table: college_scorecard
+
+# Fetch config — method name maps to implementation in the ingestor
+fetch:
+  bulk_csv_download:
+    url: https://ed-public-download.app.cloud.gov/downloads/Most-Recent-Cohorts-Field-of-Study.csv
+    user_agent: "FutureProof/0.1 (jeff@hyenastudios.com)"
+    format: csv
+    size_estimate: "~500MB"
+    chunk_size: 50000
+
+# Entities dict: {entity_id: label}
+# For College Scorecard, we use a single logical entity "scorecard"
+# representing the entire bulk dataset (not per-institution).
+entities:
+  scorecard: "College Scorecard Field of Study (Bachelor's)"
+
+# Dedup grain — lowercase to match Iceberg column names
+dedup_grain:
+  - unitid
+  - cipcode
+  - credlev
+
+# Cache directory for downloaded files
+cache_dir: data/raw/csv_cache
+
+# --- Domain Documentation (not consumed by loader) ---
+
+# Source metadata
+# authority: U.S. Department of Education
+# url: https://collegescorecard.ed.gov/
+# documentation: https://collegescorecard.ed.gov/data/documentation/
+
+# Grain description: One row per institution x program x credential level
+
+# MVP: filter to bachelor's degrees (CREDLEV=3)
+
+# Key fields:
+#   Identity: UNITID, INSTNM, CIPCODE, CIPDESC, CREDDESC, CREDLEV
+#   Outcomes: MD_EARN_WNE, EARN_MDN_HI_1YR, EARN_MDN_HI_2YR, DEBT_ALL_STGP_EVAL_MDN
+#   Completions: IPEDSCOUNT1, IPEDSCOUNT2
+
+# Data quality notes:
+#   - PrivacySuppressed string values must be converted to null
+#   - CIPCODE format is XX.XXXX — treat as string, not float
+#   - Some institutions report across multiple OPEID values
+#   - Earnings data has 1-2 year lag from completion cohort

@@ -1,0 +1,195 @@
+{
+  "wage": {
+    "label": "median_annual_wage",
+    "count": 809,
+    "min": 30160.0,
+    "p10": 37700.0,
+    "p25": 45980.0,
+    "median": 59280.0,
+    "p75": 78490.0,
+    "p90": 104316.00000000001,
+    "max": 238380.0,
+    "mean": 66755.0803461063,
+    "stddev": 31033.38827635046,
+    "null_count": 23,
+    "null_rate": 2.7644230769230766
+  },
+  "employment_current": {
+    "label": "employment_current",
+    "count": 832,
+    "min": 200,
+    "p10": 7000.0,
+    "p25": 17100.0,
+    "median": 50200.0,
+    "p75": 161500.0,
+    "p90": 477129.9999999999,
+    "max": 4347700,
+    "mean": 204274.51923076922,
+    "stddev": 468175.7834216345
+  },
+  "employment_projected": {
+    "label": "employment_projected",
+    "count": 832,
+    "min": 200,
+    "p10": 6910.000000000001,
+    "p25": 17275.0,
+    "median": 50250.0,
+    "p75": 162400.0,
+    "p90": 500389.9999999999,
+    "max": 5087500,
+    "mean": 210540.7451923077,
+    "stddev": 484799.3821902425
+  },
+  "employment_change": {
+    "label": "employment_change",
+    "count": 832,
+    "min": -313600,
+    "p10": -3089.999999999999,
+    "p25": -200.0,
+    "median": 700.0,
+    "p75": 4800.0,
+    "p90": 17729.999999999985,
+    "max": 739800,
+    "mean": 6262.860576923077,
+    "stddev": 38553.01797761732,
+    "negative_count": 232
+  },
+  "employment_change_pct": {
+    "label": "employment_change_pct",
+    "count": 832,
+    "min": -36.1,
+    "p10": -6.589999999999999,
+    "p25": -1.1,
+    "median": 2.5,
+    "p75": 5.0,
+    "p90": 8.589999999999998,
+    "max": 49.9,
+    "mean": 1.7447115384615384,
+    "stddev": 7.624657679167128
+  },
+  "openings": {
+    "label": "openings_annual_avg",
+    "count": 832,
+    "min": 0,
+    "p10": 600.0,
+    "p25": 1500.0,
+    "median": 4500.0,
+    "p75": 14825.0,
+    "p90": 49899.99999999998,
+    "max": 904300,
+    "mean": 22670.19230769231,
+    "stddev": 66199.12325094486
+  },
+  "education_dist": {
+    "High school diploma or equivalent": 326,
+    "Bachelor's degree": 178,
+    "No formal educational credential": 109,
+    "Doctoral or professional degree": 73,
+    "Postsecondary nondegree award": 51,
+    "Associate's degree": 48,
+    "Master's degree": 40,
+    "Some college, no degree": 7
+  },
+  "education_code_dist": {
+    "1": 73,
+    "2": 40,
+    "3": 178,
+    "4": 48,
+    "5": 51,
+    "6": 7,
+    "7": 326,
+    "8": 109
+  },
+  "work_experience_dist": {
+    "None": 716,
+    "Less than 5 years": 88,
+    "5 years or more": 28
+  },
+  "training_dist": {
+    "None": 322,
+    "Moderate-term on-the-job training": 229,
+    "Short-term on-the-job training": 174,
+    "Long-term on-the-job training": 56,
+    "Internship/residency": 36,
+    "Apprenticeship": 15
+  },
+  "null_rates": {
+    "soc_code": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "occupation_title": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "employment_current": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "employment_projected": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "employment_change": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "employment_change_pct": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "openings_annual_avg": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "median_annual_wage": {
+      "nulls": 23,
+      "total": 832,
+      "rate_pct": 2.7644230769230766
+    },
+    "median_wage_capped": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "education_typical": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "education_code": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "work_experience": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "work_experience_code": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "training_typical": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    },
+    "training_code": {
+      "nulls": 0,
+      "total": 832,
+      "rate_pct": 0.0
+    }
+  },
+  "capped_wages": 0,
+  "capped_rate": 0.0
+}

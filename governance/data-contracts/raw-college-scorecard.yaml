@@ -1,0 +1,191 @@
+---
+# Data Contract: raw.college_scorecard
+# Spec: raw-ingest-college-scorecard
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-05
+
+table: raw.college_scorecard
+namespace: raw
+zone: bronze
+grain:
+  - unitid
+  - cipcode
+  - credlev
+status: DRAFT
+
+columns:
+  - name: unitid
+    type: long
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field — uniquely identifies the institution in every row. Required for
+      entity resolution, CIP-to-SOC crosswalk joins in Silver zone, and all downstream
+      aggregations. Incorrect values would orphan rows from institutional context.
+    is_pii: false
+    pii_rationale: ""
+    description: "Institution IPEDS ID (6-digit). Stable federal identifier assigned by NCES."
+
+  - name: instnm
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Institution name as reported to IPEDS. Display label only; UNITID is the
+      authoritative identifier. 10 names map to multiple UNITIDs (multi-campus systems).
+
+  - name: cipcode
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field — identifies the academic program. Foundation for the CIP-to-SOC
+      crosswalk in Silver zone, which is the critical join enabling the core FutureProof
+      question. Incorrect or malformed values block downstream career outcome mapping.
+    is_pii: false
+    pii_rationale: ""
+    description: "CIP program code (4-digit format, e.g., '5202'). Silver zone must normalize to XX.XXXX."
+
+  - name: cipdesc
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Human-readable program description. 1:1 mapping with cipcode. Display label only."
+
+  - name: creddesc
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Human-readable credential description. Redundant with credlev in this MVP (always 'Bachelor''s Degree')."
+
+  - name: credlev
+    type: int
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field — defines the credential level dimension. Although constant (=3) in
+      this MVP dataset, it is part of the dedup grain and its value validates that the
+      CREDLEV=3 ingestor filter operated correctly. Future data loads may include
+      additional credential levels.
+    is_pii: false
+    pii_rationale: ""
+    description: "Credential level code. Value 3 = Bachelor's Degree. Part of grain; filtered to 3 only in MVP."
+
+  - name: md_earn_wne
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median earnings (working, not enrolled) — institution-level metric that is
+      structurally 100% null at the field-of-study grain. Should be dropped in Silver zone.
+
+  - name: earn_mdn_hi_1yr
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Primary business metric — median earnings 1 year post-completion. Core to the
+      FutureProof value proposition (career outcome guidance). Feeds downstream
+      earnings analysis, program comparison rankings, and potential Gainful Employment
+      ratio calculations. Privacy-suppressed for ~60% of rows by FERPA design.
+    is_pii: false
+    pii_rationale: ""
+    description: "Median earnings (high estimate) 1 year after completion. Cohort aggregate, not individual."
+
+  - name: earn_mdn_hi_2yr
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Primary business metric — median earnings 2 years post-completion. Together with
+      1yr earnings, provides the multi-horizon view of graduate outcomes that is central
+      to FutureProof career guidance. Note: NOT longitudinal tracking of the same
+      individuals as 1yr; different cohort measurement windows.
+    is_pii: false
+    pii_rationale: ""
+    description: "Median earnings (high estimate) 2 years after completion. Different cohort than 1yr."
+
+  - name: debt_all_stgp_eval_mdn
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Primary business metric — median student debt at graduation. Required for
+      debt-to-earnings ratio analysis (related to Gainful Employment rules) and
+      cost-benefit assessment of programs. Central to the student decision-making
+      use case that FutureProof serves.
+    is_pii: false
+    pii_rationale: ""
+    description: "Median cumulative federal loan debt at program completion. Cohort aggregate."
+
+  - name: ipedscount1
+    type: long
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS completions count (first major measurement window). Indicates program size.
+      Useful for context but not a primary decision metric.
+
+  - name: ipedscount2
+    type: long
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS completions count (second major measurement window). Highly correlated
+      with ipedscount1 (r=0.984).
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which data was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (bulk_csv_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load."

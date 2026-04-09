@@ -1,0 +1,300 @@
+{
+  "spec": "silver-base-college-scorecard",
+  "zone": "silver",
+  "mode": "greenfield",
+  "started": "2026-04-06T12:05:44.257699+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-06T12:08:28.961829+00:00",
+      "output": "governance/reviews/silver-base-college-scorecard-pre-review.md",
+      "output_hash": "sha256:3b0d00497f4b647c059b29b30bfb0e826a154cfc6e0ba47ee7184edd533b5386"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:50.626508+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:ed2aee451a8ff3630fe2f77db30d75af5a059510f3d24ee998036de201d322d2"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:51.176702+00:00",
+      "output": "governance/models/silver-base-college-scorecard-conceptual.md",
+      "output_hash": "sha256:d83b156c4dc5b0e71af8fbc12d24c223b8abffd6abc609e553c2268939d67988"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:51.707366+00:00",
+      "output": "governance/models/silver-base-college-scorecard-logical.md",
+      "output_hash": "sha256:14e8799ac7b219f9ac7be563b8b2b7433c6cdeebf44f0510078c87d4387cfff3"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T00:42:03.161761+00:00",
+      "output": "governance/eda/silver-college-scorecard-eda.md",
+      "output_hash": "sha256:bca37bbcd95407cd0e2d8f5482e8160f627b48a3fbee2fc326abb0ce8f8e168b"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:52.236776+00:00",
+      "output": "governance/dq-rules/silver-base-college-scorecard.json",
+      "output_hash": "sha256:dbbcfa5a139b1b6ca6c365ffca1f163c7e319247bb928ebbf3778be486f45077"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:52.774445+00:00",
+      "output": "governance/models/silver-base-college-scorecard-physical.md",
+      "output_hash": "sha256:76aa367ef17d63a10b5edea87a6b79f63c84893041ca3593123c8950d8c4c955"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:53.310369+00:00",
+      "output": "src/silver/college_scorecard_transformer.py",
+      "output_hash": "sha256:5470ba33977a19909ef9fef80b30e01a98f66fc54216f2fe72d8a2c7f1b6dcc1"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T00:58:04.202826+00:00",
+      "output": "governance/dq-scorecards/silver-base-college-scorecard-scorecard.md",
+      "output_hash": "sha256:ff3b8b6ae98568e99900480bf9a43f544b637951f33416961003e1d2f00dc139"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:08:10.507022+00:00",
+      "output": "governance/chaos-manifests/silver-base-college-scorecard-chaos.md",
+      "output_hash": "sha256:d8e8512ec062bde1ee8dc4bef312b38bf9ab763877d340cb916ec41ff2f0a2fc"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T00:59:49.914902+00:00",
+      "output": "governance/reviews/silver-base-college-scorecard-entity-resolution.md",
+      "output_hash": "sha256:cbb3028eb379864eb8a777488854a41c3ada8d85873c68c18eaf9340e1c7828a"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:00:56.035040+00:00",
+      "output": "governance/pii-scans/silver-base-college-scorecard-pii-scan.md",
+      "output_hash": "sha256:3eb25ebc02c017541d690783137f5415638ae46817190d02d6b7970b4e4904fe"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T00:59:50.428843+00:00",
+      "output": "governance/reviews/silver-base-college-scorecard-temporal-assessment.md",
+      "output_hash": "sha256:6a0cab6bdfef96ed7551d1c205734509480fc84957563ade8f1c665a4bfc2777"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:00:26.955187+00:00",
+      "output": "governance/lineage/silver-base-college-scorecard-20260406T200000Z.json",
+      "output_hash": "sha256:f07853929f608d9537788e9c7fbfc74b8313250c04851a8d337d5aa27676be8b"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:53.852947+00:00",
+      "output": "governance/data-contracts/base-college-scorecard.yaml",
+      "output_hash": "sha256:a65e71e373e3b25de54fe69533001a31ab0887954a0df61020999805a7e7274b"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:18:45.061327+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:26:09.284340+00:00",
+      "output": "governance/reviews/silver-base-college-scorecard-adversarial-audit.md",
+      "output_hash": "sha256:65fcbb0c571c03d8895c4a42642676a72b1c546afbac36f6f22048c9a25db373"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:30:50.136619+00:00",
+      "output": "governance/reviews/silver-base-college-scorecard-post-review.md",
+      "output_hash": "sha256:7a6277f30df81ba0a753684de5315b08fbd7fdfa1afd0047099ccd17b5909ab2"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-07T01:35:07.992218+00:00",
+      "output": "governance/reviews/silver-base-college-scorecard-staff-review.md",
+      "output_hash": "sha256:f4d74a7d7bc09d82cb6559396b86a16dd5127b9ee0f06c7df37c3dcd1a7835ea"
+    },
+    "insight-manager": {
+      "agent": "@insight-manager",
+      "requires": [
+        "principal-data-architect"
+      ],
+      "blocking": false,
+      "skippable": true,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-07T02:03:45.409938+00:00",
+      "output": "governance/insights/silver-to-gold-insights.md",
+      "output_hash": "sha256:83b6af422e299b366563d9b5c1dd03d2d9d8c1de6a82a95060a9024225026440"
+    },
+    "principal-data-architect": {
+      "agent": "@principal-data-architect",
+      "requires": [
+        "staff-engineer"
+      ],
+      "blocking": true,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-07T02:04:22.600348+00:00",
+      "output": "governance/reviews/silver-architecture-review.md",
+      "output_hash": "sha256:fa01f5557e880cf9eb5f9b55fbfaf81a4544582c8acd4a589b8ff46b21a84e53"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "New tables only - no existing schema to evolve. CAB review is for schema changes to existing tables.",
+      "evidence": "Brightsmith CLAUDE.md Silver/Gold pipeline: 'skipped for new tables'",
+      "skipped_at": "2026-04-07T00:54:56.869332+00:00"
+    }
+  },
+  "approvals": {
+    "glossary": {
+      "status": "APPROVED",
+      "decided_by": "human:jeff",
+      "decided_at": "2026-04-06T23:58:42.973778+00:00",
+      "document": "governance/approvals/silver-base-college-scorecard-glossary-approval.md",
+      "notes": "BT-013,015,016,017 approved as-is. BT-014 renamed from Low Confidence Outcomes to Small Cohort Flag \u2014 name should reflect what it measures (cohort size), not conflate with data quality."
+    },
+    "conceptual-model": {
+      "status": "APPROVED",
+      "decided_by": "human:jeff",
+      "decided_at": "2026-04-07T00:11:39.154501+00:00",
+      "document": "governance/models/silver-base-college-scorecard-conceptual.md",
+      "notes": "Approved after Rev 2. Earnings split into 1yr/2yr entities (independent suppression confirmed). Institution control type added."
+    },
+    "logical-model": {
+      "status": "APPROVED",
+      "decided_by": "human:jeff",
+      "decided_at": "2026-04-07T00:17:23.608273+00:00",
+      "document": "governance/models/silver-base-college-scorecard-logical.md",
+      "notes": "Approved. Open issues resolved: BT-018 non-blocking, update raw ingestor for CONTROL (option a), NULL completions -> small_cohort_flag=True. Note: credential_level should be INTEGER not aggregatable in physical model."
+    }
+  }
+}

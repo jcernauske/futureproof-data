@@ -1,0 +1,230 @@
+---
+# Data Contract: raw.onet_work_context
+# Spec: raw-ingest-onet
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-07
+
+table: raw.onet_work_context
+namespace: raw
+zone: bronze
+grain:
+  - onet_soc_code
+  - element_id
+  - scale_id
+  - category
+status: ACTIVE
+record_count: 297676
+data_vintage: "O*NET 30.2 (2026)"
+source: "O*NET Resource Center bulk download (onetcenter.org)"
+
+columns:
+  - name: onet_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field and foreign key to raw.onet_occupations. Required to associate
+      work context ratings with their occupation for the Burnout boss fight
+      calculation. Work context dimensions (time pressure, hours, physical demands,
+      social environment) are rated per occupation and used to assess burnout risk.
+      Without this field, context data cannot be attributed to any occupation.
+      Also enables cross-source integration via SOC truncation to BLS OOH.
+    is_pii: false
+    pii_rationale: ""
+    description: "O*NET-SOC occupation code (XX-XXXX.XX format). Foreign key to raw.onet_occupations."
+
+  - name: element_id
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Content Model element identifier (e.g., "4.C.1.a.2.a") — part of the table
+      grain and the structural key that identifies which of the 57 work context
+      dimensions is being rated. Key burnout-relevant elements include Time Pressure
+      (4.C.1.a.2.a), Duration of Typical Work Week (4.C.3.d.4), Work Schedules
+      (4.C.3.d.3), and Physical Proximity (4.C.2.b.1.a). Without correct element_ids,
+      the Burnout boss fight cannot identify which context dimensions to use for
+      scoring. The 57 fixed elements define the full work environment taxonomy.
+    is_pii: false
+    pii_rationale: ""
+    description: "Content Model element ID (e.g., '4.C.1.a.2.a'). 57 distinct work context dimensions."
+
+  - name: element_name
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable context dimension name (e.g., "Time Pressure"). 1:1 mapping
+      with element_id. Display label — element_id is the computational key.
+
+  - name: scale_id
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Measurement scale: CX (context point estimate, 1-5), CXP (category percentages,
+      0-100), CT (context point estimate, 1-3), CTP (category percentages, 0-100).
+      Part of the table grain. CXP rows make up 81.1% of data. Determines
+      interpretation and valid range of data_value. Not flagged as CDE because
+      it is a structural classifier, not an independently critical analytical value.
+
+  - name: data_value
+    type: double
+    required: true
+    is_cde: true
+    cde_rationale: >
+      The actual work context rating — the core measurement in this table. On the
+      CX scale (point estimates), this directly quantifies work environment
+      dimensions like time pressure, physical demands, and social environment for
+      each occupation. These ratings are the primary input to the Burnout boss
+      fight: "how stressful/demanding is this work environment?" On CXP/CTP
+      scales, data_value represents the percentage of respondents in each category,
+      providing richer distributional detail. The CX point estimates are the
+      critical analytical values for FutureProof's burnout scoring.
+    is_pii: false
+    pii_rationale: ""
+    description: "Rating value. CX: 1.00-5.00, CXP: 0.00-100.00, CT: 1.00-3.00, CTP: 0.00-100.00."
+
+  - name: n
+    type: int
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Survey sample size. Null for 0.3% of rows (Analyst-Transition sources).
+      Range 12-99 when populated. Data quality indicator, not an analytical input.
+
+  - name: standard_error
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Standard error of the rating estimate. Null for 24.2% of rows (Occupational
+      Expert and Analyst-Transition sources). CXP percentages can have high
+      standard errors (max 34.01). Statistical metadata, not an analytical input.
+
+  - name: lower_ci_bound
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Lower bound of confidence interval. Null pattern matches standard_error."
+
+  - name: upper_ci_bound
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Upper bound of confidence interval. Null pattern matches standard_error."
+
+  - name: recommend_suppress
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      O*NET data quality flag: "N" (73-76%), "n/a" (23-24%), "Y" (0-5% depending
+      on scale). Suppression rate is higher on CXP/CTP percentage scales than on
+      CX/CT point-estimate scales. Total 2.5% "Y" across all rows. Silver zone
+      should filter these. Not a CDE — data quality indicator.
+
+  - name: not_relevant
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Always "n/a" in Work Context (100% of 297,676 rows). Unlike Work Activities,
+      Work Context never uses this flag. Preserved for schema consistency across
+      O*NET tables. Not a CDE — always a constant value.
+
+  - name: date
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Data collection date (MM/YYYY format)."
+
+  - name: domain_source
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source of the rating: Incumbent, Occupational Expert, or Analyst-Transition.
+      Affects data quality characteristics but is not itself an analytical input.
+
+  - name: category
+    type: int
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Response category for CXP/CTP percentage rows (values 1-5 for CXP, 1-3 for CTP).
+      Null (originally "n/a") for CX/CT point-estimate rows (17.1%). Part of the
+      table grain. Structural field that identifies which category a percentage
+      row represents. Not flagged as CDE because it is a structural classifier
+      contextualizing data_value, not an independently critical analytical value.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which O*NET ZIP was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (bulk_zip_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

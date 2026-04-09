@@ -1,0 +1,323 @@
+---
+# Data Contract: consumable.career_transitions
+# Spec: gold-onet-profiles
+# Zone: Gold (Consumable)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-08
+
+table: consumable.career_transitions
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - bls_soc_code
+  - related_bls_soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/gold-onet-profiles.md
+physical_model: governance/models/gold-onet-profiles-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  # --- Career Transition Identity (Carried + Enriched) ---
+
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['bls_soc_code', 'related_bls_soc_code'], prefix='tr'). Format:
+      tr-<16 hex chars>. Stable across pipeline re-runs. Technical
+      infrastructure field, not consumed by business processes.
+
+  - name: bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Source occupation SOC code and first component of the composite natural
+      key for this career transition graph. Every downstream consumer queries
+      by bls_soc_code to retrieve "given occupation X, what are the related
+      careers?" This is the primary access pattern for Stage 3 branching in
+      the FutureProof game engine. Also serves as the join key back to
+      consumable.onet_work_profiles for HMN/Burnout scores and to
+      consumable.occupation_profiles for growth/wage data. An incorrect
+      bls_soc_code would return wrong career transitions for an occupation,
+      breaking the Stage 3 branching tree.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source occupation SOC code in XX-XXXX format. Part of composite natural
+      key. Join key to consumable.onet_work_profiles and
+      consumable.occupation_profiles.
+    constraints:
+      - "CHECK (bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: source_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source occupation title. Enriched by joining base.onet_occupations on
+      bls_soc_code. Display label for the source occupation in the Stage 3
+      branching UI.
+
+  - name: related_bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Related occupation SOC code and second component of the composite natural
+      key for this career transition graph. In the Stage 3 branching tree, this
+      identifies the destination occupation that a student could transition to.
+      Serves as the join key to consumable.onet_work_profiles and
+      consumable.occupation_profiles for retrieving the related occupation's
+      HMN/Burnout scores and growth/wage data. An incorrect
+      related_bls_soc_code would link to the wrong occupation, causing the
+      branching tree to display incorrect career transition paths.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Related occupation SOC code in XX-XXXX format. Part of composite natural
+      key. Join key to consumable.onet_work_profiles and
+      consumable.occupation_profiles for the related occupation.
+    constraints:
+      - "CHECK (related_bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: related_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Related occupation title. Enriched by joining base.onet_occupations on
+      related_bls_soc_code. Display label for the related occupation in the
+      Stage 3 branching UI.
+
+  # --- Similarity Classification (Carried from Silver) ---
+
+  - name: best_index
+    type: integer
+    required: true
+    business_term: BT-061
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Similarity rank (1 = most similar). Source:
+      base.onet_career_transitions.best_index. Used for ordering career
+      transitions in the branching UI. Not independently critical --
+      the bls_soc_code pair identifies the relationship; best_index is
+      display ordering.
+    constraints:
+      - "CHECK (best_index >= 1 AND best_index <= 20)"
+
+  - name: relatedness_tier
+    type: varchar
+    required: true
+    business_term: BT-061
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Three-level classification: Primary-Short, Primary-Long, or
+      Supplemental. Source: base.onet_career_transitions.relatedness_tier.
+      Categorizes the career transition by similarity level. Informational
+      classification used for UI filtering but not for scoring or joins.
+    constraints:
+      - "CHECK (relatedness_tier IN ('Primary-Short', 'Primary-Long', 'Supplemental'))"
+
+  - name: is_primary
+    type: boolean
+    required: true
+    business_term: BT-061
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True for Primary-Short or Primary-Long transitions. Derived from
+      relatedness_tier. Convenience flag for filtering primary transitions
+      in the Stage 3 branching UI.
+
+  - name: relationship_type
+    type: varchar
+    required: true
+    business_term: BT-060
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Always "similarity". Source:
+      base.onet_career_transitions.relationship_type. Static classification.
+    constraints:
+      - "CHECK (relationship_type = 'similarity')"
+
+  # --- Work Profile Availability (Derived) ---
+
+  - name: source_has_work_profile
+    type: boolean
+    required: true
+    business_term: BT-070
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if bls_soc_code exists in consumable.onet_work_profiles with
+      activity_profile_available = True. Cross-table lookup. Informational
+      flag for the branching UI to indicate whether HMN/Burnout data is
+      available for the source occupation.
+
+  - name: related_has_work_profile
+    type: boolean
+    required: true
+    business_term: BT-070
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if related_bls_soc_code exists in consumable.onet_work_profiles
+      with activity_profile_available = True. Cross-table lookup.
+      Informational flag for the branching UI to indicate whether
+      HMN/Burnout data is available for the related occupation.
+
+  # --- FutureProof Stat Mapping (Static) ---
+
+  - name: backs_feature
+    type: varchar
+    required: true
+    business_term: BT-054
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      FutureProof feature backed by this data. Always "Stage3Branching"
+      for all 15,944 rows. Documentation metadata.
+    constraints:
+      - "CHECK (backs_feature = 'Stage3Branching')"
+
+  # --- Pipeline Metadata ---
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the raw zone. Pipeline metadata
+      carried from Silver.
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    business_term: BT-026
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was promoted to the Gold zone consumable table.
+      Generated at promotion time.
+
+# Quality thresholds based on physical model constraints, DQ rules, and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    related_bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    relatedness_tier_values: ["Primary-Short", "Primary-Long", "Supplemental"]
+    best_index_range: [1, 20]
+    relationship_type_constant: "similarity"
+    backs_feature_constant: "Stage3Branching"
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    no_self_references: true
+  volume:
+    row_count_exact: 15944
+  consistency:
+    is_primary_matches_relatedness_tier: true
+    all_titles_non_null: true
+    backs_feature_constant: "Stage3Branching"
+  freshness_sla: >
+    Full table replace on each pipeline run. Freshness depends on O*NET
+    release schedule (annual, current version 30.2).
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/gold-onet-profiles.json
+  total_rules: 43
+  career_transitions_rules: 14
+  scorecard: governance/dq-scorecards/gold-onet-profiles-scorecard.md
+  pass_rate: "100%"
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_tables:
+    - base.onet_career_transitions
+    - base.onet_occupations
+    - consumable.onet_work_profiles
+  transformation: src/gold/onet_career_transitions.py
+
+# Consumers -- downstream tables and processes that depend on this contract.
+consumers:
+  - name: "FutureProof Game Engine (Stage 3 Branching)"
+    type: application
+    description: >
+      Consumes the full career transition graph for Stage 3 branching tree
+      display. Queries by bls_soc_code to retrieve related occupations
+      ordered by best_index. Depends on grain integrity, SOC code format,
+      and title population.
+    contact: "@primary-agent"
+    status: planned
+  - name: "Gemma Career Guidance Agent"
+    type: grounding
+    description: >
+      Consumes source_title, related_title, relatedness_tier for
+      natural-language career transition descriptions and branching
+      narratives.
+    contact: "@doc-generator"
+    status: planned
+  - name: "Cross-source Gold product (CIP-SOC crosswalk)"
+    type: table
+    description: >
+      Future cross-source Gold product will join to this table via
+      bls_soc_code through the CIP-SOC crosswalk to show career
+      transitions for a given academic program.
+    contact: "@primary-agent"
+    status: planned

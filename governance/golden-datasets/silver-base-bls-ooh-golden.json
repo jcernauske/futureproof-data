@@ -1,0 +1,95 @@
+{
+  "spec": "silver-base-bls-ooh",
+  "table": "base.bls_ooh",
+  "description": "Golden dataset with 3 independently verifiable occupations from the BLS Employment Projections. Each value is traceable from Bronze source row through Silver derivation to expected output. Selected: Software Developers (high-growth tech), Registered Nurses (large healthcare), Word Processors and Typists (fastest-declining).",
+  "created": "2026-04-07",
+  "created_by": "@orchestrator",
+  "iceberg_path": "data/silver/iceberg_warehouse/base/bls_ooh",
+  "bronze_source": "data/bronze/iceberg_warehouse/bronze/bls_ooh",
+  "values": [
+    {
+      "description": "Software Developers (15-1252) — median annual wage",
+      "filters": {"soc_code": "15-1252"},
+      "column": "median_annual_wage",
+      "expected_value": 133080.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "bronze_source": "bronze.bls_ooh WHERE soc_code='15-1252'",
+        "bronze_value": 133080.0,
+        "derivation": "Direct passthrough from Bronze median_annual_wage",
+        "verification_note": "Software Developers median wage from BLS OOH 2024-2034 interactive export. Verifiable at bls.gov."
+      }
+    },
+    {
+      "description": "Software Developers (15-1252) — growth category (15.8% = growing_fast)",
+      "filters": {"soc_code": "15-1252"},
+      "column": "growth_category",
+      "expected_value": "growing_fast",
+      "tolerance_pct": 0,
+      "tolerance_type": "exact",
+      "traceability": {
+        "bronze_source": "bronze.bls_ooh WHERE soc_code='15-1252'",
+        "bronze_value": 15.8,
+        "derivation": "employment_change_pct=15.8, bucket: 10.0 <= pct < 20.0 → growing_fast",
+        "verification_note": "BLS projects 15.8% growth for Software Developers 2024-2034."
+      }
+    },
+    {
+      "description": "Software Developers (15-1252) — education code (Bachelor's degree)",
+      "filters": {"soc_code": "15-1252"},
+      "column": "education_code",
+      "expected_value": 3,
+      "tolerance_pct": 0,
+      "tolerance_type": "exact",
+      "traceability": {
+        "bronze_source": "bronze.bls_ooh WHERE soc_code='15-1252'",
+        "bronze_value": 3,
+        "derivation": "Direct passthrough from Bronze education_code",
+        "verification_note": "BLS classifies Software Developers as typically requiring a Bachelor's degree (code 3)."
+      }
+    },
+    {
+      "description": "Registered Nurses (29-1141) — median annual wage",
+      "filters": {"soc_code": "29-1141"},
+      "column": "median_annual_wage",
+      "expected_value": 93600.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "relative",
+      "traceability": {
+        "bronze_source": "bronze.bls_ooh WHERE soc_code='29-1141'",
+        "bronze_value": 93600.0,
+        "derivation": "Direct passthrough from Bronze median_annual_wage",
+        "verification_note": "Registered Nurses median wage from BLS OOH 2024-2034 interactive export."
+      }
+    },
+    {
+      "description": "Registered Nurses (29-1141) — growth category (4.9% = growing)",
+      "filters": {"soc_code": "29-1141"},
+      "column": "growth_category",
+      "expected_value": "growing",
+      "tolerance_pct": 0,
+      "tolerance_type": "exact",
+      "traceability": {
+        "bronze_source": "bronze.bls_ooh WHERE soc_code='29-1141'",
+        "bronze_value": 4.9,
+        "derivation": "employment_change_pct=4.9, bucket: 1.0 <= pct < 10.0 → growing",
+        "verification_note": "BLS projects 4.9% growth for Registered Nurses 2024-2034."
+      }
+    },
+    {
+      "description": "Word Processors and Typists (43-9022) — growth category (-36.1% = declining_fast)",
+      "filters": {"soc_code": "43-9022"},
+      "column": "growth_category",
+      "expected_value": "declining_fast",
+      "tolerance_pct": 0,
+      "tolerance_type": "exact",
+      "traceability": {
+        "bronze_source": "bronze.bls_ooh WHERE soc_code='43-9022'",
+        "bronze_value": -36.1,
+        "derivation": "employment_change_pct=-36.1, bucket: pct < -10.0 → declining_fast",
+        "verification_note": "Word Processors and Typists is the fastest-declining occupation in the BLS 2024-2034 projections at -36.1%."
+      }
+    }
+  ]
+}

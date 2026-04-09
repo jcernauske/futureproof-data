@@ -1,0 +1,11 @@
+{
+  "run_id": "26ca6c66",
+  "spec": "crosswalk-cip-soc",
+  "executed_at": "2026-04-09T03:27:06.234818+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

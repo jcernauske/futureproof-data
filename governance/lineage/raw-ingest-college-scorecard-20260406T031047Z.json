@@ -1,0 +1,202 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-06T02:34:21.452516Z",
+    "run": {
+      "runId": "32ea029e-74c9-4aeb-a058-1190df46b643",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-college-scorecard.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of College Scorecard field-of-study data. Filters to CREDLEV=3 (bachelor's degrees), converts PrivacySuppressed sentinel values to null, coerces types, and appends to Iceberg table with dedup on grain (unitid, cipcode, credlev)."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowCount": 69947,
+          "skippedDuplicates": 0,
+          "filteredByCREDLEV": "non-CREDLEV-3 rows excluded during fetch (estimated ~2257 based on spec context)",
+          "nullGrainSkipped": "rows with null unitid/cipcode/credlev skipped during flatten",
+          "snapshotId": 2229077043664148049
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-college-scorecard",
+      "facets": {
+        "documentation": {
+          "description": "Ingest U.S. Department of Education College Scorecard field-of-study-level data into the bronze zone. Downloads bulk CSV, filters to bachelor's degrees (CREDLEV=3), converts PrivacySuppressed values to null, coerces types, and appends to raw.college_scorecard Iceberg table with dedup on (unitid, cipcode, credlev)."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/college_scorecard_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "ed.gov",
+        "name": "college-scorecard.field-of-study-csv",
+        "facets": {
+          "dataSource": {
+            "uri": "https://ed-public-download.app.cloud.gov/downloads/Most-Recent-Cohorts-Field-of-Study.csv",
+            "fallbackUri": "https://ed-public-download.scorecard.network/downloads/Most-Recent-Cohorts-Field-of-Study_04172025.zip"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING"},
+              {"name": "INSTNM", "type": "STRING"},
+              {"name": "CIPCODE", "type": "STRING"},
+              {"name": "CIPDESC", "type": "STRING"},
+              {"name": "CREDDESC", "type": "STRING"},
+              {"name": "CREDLEV", "type": "STRING"},
+              {"name": "MD_EARN_WNE", "type": "STRING"},
+              {"name": "EARN_MDN_HI_1YR", "type": "STRING"},
+              {"name": "EARN_MDN_HI_2YR", "type": "STRING"},
+              {"name": "DEBT_ALL_STGP_EVAL_MDN", "type": "STRING"},
+              {"name": "IPEDSCOUNT1", "type": "STRING"},
+              {"name": "IPEDSCOUNT2", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.college_scorecard",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG"},
+              {"name": "instnm", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "cipdesc", "type": "STRING"},
+              {"name": "creddesc", "type": "STRING"},
+              {"name": "credlev", "type": "INTEGER"},
+              {"name": "md_earn_wne", "type": "DOUBLE"},
+              {"name": "earn_mdn_hi_1yr", "type": "DOUBLE"},
+              {"name": "earn_mdn_hi_2yr", "type": "DOUBLE"},
+              {"name": "debt_all_stgp_eval_mdn", "type": "DOUBLE"},
+              {"name": "ipedscount1", "type": "LONG"},
+              {"name": "ipedscount2", "type": "LONG"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "UNITID"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to long integer via int(). Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "instnm": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "INSTNM"}
+                ],
+                "transformationDescription": "Direct string copy. PrivacySuppressed/PS/NA/NULL/empty sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "cipcode": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "CIPCODE"}
+                ],
+                "transformationDescription": "Direct string copy preserving XX.XXXX format with leading zeros. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "cipdesc": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "CIPDESC"}
+                ],
+                "transformationDescription": "Direct string copy. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "creddesc": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "CREDDESC"}
+                ],
+                "transformationDescription": "Direct string copy. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "credlev": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "CREDLEV"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to integer via int(). Pre-filtered to value 3 (bachelor's degree) during fetch. Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "md_earn_wne": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "MD_EARN_WNE"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). PrivacySuppressed/PS/NA/NULL/empty converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "earn_mdn_hi_1yr": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "EARN_MDN_HI_1YR"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "earn_mdn_hi_2yr": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "EARN_MDN_HI_2YR"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "debt_all_stgp_eval_mdn": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "DEBT_ALL_STGP_EVAL_MDN"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "ipedscount1": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "IPEDSCOUNT1"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to long integer via int(). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "ipedscount2": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.field-of-study-csv", "field": "IPEDSCOUNT2"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to long integer via int(). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_csv_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

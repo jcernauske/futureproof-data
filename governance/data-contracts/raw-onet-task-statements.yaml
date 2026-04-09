@@ -1,0 +1,146 @@
+---
+# Data Contract: raw.onet_task_statements
+# Spec: raw-ingest-onet
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-07
+
+table: raw.onet_task_statements
+namespace: raw
+zone: bronze
+grain:
+  - onet_soc_code
+  - task_id
+status: ACTIVE
+record_count: 18796
+data_vintage: "O*NET 30.2 (2026)"
+source: "O*NET Resource Center bulk download (onetcenter.org)"
+
+columns:
+  - name: onet_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field and foreign key to raw.onet_occupations. Required to associate
+      task statements with their occupation for AI automation exposure scoring
+      (RES stat) and the AI boss fight. Without this field, task data cannot be
+      linked to any occupation and is analytically useless. Also enables
+      cross-source integration via SOC truncation to BLS OOH.
+    is_pii: false
+    pii_rationale: ""
+    description: "O*NET-SOC occupation code (XX-XXXX.XX format). Foreign key to raw.onet_occupations."
+
+  - name: task_id
+    type: long
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Globally unique task identifier (18,796 distinct values). Part of the
+      table grain (onet_soc_code x task_id). This is the atomic unit for AI
+      automation exposure scoring — each task_id represents a specific work task
+      that will be evaluated for "can AI do this?" in the FutureProof RES stat
+      and AI boss fight calculations. The task_id enables stable references to
+      individual tasks across O*NET releases and downstream scoring pipelines.
+    is_pii: false
+    pii_rationale: ""
+    description: "Unique task identifier. Globally unique across all occupations."
+
+  - name: task
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      The actual task description text — the core analytical content of this table.
+      This is the input to AI automation susceptibility scoring: the text of "what
+      does a worker do" is evaluated (potentially via LLM semantic matching against
+      Karpathy/AI automation scores) to determine which tasks are automatable.
+      Directly powers the RES stat and AI boss fight. Without task text, the
+      occupation's AI exposure profile cannot be computed.
+    is_pii: false
+    pii_rationale: ""
+    description: "Task description text (13-332 chars). Describes a specific work task performed in this occupation."
+
+  - name: task_type
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Task classification: "Core" (72.6%), "Supplemental" (22.9%), or "n/a" (4.5%).
+      The "n/a" values correlate 1:1 with domain_source="Analyst". Useful for
+      filtering but not a primary analytical input — both Core and Supplemental
+      tasks feed AI exposure scoring.
+
+  - name: incumbents_responding
+    type: int
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Number of survey respondents for this task (range 18-238). Null for 6.3% of
+      rows (Analyst and Analyst-Transition domain sources have no survey respondents).
+      Useful as a data quality indicator but not a primary analytical input.
+
+  - name: date
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Data collection date (MM/YYYY format). Range: 12/2004 to 12/2025."
+
+  - name: domain_source
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source of the task data: Incumbent (70.2%), Occupational Expert (23.5%),
+      Analyst (4.5%), or Analyst-Transition (1.8%). Affects data quality
+      characteristics (sample size, task_type availability) but is not itself
+      an analytical input for FutureProof.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which O*NET ZIP was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (bulk_zip_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

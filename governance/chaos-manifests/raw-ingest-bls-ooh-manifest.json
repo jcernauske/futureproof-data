@@ -1,0 +1,1093 @@
+{
+  "spec": "raw-ingest-bls-ooh",
+  "table": "raw.bls_ooh",
+  "run_timestamp": "2026-04-07T15:55:11.931540+00:00",
+  "cycles_completed": 5,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "corruptions": 11,
+      "row_count": 16,
+      "dq_passed": 12,
+      "dq_failed": 6,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-OOH-003",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "RAW-OOH-008",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-009",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-012",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "RAW-OOH-018",
+            "raw_value": 5
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-OOH-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.333,
+        "rules_fired": 6,
+        "rules_silent": 12,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 0,
+          "dimension": "completeness",
+          "field": "occupation_title",
+          "strategy": "null_occupation_title",
+          "old_value": "Software developers",
+          "new_value": "null"
+        },
+        {
+          "row": 1,
+          "dimension": "validity",
+          "field": "employment_projected",
+          "strategy": "negative_employment",
+          "old_value": "3337100",
+          "new_value": "-180715"
+        },
+        {
+          "row": 10,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_6 (soc=47-2111)",
+          "new_value": "duplicate at position 10"
+        },
+        {
+          "row": 5,
+          "dimension": "consistency",
+          "field": "employment_change",
+          "strategy": "employment_change_mismatch",
+          "old_value": "400",
+          "new_value": "6477972"
+        },
+        {
+          "row": 0,
+          "dimension": "accuracy",
+          "field": "employment_current,employment_projected",
+          "strategy": "swapped_employment",
+          "old_value": "current=1795500,projected=2057200",
+          "new_value": "current=2057200,projected=1795500"
+        },
+        {
+          "row": 2,
+          "dimension": "reasonableness",
+          "field": "employment_change_pct",
+          "strategy": "extreme_change_pct",
+          "old_value": "5.2",
+          "new_value": "-200.0"
+        },
+        {
+          "row": 6,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-07 15:55:11.256568",
+          "new_value": "2030-06-15T12:00:00"
+        },
+        {
+          "row": 2,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "11-1021",
+          "new_value": "90-2002"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "11",
+          "new_value": "16"
+        },
+        {
+          "row": 3,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        },
+        {
+          "row": 13,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "corruptions": 11,
+      "row_count": 16,
+      "dq_passed": 10,
+      "dq_failed": 8,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-OOH-001",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-002",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "RAW-OOH-003",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "RAW-OOH-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-014",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-016",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "RAW-OOH-017",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-018",
+            "raw_value": 3
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-OOH-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-008",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.444,
+        "rules_fired": 8,
+        "rules_silent": 10,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 6,
+          "dimension": "completeness",
+          "field": "soc_code",
+          "strategy": "null_soc_code",
+          "old_value": "47-2111",
+          "new_value": "null"
+        },
+        {
+          "row": 3,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_format",
+          "old_value": "13-2011",
+          "new_value": "15.1252"
+        },
+        {
+          "row": 10,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_1 (soc=29-1141)",
+          "new_value": "duplicate at position 10"
+        },
+        {
+          "row": 8,
+          "dimension": "consistency",
+          "field": "employment_change",
+          "strategy": "employment_change_mismatch",
+          "old_value": "625600",
+          "new_value": "9957643"
+        },
+        {
+          "row": 5,
+          "dimension": "accuracy",
+          "field": "soc_code",
+          "strategy": "summary_soc_code",
+          "old_value": "11-1031",
+          "new_value": "11-0000"
+        },
+        {
+          "row": 5,
+          "dimension": "reasonableness",
+          "field": "median_annual_wage",
+          "strategy": "extreme_wage",
+          "old_value": "None",
+          "new_value": "-50000.0"
+        },
+        {
+          "row": 9,
+          "dimension": "freshness",
+          "field": "load_date",
+          "strategy": "stale_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "2020-01-01"
+        },
+        {
+          "row": 1,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "29-1141",
+          "new_value": "95-7322"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "11",
+          "new_value": "16"
+        },
+        {
+          "row": 1,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        },
+        {
+          "row": 11,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "corruptions": 11,
+      "row_count": 16,
+      "dq_passed": 12,
+      "dq_failed": 6,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-OOH-002",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-003",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "RAW-OOH-004",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-008",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-009",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-010",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-OOH-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.333,
+        "rules_fired": 6,
+        "rules_silent": 12,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 6,
+          "dimension": "completeness",
+          "field": "occupation_title",
+          "strategy": "null_occupation_title",
+          "old_value": "Electricians",
+          "new_value": "null"
+        },
+        {
+          "row": 4,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_format",
+          "old_value": "29-1248",
+          "new_value": "151252"
+        },
+        {
+          "row": 10,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_1 (soc=29-1141)",
+          "new_value": "duplicate at position 10"
+        },
+        {
+          "row": 1,
+          "dimension": "consistency",
+          "field": "median_wage_capped,median_annual_wage",
+          "strategy": "capped_wrong_wage",
+          "old_value": "capped=False,wage=86070.0",
+          "new_value": "capped=True,wage=200000.0"
+        },
+        {
+          "row": 2,
+          "dimension": "accuracy",
+          "field": "soc_code",
+          "strategy": "summary_soc_code",
+          "old_value": "11-1021",
+          "new_value": "11-0000"
+        },
+        {
+          "row": 3,
+          "dimension": "reasonableness",
+          "field": "employment_change_pct",
+          "strategy": "extreme_change_pct",
+          "old_value": "3.8",
+          "new_value": "-200.0"
+        },
+        {
+          "row": 2,
+          "dimension": "freshness",
+          "field": "load_date",
+          "strategy": "future_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "2030-01-01"
+        },
+        {
+          "row": 4,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "151252",
+          "new_value": "95-2536"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "11",
+          "new_value": "16"
+        },
+        {
+          "row": 8,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=3",
+          "new_value": "null"
+        },
+        {
+          "row": 9,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "corruptions": 11,
+      "row_count": 16,
+      "dq_passed": 11,
+      "dq_failed": 7,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-OOH-002",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-003",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "RAW-OOH-004",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-013",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-015",
+            "raw_value": 3
+          },
+          {
+            "rule_id": "RAW-OOH-016",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-OOH-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-008",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.389,
+        "rules_fired": 7,
+        "rules_silent": 11,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 1,
+          "dimension": "completeness",
+          "field": "median_wage_capped",
+          "strategy": "null_median_wage_capped",
+          "old_value": "False",
+          "new_value": "null"
+        },
+        {
+          "row": 9,
+          "dimension": "validity",
+          "field": "openings_annual_avg",
+          "strategy": "negative_employment",
+          "old_value": "72300",
+          "new_value": "-3395"
+        },
+        {
+          "row": 10,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_1 (soc=29-1141)",
+          "new_value": "duplicate at position 10"
+        },
+        {
+          "row": 5,
+          "dimension": "consistency",
+          "field": "median_wage_capped,median_annual_wage",
+          "strategy": "uncapped_at_cap",
+          "old_value": "capped=False,wage=None",
+          "new_value": "capped=False,wage=239200.0"
+        },
+        {
+          "row": 4,
+          "dimension": "accuracy",
+          "field": "soc_code",
+          "strategy": "summary_soc_code",
+          "old_value": "29-1248",
+          "new_value": "29-0000"
+        },
+        {
+          "row": 7,
+          "dimension": "reasonableness",
+          "field": "median_annual_wage",
+          "strategy": "extreme_wage",
+          "old_value": "74680.0",
+          "new_value": "5000000.0"
+        },
+        {
+          "row": 1,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-07 15:55:11.681799",
+          "new_value": "2030-06-15T12:00:00"
+        },
+        {
+          "row": 1,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "29-1141",
+          "new_value": "93-6515"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "11",
+          "new_value": "16"
+        },
+        {
+          "row": 12,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        },
+        {
+          "row": 2,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "corruptions": 11,
+      "row_count": 16,
+      "dq_passed": 10,
+      "dq_failed": 8,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-OOH-003",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "RAW-OOH-004",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "RAW-OOH-008",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-012",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-015",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-OOH-016",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "RAW-OOH-018",
+            "raw_value": 2
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-OOH-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-OOH-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.444,
+        "rules_fired": 8,
+        "rules_silent": 10,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 1,
+          "dimension": "completeness",
+          "field": "median_wage_capped",
+          "strategy": "null_median_wage_capped",
+          "old_value": "False",
+          "new_value": "null"
+        },
+        {
+          "row": 5,
+          "dimension": "validity",
+          "field": "employment_projected",
+          "strategy": "negative_employment",
+          "old_value": "44800",
+          "new_value": "-294262"
+        },
+        {
+          "row": 10,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_6 (soc=47-2111)",
+          "new_value": "duplicate at position 10"
+        },
+        {
+          "row": 0,
+          "dimension": "consistency",
+          "field": "median_wage_capped,median_annual_wage",
+          "strategy": "capped_null_wage",
+          "old_value": "capped=False,wage=130160.0",
+          "new_value": "capped=True,wage=None"
+        },
+        {
+          "row": 7,
+          "dimension": "accuracy",
+          "field": "employment_current,employment_projected",
+          "strategy": "swapped_employment",
+          "old_value": "current=965000,projected=1073700",
+          "new_value": "current=1073700,projected=965000"
+        },
+        {
+          "row": 9,
+          "dimension": "reasonableness",
+          "field": "median_annual_wage",
+          "strategy": "extreme_wage",
+          "old_value": "156100.0",
+          "new_value": "-50000.0"
+        },
+        {
+          "row": 5,
+          "dimension": "freshness",
+          "field": "load_date",
+          "strategy": "future_load_date",
+          "old_value": "2026-04-07",
+          "new_value": "2030-01-01"
+        },
+        {
+          "row": 8,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "31-1120",
+          "new_value": "95-6601"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "11",
+          "new_value": "16"
+        },
+        {
+          "row": 8,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=3",
+          "new_value": "null"
+        },
+        {
+          "row": 1,
+          "dimension": "coverage",
+          "field": "education_code",
+          "strategy": "null_education_coverage",
+          "old_value": "education_code=6",
+          "new_value": "null"
+        }
+      ]
+    }
+  ]
+}

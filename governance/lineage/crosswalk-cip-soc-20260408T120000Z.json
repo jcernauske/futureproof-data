@@ -1,0 +1,313 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T12:00:00.000000Z",
+    "run": {
+      "runId": "c1p50c01-b7a2-4e3f-9d1c-8a6f3e2b7d04",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/crosswalk-cip-soc.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of NCES CIP-to-SOC crosswalk (CIP 2020 x SOC 2018). Downloads XLSX from NCES, parses CIP-SOC sheet via openpyxl, coerces CIP codes from float to XX.XXXX string format, coerces SOC codes to string, strips whitespace from title fields, skips rows with null cipcode/soc_code, adds framework metadata (ingested_at, source_url, source_method, load_date), and lands 6,097 rows in raw.cip_soc_crosswalk. Includes 194 'no match' rows (SOC 99-9999) preserved for Silver filtering."
+        },
+        "brightsmith_runMetrics": {
+          "inputRowCount": 6097,
+          "outputRowCount": 6097,
+          "skippedNullRows": 0,
+          "noMatchRows": 194,
+          "sourceFormat": "XLSX",
+          "sourceSheet": "CIP-SOC",
+          "sourceUrl": "https://nces.ed.gov/ipeds/cipcode/Files/CIP2020_SOC2018_Crosswalk.xlsx"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-cip-soc-crosswalk",
+      "facets": {
+        "documentation": {
+          "description": "Ingest the NCES CIP 2020 to SOC 2018 crosswalk XLSX into the Bronze zone. Downloads from NCES (with local fallback), parses the CIP-SOC sheet using openpyxl, maps 4 source columns (CIP2020Code, CIP2020Title, SOC2018Code, SOC2018Title) to canonical names (cipcode, cip_title, soc_code, soc_title), coerces CIP codes from openpyxl float representation to XX.XXXX string format with zero-padding, preserves SOC codes as XX-XXXX strings, strips whitespace from title fields, and adds framework metadata fields."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/cip_soc_crosswalk_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "nces.ed.gov",
+        "name": "CIP2020_SOC2018_Crosswalk.xlsx",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "CIP2020Code", "type": "FLOAT/STRING", "description": "CIP code, may arrive as float (52.0201) or string from openpyxl"},
+              {"name": "CIP2020Title", "type": "STRING", "description": "Program name"},
+              {"name": "SOC2018Code", "type": "STRING", "description": "SOC code in XX-XXXX format"},
+              {"name": "SOC2018Title", "type": "STRING", "description": "Occupation name"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.cip_soc_crosswalk",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "cipcode", "type": "STRING", "transformation": "DERIVED: CIP2020Code coerced from float/string to XX.XXXX via _coerce_cipcode(). Float 52.0201 -> '52.0201', int 1 -> '01.0000', string with dot gets zero-padded family (2 chars) and detail (4 chars)"},
+              {"name": "cip_title", "type": "STRING", "transformation": "DIRECT: CIP2020Title stripped of whitespace via _coerce_string()"},
+              {"name": "soc_code", "type": "STRING", "transformation": "DIRECT: SOC2018Code stripped of whitespace, preserved as XX-XXXX string"},
+              {"name": "soc_title", "type": "STRING", "transformation": "DIRECT: SOC2018Title stripped of whitespace via _coerce_string()"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "transformation": "FRAMEWORK: current UTC timestamp at ingest time"},
+              {"name": "source_url", "type": "STRING", "transformation": "FRAMEWORK: NCES download URL"},
+              {"name": "source_method", "type": "STRING", "transformation": "FRAMEWORK: 'xlsx_download'"},
+              {"name": "load_date", "type": "DATE", "transformation": "FRAMEWORK: current date at ingest time"}
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-08T12:00:00.000000Z",
+    "run": {
+      "runId": "c1p50c02-s1lv-4e3f-9d1c-8a6f3e2b7d05",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/crosswalk-cip-soc.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of CIP-SOC crosswalk. Reads 6,097 rows from raw.cip_soc_crosswalk, filters 194 'no match' rows (soc_code = '99-9999'), validates CIP format (XX.XXXX regex) and SOC format (XX-XXXX regex), validates SOC major group against 23-value allowlist, derives cip_family (first 2 chars of cipcode) and soc_major_group (first 2 chars of soc_code), performs cross-table lookups against 3 Silver tables (base.college_scorecard for has_scorecard_match on cipcode, base.bls_ooh for has_bls_match on soc_code, base.onet_occupations for has_onet_match on bls_soc_code), derives match_quality from 5-tier CASE logic, computes deterministic record_id via compute_grain_id with 'xw' prefix on cipcode+soc_code grain, and promotes 5,903 rows to base.cip_soc_crosswalk via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 6097,
+          "rowsTransformed": 5903,
+          "rowsFiltered": 194,
+          "promoted": 5903,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "lookupSets": {
+            "scorecardCips": "distinct cipcode values from base.college_scorecard",
+            "blsSocs": "distinct soc_code values from base.bls_ooh",
+            "onetSocs": "distinct bls_soc_code values from base.onet_occupations"
+          }
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-cip-soc-crosswalk",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw CIP-SOC crosswalk from Bronze into clean, modeled Silver base table. Filters out 194 'no match' sentinel rows (soc_code = '99-9999'), validates CIP format against XX.XXXX regex and SOC format against XX-XXXX regex (rows failing validation are skipped with warning), validates SOC major group against 23-value VALID_SOC_MAJOR_GROUPS frozenset, derives cip_family and soc_major_group classification fields, performs set-membership lookups against 3 Silver reference tables to compute cross-table match flags, derives match_quality from exhaustive 5-tier CASE expression (full, partial_no_onet, partial_no_bls, scorecard_only, no_scorecard), computes deterministic record_id via grain hash on cipcode+soc_code with 'xw' prefix, and promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/cip_soc_crosswalk_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.cip_soc_crosswalk",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "cip_title", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "soc_title", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.college_scorecard",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "cipcode", "type": "STRING", "description": "Used for has_scorecard_match lookup via set membership"}
+            ]
+          },
+          "inputRole": "lookup"
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING", "description": "Used for has_bls_match lookup via set membership"}
+            ]
+          },
+          "inputRole": "lookup"
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet_occupations",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "bls_soc_code", "type": "STRING", "description": "Used for has_onet_match lookup via set membership"}
+            ]
+          },
+          "inputRole": "lookup"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.cip_soc_crosswalk",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "cip_title", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "soc_title", "type": "STRING"},
+              {"name": "soc_major_group", "type": "STRING"},
+              {"name": "has_scorecard_match", "type": "BOOLEAN"},
+              {"name": "has_bls_match", "type": "BOOLEAN"},
+              {"name": "has_onet_match", "type": "BOOLEAN"},
+              {"name": "match_quality", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(record, ['cipcode', 'soc_code'], prefix='xw'). SHA-256 of concatenated grain fields with 'xw' prefix. Uses the already-transformed record dict, so the hash is based on the validated cipcode and soc_code values.",
+                "transformationType": "DERIVED"
+              },
+              "cipcode": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "cipcode"}
+                ],
+                "transformationDescription": "Stripped whitespace via str().strip(), then validated against XX.XXXX regex pattern (_CIP_PATTERN). Rows failing validation are skipped with warning. No value mutation beyond strip().",
+                "transformationType": "DIRECT"
+              },
+              "cip_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "cip_title"}
+                ],
+                "transformationDescription": "Direct copy from Bronze via raw.get('cip_title', ''). Empty string as defensive fallback for None.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "cipcode"}
+                ],
+                "transformationDescription": "First 2 characters of cipcode extracted via cipcode[:2]. Yields the 2-digit CIP family code (e.g., '52' from '52.0201'). Matches base.college_scorecard.cip_family for downstream joins.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "soc_code"}
+                ],
+                "transformationDescription": "Stripped whitespace via str().strip(), then validated against XX-XXXX regex pattern (_SOC_PATTERN). Rows with soc_code = '99-9999' are filtered before this step. Rows failing validation are skipped with warning. No value mutation beyond strip().",
+                "transformationType": "DIRECT"
+              },
+              "soc_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "soc_title"}
+                ],
+                "transformationDescription": "Direct copy from Bronze via raw.get('soc_title', ''). Empty string as defensive fallback for None.",
+                "transformationType": "DIRECT"
+              },
+              "soc_major_group": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "soc_code"}
+                ],
+                "transformationDescription": "First 2 characters of soc_code extracted via soc_code[:2]. Yields the 2-digit SOC major group code (e.g., '11' from '11-1021'). Validated against VALID_SOC_MAJOR_GROUPS frozenset of 23 codes. Rows with invalid major group are skipped with warning. Matches base.bls_ooh.soc_major_group for downstream joins.",
+                "transformationType": "DERIVED"
+              },
+              "has_scorecard_match": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cipcode"}
+                ],
+                "transformationDescription": "Boolean flag: True if cipcode exists in the set of distinct cipcode values loaded from base.college_scorecard via _load_scorecard_cips(). Set-membership lookup (Python 'in' operator on set). If base.college_scorecard table does not exist, all values default to False.",
+                "transformationType": "DERIVED"
+              },
+              "has_bls_match": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if soc_code exists in the set of distinct soc_code values loaded from base.bls_ooh via _load_bls_socs(). Set-membership lookup (Python 'in' operator on set). If base.bls_ooh table does not exist, all values default to False.",
+                "transformationType": "DERIVED"
+              },
+              "has_onet_match": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if soc_code exists in the set of distinct bls_soc_code values loaded from base.onet_occupations via _load_onet_socs(). Set-membership lookup (Python 'in' operator on set). If base.onet_occupations table does not exist, all values default to False.",
+                "transformationType": "DERIVED"
+              },
+              "match_quality": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.onet_occupations", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "Derived from has_scorecard_match, has_bls_match, has_onet_match via derive_match_quality() implementing exhaustive 5-tier CASE: (1) not has_scorecard -> 'no_scorecard', (2) all three True -> 'full', (3) scorecard+bls but not onet -> 'partial_no_onet', (4) scorecard+onet but not bls -> 'partial_no_bls', (5) scorecard only -> 'scorecard_only'. Validated against VALID_MATCH_QUALITIES frozenset.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.cip_soc_crosswalk", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. Preserves the Bronze zone ingest date. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "source_url": {
+                "reason": "Raw metadata field not needed in Silver zone. Contains the NCES download URL used during Bronze ingestion."
+              },
+              "source_method": {
+                "reason": "Raw metadata field not needed in Silver zone. Contains 'xlsx_download' fetch method identifier from Bronze ingestion."
+              }
+            }
+          },
+          "filteredRows": {
+            "description": "194 rows filtered where soc_code = '99-9999' (NCES 'no match' sentinel indicating CIP codes with no corresponding SOC occupation). These are CIP programs that the crosswalk explicitly designates as not career-oriented (e.g., Liberal Arts)."
+          }
+        }
+      }
+    ]
+  }
+]

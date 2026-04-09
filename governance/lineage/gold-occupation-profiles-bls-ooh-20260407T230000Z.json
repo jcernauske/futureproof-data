@@ -1,0 +1,372 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T23:00:00.000000Z",
+    "run": {
+      "runId": "a3f19c72-8d4e-4b6a-91e3-7c5b2d0f6a18",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-occupation-profiles-bls-ooh.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone transformation of BLS occupation data. Reads 832 rows from base.bls_ooh (Silver), computes GRW score via piecewise linear function from employment_change_pct (8 segments mapping to 1.0-10.0 scale), computes wage_percentile_overall via PERCENT_RANK window on median_annual_wage (null-safe: excludes 23 null-wage rows from ranking then LEFT JOINs back), computes wage_percentile_education_tier via PERCENT_RANK partitioned by education_code (null-safe), derives wage_tier by bucketing wage_percentile_overall into 5 tiers (low/below_average/above_average/high/very_high), computes openings_score via PERCENT_RANK on openings_annual_avg mapped to 1-10 scale, computes market_score as weighted combination (0.6 * grw_score + 0.4 * openings_score), derives confidence_tier from wage_available + broad_occupation_flag + catchall_flag, computes data_completeness as ratio of 4 non-null core fields, sets static FutureProof stat mapping fields (backs_stats='ERN,GRW', backs_bosses='Market,Ceiling'), computes deterministic record_id via compute_grain_id with 'op' prefix, drops 6 fields (employment_change, median_wage_capped, education_typical, work_experience, training_typical, ingested_at) as redundant for Gold consumers, and promotes to consumable.occupation_profiles via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 832,
+          "rowsTransformed": 832,
+          "rowsSkippedTransform": 0,
+          "promoted": 832,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "fieldsDropped": 6,
+          "fieldsDerived": 12,
+          "fieldsCarriedDirect": 17
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-occupation-profiles",
+      "facets": {
+        "documentation": {
+          "description": "Transform Silver base.bls_ooh into the consumable.occupation_profiles Gold data product. Shapes occupation data for direct consumption by the Gemma agent and FutureProof frontend. Adds GRW score (1-10 piecewise linear from employment_change_pct), wage percentile rankings (overall and within education tier, null-safe), wage tier bucketing, market opportunity score (weighted growth + openings signal), occupation confidence tier, data completeness ratio, and static FutureProof stat/boss mappings. Drops 6 redundant Silver fields. Computes deterministic record_id with 'op' prefix. Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/bls_ooh_occupation_profiles.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "soc_major_group", "type": "STRING"},
+              {"name": "soc_major_group_name", "type": "STRING"},
+              {"name": "broad_occupation_flag", "type": "BOOLEAN"},
+              {"name": "catchall_flag", "type": "BOOLEAN"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "employment_projected", "type": "LONG"},
+              {"name": "employment_change", "type": "LONG"},
+              {"name": "employment_change_pct", "type": "DOUBLE"},
+              {"name": "openings_annual_avg", "type": "LONG"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "median_wage_capped", "type": "BOOLEAN"},
+              {"name": "wage_available", "type": "BOOLEAN"},
+              {"name": "education_typical", "type": "STRING"},
+              {"name": "education_code", "type": "INTEGER"},
+              {"name": "education_level_name", "type": "STRING"},
+              {"name": "work_experience", "type": "STRING"},
+              {"name": "work_experience_code", "type": "INTEGER"},
+              {"name": "training_typical", "type": "STRING"},
+              {"name": "training_code", "type": "INTEGER"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.occupation_profiles",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "soc_major_group", "type": "STRING"},
+              {"name": "soc_major_group_name", "type": "STRING"},
+              {"name": "broad_occupation_flag", "type": "BOOLEAN"},
+              {"name": "catchall_flag", "type": "BOOLEAN"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "employment_projected", "type": "LONG"},
+              {"name": "employment_change_pct", "type": "DOUBLE"},
+              {"name": "openings_annual_avg", "type": "LONG"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "grw_score", "type": "DOUBLE"},
+              {"name": "grw_score_rounded", "type": "INTEGER"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "wage_available", "type": "BOOLEAN"},
+              {"name": "wage_percentile_overall", "type": "DOUBLE"},
+              {"name": "wage_percentile_education_tier", "type": "DOUBLE"},
+              {"name": "wage_tier", "type": "STRING"},
+              {"name": "education_code", "type": "INTEGER"},
+              {"name": "education_level_name", "type": "STRING"},
+              {"name": "work_experience_code", "type": "INTEGER"},
+              {"name": "training_code", "type": "INTEGER"},
+              {"name": "market_score", "type": "DOUBLE"},
+              {"name": "market_score_rounded", "type": "INTEGER"},
+              {"name": "confidence_tier", "type": "STRING"},
+              {"name": "data_completeness", "type": "DOUBLE"},
+              {"name": "backs_stats", "type": "STRING"},
+              {"name": "backs_bosses", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(row, ['soc_code'], prefix='op'). SHA-256 of concatenated grain fields with 'op' prefix. Note: prefix changes from Silver's 'ooh' to Gold's 'op', so the Gold record_id is a different hash than the Silver record_id for the same soc_code.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver. No transformation applied. XX-XXXX format validated in Silver zone.",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Direct carry from Silver. No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "soc_major_group": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_major_group"}
+                ],
+                "transformationDescription": "Direct carry from Silver. 2-digit SOC major group code was derived in Silver from soc_code[:2].",
+                "transformationType": "DIRECT"
+              },
+              "soc_major_group_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_major_group_name"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Human-readable major group label was derived in Silver from SOC_MAJOR_GROUP_LOOKUP.",
+                "transformationType": "DIRECT"
+              },
+              "broad_occupation_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "broad_occupation_flag"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Boolean flag for 7 rolled-up broad occupation codes. Used as input to confidence_tier derivation in Gold.",
+                "transformationType": "DIRECT"
+              },
+              "catchall_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "catchall_flag"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Boolean flag for ~70 'all other' residual categories. Used as input to confidence_tier derivation in Gold.",
+                "transformationType": "DIRECT"
+              },
+              "employment_current": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_current"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Current employment count (actual, not thousands). Used as input to data_completeness derivation.",
+                "transformationType": "DIRECT"
+              },
+              "employment_projected": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_projected"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Projected 2034 employment count.",
+                "transformationType": "DIRECT"
+              },
+              "employment_change_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_change_pct"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Percent change in employment 2024-2034. Primary input to grw_score derivation. Also used as input to data_completeness derivation.",
+                "transformationType": "DIRECT"
+              },
+              "openings_annual_avg": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "openings_annual_avg"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Average annual job openings. Used as input to openings_score (intermediate) and market_score derivation. Also used in data_completeness derivation.",
+                "transformationType": "DIRECT"
+              },
+              "growth_category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "growth_category"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Bucketed growth tier (declining_fast/declining/stable/growing/growing_fast/booming) derived in Silver from employment_change_pct.",
+                "transformationType": "DIRECT"
+              },
+              "grw_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_change_pct"}
+                ],
+                "transformationDescription": "Piecewise linear function mapping employment_change_pct to a 1.0-10.0 scale via compute_grw_score(). Uses 8 segments anchored to BLS growth benchmarks: <= -20% -> 1.0 (floor), -20 to -10 -> 1.0-2.5, -10 to -1 -> 2.5-4.0, -1 to 1 -> 4.0-5.0, 1 to 5 -> 5.0-6.5, 5 to 10 -> 6.5-7.5, 10 to 20 -> 7.5-9.0, 20 to 50 -> 9.0-10.0 (cap). National average growth (~4%) maps to approximately 6.0. Computed in Python (not SQL) due to piecewise function complexity. Null if employment_change_pct is null.",
+                "transformationType": "DERIVED"
+              },
+              "grw_score_rounded": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_change_pct"}
+                ],
+                "transformationDescription": "Integer rounding of grw_score via _round_half_up() (floor(x + 0.5) to match DuckDB ROUND behavior, not Python banker's rounding). Produces integer 1-10 for pentagon display. Null if grw_score is null.",
+                "transformationType": "DERIVED"
+              },
+              "median_annual_wage": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Median annual wage in dollars. Null for 23 occupations. Used as input to wage_percentile_overall, wage_percentile_education_tier, and data_completeness derivations.",
+                "transformationType": "DIRECT"
+              },
+              "wage_available": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "wage_available"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Boolean convenience flag (True if median_annual_wage is not null). Used as input to confidence_tier derivation in Gold. 809 True, 23 False.",
+                "transformationType": "DIRECT"
+              },
+              "wage_percentile_overall": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "median_annual_wage"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "PERCENT_RANK() OVER (ORDER BY median_annual_wage) computed in DuckDB. Critical null-safety: computed on a filtered CTE that EXCLUDES null wages, then LEFT JOINed back to the base rows on soc_code. If nulls participate in PERCENT_RANK, DuckDB places them at ~0.185, corrupting all positions. Result is 0.0-1.0 for 809 rows with wage data, null for 23 rows without.",
+                "transformationType": "DERIVED"
+              },
+              "wage_percentile_education_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "median_annual_wage"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "education_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "PERCENT_RANK() OVER (PARTITION BY education_code ORDER BY median_annual_wage) computed in DuckDB. Shows how well this career pays relative to peers needing the same education level. Same null-safety as wage_percentile_overall: computed on a filtered CTE excluding null wages, then LEFT JOINed back. Result is 0.0-1.0 within each education tier for rows with wage data, null for 23 rows without.",
+                "transformationType": "DERIVED"
+              },
+              "wage_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "Bucketed from wage_percentile_overall via CASE expression in DuckDB SQL. Five tiers: <0.25 -> 'low', 0.25-0.50 -> 'below_average', 0.50-0.75 -> 'above_average', 0.75-0.90 -> 'high', >=0.90 -> 'very_high'. Null if wage_percentile_overall is null (23 rows).",
+                "transformationType": "DERIVED"
+              },
+              "education_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "education_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver. BLS education level code (1=Doctoral through 8=No formal). No transformation applied in Gold.",
+                "transformationType": "DIRECT"
+              },
+              "education_level_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "education_level_name"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Normalized education level name derived in Silver from education_code lookup.",
+                "transformationType": "DIRECT"
+              },
+              "work_experience_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "work_experience_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver. BLS work experience code (1=5+ years, 2=Less than 5 years, 3=None). No transformation applied in Gold.",
+                "transformationType": "DIRECT"
+              },
+              "training_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "training_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver. BLS training code (1=Internship/residency through 6=None). No transformation applied in Gold.",
+                "transformationType": "DIRECT"
+              },
+              "market_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_change_pct"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "openings_annual_avg"}
+                ],
+                "transformationDescription": "Combined growth + opportunity signal: market_score = 0.6 * grw_score + 0.4 * openings_score. The grw_score component comes from the piecewise linear function on employment_change_pct. The openings_score component is computed as 1.0 + 9.0 * PERCENT_RANK() OVER (ORDER BY openings_annual_avg) in DuckDB, mapping the rank to a 1.0-10.0 scale. Growth direction gets 60% weight because it signals trajectory; openings volume gets 40% because it signals opportunity breadth. Computed in Python after SQL provides openings_score. Null if grw_score is null or openings_annual_avg is null.",
+                "transformationType": "DERIVED"
+              },
+              "market_score_rounded": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_change_pct"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "openings_annual_avg"}
+                ],
+                "transformationDescription": "Integer rounding of market_score via _round_half_up() (floor(x + 0.5) to match DuckDB ROUND behavior). Produces integer 1-10 for display. Null if market_score is null.",
+                "transformationType": "DERIVED"
+              },
+              "confidence_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "wage_available"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "broad_occupation_flag"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "catchall_flag"}
+                ],
+                "transformationDescription": "Occupation-level data quality tier computed via CASE expression in DuckDB SQL. Priority order: (1) wage_available = FALSE -> 'low' (23 rows; can't compute ERN stat), (2) broad_occupation_flag = TRUE OR catchall_flag = TRUE -> 'medium' (heterogeneous groups; guidance less specific), (3) else -> 'high' (specific occupation with full data). Required field, never null. Expected distribution: majority 'high', ~77 'medium', 23 'low'.",
+                "transformationType": "DERIVED"
+              },
+              "data_completeness": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "median_annual_wage"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_current"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "employment_change_pct"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "openings_annual_avg"}
+                ],
+                "transformationDescription": "Ratio of non-null core fields among 4 specified fields (median_annual_wage, employment_current, employment_change_pct, openings_annual_avg) divided by 4.0. Computed via CASE/SUM expression in DuckDB SQL. Possible values: 0.0, 0.25, 0.5, 0.75, 1.0. Expected: most rows at 1.0 (all 4 fields present), 23 rows at 0.75 (missing median_annual_wage only). Required field, never null.",
+                "transformationType": "DERIVED"
+              },
+              "backs_stats": {
+                "inputFields": [],
+                "transformationDescription": "Static literal string 'ERN,GRW' set for all 832 rows. Documents which FutureProof pentagon stats this occupation data product feeds. Set in Python after DuckDB SQL execution. No input fields; value is a constant defined by the spec.",
+                "transformationType": "DERIVED"
+              },
+              "backs_bosses": {
+                "inputFields": [],
+                "transformationDescription": "Static literal string 'Market,Ceiling' set for all 832 rows. Documents which FutureProof boss fights this occupation data product feeds. Set in Python after DuckDB SQL execution. No input fields; value is a constant defined by the spec.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "source_load_date"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Date the original BLS data entered the raw zone. Preserves provenance chain: Bronze load_date -> Silver source_load_date -> Gold source_load_date.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Set in add_record_ids() after all derivations are complete. Independent of any Silver timestamp. Replaces Silver's ingested_at in the metadata lineage chain.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "record_id (Silver)": {
+                "reason": "Silver's record_id (prefix 'ooh') is replaced by a new Gold record_id (prefix 'op'). The Gold grain hash uses the same key fields (soc_code) but a different prefix, producing a different hash value."
+              },
+              "employment_change": {
+                "reason": "Redundant with employment_change_pct for Gold consumers. Absolute employment change is less useful than percentage for GRW stat scoring. Available in Silver base.bls_ooh if needed for downstream analysis."
+              },
+              "median_wage_capped": {
+                "reason": "All False in current data (interactive export has no top-coded wages). The wage_available boolean flag is more useful for Gold consumers. Preserved in Silver for lineage."
+              },
+              "education_typical": {
+                "reason": "Redundant with education_level_name (derived from education_code in Silver). Gold carries the normalized name, drops the raw BLS label string."
+              },
+              "work_experience": {
+                "reason": "Redundant with work_experience_code. The integer code is sufficient for Gold consumers and downstream joins."
+              },
+              "training_typical": {
+                "reason": "Redundant with training_code. The integer code is sufficient for Gold consumers and downstream joins."
+              },
+              "ingested_at": {
+                "reason": "Silver zone metadata timestamp. Replaced by promoted_at in Gold zone. The promotion timestamp is the relevant metadata for Gold consumers."
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

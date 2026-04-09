@@ -1,0 +1,227 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T12:00:00.000000Z",
+    "run": {
+      "runId": "cfb8d82d-aab2-4152-aef0-cca4ed7e755b",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-bls-ooh.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of BLS Employment Projections data. Downloads XLSX from BLS (with browser-like UA to avoid 403), parses with openpyxl, filters out summary rows (SOC codes ending in 0000), multiplies employment figures by 1000 (source reports in thousands), parses median wage with top-code detection (>=239,200 -> 239200.0 with capped flag), preserves SOC codes as XX-XXXX strings, and appends to Iceberg table with dedup on grain (soc_code)."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowCount": null,
+          "note": "Static lineage capture; runtime row counts will be populated by BaseIngestor auto-emission on first live run",
+          "summaryRowsFiltered": "SOC codes ending in 0000 excluded during _read_xlsx",
+          "nullGrainSkipped": "rows with null/empty soc_code skipped during _read_xlsx and flatten"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-bls-ooh",
+      "facets": {
+        "documentation": {
+          "description": "Ingest Bureau of Labor Statistics Employment Projections data into the bronze zone. Downloads XLSX from BLS EP data tables, parses occupational projections and characteristics, filters out summary/aggregate rows, converts employment figures from thousands to actual counts, handles top-coded median wages, and appends to raw.bls_ooh Iceberg table with dedup on soc_code."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/bls_ooh_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "bls.gov",
+        "name": "employment-projections.occupational-characteristics-xlsx",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.bls.gov/emp/tables/occupational-projections-and-characteristics.htm",
+            "fallbackUri": "data/raw/xlsx_cache/bls_ooh.xlsx"
+          },
+          "schema": {
+            "fields": [
+              {"name": "Matrix Code (SOC)", "type": "STRING"},
+              {"name": "Matrix Title (Occupation)", "type": "STRING"},
+              {"name": "Employment, 2023 (in thousands)", "type": "DOUBLE"},
+              {"name": "Employment, 2033 (in thousands)", "type": "DOUBLE"},
+              {"name": "Change, Numeric (in thousands)", "type": "DOUBLE"},
+              {"name": "Change, Percent", "type": "DOUBLE"},
+              {"name": "Occupational Openings (annual avg)", "type": "DOUBLE"},
+              {"name": "Median Annual Wage", "type": "STRING"},
+              {"name": "Typical Education Needed", "type": "STRING"},
+              {"name": "Education Code", "type": "INTEGER"},
+              {"name": "Work Experience in a Related Occupation", "type": "STRING"},
+              {"name": "Work Experience Code", "type": "INTEGER"},
+              {"name": "Typical On-the-Job Training", "type": "STRING"},
+              {"name": "Training Code", "type": "INTEGER"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "employment_projected", "type": "LONG"},
+              {"name": "employment_change", "type": "LONG"},
+              {"name": "employment_change_pct", "type": "DOUBLE"},
+              {"name": "openings_annual_avg", "type": "LONG"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "median_wage_capped", "type": "BOOLEAN"},
+              {"name": "education_typical", "type": "STRING"},
+              {"name": "education_code", "type": "INTEGER"},
+              {"name": "work_experience", "type": "STRING"},
+              {"name": "work_experience_code", "type": "INTEGER"},
+              {"name": "training_typical", "type": "STRING"},
+              {"name": "training_code", "type": "INTEGER"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Matrix Code (SOC)"}
+                ],
+                "transformationDescription": "Coerced to string via str().strip(). Preserves XX-XXXX format with hyphen. Rows with null/empty SOC code are dropped. Summary rows (SOC ending in 0000) are filtered out during XLSX parsing.",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Matrix Title (Occupation)"}
+                ],
+                "transformationDescription": "Direct string copy via str().strip(). Null if missing or empty.",
+                "transformationType": "DIRECT"
+              },
+              "employment_current": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Employment, 2023 (in thousands)"}
+                ],
+                "transformationDescription": "Source value is in thousands (e.g., 1579.8 means ~1,579,800). Multiplied by 1000 and rounded to long integer via int(round(float(value) * 1000)). Null if parse fails.",
+                "transformationType": "DERIVED"
+              },
+              "employment_projected": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Employment, 2033 (in thousands)"}
+                ],
+                "transformationDescription": "Source value is in thousands. Multiplied by 1000 and rounded to long integer via int(round(float(value) * 1000)). Null if parse fails.",
+                "transformationType": "DERIVED"
+              },
+              "employment_change": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Change, Numeric (in thousands)"}
+                ],
+                "transformationDescription": "Source value is in thousands. Multiplied by 1000 and rounded to long integer. Can be negative (declining occupations). Null if parse fails.",
+                "transformationType": "DERIVED"
+              },
+              "employment_change_pct": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Change, Percent"}
+                ],
+                "transformationDescription": "Coerced to double via float(). Commas and percent signs stripped if present. Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "openings_annual_avg": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Occupational Openings (annual avg)"}
+                ],
+                "transformationDescription": "Source value is in thousands. Multiplied by 1000 and rounded to long integer via int(round(float(value) * 1000)). Null if parse fails.",
+                "transformationType": "DERIVED"
+              },
+              "median_annual_wage": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Median Annual Wage"}
+                ],
+                "transformationDescription": "String-parsed via _parse_wage(). Top-coded values (containing '>=' or 'or more') have non-numeric characters stripped and are parsed to float (e.g., '>=239,200' -> 239200.0). 'N/A', 'NA', dashes, and empty values converted to null. Normal values have $ and commas stripped before float conversion.",
+                "transformationType": "DERIVED"
+              },
+              "median_wage_capped": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Median Annual Wage"}
+                ],
+                "transformationDescription": "Boolean flag derived from median wage string parsing. True if the original wage value contained '>=' or 'or more' (indicating BLS top-coding at the maximum reportable wage). False for normal wages and null/N/A wages.",
+                "transformationType": "DERIVED"
+              },
+              "education_typical": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Typical Education Needed"}
+                ],
+                "transformationDescription": "Direct string copy via str().strip(). Null if missing or empty.",
+                "transformationType": "DIRECT"
+              },
+              "education_code": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Education Code"}
+                ],
+                "transformationDescription": "Coerced to integer via int(float(value)). BLS education level code range 1-8. Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "work_experience": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Work Experience in a Related Occupation"}
+                ],
+                "transformationDescription": "Direct string copy via str().strip(). Null if missing or empty.",
+                "transformationType": "DIRECT"
+              },
+              "work_experience_code": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Work Experience Code"}
+                ],
+                "transformationDescription": "Coerced to integer via int(float(value)). Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "training_typical": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Typical On-the-Job Training"}
+                ],
+                "transformationDescription": "Direct string copy via str().strip(). Null if missing or empty.",
+                "transformationType": "DIRECT"
+              },
+              "training_code": {
+                "inputFields": [
+                  {"namespace": "bls.gov", "name": "employment-projections.occupational-characteristics-xlsx", "field": "Training Code"}
+                ],
+                "transformationDescription": "Coerced to integer via int(float(value)). Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('xlsx_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

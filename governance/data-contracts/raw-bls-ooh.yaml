@@ -1,0 +1,230 @@
+---
+# Data Contract: raw.bls_ooh
+# Spec: raw-ingest-bls-ooh
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-07
+
+table: raw.bls_ooh
+namespace: raw
+zone: bronze
+grain:
+  - soc_code
+status: ACTIVE
+record_count: 832
+data_vintage: "2024-2034 projection cycle"
+source: "BLS Employment Projections interactive export (data.bls.gov)"
+
+columns:
+  - name: soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field and PRIMARY JOIN KEY for all Silver zone cross-source integration.
+      SOC code is the bridge between BLS OOH occupations and College Scorecard programs
+      (via CIP-to-SOC crosswalk) and the direct join key to O*NET task-level data.
+      Without correct SOC codes, the core FutureProof question ("study X, get career Y")
+      cannot be answered. Malformed or missing values would orphan entire occupations
+      from the integrated pipeline.
+    is_pii: false
+    pii_rationale: ""
+    description: "SOC occupation code (XX-XXXX format). Primary identifier for each detailed occupation."
+
+  - name: occupation_title
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Human-readable occupation identifier required for all downstream consumer-facing
+      outputs (MCP server responses, Gold zone career guidance products). While soc_code
+      is the join key, occupation_title is the only field that makes career outcomes
+      interpretable to end users. A null or incorrect title renders the data product
+      unusable for the FutureProof career guidance use case.
+    is_pii: false
+    pii_rationale: ""
+    description: "Occupation name as published by BLS. 1:1 mapping with soc_code."
+
+  - name: employment_current
+    type: long
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Current employment count (converted from BLS 'in thousands' to actual).
+      Context metric for occupation size; not a primary decision driver for career guidance.
+
+  - name: employment_projected
+    type: long
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Projected employment count 10 years out (converted from BLS 'in thousands' to actual).
+      Supporting metric; employment_change_pct is the more actionable derived indicator.
+
+  - name: employment_change
+    type: long
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Net change in employment over projection period (can be negative for declining
+      occupations). Converted from BLS 'in thousands' to actual counts.
+
+  - name: employment_change_pct
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Primary indicator of occupation demand trajectory over the 10-year projection
+      horizon. Directly answers "is this career growing or shrinking?" — a core input
+      to the FutureProof career guidance product. Feeds Gold zone career outlook
+      scoring and program-to-occupation outcome assessments. More actionable than
+      absolute employment change because it normalizes across occupation sizes.
+    is_pii: false
+    pii_rationale: ""
+    description: "Percent change in employment over projection period. Can be negative for declining occupations."
+
+  - name: openings_annual_avg
+    type: long
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Annual average job openings (growth + replacement). Always positive even for
+      declining occupations due to replacement needs. Useful context but
+      employment_change_pct and median_annual_wage are the primary decision metrics.
+
+  - name: median_annual_wage
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Core compensation metric for career guidance — directly answers "how much does
+      this career pay?" Feeds the Gold zone debt-to-salary ratio (program debt /
+      occupation median salary), which is the single most actionable metric for
+      students evaluating education ROI. Also used for cross-source comparison with
+      College Scorecard graduate earnings to detect career-switching or geographic
+      effects. Subject to top-coding at $239,200 (interpret with median_wage_capped).
+    is_pii: false
+    pii_rationale: ""
+    description: "Median annual wage in dollars. Null for N/A occupations. Top-coded at $239,200."
+
+  - name: median_wage_capped
+    type: boolean
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if the original BLS value was '>=239,200' (top-coded). Must be interpreted
+      alongside median_annual_wage — when true, the real median exceeds the reported value.
+
+  - name: education_typical
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable entry-level education requirement (e.g., "Bachelor's degree").
+      Display label; education_code is the computational equivalent.
+
+  - name: education_code
+    type: int
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Enables the education requirements alignment analysis in Silver/Gold zones —
+      matching what an occupation requires (this field) against what a program grants
+      (College Scorecard credlev). This is a core FutureProof integration point:
+      "Does studying X give me the credential level needed for career Y?" The ordinal
+      coding (1-8, higher = more education) supports programmatic filtering and sorting
+      of occupations by education barrier.
+    is_pii: false
+    pii_rationale: ""
+    description: "BLS education level code (1-8). 1=No formal credential through 8=Doctoral/professional degree."
+
+  - name: work_experience
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Work experience requirement in a related occupation. Display label."
+
+  - name: work_experience_code
+    type: int
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "BLS work experience code (1-3). 1=None, 2=Less than 5 years, 3=5 years or more."
+
+  - name: training_typical
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Typical on-the-job training requirement. Display label."
+
+  - name: training_code
+    type: int
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "BLS training code (1-6). 1=None through 6=Internship/residency."
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which data was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (xlsx_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

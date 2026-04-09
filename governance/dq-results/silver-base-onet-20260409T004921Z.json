@@ -1,0 +1,11 @@
+{
+  "run_id": "dc5e7f9f",
+  "spec": "silver-base-onet",
+  "executed_at": "2026-04-09T00:49:21.385849+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

@@ -1,0 +1,210 @@
+---
+# Data Contract: base.onet_context_profiles
+# Spec: silver-base-onet
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-08
+
+table: base.onet_context_profiles
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - bls_soc_code
+  - element_id
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/silver-base-onet.md
+physical_model: governance/models/silver-base-onet-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key: compute_grain_id(row,
+      ['bls_soc_code', 'element_id'], prefix='wc'). Format: wc-<16 hex chars>.
+      Technical infrastructure field.
+
+  - name: bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      FK to base.onet_occupations and primary join key for linking work context
+      measurements to occupations across all downstream Gold zone processes.
+      The Burnout boss fight keys on bls_soc_code to aggregate context values
+      (especially the 9 burnout-relevant elements) into occupation-level burnout
+      scores. Incorrect values would assign context measurements to the wrong
+      occupation, distorting Burnout scores.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      6-digit BLS SOC code. FK to base.onet_occupations.bls_soc_code.
+    constraints:
+      - "CHECK (bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: element_id
+    type: varchar
+    required: true
+    business_term: BT-056
+    is_cde: true
+    cde_rationale: >
+      Content Model element identifier that uniquely identifies which of the
+      57 Work Context dimensions this row measures. Gold zone Burnout boss fight
+      filters on specific element_ids (the 9 burnout-relevant elements identified
+      by is_burnout_element) to compute the Burnout score. Incorrect element_ids
+      would include wrong context dimensions in Burnout calculations or exclude
+      relevant ones, corrupting the Burnout assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Content Model element ID (e.g., "4.C.3.d.1"). Exactly 57 distinct values.
+
+  - name: element_name
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable context dimension name (e.g., "Time Pressure").
+      Denormalized from Bronze. Display label; element_id is the authoritative
+      identifier.
+
+  - name: scale_id
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Scale identifier: "CX" (55 elements, range 1.0-5.0) or "CT" (2 elements,
+      range 1.0-3.0). Metadata for interpreting context_value.
+    constraints:
+      - "CHECK (scale_id IN ('CX', 'CT'))"
+
+  - name: context_value
+    type: double
+    required: true
+    business_term: BT-058
+    is_cde: true
+    cde_rationale: >
+      Point estimate value is the primary numeric input to the Gold zone Burnout
+      boss fight. For the 9 burnout-relevant elements, this value directly
+      determines the occupation's burnout risk score. Also used in broader work
+      environment profiling for career guidance. Incorrect values would directly
+      distort Burnout scores and work environment assessments presented to
+      students making career decisions.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Point estimate value. CX: 1.0-5.0, CT: 1.0-3.0 (both within 1.0-5.0
+      bound). Primary Burnout stat input.
+    constraints:
+      - "CHECK (context_value >= 1.0 AND context_value <= 5.0)"
+
+  - name: is_burnout_element
+    type: boolean
+    required: true
+    business_term: BT-059
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True for the 9 burnout-relevant Work Context elements. Convenience filter
+      flag for Burnout boss fight. Derived from element_id mapping; not
+      independently critical since element_id is the authoritative identifier.
+
+  - name: onet_details_averaged
+    type: integer
+    required: true
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of O*NET detail codes that contributed to this context value.
+      Transparency metadata for multi-detail averaging.
+    constraints:
+      - "CHECK (onet_details_averaged >= 1)"
+
+  - name: suppress_flag
+    type: boolean
+    required: true
+    business_term: BT-062
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if recommend_suppress = "Y" in any contributing Bronze row. Expected
+      < 0.05% True. Quality signal for downstream consumers.
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the Bronze zone. Pipeline metadata.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to Silver. Pipeline metadata.
+
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    context_value_range: [1.0, 5.0]
+    scale_id_values: ["CX", "CT"]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+  volume:
+    row_count_exact: 44118
+    distinct_bls_soc_codes: 774
+    distinct_element_ids: 57
+  freshness_sla: >
+    Full table replace on each pipeline run. Freshness depends on O*NET
+    release schedule (annual, version 30.2 current).
+
+lineage:
+  source_table: raw.onet_work_context
+  transformation: src/silver/onet_transformer.py
+  physical_model: governance/models/silver-base-onet-physical.md
+
+consumers:
+  - name: "Gold zone Burnout boss fight"
+    type: table
+    description: >
+      Gold zone computes Burnout score by aggregating context_values for the
+      9 burnout-relevant element_ids per bls_soc_code.
+    contact: "@primary-agent"
+    status: planned

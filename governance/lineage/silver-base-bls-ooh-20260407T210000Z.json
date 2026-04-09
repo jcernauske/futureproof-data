@@ -1,0 +1,294 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-07T21:00:00.000000Z",
+    "run": {
+      "runId": "d4e7a1b3-6f29-4c8d-a5e1-9b3c7d2f8a06",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-bls-ooh.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of BLS Employment Projections data. Reads 832 rows from bronze.bls_ooh, validates SOC code format (XX-XXXX), derives SOC major group code and name from 22-group lookup, flags 7 hardcoded broad occupation codes, flags 70 catchall categories via case-insensitive 'all other' substring match on occupation_title, buckets employment_change_pct into growth_category, derives wage_available boolean, derives education_level_name from education_code lookup, renames load_date to source_load_date, computes deterministic record_id via compute_grain_id with 'ooh' prefix, drops source_url and source_method raw metadata, and promotes to base.bls_ooh via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 832,
+          "rowsTransformed": 832,
+          "rowsSkippedTransform": 0,
+          "promoted": 832,
+          "skippedDedup": 0,
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-bls-ooh",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw BLS Employment Projections data from Bronze into clean, modeled Silver base table. Validates SOC code format, derives SOC major group code and human-readable name from 22-group lookup, flags 7 broad occupation codes (hardcoded from Bronze SOC audit), flags 70 catchall 'all other' categories, buckets employment_change_pct into growth_category (6 tiers from declining_fast to booming), derives wage_available convenience flag, derives education_level_name from 8-value code lookup, renames load_date to source_load_date, computes deterministic record_id via grain hash on soc_code with 'ooh' prefix, drops raw metadata fields (source_url, source_method), and promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/bls_ooh_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "employment_projected", "type": "LONG"},
+              {"name": "employment_change", "type": "LONG"},
+              {"name": "employment_change_pct", "type": "DOUBLE"},
+              {"name": "openings_annual_avg", "type": "LONG"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "median_wage_capped", "type": "BOOLEAN"},
+              {"name": "education_typical", "type": "STRING"},
+              {"name": "education_code", "type": "INTEGER"},
+              {"name": "work_experience", "type": "STRING"},
+              {"name": "work_experience_code", "type": "INTEGER"},
+              {"name": "training_typical", "type": "STRING"},
+              {"name": "training_code", "type": "INTEGER"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "soc_major_group", "type": "STRING"},
+              {"name": "soc_major_group_name", "type": "STRING"},
+              {"name": "broad_occupation_flag", "type": "BOOLEAN"},
+              {"name": "catchall_flag", "type": "BOOLEAN"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "employment_projected", "type": "LONG"},
+              {"name": "employment_change", "type": "LONG"},
+              {"name": "employment_change_pct", "type": "DOUBLE"},
+              {"name": "openings_annual_avg", "type": "LONG"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "median_wage_capped", "type": "BOOLEAN"},
+              {"name": "wage_available", "type": "BOOLEAN"},
+              {"name": "education_typical", "type": "STRING"},
+              {"name": "education_code", "type": "INTEGER"},
+              {"name": "education_level_name", "type": "STRING"},
+              {"name": "work_experience", "type": "STRING"},
+              {"name": "work_experience_code", "type": "INTEGER"},
+              {"name": "training_typical", "type": "STRING"},
+              {"name": "training_code", "type": "INTEGER"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(record, ['soc_code'], prefix='ooh'). SHA-256 of concatenated grain fields with 'ooh' prefix. Uses the already-transformed record dict, so the hash is based on the cleaned soc_code value.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Stripped whitespace, then validated against XX-XXXX regex pattern. ValueError raised on format violation. No value mutation beyond strip().",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. None coerced to empty string as defensive fallback.",
+                "transformationType": "DIRECT"
+              },
+              "soc_major_group": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "First 2 characters of soc_code extracted via soc_code[:2]. Yields the 2-digit SOC major group code (e.g., '15' from '15-1252'). ValueError raised if the resulting code is not in the 22-group lookup.",
+                "transformationType": "DERIVED"
+              },
+              "soc_major_group_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Derived from soc_major_group (first 2 chars of soc_code) via SOC_MAJOR_GROUP_LOOKUP dictionary. Maps 2-digit code to human-readable name (e.g., '15' -> 'Computer and Mathematical'). ValueError raised if code not found in the 22-entry lookup.",
+                "transformationType": "DERIVED"
+              },
+              "broad_occupation_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if soc_code is in the hardcoded BROAD_OCCUPATION_CODES frozenset of 7 rolled-up/broad SOC codes identified in the Bronze SOC audit (13-1020, 13-2020, 29-2010, 31-1120, 39-7010, 47-4090, 51-2090). Pattern matching deliberately avoided per spec rationale.",
+                "transformationType": "DERIVED"
+              },
+              "catchall_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Boolean flag: True if occupation_title.lower() contains the substring 'all other'. Identifies 70 residual BLS categories that aggregate unclassified occupations within a minor group.",
+                "transformationType": "DERIVED"
+              },
+              "employment_current": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "employment_current"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Already converted from thousands to actual count during Bronze ingestion. No Silver transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "employment_projected": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "employment_projected"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Already converted from thousands to actual count during Bronze ingestion. No Silver transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "employment_change": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "employment_change"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Can be negative for declining occupations (232 rows). Already converted from thousands during Bronze ingestion.",
+                "transformationType": "DIRECT"
+              },
+              "employment_change_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "employment_change_pct"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Percent change in employment over 2024-2034 projection cycle. Can be negative. Used as input to growth_category derivation.",
+                "transformationType": "DIRECT"
+              },
+              "openings_annual_avg": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "openings_annual_avg"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Average annual job openings as actual count. Already converted from thousands during Bronze ingestion.",
+                "transformationType": "DIRECT"
+              },
+              "growth_category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "employment_change_pct"}
+                ],
+                "transformationDescription": "Bucketed from employment_change_pct via derive_growth_category() using half-open intervals: <-10 -> 'declining_fast', [-10,-1) -> 'declining', [-1,1) -> 'stable', [1,10) -> 'growing', [10,20) -> 'growing_fast', >=20 -> 'booming', None -> None. Thresholds based on BLS convention where average 10-year growth is 3-5%.",
+                "transformationType": "DERIVED"
+              },
+              "median_annual_wage": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Null for 23 occupations (17 physicians/surgeons, 5 performers, 1 fishing/hunting). Preserved as-is; wage_available flag derived from nullity.",
+                "transformationType": "DIRECT"
+              },
+              "median_wage_capped": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "median_wage_capped"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Boolean flag for top-coded wages. Expected 0 True values in current interactive export data, but preserved to protect against future source changes. Defaults to False if missing in source row.",
+                "transformationType": "DIRECT"
+              },
+              "wage_available": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "median_annual_wage"}
+                ],
+                "transformationDescription": "Boolean flag: True if median_annual_wage is not None. Convenience flag for downstream filtering. 809 True, 23 False expected.",
+                "transformationType": "DERIVED"
+              },
+              "education_typical": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "education_typical"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Typical entry-level education label string. No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "education_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "education_code"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. BLS education level code (1=Doctoral through 8=No formal). No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "education_level_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "education_code"}
+                ],
+                "transformationDescription": "Derived from education_code via EDUCATION_LEVEL_LOOKUP dictionary. Maps integer code to standardized label (e.g., 3 -> 'Bachelor's degree'). None if education_code is None. Ensures consistent labeling independent of education_typical string variations.",
+                "transformationType": "DERIVED"
+              },
+              "work_experience": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "work_experience"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Work experience requirement label string. No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "work_experience_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "work_experience_code"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. BLS work experience code (1=5+ years, 2=Less than 5 years, 3=None). No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "training_typical": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "training_typical"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Typical on-the-job training label string. No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "training_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "training_code"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. BLS training code (1=Internship/residency through 6=None). No transformation applied.",
+                "transformationType": "DIRECT"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_ooh", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. Preserves the Bronze zone ingest date. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "source_url": {
+                "reason": "Raw metadata field not needed in Silver zone. Contains the BLS download URL used during Bronze ingestion."
+              },
+              "source_method": {
+                "reason": "Raw metadata field not needed in Silver zone. Contains the fetch method identifier from Bronze ingestion."
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

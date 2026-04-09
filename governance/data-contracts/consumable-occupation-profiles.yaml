@@ -1,0 +1,653 @@
+---
+# Data Contract: consumable.occupation_profiles
+# Spec: gold-occupation-profiles-bls-ooh
+# Zone: Gold (Consumable)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-07
+
+table: consumable.occupation_profiles
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/gold-occupation-profiles-bls-ooh.md
+physical_model: governance/models/gold-occupation-profiles-bls-ooh-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  # --- Occupation Profile (Core Identity + Classification) ---
+
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['soc_code'], prefix='op'). Format: op-<16 hex chars>. Stable across
+      pipeline re-runs. Technical infrastructure field, not consumed by business
+      processes.
+
+  - name: soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Natural key and primary join anchor for the consumable occupation profiles
+      table. Every downstream consumer queries by soc_code: Gemma agent lookups,
+      CIP-to-SOC crosswalk joins from the career outcomes Gold product, O*NET
+      task-level enrichment, pentagon stat rendering, boss fight engine, and
+      compare-screen queries. As the sole grain field of this Gold consumable
+      table, an incorrect or missing soc_code would sever the linkage between
+      program-level career outcomes and occupation-level statistics that is the
+      core analytical capability of FutureProof.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC occupation code in XX-XXXX format. Natural key. Primary join key for
+      O*NET and CIP-SOC crosswalk. 832 unique values expected.
+    constraints:
+      - "UNIQUE"
+      - "CHECK (soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: occupation_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: true
+    cde_rationale: >
+      Primary display label consumed directly by the Gemma agent for career
+      descriptions, the FutureProof compare screen, and all user-facing
+      occupation references. In the Gold consumable layer, this is the
+      human-readable identifier that students interact with. While soc_code is
+      the join key, occupation_title is the field end users actually see. An
+      incorrect title would misidentify careers in student-facing guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Official BLS occupation name. Display label consumed by Gemma agent and
+      frontend. Each SOC code maps to exactly one title.
+
+  - name: soc_major_group
+    type: varchar
+    required: true
+    business_term: BT-029
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit SOC major group code derived from the first 2 characters of
+      soc_code. One of 22 valid codes. Used for occupation-family grouping and
+      filtering.
+    constraints:
+      - "CHECK (soc_major_group IN ('11','13','15','17','19','21','23','25','27','29','31','33','35','37','39','41','43','45','47','49','51','53'))"
+
+  - name: soc_major_group_name
+    type: varchar
+    required: true
+    business_term: BT-030
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable label for the SOC major group (e.g., "Management",
+      "Computer and Mathematical"). Derived via lookup from soc_major_group.
+
+  - name: broad_occupation_flag
+    type: boolean
+    required: true
+    business_term: BT-040
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True for 7 rolled-up/broad occupation codes (13-1020, 13-2020, 29-2010,
+      31-1120, 39-7010, 47-4090, 51-2090). These aggregate multiple detailed
+      occupations. Input to confidence_tier derivation.
+
+  - name: catchall_flag
+    type: boolean
+    required: true
+    business_term: BT-043
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True for ~70 occupations with "all other" in title (case-insensitive).
+      These are residual categories with weaker crosswalk signal. Input to
+      confidence_tier derivation.
+
+  # --- Growth Assessment (Carried + Derived) ---
+
+  - name: employment_current
+    type: bigint
+    required: false
+    business_term: BT-031
+    is_cde: true
+    cde_rationale: >
+      Current employment count is a primary input to the Gold zone Market boss
+      fight and provides the baseline for employment change assessments. In the
+      consumable layer, this field is directly consumed by Gemma for career
+      descriptions ("this field employs X workers") and powers the market size
+      component of career guidance. Incorrect values would distort employment
+      statistics presented to students making career decisions.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Current employment actual count (converted from thousands in Bronze).
+      Positive when present. One of four core fields for data_completeness.
+    constraints:
+      - "CHECK (employment_current IS NULL OR employment_current > 0)"
+
+  - name: employment_projected
+    type: bigint
+    required: false
+    business_term: BT-032
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Projected employment count at end of 10-year BLS projection horizon.
+      Positive when present. Input to employment_change_pct (which is the
+      primary Gold stat driver). Not independently critical in the Gold layer
+      because the derived grw_score and employment_change_pct carry the
+      analytical signal to consumers.
+    constraints:
+      - "CHECK (employment_projected IS NULL OR employment_projected > 0)"
+
+  - name: employment_change_pct
+    type: double
+    required: false
+    business_term: BT-034
+    is_cde: true
+    cde_rationale: >
+      Percentage change in employment over the BLS 10-year projection cycle.
+      In the Gold consumable layer, this is the primary input to the grw_score
+      derivation that backs the GRW pentagon stat. Also drives growth_category.
+      Directly consumed by Gemma for growth narrative and by the compare screen.
+      This is the raw metric behind the scored GRW stat -- incorrect values
+      corrupt the GRW score, growth_category, market_score, and all downstream
+      growth-related guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Percent change in employment over projection cycle. Can be negative for
+      declining occupations. Input to grw_score derivation. One of four core
+      fields for data_completeness.
+    constraints:
+      - "CHECK (employment_change_pct IS NULL OR (employment_change_pct >= -50.0 AND employment_change_pct <= 60.0))"
+
+  - name: openings_annual_avg
+    type: bigint
+    required: false
+    business_term: BT-035
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Projected annual average job openings (growth + replacement).
+      Non-negative. Input to market_score derivation (40% weight via
+      openings_score). One of four core fields for data_completeness.
+    constraints:
+      - "CHECK (openings_annual_avg IS NULL OR openings_annual_avg >= 0)"
+
+  - name: growth_category
+    type: varchar
+    required: true
+    business_term: BT-041
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived categorical growth tier bucketing employment_change_pct into one
+      of 6 tiers: declining_fast, declining, stable, growing, growing_fast,
+      booming. NOT NULL in Gold (all 832 rows have employment data). Derived
+      field; the scored grw_score carries the analytical weight.
+    constraints:
+      - "CHECK (growth_category IN ('declining_fast', 'declining', 'stable', 'growing', 'growing_fast', 'booming'))"
+
+  - name: grw_score
+    type: double
+    required: false
+    business_term: BT-047
+    is_cde: true
+    cde_rationale: >
+      Growth stat on a 1-10 scale that directly backs the GRW pentagon stat in
+      the FutureProof five-stat system. This is the primary scored output
+      consumed by the game engine for the pentagon display and by Gemma for
+      growth characterization. Derived from employment_change_pct via piecewise
+      linear function. As a consumable-layer stat score, an incorrect grw_score
+      would directly misrepresent occupation growth potential to students and
+      also corrupt the market_score (which uses grw_score as 60% input).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Growth stat on 1-10 scale. Derived from employment_change_pct via
+      piecewise linear function. Null only if employment_change_pct is null
+      (0 rows currently). Backs the GRW pentagon stat.
+    constraints:
+      - "CHECK (grw_score IS NULL OR (grw_score >= 1.0 AND grw_score <= 10.0))"
+
+  - name: grw_score_rounded
+    type: integer
+    required: false
+    business_term: BT-047
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Integer 1-10 for display. ROUND(grw_score). Null if grw_score is null.
+      Derived from grw_score; not independently critical.
+    constraints:
+      - "CHECK (grw_score_rounded IS NULL OR (grw_score_rounded >= 1 AND grw_score_rounded <= 10))"
+
+  # --- Wage Position (Carried + Derived) ---
+
+  - name: median_annual_wage
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: true
+    cde_rationale: >
+      Median annual wage is the primary compensation metric for occupations and
+      directly backs the ERN (earnings) stat in the FutureProof pentagon. In
+      the Gold consumable layer, this field is consumed by Gemma for salary
+      narrative, by the Ceiling boss fight engine, by debt-to-earnings
+      comparisons when joined with College Scorecard via CIP-SOC crosswalk, and
+      by the compare screen. It is also the input to wage_percentile_overall
+      and wage_percentile_education_tier derivations. Null for 23 occupations
+      where BLS does not report wage data. Incorrect values would directly
+      mislead career earnings guidance and corrupt 4 downstream derived columns.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median annual wage in dollars. Null for 23 occupations where BLS does
+      not report wage data. Backs ERN stat. One of four core fields for
+      data_completeness.
+    constraints:
+      - "CHECK (median_annual_wage IS NULL OR (median_annual_wage >= 25000 AND median_annual_wage <= 250000))"
+
+  - name: wage_available
+    type: boolean
+    required: true
+    business_term: BT-042
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived convenience flag: True when median_annual_wage is not null. 809
+      True, 23 False expected. Used in confidence_tier derivation.
+
+  - name: wage_percentile_overall
+    type: double
+    required: false
+    business_term: BT-048
+    is_cde: true
+    cde_rationale: >
+      Occupation-level wage rank (0.0-1.0) among all occupations with wage
+      data. In the Gold consumable layer, this percentile directly powers the
+      ERN stat relative positioning and the wage_tier derivation. Consumed by
+      the compare screen to show how an occupation's pay ranks overall. Backs
+      the Ceiling boss fight in combination with wage_percentile_education_tier.
+      Incorrect values would misclassify wage tiers and misrepresent an
+      occupation's relative earning potential.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      0.0-1.0 rank among all occupations with wage data. Derived via
+      PERCENT_RANK() window on median_annual_wage. Null for 23 occupations
+      without wage data.
+    constraints:
+      - "CHECK (wage_percentile_overall IS NULL OR (wage_percentile_overall >= 0.0 AND wage_percentile_overall <= 1.0))"
+
+  - name: wage_percentile_education_tier
+    type: double
+    required: false
+    business_term: BT-049
+    is_cde: true
+    cde_rationale: >
+      Within-education-tier wage rank (0.0-1.0) showing how well a career pays
+      relative to peers requiring the same level of education. In the Gold
+      consumable layer, this field directly backs the Ceiling boss fight --
+      it answers "how close to the earnings ceiling am I within my education
+      tier?" Consumed by the game engine and Gemma for education-adjusted
+      compensation guidance. Incorrect values would give students a false
+      impression of whether their career pays well for their degree level.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      0.0-1.0 rank within same education_code tier. Derived via PERCENT_RANK()
+      window partitioned by education_code, ordered by median_annual_wage. Null
+      for 23 occupations without wage data. Backs the Ceiling boss fight.
+    constraints:
+      - "CHECK (wage_percentile_education_tier IS NULL OR (wage_percentile_education_tier >= 0.0 AND wage_percentile_education_tier <= 1.0))"
+
+  - name: wage_tier
+    type: varchar
+    required: false
+    business_term: BT-050
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Categorical bucketing of wage_percentile_overall into five tiers: low,
+      below_average, above_average, high, very_high. Null if wage unavailable
+      (23 rows). Derived field; wage_percentile_overall carries the analytical
+      weight.
+    constraints:
+      - "CHECK (wage_tier IS NULL OR wage_tier IN ('low', 'below_average', 'above_average', 'high', 'very_high'))"
+
+  # --- Entry Requirements (Carried) ---
+
+  - name: education_code
+    type: integer
+    required: false
+    business_term: BT-038
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS education level code (1=Doctoral through 8=No formal credential).
+      Categorical, not aggregatable. Partition key for
+      wage_percentile_education_tier. Consumed by Gemma for "what to study"
+      guidance.
+    constraints:
+      - "CHECK (education_code IS NULL OR (education_code >= 1 AND education_code <= 8))"
+
+  - name: education_level_name
+    type: varchar
+    required: false
+    business_term: BT-039
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Normalized education level label derived from education_code via 8-row
+      lookup. Consumed by Gemma for career description display. Null when
+      education_code is null.
+    constraints:
+      - "CHECK (education_level_name IS NULL OR education_level_name IN ('Doctoral or professional degree', 'Master''s degree', 'Bachelor''s degree', 'Associate''s degree', 'Postsecondary nondegree award', 'Some college, no degree', 'High school diploma or equivalent', 'No formal educational credential'))"
+
+  - name: work_experience_code
+    type: integer
+    required: false
+    business_term: BT-044
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS work experience code (1=5+ years, 2=Less than 5 years, 3=None).
+      Categorical, not aggregatable.
+    constraints:
+      - "CHECK (work_experience_code IS NULL OR (work_experience_code >= 1 AND work_experience_code <= 3))"
+
+  - name: training_code
+    type: integer
+    required: false
+    business_term: BT-045
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BLS training code (1=Internship/residency through 6=None). Categorical,
+      not aggregatable.
+    constraints:
+      - "CHECK (training_code IS NULL OR (training_code >= 1 AND training_code <= 6))"
+
+  # --- Market Opportunity (Derived) ---
+
+  - name: market_score
+    type: double
+    required: false
+    business_term: BT-051
+    is_cde: true
+    cde_rationale: >
+      Combined growth + openings signal on a 1-10 scale that directly backs
+      the Market boss fight in the FutureProof game engine. Formula: 0.6 *
+      grw_score + 0.4 * openings_score. In the Gold consumable layer, this
+      composite score is consumed by the game engine for Market boss fight
+      difficulty calibration and by the compare screen for market health
+      comparison across occupations. An incorrect market_score would directly
+      miscalibrate the Market boss fight and mislead students about labor
+      market opportunity.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Combined growth + openings signal on 1-10 scale. Formula: 0.6 *
+      grw_score + 0.4 * openings_score. Null if grw_score or
+      openings_annual_avg is null. Backs the Market boss fight.
+    constraints:
+      - "CHECK (market_score IS NULL OR (market_score >= 1.0 AND market_score <= 10.0))"
+
+  - name: market_score_rounded
+    type: integer
+    required: false
+    business_term: BT-051
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Integer 1-10 for display. ROUND(market_score). Null if market_score is
+      null. Derived from market_score; not independently critical.
+    constraints:
+      - "CHECK (market_score_rounded IS NULL OR (market_score_rounded >= 1 AND market_score_rounded <= 10))"
+
+  # --- Data Quality Context (Derived) ---
+
+  - name: confidence_tier
+    type: varchar
+    required: true
+    business_term: BT-052
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Three-level data quality classification: "high" (specific occupation with
+      wage data), "medium" (broad or catchall occupation with wage data), "low"
+      (wage data unavailable). Every row receives a tier. Informational metadata;
+      not consumed as a primary business metric.
+    constraints:
+      - "CHECK (confidence_tier IN ('high', 'medium', 'low'))"
+
+  - name: data_completeness
+    type: double
+    required: true
+    business_term: BT-053
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Proportion of four core fields (median_annual_wage, employment_current,
+      employment_change_pct, openings_annual_avg) that are non-null. Values:
+      0.0, 0.25, 0.5, 0.75, 1.0. In practice, 0.0 not expected.
+    constraints:
+      - "CHECK (data_completeness IN (0.0, 0.25, 0.5, 0.75, 1.0))"
+
+  # --- FutureProof Stat Mapping (Static) ---
+
+  - name: backs_stats
+    type: varchar
+    required: true
+    business_term: BT-054
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Comma-separated list of FutureProof pentagon stats this occupation data
+      feeds. Always "ERN,GRW" for this data product. Documentation metadata.
+    constraints:
+      - "CHECK (backs_stats = 'ERN,GRW')"
+
+  - name: backs_bosses
+    type: varchar
+    required: true
+    business_term: BT-054
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Comma-separated list of boss fights this data feeds. Always
+      "Market,Ceiling" for this data product. Documentation metadata.
+    constraints:
+      - "CHECK (backs_bosses = 'Market,Ceiling')"
+
+  # --- Pipeline Metadata ---
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the raw zone. Pipeline metadata
+      carried from Silver.
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    business_term: BT-026
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was promoted to the Gold zone consumable table.
+      Generated at promotion time. Replaces Silver's ingested_at.
+
+# Quality thresholds based on physical model constraints, DQ rules, and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    median_annual_wage_max_null_pct: 5.0
+    employment_fields_max_null_pct: 1.0
+  validity:
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    soc_major_group_values: ["11","13","15","17","19","21","23","25","27","29","31","33","35","37","39","41","43","45","47","49","51","53"]
+    growth_category_values: ["declining_fast", "declining", "stable", "growing", "growing_fast", "booming"]
+    grw_score_range: [1.0, 10.0]
+    market_score_range: [1.0, 10.0]
+    wage_percentile_range: [0.0, 1.0]
+    wage_tier_values: ["low", "below_average", "above_average", "high", "very_high"]
+    confidence_tier_values: ["high", "medium", "low"]
+    data_completeness_values: [0.0, 0.25, 0.5, 0.75, 1.0]
+    employment_change_pct_range: [-50.0, 60.0]
+    median_annual_wage_range: [25000, 250000]
+    education_code_range: [1, 8]
+    work_experience_code_range: [1, 3]
+    training_code_range: [1, 6]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    soc_code_unique: true
+  volume:
+    row_count_exact: 832
+    broad_occupation_flag_true_count: 7
+    catchall_flag_true_count: 70
+    median_annual_wage_null_count: 23
+    confidence_tier_low_count: 23
+  consistency:
+    soc_major_group_matches_soc_code_prefix: true
+    growth_category_matches_employment_change_pct_buckets: true
+    wage_available_matches_median_annual_wage_not_null: true
+    wage_tier_null_iff_wage_available_false: true
+    grw_score_rounded_equals_round_grw_score: true
+    market_score_rounded_equals_round_market_score: true
+    backs_stats_constant: "ERN,GRW"
+    backs_bosses_constant: "Market,Ceiling"
+  freshness_sla: >
+    Full table replace on each pipeline run. Freshness depends on BLS
+    Employment Projections release schedule (biennial, next expected 2026).
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/gold-occupation-profiles-bls-ooh.json
+  total_rules: 54
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: base.bls_ooh
+  transformation: src/gold/bls_ooh_occupation_profiles.py
+
+# Consumers -- downstream tables and processes that depend on this contract.
+consumers:
+  - name: "FutureProof Game Engine (Pentagon Stats)"
+    type: application
+    description: >
+      Consumes grw_score_rounded for GRW pentagon stat, median_annual_wage and
+      wage_percentile_overall for ERN stat. Depends on score ranges (1-10),
+      grain integrity, and all CDE fields.
+    contact: "@primary-agent"
+    status: planned
+  - name: "FutureProof Game Engine (Boss Fights)"
+    type: application
+    description: >
+      Consumes market_score for Market boss fight and
+      wage_percentile_education_tier for Ceiling boss fight. Depends on score
+      ranges and correct derivation formulas.
+    contact: "@primary-agent"
+    status: planned
+  - name: "Gemma Career Guidance Agent"
+    type: grounding
+    description: >
+      Consumes occupation_title, employment_current, growth_category,
+      education_level_name, median_annual_wage for natural-language career
+      descriptions and guidance.
+    contact: "@doc-generator"
+    status: planned
+  - name: "Cross-source Gold product (CIP-SOC crosswalk)"
+    type: table
+    description: >
+      Future cross-source Gold product will join to this table via soc_code
+      through the CIP-SOC crosswalk to connect program-level outcomes to
+      occupation-level statistics. Depends on soc_code format and grain
+      integrity.
+    contact: "@primary-agent"
+    status: planned
+  - name: "O*NET Gold product"
+    type: table
+    description: >
+      Future O*NET Gold product will join on soc_code for task-level data
+      enrichment (RES, HMN stats, AI boss fight). Depends on soc_code format
+      and uniqueness.
+    contact: "@primary-agent"
+    status: planned

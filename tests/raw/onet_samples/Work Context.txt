@@ -1,0 +1,7 @@
+O*NET-SOC Code	Element ID	Element Name	Scale ID	Category	Data Value	N	Standard Error	Lower CI Bound	Upper CI Bound	Recommend Suppress	Not Relevant	Date	Domain Source
+11-1011.00	4.C.1.a.2.c	Public Speaking	CX	n/a	3.07	37	0.2851	2.4923	3.6486	N	n/a	08/2023	Incumbent
+11-1011.00	4.C.1.a.2.c	Public Speaking	CXP	1	0.13	37	0.1370	0.0160	1.0770	N	n/a	08/2023	Incumbent
+11-1011.00	4.C.1.a.2.c	Public Speaking	CXP	2	39.49	37	11.0101	20.4073	62.4299	N	n/a	08/2023	Incumbent
+11-1011.00	4.C.1.a.2.c	Public Speaking	CXP	3	33.07	37	7.1359	20.4456	48.7245	N	n/a	08/2023	Incumbent
+11-1011.00	4.C.1.a.2.c	Public Speaking	CXP	4	7.79	37	4.3613	2.4093	22.4457	N	n/a	08/2023	Incumbent
+11-1011.00	4.C.1.a.2.c	Public Speaking	CXP	5	19.51	37	9.2893	6.8032	44.5820	N	n/a	08/2023	Incumbent

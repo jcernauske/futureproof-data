@@ -1,0 +1,212 @@
+{
+  "spec": "raw-ingest-onet",
+  "zone": "bronze",
+  "mode": "greenfield",
+  "started": "2026-04-08T02:22:58.188158+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T02:26:34.882776+00:00",
+      "output": "governance/approvals/raw-ingest-onet-pre-review.md",
+      "output_hash": "sha256:976ba27e1dab1a1f9612521fc9862539b398f00590944ed35f6b4ae00b4d89b5"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T12:08:31.110683+00:00",
+      "output": "src/raw/onet_ingestor.py",
+      "output_hash": "sha256:fd067f7e1563c91bd6e571cafb1851b4b55648b37d69fff5cb45f3b993203489"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T02:53:52.832502+00:00",
+      "output": "governance/eda/raw-onet-eda.md",
+      "output_hash": "sha256:91d7cb8827bf5af4b669d402dd143942718a563737b0ba2897f6a497e8b3e090"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:07:05.136438+00:00",
+      "output": "governance/domain-context.md",
+      "output_hash": "sha256:0acb172a6988a68909090781d52c902db87e257130f21ec87bd71b623ad8c84e"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T12:08:31.933395+00:00",
+      "output": "governance/dq-rules/raw-ingest-onet.json",
+      "output_hash": "sha256:caa4b359f686a8892960256c3a6191a105b6266feeacbc4bc6eeac0f62c2884b"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:24:09.734927+00:00",
+      "output": "governance/dq-scorecards/raw-ingest-onet-scorecard.md",
+      "output_hash": "sha256:0b4bd7eebdcd4b69179d89d2f23e80cfff729baeb22723a55afcc6a76cb43c47"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:33:52.996098+00:00",
+      "output": "governance/chaos-manifests/raw-ingest-onet-chaos.md",
+      "output_hash": "sha256:692aa536fbe5b64c15717f56faaf7dc7d2f1c785841089d64224e011d285bfae"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:52:28.065626+00:00",
+      "output": "governance/reviews/raw-ingest-onet-entity-resolution.md",
+      "output_hash": "sha256:4cabc264fb534129f7bbce6e6891b718bab331b49a738d924d875c235937d20b"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:53:42.402885+00:00",
+      "output": "governance/pii-scans/raw-ingest-onet-pii-scan.md",
+      "output_hash": "sha256:bf673083210bc96382446a2e1379c94f1f1e43ef1dba7b9b61430ad8ba623cc0"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:51:21.473035+00:00",
+      "output": "governance/audit-trail/raw-ingest-onet-temporal-assessment.md",
+      "output_hash": "sha256:f830b60b81ba934649f25ec8cf32798c0bf0a62a7ea9cda300f6443d1096cf39"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:39:07.826672+00:00",
+      "output": "governance/lineage/raw-ingest-onet-20260407T220000Z.json",
+      "output_hash": "sha256:32f724145f5f340b015a7796e1ed3e1927ddaf18ce66697dadceb85766376f78"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:38:56.778877+00:00",
+      "output": "governance/data-contracts/raw-onet-occupations.yaml",
+      "output_hash": "sha256:af52139106e30e7e2e1e5d5d040cb5bb6865ad9652517d95c1ddcb1f91e42d8c"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T03:48:55.237078+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T12:08:32.715623+00:00",
+      "output": "governance/chaos-manifests/raw-ingest-onet-chaos.md",
+      "output_hash": "sha256:692aa536fbe5b64c15717f56faaf7dc7d2f1c785841089d64224e011d285bfae"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T04:05:45.104488+00:00",
+      "output": "governance/approvals/raw-ingest-onet-post-review.md",
+      "output_hash": "sha256:b6aa349868f3640cbc27dd7bf9a65cebeeb4d5d63b6fe90f71793adc676a6892"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T12:08:07.207056+00:00",
+      "output": "governance/reviews/raw-ingest-onet-staff-review.md",
+      "output_hash": "sha256:cc98aa4560c5a62e668c4f898de6345aa8682a7895b1c32c48de2f6da92276b0"
+    },
+    "principal-data-architect": {
+      "agent": "@principal-data-architect",
+      "requires": [
+        "staff-engineer"
+      ],
+      "blocking": true,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-08T23:44:04.875938+00:00",
+      "output": "governance/reviews/bronze-architecture-review.md",
+      "output_hash": "sha256:1179dc7165df7fcb51ca6eea57d2c5d422162117d6dd9123226d4e18b6f569bd"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

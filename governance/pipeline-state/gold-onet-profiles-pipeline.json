@@ -1,0 +1,252 @@
+{
+  "spec": "gold-onet-profiles",
+  "zone": "gold",
+  "mode": "greenfield",
+  "started": "2026-04-09T02:42:17.855018+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T02:45:15.920774+00:00",
+      "output": "governance/reviews/gold-onet-profiles-pre-review.md",
+      "output_hash": "sha256:6e6f09743447de85560b25ccb577c1f2e86d102772f92a13fad600c10d9a0e43"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T02:51:53.493454+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:ed2aee451a8ff3630fe2f77db30d75af5a059510f3d24ee998036de201d322d2"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:16:35.992454+00:00",
+      "output": "governance/models/gold-onet-profiles-conceptual.md",
+      "output_hash": "sha256:9152a124fa279b7956a051d06b16f69f73b62dd3f164298fdfc8435c4912edb1"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:36:03.808201+00:00",
+      "output": "governance/models/gold-onet-profiles-logical.md",
+      "output_hash": "sha256:c62f17a04e75016177dc106ecfa00f4c6fc4c7b59e4653477839713b9ce1bda3"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:49:35.984573+00:00",
+      "output": "governance/eda/gold-onet-profiles-eda.md",
+      "output_hash": "sha256:b3faaa5b439c2dac8f360ff15faaac4265f528008e7747fc6792659a4e5005a4"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:57:38.947720+00:00",
+      "output": "governance/dq-rules/gold-onet-profiles.json",
+      "output_hash": "sha256:e5c6a2c29faaed1449648736e3ad8a8b4cc83f145b24846000dc9f670c9b6660"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:57:43.414803+00:00",
+      "output": "governance/models/gold-onet-profiles-physical.md",
+      "output_hash": "sha256:dc1943b4aa58fe122a9d81c60794b61b099b7a835a8625ba86f6188e760f78a1"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:12:40.219363+00:00",
+      "output": "src/gold/onet_work_profiles.py",
+      "output_hash": "sha256:6a7c42c81efc134b54cffb0911b89b8bed7e317f9e027a0461346468a31b4951"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:15:58.174941+00:00",
+      "output": "governance/dq-scorecards/gold-onet-profiles-scorecard.md",
+      "output_hash": "sha256:7b655a14ab5b69a6847cb356d93dca9504411bb73c14c43c907060ca0c0cae98"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:27:47.389918+00:00",
+      "output": "governance/chaos-manifests/gold-onet-profiles-chaos.md",
+      "output_hash": "sha256:673d5dba4b47d315a69d1948752890961e6781c47f92bc23af6f2ac1000da88f"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:57:46.384557+00:00",
+      "output": "governance/audit-trail/gold-onet-profiles-entity-resolver-skip.md",
+      "output_hash": "sha256:d60ce60c57967051d689b288da24c61296dca43a7c8f9acfdcfc9388df9f1eef"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:34:18.506239+00:00",
+      "output": "governance/audit-trail/gold-onet-profiles-pii-scanner-skip.md"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:57:47.377005+00:00",
+      "output": "governance/audit-trail/gold-onet-profiles-temporal-modeler-skip.md",
+      "output_hash": "sha256:75dd19bda22067178c7e505a3675c49a753986404003fbab32c2fc1c15a2fb49"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:47:20.835597+00:00",
+      "output": "governance/lineage/gold-onet-profiles-20260408T180000Z.json",
+      "output_hash": "sha256:51a58e6013dcafbee9c44e0ed51e08068b9ca88c5358b2466f73bfe42ad81bb1"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:57:44.399512+00:00",
+      "output": "governance/data-contracts/consumable-onet-work-profiles.yaml",
+      "output_hash": "sha256:488592d2148dd5051574547c92ef26937ca83673030d1c0d7f2db531d0602f55"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:57:45.386753+00:00",
+      "output": "governance/data-contracts/consumable-onet-work-profiles.yaml",
+      "output_hash": "sha256:488592d2148dd5051574547c92ef26937ca83673030d1c0d7f2db531d0602f55"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:34:08.270262+00:00",
+      "output": "governance/reviews/gold-onet-profiles-adversarial-audit.md"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:53:33.361989+00:00",
+      "output": "governance/reviews/gold-onet-profiles-post-review.md",
+      "output_hash": "sha256:3a6587d1e376128058a4854c3ec941bdb544a664fa5099df088b22748f48d2bd"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:56:21.625709+00:00",
+      "output": "governance/reviews/gold-onet-profiles-staff-review.md",
+      "output_hash": "sha256:7cc24dff1680fae3c74cb5f1e95dd6b2386c41f3cb4459ef5bf3ecd2219fee72"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "New tables (greenfield) \u2014 no existing schema to modify. CAB review only applies to schema changes on existing tables.",
+      "evidence": "governance/models/gold-onet-profiles-physical.md",
+      "skipped_at": "2026-04-09T04:12:50.734533+00:00"
+    }
+  },
+  "approvals": {}
+}

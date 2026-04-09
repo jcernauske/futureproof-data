@@ -1,0 +1,128 @@
+---
+# Data Contract: raw.onet_related_occupations
+# Spec: raw-ingest-onet
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-07
+
+table: raw.onet_related_occupations
+namespace: raw
+zone: bronze
+grain:
+  - onet_soc_code
+  - related_onet_soc_code
+status: ACTIVE
+record_count: 18460
+data_vintage: "O*NET 30.2 (2026)"
+source: "O*NET Resource Center bulk download (onetcenter.org)"
+
+columns:
+  - name: onet_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field (source occupation) and foreign key to raw.onet_occupations.
+      This is the "from" side of the career relationship — the occupation whose
+      related occupations are being listed. Required for Stage 3 career branching
+      in FutureProof: "where can someone in this career go next?" Without correct
+      source SOC codes, career pathway recommendations cannot be generated.
+    is_pii: false
+    pii_rationale: ""
+    description: "Source O*NET-SOC occupation code (XX-XXXX.XX format). Foreign key to raw.onet_occupations."
+
+  - name: related_onet_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field (target occupation) — the "to" side of the career relationship.
+      This is the occupation being recommended as a related career path. Directly
+      powers Stage 3 career branching: each related_onet_soc_code is a potential
+      "next career" suggestion. Without correct target SOC codes, career pathway
+      recommendations point to nonexistent or wrong occupations. All 920 distinct
+      values verified to exist in raw.onet_occupations.
+    is_pii: false
+    pii_rationale: ""
+    description: "Related O*NET-SOC occupation code (XX-XXXX.XX format). 920 distinct target occupations."
+
+  - name: related_index
+    type: int
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Rank position (1-20). Lower = more closely related. Exactly 923 rows per
+      index value (perfectly uniform). Primary-Short = 1-5, Primary-Long = 6-10,
+      Supplemental = 11-20. Not flagged as CDE because it is a ranking ordinal,
+      not a critical analytical value — is_primary and relatedness_tier provide
+      the actionable classification.
+
+  - name: is_primary
+    type: boolean
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Distinguishes primary related occupations (index 1-10, true) from
+      supplemental ones (index 11-20, false). This flag is the key filter for
+      FutureProof's Stage 3 career branching: primary relationships are shown
+      as top career pathway recommendations, while supplemental ones are used
+      for broader exploration or fallback suggestions. The primary/supplemental
+      distinction determines which career suggestions are highlighted vs.
+      deprioritized in the user-facing product.
+    is_pii: false
+    pii_rationale: ""
+    description: "True for primary relationships (index 1-10), False for supplemental (index 11-20)."
+
+  - name: relatedness_tier
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      O*NET relationship tier: "Primary-Short" (index 1-5, 25.0%), "Primary-Long"
+      (index 6-10, 25.0%), "Supplemental" (index 11-20, 50.0%). Provides finer
+      granularity than is_primary. Not flagged as CDE because is_primary captures
+      the critical primary/supplemental distinction; this field adds nuance but
+      is not required for core career branching logic.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which O*NET ZIP was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (bulk_zip_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

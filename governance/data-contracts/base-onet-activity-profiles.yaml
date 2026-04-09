@@ -1,0 +1,216 @@
+---
+# Data Contract: base.onet_activity_profiles
+# Spec: silver-base-onet
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-08
+
+table: base.onet_activity_profiles
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - bls_soc_code
+  - element_id
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/silver-base-onet.md
+physical_model: governance/models/silver-base-onet-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key: compute_grain_id(row,
+      ['bls_soc_code', 'element_id'], prefix='wa'). Format: wa-<16 hex chars>.
+      Technical infrastructure field.
+
+  - name: bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      FK to base.onet_occupations and primary join key for linking activity
+      importance scores to occupations across all downstream Gold zone
+      processes. The HMN (Human Edge) stat and AI boss fight both key on
+      bls_soc_code to aggregate activity-level importance into occupation-level
+      metrics. Incorrect values would assign activity importance to the wrong
+      occupation, distorting HMN stats.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      6-digit BLS SOC code. FK to base.onet_occupations.bls_soc_code.
+    constraints:
+      - "CHECK (bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: element_id
+    type: varchar
+    required: true
+    business_term: BT-056
+    is_cde: true
+    cde_rationale: >
+      Content Model element identifier that uniquely identifies which of the
+      41 Work Activity dimensions this row measures. Gold zone HMN stat
+      computation selects specific element_ids to compute the Human Edge score.
+      AI exposure analysis also filters by element_id to identify activities
+      most susceptible to automation. Incorrect element_ids would map importance
+      scores to wrong activity dimensions, corrupting HMN stats.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Content Model element ID (e.g., "4.A.1.a.1"). Exactly 41 distinct values.
+
+  - name: element_name
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable activity name (e.g., "Getting Information"). Denormalized
+      from Bronze. Display label; element_id is the authoritative identifier.
+
+  - name: importance
+    type: double
+    required: true
+    business_term: BT-057
+    is_cde: true
+    cde_rationale: >
+      IM scale importance rating is the primary numeric input to the Gold zone
+      HMN (Human Edge) stat. This value directly backs the activity-level
+      importance that determines which skills are most critical for each
+      occupation. Also feeds the AI boss fight by identifying high-importance
+      activities that may or may not be automatable. Incorrect values would
+      directly distort HMN scores and AI exposure assessments presented to
+      students.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IM scale data_value, averaged across O*NET details if multi-detail.
+      Range: 1.0-5.0. Primary HMN stat input.
+    constraints:
+      - "CHECK (importance >= 1.0 AND importance <= 5.0)"
+
+  - name: importance_rank
+    type: integer
+    required: true
+    business_term: BT-065
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Rank of this activity within occupation (1 = most important, 41 = least).
+      Derived from importance; not independently critical.
+    constraints:
+      - "CHECK (importance_rank >= 1 AND importance_rank <= 41)"
+
+  - name: is_high_importance
+    type: boolean
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if importance >= 3.5. Convenience threshold flag (~38.6% True).
+      Derived from importance; not independently critical.
+
+  - name: onet_details_averaged
+    type: integer
+    required: true
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of O*NET detail codes that contributed to this importance value.
+      Transparency metadata for multi-detail averaging.
+    constraints:
+      - "CHECK (onet_details_averaged >= 1)"
+
+  - name: suppress_flag
+    type: boolean
+    required: true
+    business_term: BT-062
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if recommend_suppress = "Y" in any contributing Bronze row. Expected
+      < 0.01% True. Quality signal for downstream consumers.
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the Bronze zone. Pipeline metadata.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to Silver. Pipeline metadata.
+
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    importance_range: [1.0, 5.0]
+    importance_rank_range: [1, 41]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+  volume:
+    row_count_exact: 31734
+    distinct_bls_soc_codes: 774
+    distinct_element_ids: 41
+  freshness_sla: >
+    Full table replace on each pipeline run. Freshness depends on O*NET
+    release schedule (annual, version 30.2 current).
+
+lineage:
+  source_table: raw.onet_work_activities
+  transformation: src/silver/onet_transformer.py
+  physical_model: governance/models/silver-base-onet-physical.md
+
+consumers:
+  - name: "Gold zone HMN stat"
+    type: table
+    description: >
+      Gold zone computes HMN (Human Edge) stat by aggregating importance values
+      across selected element_ids per bls_soc_code.
+    contact: "@primary-agent"
+    status: planned
+  - name: "Gold zone AI boss fight"
+    type: table
+    description: >
+      AI exposure analysis uses importance values by element_id to assess
+      automation susceptibility per occupation.
+    contact: "@primary-agent"
+    status: planned

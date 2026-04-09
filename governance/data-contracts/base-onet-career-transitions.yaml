@@ -1,0 +1,170 @@
+---
+# Data Contract: base.onet_career_transitions
+# Spec: silver-base-onet
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-08
+
+table: base.onet_career_transitions
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - bls_soc_code
+  - related_bls_soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/silver-base-onet.md
+physical_model: governance/models/silver-base-onet-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key: compute_grain_id(row,
+      ['bls_soc_code', 'related_bls_soc_code'], prefix='ct'). Format:
+      ct-<16 hex chars>. Technical infrastructure field.
+
+  - name: bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source occupation: 6-digit BLS SOC code. FK to
+      base.onet_occupations.bls_soc_code. Part of the natural key grain.
+    constraints:
+      - "CHECK (bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: related_bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Target occupation: 6-digit BLS SOC code. FK to
+      base.onet_occupations.bls_soc_code. Must differ from bls_soc_code.
+    constraints:
+      - "CHECK (related_bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: best_index
+    type: integer
+    required: true
+    business_term: BT-061
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Best (lowest) relatedness index across O*NET detail pairings. Lower =
+      more similar. Range: 1-20.
+    constraints:
+      - "CHECK (best_index >= 1 AND best_index <= 20)"
+
+  - name: relatedness_tier
+    type: varchar
+    required: true
+    business_term: BT-061
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Tier derived from best_index: 1-5 = "Primary-Short", 6-10 =
+      "Primary-Long", 11-20 = "Supplemental".
+    constraints:
+      - "CHECK (relatedness_tier IN ('Primary-Short', 'Primary-Long', 'Supplemental'))"
+
+  - name: is_primary
+    type: boolean
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True when relatedness_tier is "Primary-Short" or "Primary-Long".
+      Convenience filter flag. Derived from relatedness_tier.
+
+  - name: relationship_type
+    type: varchar
+    required: true
+    business_term: BT-060
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Always "similarity" for O*NET Related Occupations. Future-proofed for
+      additional transition data sources.
+    constraints:
+      - "CHECK (relationship_type IN ('similarity'))"
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the Bronze zone. Pipeline metadata.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to Silver. Pipeline metadata.
+
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    related_bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    best_index_range: [1, 20]
+    relatedness_tier_values: ["Primary-Short", "Primary-Long", "Supplemental"]
+    relationship_type_values: ["similarity"]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+  volume:
+    row_count_exact: 15944
+  freshness_sla: >
+    Full table replace on each pipeline run. Freshness depends on O*NET
+    release schedule (annual, version 30.2 current).
+
+lineage:
+  source_table: raw.onet_related_occupations
+  transformation: src/silver/onet_transformer.py
+  physical_model: governance/models/silver-base-onet-physical.md
+
+consumers:
+  - name: "Gold zone Stage 3 career branching"
+    type: table
+    description: >
+      Gold zone uses career transitions to build the occupation similarity
+      graph for career pathway exploration.
+    contact: "@primary-agent"
+    status: planned

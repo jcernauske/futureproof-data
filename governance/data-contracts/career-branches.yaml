@@ -1,0 +1,380 @@
+apiVersion: brightsmith/v1
+kind: DataContract
+metadata:
+  name: career-branches
+  version: 1.0.0
+  status: draft
+  owner: '@doc-generator'
+  domain: Education / Career Guidance
+  created: '2026-04-09'
+  spec: docs/specs/gold-futureproof-engine.md
+schema:
+  table: consumable.career_branches
+  namespace: consumable
+  grain:
+    columns:
+    - soc_code
+    - related_soc_code
+    description: One row per occupation pair
+  columns:
+  - name: record_id
+    type: string
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Deterministic surrogate key computed via compute_grain_id(row, [''soc_code'', ''related_soc_code''], prefix=''br'').
+      Format: br-<16 hex chars>. Stable across pipeline re-runs.
+
+      '
+  - name: soc_code
+    type: string
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: 'Natural key component identifying the source occupation in the career branching graph. Required for the
+      Stage 3 branch tree query pattern -- when a student explores "what else can I do from this career," this field anchors
+      the source node. Incorrect values break the branch tree visualization and misdirect career pivoting guidance.
+
+      '
+    is_pii: false
+    pii_rationale: ''
+    description: 'Source occupation SOC code in XX-XXXX format. Natural key component (composite with related_soc_code). Source:
+      consumable.career_transitions.soc_code.
+
+      '
+    constraints:
+    - UNIQUE (composite with related_soc_code)
+    - CHECK (soc_code ~ '^\d{2}-\d{4}$')
+  - name: source_title
+    type: string
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Source occupation title. Display label; soc_code is the authoritative identifier. Source: consumable.career_transitions.source_title.
+
+      '
+  - name: related_soc_code
+    type: string
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: 'Natural key component identifying the branch target occupation. Required for the career branching query
+      -- this field identifies the destination node in the branch tree. Joins to occupation_profiles and onet_work_profiles
+      for the enriched stat profile. Incorrect values map students to wrong branch targets.
+
+      '
+    is_pii: false
+    pii_rationale: ''
+    description: 'Branch target occupation SOC code in XX-XXXX format. Natural key component (composite with soc_code). Source:
+      consumable.career_transitions.related_soc_code.
+
+      '
+    constraints:
+    - UNIQUE (composite with soc_code)
+    - CHECK (related_soc_code ~ '^\d{2}-\d{4}$')
+  - name: related_title
+    type: string
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Branch target occupation title. Display label. Source: consumable.career_transitions.related_title.
+
+      '
+  - name: best_index
+    type: integer
+    required: true
+    business_term: BT-060
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Similarity rank (1 = most similar). Source: consumable.career_transitions.best_index.
+
+      '
+    constraints:
+    - CHECK (best_index >= 1 AND best_index <= 20)
+  - name: relatedness_tier
+    type: string
+    required: true
+    business_term: BT-061
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Tier classification: Primary-Short, Primary-Long, or Supplemental. Source: consumable.career_transitions.relatedness_tier.
+
+      '
+    constraints:
+    - CHECK (relatedness_tier IN ('Primary-Short', 'Primary-Long', 'Supplemental'))
+  - name: is_primary
+    type: boolean
+    required: true
+    business_term: BT-060
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'True for top 10 branches by similarity. Source: consumable.career_transitions.is_primary.
+
+      '
+  - name: source_grw
+    type: integer
+    required: false
+    business_term: BT-047
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Source occupation GRW score (1-10). Source: consumable.occupation_profiles.grw_score_rounded via LEFT JOIN
+      on soc_code.
+
+      '
+    constraints:
+    - CHECK (source_grw IS NULL OR (source_grw >= 1 AND source_grw <= 10))
+  - name: source_hmn
+    type: integer
+    required: false
+    business_term: BT-066
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Source occupation HMN score (1-10). Source: consumable.onet_work_profiles.hmn_score_rounded via LEFT JOIN
+      on soc_code.
+
+      '
+    constraints:
+    - CHECK (source_hmn IS NULL OR (source_hmn >= 1 AND source_hmn <= 10))
+  - name: source_burnout
+    type: integer
+    required: false
+    business_term: BT-068
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Source occupation Burnout score (1-10). Source: consumable.onet_work_profiles.burnout_score_rounded via
+      LEFT JOIN on soc_code.
+
+      '
+    constraints:
+    - CHECK (source_burnout IS NULL OR (source_burnout >= 1 AND source_burnout <= 10))
+  - name: source_wage
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Source occupation median annual wage. Source: consumable.occupation_profiles.median_annual_wage via LEFT
+      JOIN on soc_code.
+
+      '
+    constraints:
+    - CHECK (source_wage IS NULL OR (source_wage >= 15000 AND source_wage <= 300000))
+  - name: related_grw
+    type: integer
+    required: false
+    business_term: BT-047
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Target occupation GRW score (1-10). Source: consumable.occupation_profiles.grw_score_rounded via LEFT JOIN
+      on related_soc_code.
+
+      '
+    constraints:
+    - CHECK (related_grw IS NULL OR (related_grw >= 1 AND related_grw <= 10))
+  - name: related_hmn
+    type: integer
+    required: false
+    business_term: BT-066
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Target occupation HMN score (1-10). Source: consumable.onet_work_profiles.hmn_score_rounded via LEFT JOIN
+      on related_soc_code.
+
+      '
+    constraints:
+    - CHECK (related_hmn IS NULL OR (related_hmn >= 1 AND related_hmn <= 10))
+  - name: related_burnout
+    type: integer
+    required: false
+    business_term: BT-068
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Target occupation Burnout score (1-10). Source: consumable.onet_work_profiles.burnout_score_rounded via
+      LEFT JOIN on related_soc_code.
+
+      '
+    constraints:
+    - CHECK (related_burnout IS NULL OR (related_burnout >= 1 AND related_burnout <= 10))
+  - name: related_wage
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Target occupation median annual wage. Source: consumable.occupation_profiles.median_annual_wage via LEFT
+      JOIN on related_soc_code.
+
+      '
+    constraints:
+    - CHECK (related_wage IS NULL OR (related_wage >= 15000 AND related_wage <= 300000))
+  - name: related_growth_category
+    type: string
+    required: false
+    business_term: BT-041
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Target occupation growth classification. Source: consumable.occupation_profiles.growth_category.
+
+      '
+    constraints:
+    - CHECK (related_growth_category IS NULL OR related_growth_category IN ('declining_fast', 'declining', 'stable', 'growing',
+      'growing_fast', 'booming'))
+  - name: related_education_level
+    type: string
+    required: false
+    business_term: BT-039
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Target occupation typical education requirement. Source: consumable.occupation_profiles.education_level_name.
+
+      '
+  - name: grw_delta
+    type: integer
+    required: false
+    business_term: BT-091
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'related_grw - source_grw. Positive = branch target grows faster. Null if either side null.
+
+      '
+    constraints:
+    - CHECK (grw_delta IS NULL OR (grw_delta >= -9 AND grw_delta <= 9))
+  - name: hmn_delta
+    type: integer
+    required: false
+    business_term: BT-091
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'related_hmn - source_hmn. Positive = more human edge at target. Null if either side null.
+
+      '
+    constraints:
+    - CHECK (hmn_delta IS NULL OR (hmn_delta >= -9 AND hmn_delta <= 9))
+  - name: burnout_delta
+    type: integer
+    required: false
+    business_term: BT-091
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'related_burnout - source_burnout. Positive = more burnout risk at target. Null if either side null.
+
+      '
+    constraints:
+    - CHECK (burnout_delta IS NULL OR (burnout_delta >= -9 AND burnout_delta <= 9))
+  - name: wage_delta
+    type: double
+    required: false
+    business_term: BT-091
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'related_wage - source_wage. Positive = higher pay at target. Null if either side null.
+
+      '
+  - name: branch_has_full_data
+    type: boolean
+    required: true
+    business_term: BT-092
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'True if related occupation has both BLS and O*NET data. Derived: related_grw IS NOT NULL AND related_hmn
+      IS NOT NULL.
+
+      '
+  - name: promoted_at
+    type: time
+    required: true
+    business_term: BT-026
+    is_cde: false
+    cde_rationale: ''
+    is_pii: false
+    pii_rationale: ''
+    description: 'Timestamp when the row was promoted to the Gold consumable table. Generated at promotion time.
+
+      '
+quality:
+  freshness:
+    max_staleness_hours: 24
+    measured_by: ingested_at
+  completeness:
+    min_row_count: 15000
+    required_columns:
+    - record_id
+    - soc_code
+    - source_title
+    - related_soc_code
+    - related_title
+    - best_index
+    - relatedness_tier
+    - is_primary
+    - branch_has_full_data
+    - promoted_at
+  accuracy:
+    golden_dataset: governance/golden-datasets/gold-futureproof-engine-golden.json
+    min_pass_rate_pct: 80
+  uniqueness:
+    grain_unique: true
+  dq_rules:
+    rules_file: governance/dq-rules/gold-futureproof-engine.json
+    p0_pass_required: true
+lineage:
+  sources:
+  - consumable.career_transitions
+  - consumable.occupation_profiles
+  - consumable.onet_work_profiles
+consumers: []
+compatibility:
+  breaking_changes:
+  - column_removed
+  - column_renamed
+  - column_type_changed
+  - grain_changed
+  non_breaking_changes:
+  - column_added
+  - consumer_added
+  - description_changed
+  deprecation_notice_days: 30

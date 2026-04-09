@@ -1,0 +1,269 @@
+{
+  "spec": "docs/specs/crosswalk-cip-soc.md",
+  "zone": "silver",
+  "mode": "greenfield",
+  "started": "2026-04-09T02:47:28.553303+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T02:50:12.322837+00:00",
+      "output": "governance/reviews/crosswalk-cip-soc-pre-review.md",
+      "output_hash": "sha256:297b374ed2671949c213fb6744b835a7ac936e3a117c67eb14fa88a1e2f3780c"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T02:53:23.320595+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:ed2aee451a8ff3630fe2f77db30d75af5a059510f3d24ee998036de201d322d2"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T02:55:53.630349+00:00",
+      "output": "governance/models/crosswalk-cip-soc-conceptual.md",
+      "output_hash": "sha256:a4e79c6296d01ef788e19fbeb537c37dbaa3e50c21103e55ff377f11c94311fc"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:00:19.642040+00:00",
+      "output": "governance/models/crosswalk-cip-soc-logical.md",
+      "output_hash": "sha256:5f65936cdb04faa1aff51ca40577d0d77fc3a8bf0946843cb41c1ad2f56c2334"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:11:12.543551+00:00",
+      "output": "governance/eda/crosswalk-cip-soc-eda.md",
+      "output_hash": "sha256:ff62538496ef5068d1e1392bf76aa6fa98f615e0d8ee8b5974c492dc4dd0a8ce"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:16:59.537791+00:00",
+      "output": "governance/dq-rules/crosswalk-cip-soc.json",
+      "output_hash": "sha256:e8a1cdbae1a5f1ab9340c3cdf6983b5420c9f438c5f397339a72d1a57dd861df"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:11:13.412614+00:00",
+      "output": "governance/models/crosswalk-cip-soc-physical.md",
+      "output_hash": "sha256:82bb26130f60f389cd2b095bc3abc56822a370a064d6052d216b794e2fc9577a"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:23:33.304785+00:00",
+      "output": "src/raw/cip_soc_crosswalk_ingestor.py",
+      "output_hash": "sha256:9cdf5903fecd94a79c02e8933082d54ec26ba6c5cc5ff93bf7bd55b7ec1d0709"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:29:54.773452+00:00",
+      "output": "governance/dq-scorecards/crosswalk-cip-soc-scorecard.md",
+      "output_hash": "sha256:4b99fc49a71209e7c7b16704727df269e0216df780a9bf46c2252df704d8fa10"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:41:40.734435+00:00",
+      "output": "governance/chaos-manifests/crosswalk-cip-soc-chaos.md",
+      "output_hash": "sha256:b9e37c7bed9f7167a4ddb6ada569bcd96283a20dd3e17a7ad686659e321b0949"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:41:41.622521+00:00",
+      "output": "governance/reviews/crosswalk-cip-soc-entity-resolution.md",
+      "output_hash": "sha256:f8a6d1a6174b8a64c932be7b64a1462f1adab2a6ef56991ce0353bc62a07c3a1"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:41:42.503443+00:00",
+      "output": "governance/pii-scans/crosswalk-cip-soc-pii-scan.md",
+      "output_hash": "sha256:5e5c9117acad7ceafec1bcf4b874eee9734b8f354a3c72aaaf6e1688a22ae2a4"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:41:43.384988+00:00",
+      "output": "governance/reviews/crosswalk-cip-soc-temporal-assessment.md",
+      "output_hash": "sha256:722f90e66a3d9d04e4a59f88e00e2baf5252a00d49c34ed2f561432172b03bcd"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:45:41.222220+00:00",
+      "output": "governance/lineage/crosswalk-cip-soc-20260408T120000Z.json",
+      "output_hash": "sha256:0d29e3d5ae9d4ac24899213f79a7cc4b39b067cf8955921cb22b6dad2198c850"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:45:42.095135+00:00",
+      "output": "governance/data-contracts/base-cip-soc-crosswalk.yaml",
+      "output_hash": "sha256:33e44fa0ca5a4d9cc7ffc8f0f856d5b3aa63cca16671db57147692136d10bddf"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:51:39.097542+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:45:42.955132+00:00",
+      "output": "governance/reviews/crosswalk-cip-soc-adversarial-audit.md",
+      "output_hash": "sha256:5ba5056456c8622945b3b35ba4a426d8a39f805d6cdd3b8d1c7e93932bb8308b"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T03:57:06.244235+00:00",
+      "output": "governance/reviews/crosswalk-cip-soc-post-review.md",
+      "output_hash": "sha256:a4c5bf5b3ff7c8db2638831d44fa0dda3ba84b6a64bc917117f28e32ee8f1a42"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T04:00:41.729977+00:00",
+      "output": "governance/reviews/crosswalk-cip-soc-staff-review.md",
+      "output_hash": "sha256:d8ee26990613a2e5d2aa0ef7386840c789679598323f9c86b4418b5ab125cdbf"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "Table is new (no existing contract) \u2014 CAB review only applies to schema modifications of existing tables",
+      "evidence": "governance/data-contracts/",
+      "skipped_at": "2026-04-09T03:23:44.053629+00:00"
+    }
+  },
+  "approvals": {
+    "governance/models/crosswalk-cip-soc-conceptual.md": {
+      "status": "APPROVED",
+      "decided_by": "human",
+      "decided_at": "2026-04-09T02:56:57.579268+00:00",
+      "document": "",
+      "notes": "Approved as-is"
+    },
+    "governance/models/crosswalk-cip-soc-logical.md": {
+      "status": "APPROVED",
+      "decided_by": "human",
+      "decided_at": "2026-04-09T03:04:27.547967+00:00",
+      "document": "",
+      "notes": "Approved as-is"
+    }
+  }
+}

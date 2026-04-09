@@ -1,0 +1,271 @@
+{
+  "spec": "silver-base-onet",
+  "zone": "silver",
+  "mode": "greenfield",
+  "started": "2026-04-08T23:44:37.753965+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T23:47:26.265773+00:00",
+      "output": "governance/reviews/silver-base-onet-governance-pre.md"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T23:50:02.083715+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:ed2aee451a8ff3630fe2f77db30d75af5a059510f3d24ee998036de201d322d2"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:14:58.556719+00:00",
+      "output": "governance/models/silver-base-onet-conceptual.md",
+      "output_hash": "sha256:c4bb33f21a81e7a8ac2989ac5bdcd07b1b38786c8b4ba475347bac2207d2f785"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:20:48.814905+00:00",
+      "output": "governance/models/silver-base-onet-logical.md",
+      "output_hash": "sha256:6fd07d60b027a60302f2d2e9dabbbaa1599fd297c96a85030d16e589f9fd5aed"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:28:39.616019+00:00",
+      "output": "governance/eda/silver-onet-eda.md",
+      "output_hash": "sha256:7b3c400e96c4e7335879a6ef522f7110c35b24c73d57cdf8792fc2b731644869"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:35:03.866109+00:00",
+      "output": "governance/dq-rules/silver-base-onet.json",
+      "output_hash": "sha256:ff33ce492f73ae5fe1ac22ee87815580f202aa0b10058e5a09f9009a76733b4f"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:41:07.143356+00:00",
+      "output": "governance/models/silver-base-onet-physical.md",
+      "output_hash": "sha256:bcbb9a50aa79664fd73bbd4d1e6c6f73138c3adc877e315fd2b1d8835cd02747"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:47:39.844511+00:00",
+      "output": "src/silver/onet_transformer.py",
+      "output_hash": "sha256:aef8e493db1f78b2cd211a053bce861764d8e1cfe4081c2f025549578362b9d6"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:49:53.757713+00:00",
+      "output": "governance/dq-scorecards/silver-base-onet-scorecard.md",
+      "output_hash": "sha256:0d0480245fea2d200dfa4fa50e466400f795217fb14ff0c7ee65b9eb4cf14b41"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:58:26.707108+00:00",
+      "output": "governance/chaos-manifests/silver-base-onet-chaos.md",
+      "output_hash": "sha256:a9c357fa57f5b4b8135116732ebf471db96b3419b9a20a5639c63dc250e15c8d"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:59:12.444100+00:00",
+      "output": "governance/reviews/silver-base-onet-entity-resolver.md"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T01:00:22.826255+00:00",
+      "output": "governance/reviews/silver-base-onet-pii-scan.md",
+      "output_hash": "sha256:b6d4f3b70a695cd14b139e91f604b00152c53fe1c5bf8ede26dae3e362d4a7ae"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T00:59:48.659926+00:00",
+      "output": "governance/reviews/silver-base-onet-temporal.md",
+      "output_hash": "sha256:2839a5b894453a219d476e64596450904ca2bdbcce8f14755472ffe22d9af5ec"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T01:03:32.761143+00:00",
+      "output": "governance/lineage/silver-base-onet-20260408T120000Z.json",
+      "output_hash": "sha256:676014ffb94d0d84400550901c73f7afb84c4a36f7857143ae893fa9f4cec8a4"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T01:07:24.585791+00:00",
+      "output": "governance/data-contracts/base-onet-occupations.yaml",
+      "output_hash": "sha256:1f3f7d2b4236300108b829009a7b7eb03ac5a380c0a0ec822deb5bd5d5bfa6de"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T01:16:56.792277+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T01:07:19.452419+00:00",
+      "output": "governance/reviews/silver-base-onet-adversarial-audit.md"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T23:59:00.000000+00:00",
+      "output": "governance/reviews/silver-base-onet-post-review.md"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-08T14:30:00.000000+00:00",
+      "output": "governance/reviews/silver-base-onet-staff-review.md"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "New tables \u2014 no existing schema to review",
+      "evidence": "silver-gold-pipeline.md step 9: CAB skipped for new tables",
+      "skipped_at": "2026-04-09T00:48:33.798159+00:00"
+    }
+  },
+  "approvals": {
+    "data-steward": {
+      "status": "APPROVED",
+      "decided_by": "Jeff Cernauske",
+      "decided_at": "2026-04-09T00:12:46.476083+00:00",
+      "document": "",
+      "notes": "All 6 project-specific terms approved: BT-059 through BT-065"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "APPROVED",
+      "decided_by": "Jeff Cernauske",
+      "decided_at": "2026-04-09T00:15:15.615557+00:00",
+      "document": "",
+      "notes": "Conceptual model approved - star topology with occupation as central dimension"
+    },
+    "semantic-modeler-logical": {
+      "status": "APPROVED",
+      "decided_by": "Jeff Cernauske",
+      "decided_at": "2026-04-09T00:21:08.642885+00:00",
+      "document": "",
+      "notes": "Logical model approved - 4 tables, 45 attributes, 8 CDEs"
+    }
+  }
+}
