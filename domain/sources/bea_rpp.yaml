@@ -1,0 +1,58 @@
+# BEA Regional Price Parities (SARPP — All Items)
+# U.S. Bureau of Economic Analysis
+#
+# State-level Regional Price Parity index (national = 100.0) for 50
+# states + District of Columbia. Enables FutureProof to adjust national
+# salary figures to local purchasing power by state.
+
+name: bea_rpp
+namespace: bronze
+table: bea_rpp
+
+# Fetch config
+fetch:
+  bea_api:
+    url_template: https://apps.bea.gov/api/data/?&UserID={api_key}&method=GetData&datasetname=Regional&TableName=SARPP&LineCode=1&Year=2024&GeoFips=STATE&ResultFormat=JSON
+    fallback_path: data/raw/bea_cache/bea_rpp_2024.csv
+    user_agent: "FutureProof/0.1 (jeff@hyenastudios.com)"
+    format: json
+    size_estimate: "~5KB"
+
+# Single logical entity representing the full 51-row RPP table
+entities:
+  rpp: "BEA Regional Price Parities — All States + DC, All Items 2024"
+
+# Dedup grain — one row per geographic entity
+dedup_grain:
+  - geo_fips
+
+# Cache directory for CSV fallback
+cache_dir: data/raw/bea_cache
+
+# --- Domain Documentation (not consumed by loader) ---
+
+# Source metadata
+# authority: Bureau of Economic Analysis, U.S. Department of Commerce
+# dataset: Regional Economic Accounts — SARPP
+# table: SARPP "Regional price parities by state"
+# line_code: 1 (All Items)
+# url: https://apps.bea.gov/itable/?ReqID=70&step=1
+# api_signup: https://apps.bea.gov/API/signup/
+# license: U.S. Government Work — public domain
+# update_cadence: annual (released each February for the prior year)
+
+# Grain description: One row per geographic entity (state or DC, 2-digit FIPS)
+
+# Key fields:
+#   Identity: geo_fips (2-digit string), geo_name
+#   Measure: rpp_all_items (double, national=100.0)
+#   Context: data_year (int, e.g., 2024)
+#   Metadata: source_method ("bea_api" or "csv_cache")
+
+# Data quality notes:
+#   - Expected row count: exactly 51 (50 states + DC)
+#   - Valid FIPS range: 01-56 state codes, plus 11 for DC
+#   - Metro rows (5-digit CBSA codes) must be filtered out if present
+#   - DataValue returned as string by BEA API; parse to float
+#   - CSV fallback columns mirror BEA API field names (GeoFips, GeoName, TimePeriod, DataValue)
+#   - Expected RPP range: 85 to 115 (historical bounds); hard bounds for DQ: 80-130

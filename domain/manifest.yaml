@@ -19,6 +19,14 @@ sources:
   source_config: domain/sources/cip_soc_crosswalk.yaml
   zone: raw
   status: active
+- name: karpathy_ai_exposure
+  source_config: domain/sources/karpathy_ai_exposure.yaml
+  zone: raw
+  status: active
+- name: bea_rpp
+  source_config: domain/sources/bea_rpp.yaml
+  zone: raw
+  status: active
 pipeline:
   zones:
     silver:
@@ -50,6 +58,20 @@ pipeline:
         target_table: base.cip_soc_crosswalk
         spec: docs/specs/crosswalk-cip-soc.md
         status: active
+      - name: karpathy_ai_exposure
+        module: src/silver/karpathy_ai_exposure_transformer.py
+        function: transform
+        source_table: bronze.karpathy_ai_exposure
+        target_table: base.karpathy_ai_exposure
+        spec: docs/specs/raw-ingest-karpathy-ai-exposure.md
+        status: active
+      - name: bea_rpp
+        module: src/silver/bea_rpp_transformer.py
+        function: transform
+        source_table: bronze.bea_rpp
+        target_table: base.bea_rpp
+        spec: docs/specs/silver-base-bea-rpp.md
+        status: active
     gold:
       - name: career_outcomes
         module: src/gold/college_scorecard_career_outcomes.py
@@ -79,12 +101,36 @@ pipeline:
         target_table: consumable.career_transitions
         spec: docs/specs/gold-onet-profiles.md
         status: active
+      - name: ai_exposure
+        module: src/gold/ai_exposure_transformer.py
+        function: transform
+        source_table: base.karpathy_ai_exposure
+        target_table: consumable.ai_exposure
+        spec: docs/specs/raw-ingest-karpathy-ai-exposure.md
+        status: active
       - name: futureproof_engine
         module: src/gold/futureproof_engine.py
         function: transform
         source_table: consumable.career_outcomes,consumable.occupation_profiles,consumable.onet_work_profiles,consumable.career_transitions,base.cip_soc_crosswalk
         target_table: consumable.program_career_paths,consumable.career_branches
         spec: docs/specs/gold-futureproof-engine.md
+        status: active
+      - name: regional_price_parities
+        module: src/gold/regional_price_parities_transformer.py
+        function: transform
+        source_table: base.bea_rpp
+        target_table: consumable.regional_price_parities
+        spec: docs/specs/gold-regional-price-parities.md
+        status: active
+    mcp:
+      - name: futureproof_server
+        module: src/mcp_server/futureproof_server.py
+        class: FutureProofMCPServer
+        tools:
+          - get_ai_exposure
+        source_table: consumable.ai_exposure
+        eval_set: data/ai_ready/eval/mcp-ai-exposure-eval.json
+        spec: docs/specs/raw-ingest-karpathy-ai-exposure.md
         status: active
 domain:
   name: Higher Education Outcomes
