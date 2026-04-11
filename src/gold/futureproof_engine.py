@@ -239,6 +239,13 @@ def get_br_schema() -> Schema:
         NestedField(23, "branch_has_full_data", BooleanType(), required=True),
         # Metadata
         NestedField(24, "promoted_at", TimestampType(), required=True),
+        # AI Exposure Stats (backfill)
+        NestedField(25, "source_res", IntegerType(), required=False),
+        NestedField(26, "source_ai_boss", IntegerType(), required=False),
+        NestedField(27, "related_res", IntegerType(), required=False),
+        NestedField(28, "related_ai_boss", IntegerType(), required=False),
+        NestedField(29, "res_delta", IntegerType(), required=False),
+        NestedField(30, "ai_boss_delta", IntegerType(), required=False),
     )
 
 
@@ -332,6 +339,7 @@ def derive_pcp_rows(
     crosswalk_rows: list[dict],
     occupation_profiles_rows: list[dict],
     onet_work_profiles_rows: list[dict],
+    ai_exposure_rows: list[dict] | None = None,
 ) -> list[dict]:
     """Join and derive program_career_paths rows using DuckDB.
 
@@ -390,10 +398,18 @@ def derive_pcp_rows(
     rows = rel.fetchall()
     con.close()
 
+    # Build AI exposure lookup keyed by soc_code
+    ai_by_soc: dict[str, dict] = {}
+    if ai_exposure_rows:
+        ai_by_soc = {r["soc_code"]: r for r in ai_exposure_rows if r.get("soc_code")}
+
     # Post-process: compute stats and quality fields in Python
     gold_rows = []
     for row_tuple in rows:
         row = dict(zip(col_names, row_tuple))
+
+        # AI exposure lookup for this row's SOC code
+        ai_data = ai_by_soc.get(row.get("soc_code"), {})
 
         # Pentagon stats
         stat_ern = compute_stat_ern(
@@ -403,7 +419,7 @@ def derive_pcp_rows(
         stat_roi = compute_stat_roi(row.get("debt_to_earnings_annual"))
         stat_grw = row.get("grw_score_rounded")
         stat_hmn = row.get("hmn_score_rounded")
-        stat_res = None  # Placeholder
+        stat_res = ai_data.get("stat_res")  # From ai_exposure lookup, None if no match
 
         row["stat_ern"] = stat_ern
         row["stat_roi"] = stat_roi
@@ -412,7 +428,7 @@ def derive_pcp_rows(
         row["stat_hmn"] = stat_hmn
 
         # Boss scores
-        row["boss_ai_score"] = None  # Placeholder
+        row["boss_ai_score"] = ai_data.get("boss_ai_score")  # From ai_exposure lookup
         row["boss_loans_score"] = (11 - stat_roi) if stat_roi is not None else None
         row["boss_market_score"] = row.pop("market_score_rounded", None)
         row["boss_burnout_score"] = row.get("burnout_score_rounded")
@@ -475,6 +491,7 @@ def derive_br_rows(
     transition_rows: list[dict],
     occupation_profiles_rows: list[dict],
     onet_work_profiles_rows: list[dict],
+    ai_exposure_rows: list[dict] | None = None,
 ) -> list[dict]:
     """Enrich career transitions with source/target stats and compute deltas.
 
@@ -490,6 +507,11 @@ def derive_br_rows(
     onet_by_soc: dict[str, dict] = {
         r["bls_soc_code"]: r for r in onet_work_profiles_rows
     }
+
+    # Build AI exposure lookup keyed by soc_code
+    ai_by_soc: dict[str, dict] = {}
+    if ai_exposure_rows:
+        ai_by_soc = {r["soc_code"]: r for r in ai_exposure_rows if r.get("soc_code")}
 
     gold_rows: list[dict] = []
     for tr in transition_rows:
@@ -512,11 +534,21 @@ def derive_br_rows(
         related_burnout = rel_onet.get("burnout_score_rounded")
         related_wage = rel_op.get("median_annual_wage")
 
+        # AI exposure stats (source and related)
+        src_ai = ai_by_soc.get(soc, {})
+        rel_ai = ai_by_soc.get(related_soc, {})
+        source_res = src_ai.get("stat_res")
+        source_ai_boss = src_ai.get("boss_ai_score")
+        related_res = rel_ai.get("stat_res")
+        related_ai_boss = rel_ai.get("boss_ai_score")
+
         # Deltas (null if either side null)
         grw_delta = (related_grw - source_grw) if (related_grw is not None and source_grw is not None) else None
         hmn_delta = (related_hmn - source_hmn) if (related_hmn is not None and source_hmn is not None) else None
         burnout_delta = (related_burnout - source_burnout) if (related_burnout is not None and source_burnout is not None) else None
         wage_delta = (related_wage - source_wage) if (related_wage is not None and source_wage is not None) else None
+        res_delta = (related_res - source_res) if (related_res is not None and source_res is not None) else None
+        ai_boss_delta = (related_ai_boss - source_ai_boss) if (related_ai_boss is not None and source_ai_boss is not None) else None
 
         # branch_has_full_data: True if related has both BLS and O*NET data
         branch_has_full_data = (related_grw is not None and related_hmn is not None)
@@ -544,6 +576,12 @@ def derive_br_rows(
             "burnout_delta": burnout_delta,
             "wage_delta": wage_delta,
             "branch_has_full_data": branch_has_full_data,
+            "source_res": source_res,
+            "source_ai_boss": source_ai_boss,
+            "related_res": related_res,
+            "related_ai_boss": related_ai_boss,
+            "res_delta": res_delta,
+            "ai_boss_delta": ai_boss_delta,
         }
         gold_rows.append(row)
 
@@ -581,13 +619,45 @@ def _read_table(catalog, table_name: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def _overwrite_table(table: Table, records: list[dict]) -> int:
+    """Overwrite an Iceberg table with new data. Returns the new snapshot ID.
+
+    Used for backfills where the grain is unchanged but column values are updated.
+    PyIceberg's overwrite() replaces all data in the table.
+    """
+    import pyarrow as pa
+    from pyiceberg.io.pyarrow import schema_to_pyarrow
+    from pyiceberg.types import DateType
+
+    iceberg_schema = table.schema()
+    date_fields = {f.name for f in iceberg_schema.fields if isinstance(f.field_type, DateType)}
+    columns = {}
+    for field in iceberg_schema.fields:
+        values = [r.get(field.name) for r in records]
+        if field.name in date_fields:
+            values = [datetime.date.fromisoformat(v) if isinstance(v, str) else v for v in values]
+        columns[field.name] = values
+
+    arrow_schema = schema_to_pyarrow(iceberg_schema)
+    arrow_table = pa.table(columns, schema=arrow_schema)
+    table.overwrite(arrow_table)
+    table.refresh()
+    return list(table.snapshots())[-1].snapshot_id
+
+
 def transform(
     project_dir: str | Path | None = None,
+    overwrite: bool = False,
 ) -> dict:
     """Run the Gold zone transformation for both FutureProof Engine tables.
 
     Table 1: consumable.program_career_paths (cross-source join)
     Table 2: consumable.career_branches (transition enrichment)
+
+    Args:
+        project_dir: Root project directory.
+        overwrite: If True, overwrite existing data instead of dedup-append.
+            Use for backfills where column values change but the grain is the same.
 
     Returns summary dict with row counts for both tables.
     """
@@ -610,14 +680,23 @@ def transform(
     onet_work_profiles_rows = _read_table(gold_catalog, "consumable.onet_work_profiles")
     career_transitions_rows = _read_table(gold_catalog, "consumable.career_transitions")
 
+    # AI exposure data (optional — graceful degradation if not yet promoted)
+    try:
+        ai_exposure_rows = _read_table(gold_catalog, "consumable.ai_exposure")
+        logger.info("Read %d ai_exposure rows", len(ai_exposure_rows))
+    except Exception:
+        ai_exposure_rows = []
+        logger.info("consumable.ai_exposure not available — AI stats will be null")
+
     logger.info(
         "Read: %d career_outcomes, %d crosswalk, %d occupation_profiles, "
-        "%d onet_work_profiles, %d career_transitions",
+        "%d onet_work_profiles, %d career_transitions, %d ai_exposure",
         len(career_outcomes_rows),
         len(crosswalk_rows),
         len(occupation_profiles_rows),
         len(onet_work_profiles_rows),
         len(career_transitions_rows),
+        len(ai_exposure_rows),
     )
 
     # -----------------------------------------------------------------------
@@ -629,6 +708,7 @@ def transform(
         crosswalk_rows,
         occupation_profiles_rows,
         onet_work_profiles_rows,
+        ai_exposure_rows=ai_exposure_rows,
     )
     logger.info("Derived %d program_career_paths rows", len(pcp_rows))
 
@@ -639,13 +719,18 @@ def transform(
     pcp_table = get_or_create_table(
         gold_catalog, "consumable", "program_career_paths", get_pcp_schema()
     )
-    pcp_result = promote(
-        pcp_table,
-        pcp_rows,
-        id_field="record_id",
-        spec_name=SPEC_NAME,
-        agent_name="@primary-agent",
-    )
+    if overwrite:
+        logger.info("Overwrite mode: replacing all data in program_career_paths")
+        snapshot_id = _overwrite_table(pcp_table, pcp_rows)
+        pcp_result = {"promoted": len(pcp_rows), "skipped": 0, "snapshot_id": snapshot_id}
+    else:
+        pcp_result = promote(
+            pcp_table,
+            pcp_rows,
+            id_field="record_id",
+            spec_name=SPEC_NAME,
+            agent_name="@primary-agent",
+        )
     logger.info(
         "Table 1 promote: %d promoted, %d skipped",
         pcp_result["promoted"],
@@ -660,6 +745,7 @@ def transform(
         career_transitions_rows,
         occupation_profiles_rows,
         onet_work_profiles_rows,
+        ai_exposure_rows=ai_exposure_rows,
     )
     logger.info("Derived %d career_branches rows", len(br_rows))
 
@@ -669,13 +755,29 @@ def transform(
     br_table = get_or_create_table(
         gold_catalog, "consumable", "career_branches", get_br_schema()
     )
-    br_result = promote(
-        br_table,
-        br_rows,
-        id_field="record_id",
-        spec_name=SPEC_NAME,
-        agent_name="@primary-agent",
-    )
+    # Schema evolution: add new AI columns if they don't exist yet
+    existing_field_names = {f.name for f in br_table.schema().fields}
+    target_schema = get_br_schema()
+    new_fields = [f for f in target_schema.fields if f.name not in existing_field_names]
+    if new_fields:
+        with br_table.update_schema() as update:
+            for field in new_fields:
+                update.add_column(field.name, field.field_type, doc=None, required=field.required)
+        logger.info("Evolved career_branches schema: added %d fields (%s)",
+                     len(new_fields), [f.name for f in new_fields])
+
+    if overwrite:
+        logger.info("Overwrite mode: replacing all data in career_branches")
+        snapshot_id = _overwrite_table(br_table, br_rows)
+        br_result = {"promoted": len(br_rows), "skipped": 0, "snapshot_id": snapshot_id}
+    else:
+        br_result = promote(
+            br_table,
+            br_rows,
+            id_field="record_id",
+            spec_name=SPEC_NAME,
+            agent_name="@primary-agent",
+        )
     logger.info(
         "Table 2 promote: %d promoted, %d skipped",
         br_result["promoted"],
@@ -701,8 +803,11 @@ def transform(
 
 
 if __name__ == "__main__":
+    import sys
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
-    result = transform()
+    do_overwrite = "--overwrite" in sys.argv
+    result = transform(overwrite=do_overwrite)
     print(f"FutureProof Engine transform complete:")
     print(f"  Table 1: {result['table_1']}")
     print(f"  Table 2: {result['table_2']}")

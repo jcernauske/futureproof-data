@@ -254,13 +254,13 @@ class TestBossScores:
         """boss_ceiling is null when wage_percentile_education_tier is null."""
         assert compute_boss_ceiling(None) is None
 
-    def test_boss_ai_always_null(self):
-        """boss_ai_score is always null (placeholder)."""
+    def test_boss_ai_null_without_ai_exposure(self):
+        """boss_ai_score is null when no AI exposure data provided."""
         rows = _simple_pcp_derive()
         assert rows[0]["boss_ai_score"] is None
 
-    def test_stat_res_always_null(self):
-        """stat_res is always null (placeholder)."""
+    def test_stat_res_null_without_ai_exposure(self):
+        """stat_res is null when no AI exposure data provided."""
         rows = _simple_pcp_derive()
         assert rows[0]["stat_res"] is None
 
@@ -605,10 +605,10 @@ class TestCareerBranches:
 class TestBrSchemaAndRecordIds:
     """Tests for Table 2 schema and record ID generation."""
 
-    def test_schema_has_24_columns(self):
-        """Physical model specifies 24 columns."""
+    def test_schema_has_30_columns(self):
+        """Physical model specifies 30 columns (24 original + 6 AI backfill)."""
         schema = get_br_schema()
-        assert len(schema.fields) == 24
+        assert len(schema.fields) == 30
 
     def test_record_id_deterministic(self):
         """record_id is deterministic for same grain."""
@@ -657,3 +657,197 @@ class TestBrSchemaAndRecordIds:
         rows = derive_br_rows(transitions, op, onet)
         assert rows[0]["related_growth_category"] == "growing_fast"
         assert rows[0]["related_education_level"] == "Master's degree"
+
+
+# =========================================================================
+# AI Exposure Backfill Tests
+# =========================================================================
+
+
+def _make_ai_exposure(soc_code="13-2051", stat_res=3, boss_ai_score=8):
+    """Create a minimal ai_exposure row for testing."""
+    return {
+        "soc_code": soc_code,
+        "stat_res": stat_res,
+        "boss_ai_score": boss_ai_score,
+    }
+
+
+class TestPcpAiExposureBackfill:
+    """Tests for AI exposure backfill into program_career_paths."""
+
+    def test_stat_res_populated_from_ai_exposure(self):
+        """stat_res is populated when ai_exposure has a matching SOC code."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile()]
+        onet = [_make_onet_profile()]
+        ai = [_make_ai_exposure("13-2051", stat_res=3, boss_ai_score=8)]
+        rows = derive_pcp_rows(co, xw, op, onet, ai_exposure_rows=ai)
+        assert rows[0]["stat_res"] == 3
+
+    def test_boss_ai_score_populated_from_ai_exposure(self):
+        """boss_ai_score is populated when ai_exposure has a matching SOC code."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile()]
+        onet = [_make_onet_profile()]
+        ai = [_make_ai_exposure("13-2051", stat_res=3, boss_ai_score=8)]
+        rows = derive_pcp_rows(co, xw, op, onet, ai_exposure_rows=ai)
+        assert rows[0]["boss_ai_score"] == 8
+
+    def test_stat_res_null_when_soc_not_in_ai_exposure(self):
+        """stat_res stays null when SOC code is not in ai_exposure."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile()]
+        onet = [_make_onet_profile()]
+        ai = [_make_ai_exposure("99-9999", stat_res=5, boss_ai_score=6)]
+        rows = derive_pcp_rows(co, xw, op, onet, ai_exposure_rows=ai)
+        assert rows[0]["stat_res"] is None
+        assert rows[0]["boss_ai_score"] is None
+
+    def test_stats_available_count_increments_with_ai(self):
+        """stats_available_count increases by 1 when stat_res is populated."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile()]
+        onet = [_make_onet_profile()]
+
+        # Without AI: 4 stats (ern, roi, grw, hmn)
+        rows_no_ai = derive_pcp_rows(co, xw, op, onet)
+        assert rows_no_ai[0]["stats_available_count"] == 4
+
+        # With AI: 5 stats (ern, roi, res, grw, hmn)
+        ai = [_make_ai_exposure("13-2051", stat_res=3, boss_ai_score=8)]
+        rows_with_ai = derive_pcp_rows(co, xw, op, onet, ai_exposure_rows=ai)
+        assert rows_with_ai[0]["stats_available_count"] == 5
+
+    def test_bosses_available_count_increments_with_ai(self):
+        """bosses_available_count increases by 1 when boss_ai_score is populated."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile()]
+        onet = [_make_onet_profile()]
+
+        # Without AI: 4 bosses (loans, market, burnout, ceiling)
+        rows_no_ai = derive_pcp_rows(co, xw, op, onet)
+        assert rows_no_ai[0]["bosses_available_count"] == 4
+
+        # With AI: 5 bosses
+        ai = [_make_ai_exposure("13-2051", stat_res=3, boss_ai_score=8)]
+        rows_with_ai = derive_pcp_rows(co, xw, op, onet, ai_exposure_rows=ai)
+        assert rows_with_ai[0]["bosses_available_count"] == 5
+
+    def test_overall_confidence_may_upgrade_with_ai(self):
+        """overall_confidence may upgrade when stats_available increases."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile()]
+        onet = [_make_onet_profile()]
+        ai = [_make_ai_exposure("13-2051", stat_res=3, boss_ai_score=8)]
+        rows = derive_pcp_rows(co, xw, op, onet, ai_exposure_rows=ai)
+        # With 5 stats and full match, should be "high"
+        assert rows[0]["overall_confidence"] == "high"
+
+    def test_empty_ai_exposure_list_same_as_none(self):
+        """Passing empty ai_exposure_rows is the same as no AI data."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile()]
+        onet = [_make_onet_profile()]
+        rows = derive_pcp_rows(co, xw, op, onet, ai_exposure_rows=[])
+        assert rows[0]["stat_res"] is None
+        assert rows[0]["boss_ai_score"] is None
+
+
+class TestBrAiExposureBackfill:
+    """Tests for AI exposure backfill into career_branches."""
+
+    def _br_with_ai(self, ai_rows):
+        """Helper: derive career_branches with AI exposure data."""
+        transitions = [_make_transition()]
+        op = [
+            _make_occupation_profile("15-1252", grw_score_rounded=8),
+            _make_occupation_profile("15-1256", grw_score_rounded=5),
+        ]
+        onet = [
+            _make_onet_profile("15-1252", hmn_score_rounded=5),
+            _make_onet_profile("15-1256", hmn_score_rounded=3),
+        ]
+        return derive_br_rows(transitions, op, onet, ai_exposure_rows=ai_rows)
+
+    def test_source_res_populated(self):
+        """source_res is populated from ai_exposure for source SOC."""
+        ai = [
+            _make_ai_exposure("15-1252", stat_res=4, boss_ai_score=7),
+            _make_ai_exposure("15-1256", stat_res=6, boss_ai_score=5),
+        ]
+        rows = self._br_with_ai(ai)
+        assert rows[0]["source_res"] == 4
+        assert rows[0]["source_ai_boss"] == 7
+
+    def test_related_res_populated(self):
+        """related_res is populated from ai_exposure for target SOC."""
+        ai = [
+            _make_ai_exposure("15-1252", stat_res=4, boss_ai_score=7),
+            _make_ai_exposure("15-1256", stat_res=6, boss_ai_score=5),
+        ]
+        rows = self._br_with_ai(ai)
+        assert rows[0]["related_res"] == 6
+        assert rows[0]["related_ai_boss"] == 5
+
+    def test_res_delta_computed(self):
+        """res_delta = related_res - source_res."""
+        ai = [
+            _make_ai_exposure("15-1252", stat_res=4, boss_ai_score=7),
+            _make_ai_exposure("15-1256", stat_res=6, boss_ai_score=5),
+        ]
+        rows = self._br_with_ai(ai)
+        assert rows[0]["res_delta"] == 2  # 6 - 4
+
+    def test_ai_boss_delta_computed(self):
+        """ai_boss_delta = related_ai_boss - source_ai_boss."""
+        ai = [
+            _make_ai_exposure("15-1252", stat_res=4, boss_ai_score=7),
+            _make_ai_exposure("15-1256", stat_res=6, boss_ai_score=5),
+        ]
+        rows = self._br_with_ai(ai)
+        assert rows[0]["ai_boss_delta"] == -2  # 5 - 7
+
+    def test_deltas_null_when_source_missing(self):
+        """Deltas are null when source SOC not in ai_exposure."""
+        ai = [_make_ai_exposure("15-1256", stat_res=6, boss_ai_score=5)]
+        rows = self._br_with_ai(ai)
+        assert rows[0]["source_res"] is None
+        assert rows[0]["res_delta"] is None
+        assert rows[0]["ai_boss_delta"] is None
+
+    def test_deltas_null_when_target_missing(self):
+        """Deltas are null when target SOC not in ai_exposure."""
+        ai = [_make_ai_exposure("15-1252", stat_res=4, boss_ai_score=7)]
+        rows = self._br_with_ai(ai)
+        assert rows[0]["related_res"] is None
+        assert rows[0]["res_delta"] is None
+        assert rows[0]["ai_boss_delta"] is None
+
+    def test_all_ai_fields_null_without_ai_data(self):
+        """All AI fields are null when no ai_exposure data provided."""
+        rows = self._br_with_ai([])
+        assert rows[0]["source_res"] is None
+        assert rows[0]["source_ai_boss"] is None
+        assert rows[0]["related_res"] is None
+        assert rows[0]["related_ai_boss"] is None
+        assert rows[0]["res_delta"] is None
+        assert rows[0]["ai_boss_delta"] is None
+
+    def test_br_schema_has_ai_fields(self):
+        """career_branches schema includes the 6 new AI fields."""
+        schema = get_br_schema()
+        field_names = [f.name for f in schema.fields]
+        assert "source_res" in field_names
+        assert "source_ai_boss" in field_names
+        assert "related_res" in field_names
+        assert "related_ai_boss" in field_names
+        assert "res_delta" in field_names
+        assert "ai_boss_delta" in field_names
