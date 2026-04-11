@@ -1,0 +1,42 @@
+{
+  "financial-analysts": {
+    "exposure": 8,
+    "rationale": "Financial analysts work almost entirely on computers, processing data, building models, and generating reports. AI tools are already handling data aggregation and basic forecasting, making the core analytical tasks highly automatable."
+  },
+  "registered-nurses": {
+    "exposure": 3,
+    "rationale": "Nursing requires direct patient care, physical assessment, and emotional support that AI cannot replicate. While documentation and scheduling may be automated, the core duties remain hands-on."
+  },
+  "software-developers": {
+    "exposure": 7,
+    "rationale": "Software development involves writing, reviewing, and debugging code — tasks where AI assistants are already making significant inroads. However, system design and requirements gathering still require human judgment."
+  },
+  "surgeons": {
+    "exposure": 2,
+    "rationale": "Surgery demands manual dexterity, real-time decision-making in unpredictable situations, and years of hands-on training. AI assists in planning but cannot perform procedures autonomously."
+  },
+  "data-entry-keyers": {
+    "exposure": 10,
+    "rationale": "Data entry is almost entirely automatable by current AI and OCR technology. The job involves repetitive, structured input tasks that AI can perform faster and more accurately."
+  },
+  "carpenters": {
+    "exposure": 1,
+    "rationale": "Carpentry requires physical manipulation of materials in unstructured environments. Each job site is different, and the work demands spatial reasoning and manual skill that AI cannot replicate."
+  },
+  "advertising-managers": {
+    "exposure": 6,
+    "rationale": "Advertising managers coordinate campaigns and creative teams. While AI can generate content and optimize ad placement, strategic decision-making and client relationship management remain human-driven."
+  },
+  "no-soc-occupation": {
+    "exposure": 5,
+    "rationale": "This is a test occupation without a SOC code to verify null SOC handling."
+  },
+  "unmatched-slug": {
+    "exposure": 4,
+    "rationale": "This slug exists in scores but not in occupations.csv, testing unmatched slug handling."
+  },
+  "zero-exposure-job": {
+    "exposure": 0,
+    "rationale": "This occupation has zero AI exposure, testing the boundary condition."
+  }
+}

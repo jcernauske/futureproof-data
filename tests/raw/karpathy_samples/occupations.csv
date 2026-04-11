@@ -1,0 +1,10 @@
+title,category,slug,soc_code,median_pay_annual,median_pay_hourly,entry_education,work_experience,training,num_jobs_2024,projected_employment_2034,outlook_pct,outlook_desc,employment_change,url
+Financial analysts,business-and-financial,financial-analysts,13-2051,99890,48.03,"Bachelor's degree",None,"None","338,200","370,600",9.6,Faster than average,"32,400",https://www.bls.gov/ooh/business-and-financial/financial-analysts.htm
+Registered nurses,healthcare-practitioners,registered-nurses,29-1141,86070,41.38,"Bachelor's degree",None,"None","3,175,300","3,429,100",8.0,Faster than average,"253,900",https://www.bls.gov/ooh/healthcare/registered-nurses.htm
+Software developers,computer-and-information-technology,software-developers,15-1252,130160,62.58,"Bachelor's degree",None,"None","1,795,300","2,094,900",16.7,Much faster than average,"299,600",https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm
+Surgeons,healthcare-practitioners,surgeons,29-1248,239200,,Doctoral or professional degree,"5 years or more","Internship/residency","38,300","39,100",2.1,Slower than average,800,https://www.bls.gov/ooh/healthcare/physicians-and-surgeons.htm
+Data entry keyers,office-and-administrative,data-entry-keyers,43-9021,38000,18.27,"High school diploma or equivalent",None,"Short-term on-the-job training","150,000","120,000",-20.0,Decline,"30,000",https://www.bls.gov/ooh/office-and-administrative-support/data-entry-keyers.htm
+Carpenters,construction-and-extraction,carpenters,47-2031,56350,27.09,"High school diploma or equivalent",None,"Apprenticeship","728,200","752,500",3.3,As fast as average,"24,300",https://www.bls.gov/ooh/construction-and-extraction/carpenters.htm
+"Advertising, promotions, and marketing managers",management,advertising-managers,,133380,64.13,"Bachelor's degree","5 years or more","None","377,600","413,100",9.4,Faster than average,"35,500",https://www.bls.gov/ooh/management/advertising-promotions-and-marketing-managers.htm
+Test no-SOC occupation,uncategorized,no-soc-occupation,,,,,,,,,,,
+Test zero exposure,uncategorized,zero-exposure-job,99-9999,50000,,None,None,None,100,100,0,Little or no change,0,
