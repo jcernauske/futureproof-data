@@ -9,6 +9,7 @@ Usage:
 
 import importlib
 import logging
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -27,7 +28,12 @@ brightsmith.config.configure(
     require_human_approval=False,
 )
 
-from brightsmith.domain_loader import SourceConfig, DomainManifest, load_manifest
+from brightsmith.domain_loader import (
+    DomainHints,
+    DomainManifest,
+    SourceConfig,
+    load_manifest,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,8 +87,23 @@ def _make_source_config(name: str, namespace: str, table: str,
 
 
 def _make_manifest() -> DomainManifest:
-    """Load the project manifest."""
-    return load_manifest(PROJECT_ROOT / "domain" / "manifest.yaml")
+    """Build a lightweight manifest stub.
+
+    rebuild_all supplies explicit per-ingestor SourceConfigs via
+    _make_source_config() — the ingestors do not actually read the manifest's
+    sources list, they only need a DomainManifest object for constructor
+    signatures. load_manifest() cannot parse the multi-table onet.yaml
+    (missing 'table' key) and resolves source paths inconsistently across
+    call sites, so we skip it entirely and return a stub.
+    """
+    return DomainManifest(
+        name="futureproof-data",
+        version="0.1",
+        description="rebuild_all runner stub",
+        sources=[],
+        hints=DomainHints(),
+        pipeline={},
+    )
 
 
 def ingest_college_scorecard(manifest: DomainManifest) -> dict:
@@ -111,6 +132,49 @@ def ingest_bls_ooh(manifest: DomainManifest) -> dict:
     )
     ingestor = BlsOohIngestor(source, manifest)
     return ingestor.ingest(method="xlsx_download")
+
+
+def ingest_karpathy_ai_exposure(manifest: DomainManifest) -> dict:
+    """Ingest Karpathy AI exposure scores."""
+    from raw.karpathy_ai_exposure_ingestor import KarpathyAiExposureIngestor
+
+    source = _make_source_config(
+        "karpathy_ai_exposure", "bronze", "karpathy_ai_exposure",
+        fetch={"github_download": {}},
+        entities={"karpathy": "Karpathy AI Exposure Scores — All Scored Occupations"},
+        dedup_grain=["slug"],
+    )
+    ingestor = KarpathyAiExposureIngestor(source, manifest)
+    return ingestor.ingest(method="github_download")
+
+
+def ingest_bea_rpp(manifest: DomainManifest) -> dict:
+    """Ingest BEA Regional Price Parities (Bronze zone).
+
+    Runs as a subprocess so the script retains the framework-default
+    project_name ('brightsmith') required by the Bronze HIGH-1 fix
+    (governance/adversarial-audits/raw-ingest-bea-rpp.md). This rebuild
+    script sets project_name='futureproof-data' module-wide, which would
+    otherwise bind the Iceberg catalog_name to a value the dq_runner and
+    downstream readers cannot resolve.
+    """
+    script = PROJECT_ROOT / "scripts" / "ingest_bea_rpp.py"
+    proc = subprocess.run(
+        ["uv", "run", "python", str(script)],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.stdout:
+        for line in proc.stdout.splitlines():
+            logger.info("[ingest_bea_rpp] %s", line)
+    if proc.stderr:
+        for line in proc.stderr.splitlines():
+            logger.info("[ingest_bea_rpp] %s", line)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ingest_bea_rpp.py failed with returncode={proc.returncode}")
+    return {"script": str(script), "returncode": proc.returncode}
 
 
 def ingest_cip_soc_crosswalk(manifest: DomainManifest) -> dict:
@@ -184,6 +248,38 @@ def transform_silver_cip_soc_crosswalk() -> dict:
     return transform(project_dir=PROJECT_ROOT)
 
 
+def transform_silver_karpathy_ai_exposure() -> dict:
+    """Karpathy AI exposure depends on Silver base.bls_ooh for SOC resolution."""
+    from silver.karpathy_ai_exposure_transformer import transform
+    return transform(project_dir=PROJECT_ROOT)
+
+
+def transform_silver_bea_rpp() -> dict:
+    """Promote bronze.bea_rpp to base.bea_rpp (Silver zone).
+
+    Runs as a subprocess for the same Bronze HIGH-1 reason documented on
+    ``ingest_bea_rpp`` — the dedicated runner keeps the framework default
+    project_name so writer and reader resolve the same catalog_name.
+    """
+    script = PROJECT_ROOT / "scripts" / "promote_bea_rpp_silver.py"
+    proc = subprocess.run(
+        ["uv", "run", "python", str(script)],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.stdout:
+        for line in proc.stdout.splitlines():
+            logger.info("[promote_bea_rpp_silver] %s", line)
+    if proc.stderr:
+        for line in proc.stderr.splitlines():
+            logger.info("[promote_bea_rpp_silver] %s", line)
+    if proc.returncode != 0:
+        raise RuntimeError(f"promote_bea_rpp_silver.py failed with returncode={proc.returncode}")
+    return {"script": str(script), "returncode": proc.returncode}
+
+
 # ---------------------------------------------------------------------------
 # Gold transform helpers
 # ---------------------------------------------------------------------------
@@ -208,9 +304,44 @@ def transform_gold_career_transitions() -> dict:
     return transform()
 
 
+def transform_gold_ai_exposure() -> dict:
+    from gold.ai_exposure_transformer import transform
+    return transform(project_dir=PROJECT_ROOT)
+
+
 def transform_gold_futureproof_engine() -> dict:
     from gold.futureproof_engine import transform
     return transform()
+
+
+def transform_gold_regional_price_parities() -> dict:
+    """Promote base.bea_rpp to consumable.regional_price_parities (Gold).
+
+    Runs as a subprocess for the same Bronze HIGH-1 reason documented on
+    ``ingest_bea_rpp`` and ``transform_silver_bea_rpp`` — the dedicated
+    runner keeps the framework default project_name so writer and reader
+    resolve the same catalog_name, bypassing the rebuild_all module-level
+    ``project_name='futureproof-data'`` override.
+    """
+    script = PROJECT_ROOT / "scripts" / "promote_regional_price_parities.py"
+    proc = subprocess.run(
+        ["uv", "run", "python", str(script)],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.stdout:
+        for line in proc.stdout.splitlines():
+            logger.info("[promote_regional_price_parities] %s", line)
+    if proc.stderr:
+        for line in proc.stderr.splitlines():
+            logger.info("[promote_regional_price_parities] %s", line)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"promote_regional_price_parities.py failed with returncode={proc.returncode}"
+        )
+    return {"script": str(script), "returncode": proc.returncode}
 
 
 # ---------------------------------------------------------------------------
@@ -231,6 +362,8 @@ def main():
     results.append(_run_step("BLS OOH", "raw", ingest_bls_ooh, manifest))
     results.append(_run_step("O*NET (5 tables)", "raw", ingest_onet, manifest))
     results.append(_run_step("CIP-SOC Crosswalk", "raw", ingest_cip_soc_crosswalk, manifest))
+    results.append(_run_step("Karpathy AI Exposure", "raw", ingest_karpathy_ai_exposure, manifest))
+    results.append(_run_step("BEA RPP", "raw", ingest_bea_rpp, manifest))
 
     # Check raw phase before continuing
     raw_ok = all(r.ok for r in results)
@@ -248,6 +381,10 @@ def main():
     results.append(_run_step("Silver O*NET", "silver", transform_silver_onet))
     # CIP-SOC crosswalk depends on the above three
     results.append(_run_step("Silver CIP-SOC Crosswalk", "silver", transform_silver_cip_soc_crosswalk))
+    # Karpathy AI exposure depends on Silver BLS OOH
+    results.append(_run_step("Silver Karpathy AI Exposure", "silver", transform_silver_karpathy_ai_exposure))
+    # BEA RPP is a standalone Silver promote (no cross-source joins)
+    results.append(_run_step("Silver BEA RPP", "silver", transform_silver_bea_rpp))
 
     silver_ok = all(r.ok for r in results if r.zone == "silver")
     if not silver_ok:
@@ -264,7 +401,13 @@ def main():
     results.append(_run_step("Gold O*NET Work Profiles", "gold", transform_gold_onet_work_profiles))
     # Career transitions depends on work profiles
     results.append(_run_step("Gold Career Transitions", "gold", transform_gold_career_transitions))
-    # FutureProof engine depends on all of the above
+    # AI exposure depends only on Silver karpathy_ai_exposure
+    results.append(_run_step("Gold AI Exposure", "gold", transform_gold_ai_exposure))
+    # Regional price parities is standalone (no cross-source joins)
+    results.append(_run_step(
+        "Gold Regional Price Parities", "gold", transform_gold_regional_price_parities
+    ))
+    # FutureProof engine depends on all of the above (reads consumable.ai_exposure)
     results.append(_run_step("Gold FutureProof Engine", "gold", transform_gold_futureproof_engine))
 
     # Summary
