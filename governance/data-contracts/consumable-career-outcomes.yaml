@@ -16,6 +16,7 @@ grain:
   - credential_level
 status: draft
 owner: "@doc-generator"
+quality_tier: government_statistical
 spec_reference: docs/specs/gold-career-outcomes-college-scorecard.md
 physical_model: governance/models/gold-career-outcomes-college-scorecard-physical.md
 

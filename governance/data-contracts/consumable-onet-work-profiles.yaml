@@ -14,6 +14,7 @@ grain:
   - bls_soc_code
 status: draft
 owner: "@doc-generator"
+quality_tier: government_statistical
 spec_reference: docs/specs/gold-onet-profiles.md
 physical_model: governance/models/gold-onet-profiles-physical.md
 data_dictionary: governance/data-dictionary.json

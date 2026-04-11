@@ -1,0 +1,185 @@
+---
+# Data Contract: raw.bea_rpp
+# Spec: raw-ingest-bea-rpp
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Documented by: @doc-generator
+# Date: 2026-04-10
+
+table: raw.bea_rpp
+namespace: raw
+zone: bronze
+grain:
+  - geo_fips
+status: DRAFT
+record_count: 51
+data_vintage: "BEA Regional Economic Accounts — table SARPP, All Items (LineCode=1), Year=2024. 2024 vintage released February 2026."
+source: "U.S. Bureau of Economic Analysis (BEA), Regional Economic Accounts. API: https://apps.bea.gov/api/data/?method=GetData&datasetname=Regional&TableName=SARPP&LineCode=1&Year=2024&GeoFips=STATE&ResultFormat=JSON. CSV fallback: data/raw/bea_cache/bea_rpp_2024.csv."
+spec_reference: docs/specs/raw-ingest-bea-rpp.md
+owner: "@data-steward"
+sla: "Annual refresh (each February when BEA publishes new RPPs). Freshness guardrail: load_date within 400 days (RAW-BEA-016)."
+quality_tier: "partial_verification — 51/51 rows structurally valid; 8/51 rows match spec-verified 2024 BEA values (CA, HI, DC, NJ, AR, MS, IA, OK); 43/51 rows are plausible primary-agent estimates pending live BEA API refresh. Source is a U.S. Government statistical publication (public domain) but the CSV-cache load shipped with this spec is NOT fully BEA-authoritative. Downgraded from 'high' per HIGH-3 of governance/adversarial-audits/raw-ingest-bea-rpp.md."
+
+columns:
+  - name: geo_fips
+    type: string
+    required: true
+    business_term: BT-100
+    is_cde: true
+    cde_rationale: >
+      Primary key and the sole join key for every downstream use of this table.
+      The student's state selection (from the frontend or MCP tool) resolves to
+      a state_fips that joins back to this column through Silver and Gold.
+      No other column can substitute — geo_name is display-only, and rpp_all_items
+      is not unique (Iowa and Oklahoma tie at 87.8). Also the dedup grain for the
+      Bronze->Silver promote. ANSI/FIPS external standard. Auto-approved as CDE
+      per domain-context.md BEA RPP section.
+    is_pii: false
+    pii_rationale: ""
+    description: "2-digit zero-padded ANSI/FIPS state code (e.g., '06' for California, '19' for Iowa, '11' for DC). 51 distinct values, 100% unique. Intentional gaps at 03, 07, 14, 43, 52 are unassigned FIPS codes."
+    dq_rules:
+      - RAW-BEA-004
+      - RAW-BEA-009
+      - RAW-BEA-010
+      - RAW-BEA-011
+
+  - name: geo_name
+    type: string
+    required: true
+    business_term: BT-101
+    is_cde: true
+    cde_rationale: >
+      Full human-readable state name. Flagged as CDE because it is the display
+      label served by the MCP tool response and the frontend salary-adjustment UI
+      (e.g., "In California, that's equivalent to about $58,700 in purchasing power").
+      Also the fallback identifier when a user or LLM passes a state by name rather
+      than FIPS code or abbreviation. Without it, Gemma cannot produce the
+      user-facing narrative. Auto-approved as CDE per domain-context.md BEA RPP section.
+    is_pii: false
+    pii_rationale: ""
+    description: "Full human-readable state or jurisdiction name (e.g., 'California', 'Iowa', 'District of Columbia'). 51 distinct values, 100% unique. Title-case ASCII. 'District of Columbia' is spelled out in full, not 'DC'."
+    dq_rules:
+      - RAW-BEA-005
+
+  - name: rpp_all_items
+    type: double
+    required: true
+    business_term: BT-098
+    is_cde: true
+    cde_rationale: >
+      The entire analytical payload of this table. Every derived field in Silver
+      (purchasing_power_multiplier) and Gold (cost_tier, adjusted_30k/50k/75k/100k)
+      is a pure function of this one column. Every salary adjustment displayed to
+      students — in Stage 2 Reveal, the Branch Tree, the Compare screen, and the
+      stretch-goal Fight Location Lock boss — is national_salary * (100 / rpp_all_items).
+      If this column is wrong for a state, every salary figure displayed to any
+      student who selects that state is wrong. Highest-criticality column in the
+      table. Auto-approved as CDE per domain-context.md BEA RPP section.
+      Cross-reference BT-098 (Regional Price Parity).
+    is_pii: false
+    pii_rationale: ""
+    description: "BEA Regional Price Parity index, All Items line code, national baseline = 100.0. Values above 100 mean prices are above the national average; below 100 means cheaper than national. Observed range in current load: [86.9, 110.7]. 50 distinct values (not 51) because Iowa and Oklahoma legitimately tie at 87.8."
+    dq_rules:
+      - RAW-BEA-002
+      - RAW-BEA-003
+      - RAW-BEA-007
+      - RAW-BEA-008
+      - RAW-BEA-017
+      - RAW-BEA-018
+      - RAW-BEA-019
+
+  - name: data_year
+    type: int
+    required: true
+    business_term: BT-102
+    is_cde: true
+    cde_rationale: >
+      Provenance-critical temporal dimension. The RPP index is re-published
+      annually by BEA, and values shift year-over-year as the underlying price
+      index methodology updates. A row labeled with the wrong data_year silently
+      misrepresents the vintage of every downstream purchasing-power figure.
+      Governs annual-refresh replacement semantics and distinguishes the 8
+      spec-verified rows from the 43 estimated placeholder rows in the current
+      load. The DQ rule pinning data_year = 2024 is a P0 guardrail.
+    is_pii: false
+    pii_rationale: ""
+    description: "Year of the BEA RPP estimate. Constant 2024 across all 51 rows in the current load. Bump DQ rule RAW-BEA-006 on annual refresh to the new target year."
+    dq_rules:
+      - RAW-BEA-006
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Provenance URL (BEA API endpoint) or local cache path recording where the row was sourced from. The ingestor MUST NOT persist the substituted UserID=<API_KEY> query parameter into this column — store URL template or redact as UserID=REDACTED. Secrets-hygiene guardrail."
+    dq_rules:
+      - RAW-BEA-013
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "ETL batch timestamp. Identical across all 51 rows in a single load — acts as a batch identifier rather than a per-row event time. Never pinned to an exact value by DQ rules (non-null only)."
+    dq_rules:
+      - RAW-BEA-015
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Enum identifying ingest path: 'bea_api' (live BEA API call succeeded) or 'csv_cache' (fell back to cached CSV at data/raw/bea_cache/bea_rpp_2024.csv). Current load: 100% csv_cache. Future loads with a working BEA_API_KEY will be 100% bea_api. Both are valid steady states."
+    dq_rules:
+      - RAW-BEA-012
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Calendar date the batch load ran. Identical across all 51 rows. Operational freshness metadata — used by the freshness rule but never pinned to a specific value."
+    dq_rules:
+      - RAW-BEA-014
+      - RAW-BEA-016
+
+dq_summary:
+  total_rules: 19
+  p0_rules: 10
+  p1_rules: 5
+  p2_rules: 4
+  rules_reference: governance/dq-rules/raw-ingest-bea-rpp.json
+
+cde_summary:
+  total_columns: 8
+  cde_columns: 4
+  pii_columns: 0
+  sensitivity_classification: public
+  regulatory_frameworks: []
+  cde_reference: governance/cde-tagging/raw-ingest-bea-rpp.md
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Breaking changes (column removal, rename, type change,
+    grain change) require a new major version and 30-day deprecation notice.
+    Non-breaking changes (column addition, description update) can ship as a
+    minor or patch bump without deprecation.
+  notification: "Logged in governance/audit-trail/"
+
+downstream_consumers:
+  - base.bea_rpp (Silver zone — state_abbr, census_region, purchasing_power_multiplier derivations)
+  - consumable.regional_price_parities (Gold zone — cost_tier and adjusted_* display fields)
+  - MCP tool get_regional_price_parity(state)
+  - MCP tool compare_purchasing_power(salary, state_a, state_b)
+  - Frontend salary adjustment display
+  - Fight Location Lock boss (stretch goal)

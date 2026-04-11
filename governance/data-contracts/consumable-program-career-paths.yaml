@@ -9,13 +9,14 @@
 table: consumable.program_career_paths
 namespace: consumable
 zone: gold
-version: "1.0.0"
+version: "1.1.0"
 grain:
   - unitid
   - cipcode
   - soc_code
 status: draft
 owner: "@doc-generator"
+quality_tier: derived_multi_source
 spec_reference: docs/specs/gold-futureproof-engine.md
 physical_model: governance/models/gold-futureproof-engine-physical.md
 
@@ -215,15 +216,21 @@ columns:
     type: integer
     required: false
     business_term: BT-080
-    is_cde: false
-    cde_rationale: ""
+    is_cde: true
+    cde_rationale: >
+      AI Resilience is one of the five pentagon stats that define the product's
+      core visualization and decision framework. Derived from Karpathy AI
+      exposure scores via consumable.ai_exposure. Directly consumed by the MCP
+      layer and frontend pentagon rendering. Completes the fifth stat in the
+      pentagon, enabling full 5-stat mode.
     is_pii: false
     pii_rationale: ""
     description: >
-      AI Resilience score (1-10). PLACEHOLDER: always null in MVP. Pending
-      Karpathy AI exposure score integration.
+      AI Resilience score (1-10). Derived from consumable.ai_exposure.stat_res
+      via LEFT JOIN on soc_code. Null if SOC code not found in ai_exposure
+      (occupations without Karpathy coverage).
     constraints:
-      - "CHECK (stat_res IS NULL)"
+      - "CHECK (stat_res IS NULL OR (stat_res >= 1 AND stat_res <= 10))"
 
   - name: stat_grw
     type: integer
@@ -269,15 +276,21 @@ columns:
     type: integer
     required: false
     business_term: BT-083
-    is_cde: false
-    cde_rationale: ""
+    is_cde: true
+    cde_rationale: >
+      AI Boss is one of five boss fight scores powering the gamified career
+      guidance UI. Derived from Karpathy AI exposure scores via
+      consumable.ai_exposure. Directly consumed by the MCP layer and frontend
+      boss fight rendering. Represents the AI displacement threat for this
+      occupation. Completes the fifth boss in the gauntlet.
     is_pii: false
     pii_rationale: ""
     description: >
-      AI Boss strength (1-10). PLACEHOLDER: always null in MVP. Same
-      dependency as stat_res.
+      AI Boss strength (1-10). Derived from consumable.ai_exposure.boss_ai_score
+      via LEFT JOIN on soc_code. Null if SOC code not found in ai_exposure
+      (occupations without Karpathy coverage).
     constraints:
-      - "CHECK (boss_ai_score IS NULL)"
+      - "CHECK (boss_ai_score IS NULL OR (boss_ai_score >= 1 AND boss_ai_score <= 10))"
 
   - name: boss_loans_score
     type: integer
@@ -701,4 +714,5 @@ lineage:
     - base.cip_soc_crosswalk
     - consumable.occupation_profiles
     - consumable.onet_work_profiles
+    - consumable.ai_exposure
   transformation: src/gold/futureproof_engine.py

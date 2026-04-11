@@ -1,0 +1,603 @@
+---
+# Data Contract: consumable.regional_price_parities
+# Spec: gold-regional-price-parities
+# Zone: Gold (Consumable)
+# Status: ACTIVE (staff-engineer sign-off 2026-04-11 — governance/approvals/gold-regional-price-parities-staff-review.md)
+# Tagged by: @cde-tagger (governance/cde-tagging/gold-regional-price-parities.md)
+# Documented by: @doc-generator
+# Date: 2026-04-11
+# Parent contract: governance/data-contracts/silver-base-bea-rpp.yaml (Silver)
+#
+# NAMING NOTE: This file is named consumable-regional-price-parities.yaml (not
+# gold-regional-price-parities.yaml) per the project convention documented in
+# the gold-regional-price-parities pre-review advisory #2: Gold/Consumable zone
+# data contracts are named after the target Iceberg namespace
+# (`consumable-<table>.yaml`), matching the pattern used by
+# consumable-career-branches.yaml, consumable-program-career-paths.yaml, and
+# consumable-occupation-profiles.yaml.
+
+table: consumable.regional_price_parities
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - state_fips
+status: active
+record_count: 51
+data_vintage: >
+  BEA Regional Economic Accounts — table SARPP, All Items (LineCode=1),
+  Year=2024. 2024 vintage released February 2026. Row-for-row promoted from
+  base.bea_rpp; Gold adds 4 derived columns (cost_tier and the 4 adjusted_Nk
+  pre-computed salary adjustments) and 1 Gold-native metadata column
+  (promoted_at). verification_status is explicitly carried forward from Silver
+  per Bronze staff-review Condition 7 so that Gemma and every downstream
+  consumer can hedge numeric precision at the row level.
+source: >
+  base.bea_rpp (Silver promote — no joins, no cross-source work, no entity
+  resolution, no concept normalization; this is the Gold layer in 'pure
+  shaping' mode). Upstream of Silver: bronze.bea_rpp and the U.S. Bureau of
+  Economic Analysis (BEA) Regional Economic Accounts API.
+spec_reference: docs/specs/gold-regional-price-parities.md
+parent_spec_reference: docs/specs/silver-base-bea-rpp.md
+owner: "@doc-generator"
+sla: >
+  Annual refresh (each February when BEA publishes new RPPs). Gold runs
+  immediately after every Silver refresh. Freshness guardrail inherited from
+  Silver/Bronze: base.bea_rpp.source_load_date must be within 400 days of the
+  current run date (GLD-RPP-055).
+
+quality_tier: >
+  partial_verification — carried forward from Silver and Bronze. 51/51 rows
+  are structurally valid and pass every P0 derivation-correctness rule with
+  ZERO observed delta on the 8 BEA-verified spot checks. 8/51 rows carry
+  verification_status='bea_official' (CA, HI, DC, NJ, AR, MS, IA, OK); 43/51
+  rows carry verification_status='estimate'. Gold MUST NOT claim more
+  verification than Silver — the P0 rule GLD-RPP-036 pins
+  COUNT(*) WHERE verification_status='bea_official' = 8 and the P0 rule
+  GLD-RPP-037 enforces the 8-state allow-list by state_fips. The per-row
+  provenance control for this tier is the verification_status column (column
+  13 of this contract), explicitly carried forward from Silver per Bronze
+  staff-review Condition 7. Every downstream consumer (MCP tools, frontend,
+  Gemma narrative) is expected to read verification_status and surface
+  provenance at the row level rather than rely on the contract-level tier
+  alone.
+
+quality:
+  row_count_guarantee: 51
+  row_count_tolerance: 0
+  null_guarantee: >
+    0% nulls across all 15 columns. Every column is required. Enforced by
+    GLD-RPP-* P0 completeness rules (GLD-RPP-002, 006, 008, 013, 016, 018,
+    021, 025, 027, 029, 031, 035, 038, 041, 054).
+  completeness_threshold: 1.00
+  validity_threshold: 1.00
+  uniqueness_guarantee:
+    - "state_fips is unique (51 distinct values) — GLD-RPP-003"
+    - "record_id is unique (51 distinct values) — GLD-RPP-039"
+    - "state_abbr is unique (51 distinct values, 1:1 with state_fips) — GLD-RPP-011"
+    - "state_name has 51 distinct values (1:1 with state_fips) — GLD-RPP-007"
+  freshness_sla: >
+    Annual BEA publication cycle. base.bea_rpp.source_load_date must be
+    within 400 days of the current run date (GLD-RPP-055, P1). promoted_at
+    is refreshed on every Gold promote (GLD-RPP-054, P1 non-null).
+  verified_row_count: 8
+  estimated_row_count: 43
+  per_row_provenance_column: verification_status
+
+columns:
+  - name: record_id
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic Gold grain surrogate. Derived as
+      compute_grain_id(row, ['state_fips'], prefix='rpc'). 51 distinct
+      values, one per state. The 'rpc' prefix distinguishes Gold consumable
+      record_ids from Silver's 'rpp-' prefix; any mismatched prefix means
+      the compute_grain_id call was passed the wrong prefix argument.
+    dq_rules:
+      - GLD-RPP-038
+      - GLD-RPP-039
+      - GLD-RPP-040
+
+  - name: state_fips
+    type: string
+    required: true
+    business_term: BT-100
+    is_cde: true
+    cde_rationale: >
+      Primary key of the Gold table and dedup grain for
+      compute_grain_id(['state_fips'], prefix='rpc'). Join anchor every
+      downstream MCP tool lookup and frontend state selector resolves back
+      to. ANSI/FIPS external standard. Re-affirmed from Silver CDE set;
+      auto-approved per domain-context.md BEA RPP section.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-digit zero-padded ANSI/FIPS state code (e.g., '06' California, '19'
+      Iowa, '11' DC). Promoted verbatim from base.bea_rpp.state_fips.
+    dq_rules:
+      - GLD-RPP-002
+      - GLD-RPP-003
+      - GLD-RPP-004
+      - GLD-RPP-005
+      - GLD-RPP-007
+      - GLD-RPP-012
+      - GLD-RPP-024
+      - GLD-RPP-033
+      - GLD-RPP-034
+      - GLD-RPP-037
+      - GLD-RPP-044
+      - GLD-RPP-045
+      - GLD-RPP-046
+      - GLD-RPP-047
+      - GLD-RPP-048
+      - GLD-RPP-049
+      - GLD-RPP-050
+      - GLD-RPP-051
+
+  - name: state_name
+    type: string
+    required: true
+    business_term: BT-101
+    is_cde: true
+    cde_rationale: >
+      Primary human-readable display label served by MCP tool responses and
+      frontend salary-adjustment UI. Fallback identifier when Gemma or a
+      user passes state by full name. Re-affirmed from Silver CDE set.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Full human-readable U.S. state or jurisdiction name (e.g.,
+      'California', 'Iowa', 'District of Columbia'). Promoted verbatim from
+      base.bea_rpp.state_name.
+    dq_rules:
+      - GLD-RPP-006
+      - GLD-RPP-007
+
+  - name: state_abbr
+    type: string
+    required: true
+    business_term: BT-103
+    is_cde: true
+    cde_rationale: >
+      The identifier the frontend actually uses. Student state-selector
+      widget, MCP tool parameter, chart/display labels, and URL query
+      strings are all built on the 2-letter USPS code. Re-affirmed from
+      Silver CDE set.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-letter USPS state/jurisdiction abbreviation (e.g., 'CA', 'IA',
+      'DC'). Promoted verbatim from base.bea_rpp.state_abbr.
+    dq_rules:
+      - GLD-RPP-008
+      - GLD-RPP-009
+      - GLD-RPP-010
+      - GLD-RPP-011
+      - GLD-RPP-012
+      - GLD-RPP-044
+      - GLD-RPP-045
+      - GLD-RPP-046
+      - GLD-RPP-047
+      - GLD-RPP-048
+      - GLD-RPP-049
+      - GLD-RPP-050
+      - GLD-RPP-051
+
+  - name: census_region
+    type: string
+    required: true
+    business_term: BT-104
+    is_cde: true
+    cde_rationale: >
+      Four-valued Census Bureau enum driving frontend regional comparison
+      views and the stretch-goal Fight Location Lock boss's regional cost
+      tiering. Gold P0 DQ re-enforces value domain and completeness.
+      Re-affirmed from Silver CDE set.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      U.S. Census Bureau region of the state: one of 'Northeast', 'Midwest',
+      'South', 'West'. DC is assigned to 'South' per Census classification
+      — documented Census quirk, not a bug; any downstream consumer
+      comparing DC to 'Northeast' states must handle this explicitly.
+      Promoted verbatim from base.bea_rpp.census_region.
+    dq_rules:
+      - GLD-RPP-013
+      - GLD-RPP-014
+      - GLD-RPP-015
+
+  - name: rpp_all_items
+    type: double
+    required: true
+    business_term: BT-098
+    is_cde: true
+    cde_rationale: >
+      The entire analytical payload of the table. Every Gold derivation
+      (cost_tier, adjusted_30k/50k/75k/100k) and every downstream salary
+      figure is a pure function of this column. Wrong values here mis-state
+      every salary adjustment displayed to any student who selects that
+      state. Re-affirmed from Silver CDE set; auto-approved per
+      domain-context.md BEA RPP section. Highest-criticality column in the
+      table.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      BEA Regional Price Parity index, All Items line code, national
+      baseline = 100.0. Observed range in current load: [86.9, 110.7].
+      Promoted verbatim from base.bea_rpp.rpp_all_items.
+    dq_rules:
+      - GLD-RPP-016
+      - GLD-RPP-017
+      - GLD-RPP-020
+      - GLD-RPP-023
+      - GLD-RPP-024
+
+  - name: purchasing_power_multiplier
+    type: double
+    required: true
+    business_term: BT-099
+    is_cde: true
+    cde_rationale: >
+      Pre-computed salary adjustment factor (100.0 / rpp_all_items). Every
+      Gold adjusted_Nk column is N * purchasing_power_multiplier; every
+      MCP tool response and frontend salary display reads from it. P0
+      inverse-invariant DQ rule (multiplier * rpp_all_items ~ 100.0) guards
+      computation correctness at rest. Re-affirmed from Silver CDE set.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Factor by which a national salary is multiplied to express local
+      purchasing power. Derived as 100.0 / rpp_all_items. DQ range:
+      0.7 <= x <= 1.3. Promoted verbatim from
+      base.bea_rpp.purchasing_power_multiplier.
+    dq_rules:
+      - GLD-RPP-018
+      - GLD-RPP-019
+      - GLD-RPP-020
+      - GLD-RPP-026
+      - GLD-RPP-028
+      - GLD-RPP-030
+      - GLD-RPP-032
+
+  - name: cost_tier
+    type: string
+    required: true
+    business_term: BT-106
+    is_cde: true
+    cde_rationale: >
+      Directly consumer-facing classification. Drives frontend color
+      coding, boss-fight difficulty selection, and Gemma narrative prompts
+      per spec Technical Design. Gold P0 DQ enforces both the 5-value enum
+      domain and row-by-row classification correctness against the CASE
+      expression. No substitute column encodes tier. New Gold-origin CDE
+      flag.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Five-bucket classification of state-level cost of living derived from
+      rpp_all_items: 'very_high' (>=108), 'high' (103-108), 'average'
+      (97-103), 'low' (91-97), 'very_low' (<91). Left-closed intervals.
+      Newly derived at Gold via the canonical CASE expression frozen in
+      the physical model.
+    dq_rules:
+      - GLD-RPP-021
+      - GLD-RPP-022
+      - GLD-RPP-023
+      - GLD-RPP-024
+      - GLD-RPP-044
+      - GLD-RPP-045
+      - GLD-RPP-046
+      - GLD-RPP-047
+      - GLD-RPP-048
+      - GLD-RPP-049
+      - GLD-RPP-050
+      - GLD-RPP-051
+      - GLD-RPP-052
+      - GLD-RPP-053
+
+  - name: adjusted_30k
+    type: double
+    required: true
+    business_term: BT-107
+    is_cde: true
+    cde_rationale: >
+      Pre-computed display-ready salary adjustment at the $30K national
+      anchor. One of four values the spec identifies as the Gold layer's
+      core purpose: make salary adjustments immediately displayable without
+      client-side math. Directly consumed by Gemma MCP tool responses and
+      the frontend salary screen. P0 DQ pins each value to within 1 cent of
+      the derivation formula. NOT individual earnings data — this is a
+      state-level reference value at a fixed national anchor. New
+      Gold-origin CDE flag.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Pre-computed salary adjustment at the $30,000 national anchor.
+      Derived as 30000.0 * purchasing_power_multiplier, rounded to 2
+      decimals. Reference value, NOT observed individual earnings.
+    dq_rules:
+      - GLD-RPP-025
+      - GLD-RPP-026
+
+  - name: adjusted_50k
+    type: double
+    required: true
+    business_term: BT-107
+    is_cde: true
+    cde_rationale: >
+      Pre-computed display-ready salary adjustment at the $50K national
+      anchor. Same role as adjusted_30k — directly consumed by Gemma MCP
+      tool responses and the frontend. P0 DQ includes California
+      (high-cost) and Iowa (low-cost) spot-check assertions and the 8
+      BEA-verified state spot checks. NOT individual earnings data. New
+      Gold-origin CDE flag.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Pre-computed salary adjustment at the $50,000 national anchor.
+      Derived as 50000.0 * purchasing_power_multiplier, rounded to 2
+      decimals. Reference value, NOT observed individual earnings.
+    dq_rules:
+      - GLD-RPP-027
+      - GLD-RPP-028
+      - GLD-RPP-033
+      - GLD-RPP-034
+      - GLD-RPP-044
+      - GLD-RPP-045
+      - GLD-RPP-046
+      - GLD-RPP-047
+      - GLD-RPP-048
+      - GLD-RPP-049
+      - GLD-RPP-050
+      - GLD-RPP-051
+
+  - name: adjusted_75k
+    type: double
+    required: true
+    business_term: BT-107
+    is_cde: true
+    cde_rationale: >
+      Pre-computed display-ready salary adjustment at the $75K national
+      anchor. Same role and criticality as adjusted_30k and adjusted_50k.
+      Directly consumed by Gemma MCP tool responses and the frontend. NOT
+      individual earnings data. New Gold-origin CDE flag.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Pre-computed salary adjustment at the $75,000 national anchor.
+      Derived as 75000.0 * purchasing_power_multiplier, rounded to 2
+      decimals. Reference value, NOT observed individual earnings.
+    dq_rules:
+      - GLD-RPP-029
+      - GLD-RPP-030
+
+  - name: adjusted_100k
+    type: double
+    required: true
+    business_term: BT-107
+    is_cde: true
+    cde_rationale: >
+      Pre-computed display-ready salary adjustment at the $100K national
+      anchor. Closes out the 4-value set the product team selected as
+      common display thresholds. All four adjusted_Nk columns are uniformly
+      P0-gated and uniformly consumed by Gemma and the frontend. NOT
+      individual earnings data. New Gold-origin CDE flag.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Pre-computed salary adjustment at the $100,000 national anchor.
+      Derived as 100000.0 * purchasing_power_multiplier, rounded to 2
+      decimals. Reference value, NOT observed individual earnings.
+    dq_rules:
+      - GLD-RPP-031
+      - GLD-RPP-032
+
+  - name: verification_status
+    type: string
+    required: true
+    business_term: BT-105
+    is_cde: true
+    cde_rationale: >
+      Per-row provenance Gemma uses to hedge numeric precision in MCP tool
+      responses ('bea_official' vs. 'estimate'). Directly gates narrative
+      precision — bea_official rows get exact values, estimate rows get
+      hedged language. Bronze staff review Condition 7 explicitly requires
+      Gold to preserve this column. Gold P0 DQ pins COUNT(*) WHERE
+      verification_status='bea_official' = 8 and enforces an allow-list
+      subset check on the 8 canonical FIPS codes. Re-affirmed from Silver
+      CDE set.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Row-level provenance enum: 'bea_official' (8 rows from the February
+      2026 BEA release — CA, HI, DC, NJ, AR, MS, IA, OK) or 'estimate' (43
+      rows, primary-agent plausible placeholders pending live BEA API
+      load). Promoted verbatim from base.bea_rpp.verification_status per
+      Bronze staff-review Condition 7.
+    dq_rules:
+      - GLD-RPP-035
+      - GLD-RPP-036
+      - GLD-RPP-037
+      - GLD-RPP-044
+      - GLD-RPP-045
+      - GLD-RPP-046
+      - GLD-RPP-047
+      - GLD-RPP-048
+      - GLD-RPP-049
+      - GLD-RPP-050
+      - GLD-RPP-051
+
+  - name: data_year
+    type: int
+    required: true
+    business_term: BT-102
+    is_cde: true
+    cde_rationale: >
+      Provenance-critical temporal dimension. RPP index is re-published
+      annually; mis-labeled vintage silently stales every downstream
+      purchasing-power figure. Governs annual refresh replacement
+      semantics. P0 DQ pins data_year = 2024 and
+      COUNT(DISTINCT data_year) = 1. Re-affirmed from Silver CDE set.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Year of the RPP estimate. Constant 2024 across all 51 rows in the
+      current load. Promoted verbatim from base.bea_rpp.data_year.
+    dq_rules:
+      - GLD-RPP-041
+      - GLD-RPP-042
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Gold promotion batch timestamp. Identical across all 51 rows in a
+      batch. Replaces Silver's ingested_at / source_load_date operational
+      pair with a single Gold-zone timestamp. Operational observability
+      only. Distinct from base.bea_rpp.ingested_at (the Silver batch
+      stamp) and bronze.bea_rpp.ingested_at (the Bronze batch stamp);
+      downstream consumers that need to distinguish these should reference
+      the fully-qualified table name. Freshness is governed by the annual
+      refresh cadence, not by this per-row timestamp.
+    dq_rules:
+      - GLD-RPP-054
+
+table_level_dq_rules:
+  - GLD-RPP-001  # Row count exactly 51 — table-wide invariant, not tied to any single column
+  - GLD-RPP-043  # Passthrough integrity: Gold carry-forward columns equal Silver — cross-zone join, production_only/chaos_exclude
+  - GLD-RPP-055  # Source Silver freshness: base.bea_rpp loaded within 400 days — cross-zone, production_only/chaos_exclude
+
+dq_summary:
+  total_rules: 55
+  p0_count: 51
+  p1_count: 4
+  p0_rules_note: >
+    Row count, grain uniqueness, value-domain, inverse invariant,
+    verification_status allow-list, cost_tier classification correctness,
+    TN left-closed boundary witness, adjusted_Nk derivation purity, CA/IA
+    sanity checks, and all 8 BEA-verified spot checks are P0. P1 rules
+    are cost_tier coverage (GLD-RPP-052, GLD-RPP-053), promoted_at
+    non-null (GLD-RPP-054), and source Silver freshness (GLD-RPP-055).
+  rules_reference: governance/dq-rules/gold-regional-price-parities.json
+  evaluation_mode_carveouts:
+    - rule_id: GLD-RPP-043
+      mode: production_only
+      chaos_exclude: true
+      reason: >
+        Cross-zone join against base.bea_rpp (Silver). Gold chaos harness
+        only stages shadow_consumable, not shadow_base, so the shadow
+        rewrite fails. Same remediation as Silver SIL-BEA-018.
+    - rule_id: GLD-RPP-055
+      mode: production_only
+      chaos_exclude: true
+      reason: >
+        Cross-zone read of base.bea_rpp.source_load_date. Same shadow-mode
+        limitation as GLD-RPP-043.
+
+cde_summary:
+  total_columns: 15
+  cde_columns: 13
+  pii_columns: 0
+  carried_forward_cde_columns:
+    - state_fips
+    - state_name
+    - state_abbr
+    - census_region
+    - rpp_all_items
+    - purchasing_power_multiplier
+    - verification_status
+    - data_year
+  new_gold_cde_columns:
+    - cost_tier
+    - adjusted_30k
+    - adjusted_50k
+    - adjusted_75k
+    - adjusted_100k
+  non_cde_columns:
+    - record_id
+    - promoted_at
+  sensitivity_classification: public
+  regulatory_frameworks: []
+  k_anonymity_floor: "~584,000 (Wyoming) — unchanged from Silver and Bronze"
+  cde_reference: governance/cde-tagging/gold-regional-price-parities.md
+  pii_reference: governance/pii-scans/gold-regional-price-parities.md
+
+business_terms_referenced:
+  - BT-098  # Regional Price Parity (RPP)
+  - BT-099  # Purchasing Power Multiplier
+  - BT-100  # State FIPS Code
+  - BT-101  # State Name
+  - BT-102  # RPP Data Year
+  - BT-103  # USPS State Abbreviation
+  - BT-104  # Census Region
+  - BT-105  # Data Verification Status
+  - BT-106  # Cost Tier (new in this spec)
+  - BT-107  # Adjusted Salary (new in this spec)
+
+staff_review_conditions:
+  condition_6_discharged_at_silver:
+    source: governance/approvals/raw-ingest-bea-rpp-staff-review.md
+    description: >
+      Condition 6 (the verification_status column itself) was discharged
+      at the Silver layer (base.bea_rpp, column 7). Gold explicitly
+      preserves the column as column 13 of 15 and re-affirms its CDE flag.
+  condition_7_implemented_at_gold:
+    source: governance/approvals/raw-ingest-bea-rpp-staff-review.md
+    status: IMPLEMENTED HERE
+    description: >
+      Condition 7 of the Bronze staff review is implemented at this Gold
+      layer. The verification_status column is carried forward from Silver
+      unchanged. The P0 rule GLD-RPP-036 pins COUNT(*) WHERE
+      verification_status='bea_official' = 8, and the P0 rule GLD-RPP-037
+      enforces the allow-list subset check on the 8 canonical FIPS codes
+      ({'05','06','11','15','19','28','34','40'}). When the live BEA API
+      refresh lands, both rules flip in lockstep with SIL-BEA-023 /
+      SIL-BEA-024 — a minor version bump, not a breaking change.
+  condition_7_carry_forward_to_mcp:
+    owner: "@primary-agent on mcp-bea-rpp spec"
+    status: DISCHARGED
+    discharged_at: 2026-04-11
+    discharged_by: mcp-bea-rpp spec (governance/approvals/mcp-bea-rpp-post-review.md)
+    mcp_contract: governance/data-contracts/mcp-bea-rpp.yaml
+    description: >
+      Condition 7's MCP-layer requirement was forward-only from this Gold
+      contract and is now DISCHARGED by mcp-bea-rpp. The mcp-bea-rpp spec:
+      (1) Includes a 'data_source' field on every tool response row derived
+      from verification_status (MCP-BEA-001, MCP-BEA-003, 16/16 anchor
+      cases pass); and
+      (2) Supports a 'verified_only' strict mode on both tools that refuses
+      to return rows where verification_status='estimate'
+      (MCP-BEA-007, MCP-BEA-008, MCP-BEA-009 — 8/8 verified pass, 43/43
+      estimate refused, 4/4 compare-mixed refusals pass). The full Bronze
+      → Silver → Gold → MCP chain for Condition 7 is now closed end-to-end
+      and verified by 65/65 eval cases + 16/16 MCP-BEA DQ rules + 99/99
+      mcp-bea-rpp pytest suite.
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Breaking changes (column removal, rename, type
+    change, grain change, reduction of the CDE set, relaxation of P0 DQ
+    thresholds, tightening of the cost_tier breakpoints, removal of any of
+    the 4 adjusted_Nk columns) require a new major version and 30-day
+    deprecation notice. Non-breaking changes (column addition, description
+    update, flipping the verification_status allow-list from 8 states to
+    51 states when the live BEA API refresh lands, extension of the
+    data_year set) ship as a minor bump without deprecation.
+  notification: "Logged in governance/audit-trail/"
+
+downstream_consumers:
+  - MCP tool get_regional_price_parity(state) — returns a row of this table verbatim; MUST include data_source per row per Condition 7 carry-forward
+  - MCP tool compare_purchasing_power(salary, state_a, state_b) — reads purchasing_power_multiplier from two rows
+  - Frontend salary adjustment display — reads cost_tier (color coding) and the 4 adjusted_Nk columns (display values)
+  - Fight Location Lock boss (stretch goal) — reads cost_tier for difficulty tiering
+
+lineage_reference: governance/lineage/gold-regional-price-parities-20260411.json

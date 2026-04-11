@@ -1,0 +1,988 @@
+---
+# Data Contract: MCP Tools get_regional_price_parity + compare_purchasing_power
+# Spec: mcp-bea-rpp
+# Zone: MCP (AI-Ready — read-only tool layer)
+# Status: DRAFT (pending staff-engineer sign-off)
+# Tagged by: @cde-tagger (governance/cde-tagging/mcp-bea-rpp.md)
+# Documented by: @doc-generator
+# Date: 2026-04-11
+# Parent contract: governance/data-contracts/consumable-regional-price-parities.yaml (Gold)
+#
+# NAMING NOTE: This file is named mcp-bea-rpp.yaml matching the precedent set by
+# mcp-ai-exposure.yaml — MCP-zone data contracts are named after the spec slug,
+# not the backing Iceberg table, because a single MCP spec can expose multiple
+# tools over the same Gold table (this spec exposes two: get_regional_price_parity
+# and compare_purchasing_power). The backing_table field below is the single
+# authoritative pointer to the governed Gold source.
+#
+# CONDITION 7 CLOSURE: This contract is the MCP-layer half of Bronze staff-review
+# Condition 7 (governance/approvals/raw-ingest-bea-rpp-staff-review.md). The Gold
+# contract (consumable-regional-price-parities.yaml) documented the forward-only
+# obligation; this contract discharges it by (1) surfacing verification_status as
+# data_source on every response row and (2) supporting verified_only strict mode
+# on both tools. See "bronze_condition_7" section below.
+
+spec: mcp-bea-rpp
+zone: mcp
+namespace: mcp
+version: "1.0.0"
+status: active
+owner: "@doc-generator"
+spec_reference: docs/specs/mcp-bea-rpp.md
+parent_spec_reference: docs/specs/gold-regional-price-parities.md
+backing_table: consumable.regional_price_parities
+backing_table_contract: governance/data-contracts/consumable-regional-price-parities.yaml
+backing_table_record_count: 51
+access_pattern: >
+  Read-only tool layer. No writes, no transformations at this zone. Tool 1 is a
+  point lookup by state_fips (1 row). Tool 2 is a two-row lookup plus a pure
+  in-handler arithmetic derivation (adjusted_salary, difference, difference_pct).
+  Both tools inherit all Gold DQ guarantees verbatim — no Iceberg DML happens
+  here, so no MCP-zone SQL DQ rules apply; structural wire-contract invariants
+  are enforced by 16 interface rules and a 65-case eval set (see quality).
+
+# --------------------------------------------------------------------------
+# Quality tier — INHERITED from Gold, not re-computed at MCP zone
+# --------------------------------------------------------------------------
+quality_tier: >
+  partial_verification — inherited verbatim from Gold
+  (consumable.regional_price_parities). 8 of 51 rows carry
+  data_source='bea_official' (CA, HI, DC, NJ, AR, MS, IA, OK) and 43 of 51
+  rows carry data_source='estimate'. The per-row provenance control for this
+  tier is the data_source field on every tool response row (renamed from the
+  Gold column verification_status per Bronze Condition 7). MCP-BEA-002
+  pins governance.quality_tier='partial_verification' on the wire; MCP-BEA-003
+  pins the 8-state bea_official allow-list by state_fips. Downstream consumers
+  (Gemma narrative, frontend) are expected to read per-row data_source and
+  hedge numeric precision accordingly, rather than rely on this contract-level
+  tier alone.
+
+# --------------------------------------------------------------------------
+# Tool registry — both tools in one contract
+# --------------------------------------------------------------------------
+tools:
+
+  # ======================================================================
+  # TOOL 1: get_regional_price_parity
+  # ======================================================================
+  - name: get_regional_price_parity
+    description: >
+      Returns the Regional Price Parity (RPP) record for a single U.S. state.
+      Accepts the state as a 2-letter USPS abbreviation, a full state name, or
+      a 2-digit FIPS code — Gemma will receive user input in any of those forms.
+      Supports a verified_only strict mode that refuses to return rows where
+      data_source='estimate'.
+    access_pattern: "point lookup by state_fips (1 row)"
+    rows_addressable: 51
+
+    input_schema:
+      type: object
+      required:
+        - state
+      properties:
+        state:
+          type: string
+          description: >
+            US state identifier. Accepts: 2-letter USPS abbreviation (e.g., 'CA'),
+            full state name (e.g., 'California'), or 2-digit FIPS code
+            (e.g., '06'). Case-insensitive for abbreviations and names. Includes
+            District of Columbia as 'DC' / 'District of Columbia' / '11'.
+        verified_only:
+          type: boolean
+          default: false
+          description: >
+            If true, refuse to return rows where data_source='estimate'.
+            Strict mode for regulated contexts where only BEA-authoritative
+            values are acceptable. Returns a structured null response with
+            a message containing 'strict' on refusal.
+
+    response_schema:
+      type: object
+      properties:
+        data:
+          type: [object, "null"]
+          description: >
+            Response payload object, or null in every documented null-case
+            (unknown state, strict-mode refusal, missing data).
+          properties:
+            state_name:       { type: string }
+            state_abbr:       { type: string }
+            state_fips:       { type: string }
+            census_region:    { type: string, enum: [Northeast, Midwest, South, West] }
+            rpp_all_items:    { type: number }
+            purchasing_power_multiplier: { type: number }
+            cost_tier:        { type: string, enum: [very_high, high, average, low, very_low] }
+            adjusted_examples:
+              type: object
+              required: ["30k", "50k", "75k", "100k"]
+              properties:
+                "30k":  { type: number }
+                "50k":  { type: number }
+                "75k":  { type: number }
+                "100k": { type: number }
+            data_source:      { type: string, enum: [bea_official, estimate] }
+            data_year:        { type: integer }
+        row_count: { type: integer, description: "1 for success, absent for null-case." }
+        message:   { type: string,  description: "Present only in null-case responses." }
+        governance:
+          type: object
+          properties:
+            table:         { type: string, const: "consumable.regional_price_parities" }
+            quality_tier:  { type: string, const: "partial_verification" }
+            owner:         { type: string, const: "@data-steward" }
+
+    # Response field CDE/PII table — embedded verbatim from
+    # governance/cde-tagging/mcp-bea-rpp.md §Tool 1
+    response_fields:
+
+      - name: data.state_name
+        type: string
+        gold_source: "state_name (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Primary human-readable display label
+          served to Gemma for every MCP response. Fallback identifier when
+          user passes state by full name via tool input normalization.
+        is_pii: false
+        business_term: BT-101
+        derived_from: "consumable.regional_price_parities.state_name"
+        description: >
+          Full U.S. state or jurisdiction name (e.g., 'California'). Display
+          label for the response; also used by Gemma's narrative.
+
+      - name: data.state_abbr
+        type: string
+        gold_source: "state_abbr (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. The identifier the frontend widget and
+          URL query strings use. Round-trip target for user state selection.
+        is_pii: false
+        business_term: BT-103
+        derived_from: "consumable.regional_price_parities.state_abbr"
+        description: >
+          2-letter USPS state abbreviation (e.g., 'CA', 'IA', 'DC').
+
+      - name: data.state_fips
+        type: string
+        gold_source: "state_fips (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. ANSI/FIPS primary key. Anchors the
+          underlying Gold row lookup and is returned on the wire for
+          consumer-side joins back to any other state-indexed product table.
+        is_pii: false
+        business_term: BT-100
+        derived_from: "consumable.regional_price_parities.state_fips"
+        description: >
+          2-digit zero-padded ANSI/FIPS state code (e.g., '06' California).
+
+      - name: data.census_region
+        type: string
+        gold_source: "census_region (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Four-valued Census Bureau enum driving
+          frontend regional comparison views and stretch-goal Fight Location
+          Lock boss. Consumer-facing on the wire.
+        is_pii: false
+        business_term: BT-104
+        derived_from: "consumable.regional_price_parities.census_region"
+        description: >
+          U.S. Census Bureau region: 'Northeast', 'Midwest', 'South', 'West'.
+          DC is classified as 'South' per Census convention.
+
+      - name: data.rpp_all_items
+        type: double
+        gold_source: "rpp_all_items (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. The entire analytical payload of the
+          table. Directly displayed by Gemma (e.g., "California's RPP is
+          110.7"). Wrong value here mis-states every salary adjustment for
+          that state. Highest-criticality field in the wire contract.
+        is_pii: false
+        business_term: BT-098
+        derived_from: "consumable.regional_price_parities.rpp_all_items"
+        description: >
+          BEA Regional Price Parity index, All Items, national baseline=100.0.
+          Observed range [86.9, 110.7].
+
+      - name: data.purchasing_power_multiplier
+        type: double
+        gold_source: "purchasing_power_multiplier (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Consumers (including tool 2 itself)
+          use this value to recompute adjusted salary at arbitrary anchors
+          beyond the four pre-materialized examples. Returned at FULL
+          precision (not rounded) per MCP-BEA-005.
+        is_pii: false
+        business_term: BT-099
+        derived_from: "consumable.regional_price_parities.purchasing_power_multiplier"
+        description: >
+          Factor by which a national salary is multiplied to express local
+          purchasing power. Derived as 100.0 / rpp_all_items. Returned at
+          full precision so callers can reproduce round(salary × ppm, 2).
+
+      - name: data.cost_tier
+        type: string
+        gold_source: "cost_tier (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Drives frontend color coding,
+          boss-fight difficulty, and Gemma narrative prompts per spec. No
+          substitute wire field encodes tier.
+        is_pii: false
+        business_term: BT-106
+        derived_from: "consumable.regional_price_parities.cost_tier"
+        description: >
+          Five-bucket cost-of-living classification: 'very_high' (>=108),
+          'high' (103-108), 'average' (97-103), 'low' (91-97), 'very_low'
+          (<91). Left-closed intervals.
+
+      - name: data.adjusted_examples
+        type: "struct<30k:double, 50k:double, 75k:double, 100k:double>"
+        gold_source: "bundles adjusted_30k / adjusted_50k / adjusted_75k / adjusted_100k"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE — ALL four Gold adjusted_Nk columns are
+          CDE and bundling into a struct on the wire does not dilute that.
+          Display-ready salary adjustment value set Gemma and the frontend
+          consume directly. P0 DQ at Gold pins each leaf within 1 cent of the
+          formula; the MCP handler is a pure projection + bundle. NOT
+          individual earnings — state-level reference values at fixed
+          national anchors.
+        is_pii: false
+        business_term: BT-107
+        derived_from:
+          - "consumable.regional_price_parities.adjusted_30k"
+          - "consumable.regional_price_parities.adjusted_50k"
+          - "consumable.regional_price_parities.adjusted_75k"
+          - "consumable.regional_price_parities.adjusted_100k"
+        description: >
+          Struct with exactly 4 keys ('30k','50k','75k','100k') holding
+          pre-computed salary adjustments at the $30K/$50K/$75K/$100K
+          national anchors. Key set is pinned by MCP-BEA-004.
+
+      - name: data.data_source
+        type: string
+        gold_source: "verification_status (RENAMED)"
+        rename_note: >
+          **verification_status → data_source**. The Gold column
+          verification_status is renamed to data_source on the MCP wire for
+          Gemma-facing clarity. The rename does NOT change governance status,
+          does NOT change the 2-valued enum ('bea_official' | 'estimate'),
+          and does NOT change the P0 DQ pin on COUNT bea_official = 8. This
+          rename is the explicit closure of Bronze staff-review Condition 7
+          (MCP half) and MUST NOT be inverted in any downstream change.
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE under the Bronze Condition 7 rename
+          mandate. Per-row provenance Gemma uses to hedge numeric precision
+          in MCP tool responses. 'bea_official' rows get exact values,
+          'estimate' rows get hedged language. Bronze staff-review Condition
+          7 (MCP half) is closed by this field's presence on every response.
+        is_pii: false
+        business_term: BT-105
+        derived_from: "consumable.regional_price_parities.verification_status"
+        description: >
+          Row-level provenance enum: 'bea_official' (8 BEA-authoritative
+          2024 values — CA, HI, DC, NJ, AR, MS, IA, OK) or 'estimate' (43
+          primary-agent plausible placeholders pending live BEA API load).
+          Pinned by MCP-BEA-001 on every success response.
+
+      - name: data.data_year
+        type: int
+        gold_source: "data_year (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Provenance-critical temporal
+          dimension surfaced to Gemma so it can caveat stale vintages. RPPs
+          re-publish annually; mis-labeled vintage silently stales every
+          downstream salary number.
+        is_pii: false
+        business_term: BT-102
+        derived_from: "consumable.regional_price_parities.data_year"
+        description: >
+          Year of the RPP estimate. Constant 2024 across all 51 rows in the
+          current load.
+
+      - name: row_count
+        type: int
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer)"
+        description: >
+          Response envelope counter. 1 for a single-state lookup success;
+          absent in null-case responses. Operational observability only.
+
+      - name: governance.table
+        type: string
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer.attach_governance)"
+        description: >
+          Framework-added metadata. Constant 'consumable.regional_price_parities'.
+
+      - name: governance.quality_tier
+        type: string
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer.attach_governance)"
+        description: >
+          Framework-added metadata. Constant 'partial_verification' per
+          MCP-BEA-002. Gemma uses the per-row data_source field to hedge
+          precision, not this envelope value.
+
+      - name: governance.owner
+        type: string
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer.attach_governance)"
+        description: >
+          Framework-added metadata. Constant '@data-steward'. Operational
+          accountability label.
+
+    # Null-case responses — structured nulls, never exceptions
+    null_cases:
+      - trigger: "unknown state"
+        example: '{"data": null, "message": "Unknown state: ''Xanadu''. Expected a US state (50 states + DC) by USPS abbreviation, full name, or FIPS code."}'
+        pinned_by: MCP-BEA-010
+      - trigger: "strict mode refuses estimate row"
+        example: '{"data": null, "message": "Regional price parity for ''Texas'' is currently an estimate (data_source=estimate) and strict mode is enabled. Disable verified_only to proceed with the estimate."}'
+        pinned_by: MCP-BEA-008
+      - trigger: "missing state_fips (guard-rail — should never happen for 51-state set)"
+        example: '{"data": null, "message": "No regional price parity data available for ''XX''"}'
+        pinned_by: MCP-BEA-010
+
+    cde_summary:
+      total_response_fields: 14
+      cde_flagged: 10
+      pii_flagged: 0
+      carry_forward_from_gold: 10
+      new_mcp_origin_cde: 0
+      framework_envelope_non_cde: 4
+      sensitivity_classification: public
+
+  # ======================================================================
+  # TOOL 2: compare_purchasing_power
+  # ======================================================================
+  - name: compare_purchasing_power
+    description: >
+      Convenience tool for the "What if I move?" scenario — computes
+      adjusted salary at a user-supplied national figure for two states and
+      returns a side-by-side comparison. The salary is never persisted and
+      never correlated with a subject identifier.
+    access_pattern: "two-row lookup + pure in-handler arithmetic derivation"
+    rows_addressable: 51
+
+    input_schema:
+      type: object
+      required:
+        - salary
+        - state_a
+        - state_b
+      properties:
+        salary:
+          type: number
+          description: >
+            National salary in US dollars (e.g., 65000). Must be positive and
+            strictly less than 10,000,000. Invalid values return structured
+            null per MCP-BEA-011.
+        state_a:
+          type: string
+          description: "First state. Same format as get_regional_price_parity.state."
+        state_b:
+          type: string
+          description: "Second state. Same format as get_regional_price_parity.state."
+        verified_only:
+          type: boolean
+          default: false
+          description: >
+            If true, both state_a and state_b must have data_source='bea_official';
+            otherwise returns null with a message identifying the offending state.
+
+    response_schema:
+      type: object
+      properties:
+        data:
+          type: [object, "null"]
+          properties:
+            salary: { type: number }
+            state_a:
+              type: object
+              properties:
+                state_name:    { type: string }
+                state_abbr:    { type: string }
+                adjusted_salary: { type: number }
+                cost_tier:     { type: string, enum: [very_high, high, average, low, very_low] }
+                purchasing_power_multiplier: { type: number }
+                data_source:   { type: string, enum: [bea_official, estimate] }
+            state_b:
+              type: object
+              properties:
+                state_name:    { type: string }
+                state_abbr:    { type: string }
+                adjusted_salary: { type: number }
+                cost_tier:     { type: string, enum: [very_high, high, average, low, very_low] }
+                purchasing_power_multiplier: { type: number }
+                data_source:   { type: string, enum: [bea_official, estimate] }
+            difference:     { type: number }
+            difference_pct: { type: number }
+        row_count: { type: integer, description: "2 for success, absent for null-case." }
+        message:   { type: string,  description: "Present only in null-case responses." }
+        governance:
+          type: object
+          properties:
+            table:        { type: string, const: "consumable.regional_price_parities" }
+            quality_tier: { type: string, const: "partial_verification" }
+            owner:        { type: string, const: "@data-steward" }
+
+    # Response field CDE/PII table — embedded verbatim from
+    # governance/cde-tagging/mcp-bea-rpp.md §Tool 2
+    response_fields:
+
+      - name: data.salary
+        type: double
+        gold_source: "user input (echoed)"
+        is_cde: true
+        cde_rationale: >
+          Student-facing salary figure being compared. Echoing it back into
+          the response is load-bearing: Gemma narrates "at $65,000 …" using
+          the echoed value and the adjusted_salary figures below derive from
+          it. Wrong echo would desynchronize the narrative from the
+          derivation. Flagged as MCP-origin CDE because it is a
+          student-facing salary figure in the wire contract. NOT PII —
+          user-supplied anchor, not observed individual earnings tied to an
+          identified subject.
+        is_pii: false
+        derived_from: "tool input parameter 'salary' (echoed unchanged)"
+        description: >
+          Echo of the user-supplied national salary anchor used for the
+          comparison. Always positive and less than 1e7 (validated).
+
+      - name: data.state_a.state_name
+        type: string
+        gold_source: "state_name (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Display label for the first
+          comparison state.
+        is_pii: false
+        business_term: BT-101
+        derived_from: "consumable.regional_price_parities.state_name (for state_a)"
+        description: >
+          Full human-readable state name for the first comparison state.
+
+      - name: data.state_a.state_abbr
+        type: string
+        gold_source: "state_abbr (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Frontend identifier for the first
+          comparison state.
+        is_pii: false
+        business_term: BT-103
+        derived_from: "consumable.regional_price_parities.state_abbr (for state_a)"
+        description: >
+          2-letter USPS abbreviation for the first comparison state.
+
+      - name: data.state_a.adjusted_salary
+        type: double
+        gold_source: "DERIVED at tool-call time"
+        derivation_formula: "round(salary × state_a.purchasing_power_multiplier, 2)"
+        is_cde: true
+        cde_rationale: >
+          NEW MCP-origin CDE flag. THE student-facing adjusted salary figure
+          — the whole purpose of the tool. Wrong value here misleads the
+          student. Derived live per request from the user-supplied salary
+          and the Gold-stored purchasing_power_multiplier (itself a Gold
+          CDE). The acceptance criteria pin the CA vs. IA at $65K case to
+          $58,717.25 / $74,031.89. NOT PII.
+        is_pii: false
+        business_term: BT-107
+        derived_from:
+          - "tool input parameter 'salary'"
+          - "consumable.regional_price_parities.purchasing_power_multiplier (for state_a)"
+        description: >
+          Salary adjusted for state_a's cost of living. Round uses Python's
+          built-in round() (banker's rounding) to match Gold and DuckDB
+          semantics. Pinned for CA/$65K → $58717.25 by MCP-BEA-013.
+
+      - name: data.state_a.cost_tier
+        type: string
+        gold_source: "cost_tier (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Drives frontend color coding and
+          narrative tone for state_a in the comparison UI.
+        is_pii: false
+        business_term: BT-106
+        derived_from: "consumable.regional_price_parities.cost_tier (for state_a)"
+        description: >
+          Five-bucket cost-of-living classification for state_a.
+
+      - name: data.state_a.purchasing_power_multiplier
+        type: double
+        gold_source: "purchasing_power_multiplier (passthrough)"
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE. Returned so consumers can verify the
+          derivation of adjusted_salary and re-apply it at alternate anchors
+          client-side.
+        is_pii: false
+        business_term: BT-099
+        derived_from: "consumable.regional_price_parities.purchasing_power_multiplier (for state_a)"
+        description: >
+          Full-precision purchasing power multiplier for state_a.
+
+      - name: data.state_a.data_source
+        type: string
+        gold_source: "verification_status (RENAMED)"
+        rename_note: >
+          **verification_status → data_source** for state_a. Same rename
+          mandate as Tool 1 field data.data_source. Bronze staff-review
+          Condition 7 (MCP half) requires per-state provenance in every
+          compared row.
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE under Bronze Condition 7. Per-state
+          provenance Gemma uses to hedge numeric precision in the
+          side-by-side comparison.
+        is_pii: false
+        business_term: BT-105
+        derived_from: "consumable.regional_price_parities.verification_status (for state_a)"
+        description: >
+          Row-level provenance enum for state_a: 'bea_official' or 'estimate'.
+
+      - name: data.state_b.state_name
+        type: string
+        gold_source: "state_name (passthrough)"
+        is_cde: true
+        cde_rationale: "Carry-forward from Gold CDE. Display label for the second comparison state."
+        is_pii: false
+        business_term: BT-101
+        derived_from: "consumable.regional_price_parities.state_name (for state_b)"
+        description: "Full human-readable state name for the second comparison state."
+
+      - name: data.state_b.state_abbr
+        type: string
+        gold_source: "state_abbr (passthrough)"
+        is_cde: true
+        cde_rationale: "Carry-forward from Gold CDE. Frontend identifier for the second comparison state."
+        is_pii: false
+        business_term: BT-103
+        derived_from: "consumable.regional_price_parities.state_abbr (for state_b)"
+        description: "2-letter USPS abbreviation for the second comparison state."
+
+      - name: data.state_b.adjusted_salary
+        type: double
+        gold_source: "DERIVED at tool-call time"
+        derivation_formula: "round(salary × state_b.purchasing_power_multiplier, 2)"
+        is_cde: true
+        cde_rationale: >
+          NEW MCP-origin CDE flag. Same rationale as state_a.adjusted_salary
+          but for the second comparison state. Pinned for IA/$65K →
+          $74031.89 by MCP-BEA-013. NOT PII.
+        is_pii: false
+        business_term: BT-107
+        derived_from:
+          - "tool input parameter 'salary'"
+          - "consumable.regional_price_parities.purchasing_power_multiplier (for state_b)"
+        description: >
+          Salary adjusted for state_b's cost of living. Same rounding
+          semantics as state_a.adjusted_salary.
+
+      - name: data.state_b.cost_tier
+        type: string
+        gold_source: "cost_tier (passthrough)"
+        is_cde: true
+        cde_rationale: "Carry-forward from Gold CDE. Same rationale as state_a.cost_tier."
+        is_pii: false
+        business_term: BT-106
+        derived_from: "consumable.regional_price_parities.cost_tier (for state_b)"
+        description: "Five-bucket cost-of-living classification for state_b."
+
+      - name: data.state_b.purchasing_power_multiplier
+        type: double
+        gold_source: "purchasing_power_multiplier (passthrough)"
+        is_cde: true
+        cde_rationale: "Carry-forward from Gold CDE. Same rationale as state_a.purchasing_power_multiplier."
+        is_pii: false
+        business_term: BT-099
+        derived_from: "consumable.regional_price_parities.purchasing_power_multiplier (for state_b)"
+        description: "Full-precision purchasing power multiplier for state_b."
+
+      - name: data.state_b.data_source
+        type: string
+        gold_source: "verification_status (RENAMED)"
+        rename_note: >
+          **verification_status → data_source** for state_b. Same rename
+          mandate as Tool 1 field data.data_source. Closes Bronze Condition 7
+          for the second comparison state.
+        is_cde: true
+        cde_rationale: >
+          Carry-forward from Gold CDE under Bronze Condition 7. Per-state
+          provenance for state_b.
+        is_pii: false
+        business_term: BT-105
+        derived_from: "consumable.regional_price_parities.verification_status (for state_b)"
+        description: >
+          Row-level provenance enum for state_b: 'bea_official' or 'estimate'.
+
+      - name: data.difference
+        type: double
+        gold_source: "DERIVED at tool-call time"
+        derivation_formula: "state_b.adjusted_salary − state_a.adjusted_salary"
+        is_cde: true
+        cde_rationale: >
+          NEW MCP-origin CDE flag. Headline dollar-figure answer to the
+          "What if I move?" user question. Directly displayed in the frontend
+          and narrated by Gemma. Wrong value here is the single most visible
+          failure mode of the tool. NOT PII — arithmetic difference of two
+          state-level reference computations. Pinned for CA/IA/$65K →
+          $15314.64 by MCP-BEA-013.
+        is_pii: false
+        derived_from:
+          - "data.state_a.adjusted_salary"
+          - "data.state_b.adjusted_salary"
+        description: >
+          Dollar difference state_b.adjusted_salary − state_a.adjusted_salary.
+          Positive means state_b has higher purchasing power.
+
+      - name: data.difference_pct
+        type: double
+        gold_source: "DERIVED at tool-call time"
+        derivation_formula: "round(difference / state_a.adjusted_salary × 100, 2)"
+        is_cde: false
+        cde_rationale: >
+          Percentage form of difference. Derived purely from difference and
+          state_a.adjusted_salary (both already CDE). Presentation/narrative
+          field, not an independent decision input. Per the CDE principle
+          that derived-from-CDE scalars do not require independent flagging
+          unless they are themselves decision inputs, this field is
+          intentionally left un-flagged. Pinned for CA/IA/$65K → 26.08 by
+          MCP-BEA-013.
+        is_pii: false
+        derived_from:
+          - "data.difference"
+          - "data.state_a.adjusted_salary"
+        description: >
+          Percentage difference relative to state_a.adjusted_salary,
+          rounded to 2 decimals. Stable across salary levels because the
+          ratio ppm_b/ppm_a - 1 is invariant under multiplication by salary.
+
+      - name: row_count
+        type: int
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer)"
+        description: "Response envelope counter. 2 for a successful comparison."
+
+      - name: governance.table
+        type: string
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer.attach_governance)"
+        description: "Framework-added metadata. Constant 'consumable.regional_price_parities'."
+
+      - name: governance.quality_tier
+        type: string
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer.attach_governance)"
+        description: "Framework-added metadata. Constant 'partial_verification' per MCP-BEA-002."
+
+      - name: governance.owner
+        type: string
+        gold_source: "framework envelope"
+        is_cde: false
+        is_pii: false
+        derived_from: "MCP framework (BaseMCPServer.attach_governance)"
+        description: "Framework-added metadata. Constant '@data-steward'."
+
+    null_cases:
+      - trigger: "unknown state (either position)"
+        example: '{"data": null, "message": "Unknown state: ''Atlantis''. Expected a US state (50 states + DC)..."}'
+        pinned_by: MCP-BEA-010
+      - trigger: "invalid salary (negative, zero, >=1e7, non-numeric, None, NaN, inf, bool)"
+        example: '{"data": null, "message": "salary must be a positive number less than 10,000,000; got -5"}'
+        pinned_by: MCP-BEA-011
+      - trigger: "same state in both positions (after normalization)"
+        example: '{"data": null, "message": "state_a and state_b must be different states; got ''CA'' and ''CA''"}'
+        pinned_by: MCP-BEA-012
+      - trigger: "strict mode mixed provenance"
+        example: '{"data": null, "message": "Strict mode requires both states to be BEA-official; ''Texas'' is currently an estimate"}'
+        pinned_by: MCP-BEA-009
+
+    cde_summary:
+      total_response_fields: 19
+      cde_flagged: 14
+      pii_flagged: 0
+      carry_forward_from_gold: 10
+      new_mcp_origin_cde: 4  # data.salary, state_a.adjusted_salary, state_b.adjusted_salary, data.difference
+      framework_envelope_non_cde: 4
+      explicitly_not_cde_derived: 1  # difference_pct
+      sensitivity_classification: public
+
+# --------------------------------------------------------------------------
+# CDE / PII summary — combined across both tools
+# --------------------------------------------------------------------------
+cde_summary:
+  total_response_fields: 33       # 14 (tool 1) + 19 (tool 2)
+  cde_flagged: 24                 # 10 + 14
+  pii_flagged: 0
+  carry_forward_from_gold: 20
+  new_mcp_origin_cde: 4
+  framework_envelope_non_cde: 8
+  sensitivity_classification: public
+  regulatory_frameworks: []
+  k_anonymity_floor: "~584,000 (Wyoming) — unchanged from Gold"
+  cde_reference: governance/cde-tagging/mcp-bea-rpp.md
+  pii_reference: governance/pii-scans/gold-regional-price-parities.md
+
+  # ------------------------------------------------------------------------
+  # CDE YAML fragment — embedded verbatim from
+  # governance/cde-tagging/mcp-bea-rpp.md §Summary table, in the canonical
+  # governance machine-readable format so downstream governance tooling can
+  # consume this contract without parsing the source .md file.
+  # ------------------------------------------------------------------------
+  cde_fragment:
+    tool_1_get_regional_price_parity:
+      total_response_fields: 14
+      cde_flagged: 10
+      pii_flagged: 0
+      cde_fields:
+        - data.state_name
+        - data.state_abbr
+        - data.state_fips
+        - data.census_region
+        - data.rpp_all_items
+        - data.purchasing_power_multiplier
+        - data.cost_tier
+        - data.adjusted_examples
+        - data.data_source
+        - data.data_year
+      non_cde_fields:
+        - row_count
+        - governance.table
+        - governance.quality_tier
+        - governance.owner
+    tool_2_compare_purchasing_power:
+      total_response_fields: 19
+      cde_flagged: 14
+      pii_flagged: 0
+      cde_fields:
+        - data.salary
+        - data.state_a.state_name
+        - data.state_a.state_abbr
+        - data.state_a.adjusted_salary
+        - data.state_a.cost_tier
+        - data.state_a.purchasing_power_multiplier
+        - data.state_a.data_source
+        - data.state_b.state_name
+        - data.state_b.state_abbr
+        - data.state_b.adjusted_salary
+        - data.state_b.cost_tier
+        - data.state_b.purchasing_power_multiplier
+        - data.state_b.data_source
+        - data.difference
+      non_cde_fields:
+        - data.difference_pct
+        - row_count
+        - governance.table
+        - governance.quality_tier
+        - governance.owner
+    combined:
+      total_response_fields: 33
+      cde_flagged: 24
+      pii_flagged: 0
+      carry_forward_from_gold: 20
+      new_mcp_origin_cde: 4
+    rename_documentation:
+      - from: "verification_status"
+        to: "data_source"
+        rationale: >
+          Bronze Condition 7 (MCP half). Gemma-facing clarity — 'data_source'
+          reads more intuitively in an LLM prompt than 'verification_status'.
+          Enum domain unchanged ('bea_official' | 'estimate'), governance
+          status unchanged, P0 DQ pins unchanged.
+        applied_to:
+          - "get_regional_price_parity response field data.data_source"
+          - "compare_purchasing_power response field data.state_a.data_source"
+          - "compare_purchasing_power response field data.state_b.data_source"
+
+# --------------------------------------------------------------------------
+# PII — zero, k-anonymity unchanged from Gold
+# --------------------------------------------------------------------------
+pii:
+  contains_pii: false
+  pii_fields: []
+  assessment_notes: >
+    Zero PII across both tools and all 33 response fields. The NO-PII decision
+    from governance/pii-scans/gold-regional-price-parities.md carries forward
+    intact because: (1) every passthrough field is a state-level public
+    jurisdiction identifier or macroeconomic aggregate; (2) cost_tier is a
+    5-bucket lossy generalization of a non-PII aggregate and strictly
+    increases k-anonymity; (3) adjusted_examples bundles reference values at
+    fixed national anchors — NOT observed individual earnings; (4)
+    adjusted_salary (tool 2) is a reference computation at a user-supplied
+    anchor multiplied by a non-PII state-level multiplier — NOT observed
+    individual earnings; the tool does not persist, log, or correlate the
+    input salary with any subject identifier; (5) difference / difference_pct
+    are arithmetic differences of such computations; (6) data_source is a
+    row-level provenance enum with two values; (7) row_count and
+    governance.* are framework operational metadata. k-anonymity floor
+    remains ~584,000 (Wyoming). Sensitivity classification is `public`.
+
+# --------------------------------------------------------------------------
+# Quality — DQ rule and eval set references
+# --------------------------------------------------------------------------
+quality:
+  # No Iceberg SQL DQ rules at MCP zone — the backing Gold table's 55 rules
+  # cover data-layer invariants. The 16 MCP-BEA rules below are structural
+  # WIRE CONTRACT invariants verified by the eval set and the pytest suite.
+  backing_table_dq_rules: governance/dq-rules/gold-regional-price-parities.json
+  backing_table_dq_rule_count: 55
+
+  mcp_interface_contract_rules: governance/dq-rules/mcp-bea-rpp.json
+  mcp_interface_contract_rule_count: 16
+  mcp_rule_ids:
+    - MCP-BEA-001  # data_source present with valid enum value
+    - MCP-BEA-002  # governance.quality_tier == 'partial_verification'
+    - MCP-BEA-003  # bea_official rows = 8-state canonical set
+    - MCP-BEA-004  # adjusted_examples has exactly 4 keys
+    - MCP-BEA-005  # purchasing_power_multiplier at FULL precision
+    - MCP-BEA-006  # cost_tier is valid 5-value enum
+    - MCP-BEA-007  # strict mode returns all 8 BEA-verified states
+    - MCP-BEA-008  # strict mode refuses estimates with 'strict' message
+    - MCP-BEA-009  # compare strict mode refuses non-verified states
+    - MCP-BEA-010  # unknown state returns null + helpful message (never raises)
+    - MCP-BEA-011  # invalid salary returns null (never raises)
+    - MCP-BEA-012  # same state in both positions returns 'must be different'
+    - MCP-BEA-013  # canonical CA/IA/$65K reproduces exactly
+    - MCP-BEA-014  # ratio invariance: adjusted_Nk / Nk == ppm
+    - MCP-BEA-015  # eval set has >= 50 cases
+    - MCP-BEA-016  # eval set covers all 11 spec requirement categories
+  mcp_rules_p0_count: 14
+  mcp_rules_p1_count: 2  # MCP-BEA-015, MCP-BEA-016
+
+  eval_set: data/ai_ready/eval/mcp-bea-rpp-eval.jsonl
+  eval_set_format: jsonl
+  eval_cases: 65
+  eval_minimum_required: 50
+  eval_pass_rate: 1.00  # 65/65 per governance/eda/mcp-bea-rpp-eda.md
+  eval_categories_covered: 11
+  eval_pass_threshold: 1.00
+
+  test_suite:
+    - path: tests/mcp/test_get_regional_price_parity.py
+      test_count: 42
+    - path: tests/mcp/test_compare_purchasing_power.py
+      test_count: 28
+  test_total: 70
+
+# --------------------------------------------------------------------------
+# Bronze staff-review Condition 7 closure
+# --------------------------------------------------------------------------
+bronze_condition_7:
+  status: CLOSED AT MCP ZONE
+  source: governance/approvals/raw-ingest-bea-rpp-staff-review.md
+  description: >
+    Bronze staff-review Condition 7 required two things of the MCP layer:
+    (1) Every tool response must include a per-row verification_status
+    (surfaced as data_source in the payload) so Gemma can hedge numeric
+    precision when the underlying value is an estimate;
+    (2) A strict mode (verified_only: true) on both tools must refuse to
+    return rows where verification_status='estimate', returning a
+    structured null result instead.
+  closure_evidence:
+    tool_1:
+      data_source_field: "data.data_source (response field #9, CDE-flagged, renamed from verification_status)"
+      strict_mode: "verified_only input parameter; MCP-BEA-007 pins 8/8 verified success, MCP-BEA-008 pins all 43 estimate refusals with 'strict' message"
+    tool_2:
+      data_source_fields:
+        - "data.state_a.data_source (response field #7, CDE-flagged, renamed from verification_status)"
+        - "data.state_b.data_source (response field #13, CDE-flagged, renamed from verification_status)"
+      strict_mode: "verified_only input parameter; MCP-BEA-009 pins refusal when either state is non-verified with message containing 'Strict mode' and offending state name"
+  gold_contract_obligation_discharged: >
+    governance/data-contracts/consumable-regional-price-parities.yaml
+    §staff_review_conditions.condition_7_carry_forward_to_mcp declared this
+    a FORWARD-ONLY OBLIGATION owned by @primary-agent on the mcp-bea-rpp
+    spec. This contract discharges it. The obligation is now fully closed
+    across the Bronze → Silver → Gold → MCP chain.
+
+# --------------------------------------------------------------------------
+# Business terms referenced
+# --------------------------------------------------------------------------
+business_terms_referenced:
+  - BT-098  # Regional Price Parity (RPP)
+  - BT-099  # Purchasing Power Multiplier
+  - BT-100  # State FIPS Code
+  - BT-101  # State Name
+  - BT-102  # RPP Data Year
+  - BT-103  # USPS State Abbreviation
+  - BT-104  # Census Region
+  - BT-105  # Data Verification Status
+  - BT-106  # Cost Tier
+  - BT-107  # Adjusted Salary
+
+# --------------------------------------------------------------------------
+# Consumers
+# --------------------------------------------------------------------------
+consumers:
+  - name: "Gemma Agent (regional purchasing-power queries)"
+    type: ai_agent
+    description: >
+      Primary consumer. Gemma calls get_regional_price_parity(state) to
+      retrieve RPP data for a single state and compare_purchasing_power(
+      salary, state_a, state_b) to answer "What if I move?" questions.
+      Gemma must read per-row data_source to hedge narrative precision for
+      estimate rows.
+    status: active
+
+  - name: "FutureProof Frontend (salary-adjustment display)"
+    type: application
+    description: >
+      Reads cost_tier for color coding, adjusted_examples for salary display,
+      and data_source for provenance badges on the state-selection UI.
+    status: active
+
+# --------------------------------------------------------------------------
+# Breaking changes
+# --------------------------------------------------------------------------
+breaking_changes:
+  policy: >
+    Semantic versioning. Breaking changes (tool removal, tool rename, input
+    parameter removal or rename, response field removal, response field
+    rename, response field type change, reversal of the verification_status
+    → data_source rename, reduction of the CDE set, removal of strict mode,
+    tightening of the unknown-state message contract, tightening of the
+    8-state bea_official allow-list below 8 states) require a new major
+    version and 30-day deprecation notice. Non-breaking changes (new
+    optional input parameters, new response fields, description updates,
+    eval set expansion, flipping the bea_official allow-list from 8 states
+    to 51 states when the live BEA API refresh lands) ship as a minor bump
+    without deprecation.
+  notification: "Logged in governance/audit-trail/"
+
+# --------------------------------------------------------------------------
+# Lineage + provenance
+# --------------------------------------------------------------------------
+lineage_reference: governance/lineage/mcp-bea-rpp-20260411.json
+
+# --------------------------------------------------------------------------
+# Status progression
+# --------------------------------------------------------------------------
+status_progression:
+  draft: "2026-04-11 — created by @doc-generator"
+  active: "pending @staff-engineer sign-off"
+  deprecated: "n/a"

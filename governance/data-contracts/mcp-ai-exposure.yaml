@@ -1,0 +1,117 @@
+---
+# Data Contract: MCP Tool get_ai_exposure
+# Spec: mcp-ai-exposure (raw-ingest-karpathy-ai-exposure.md, Zone 5)
+# Zone: MCP
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-09
+
+tool: get_ai_exposure
+namespace: mcp
+zone: mcp
+version: "1.0.0"
+backing_table: consumable.ai_exposure
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/raw-ingest-karpathy-ai-exposure.md
+backing_table_contract: governance/data-contracts/consumable-ai-exposure.yaml
+rows_addressable: 389
+access_pattern: point lookup by soc_code
+
+input:
+  soc_code:
+    type: string
+    required: true
+    format: "^\\d{2}-\\d{4}$"
+    description: >
+      Standard Occupational Classification code. Lookup key for the tool.
+
+response_fields:
+  - name: soc_code
+    type: varchar
+    is_cde: true
+    cde_rationale: >
+      Natural key and lookup anchor. Every downstream consumer queries by
+      soc_code. Incorrect or missing values sever linkage to career data.
+    is_pii: false
+    description: >
+      SOC occupation code in XX-XXXX format. Lookup key echoed in response.
+
+  - name: occupation_title
+    type: varchar
+    is_cde: false
+    is_pii: false
+    description: >
+      Human-readable occupation name for display.
+
+  - name: exposure_score
+    type: integer
+    is_cde: true
+    cde_rationale: >
+      Original Karpathy AI exposure score (0-10). Source metric for stat_res
+      and boss_ai_score derivations. Consumed by Gemma agent for career
+      guidance narrative.
+    is_pii: false
+    description: >
+      LLM-generated AI exposure score. Higher = more AI-exposed. Range 1-10
+      in current data (0 allowed by domain).
+
+  - name: stat_res
+    type: integer
+    is_cde: true
+    cde_rationale: >
+      AI Resilience pentagon stat (1-10). One of five core stats consumed by
+      the game engine and Gemma agent. Incorrect values misrepresent
+      occupation AI resilience to students.
+    is_pii: false
+    description: >
+      AI Resilience stat. Derived as MIN(11 - exposure_score, 10). High = resilient.
+
+  - name: boss_ai_score
+    type: integer
+    is_cde: true
+    cde_rationale: >
+      Fight AI boss strength (1-10). One of five boss fight scores consumed
+      by the game engine. Incorrect values miscalibrate boss difficulty.
+    is_pii: false
+    description: >
+      Fight AI boss strength. Derived as MAX(exposure_score, 1). High = stronger boss.
+
+  - name: rationale
+    type: varchar
+    is_cde: true
+    cde_rationale: >
+      Display field explaining WHY an occupation scored as it did. The single
+      most valuable field for LLM-to-user communication per domain context.
+    is_pii: false
+    description: >
+      2-3 sentence LLM-generated explanation of the exposure score. Min 297 chars.
+
+  - name: category
+    type: varchar
+    is_cde: false
+    is_pii: false
+    description: >
+      Karpathy's BLS category grouping (24 categories). Display grouping only.
+
+pii:
+  contains_pii: false
+  pii_fields: []
+  assessment_notes: >
+    No PII. All data is occupation-level aggregate information from public
+    BLS classifications and LLM-generated scores.
+
+quality:
+  eval_set: data/ai_ready/eval/mcp-ai-exposure-eval.json
+  eval_cases: 62
+  eval_pass_threshold: 0.80
+  backing_table_dq_rules: governance/dq-rules/gold-ai-exposure.json
+  mcp_dq_rules: governance/dq-rules/mcp-ai-exposure.json
+
+consumers:
+  - name: "Gemma Agent (AI exposure queries)"
+    type: ai_agent
+    description: >
+      Primary consumer. Gemma calls get_ai_exposure(soc_code) to retrieve
+      AI exposure data for career guidance narrative generation.
+    status: active

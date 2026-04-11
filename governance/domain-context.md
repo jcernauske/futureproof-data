@@ -2,7 +2,7 @@
 **Date:** 2026-04-05
 **Agent:** @domain-context
 **Based On:** governance/eda/raw-college-scorecard-eda.md (2026-04-05)
-**Data Sources:** college_scorecard (U.S. Department of Education College Scorecard — Field of Study), bls_ooh (Bureau of Labor Statistics — Employment Projections / Occupational Outlook Handbook), onet (O*NET 30.2 Database — Task-Level Occupation Data)
+**Data Sources:** college_scorecard (U.S. Department of Education College Scorecard — Field of Study), bls_ooh (Bureau of Labor Statistics — Employment Projections / Occupational Outlook Handbook), onet (O*NET 30.2 Database — Task-Level Occupation Data), karpathy_ai_exposure (Karpathy AI Exposure Scores — LLM-generated occupation-level AI reshaping estimates), bea_rpp (BEA Regional Price Parities — state-level cost-of-living index, national=100)
 **Confidence:** High
 
 ---
@@ -14,6 +14,8 @@
 | 2026-04-05 | Initial version | First domain context synthesis from EDA report |
 | 2026-04-07 | Added BLS OOH section | Second data source — BLS Employment Projections (SOC-coded occupations) |
 | 2026-04-07 | Added O*NET section | Third data source — O*NET 30.2 task/activity/context/pathway data. Documents missing Career Changers/Starters files, scale type system, 93 "All Other"/Military gap, and SOC code format bridging to BLS. |
+| 2026-04-09 | Added Karpathy AI Exposure section | Fourth data source — LLM-generated AI exposure scores for 342 BLS occupations. Completes the RES stat and Fight AI boss in the FutureProof pentagon. |
+| 2026-04-10 | Added BEA Regional Price Parities section | Fifth data source — state-level cost-of-living index (50 states + DC, annual snapshot, national=100). Enables salary purchasing power adjustment in the frontend and the Tier 3 Fight Location Lock boss. Does NOT join to other sources by SOC/CIP — joins at query time by the student's selected state. |
 
 ---
 
@@ -1161,3 +1163,459 @@ All assumptions below were made by @domain-context in the absence of user input.
 - Whether Career Changers/Starters data was consolidated into Related Occupations or simply discontinued — O*NET documentation unclear
 - Optimal tiering of Related Occupations for Stage 3 UX (Primary-Short vs. Primary-Long split at index 5 vs. some other threshold)
 - Long-term strategy for career transition data (Related Occupations vs. external sources like LinkedIn)
+
+---
+
+## Karpathy AI Exposure
+
+**Date Added:** 2026-04-09
+**Based On:** governance/eda/raw-karpathy-ai-exposure-eda.md (2026-04-09)
+**Source:** Andrej Karpathy's `karpathy/jobs` GitHub repository — `scores.json` + `occupations.csv`
+**User Familiarity:** Familiar — knows the dataset basics
+**Confidence:** High (domain and data structure unambiguous; scoring methodology confidence is Medium due to LLM-generation)
+
+### Source Methodology
+
+Karpathy scored 342 BLS occupations for AI exposure using a structured LLM pipeline:
+
+1. **Input:** Full BLS Markdown occupation descriptions (from the Occupational Outlook Handbook)
+2. **Model:** Gemini Flash via OpenRouter
+3. **Rubric:** Structured 0-10 scale measuring "how much will AI reshape this occupation" — NOT a job-loss predictor. Considers both direct automation and indirect productivity effects.
+4. **Key heuristic:** If the job can be done entirely from a home office on a computer, exposure is 7+.
+5. **Output:** Integer score (0-10) plus a 2-3 sentence rationale per occupation.
+6. **Effort level:** Self-described as "a saturday morning 2 hour vibe coded project."
+
+The scoring was a single LLM run — no averaging across multiple runs, no human calibration, no inter-rater reliability testing. The scores are directionally useful estimates, not empirical measurements.
+
+### Domain Vocabulary
+
+| Term | Definition | Source | Notes for @data-steward |
+|------|-----------|--------|------------------------|
+| exposure_score | 0-10 integer measuring how much AI will reshape an occupation. Higher = more exposed to AI-driven change. Does NOT predict job elimination — predicts reshaping of work tasks and workflows. | Karpathy methodology (project-specific) | Propose. Emphasize "reshaping not replacement" in business term definition. |
+| slug | Kebab-case occupation identifier from Karpathy's repo (e.g., "financial-analysts"). Unique per occupation. The grain of the raw table. | Karpathy repo (project-specific) | Propose. Not a standard identifier — maps to SOC codes for integration. |
+| category | Karpathy's BLS category grouping (25 categories, e.g., "business-and-financial", "healthcare"). Derived from BLS occupation groups but not a 1:1 mapping to SOC major groups. | Karpathy repo (project-specific) | Propose. Document that this is not standard BLS taxonomy. |
+| rationale | 2-3 sentence LLM-generated explanation of the exposure score. All unique, substantive, grammatically complete. Length: 297-587 chars, mean 412 chars. | LLM output (project-specific) | Propose. Carry forward as metadata for MCP context. |
+| stat_res | FutureProof's AI Resilience stat, derived by inverting exposure_score: `MIN(11 - exposure_score, 10)`. Range 1-10 where 10 = most resilient to AI change. | FutureProof project (project-specific) | Propose. This is a Gold-zone derived metric, not in the raw data. |
+| boss_ai_score | The difficulty rating for the "Fight AI" boss encounter in the FutureProof gauntlet. Directly equals the raw exposure_score (no transformation). | FutureProof project (project-specific) | Propose. This is a Gold-zone derived metric, not in the raw data. |
+
+### SOC Taxonomy and Coverage
+
+**Overall SOC coverage: 84.8% (290 of 342 rows have SOC codes).**
+
+| SOC Type | Count | Percentage | BLS OOH Match |
+|----------|-------|------------|---------------|
+| Detailed codes (XX-XXXX) — exact BLS match | 244 | 71.3% of total | Direct match |
+| Broad codes (XX-XXX0) — roll-up codes | 46 | 13.5% of total | Prefix match only; no direct match in BLS OOH detailed code table |
+| Null SOC | 52 | 15.2% of total | No match possible without resolution |
+
+**Notes for @entity-resolver:**
+- **Null SOC resolution strategy:** Attempt title-match against BLS OOH `occupation_title` in Silver zone. User confirmed this approach. Occupations with null SOC are concentrated in transportation-and-material-moving (54.5% null), installation-maintenance-and-repair (33.3%), production (31.3%), and computer-and-information-technology (30.0%).
+- **Broad code propagation:** Propagate Karpathy exposure score from broad code (XX-XXX0) to all detailed codes (XX-XXXX) under the same prefix. User confirmed: maximize coverage. All 46 broad codes have at least one detailed BLS match under the same prefix.
+- After both resolution strategies, potential BLS OOH coverage could reach 595 of 832 occupations (71.5%).
+- Zero duplicate SOC codes in the raw data. Zero malformed SOC codes.
+
+### Limitations and Known Biases
+
+| Limitation | Description | Impact | Downstream Handling |
+|-----------|-------------|--------|-------------------|
+| LLM-generated scores | Scores are estimates from a single Gemini Flash run, not empirical measurements. No averaging, no calibration, no inter-rater reliability. | Scores are directionally useful but carry unknown error margins. | Acknowledge in metadata. User confirmed: accept as-is for hackathon MVP. |
+| Score-7 cluster | 70 occupations (20.5%) scored exactly 7 — nearly double any other score bucket. The LLM appears to have a "default high" heuristic for computer-based office work. | Creates a "gravity well" that may reduce discriminative power among office/digital occupations. | Document as methodology artifact. No special downstream handling. Notes for @dq-rule-writer: this is NOT a data quality issue — it is expected LLM scoring behavior. Do not flag as anomaly. |
+| Self-referential bias | An LLM is scoring jobs for LLM replaceability — the scorer has inherent bias about its own capabilities. | May systematically over- or under-estimate exposure for AI-adjacent occupations. | User confirmed: acknowledge in metadata, no special downstream handling. Notes for @dq-rule-writer: no corrective rule needed. |
+| No demand elasticity | Scores do not account for whether AI-driven productivity gains will increase demand for the occupation (Jevons paradox). | A high score may overstate risk for occupations where AI makes them more valuable (e.g., software developers). | Carry as metadata caveat. Important context for MCP/LLM serving. |
+| No regulatory barriers | Scores do not account for regulatory, licensing, or social barriers to AI adoption. | Healthcare, legal, and financial occupations may be scored higher than real-world adoption timelines justify. | Carry as metadata caveat. |
+| No social preferences | Scores do not account for human preference for human service (e.g., therapy, childcare, pastoral care). | Some high-scoring occupations may resist AI replacement due to social expectations. | Carry as metadata caveat. |
+| Score 0 absent | Actual range is 1-10, not 0-10 as rubric allows. No occupation was scored as having zero AI exposure. | The `stat_res` inversion formula `MIN(11 - exposure_score, 10)` produces range 1-10 for input range 1-10. The cap at 10 is defensive code for a 0-input case that does not currently exist. | Notes for @dq-rule-writer: DQ rule range should remain 0-10 (rubric allows it), but effective range is 1-10. |
+
+### FutureProof Integration
+
+This dataset completes the fifth stat in the FutureProof pentagon and the fifth boss fight in the gauntlet:
+
+| FutureProof Concept | Derivation | Range | Interpretation |
+|--------------------|-----------|-------|----------------|
+| stat_res (AI Resilience) | `MIN(11 - exposure_score, 10)` | 1-10 | 10 = highly resilient to AI change, 1 = heavily reshaped by AI |
+| boss_ai_score (Fight AI) | Direct: `exposure_score` | 1-10 | 10 = hardest boss (most AI exposure), 1 = easiest (least exposed) |
+
+**User Said:** "stat_res and boss_ai_score are sufficient for hackathon MVP" (session 2026-04-09)
+**Agent Action:** No additional derived metrics documented. If post-hackathon refinement adds metrics (e.g., exposure-weighted career path scores, AI resilience percentile ranks), this section should be updated.
+
+**Pentagon completion:** With this data source, all 5 stats are populated: stat_earnings, stat_demand, stat_skills, stat_flex, and stat_res. The boss gauntlet is also complete: 5 of 5 boss fights have scoring data.
+
+### Cross-Validation Results
+
+**Wage alignment with BLS OOH: perfect.** For all 241 rows with both a direct SOC match and non-null wage data, Karpathy's `median_pay_annual` exactly equals our BLS OOH `median_annual_wage` ($0 difference on every row). This confirms Karpathy used the same BLS data snapshot as our pipeline. No data vintage mismatch.
+
+**Exposure-pay correlation:** Moderate positive (Pearson r=0.387). Higher-paid occupations tend to be more AI-exposed, consistent with the "computer-based office work" heuristic. Average pay climbs from $50,576 (score 1) to $97,558 (score 8), then drops at scores 9-10 (routine digital tasks, not high-skill knowledge work).
+
+**Exposure-education correlation:** Strong positive trend. Bachelor's degree occupations average 6.9 exposure; no-credential occupations average 2.8. Exception: doctoral occupations average only 5.1 (physicians/surgeons have moderate exposure despite high education).
+
+### Temporal Strategy
+
+**User Said:** "Event-driven refresh. Refresh when Karpathy updates or when we re-score with Gemma post-hackathon. No fixed cadence." (session 2026-04-09)
+
+| Pattern | Description | Notes for @temporal-modeler |
+|---------|-------------|---------------------------|
+| Static snapshot | Single LLM scoring run. Not time-series. No temporal dimension in the data itself. | Model as a static reference table, not a temporal fact table. |
+| Event-driven refresh | Re-ingest when Karpathy updates scores or when project re-scores with a different model (e.g., Gemma). | No SLA on refresh cadence. No need for slowly-changing dimension handling at hackathon MVP. |
+| No amendment pattern | Scores do not get corrected or amended — the entire dataset is replaced on refresh. | Full-refresh strategy. No merge/upsert logic needed. |
+
+### PII Assessment
+
+| PII Type | Present? | Sensitivity | Notes for @pii-scanner |
+|----------|----------|-------------|----------------------|
+| Personal names | No | N/A | All data is occupation-level aggregate. No individual workers, students, or identifiable persons. |
+| SSN / Tax ID | No | N/A | Not applicable. |
+| Location data | No | N/A | Occupations are national-level, not geolocated. |
+| Health records | No | N/A | Not applicable. |
+| Financial records (individual) | No | N/A | Wage data is BLS median aggregates, not individual compensation. |
+
+**Conclusion:** No PII. This is entirely occupation-level aggregate data sourced from public BLS descriptions and scored by an LLM. No individual-level data exists anywhere in the pipeline for this source.
+
+### Regulatory & Compliance Context
+
+| Regulation | Relevance | Key Requirements | Notes for @bcbs239-auditor |
+|-----------|-----------|-----------------|---------------------------|
+| None directly applicable | LLM-generated scores on public BLS data do not trigger HIPAA, FERPA, SOX, GDPR, or PCI DSS. | N/A | No compliance assessment needed for this source in isolation. However, when joined with College Scorecard (FERPA-adjacent) data in Gold zone, the combined product should be reviewed. |
+
+**Note:** If FutureProof were used for employment decisions (hiring, compensation), AI-generated occupation scores could raise concerns under EEOC guidance on automated employment decision tools. Current use case (student career guidance) does not trigger this, but document as a risk if the product scope expands.
+
+### Edge Cases for DQ
+
+| Edge Case | Description | Impact | Notes for @dq-rule-writer |
+|-----------|-------------|--------|--------------------------|
+| Null SOC codes | 52 of 342 rows (15.2%) have no SOC code. | These rows cannot join to BLS OOH or O*NET without title-match resolution in Silver. | Set SOC coverage threshold to >= 84% (warn). Do NOT set to 95% — EDA confirmed 84.8% actual. |
+| Broad SOC codes | 46 of 290 non-null SOC codes (15.9%) are broad codes (XX-XXX0) that don't exist in BLS OOH detailed code table. | Silver must propagate scores to detailed codes. | Warn if broad code percentage exceeds 20% of non-null SOC codes. |
+| Score 7 overrepresentation | 70 rows (20.5%) score exactly 7. | LLM scoring artifact, not a data quality issue. | Do NOT flag this as an anomaly. Document as expected behavior. |
+| "See How to Become One" education | 36 rows (10.5%) have this BLS placeholder instead of a real education level. | Not an error — BLS uses this when education requirements vary widely. | Allow as valid value. Do not count as null. |
+| "None" vs "No formal educational credential" | 1 row has "None" (Military) vs 21 rows with "No formal educational credential." | Possible inconsistency but likely legitimate (military has its own training pipeline). | Flag for manual review. Low priority. |
+| Military row | 1 row with null SOC, null wage, null employment, null education. Structurally incomplete. | Will not join downstream. Minimal data. | Allow — this row is a known BLS edge case. Do not count against coverage thresholds. |
+| BLS wage cap | 1 row at $239,200 (BLS top-coding). | Expected BLS behavior, not a data issue. | Allow as valid. Do not flag as outlier. |
+
+### External Data Opportunities
+
+| External Source | What It Adds | Join Key | Notes for @insight-manager |
+|----------------|-------------|----------|---------------------------|
+| Re-scoring with Gemma or other open model | Reduces single-model bias. Enables score averaging or confidence intervals. | Same slug/SOC key | User mentioned post-hackathon. Would require running the same BLS descriptions through a different LLM. |
+| O*NET task-level data | Empirical task decomposition that could validate or refine LLM exposure scores. | SOC code (O*NET-SOC to BLS SOC bridging already documented) | Already in pipeline. Gold zone could compare LLM scores vs. task-level automation potential. |
+| Academic AI exposure indices | Papers like Felten et al. (2023), Eloundou et al. (2023) provide alternative exposure scores based on task-AI capability matching. | SOC code | Would enable cross-validation of Karpathy scores against peer-reviewed research. Post-hackathon priority. |
+
+### Concept Mapping Guidance
+
+| Source Code Pattern | Maps To | Confidence | Notes for @cde-tagger |
+|--------------------|---------|------------|----------------------|
+| exposure_score (raw) | AI Exposure Score | Exact | Raw LLM score, 0-10 integer. Carry as-is to Silver. |
+| exposure_score (inverted) | AI Resilience (stat_res) | Derived | Gold-zone derivation: `MIN(11 - exposure_score, 10)`. Not a CDE — project-specific metric. |
+| exposure_score (direct) | Boss AI Difficulty (boss_ai_score) | Derived | Gold-zone alias: `exposure_score` renamed. Not a CDE — project-specific metric. |
+| soc_code | Standard Occupational Classification | Exact | SOC 2018 format (XX-XXXX). Standard BLS taxonomy. Auto-approve as CDE. |
+| median_pay_annual | Median Annual Wage | Exact | BLS-sourced, identical to our BLS OOH values. Cross-validates perfectly. |
+| category | Karpathy Occupation Category | Project-specific | 25 categories. Not a standard taxonomy. Do NOT map to SOC major groups — close but not 1:1. |
+
+### AI-Ready Considerations
+
+| Consideration | Recommendation | Notes for @mcp-engineer |
+|--------------|---------------|------------------------|
+| User questions about AI exposure | Expose stat_res and boss_ai_score through MCP. Common queries: "How exposed is [occupation] to AI?", "What careers are most AI-resilient?", "Should I worry about AI replacing [career]?" | Return both the score AND the rationale text. The rationale provides crucial context that prevents misinterpretation of the numeric score. |
+| Methodology caveats | Always include methodology caveats when serving AI exposure data. | Include in MCP response metadata: "Scores are LLM estimates (Gemini Flash), not empirical measurements. A high score indicates reshaping, not job elimination." |
+| Score interpretation | Users will conflate "AI exposure" with "AI will take my job." The data does not support that interpretation. | MCP responses should frame scores in terms of "how much your work will change" not "how likely you are to lose your job." |
+| Rationale text | The `rationale` field is the single most valuable field for LLM-to-user communication. | Serve rationale alongside scores. It explains WHY an occupation scored as it did, which is more useful than the number alone. |
+
+### Assumptions (User-Deferred)
+
+No user-deferred assumptions for this source. The user provided direct answers on all critical questions:
+- **Concept list:** stat_res and boss_ai_score confirmed as sufficient for MVP.
+- **Data quality approach:** Accept scores as-is; directionally useful despite LLM bias.
+- **SOC resolution:** Title-match for nulls, propagate broad codes to detailed codes.
+- **Temporal strategy:** Event-driven refresh, static for hackathon.
+- **Self-referential bias:** Acknowledge in metadata, no special handling.
+
+### Confidence Notes
+
+**High confidence:**
+- Domain identification (AI labor market impact / LLM-generated exposure scores) — unambiguous from source, methodology, and data structure
+- SOC coverage at 84.8% — verified in EDA, all format validations pass
+- Wage cross-validation is perfect ($0 diff across 241 rows) — confirms data vintage alignment with BLS OOH
+- No PII — entirely occupation-level aggregate data from public BLS sources
+- Score distribution (1-10 range, mode at 7, mean 5.31) — verified in EDA
+- 342 rows, all slugs unique, zero duplicates — grain integrity confirmed
+
+**Medium confidence:**
+- Title-match strategy for null SOC resolution — feasible but match rate unknown until Silver implementation. Some Karpathy titles may not align with BLS OOH titles exactly (e.g., combined occupation groups).
+- Broad code propagation — applying one score to multiple detailed occupations assumes uniform exposure within the occupation group, which may not hold for all 46 broad codes.
+- Score-7 cluster as "methodology artifact" vs. "real signal" — we cannot distinguish whether 7 genuinely describes 20.5% of occupations or whether the LLM defaults to 7 when uncertain.
+
+**Low confidence / Needs validation post-hackathon:**
+- Whether Karpathy will update scores or if the dataset is permanently static
+- Optimal strategy for post-hackathon re-scoring (which model, same rubric or improved rubric, averaging vs. replacement)
+- Whether demand elasticity, regulatory barriers, and social preferences should be incorporated as score adjustments (user deferred to post-hackathon)
+
+---
+
+## BEA Regional Price Parities
+
+**Date Added:** 2026-04-10
+**Based On:** governance/eda/raw-bea-rpp-eda.md (2026-04-10)
+**Source:** U.S. Bureau of Economic Analysis (BEA), Regional Economic Accounts — Regional Price Parities by State, All Items (table SARPP, `LineCode=1`, `Year=2024`, `GeoFips=STATE`)
+**Spec:** docs/specs/raw-ingest-bea-rpp.md
+**Confidence:** High (domain, methodology, grain, and integration model are unambiguous; individual row values are a mix of spec-verified and primary-agent estimates — see Data Provenance Caveat below)
+
+### Domain Identification
+
+**Domain:** U.S. macroeconomic / regional cost-of-living reference data
+**Sub-domain:** BEA Regional Price Parities (state-level, All Items, annual)
+**Description:** Regional Price Parities (RPPs) measure differences in price levels across geographic areas for a given year, expressed as a percentage of the overall U.S. national price level. BEA sets the national average to **100.0** by construction, so an RPP of 110.7 (California 2024) means the local price level is 10.7% above the national average and an RPP of 86.9 (Arkansas 2024) means it is 13.1% below. BEA publishes RPPs for All Items, Goods, Services (Rents), and Services (Other); this dataset ingests the **All Items** index only. RPPs are the BEA's authoritative measure of regional purchasing power and are the standard input to any analysis that adjusts wage, income, or salary figures for local cost of living.
+
+### Why It Matters to FutureProof
+
+RPPs power FutureProof's **"What does this salary mean where you live?"** feature. Every salary figure surfaced to a student — median wages from BLS OOH, earnings from College Scorecard — is a *national* number. Without an RPP adjustment, a $65K median salary shown to a student in California (RPP 110.7) and a student in Iowa (RPP 87.8) tells both of them the same story, but the lived experience of that salary differs by ~26 percentage points of purchasing power. The RPP table lets the MCP tools and frontend translate national salary figures into local-purchasing-power equivalents via the simple formula `local_pp = national_salary × (100.0 / rpp_all_items)`.
+
+RPPs also unlock the **Fight Location Lock** boss (PRD Tier 3 stretch). The boss tests whether a career's national-level salary actually provides a good life in the student's home state, combining wage, RPP, and (eventually) geographic concentration of the industry. For the hackathon MVP, the RPP reference table alone is sufficient to drive the frontend purchasing-power display; the full boss depends on future BLS geographic wage data.
+
+### Grain and Taxonomy
+
+- **Grain:** One row per U.S. geographic entity. **51 rows** total: 50 states + District of Columbia. No metro areas, no counties, no territories, no sub-national regions. No sub-components (Goods / Services / Rents are filtered out at ingest — we keep only LineCode=1, All Items).
+- **Primary entity:** U.S. state (plus DC).
+- **Canonical identifier:** 2-digit ANSI/FIPS state code, zero-padded string (e.g., `"06"` California, `"19"` Iowa, `"11"` District of Columbia). DC is included at FIPS 11. Canonical gaps in the FIPS sequence (03, 07, 14, 43, 52) are intentional — those codes were never assigned.
+- **Secondary identifiers (derived in Silver):** 2-letter USPS state abbreviation (`CA`, `IA`, `DC`), full state name (`California`, `Iowa`, `District of Columbia`), and Census region (`Northeast`, `Midwest`, `South`, `West`).
+- **Cadence:** **Annual snapshot.** BEA publishes new RPPs each February for the prior calendar year. Current load is **data_year = 2024** (released February 2026). There is no within-year variation; a single `data_year` is the only temporal dimension in the table.
+- **Size:** Trivial (~5 KB raw, 51 rows × 8 columns).
+
+### Domain Vocabulary
+
+| Term | Definition | Source | Notes for @data-steward |
+|------|-----------|--------|------------------------|
+| Regional Price Parity (RPP) | BEA index measuring the price level of goods and services in a geographic area relative to the U.S. national average (base = 100.0). Published for All Items, Goods, Services (Rents), and Services (Other). | BEA Regional Economic Accounts (external standard) | Auto-approve. External standard; align definition with BEA methodology guide. Cross-reference BT-098. |
+| All Items RPP | The composite RPP across goods and services. The single index used for cost-of-living comparison across states. The only line code (`LineCode=1`) this pipeline ingests. | BEA (external standard) | Auto-approve. External standard. |
+| National Baseline (100.0) | BEA construction: the population-weighted U.S. average is fixed at exactly 100.0. No state equals 100.0 exactly because it is a construct, not a state. A simple arithmetic mean of state RPPs lands near but not at 100 (observed 96.98 in EDA, expected for unweighted state mean). | BEA methodology | Auto-approve. |
+| Purchasing Power Multiplier | Derived field: `100.0 / rpp_all_items`. The factor by which a national salary is multiplied to express local purchasing power. California: 0.9034 (salary buys 90.3% as much). Iowa: 1.1390 (salary buys 113.9% as much). Range observed: ~0.90–1.15. | FutureProof-derived (Silver zone) | Propose. Cross-reference BT-099. |
+| Cost Tier | Gold-zone categorical classification of states into `very_high` / `high` / `average` / `low` / `very_low` based on RPP thresholds at 108 / 103 / 97 / 91. | FutureProof-derived (Gold zone) | Propose. Project-specific enum; document thresholds in business glossary. |
+| GeoFips | BEA's name for the ANSI/FIPS geographic identifier column. 2-digit zero-padded string at the state level. | BEA API schema | Rename to `state_fips` in Silver. |
+| LineCode | BEA's sub-component selector within table SARPP. `1` = All Items, `2` = Goods, `3` = Services (Rents), `4` = Services (Other). This ingest filters to `LineCode=1` only. | BEA API schema | Do not expose; internal to ingest. |
+
+### Taxonomy / Classification Systems
+
+| System | Description | Authority | Coverage in Data |
+|--------|-------------|-----------|-----------------|
+| ANSI/FIPS state codes | 2-digit numeric state identifiers (01 = AL through 56 = WY, plus 11 = DC). | U.S. Census Bureau / NIST FIPS PUB 5-2 (retired, now ANSI INCITS 38-2009) | 51 / 51 rows (100%). All canonical state FIPS present; deliberate scheme gaps at 03, 07, 14, 43, 52. |
+| USPS state abbreviations | 2-letter state codes (AL, AK, AZ, ..., WY, DC). Derived in Silver from FIPS code. | U.S. Postal Service | 51 / 51 (100% after Silver derivation). |
+| U.S. Census regions | Four-region grouping: Northeast (9), Midwest (12), South (17), West (13). Derived in Silver from FIPS code. | U.S. Census Bureau | 51 / 51 (100% after Silver derivation); all 4 regions represented. |
+
+### Enumerated Values with Business Meaning
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| source_method | `bea_api`, `csv_cache` | Provenance of the row. `bea_api` = live BEA API call succeeded; `csv_cache` = fell back to cached CSV at `data/raw/bea_cache/bea_rpp_2024.csv`. Current load is 100% `csv_cache`. DQ must use `IN ('bea_api','csv_cache')`, NOT `= 'bea_api'`. |
+| census_region (Silver) | `Northeast`, `Midwest`, `South`, `West` | Standard U.S. Census region. DC is classified as `South` per Census convention, even though its RPP (109.9) is behaviorally Northeast-like (see Known Quirks). |
+| cost_tier (Gold) | `very_high`, `high`, `average`, `low`, `very_low` | Project-specific RPP bucketing. Thresholds: `>=108` / `>=103` / `>=97` / `>=91` / `else`. Used by the frontend and the Fight Location Lock boss. |
+
+### Entity Types
+
+#### Primary Entities
+
+| Entity Type | Identifier Field(s) | Example | Notes for @entity-resolver |
+|-------------|---------------------|---------|---------------------------|
+| U.S. State (including DC) | `geo_fips` (raw) → `state_fips` (Silver) | `"06"` = California, `"11"` = District of Columbia | **Trivial resolution.** State FIPS is a canonical, universally-recognized identifier assigned by ANSI/NIST. There is no fuzzy matching, no alias reconciliation, no temporal identity drift. `geo_fips` ↔ `geo_name` is a 1:1 bijection in the EDA. The Silver zone simply validates the FIPS code and derives USPS abbreviation and Census region from a static lookup. **@entity-resolver can SKIP this source** — the only "resolution" work is the static FIPS → abbreviation and FIPS → region lookups already specified in the Silver spec, which is a derivation task, not an entity-resolution task. Document the skip decision with rationale: "State FIPS is a canonical identifier with 100% coverage and zero ambiguity; no resolution work required." |
+
+#### Entity Lifecycle Events
+
+**None applicable.** U.S. states and DC do not merge, split, rename, or otherwise change identity on any timescale relevant to this pipeline. The set of 50 states + DC has been stable since 1959 (Hawaii admission). There are no entity lifecycle events for @entity-resolver to model.
+
+### Temporal Patterns
+
+#### Valid Time
+
+| Pattern | Description | Notes for @temporal-modeler |
+|---------|-------------|---------------------------|
+| Annual snapshot | BEA publishes one RPP per state per calendar year. This ingest loads `data_year = 2024` only; all 51 rows carry the identical year. There is no within-year variation, no monthly/quarterly cadence, no intra-year revisions published mid-year. | **Model as a static reference table keyed by `state_fips`**, with `data_year` as a load-time column, not a time-series dimension. No slowly-changing-dimension handling required for the hackathon MVP. @temporal-modeler can **SKIP complex temporal modeling** for this source. Document the skip: "Single-year snapshot reference data; `data_year` is the only temporal dimension and is constant across the table. No bitemporal modeling, no SCD2, no effective-dating required." |
+| Annual refresh cadence | Each February, BEA publishes the prior calendar year's RPPs. When we refresh, the entire 51-row table is replaced; individual state values are not amended. | On refresh, increment `data_year` (2024 → 2025 → ...) and update the DQ `data_year = N` rule to match. If the product needs to compare RPP trends across years post-hackathon, switch to an append-with-year strategy and partition by `data_year`. Not required for MVP. |
+| Batch stamp, not event time | All 51 rows share identical `ingested_at` and `load_date` values because the load is a single batch. These columns are load-batch identifiers, not per-row event times. | Do not model `ingested_at` as an event-time column. Treat it as provenance metadata. |
+
+#### Amendment / Correction Patterns
+
+**None observed.** BEA does occasionally revise historical RPP series when it updates its underlying price index methodology (typically every ~5 years), but within a given publication year the data is static. A revision, when it occurs, replaces the entire historical series rather than emitting per-row amendments. For this pipeline, revisions are handled via full refresh — no merge, no upsert, no correction-tracking columns needed.
+
+### Data Provenance Caveat (CRITICAL for Downstream Agents)
+
+**8 of 51 rows are spec-verified; 43 of 51 rows are primary-agent estimates.**
+
+The @primary-agent ingestor attempted the live BEA API call but fell back to the CSV cache (`source_method = 'csv_cache'` on all 51 rows). The cache contains **8 spec-verified 2024 RPP values** (from the public BEA February 2026 release, as documented in the spec) and **43 primary-agent-generated plausible placeholder values** filling in the remaining states until a live BEA API load succeeds.
+
+**Verified (8 rows, authoritative):**
+
+| FIPS | State | RPP |
+|------|-------|-----|
+| 05 | Arkansas | 86.9 |
+| 06 | California | 110.7 |
+| 11 | District of Columbia | 109.9 |
+| 15 | Hawaii | 110.0 |
+| 19 | Iowa | 87.8 |
+| 28 | Mississippi | 87.0 |
+| 34 | New Jersey | 108.8 |
+| 40 | Oklahoma | 87.8 |
+
+**Estimated (43 rows, placeholder):** Every other state. Observed range of estimates: [88.2, 107.9]. The estimates are directionally sensible (high-cost coastal states high, rural interior low) and internally consistent (no NaNs, no outliers, all within the [80.0, 130.0] DQ guardrails), but **they are not BEA-authoritative values** and will shift when the live API load succeeds and replaces them with real 2024 figures.
+
+**Implications for downstream agents:**
+- **@dq-rule-writer:** All DQ rule thresholds MUST hold simultaneously in (a) the current estimates-in-place state and (b) a future verified state. The rules in the EDA report are already designed this way — do not tighten them further based on current observed values. In particular, do NOT pin `source_method = 'bea_api'`, do NOT write a uniqueness rule on `rpp_all_items` (IA and OK legitimately tie at 87.8), and do NOT write tight per-state spot checks beyond the 2 the spec specifies (CA and AR, which are verified).
+- **@data-contract-author:** The data contract's quality tier should be marked "High (for the 8 verified rows) / Medium (for the 43 estimated rows) until the live BEA API load replaces estimates." Add a `data_provenance` field to the contract that surfaces the estimate/verified distinction, or annotate the consumable table's README with the caveat so Gemma can cite it in user-facing responses.
+- **@doc-generator:** The data dictionary and business glossary entries for `rpp_all_items` should note that this source currently contains a mix of verified and estimated values and that individual row values may shift on the next refresh.
+- **@insight-manager / @mcp-engineer:** When the Gemma agent surfaces purchasing-power adjustments for states other than {CA, HI, DC, NJ, AR, MS, IA, OK}, responses should be phrased so that a future value revision does not make prior statements materially wrong (e.g., "approximately 3% above the national average" rather than "exactly 103.5"). Consider exposing a `provenance` field on the MCP tool response.
+- **@governance-reviewer / @staff-engineer:** Treat replacement of estimated values with live BEA API values as a **data correction**, not a schema change — it does not require re-review of the contract or pipeline, only a DQ re-run and regression against the recommended thresholds.
+
+### Data Quality Considerations
+
+#### Known Edge Cases
+
+| Edge Case | Description | Impact | Notes for @dq-rule-writer |
+|-----------|-------------|--------|--------------------------|
+| Iowa and Oklahoma tie at 87.8 | Two distinct states share the same `rpp_all_items` value. 50 distinct values across 51 rows. Both are spec-verified. | Breaks naive uniqueness assumptions on the measure column. | **Do NOT** write a uniqueness rule on `rpp_all_items`. Only `geo_fips` / `state_fips` should carry a uniqueness rule. |
+| DC present at FIPS 11 | District of Columbia is not a state but is included in the dataset at FIPS 11 with RPP 109.9. | Any rule that filters "states only" will silently drop DC and break row-count and regional-coverage rules. | Write `count(*) WHERE geo_fips='11' = 1` as an explicit P0 rule. Any state-only filter must explicitly include FIPS 11. |
+| `source_method` is 100% `csv_cache` today | Current load ran through the fallback path; no row came from the live BEA API. | A DQ rule pinning `source_method = 'bea_api'` would fail on the current load. | Rule must be `source_method IN ('bea_api','csv_cache')`. |
+| FIPS scheme gaps (03, 07, 14, 43, 52) | These FIPS codes were never assigned. The 51 present codes are the complete canonical set. | A "contiguous FIPS codes" rule would false-positive. | Use an explicit 51-element canonical FIPS list for the completeness rule. |
+| Estimates-in-place (43 of 51 rows) | See Data Provenance Caveat above. | DQ rules must pass in both estimate and verified states. | Rules are pre-designed in the EDA to tolerate both states. Do not tighten. |
+| DC in Census South despite Northeast-like RPP | DC's RPP (109.9) behaviorally clusters with the Northeast (NJ 108.8, NY 107.5, MA 107.9) but the Census Bureau classifies DC as South. | A "region-level distribution" DQ rule that asserts "South mean RPP < Midwest mean RPP" or similar would false-positive due to DC's outlier position. | Do NOT write region-distribution-shape rules. Safe regional rule: "All 4 census regions represented" and "each region has >= 9 rows". |
+
+#### Domain-Specific Validity Rules
+
+| Rule | Description | Source |
+|------|-------------|--------|
+| National baseline = 100.0 by construction | No individual state equals 100.0 exactly; the national baseline is a population-weighted construct, not a row in the data. Simple arithmetic mean of state RPPs lands near but not at 100 (observed 96.98, EDA). | BEA methodology |
+| Realistic RPP range | Over the last decade of BEA releases, no state has reported RPP outside ~[85.6, 113.0]. The spec DQ guardrails of [80.0, 130.0] carry generous headroom. | BEA historical publications |
+| `purchasing_power_multiplier × rpp_all_items ≈ 100.0` | Silver-zone derivation invariant. Tolerance 0.01. | FutureProof-derived |
+| California and Arkansas as sanity anchors | CA RPP historically in [108.5, 111.0]; AR RPP historically in [85.6, 87.9]. Verified anchors for spot-check DQ rules. | BEA historical data + spec |
+| `geo_fips` matches `^\d{2}$` | State FIPS codes are always 2-digit zero-padded numeric strings. | ANSI/FIPS standard |
+
+### Regulatory & Compliance Context
+
+#### Applicable Regulations
+
+| Regulation | Relevance | Key Requirements | Notes for @bcbs239-auditor |
+|-----------|-----------|-----------------|---------------------------|
+| None directly applicable | BEA RPP is U.S. Government-published aggregate economic statistics, public domain. No HIPAA, FERPA, GLBA, SOX, GDPR, or PCI DSS exposure. | N/A | No compliance assessment needed for this source in isolation. When joined with College Scorecard (FERPA-adjacent) in the Gold zone, compliance review of the combined product remains driven by the College Scorecard source, not this one. |
+| U.S. Government Work / Public Domain | As a U.S. federal agency publication, BEA RPP data carries no copyright and can be freely redistributed with attribution. | Attribution: "Source: U.S. Bureau of Economic Analysis, Regional Economic Accounts." | Include attribution in the data contract and MCP tool responses. |
+
+#### PII Expectations
+
+| PII Type | Expected? | Sensitivity | Notes for @pii-scanner |
+|----------|-----------|-------------|----------------------|
+| Personal names | No | N/A | The entire table is 51 state-level aggregate rows. No individuals, no workers, no businesses, no names. |
+| SSN / Tax ID / Government ID | No | N/A | Not applicable. |
+| Location data (individual-level) | No | N/A | Geography is state-level only. `geo_fips` identifies a U.S. state, which is a jurisdiction, not a person or an address. State-level aggregation is categorically non-PII under HIPAA Safe Harbor and every other U.S. privacy framework. |
+| Health records | No | N/A | Not applicable. |
+| Financial records (individual) | No | N/A | RPP is a macroeconomic price index, not a measurement of any individual's income, spending, or wealth. |
+| Education records | No | N/A | Not applicable. |
+
+**Conclusion:** **No PII of any kind.** This is the cleanest PII posture of any source in the FutureProof pipeline. Every value in every row is a U.S. Government-published aggregate statistic about a state-level jurisdiction. **@pii-scanner can SKIP this source entirely** and document the skip with rationale: "51-row state-level macroeconomic reference table from BEA; all values are public-domain aggregate statistics; no individual-level data of any kind; no sensitivity review required at any zone."
+
+### External Data Opportunities
+
+| External Source | What It Adds | Join Key | Notes for @insight-manager |
+|----------------|-------------|----------|---------------------------|
+| BEA Metro-area RPPs (table MARPP) | Sub-state granularity — metro-level purchasing power adjustment. SF Bay Area vs. rest of California, NYC metro vs. upstate NY, etc. | CBSA code (requires separate state ↔ CBSA join) | High value for post-hackathon. Many students live in a specific metro, not "California in general." Requires a new ingest spec; not in current scope. |
+| BEA historical RPP series (2008-present) | Time-series of how state cost-of-living has evolved. Useful for trend analysis. | `state_fips`, `data_year` | Medium value. Would support "how has purchasing power changed in your state?" narratives. Post-hackathon. |
+| BEA Personal Income per Capita by State | Combined with RPP, yields real-income-per-capita by state. Richer context for career-outcome comparisons. | `state_fips` | High value for advanced analysis. Post-hackathon. |
+| BLS OES State/Metro Wage data | Geographic occupation-level wage data. Combined with RPP, enables the full **Fight Location Lock** boss scoring formula (wage × RPP × geographic concentration). | SOC code + `state_fips` | Explicitly called out in the spec as the missing ingredient for the full boss. High priority post-hackathon. |
+| U.S. Census ACS state-level data | Demographics, housing costs, commute patterns. Context for purchasing-power interpretation. | `state_fips` | Medium value. Would enrich MCP responses with "why is this state expensive?" context. |
+
+### Concept Mapping Guidance
+
+#### Source Codes → Business Concepts
+
+| Source Code Pattern | Maps To | Confidence | Notes for @cde-tagger |
+|--------------------|---------|------------|----------------------|
+| `rpp_all_items` | Regional Price Parity (All Items) | Exact | BEA-published index. External standard. Auto-approve as CDE. Cross-reference BT-098. |
+| `geo_fips` | State FIPS Code | Exact | ANSI/FIPS standard. Auto-approve as CDE. |
+| `geo_name` | State Name | Exact | Plain-language state name. Auto-approve. |
+| `purchasing_power_multiplier` (Silver) | Purchasing Power Multiplier | Exact (derived) | FutureProof-derived; propose as project-specific term. Cross-reference BT-099. |
+| `cost_tier` (Gold) | Cost of Living Tier | Exact (derived) | FutureProof-derived enum; propose as project-specific term. |
+| `adjusted_30k/50k/75k/100k` (Gold) | Purchasing-Power-Adjusted Salary Examples | Exact (derived) | Pre-computed display fields for the frontend. |
+
+#### Known Mapping Ambiguities
+
+**None.** Every field in this source maps unambiguously to a single business concept. This is the simplest concept-mapping of any source in the FutureProof pipeline.
+
+### Canonical Concept Map (BEA RPP)
+
+**Status:** CONFIRMED (spec-driven, no user interview required)
+**Source:** Spec docs/specs/raw-ingest-bea-rpp.md + EDA report
+
+#### Target Business Concepts
+
+| # | Business Concept | Plain English Name | Expected Source Codes | Category | Priority |
+|---|-----------------|-------------------|----------------------|----------|-----------|
+| 1 | Regional Price Parity | Cost of Living Index (state, national=100) | `rpp_all_items` | Reference / Macroeconomic | CORE |
+| 2 | Purchasing Power Multiplier | Salary Purchasing Power Factor | derived: `100.0 / rpp_all_items` | Derived / Financial | CORE |
+| 3 | Cost Tier | Cost of Living Tier (very_high / high / average / low / very_low) | derived from `rpp_all_items` thresholds | Derived / Categorical | CORE |
+| 4 | State (ANSI/FIPS) | State Identifier | `geo_fips`, `state_fips`, `state_abbr`, `state_name` | Reference / Geography | CORE |
+| 5 | Census Region | U.S. Census Region | derived from `state_fips` | Reference / Geography | EXTENDED |
+| 6 | Data Year | RPP Publication Year | `data_year` | Provenance / Temporal | CORE |
+
+#### Cross-Source Concept Linkages (FutureProof Integration)
+
+**Critical integration fact:** The BEA RPP table does **NOT** join to College Scorecard, BLS OOH, O*NET, or Karpathy AI Exposure by SOC or CIP code. It has no SOC, no CIP, no program, no occupation. Its only identifier is `state_fips`.
+
+Instead, the RPP table joins at **query time** by the **student's selected state**. The join topology is:
+
+```
+BEA RPP (state_fips / state_abbr)
+  → consumable.regional_price_parities
+    → MCP tool: get_regional_price_parity(state)
+    → MCP tool: compare_purchasing_power(salary, state_a, state_b)
+    → Frontend: salary adjustment display on every screen that shows a salary
+    → (Stretch) Fight Location Lock boss scoring
+```
+
+The student picks their state once (during onboarding or as a setting). Every time the frontend or Gemma presents a salary from BLS OOH or College Scorecard, it calls `get_regional_price_parity(selected_state)` and multiplies the national salary by the returned `purchasing_power_multiplier`. The pipeline does not pre-compute a cross-product of (occupation × state × adjusted salary) — that would be 832 × 51 = 42,432 rows and the combinatorics do not justify the storage. Instead, the Gold table is the 51-row RPP reference table, and the multiplication happens at serve time.
+
+This means the RPP integration is **fundamentally different** from how BLS OOH, O*NET, and Karpathy integrate: those three all join on SOC (with the CIP↔SOC crosswalk bridging College Scorecard). BEA RPP is orthogonal — it is a **query-time lens**, not a pipeline-time join.
+
+**Notes for @semantic-modeler and @principal-data-architect:** Model this table as an independent reference dimension, not a fact table. Do not add it to the SOC-keyed join graph. Document it as a "state-keyed lookup that applies at query time."
+
+#### Concept-to-Code Mapping Rules
+
+No mapping tiers needed — every field is a direct 1:1 mapping. No prefix, pattern, or heuristic mapping required. The ConceptNormalizer has no work to do on this source beyond passthrough.
+
+#### Collision Resolution Rules
+
+**None applicable.** One row per state, one RPP per row, no collisions possible at the grain.
+
+### AI-Ready Considerations
+
+| Consideration | Recommendation | Notes for @mcp-engineer |
+|--------------|---------------|------------------------|
+| User questions about cost of living | Expose `get_regional_price_parity(state)` as a first-class MCP tool. Students will ask "is X expensive?", "how much do I need to make in Y to live like I make $50K nationally?", "is it cheaper to live in Iowa or Texas?" | Accept flexible state input: USPS abbr, full name, or FIPS. Always return the `state_name`, `state_abbr`, `rpp_all_items`, `purchasing_power_multiplier`, `cost_tier`, and the pre-computed `adjusted_30k/50k/75k/100k` examples. Include a short prose explanation like "prices in California are about 11% higher than the national average" that Gemma can use verbatim. |
+| Salary adjustment context | Every MCP tool that returns a wage (from BLS OOH or College Scorecard) should be paired with an optional RPP adjustment. | Offer a `student_state` parameter on wage-returning tools; when provided, include an `adjusted_salary` field in the response alongside the national figure. Never silently replace the national figure with the adjusted one — always return both so the student sees the comparison. |
+| "What if I move?" scenario | Expose `compare_purchasing_power(salary, state_a, state_b)` as a second MCP tool. | Useful for students weighing multiple geographic options. Returns both states' adjusted salaries plus the dollar and percentage difference. |
+| Provenance caveat in responses | While the data provenance caveat (8 verified, 43 estimated) is in effect, MCP responses should hedge numeric precision for non-verified states. | Consider a `provenance` field on tool responses: `"verified"` for {CA, HI, DC, NJ, AR, MS, IA, OK}, `"estimated"` for the other 43. Gemma can use this to phrase responses with appropriate confidence. |
+| RPP interpretation | Students will ask "what does RPP 110 mean?" or "why does my state matter?" | Include a short methodology blurb in tool descriptions: "Regional Price Parities are a BEA-published index comparing the price level of a state to the U.S. national average (100). A state with RPP 110 has prices 10% above the national average; a state with RPP 87 has prices 13% below." |
+
+### Assumptions (User-Deferred)
+
+No user-deferred assumptions for this source. The spec is explicit on all design decisions:
+- **Grain:** one row per state (spec).
+- **Line code:** All Items only, LineCode=1 (spec).
+- **Temporal model:** single-year static reference, annual refresh (spec).
+- **Integration model:** query-time join by student's selected state, no SOC/CIP join (spec).
+- **Derived fields:** `purchasing_power_multiplier` in Silver, `cost_tier` + `adjusted_NNk` in Gold (spec).
+- **MCP tools:** `get_regional_price_parity(state)` and `compare_purchasing_power(salary, a, b)` (spec).
+
+The only open item is the data provenance caveat — 43 of 51 rows are estimates pending a successful live BEA API load. This is tracked as a refresh task on the pipeline, not as a user decision.
+
+### Confidence Notes
+
+**High confidence:**
+- Domain identification (BEA Regional Price Parities, All Items, state level, 2024) — unambiguous from source, methodology, and spec
+- Grain (51 rows, 50 states + DC, one row per state) — verified exact in EDA
+- Entity resolution posture (trivial; state FIPS is a canonical identifier) — EDA confirms 1:1 bijection between `geo_fips` and `geo_name`
+- PII posture (zero PII; public-domain aggregate statistics) — structurally impossible for this source to contain PII
+- Temporal posture (annual snapshot; no within-year variation; `data_year` is the only temporal dimension) — verified constant across all rows
+- Integration model (query-time join by student's selected state; no SOC/CIP pipeline join) — explicit in spec, no ambiguity
+- The 8 spec-verified row values — matched exactly in the EDA
+- DC in Census South despite Northeast-like RPP — a known BEA/Census classification quirk, not a data error
+
+**Medium confidence:**
+- The 43 estimated row values are directionally plausible but not BEA-authoritative. They will shift on the next successful live API load. DQ thresholds are designed to tolerate both states.
+- Cost-tier thresholds (108 / 103 / 97 / 91) are a project design choice rather than a BEA standard; if the distribution looks wrong to users, these can be retuned without changing upstream DQ.
+
+**Low confidence / Needs post-hackathon revisit:**
+- Whether the frontend should default to RPP-adjusted or national salary figures (UX question, not a data question)
+- Whether metro-area RPPs (BEA MARPP) should replace state RPPs once available — student lived experience in SF Bay Area differs sharply from "California" as a whole
+- The Fight Location Lock boss formula depends on geographic occupation wage data from BLS OES, which is not yet in the pipeline

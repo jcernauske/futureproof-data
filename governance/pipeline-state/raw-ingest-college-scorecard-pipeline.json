@@ -46,9 +46,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-08T23:39:32.884473+00:00",
+      "completed_at": "2026-04-09T19:48:38.663499+00:00",
       "output": "governance/domain-context.md",
-      "output_hash": "sha256:0acb172a6988a68909090781d52c902db87e257130f21ec87bd71b623ad8c84e"
+      "output_hash": "sha256:5d9b84eb789845aa48a5cdaa10d586b2cf5c5afd71adcbd6b3d64df45837bf60"
     },
     "dq-rule-writer": {
       "status": "COMPLETED",
@@ -154,9 +154,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-08T23:39:33.766209+00:00",
+      "completed_at": "2026-04-09T19:48:39.675064+00:00",
       "output": "governance/data-dictionary.json",
-      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+      "output_hash": "sha256:20a85e29165460487161a98d0bf75c04c975f590c3bfe9073f907f4ca9d075aa"
     },
     "adversarial-auditor": {
       "status": "COMPLETED",

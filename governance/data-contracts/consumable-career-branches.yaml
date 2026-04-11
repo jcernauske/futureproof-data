@@ -9,12 +9,13 @@
 table: consumable.career_branches
 namespace: consumable
 zone: gold
-version: "1.0.0"
+version: "1.1.0"
 grain:
   - soc_code
   - related_soc_code
 status: draft
 owner: "@doc-generator"
+quality_tier: derived_multi_source
 spec_reference: docs/specs/gold-futureproof-engine.md
 physical_model: governance/models/gold-futureproof-engine-physical.md
 
@@ -202,6 +203,36 @@ columns:
     constraints:
       - "CHECK (source_wage IS NULL OR (source_wage >= 15000 AND source_wage <= 300000))"
 
+  - name: source_res
+    type: integer
+    required: false
+    business_term: BT-080
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source occupation AI Resilience score (1-10). Source:
+      consumable.ai_exposure.stat_res via LEFT JOIN on soc_code. Null if
+      source SOC code not found in ai_exposure.
+    constraints:
+      - "CHECK (source_res IS NULL OR (source_res >= 1 AND source_res <= 10))"
+
+  - name: source_ai_boss
+    type: integer
+    required: false
+    business_term: BT-083
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source occupation AI Boss strength (1-10). Source:
+      consumable.ai_exposure.boss_ai_score via LEFT JOIN on soc_code. Null if
+      source SOC code not found in ai_exposure.
+    constraints:
+      - "CHECK (source_ai_boss IS NULL OR (source_ai_boss >= 1 AND source_ai_boss <= 10))"
+
   # ---- Related Stats ----
 
   - name: related_grw
@@ -290,6 +321,36 @@ columns:
       Target occupation typical education requirement. Source:
       consumable.occupation_profiles.education_level_name.
 
+  - name: related_res
+    type: integer
+    required: false
+    business_term: BT-080
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Target occupation AI Resilience score (1-10). Source:
+      consumable.ai_exposure.stat_res via LEFT JOIN on related_soc_code. Null
+      if target SOC code not found in ai_exposure.
+    constraints:
+      - "CHECK (related_res IS NULL OR (related_res >= 1 AND related_res <= 10))"
+
+  - name: related_ai_boss
+    type: integer
+    required: false
+    business_term: BT-083
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Target occupation AI Boss strength (1-10). Source:
+      consumable.ai_exposure.boss_ai_score via LEFT JOIN on related_soc_code.
+      Null if target SOC code not found in ai_exposure.
+    constraints:
+      - "CHECK (related_ai_boss IS NULL OR (related_ai_boss >= 1 AND related_ai_boss <= 10))"
+
   # ---- Stat Deltas ----
 
   - name: grw_delta
@@ -345,6 +406,34 @@ columns:
     description: >
       related_wage - source_wage. Positive = higher pay at target. Null if
       either side null.
+
+  - name: res_delta
+    type: integer
+    required: false
+    business_term: BT-091
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      related_res - source_res. Positive = branch target is more AI-resilient.
+      Null if either source_res or related_res is null.
+    constraints:
+      - "CHECK (res_delta IS NULL OR (res_delta >= -9 AND res_delta <= 9))"
+
+  - name: ai_boss_delta
+    type: integer
+    required: false
+    business_term: BT-091
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      related_ai_boss - source_ai_boss. Positive = branch target faces stronger
+      AI boss (more AI-exposed). Null if either side is null.
+    constraints:
+      - "CHECK (ai_boss_delta IS NULL OR (ai_boss_delta >= -9 AND ai_boss_delta <= 9))"
 
   - name: branch_has_full_data
     type: boolean
@@ -405,4 +494,5 @@ lineage:
     - consumable.career_transitions
     - consumable.occupation_profiles
     - consumable.onet_work_profiles
+    - consumable.ai_exposure
   transformation: src/gold/futureproof_engine.py

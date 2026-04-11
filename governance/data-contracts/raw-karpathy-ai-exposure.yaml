@@ -1,0 +1,174 @@
+---
+# Data Contract: raw.karpathy_ai_exposure
+# Spec: raw-ingest-karpathy-ai-exposure
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-09
+
+table: raw.karpathy_ai_exposure
+namespace: raw
+zone: bronze
+grain:
+  - slug
+status: ACTIVE
+record_count: 342
+data_vintage: "Karpathy jobs repo — single LLM scoring run (Gemini Flash via OpenRouter)"
+source: "https://github.com/karpathy/jobs (scores.json + occupations.csv)"
+
+columns:
+  - name: slug
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field and SOURCE-LEVEL UNIQUE KEY for the raw table. The slug is the only
+      identifier that links scores.json entries to occupations.csv rows during ingest.
+      It is required for SOC code resolution in Silver (slug -> SOC mapping) and serves
+      as the provenance anchor for all downstream exposure score data. Without correct
+      slugs, the join between scores and occupations breaks at ingest time, and lineage
+      back to the Karpathy source is lost.
+    is_pii: false
+    pii_rationale: ""
+    description: "Karpathy's kebab-case occupation identifier (e.g., 'financial-analysts'). Unique per occupation. Grain of the raw table."
+
+  - name: occupation_title
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Human-readable occupation identifier required for all consumer-facing outputs
+      (MCP server responses, Gold zone career guidance products, Fight AI boss narrative).
+      Also serves as the fallback join key for SOC resolution in Silver when soc_code is
+      null — title-match against BLS OOH occupation_title is the primary null-SOC
+      resolution strategy. Dual role as display field and resolution key makes this critical.
+    is_pii: false
+    pii_rationale: ""
+    description: "Occupation name from occupations.csv title column. 1:1 mapping with slug."
+
+  - name: category
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Karpathy's BLS category grouping (25 categories, e.g., 'business-and-financial').
+      Project-specific taxonomy — not a standard BLS classification. Useful for display
+      grouping but not a join key or decision driver.
+
+  - name: soc_code
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: >
+      PRIMARY CROSS-SOURCE JOIN KEY for integrating AI exposure scores into the
+      FutureProof pipeline. SOC code bridges Karpathy data to BLS OOH occupations,
+      O*NET task-level data, and (via CIP-to-SOC crosswalk) College Scorecard programs.
+      Without correct SOC codes, exposure scores cannot flow into consumable.program_career_paths
+      or consumable.career_branches, leaving stat_res and boss_ai_score as null placeholders.
+      Nullable in Bronze (52 of 342 rows lack SOC); resolution occurs in Silver.
+    is_pii: false
+    pii_rationale: ""
+    description: "SOC code from occupations.csv. Format XX-XXXX (detailed) or XX-XXX0 (broad). Nullable — 52 rows lack SOC codes."
+
+  - name: exposure_score
+    type: int
+    required: true
+    is_cde: true
+    cde_rationale: >
+      PRIMARY ANALYTICAL PAYLOAD of this data source. The 0-10 AI exposure score is the
+      entire reason this dataset exists in the pipeline. It directly derives two Gold-zone
+      metrics: stat_res (AI Resilience = MIN(11 - exposure_score, 10)) and boss_ai_score
+      (Fight AI difficulty = MAX(exposure_score, 1)). These complete the fifth stat in the
+      FutureProof pentagon and the fifth boss in the gauntlet. A corrupted or missing
+      exposure_score renders the entire Karpathy ingest worthless.
+    is_pii: false
+    pii_rationale: ""
+    description: "LLM-generated AI exposure score (0-10). Higher = more exposed to AI-driven change. Not a job-loss predictor — measures reshaping."
+
+  - name: rationale
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Display field served to end users via MCP and the Fight AI boss narrative in the
+      FutureProof frontend. The rationale explains WHY an occupation scored as it did,
+      which is more actionable than the numeric score alone. Domain context explicitly
+      states: "The rationale field is the single most valuable field for LLM-to-user
+      communication." Without it, exposure scores are bare numbers lacking interpretability.
+    is_pii: false
+    pii_rationale: ""
+    description: "2-3 sentence LLM-generated explanation of the exposure score. All unique, substantive, grammatically complete."
+
+  - name: median_pay_annual
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Median annual wage from occupations.csv. Carried for cross-validation against
+      BLS OOH median_annual_wage only. BLS OOH is the authoritative source for wage
+      data in this pipeline — this field is redundant validation, not a primary data feed.
+
+  - name: num_jobs_2024
+    type: long
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Number of jobs (2024) from occupations.csv. Carried for cross-validation and
+      duplicate SOC resolution (Silver picks row with highest employment). Not a
+      primary analytical field.
+
+  - name: entry_education
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Entry-level education from occupations.csv. Carried for cross-validation only.
+      BLS OOH education_code/education_typical is the authoritative source.
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — GitHub raw URL for scores.json."
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method ('github_download' or 'local_cache')."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

@@ -1,0 +1,298 @@
+---
+# Data Contract: base.karpathy_ai_exposure
+# Spec: silver-base-karpathy-ai-exposure
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-09
+
+table: base.karpathy_ai_exposure
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - soc_code
+status: draft
+owner: "@doc-generator"
+spec_reference: docs/specs/raw-ingest-karpathy-ai-exposure.md
+record_count: 419
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: true
+    cde_rationale: >
+      Deterministic grain hash (prefix 'kai') that uniquely identifies each row
+      in the Silver table after broad SOC expansion and deduplication. Required
+      for idempotent pipeline re-runs and lineage tracing. Serves as the stable
+      row identifier for downstream Gold zone promotion, where rows are filtered
+      and re-keyed. Without a correct record_id, pipeline re-runs could produce
+      duplicates or lose rows during promote().
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['soc_code'], prefix='kai'). Format: kai-<16 hex chars>. Stable across
+      pipeline re-runs. Technical grain identifier.
+
+  - name: soc_code
+    type: varchar
+    required: false
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Primary cross-source join key for integrating AI exposure scores into the
+      FutureProof pipeline. At Silver, this field has been normalized to XX-XXXX
+      format, with null SOC rows resolved via title-match and broad codes
+      expanded to detailed codes. This is the grain of the table and the key
+      that bridges Karpathy data to BLS OOH occupations, O*NET task-level data,
+      and (via CIP-to-SOC crosswalk) College Scorecard programs. Without correct
+      SOC codes, exposure scores cannot flow into consumable.ai_exposure,
+      consumable.program_career_paths, or consumable.career_branches, leaving
+      stat_res and boss_ai_score as null placeholders. Nullable only for the
+      small number of unresolved occupations.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC occupation code in XX-XXXX format. Normalized from Bronze (format
+      validated, nulls resolved where possible via title-match, broad codes
+      expanded to detailed codes). Grain of the table. Nullable only for
+      unresolved occupations (~5% of rows).
+    constraints:
+      - "UNIQUE WHERE soc_code IS NOT NULL"
+      - "CHECK (soc_code IS NULL OR soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: slug
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Original Karpathy kebab-case occupation identifier (e.g.,
+      'financial-analysts'). Retained for provenance tracing back to source
+      scores.json. Not a join key at Silver — soc_code has taken over that role.
+      Multiple rows may share the same slug after broad SOC expansion.
+
+  - name: occupation_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Karpathy's occupation title from occupations.csv. Display label carried
+      through to Gold for MCP and frontend use. At Silver, soc_code (not title)
+      is the authoritative identifier and join key.
+
+  - name: category
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Karpathy's BLS category grouping (25 categories, e.g.,
+      'business-and-financial'). Project-specific taxonomy, not standard BLS.
+      Useful for display grouping but not a join key or decision driver.
+
+  - name: exposure_score
+    type: integer
+    required: true
+    business_term: BT-080
+    is_cde: true
+    cde_rationale: >
+      Primary analytical payload of this data source. The 0-10 AI exposure score
+      directly derives two Gold zone metrics: stat_res (AI Resilience =
+      MIN(11 - exposure_score, 10)) and boss_ai_score (Fight AI difficulty =
+      MAX(exposure_score, 1)). These complete the fifth stat in the FutureProof
+      pentagon and the fifth boss in the gauntlet. Carried verbatim from Bronze
+      — no rescaling at Silver. A corrupted or missing exposure_score renders
+      the entire Karpathy ingest worthless for the downstream RES stat and
+      Fight AI boss.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      LLM-generated AI exposure score (0-10). Higher = more exposed to
+      AI-driven change. Carried verbatim from Bronze — no transformation at
+      Silver. Gold derives stat_res and boss_ai_score from this value.
+    constraints:
+      - "NOT NULL"
+      - "CHECK (exposure_score >= 0 AND exposure_score <= 10)"
+
+  - name: rationale
+    type: varchar
+    required: true
+    business_term: BT-081
+    is_cde: true
+    cde_rationale: >
+      Display field served to end users via MCP tool get_ai_exposure() and the
+      Fight AI boss narrative in the FutureProof frontend. The rationale explains
+      WHY an occupation scored as it did, which is more actionable than the
+      numeric score alone. Domain context states the rationale field is the
+      single most valuable field for LLM-to-user communication. Without it,
+      exposure scores are bare numbers lacking interpretability for career
+      guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-3 sentence LLM-generated explanation of the exposure score. All unique,
+      substantive, grammatically complete. Minimum observed length 297 chars.
+      Carried verbatim from Bronze.
+    constraints:
+      - "NOT NULL"
+      - "CHECK (LENGTH(rationale) >= 100)"
+
+  - name: bls_match
+    type: boolean
+    required: true
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Data quality flag that determines whether an occupation's exposure score
+      can flow into Gold zone consumable tables. Gold filters on
+      bls_match = true — only rows with a confirmed SOC match in base.bls_ooh
+      are promoted to consumable.ai_exposure. A systematic error in bls_match
+      (e.g., all false due to SOC vintage mismatch) would result in an empty
+      Gold table, breaking stat_res and boss_ai_score across the entire
+      pipeline. The DQ rule SLV-KAI requires >= 90% true rate as a P0 gate.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if soc_code was found in base.bls_ooh. False indicates a SOC code
+      that Karpathy used but that does not appear in our BLS ingest (possible
+      SOC vintage mismatch). Gold zone filters on bls_match = true.
+    constraints:
+      - "NOT NULL"
+
+  - name: soc_resolved_method
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Provenance field documenting how each row's SOC code was obtained. Critical
+      for data quality assessment and auditability. The distribution of
+      resolution methods (expected ~70% direct, ~15% broad_expansion, ~10%
+      title_match, ~5% unresolved) is itself a DQ metric — a shift in
+      distribution signals a change in source data quality. Downstream
+      consumers may also use this to weight confidence in exposure scores
+      (direct SOC matches are higher confidence than broad expansions or
+      title matches).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      How the SOC code was resolved: 'direct' (had SOC in source),
+      'title_match' (resolved from occupation title against BLS OOH),
+      'broad_expansion' (propagated from broad SOC code XX-XXX0 to detailed
+      codes), 'unresolved' (no SOC code obtainable).
+    constraints:
+      - "NOT NULL"
+      - "CHECK (soc_resolved_method IN ('direct', 'title_match', 'broad_expansion', 'unresolved'))"
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the raw zone. Pipeline metadata.
+      Renamed from Bronze load_date.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to the Silver zone base table.
+      Generated at transformation time. Pipeline metadata.
+
+# Quality thresholds based on DQ rules and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    soc_code_max_null_pct: 5.0
+  validity:
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    exposure_score_range: [0, 10]
+    soc_resolved_method_values: ["direct", "title_match", "broad_expansion", "unresolved"]
+    rationale_min_length: 100
+  uniqueness:
+    grain_zero_duplicates_where_soc_not_null: true
+    record_id_unique: true
+  volume:
+    row_count_range: [380, 460]
+    bls_match_true_pct_min: 90.0
+  consistency:
+    exposure_score_unchanged_from_bronze: true
+    rationale_unchanged_from_bronze: true
+  freshness_sla: >
+    Event-driven refresh. Re-ingest when Karpathy updates scores or when
+    project re-scores with a different model (e.g., Gemma). No fixed cadence.
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/silver-base-karpathy-ai-exposure.json
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: raw.karpathy_ai_exposure
+  transformation: src/silver/karpathy_ai_exposure_transformer.py
+
+# Consumers — downstream tables and processes that depend on this contract.
+consumers:
+  - name: "consumable.ai_exposure"
+    type: table
+    description: >
+      Gold zone AI exposure consumable table. Filters on bls_match = true and
+      derives stat_res and boss_ai_score from exposure_score. Depends on
+      soc_code format, grain integrity, exposure_score, rationale, and
+      bls_match fields.
+    contact: "@primary-agent"
+    status: active
+  - name: "consumable.program_career_paths (backfill)"
+    type: table
+    description: >
+      LEFT JOIN via soc_code to backfill stat_res and boss_ai_score. Indirectly
+      depends on exposure_score and bls_match through consumable.ai_exposure.
+    contact: "@primary-agent"
+    status: active
+  - name: "consumable.career_branches (backfill)"
+    type: table
+    description: >
+      LEFT JOIN via soc_code + related_soc_code to populate AI resilience
+      deltas. Indirectly depends on exposure_score through consumable.ai_exposure.
+    contact: "@primary-agent"
+    status: active
+  - name: "MCP tool: get_ai_exposure(soc_code)"
+    type: api
+    description: >
+      Exposes AI exposure data to the Gemma agent. Serves exposure_score,
+      stat_res, boss_ai_score, and rationale by SOC code.
+    contact: "@primary-agent"
+    status: active

@@ -1,0 +1,291 @@
+---
+# Data Contract: consumable.ai_exposure
+# Spec: gold-ai-exposure (raw-ingest-karpathy-ai-exposure.md, Zone 3)
+# Zone: Gold (Consumable)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-04-09
+
+table: consumable.ai_exposure
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - soc_code
+status: draft
+owner: "@doc-generator"
+quality_tier: llm_generated
+spec_reference: docs/specs/raw-ingest-karpathy-ai-exposure.md
+physical_model: governance/models/gold-ai-exposure-physical.md
+data_dictionary: governance/data-dictionary.json
+record_count: 389
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: true
+    cde_rationale: >
+      Deterministic grain hash (prefix 'aie') that uniquely identifies each row
+      in the Gold consumable table. Required for idempotent pipeline re-runs and
+      lineage tracing. Serves as the stable row identifier for downstream backfill
+      joins into program_career_paths and career_branches. Without a correct
+      record_id, pipeline re-runs could produce duplicates.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['soc_code'], prefix='aie'). Format: aie-<16 hex chars>. Stable across
+      pipeline re-runs. Technical grain identifier.
+
+  - name: soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Natural key and primary join anchor for the AI exposure consumable table.
+      Every downstream consumer queries by soc_code: Gemma agent lookups via
+      get_ai_exposure(soc_code), LEFT JOIN into consumable.program_career_paths
+      to backfill stat_res and boss_ai_score, LEFT JOIN into
+      consumable.career_branches for AI resilience deltas. As the sole grain
+      field of this Gold consumable table, an incorrect or missing soc_code
+      would sever the linkage between AI exposure data and the rest of the
+      FutureProof pipeline, leaving stat_res and boss_ai_score as null
+      placeholders.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC occupation code in XX-XXXX format. Natural key. Non-null in Gold
+      (only bls_match = true rows promoted). Primary join key for
+      occupation_profiles, program_career_paths, and career_branches.
+      389 unique values.
+    constraints:
+      - "UNIQUE"
+      - "NOT NULL"
+      - "CHECK (soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: occupation_title
+    type: varchar
+    required: true
+    business_term: BT-028
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Karpathy's occupation title for the SOC code. Display label consumed by
+      MCP tool get_ai_exposure() and Fight AI boss narrative. Not a join key
+      at Gold -- soc_code is the authoritative identifier.
+
+  - name: exposure_score
+    type: integer
+    required: true
+    business_term: BT-094
+    is_cde: true
+    cde_rationale: >
+      Original Karpathy 0-10 AI exposure score preserved for transparency and
+      auditability. This is the source metric from which both stat_res and
+      boss_ai_score are derived. Consumed by MCP tool get_ai_exposure() to
+      provide the raw score alongside derived stats. A corrupted exposure_score
+      would propagate through both derivations and misrepresent AI risk for
+      the occupation.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      LLM-generated AI exposure score (0-10). Higher = more exposed to
+      AI-driven change. Actual range in Gold is 1-10 (no score-0 rows
+      survived bls_match filter). Carried verbatim from Silver. Input to
+      stat_res and boss_ai_score derivations.
+    constraints:
+      - "NOT NULL"
+      - "CHECK (exposure_score >= 0 AND exposure_score <= 10)"
+
+  - name: stat_res
+    type: integer
+    required: true
+    business_term: BT-080
+    is_cde: true
+    cde_rationale: >
+      AI Resilience pentagon stat (1-10) backing the RES position in the
+      FutureProof five-stat system. Derived as MIN(11 - exposure_score, 10).
+      This is one of the five core pentagon stats consumed by the game engine
+      for pentagon rendering, by Gemma for career resilience narrative, and by
+      the compare screen. An incorrect stat_res would directly misrepresent
+      occupation AI resilience to students and also corrupt the overall
+      pentagon profile.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      AI Resilience stat on 1-10 scale. Derived as MIN(11 - exposure_score, 10).
+      High score = resilient to AI. Backs the RES pentagon stat. Invariant:
+      stat_res + boss_ai_score = 11 for all rows where exposure_score >= 1.
+    constraints:
+      - "NOT NULL"
+      - "CHECK (stat_res >= 1 AND stat_res <= 10)"
+
+  - name: boss_ai_score
+    type: integer
+    required: true
+    business_term: BT-083
+    is_cde: true
+    cde_rationale: >
+      Fight AI boss strength (1-10) backing the AI boss fight in the
+      FutureProof gauntlet. Derived as MAX(exposure_score, 1). This is one
+      of the five boss fight scores consumed by the game engine for boss
+      fight difficulty calibration and by Gemma for AI threat narrative. An
+      incorrect boss_ai_score would directly miscalibrate the Fight AI boss
+      and mislead students about AI automation risk.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Fight AI boss strength on 1-10 scale. Derived as MAX(exposure_score, 1).
+      High score = stronger AI threat. Backs the Fight AI boss in the gauntlet.
+      Equals exposure_score for all current rows (no score-0 rows in Gold).
+    constraints:
+      - "NOT NULL"
+      - "CHECK (boss_ai_score >= 1 AND boss_ai_score <= 10)"
+
+  - name: rationale
+    type: varchar
+    required: true
+    business_term: BT-095
+    is_cde: true
+    cde_rationale: >
+      Display field served to end users via MCP tool get_ai_exposure() and the
+      Fight AI boss narrative in the FutureProof frontend. The rationale explains
+      WHY an occupation scored as it did, which is more actionable than the
+      numeric score alone. Domain context states the rationale field is the
+      single most valuable field for LLM-to-user communication. Without it,
+      exposure scores are bare numbers lacking interpretability for career
+      guidance.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      2-3 sentence LLM-generated explanation of the exposure score. All unique,
+      substantive, grammatically complete. Minimum observed length 297 chars.
+      Carried verbatim from Silver/Bronze.
+    constraints:
+      - "NOT NULL"
+      - "CHECK (LENGTH(rationale) >= 100)"
+
+  - name: category
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Karpathy's BLS category grouping (25 categories, e.g.,
+      'business-and-financial'). Project-specific taxonomy, not standard BLS.
+      Useful for display grouping in frontend and MCP tool but not a join key
+      or decision driver.
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    business_term: BT-026
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was promoted to the Gold zone consumable table.
+      Generated at promotion time. Replaces Silver's ingested_at.
+
+# Quality thresholds based on physical model constraints, DQ rules, and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    exposure_score_range: [0, 10]
+    stat_res_range: [1, 10]
+    boss_ai_score_range: [1, 10]
+    rationale_min_length: 100
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    soc_code_unique: true
+  volume:
+    row_count_range: [370, 409]
+  consistency:
+    stat_res_derivation: "MIN(11 - exposure_score, 10)"
+    boss_ai_score_derivation: "MAX(exposure_score, 1)"
+    inverse_invariant: "stat_res + boss_ai_score = 11 WHERE exposure_score >= 1"
+    cross_table_soc_code_valid: "all soc_codes exist in consumable.occupation_profiles"
+  freshness_sla: >
+    Event-driven refresh. Re-ingest when Karpathy updates scores or when
+    project re-scores with a different model (e.g., Gemma). No fixed cadence.
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/gold-ai-exposure.json
+  total_rules: 15
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day deprecation
+    notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: base.karpathy_ai_exposure
+  transformation: src/gold/ai_exposure_transformer.py
+  lineage_file: governance/lineage/gold-ai-exposure-20260409T220000Z.json
+
+# PII assessment.
+pii:
+  contains_pii: false
+  pii_fields: []
+  assessment_notes: >
+    No PII in this table. All data is occupation-level aggregate information
+    derived from public BLS occupation classifications and LLM-generated scores.
+    No individual-level data, no names, no addresses, no demographic information.
+
+# Consumers -- downstream tables and processes that depend on this contract.
+consumers:
+  - name: "consumable.program_career_paths (backfill)"
+    type: table
+    description: >
+      LEFT JOIN via soc_code to backfill stat_res and boss_ai_score. Completes
+      the RES pentagon stat and Fight AI boss for matched program-career rows.
+    contact: "@primary-agent"
+    status: active
+  - name: "consumable.career_branches (backfill)"
+    type: table
+    description: >
+      LEFT JOIN via soc_code + related_soc_code to populate AI resilience
+      for source and target occupations and compute stat_res_delta.
+    contact: "@primary-agent"
+    status: active
+  - name: "MCP tool: get_ai_exposure(soc_code)"
+    type: api
+    description: >
+      Exposes AI exposure data to the Gemma agent via function calling.
+      Serves exposure_score, stat_res, boss_ai_score, rationale, and
+      category by SOC code.
+    contact: "@primary-agent"
+    status: active
+  - name: "FutureProof Game Engine (Pentagon Stats)"
+    type: application
+    description: >
+      Consumes stat_res for the RES pentagon stat. Depends on score range
+      (1-10), grain integrity, and derivation correctness.
+    contact: "@primary-agent"
+    status: active
+  - name: "FutureProof Game Engine (Boss Fights)"
+    type: application
+    description: >
+      Consumes boss_ai_score for the Fight AI boss fight. Depends on score
+      range (1-10) and derivation correctness.
+    contact: "@primary-agent"
+    status: active

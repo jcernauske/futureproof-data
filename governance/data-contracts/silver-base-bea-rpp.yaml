@@ -1,0 +1,373 @@
+---
+# Data Contract: base.bea_rpp
+# Spec: silver-base-bea-rpp
+# Zone: Silver (Base)
+# Status: ACTIVE (staff-engineer sign-off 2026-04-10 — governance/approvals/silver-base-bea-rpp-staff-review.md)
+# Tagged by: @cde-tagger (governance/cde-tagging/silver-base-bea-rpp.md)
+# Documented by: @doc-generator
+# Date: 2026-04-10
+# Parent contract: governance/data-contracts/raw-bea-rpp.yaml (Bronze)
+
+table: base.bea_rpp
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - state_fips
+status: active
+record_count: 51
+data_vintage: "BEA Regional Economic Accounts — table SARPP, All Items (LineCode=1), Year=2024. 2024 vintage released February 2026. Promoted from bronze.bea_rpp; Silver carries the same 51 source rows forward with three derivations (state_abbr, census_region, purchasing_power_multiplier) and one provenance column (verification_status)."
+source: "bronze.bea_rpp (promote-only — no cross-source joins, no entity resolution, no concept normalization). Upstream of Bronze: U.S. Bureau of Economic Analysis (BEA), Regional Economic Accounts. API: https://apps.bea.gov/api/data/?method=GetData&datasetname=Regional&TableName=SARPP&LineCode=1&Year=2024&GeoFips=STATE&ResultFormat=JSON. CSV fallback: data/raw/bea_cache/bea_rpp_2024.csv."
+spec_reference: docs/specs/silver-base-bea-rpp.md
+parent_spec_reference: docs/specs/raw-ingest-bea-rpp.md
+owner: "@doc-generator"
+sla: "Annual refresh (each February when BEA publishes new RPPs). Silver runs immediately after every Bronze refresh. Freshness guardrail inherited from Bronze: source_load_date within 400 days of the current run date."
+
+quality_tier: "partial_verification — inherited unchanged from bronze.bea_rpp. 51/51 rows structurally valid; 8/51 rows match spec-verified 2024 BEA values (CA, HI, DC, NJ, AR, MS, IA, OK); 43/51 rows are plausible primary-agent estimates pending a live BEA API refresh. Silver MUST NOT claim more verification than Bronze. The per-row provenance control for this tier is the verification_status column (column 7 of this contract): 'bea_official' for the 8 spec-verified rows and 'estimate' for the other 43. Every downstream consumer (Gold, MCP, frontend) is expected to read verification_status and surface provenance at the row level rather than relying on the contract-level quality_tier alone."
+
+quality:
+  row_count_guarantee: 51
+  row_count_tolerance: 0
+  null_guarantee: "0% nulls across all 11 columns. Every column is required. Enforced by SIL-BEA-* P0 rules."
+  completeness_threshold: 1.00
+  validity_threshold: 1.00
+  uniqueness_guarantee:
+    - "state_fips is unique (51 distinct values)"
+    - "record_id is unique (51 distinct values)"
+    - "state_abbr is unique (51 distinct values, 1:1 with state_fips)"
+    - "state_name is unique (51 distinct values, 1:1 with state_fips)"
+  freshness_sla: "Annual BEA publication cycle. source_load_date must be within 400 days of run date (inherited from Bronze). ingested_at is refreshed on every Silver promote."
+  verified_row_count: 8
+  estimated_row_count: 43
+  per_row_provenance_column: verification_status
+
+columns:
+  - name: record_id
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Deterministic Silver grain identifier. Derived as compute_grain_id(row, ['state_fips'], prefix='rpp'). 51 distinct values, one per state. Consumed only by the pipeline's dedup/upsert machinery, not by business users."
+    dq_rules:
+      - SIL-BEA-025
+      - SIL-BEA-026
+
+  - name: state_fips
+    type: string
+    required: true
+    business_term: BT-100
+    is_cde: true
+    cde_rationale: >
+      Primary key of the Silver table and dedup grain for
+      compute_grain_id(['state_fips'], prefix='rpp'). The join anchor that
+      every downstream zone (Gold, MCP tools, frontend state selector) resolves
+      back to. No other column can substitute: state_name is a display label,
+      state_abbr is 1:1-isomorphic-but-derived, and rpp_all_items is not unique
+      (Iowa and Oklahoma tie at 87.8). ANSI/FIPS external standard. Carried
+      forward from Bronze CDE set. Auto-approved per domain-context.md BEA RPP
+      section.
+    is_pii: false
+    pii_rationale: ""
+    description: "2-digit zero-padded ANSI/FIPS state code (e.g., '06' California, '19' Iowa, '11' DC). Promoted verbatim from bronze.bea_rpp.geo_fips."
+    dq_rules:
+      - SIL-BEA-002
+      - SIL-BEA-003
+      - SIL-BEA-004
+      - SIL-BEA-006
+      - SIL-BEA-011
+      - SIL-BEA-024
+      - SIL-BEA-031
+      - SIL-BEA-032
+      - SIL-BEA-033
+      - SIL-BEA-034
+      - SIL-BEA-035
+      - SIL-BEA-036
+      - SIL-BEA-037
+      - SIL-BEA-038
+      - SIL-BEA-039
+
+  - name: state_name
+    type: string
+    required: true
+    business_term: BT-101
+    is_cde: true
+    cde_rationale: >
+      Primary display label served by MCP tool responses
+      ('state_name': 'California') and the frontend salary-adjustment UI.
+      Fallback identifier when a user or Gemma passes a state by full name
+      rather than FIPS or abbreviation — the MCP tool get_regional_price_parity
+      accepts all three. Carried forward from Bronze CDE set. Auto-approved per
+      domain-context.md BEA RPP section.
+    is_pii: false
+    pii_rationale: ""
+    description: "Full human-readable U.S. state or jurisdiction name (e.g., 'California', 'Iowa', 'District of Columbia'). Promoted verbatim from bronze.bea_rpp.geo_name. 'District of Columbia' is spelled out in full, not abbreviated."
+    dq_rules:
+      - SIL-BEA-005
+      - SIL-BEA-006
+
+  - name: state_abbr
+    type: string
+    required: true
+    business_term: BT-103
+    is_cde: true
+    cde_rationale: >
+      The identifier the frontend uses. The student's state-selector widget
+      stores a 2-letter USPS code; the MCP tool's state parameter accepts it;
+      every chart/display label shows it; every URL and query string uses it.
+      Without this column the frontend cannot round-trip the user's state
+      selection back to this row. It is 1:1 with state_fips, but state_fips is
+      a machine code — state_abbr is the human-readable key the entire product
+      surface area is built on. Newly flagged CDE in Silver (does not exist in
+      Bronze).
+    is_pii: false
+    pii_rationale: ""
+    description: "2-letter uppercase USPS state or jurisdiction abbreviation (e.g., 'CA', 'IA', 'DC'). Derived from state_fips via a static 51-entry FIPS→USPS lookup. DQ rules enforce 2-character length, uppercase, and membership in the canonical 51-member USPS set."
+    dq_rules:
+      - SIL-BEA-007
+      - SIL-BEA-008
+      - SIL-BEA-009
+      - SIL-BEA-010
+      - SIL-BEA-011
+      - SIL-BEA-031
+      - SIL-BEA-032
+      - SIL-BEA-033
+      - SIL-BEA-034
+      - SIL-BEA-035
+      - SIL-BEA-036
+      - SIL-BEA-037
+      - SIL-BEA-038
+
+  - name: census_region
+    type: string
+    required: true
+    business_term: BT-104
+    is_cde: true
+    cde_rationale: >
+      Four-valued U.S. Census Bureau regional grouping consumed by the frontend
+      regional comparison views and the stretch-goal Fight Location Lock boss.
+      Spec P0-enforces both value domain (IN ('Northeast','Midwest','South','West'))
+      and completeness (all four regions represented). Not a join key, but a
+      decision input to downstream regional roll-ups and boss-fight scoring.
+      No other column in this table encodes region. Newly flagged CDE in Silver
+      (does not exist in Bronze).
+    is_pii: false
+    pii_rationale: ""
+    description: "U.S. Census Bureau region of the state: one of 'Northeast', 'Midwest', 'South', or 'West'. Derived from state_fips via a static FIPS→region lookup. Documented quirk: the District of Columbia (state_fips='11') is assigned to 'South' under the Census Bureau classification, despite its Northeast-like cost-of-living profile. This is a documented Census convention, not a bug — any downstream consumer comparing DC to 'Northeast' states must handle this explicitly."
+    dq_rules:
+      - SIL-BEA-012
+      - SIL-BEA-013
+      - SIL-BEA-014
+      - SIL-BEA-015
+      - SIL-BEA-031
+      - SIL-BEA-032
+      - SIL-BEA-033
+      - SIL-BEA-034
+      - SIL-BEA-035
+      - SIL-BEA-036
+      - SIL-BEA-037
+      - SIL-BEA-038
+
+  - name: rpp_all_items
+    type: double
+    required: true
+    business_term: BT-098
+    is_cde: true
+    cde_rationale: >
+      The entire analytical payload of this table. Every derived field in
+      Silver (purchasing_power_multiplier) and every Gold transformation
+      (cost_tier, adjusted_30k/50k/75k/100k) and every user-facing salary
+      adjustment is a pure function of this column. If this value is wrong for
+      a state, every salary figure displayed to every student who selects that
+      state is wrong. Highest-criticality column in the table. Carried forward
+      from Bronze CDE set. Auto-approved per domain-context.md BEA RPP section.
+    is_pii: false
+    pii_rationale: ""
+    description: "BEA Regional Price Parity index, All Items line code, national baseline = 100.0. Values above 100 mean prices are above the national average; below 100 means cheaper than national. Promoted verbatim from bronze.bea_rpp.rpp_all_items. Observed range in current load: [86.9, 110.7]. 50 distinct values because Iowa and Oklahoma legitimately tie at 87.8."
+    dq_rules:
+      - SIL-BEA-016
+      - SIL-BEA-017
+      - SIL-BEA-018
+      - SIL-BEA-021
+
+  - name: purchasing_power_multiplier
+    type: double
+    required: true
+    business_term: BT-099
+    is_cde: true
+    cde_rationale: >
+      Pre-computed salary adjustment factor consumed directly by Gemma's MCP
+      tool response, by the Gold zone (consumable.regional_price_parities), and
+      by the frontend salary displays. Every adjusted_30k/50k/75k/100k field in
+      Gold is just N × purchasing_power_multiplier; every ad-hoc salary
+      adjustment Gemma narrates ('$65,000 in California ≈ $58,722 purchasing
+      power') is a single multiply against this factor. Materialized here so
+      Gold, MCP, and frontend do not re-derive and so the inverse-invariant DQ
+      rule (multiplier × rpp_all_items ≈ 100.0) can guard correctness at rest.
+      Newly flagged CDE in Silver (does not exist in Bronze).
+    is_pii: false
+    pii_rationale: ""
+    description: "Factor by which a national salary is multiplied to express local purchasing power. Derived as 100.0 / rpp_all_items and stored as double at rest. DQ range: 0.7 ≤ x ≤ 1.3. Inverse invariant: purchasing_power_multiplier × rpp_all_items ≈ 100.0 within tolerance 0.01."
+    dq_rules:
+      - SIL-BEA-019
+      - SIL-BEA-020
+      - SIL-BEA-021
+      - SIL-BEA-031
+      - SIL-BEA-032
+      - SIL-BEA-033
+      - SIL-BEA-034
+      - SIL-BEA-035
+      - SIL-BEA-036
+      - SIL-BEA-037
+      - SIL-BEA-038
+
+  - name: verification_status
+    type: string
+    required: true
+    business_term: BT-105
+    is_cde: true
+    cde_rationale: >
+      Per-row provenance that Gemma uses to hedge numeric precision in MCP tool
+      responses ('bea_official' vs. 'estimate'). Direct input to the contract's
+      quality tier — the 8 'bea_official' rows are High tier, the 43 'estimate'
+      rows are Medium tier per domain-context.md. Without this flag, downstream
+      consumers cannot distinguish authoritative BEA values from primary-agent
+      placeholder values, which is a material correctness concern. Newly flagged
+      CDE in Silver (does not exist in Bronze). Implements Bronze staff-review
+      Ruling 2 / Condition 6 (governance/approvals/raw-ingest-bea-rpp-staff-review.md).
+    is_pii: false
+    pii_rationale: ""
+    description: "Row-level provenance enum: 'bea_official' (8 rows from the February 2026 BEA release — CA, HI, DC, NJ, AR, MS, IA, OK, i.e. state_fips ∈ {'06','15','11','34','05','28','19','40'}) or 'estimate' (43 rows, primary-agent plausible placeholders pending live BEA API load). This column closes Bronze HIGH-3 at the Silver layer by surfacing per-row provenance that downstream consumers can read directly."
+    dq_rules:
+      - SIL-BEA-022
+      - SIL-BEA-023
+      - SIL-BEA-024
+      - SIL-BEA-031
+      - SIL-BEA-032
+      - SIL-BEA-033
+      - SIL-BEA-034
+      - SIL-BEA-035
+      - SIL-BEA-036
+      - SIL-BEA-037
+      - SIL-BEA-038
+
+  - name: data_year
+    type: int
+    required: true
+    business_term: BT-102
+    is_cde: true
+    cde_rationale: >
+      Provenance-critical temporal dimension. The RPP index is re-published
+      annually by BEA; values shift year-over-year as the underlying price
+      index methodology and consumer basket update. A mis-labeled data_year
+      silently stales every downstream purchasing-power figure. Governs annual
+      refresh replacement semantics. Carried forward from Bronze CDE set.
+    is_pii: false
+    pii_rationale: ""
+    description: "Year of the BEA RPP estimate. Constant 2024 across all 51 rows in the current load. Promoted verbatim from bronze.bea_rpp.data_year. The COUNT(DISTINCT data_year) = 1 rule hardens the supersession-by-replacement contract."
+    dq_rules:
+      - SIL-BEA-027
+      - SIL-BEA-028
+
+  - name: source_load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Date the upstream Bronze load ran. Promoted from bronze.bea_rpp.load_date. Identical across all 51 rows in a batch. Operational freshness metadata — the 400-day freshness window is inherited from Bronze and anchored on this column."
+    dq_rules:
+      - SIL-BEA-029
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Silver promote timestamp — the exact wall-clock time when this row was written into base.bea_rpp. Identical across all 51 rows in a single Silver batch. Distinct from bronze.bea_rpp.ingested_at (the Bronze batch stamp); downstream consumers that need to distinguish Bronze ingest time from Silver promote time should reference the table name. Freshness is governed by annual refresh cadence, not by this per-row timestamp."
+    dq_rules:
+      - SIL-BEA-030
+
+table_level_dq_rules:
+  - SIL-BEA-001  # Row count exactly 51 — table-wide invariant, not tied to any single column
+
+dq_summary:
+  total_rules: 39
+  p0_rules_note: "Row count, grain uniqueness, value-domain, inverse invariant, and verification_status allow-list rules are all P0. See rules_reference for the full breakdown."
+  rules_reference: governance/dq-rules/silver-base-bea-rpp.json
+
+cde_summary:
+  total_columns: 11
+  cde_columns: 8
+  pii_columns: 0
+  carried_forward_cde_columns:
+    - state_fips
+    - state_name
+    - rpp_all_items
+    - data_year
+  new_silver_cde_columns:
+    - state_abbr
+    - census_region
+    - purchasing_power_multiplier
+    - verification_status
+  sensitivity_classification: public
+  regulatory_frameworks: []
+  cde_reference: governance/cde-tagging/silver-base-bea-rpp.md
+  pii_reference: governance/pii-scans/silver-base-bea-rpp.md
+
+business_terms_referenced:
+  - BT-098  # Regional Price Parity (RPP)
+  - BT-099  # Purchasing Power Multiplier
+  - BT-100  # State FIPS Code
+  - BT-101  # State Name
+  - BT-102  # RPP Data Year
+  - BT-103  # USPS State Abbreviation
+  - BT-104  # Census Region
+  - BT-105  # Data Verification Status
+
+staff_review_conditions:
+  condition_6_implemented:
+    source: governance/approvals/raw-ingest-bea-rpp-staff-review.md
+    description: >
+      Condition 6 (Ruling 2 of the Bronze staff review) is implemented at this
+      Silver layer. The verification_status column (column 7 of this contract,
+      business term BT-105) is derived from a hard-coded allow-list of the 8
+      spec-verified state_fips codes ({'06','15','11','34','05','28','19','40'})
+      and assigns 'bea_official' to those 8 rows and 'estimate' to the other 43.
+      The companion P0 DQ rule asserts COUNT(*) WHERE verification_status='bea_official' = 8.
+      When the live BEA API refresh lands, the allow-list becomes all 51 codes
+      and the DQ rule flips to = 51 — a contract-level minor version bump, not
+      a breaking change.
+  condition_7_carry_forward:
+    owner: "@primary-agent on gold-regional-price-parities and mcp-bea-rpp specs"
+    description: >
+      Condition 7 of the Bronze staff review (MCP tool hallucination guard) is
+      forward-only from this contract. Gold (consumable.regional_price_parities)
+      MUST propagate verification_status as a first-class column on every row,
+      and the MCP tool response MUST return a 'data_source' field derived from
+      it with a strict-mode option that refuses to return 'estimate' rows.
+      Silver is the canonical source for the flag; Gold and MCP are the surfaces.
+      This contract does not implement those consumers but documents the
+      carry-forward requirement so the Gold/MCP pre-reviews cannot overlook it.
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Breaking changes (column removal, rename, type change,
+    grain change, reduction of the CDE set, relaxation of P0 DQ thresholds)
+    require a new major version and 30-day deprecation notice. Non-breaking
+    changes (column addition, description update, flipping the
+    verification_status allow-list from 8 states to 51 states when the live
+    BEA API refresh lands, extension of the data_year set) ship as a minor
+    bump without deprecation.
+  notification: "Logged in governance/audit-trail/"
+
+downstream_consumers:
+  - consumable.regional_price_parities (Gold zone — cost_tier and adjusted_* display fields; MUST carry verification_status per Condition 7)
+  - MCP tool get_regional_price_parity(state) (MUST return data_source per row per Condition 7)
+  - MCP tool compare_purchasing_power(salary, state_a, state_b)
+  - Frontend salary adjustment display
+  - Fight Location Lock boss (stretch goal)
