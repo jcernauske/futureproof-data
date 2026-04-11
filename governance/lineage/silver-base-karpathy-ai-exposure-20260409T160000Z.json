@@ -1,0 +1,216 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-09T16:00:00.000000Z",
+    "run": {
+      "runId": "a7f3c812-4d6e-48b1-9a25-3e8b1c5f7d09",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-karpathy-ai-exposure.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of Karpathy AI exposure data. Reads 342 rows from bronze.karpathy_ai_exposure and cross-references base.bls_ooh for SOC resolution. Normalizes SOC codes (whitespace strip, XX-XXXX format validation), resolves null SOC codes via case-insensitive title matching against BLS occupation titles (exact match then substring match), expands broad SOC codes (XX-XXX0) to all detailed codes found in BLS OOH (with broad-to-broad exact match detection for 4 codes that exist as broad in BLS), deduplicates by soc_code keeping highest num_jobs_2024 (slug tiebreaker), computes deterministic record_id via grain hash, and derives bls_match and soc_resolved_method classification fields. Output: 419 rows promoted to base.karpathy_ai_exposure."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 342,
+          "blsReferenceRows": 832,
+          "rowsTransformed": 419,
+          "rowsFromBroadExpansion": "~70",
+          "rowsFromTitleMatch": "~28",
+          "rowsDeduped": "varies",
+          "promoted": 419,
+          "skippedDedup": 0,
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-karpathy-ai-exposure",
+      "facets": {
+        "documentation": {
+          "description": "Transform Bronze Karpathy AI exposure scores into Silver base table. Four-stage SOC resolution pipeline: (1) normalize SOC codes by stripping whitespace and validating XX-XXXX format, (2) resolve null SOC codes via title matching against base.bls_ooh occupation titles using exact case-insensitive match then bidirectional substring match, (3) expand broad SOC codes (XX-XXX0 pattern) to all detailed BLS OOH codes sharing the same 6-char prefix (with special handling for 4 broad codes that exist as-is in BLS), (4) post-expansion deduplication by soc_code keeping the row with highest num_jobs_2024 and alphabetical slug tiebreaker. Derives bls_match boolean and soc_resolved_method enum (direct, title_match, broad_expansion, unresolved). Computes deterministic record_id via compute_grain_id on soc_code (prefix 'kai') or slug for null-SOC rows. Drops Bronze cross-validation fields (median_pay_annual, num_jobs_2024, entry_education, source_url, source_method). Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/karpathy_ai_exposure_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.karpathy_ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "slug", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "median_pay_annual", "type": "DOUBLE"},
+              {"name": "num_jobs_2024", "type": "LONG"},
+              {"name": "entry_education", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_ooh",
+        "inputDatasetFacets": {
+          "usage": "REFERENCE",
+          "description": "Used for SOC cross-validation, title-based SOC resolution, and broad SOC code expansion. Not joined row-for-row; used to build three lookup structures: bls_soc_set (all SOC codes), bls_title_lookup (lowercase title -> soc_code), and bls_prefix_map (6-char prefix -> list of detailed SOC codes)."
+        },
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.karpathy_ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "slug", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "bls_match", "type": "BOOLEAN"},
+              {"name": "soc_resolved_method", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "slug"}
+                ],
+                "transformationDescription": "Deterministic grain hash via compute_grain_id(). For rows with non-null soc_code: hash of soc_code with prefix 'kai'. For rows with null soc_code: hash of slug with prefix 'kai'. The soc_code used is the post-transformation value (after normalization, title matching, or broad expansion), not the raw Bronze value.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Multi-path resolution: (1) DIRECT path: Bronze soc_code stripped of whitespace and validated against XX-XXXX regex. Valid non-broad codes pass through. (2) TITLE_MATCH path: when Bronze soc_code is null, occupation_title is matched case-insensitively against base.bls_ooh titles (exact match first, then bidirectional substring match). May produce multiple rows per input if multiple BLS titles match. (3) BROAD_EXPANSION path: broad SOC codes (XX-XXX0) are expanded to all detailed BLS OOH codes sharing the same 6-char prefix, creating one row per detailed code. Exception: 4 broad codes that exist as-is in BLS are kept as direct matches. (4) UNRESOLVED: invalid format or no match found yields null soc_code.",
+                "transformationType": "DERIVED"
+              },
+              "slug": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "slug"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Kebab-case occupation identifier. Used as fallback grain field for record_id when soc_code is null.",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Also used as input to title_match() for SOC resolution, but the field value itself is unchanged.",
+                "transformationType": "DIRECT"
+              },
+              "category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "category"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. Karpathy occupation category grouping.",
+                "transformationType": "DIRECT"
+              },
+              "exposure_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "exposure_score"}
+                ],
+                "transformationDescription": "Coerced to int via int() cast. AI exposure score on 0-10 scale from Karpathy LLM evaluation.",
+                "transformationType": "DIRECT"
+              },
+              "rationale": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "rationale"}
+                ],
+                "transformationDescription": "Direct copy from Bronze. LLM-generated explanation of the exposure score.",
+                "transformationType": "DIRECT"
+              },
+              "bls_match": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if the resolved soc_code (after normalization, title matching, or broad expansion) exists in the base.bls_ooh SOC code set. False for unresolved rows (null soc_code) and for valid SOC codes not found in BLS. For broad_expansion rows, always True by construction (expanded codes are drawn from BLS). For title_match rows, True if the matched SOC exists in BLS (which it always does since matches come from the BLS title lookup).",
+                "transformationType": "DERIVED"
+              },
+              "soc_resolved_method": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Enum classification of how the output soc_code was determined. Values: 'direct' (Bronze SOC valid and non-broad, OR broad code found as-is in BLS), 'title_match' (null Bronze SOC resolved via occupation_title matching against BLS titles), 'broad_expansion' (broad SOC XX-XXX0 expanded to detailed BLS codes), 'unresolved' (null SOC with no title match, invalid SOC format, or broad SOC with no detailed codes in BLS).",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.karpathy_ai_exposure", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. Preserves the Bronze zone ingest date. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver transformation time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at. Represents when this Silver row was created.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "median_pay_annual": {
+                "reason": "Bronze cross-validation field from occupations.csv. Not needed in Silver zone; BLS OOH provides authoritative wage data."
+              },
+              "num_jobs_2024": {
+                "reason": "Bronze cross-validation field from occupations.csv. Used internally during deduplication (highest num_jobs_2024 wins) but not persisted to Silver schema. Stored as temporary _num_jobs_2024 field and removed before promotion."
+              },
+              "entry_education": {
+                "reason": "Bronze cross-validation field from occupations.csv. Not needed in Silver zone; BLS OOH provides authoritative education data."
+              },
+              "source_url": {
+                "reason": "Raw metadata field from Bronze ingestion. Not carried to Silver zone."
+              },
+              "source_method": {
+                "reason": "Raw metadata field from Bronze ingestion. Not carried to Silver zone."
+              },
+              "ingested_at (bronze)": {
+                "reason": "Bronze ingestion timestamp replaced by Silver-specific ingested_at. Bronze timestamp not preserved."
+              }
+            }
+          },
+          "rowCountLineage": {
+            "description": "342 Bronze rows -> 419 Silver rows. Row count increases due to: (1) broad SOC expansion creates ~70 new rows (one per detailed BLS code for each broad input code), (2) title matching can create multiple rows when multiple BLS titles match one Karpathy occupation (~28 rows). Post-expansion deduplication by soc_code (highest num_jobs_2024 wins) removes some duplicates. Net effect: ~77 additional rows."
+          }
+        }
+      }
+    ]
+  }
+]

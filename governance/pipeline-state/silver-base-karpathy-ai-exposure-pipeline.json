@@ -1,0 +1,254 @@
+{
+  "spec": "silver-base-karpathy-ai-exposure",
+  "zone": "silver",
+  "mode": "greenfield",
+  "started": "2026-04-09T19:52:20.493757+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T19:56:17.921269+00:00",
+      "output": "governance/approvals/silver-base-karpathy-ai-exposure-pre-review.md",
+      "output_hash": "sha256:17b65fe4f1853c6e15e9ef977e88797ab27934a5f2948cc4d0498cbfbc0a8711"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:06:44.867559+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:53bc6b6a5ef3493c800cc1d90499965d1050f5d6a977958c14148522422984fa"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:08:17.201007+00:00",
+      "output": "governance/models/silver-base-karpathy-ai-exposure-conceptual.md",
+      "output_hash": "sha256:289928697225e59971c997655c4d721b112982ba4f007facee9c6da71db210d3"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:08:18.230801+00:00",
+      "output": "governance/models/silver-base-karpathy-ai-exposure-logical.md",
+      "output_hash": "sha256:4e8ec79e8c0fda5c45f26d652f2bb0988a8859e8997117af1a16ea5b733b2fee"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:14:18.465687+00:00",
+      "output": "governance/eda/silver-base-karpathy-ai-exposure-eda.md",
+      "output_hash": "sha256:07f7c3da7231e59fa3e43ee57d494f1a16cde9283c73c38994fce41d8bffe4ab"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:06:45.935542+00:00",
+      "output": "governance/dq-rules/silver-base-karpathy-ai-exposure.json",
+      "output_hash": "sha256:a251233dd86fed84114ed7b0580881179d4d5ebd2b07db34f700de0fc6a1a007"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:08:19.257799+00:00",
+      "output": "governance/models/silver-base-karpathy-ai-exposure-physical.md",
+      "output_hash": "sha256:7501b330871666b8460ba37f3f7aa688394b1dc7e5f5f40c6fa1d9a08af17fb7"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:24:53.479635+00:00",
+      "output": "src/silver/karpathy_ai_exposure_transformer.py",
+      "output_hash": "sha256:c390cb13d13bdba1ab5fef2b3dc82c65b7f9e591f70b676f40fd212e8a7fd42a"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:27:15.519106+00:00",
+      "output": "governance/dq-scorecards/silver-base-karpathy-ai-exposure-scorecard.md",
+      "output_hash": "sha256:b1f77a548af12d4664cba9678b3fe1cd32d322be615e96d523bcfc855876f376"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:34:41.046567+00:00",
+      "output": "governance/audit-trail/silver-base-karpathy-ai-exposure-chaos-monkey.md",
+      "output_hash": "sha256:5fa032aa4b6f6274a4f8daf70ab0ece6ee5b58f493103ec3ed36ede88cbdea32"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:44:54.017772+00:00",
+      "output": "governance/audit-trail/silver-base-karpathy-ai-exposure-entity-resolution.md",
+      "output_hash": "sha256:d9c5686ad8590ff5c66d31caa77251b70ebcaa06b7a567bbda827a9d7ff691d0"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:44:55.117083+00:00",
+      "output": "governance/pii-scans/silver-base-karpathy-ai-exposure-pii-scan.md",
+      "output_hash": "sha256:f3226f364e7dde425f07cfbc12673e545da8e81ed995ee652b7d0b58a218fba1"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:44:56.158670+00:00",
+      "output": "governance/audit-trail/silver-base-karpathy-ai-exposure-temporal-assessment.md",
+      "output_hash": "sha256:26370d28d489cbf0cab4c1060a871e3ac12d8052f04ad714eb59e1047a8dd28e"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:44:57.205171+00:00",
+      "output": "governance/lineage/silver-base-karpathy-ai-exposure-20260409T160000Z.json",
+      "output_hash": "sha256:159cab9d38fd78172a43b1bae821e6672728cd2b223e2dc9a8adfb8ad5032713"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:44:58.255616+00:00",
+      "output": "governance/data-contracts/silver-base-karpathy-ai-exposure.yaml",
+      "output_hash": "sha256:87aff93d5798bed897d068ed667f2455dada18b6980904f12f1a2ba0ff5b9909"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:49:40.242500+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:7d9344753e6de407121045b82d07144671fbb902acfde0aabdefccf681bb5d1f"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T20:45:53.418623+00:00",
+      "output": "governance/audit-trail/silver-base-karpathy-ai-exposure-adversarial-audit.md",
+      "output_hash": "sha256:3464c684f9d161178fb98fe66fe6c80a5e578243e56aa9dada5d5c8ced1f9737"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:01:15.752637+00:00",
+      "output": "governance/approvals/silver-base-karpathy-ai-exposure-post-review.md",
+      "output_hash": "sha256:0ef0753f7a17b45a0399d3926dee7ddbfe263b3466f0ed1d44e905ffa2dfef50"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:06:36.873990+00:00",
+      "output": "governance/approvals/silver-base-karpathy-ai-exposure-staff-review.md",
+      "output_hash": "sha256:5e832bbb65c4ef668aca32df7c8e67366c95a70e6e82d3c22eab7a02beeceb51"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "Table is new (no existing contract) \u2014 CAB review only applies to schema modifications of existing tables",
+      "evidence": "governance/models/silver-base-karpathy-ai-exposure-physical.md",
+      "skipped_at": "2026-04-09T20:25:01.767413+00:00"
+    }
+  },
+  "approvals": {}
+}

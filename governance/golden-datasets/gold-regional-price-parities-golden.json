@@ -1,0 +1,189 @@
+{
+  "spec": "gold-regional-price-parities",
+  "table": "consumable.regional_price_parities",
+  "grain": ["state_fips"],
+  "created": "2026-04-11",
+  "agent": "@primary-agent",
+  "description": "Golden dataset for consumable.regional_price_parities. Each chain traces from Silver input through Gold derivations (cost_tier, adjusted_30k/50k/75k/100k) to expected output. All values independently verifiable against BEA Regional Economic Accounts SARPP table, LineCode=1, 2024 vintage. The 8 BEA-verified spec states are the canonical reference set: California 110.7, Hawaii 110.0, DC 109.9, New Jersey 108.8, Arkansas 86.9, Mississippi 87.0, Iowa 87.8, Oklahoma 87.8. All values computed with Python round() (banker's rounding / IEEE 754 round-half-to-even) at 2 decimal places, matching DuckDB round() semantics.",
+  "values": [
+    {"state_fips": "06", "field": "cost_tier", "expected": "very_high"},
+    {"state_fips": "06", "field": "adjusted_50k", "expected": 45167.12, "tolerance": 0.01},
+    {"state_fips": "06", "field": "purchasing_power_multiplier", "expected": 0.9033423667570913, "tolerance": 0.000001},
+    {"state_fips": "05", "field": "cost_tier", "expected": "very_low"},
+    {"state_fips": "05", "field": "adjusted_50k", "expected": 57537.40, "tolerance": 0.01},
+    {"state_fips": "05", "field": "purchasing_power_multiplier", "expected": 1.1507479861910242, "tolerance": 0.000001},
+    {"state_fips": "19", "field": "cost_tier", "expected": "very_low"},
+    {"state_fips": "19", "field": "adjusted_50k", "expected": 56947.61, "tolerance": 0.01},
+    {"state_fips": "15", "field": "cost_tier", "expected": "very_high"},
+    {"state_fips": "15", "field": "adjusted_50k", "expected": 45454.55, "tolerance": 0.01},
+    {"state_fips": "34", "field": "cost_tier", "expected": "very_high"},
+    {"state_fips": "34", "field": "adjusted_50k", "expected": 45955.88, "tolerance": 0.01},
+    {"state_fips": "47", "field": "cost_tier", "expected": "low", "description": "Tennessee at rpp=91.0 — exact left-closed boundary witness"},
+    {"state_fips": "11", "field": "verification_status", "expected": "bea_official"},
+    {"state_fips": "48", "field": "verification_status", "expected": "estimate"}
+  ],
+  "verification_chains": [
+    {
+      "name": "California (06) — highest-cost state, very_high tier",
+      "silver_input": {
+        "state_fips": "06",
+        "state_name": "California",
+        "state_abbr": "CA",
+        "census_region": "West",
+        "rpp_all_items": 110.7,
+        "purchasing_power_multiplier": 0.9033423667570913,
+        "verification_status": "bea_official",
+        "data_year": 2024
+      },
+      "derivation_steps": {
+        "cost_tier": "CASE: rpp_all_items=110.7 >= 108.0 → 'very_high'",
+        "adjusted_30k": "round(30000.0 * 0.9033423667570913, 2) = round(27100.27100, 2) = 27100.27",
+        "adjusted_50k": "round(50000.0 * 0.9033423667570913, 2) = round(45167.11833, 2) = 45167.12",
+        "adjusted_75k": "round(75000.0 * 0.9033423667570913, 2) = round(67750.67750, 2) = 67750.68",
+        "adjusted_100k": "round(100000.0 * 0.9033423667570913, 2) = round(90334.23667, 2) = 90334.24",
+        "record_id": "compute_grain_id({'state_fips':'06'}, ['state_fips'], prefix='rpc') = deterministic hash, prefix rpc (distinct from Silver's rpp prefix)",
+        "verification_status_carry_forward": "Passthrough from Silver — CA is in the 8-state BEA_VERIFIED_FIPS allow-list"
+      },
+      "expected_output": {
+        "cost_tier": "very_high",
+        "adjusted_30k": 27100.27,
+        "adjusted_50k": 45167.12,
+        "adjusted_75k": 67750.68,
+        "adjusted_100k": 90334.24,
+        "verification_status": "bea_official",
+        "ca_sanity_below_national_50k": true
+      },
+      "tolerance": {
+        "adjusted_30k": 0.01,
+        "adjusted_50k": 0.01,
+        "adjusted_75k": 0.01,
+        "adjusted_100k": 0.01
+      }
+    },
+    {
+      "name": "Arkansas (05) — lowest-cost state, very_low tier",
+      "silver_input": {
+        "state_fips": "05",
+        "state_name": "Arkansas",
+        "state_abbr": "AR",
+        "census_region": "South",
+        "rpp_all_items": 86.9,
+        "purchasing_power_multiplier": 1.1507479861910242,
+        "verification_status": "bea_official",
+        "data_year": 2024
+      },
+      "derivation_steps": {
+        "cost_tier": "CASE: rpp_all_items=86.9 < 91.0 → 'very_low'",
+        "adjusted_30k": "round(30000.0 * 1.1507479861910242, 2) = 34522.44",
+        "adjusted_50k": "round(50000.0 * 1.1507479861910242, 2) = 57537.40",
+        "adjusted_75k": "round(75000.0 * 1.1507479861910242, 2) = 86306.10",
+        "adjusted_100k": "round(100000.0 * 1.1507479861910242, 2) = 115074.80",
+        "ar_sanity_above_national_50k": "57537.40 > 50000.0 → low-cost sanity rule GLD-RPP-034 holds"
+      },
+      "expected_output": {
+        "cost_tier": "very_low",
+        "adjusted_30k": 34522.44,
+        "adjusted_50k": 57537.40,
+        "adjusted_75k": 86306.10,
+        "adjusted_100k": 115074.80,
+        "verification_status": "bea_official"
+      },
+      "tolerance": {
+        "adjusted_30k": 0.01,
+        "adjusted_50k": 0.01,
+        "adjusted_75k": 0.01,
+        "adjusted_100k": 0.01
+      }
+    },
+    {
+      "name": "Iowa (19) — low-cost sanity, ties Oklahoma at rpp=87.8",
+      "silver_input": {
+        "state_fips": "19",
+        "state_name": "Iowa",
+        "state_abbr": "IA",
+        "census_region": "Midwest",
+        "rpp_all_items": 87.8,
+        "purchasing_power_multiplier": 1.1389521640091115,
+        "verification_status": "bea_official",
+        "data_year": 2024
+      },
+      "derivation_steps": {
+        "cost_tier": "CASE: rpp_all_items=87.8 < 91.0 → 'very_low'",
+        "adjusted_50k": "round(50000.0 * 1.1389521640091115, 2) = 56947.61",
+        "tie_note": "Iowa and Oklahoma (state_fips='40') both have rpp_all_items=87.8 — this is why rpp_all_items has 50 distinct values across 51 rows. A uniqueness rule on rpp_all_items would be incorrect."
+      },
+      "expected_output": {
+        "cost_tier": "very_low",
+        "adjusted_50k": 56947.61,
+        "verification_status": "bea_official",
+        "ia_sanity_above_national_50k": true
+      },
+      "tolerance": {
+        "adjusted_50k": 0.01
+      }
+    },
+    {
+      "name": "Tennessee (47) — left-closed boundary witness at rpp=91.0",
+      "silver_input": {
+        "state_fips": "47",
+        "rpp_all_items": 91.0,
+        "verification_status": "estimate"
+      },
+      "derivation_steps": {
+        "cost_tier": "CASE: rpp_all_items=91.0 is >= 91.0 but < 97.0 → 'low' (NOT 'very_low'). This is the single row in the table that sits exactly on a breakpoint, proving the left-closed (inclusive lower bound) convention. GLD-RPP-024 pins this row as a dedicated boundary witness rule."
+      },
+      "expected_output": {
+        "cost_tier": "low",
+        "verification_status": "estimate"
+      },
+      "note": "Tennessee's rpp is an estimate (flagged in verification_status), but the left-closed semantic invariant must hold regardless of whether the value is verified or estimated."
+    },
+    {
+      "name": "Hawaii (15) — second-highest verified state",
+      "silver_input": {
+        "state_fips": "15",
+        "state_name": "Hawaii",
+        "state_abbr": "HI",
+        "census_region": "West",
+        "rpp_all_items": 110.0,
+        "purchasing_power_multiplier": 0.9090909090909091,
+        "verification_status": "bea_official"
+      },
+      "derivation_steps": {
+        "cost_tier": "CASE: 110.0 >= 108.0 → 'very_high'",
+        "adjusted_50k": "round(50000.0 * 0.9090909090909091, 2) = round(45454.54545, 2) = 45454.55"
+      },
+      "expected_output": {
+        "cost_tier": "very_high",
+        "adjusted_50k": 45454.55,
+        "verification_status": "bea_official"
+      },
+      "tolerance": {
+        "adjusted_50k": 0.01
+      }
+    }
+  ],
+  "full_verification_matrix": {
+    "description": "All 8 BEA-verified states — spot-check table that the 8 per-state DQ rules (GLD-RPP-044 through GLD-RPP-051) also encode. Anchors are byte-identical to the spec §DQ Rules spot-check table and to the physical model §Spot Checks table.",
+    "rows": [
+      {"state_fips": "06", "state_abbr": "CA", "cost_tier": "very_high", "rpp_all_items": 110.7, "adjusted_50k": 45167.12, "verification_status": "bea_official"},
+      {"state_fips": "15", "state_abbr": "HI", "cost_tier": "very_high", "rpp_all_items": 110.0, "adjusted_50k": 45454.55, "verification_status": "bea_official"},
+      {"state_fips": "11", "state_abbr": "DC", "cost_tier": "very_high", "rpp_all_items": 109.9, "adjusted_50k": 45495.91, "verification_status": "bea_official"},
+      {"state_fips": "34", "state_abbr": "NJ", "cost_tier": "very_high", "rpp_all_items": 108.8, "adjusted_50k": 45955.88, "verification_status": "bea_official"},
+      {"state_fips": "05", "state_abbr": "AR", "cost_tier": "very_low",  "rpp_all_items": 86.9,  "adjusted_50k": 57537.40, "verification_status": "bea_official"},
+      {"state_fips": "28", "state_abbr": "MS", "cost_tier": "very_low",  "rpp_all_items": 87.0,  "adjusted_50k": 57471.26, "verification_status": "bea_official"},
+      {"state_fips": "19", "state_abbr": "IA", "cost_tier": "very_low",  "rpp_all_items": 87.8,  "adjusted_50k": 56947.61, "verification_status": "bea_official"},
+      {"state_fips": "40", "state_abbr": "OK", "cost_tier": "very_low",  "rpp_all_items": 87.8,  "adjusted_50k": 56947.61, "verification_status": "bea_official"}
+    ],
+    "tolerance_adjusted_50k": 0.01
+  },
+  "invariants": [
+    {"name": "row_count", "expected": 51, "description": "50 states + DC"},
+    {"name": "verification_status_bea_official_count", "expected": 8, "description": "Matches BEA_VERIFIED_FIPS allow-list size; flips to 51 after live API refresh"},
+    {"name": "cost_tier_values", "expected": ["very_high", "high", "average", "low", "very_low"], "description": "5-bucket enum per BT-106"},
+    {"name": "cost_tier_distribution", "expected": {"very_high": 4, "high": 8, "average": 13, "low": 11, "very_low": 15}, "description": "Distribution at 2024 vintage with 8 verified + 43 estimated values. All 5 tiers materialize."},
+    {"name": "census_region_distribution", "expected": {"Northeast": 9, "Midwest": 12, "South": 17, "West": 13}, "description": "DC is in South per Census convention (documented quirk, not a bug)"},
+    {"name": "data_year", "expected": 2024, "description": "Single vintage; flips to next year on refresh"},
+    {"name": "inverse_invariant_max_deviation", "expected": "<= 0.01", "description": "abs(purchasing_power_multiplier * rpp_all_items - 100.0) must not exceed 0.01; EDA measured max deviation of 1.42e-14"}
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "spec": "mcp-ai-exposure",
+  "timestamp": "20260410T002724Z",
+  "runner": "manual-mcp-dq",
+  "results": [
+    {
+      "rule_id": "MCP-AIE-001",
+      "passed": false,
+      "detail": "'list' object has no attribute 'strip'"
+    },
+    {
+      "rule_id": "MCP-AIE-002",
+      "passed": false,
+      "elapsed_ms": 143.2,
+      "detail": "data is None for SOC 13-2011"
+    },
+    {
+      "rule_id": "MCP-AIE-003",
+      "passed": true,
+      "detail": "5/5 null cases handled",
+      "sub_results": [
+        {
+          "soc": "99-9999",
+          "label": "nonexistent SOC",
+          "pass": true,
+          "message": "Cannot query consumable.ai_exposure: Table does not exist: consumable.ai_exposure"
+        },
+        {
+          "soc": "",
+          "label": "empty string",
+          "pass": true,
+          "message": "soc_code is required"
+        },
+        {
+          "soc": "ABCDE",
+          "label": "invalid format",
+          "pass": true,
+          "message": "Cannot query consumable.ai_exposure: Table does not exist: consumable.ai_exposure"
+        },
+        {
+          "soc": "15-125",
+          "label": "partial code",
+          "pass": true,
+          "message": "Cannot query consumable.ai_exposure: Table does not exist: consumable.ai_exposure"
+        },
+        {
+          "soc": "152052",
+          "label": "no hyphen",
+          "pass": true,
+          "message": "Cannot query consumable.ai_exposure: Table does not exist: consumable.ai_exposure"
+        }
+      ]
+    },
+    {
+      "rule_id": "MCP-AIE-004",
+      "passed": false,
+      "detail": "no data returned"
+    },
+    {
+      "rule_id": "MCP-AIE-005",
+      "passed": true,
+      "detail": "max=144ms, avg=143ms (threshold: 5000ms)"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 2,
+    "failed": 3,
+    "p0_gate": "FAIL"
+  }
+}

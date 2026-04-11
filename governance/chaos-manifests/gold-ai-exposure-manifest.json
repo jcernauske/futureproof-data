@@ -1,0 +1,542 @@
+{
+  "spec": "gold-ai-exposure",
+  "table": "consumable.ai_exposure",
+  "run_timestamp": "2026-04-09T21:33:13.991916+00:00",
+  "cycles_completed": 5,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "corruptions": 44,
+      "row_count": 292,
+      "dq_passed": 1,
+      "dq_failed": 14,
+      "dq_errored": 2,
+      "dq_total": 15,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-AIE-001",
+            "raw_value": 31
+          },
+          {
+            "rule_id": "GLD-AIE-002",
+            "raw_value": 30
+          },
+          {
+            "rule_id": "GLD-AIE-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-AIE-004",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-005",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-006",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-007",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-AIE-009",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-011",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-012",
+            "raw_value": 3
+          },
+          {
+            "rule_id": "GLD-AIE-013",
+            "raw_value": 8
+          },
+          {
+            "rule_id": "GLD-AIE-014",
+            "raw_value": 8
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-AIE-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          {
+            "rule_id": "GLD-AIE-010",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ...ELECT ae.soc_code FROM consumable_ai_exposure ae LEFT JOIN consumable_occupation_profiles op ON ae.soc_code = op.soc_code...\n                                                                      ^"
+          },
+          {
+            "rule_id": "GLD-AIE-015",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ... DOUBLE) / NULLIF(CAST((SELECT COUNT(DISTINCT soc_code) FROM consumable_occupation_profiles) AS DOUBLE), 0) < 0.40 THEN...\n                                                                        ^"
+          }
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 6,
+          "validity": 6,
+          "uniqueness": 3,
+          "consistency": 6,
+          "accuracy": 4,
+          "reasonableness": 6,
+          "freshness": 4,
+          "referential_integrity": 4,
+          "volume": 1,
+          "coverage": 4
+        },
+        "detection_rate": 0.8,
+        "rules_fired": 12,
+        "rules_silent": 1,
+        "rules_errored": 2,
+        "total_rules": 15
+      }
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "corruptions": 52,
+      "row_count": 299,
+      "dq_passed": 1,
+      "dq_failed": 14,
+      "dq_errored": 2,
+      "dq_total": 15,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-AIE-001",
+            "raw_value": 30
+          },
+          {
+            "rule_id": "GLD-AIE-002",
+            "raw_value": 29
+          },
+          {
+            "rule_id": "GLD-AIE-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-AIE-004",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-AIE-005",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-AIE-006",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-007",
+            "raw_value": 18
+          },
+          {
+            "rule_id": "GLD-AIE-009",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-AIE-011",
+            "raw_value": 3
+          },
+          {
+            "rule_id": "GLD-AIE-012",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "GLD-AIE-013",
+            "raw_value": 11
+          },
+          {
+            "rule_id": "GLD-AIE-014",
+            "raw_value": 15
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-AIE-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          {
+            "rule_id": "GLD-AIE-010",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ...ELECT ae.soc_code FROM consumable_ai_exposure ae LEFT JOIN consumable_occupation_profiles op ON ae.soc_code = op.soc_code...\n                                                                      ^"
+          },
+          {
+            "rule_id": "GLD-AIE-015",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ... DOUBLE) / NULLIF(CAST((SELECT COUNT(DISTINCT soc_code) FROM consumable_occupation_profiles) AS DOUBLE), 0) < 0.40 THEN...\n                                                                        ^"
+          }
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 7,
+          "validity": 7,
+          "uniqueness": 4,
+          "consistency": 7,
+          "accuracy": 5,
+          "reasonableness": 7,
+          "freshness": 5,
+          "referential_integrity": 5,
+          "volume": 1,
+          "coverage": 4
+        },
+        "detection_rate": 0.8,
+        "rules_fired": 12,
+        "rules_silent": 1,
+        "rules_errored": 2,
+        "total_rules": 15
+      }
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "corruptions": 64,
+      "row_count": 298,
+      "dq_passed": 0,
+      "dq_failed": 15,
+      "dq_errored": 2,
+      "dq_total": 15,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-AIE-001",
+            "raw_value": 28
+          },
+          {
+            "rule_id": "GLD-AIE-002",
+            "raw_value": 28
+          },
+          {
+            "rule_id": "GLD-AIE-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-AIE-004",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-005",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "GLD-AIE-006",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-007",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-AIE-008",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-009",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-011",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-012",
+            "raw_value": 9
+          },
+          {
+            "rule_id": "GLD-AIE-013",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-AIE-014",
+            "raw_value": 7
+          }
+        ],
+        "passed_rules": [],
+        "errored_rules": [
+          {
+            "rule_id": "GLD-AIE-010",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ...ELECT ae.soc_code FROM consumable_ai_exposure ae LEFT JOIN consumable_occupation_profiles op ON ae.soc_code = op.soc_code...\n                                                                      ^"
+          },
+          {
+            "rule_id": "GLD-AIE-015",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ... DOUBLE) / NULLIF(CAST((SELECT COUNT(DISTINCT soc_code) FROM consumable_occupation_profiles) AS DOUBLE), 0) < 0.40 THEN...\n                                                                        ^"
+          }
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 9,
+          "validity": 9,
+          "uniqueness": 5,
+          "consistency": 9,
+          "accuracy": 6,
+          "reasonableness": 9,
+          "freshness": 6,
+          "referential_integrity": 6,
+          "volume": 1,
+          "coverage": 4
+        },
+        "detection_rate": 0.867,
+        "rules_fired": 13,
+        "rules_silent": 0,
+        "rules_errored": 2,
+        "total_rules": 15
+      }
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "corruptions": 72,
+      "row_count": 326,
+      "dq_passed": 1,
+      "dq_failed": 14,
+      "dq_errored": 2,
+      "dq_total": 15,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-AIE-001",
+            "raw_value": 33
+          },
+          {
+            "rule_id": "GLD-AIE-002",
+            "raw_value": 32
+          },
+          {
+            "rule_id": "GLD-AIE-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-AIE-004",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-AIE-005",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-AIE-006",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-007",
+            "raw_value": 14
+          },
+          {
+            "rule_id": "GLD-AIE-009",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-AIE-011",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-AIE-012",
+            "raw_value": 10
+          },
+          {
+            "rule_id": "GLD-AIE-013",
+            "raw_value": 11
+          },
+          {
+            "rule_id": "GLD-AIE-014",
+            "raw_value": 10
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-AIE-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          {
+            "rule_id": "GLD-AIE-010",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ...ELECT ae.soc_code FROM consumable_ai_exposure ae LEFT JOIN consumable_occupation_profiles op ON ae.soc_code = op.soc_code...\n                                                                      ^"
+          },
+          {
+            "rule_id": "GLD-AIE-015",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ... DOUBLE) / NULLIF(CAST((SELECT COUNT(DISTINCT soc_code) FROM consumable_occupation_profiles) AS DOUBLE), 0) < 0.40 THEN...\n                                                                        ^"
+          }
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 10,
+          "validity": 10,
+          "uniqueness": 6,
+          "consistency": 10,
+          "accuracy": 7,
+          "reasonableness": 10,
+          "freshness": 7,
+          "referential_integrity": 7,
+          "volume": 1,
+          "coverage": 4
+        },
+        "detection_rate": 0.8,
+        "rules_fired": 12,
+        "rules_silent": 1,
+        "rules_errored": 2,
+        "total_rules": 15
+      }
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "corruptions": 83,
+      "row_count": 435,
+      "dq_passed": 0,
+      "dq_failed": 15,
+      "dq_errored": 2,
+      "dq_total": 15,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-AIE-001",
+            "raw_value": 46
+          },
+          {
+            "rule_id": "GLD-AIE-002",
+            "raw_value": 44
+          },
+          {
+            "rule_id": "GLD-AIE-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-AIE-004",
+            "raw_value": 10
+          },
+          {
+            "rule_id": "GLD-AIE-005",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-AIE-006",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-AIE-007",
+            "raw_value": 20
+          },
+          {
+            "rule_id": "GLD-AIE-008",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-AIE-009",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "GLD-AIE-011",
+            "raw_value": 3
+          },
+          {
+            "rule_id": "GLD-AIE-012",
+            "raw_value": 11
+          },
+          {
+            "rule_id": "GLD-AIE-013",
+            "raw_value": 20
+          },
+          {
+            "rule_id": "GLD-AIE-014",
+            "raw_value": 19
+          }
+        ],
+        "passed_rules": [],
+        "errored_rules": [
+          {
+            "rule_id": "GLD-AIE-010",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ...ELECT ae.soc_code FROM consumable_ai_exposure ae LEFT JOIN consumable_occupation_profiles op ON ae.soc_code = op.soc_code...\n                                                                      ^"
+          },
+          {
+            "rule_id": "GLD-AIE-015",
+            "error": "Catalog Error: Table with name consumable_occupation_profiles does not exist!\nDid you mean \"consumable_ai_exposure\"?\n\nLINE 1: ... DOUBLE) / NULLIF(CAST((SELECT COUNT(DISTINCT soc_code) FROM consumable_occupation_profiles) AS DOUBLE), 0) < 0.40 THEN...\n                                                                        ^"
+          }
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 12,
+          "validity": 12,
+          "uniqueness": 7,
+          "consistency": 12,
+          "accuracy": 9,
+          "reasonableness": 12,
+          "freshness": 9,
+          "referential_integrity": 9,
+          "volume": 1
+        },
+        "detection_rate": 0.867,
+        "rules_fired": 13,
+        "rules_silent": 0,
+        "rules_errored": 2,
+        "total_rules": 15
+      }
+    }
+  ]
+}

@@ -1,0 +1,221 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-11T00:00:00.000000Z",
+    "run": {
+      "runId": "a1c4e9f2-7d38-4b61-9e0a-2f6c83d1b5a7",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-regional-price-parities.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold promote of Regional Price Parities from base.bea_rpp (51 rows, 11 columns) to consumable.regional_price_parities (51 rows, 15 columns). Reads Silver via the Iceberg catalog, applies the Gold derivations (cost_tier via frozen 5-bucket CASE in src/gold/_cost_tier.py; four adjusted_Nk columns as round(N*1000*purchasing_power_multiplier, 2) for N in {30,50,75,100}), carries forward 8 Silver columns verbatim (state_fips, state_name, state_abbr, census_region, rpp_all_items, purchasing_power_multiplier, verification_status, data_year), stamps promoted_at at run time, and computes a deterministic record_id via compute_grain_id(['state_fips'], prefix='rpc'). The 'rpc' prefix is distinct from Silver's 'rpp' prefix so Gold and Silver record_ids cannot collide across zones (physical model requirement). Cost-tier breakpoints (>=108 very_high, [103,108) high, [97,103) average, [91,97) low, <91 very_low) are BT-106 governance-frozen — any change is a breaking change. Banker's rounding (Python round() == DuckDB ROUND()) is required for the DQ invariant abs(adjusted_Nk - round(N*1000*multiplier, 2)) <= 0.01 to hold on both sides of the engine boundary. Idempotent promote pattern: re-running produces 0 new rows. verification_status is carried forward from Silver per Bronze staff-review Condition 7 so downstream consumers (MCP tools, frontend salary display) see per-row provenance without joining back to Silver.",
+          "reasoning_continued": "No joins, no concept normalization, no cross-source work at this Gold hop — this is the smallest Gold transformation in the project. The entire hop is driven by base.bea_rpp plus the in-code cost-tier breakpoints."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 51,
+          "rowsDerived": 51,
+          "promoted": 51,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "costTierCounts": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.promote-regional-price-parities",
+      "facets": {
+        "documentation": {
+          "description": "Promote base.bea_rpp to consumable.regional_price_parities (Gold). Reads the 51-row Silver base table, derives cost_tier via the frozen 5-bucket CASE in src/gold/_cost_tier.py (BT-106 governance-frozen breakpoints), pre-computes four display-ready adjusted salary columns (adjusted_30k, adjusted_50k, adjusted_75k, adjusted_100k) using banker's rounding to match DuckDB's default ROUND() behavior, carries forward 8 Silver columns verbatim including verification_status (per Bronze Condition 7), stamps promoted_at at UTC now(), computes a deterministic record_id via compute_grain_id(row, ['state_fips'], prefix='rpc'), and writes to consumable.regional_price_parities via the Brightsmith idempotent promote pattern (append with dedup on record_id)."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/regional_price_parities_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.bea_rpp",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "description": "Silver grain id (prefix='rpp') — NOT carried to Gold; Gold computes its own rpc-prefixed record_id"},
+              {"name": "state_fips", "type": "STRING", "description": "2-digit zero-padded state FIPS code; grain field"},
+              {"name": "state_name", "type": "STRING", "description": "Full state or DC name"},
+              {"name": "state_abbr", "type": "STRING", "description": "USPS 2-letter abbreviation derived in Silver from FIPS_TO_USPS"},
+              {"name": "census_region", "type": "STRING", "description": "U.S. Census region (Northeast|Midwest|South|West) derived in Silver"},
+              {"name": "rpp_all_items", "type": "DOUBLE", "description": "Regional Price Parity all-items index, national=100 scale"},
+              {"name": "purchasing_power_multiplier", "type": "DOUBLE", "description": "Pre-computed 100.0 / rpp_all_items; canonical salary-scaling multiplier"},
+              {"name": "verification_status", "type": "STRING", "description": "Per-row provenance: bea_official (8 states) | estimate (43 states)"},
+              {"name": "data_year", "type": "INTEGER", "description": "Vintage year of the RPP estimate (2024)"},
+              {"name": "source_load_date", "type": "DATE", "description": "Bronze load date — NOT carried to Gold"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "description": "Silver promote timestamp — NOT carried to Gold; replaced by Gold promoted_at"}
+            ]
+          },
+          "dataSource": {
+            "name": "Silver Iceberg warehouse",
+            "uri": "file://data/silver/iceberg_warehouse/base.db/bea_rpp"
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "gold._cost_tier",
+        "facets": {
+          "documentation": {
+            "description": "In-code frozen cost-tier classifier loaded by the Gold transformer. Provides COST_TIER_BREAKPOINTS, a 4-entry descending tuple of (threshold, CostTier) pairs: (108.0, very_high), (103.0, high), (97.0, average), (91.0, low); values below 91.0 fall through to very_low. Implements left-closed interval semantics [lo, hi) via top-down evaluation. The 5-bucket enum and its breakpoints are BT-106 governance-frozen — any change is a breaking change per the physical model (governance/models/gold-regional-price-parities-physical.md) and requires a new spec. Treated as a proper lineage node so cost_tier has a named, traceable provenance rather than being opaque in-code logic."
+          },
+          "dataSource": {
+            "name": "Static cost-tier classifier (in-code)",
+            "uri": "file://src/gold/_cost_tier.py"
+          },
+          "schema": {
+            "fields": [
+              {"name": "COST_TIER_BREAKPOINTS", "type": "TUPLE<DOUBLE,STRING>", "description": "Frozen descending breakpoint list: ((108.0,'very_high'),(103.0,'high'),(97.0,'average'),(91.0,'low')); fallthrough to 'very_low'"},
+              {"name": "CostTier", "type": "ENUM<STRING>", "description": "5-bucket enum: very_high | high | average | low | very_low"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.regional_price_parities",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "transformation": "FRAMEWORK: compute_grain_id(row, ['state_fips'], prefix='rpc')"},
+              {"name": "state_fips", "type": "STRING", "transformation": "DIRECT passthrough from base.bea_rpp.state_fips"},
+              {"name": "state_name", "type": "STRING", "transformation": "DIRECT passthrough from base.bea_rpp.state_name"},
+              {"name": "state_abbr", "type": "STRING", "transformation": "DIRECT passthrough from base.bea_rpp.state_abbr"},
+              {"name": "census_region", "type": "STRING", "transformation": "DIRECT passthrough from base.bea_rpp.census_region"},
+              {"name": "rpp_all_items", "type": "DOUBLE", "transformation": "DIRECT passthrough from base.bea_rpp.rpp_all_items"},
+              {"name": "purchasing_power_multiplier", "type": "DOUBLE", "transformation": "DIRECT passthrough from base.bea_rpp.purchasing_power_multiplier"},
+              {"name": "cost_tier", "type": "STRING", "transformation": "DERIVED via classify_cost_tier(rpp_all_items) — frozen 5-bucket CASE in src/gold/_cost_tier.py"},
+              {"name": "adjusted_30k", "type": "DOUBLE", "transformation": "DERIVED as round(30000 * purchasing_power_multiplier, 2) (banker's rounding)"},
+              {"name": "adjusted_50k", "type": "DOUBLE", "transformation": "DERIVED as round(50000 * purchasing_power_multiplier, 2) (banker's rounding)"},
+              {"name": "adjusted_75k", "type": "DOUBLE", "transformation": "DERIVED as round(75000 * purchasing_power_multiplier, 2) (banker's rounding)"},
+              {"name": "adjusted_100k", "type": "DOUBLE", "transformation": "DERIVED as round(100000 * purchasing_power_multiplier, 2) (banker's rounding)"},
+              {"name": "verification_status", "type": "STRING", "transformation": "DIRECT passthrough from base.bea_rpp.verification_status (per Bronze Condition 7)"},
+              {"name": "data_year", "type": "INTEGER", "transformation": "DIRECT passthrough from base.bea_rpp.data_year"},
+              {"name": "promoted_at", "type": "TIMESTAMP", "transformation": "FRAMEWORK: Gold promotion UTC timestamp"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "state_fips"}
+                ],
+                "transformationDescription": "Deterministic grain id computed by compute_grain_id(row, ['state_fips'], prefix='rpc'). The 'rpc' (regional-price-consumable) prefix is intentionally distinct from Silver's 'rpp' prefix so Gold and Silver record_ids cannot collide across zones — this is a physical-model requirement. Provides the stable natural key for the idempotent promote pattern's dedup step.",
+                "transformationType": "DERIVED"
+              },
+              "state_fips": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "state_fips"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.state_fips via SILVER_PASSTHROUGH_FIELDS in derive_gold_rows(). No validation, normalization, or relabeling — Silver has already enforced the ^\\d{2}$ regex and the 51-entry FIPS_TO_USPS membership check.",
+                "transformationType": "DIRECT"
+              },
+              "state_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "state_name"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.state_name via SILVER_PASSTHROUGH_FIELDS. Silver has already stripped whitespace and enforced non-empty.",
+                "transformationType": "DIRECT"
+              },
+              "state_abbr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "state_abbr"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.state_abbr via SILVER_PASSTHROUGH_FIELDS. The value was derived at Silver via FIPS_TO_USPS lookup; Gold does not re-derive or re-validate it.",
+                "transformationType": "DIRECT"
+              },
+              "census_region": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "census_region"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.census_region via SILVER_PASSTHROUGH_FIELDS. The value was derived at Silver via FIPS_TO_CENSUS_REGION lookup (DC documented quirk: 'South' per U.S. Census convention); Gold does not re-derive it.",
+                "transformationType": "DIRECT"
+              },
+              "rpp_all_items": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "rpp_all_items"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.rpp_all_items via SILVER_PASSTHROUGH_FIELDS. Value remains on the BEA national=100 index scale. Also read (separately, in the same row) as the input to cost_tier classification.",
+                "transformationType": "DIRECT"
+              },
+              "purchasing_power_multiplier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.purchasing_power_multiplier via SILVER_PASSTHROUGH_FIELDS. The value (100.0 / rpp_all_items) was pre-computed at Silver as the single source of truth; Gold reads it verbatim and also uses it (separately) as the multiplier input for the four adjusted_Nk columns. Carrying it through lets MCP and frontend consumers read the canonical value without recomputing.",
+                "transformationType": "DIRECT"
+              },
+              "cost_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "rpp_all_items"},
+                  {"namespace": "brightsmith", "name": "gold._cost_tier", "field": "COST_TIER_BREAKPOINTS"}
+                ],
+                "transformationDescription": "classify_cost_tier(rpp_all_items) evaluates the frozen 4-entry COST_TIER_BREAKPOINTS tuple top-down with left-closed interval semantics [lo, hi): rpp >= 108.0 -> 'very_high'; 103.0 <= rpp < 108.0 -> 'high'; 97.0 <= rpp < 103.0 -> 'average'; 91.0 <= rpp < 97.0 -> 'low'; rpp < 91.0 -> 'very_low'. Breakpoints and enum values are BT-106 governance-frozen per governance/models/gold-regional-price-parities-physical.md — any change is a breaking change requiring a new spec. Implemented in src/gold/_cost_tier.py as a string-valued Enum for direct VARCHAR comparability without coercion.",
+                "transformationType": "DERIVED"
+              },
+              "adjusted_30k": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "compute_adjusted_salary(30000.0, purchasing_power_multiplier) = round(30000 * purchasing_power_multiplier, 2). Uses Python's built-in round() which implements IEEE 754 round-half-to-even (banker's rounding) to match DuckDB's default ROUND() behavior. Consistency across transformer, DQ engine, and database is required so the invariant abs(adjusted_30k - round(30000 * multiplier, 2)) <= 0.01 holds on both sides. Frozen salary anchor in SALARY_ANCHORS; a future spec adding e.g. adjusted_150k must append to SALARY_ANCHORS and append a column to the Gold schema.",
+                "transformationType": "DERIVED"
+              },
+              "adjusted_50k": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "compute_adjusted_salary(50000.0, purchasing_power_multiplier) = round(50000 * purchasing_power_multiplier, 2). Banker's rounding per IEEE 754 round-half-to-even to match DuckDB's default ROUND(). Frozen salary anchor in SALARY_ANCHORS.",
+                "transformationType": "DERIVED"
+              },
+              "adjusted_75k": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "compute_adjusted_salary(75000.0, purchasing_power_multiplier) = round(75000 * purchasing_power_multiplier, 2). Banker's rounding per IEEE 754 round-half-to-even to match DuckDB's default ROUND(). Frozen salary anchor in SALARY_ANCHORS.",
+                "transformationType": "DERIVED"
+              },
+              "adjusted_100k": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "compute_adjusted_salary(100000.0, purchasing_power_multiplier) = round(100000 * purchasing_power_multiplier, 2). Banker's rounding per IEEE 754 round-half-to-even to match DuckDB's default ROUND(). Frozen salary anchor in SALARY_ANCHORS.",
+                "transformationType": "DERIVED"
+              },
+              "verification_status": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "verification_status"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.verification_status via SILVER_PASSTHROUGH_FIELDS. Carries per-row provenance ('bea_official' for the 8 BEA-verified states; 'estimate' for the other 43) forward to Gold per Bronze staff-review Condition 7 so downstream consumers (MCP tools, frontend salary-adjustment display) surface provenance without joining back to Silver. When the live BEA API refresh lands post-hackathon, every row flips to 'bea_official' at Silver and propagates verbatim through Gold with no schema change.",
+                "transformationType": "DIRECT"
+              },
+              "data_year": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bea_rpp", "field": "data_year"}
+                ],
+                "transformationDescription": "Identity passthrough from base.bea_rpp.data_year via SILVER_PASSTHROUGH_FIELDS. Every row in the 2026-04-10 vintage is 2024, enforced by inherited P0 DQ invariants. Single-vintage supersession-by-replacement contract propagates from raw-ingest-bea-rpp through Silver to Gold.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: Gold promotion UTC timestamp stamped by add_record_ids(gold_rows, promoted_at) where promoted_at = datetime.datetime.now(tz=datetime.timezone.utc) at transform() call time. Distinct from Silver's ingested_at (which is not carried forward). Tests pass a fixed value for determinism.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

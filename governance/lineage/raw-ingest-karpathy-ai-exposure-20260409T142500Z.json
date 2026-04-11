@@ -1,0 +1,177 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-09T14:25:00.000000Z",
+    "run": {
+      "runId": "1b96c099-86ff-44e8-a459-eb526a35abce",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-karpathy-ai-exposure.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze ingest of Karpathy AI exposure scores for 342 BLS occupations. Two source files (scores.json and occupations.csv) fetched from GitHub and joined on slug. SOC codes resolved from occupations.csv. Some occupations have null SOC codes (preserved as-is for Silver resolution). Cross-validation fields (median_pay_annual, num_jobs_2024, entry_education) carried forward from occupations.csv."
+        },
+        "brightsmith_runMetrics": {
+          "inputRowCount": 342,
+          "outputRowCount": 342,
+          "snapshotId": 3605546302849538352,
+          "skippedDuplicates": 0,
+          "sourceMethod": "github_download or local_cache",
+          "sourceFiles": ["scores.json", "occupations.csv"],
+          "dataVintage": "Karpathy karpathy/jobs repository (2025 snapshot)"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "ingest:karpathy_ai_exposure"
+    },
+    "inputs": [
+      {
+        "namespace": "github.com/karpathy/jobs",
+        "name": "scores.json",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "slug", "type": "STRING", "description": "Kebab-case occupation identifier"},
+              {"name": "exposure", "type": "INTEGER", "description": "AI exposure score 0-10"},
+              {"name": "rationale", "type": "STRING", "description": "LLM-generated explanation"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "github.com/karpathy/jobs",
+        "name": "occupations.csv",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "title", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "slug", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "median_pay_annual", "type": "DOUBLE"},
+              {"name": "num_jobs_2024", "type": "LONG"},
+              {"name": "entry_education", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.karpathy_ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "slug", "type": "STRING", "transformation": "DIRECT from scores.json key / occupations.csv slug"},
+              {"name": "occupation_title", "type": "STRING", "transformation": "DIRECT from occupations.csv title"},
+              {"name": "category", "type": "STRING", "transformation": "DIRECT from occupations.csv category"},
+              {"name": "soc_code", "type": "STRING", "transformation": "DIRECT from occupations.csv soc_code; nullable for missing SOC"},
+              {"name": "exposure_score", "type": "INTEGER", "transformation": "DIRECT from scores.json exposure"},
+              {"name": "rationale", "type": "STRING", "transformation": "DIRECT from scores.json rationale"},
+              {"name": "median_pay_annual", "type": "DOUBLE", "transformation": "DERIVED: parsed from occupations.csv, commas/dollar signs stripped"},
+              {"name": "num_jobs_2024", "type": "LONG", "transformation": "DERIVED: parsed from occupations.csv, commas stripped"},
+              {"name": "entry_education", "type": "STRING", "transformation": "DIRECT from occupations.csv entry_education"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "transformation": "FRAMEWORK: current timestamp at ingest"},
+              {"name": "source_url", "type": "STRING", "transformation": "FRAMEWORK: GitHub raw URL for scores.json"},
+              {"name": "source_method", "type": "STRING", "transformation": "FRAMEWORK: github_download or local_cache"},
+              {"name": "load_date", "type": "DATE", "transformation": "FRAMEWORK: current date at ingest"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "slug": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "scores.json", "field": "slug"},
+                  {"namespace": "github.com/karpathy/jobs", "name": "occupations.csv", "field": "slug"}
+                ],
+                "transformationDescription": "Join key between scores.json and occupations.csv. Direct passthrough.",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "occupations.csv", "field": "title"}
+                ],
+                "transformationDescription": "Direct from occupations.csv title column",
+                "transformationType": "DIRECT"
+              },
+              "category": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "occupations.csv", "field": "category"}
+                ],
+                "transformationDescription": "Direct from occupations.csv category column",
+                "transformationType": "DIRECT"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "occupations.csv", "field": "soc_code"}
+                ],
+                "transformationDescription": "Direct from occupations.csv. Some occupations have empty SOC codes, preserved as null.",
+                "transformationType": "DIRECT"
+              },
+              "exposure_score": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "scores.json", "field": "exposure"}
+                ],
+                "transformationDescription": "AI exposure score (0-10) from scores.json. Coerced to int via int(float(value)).",
+                "transformationType": "DIRECT"
+              },
+              "rationale": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "scores.json", "field": "rationale"}
+                ],
+                "transformationDescription": "LLM-generated explanation from scores.json. Direct passthrough.",
+                "transformationType": "DIRECT"
+              },
+              "median_pay_annual": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "occupations.csv", "field": "median_pay_annual"}
+                ],
+                "transformationDescription": "Parsed from string, dollar signs and commas stripped, coerced to float. For cross-validation against BLS OOH.",
+                "transformationType": "DERIVED"
+              },
+              "num_jobs_2024": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "occupations.csv", "field": "num_jobs_2024"}
+                ],
+                "transformationDescription": "Parsed from string, commas stripped, coerced to long int. For cross-validation.",
+                "transformationType": "DERIVED"
+              },
+              "entry_education": {
+                "inputFields": [
+                  {"namespace": "github.com/karpathy/jobs", "name": "occupations.csv", "field": "entry_education"}
+                ],
+                "transformationDescription": "Direct from occupations.csv. For cross-validation.",
+                "transformationType": "DIRECT"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: GitHub raw URL for scores.json",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: github_download or local_cache depending on fetch path",
+                "transformationType": "DERIVED"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: UTC timestamp at ingest time",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: date of load",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

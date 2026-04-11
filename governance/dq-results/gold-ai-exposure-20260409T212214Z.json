@@ -1,0 +1,11 @@
+{
+  "run_id": "fc61b91d",
+  "spec": "gold-ai-exposure",
+  "executed_at": "2026-04-09T21:22:14.454733+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

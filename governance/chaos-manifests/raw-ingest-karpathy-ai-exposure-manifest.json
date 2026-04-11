@@ -1,0 +1,1094 @@
+{
+  "spec": "raw-ingest-karpathy-ai-exposure",
+  "table": "bronze.karpathy_ai_exposure",
+  "run_timestamp": "2026-04-09T19:21:00.082325+00:00",
+  "cycles_completed": 5,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "corruptions": 11,
+      "row_count": 383,
+      "dq_passed": 13,
+      "dq_failed": 5,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-KAI-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-004",
+            "raw_value": 63
+          },
+          {
+            "rule_id": "RAW-KAI-005",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-016",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-KAI-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-007",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "RAW-KAI-009"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.222,
+        "rules_fired": 4,
+        "rules_silent": 13,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 19,
+          "dimension": "completeness",
+          "field": "rationale",
+          "strategy": "null_rationale",
+          "old_value": "This occupation is primarily digital and information-based, involving the analysis of legal documents, evidence, and the drafting of settlement agreements\u2014tasks where AI is rapidly achieving high proficiency. While the role requires significant interpersonal skills and emotional intelligence to manage confrontational parties, the core analytical and administrative functions are highly susceptible to AI-driven productivity gains and partial automation.",
+          "new_value": "null"
+        },
+        {
+          "row": 49,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_summary_code",
+          "old_value": "41-2011",
+          "new_value": "41-0000"
+        },
+        {
+          "row": 342,
+          "dimension": "uniqueness",
+          "field": "slug",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_9 (slug=agricultural-and-food-science-technicians)",
+          "new_value": "duplicate at position 342"
+        },
+        {
+          "row": 221,
+          "dimension": "consistency",
+          "field": "source_method",
+          "strategy": "source_method_url_mismatch",
+          "old_value": "github_download",
+          "new_value": "manual_entry"
+        },
+        {
+          "row": 222,
+          "dimension": "accuracy",
+          "field": "soc_code",
+          "strategy": "wrong_soc_prefix",
+          "old_value": "11-9121",
+          "new_value": "11-9121"
+        },
+        {
+          "row": 63,
+          "dimension": "reasonableness",
+          "field": "median_pay_annual",
+          "strategy": "negative_pay",
+          "old_value": "77020.0",
+          "new_value": "-449804.0"
+        },
+        {
+          "row": 262,
+          "dimension": "freshness",
+          "field": "load_date",
+          "strategy": "future_load_date",
+          "old_value": "2026-04-09",
+          "new_value": "2030-01-01"
+        },
+        {
+          "row": 305,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "25-2050",
+          "new_value": "99-3979"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "343",
+          "new_value": "411"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_farming-fishing-and-forestry",
+          "old_value": "category=farming-fishing-and-forestry, count=4",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_construction-and-extraction",
+          "old_value": "category=construction-and-extraction, count=24",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "corruptions": 11,
+      "row_count": 384,
+      "dq_passed": 12,
+      "dq_failed": 6,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-KAI-004",
+            "raw_value": 58
+          },
+          {
+            "rule_id": "RAW-KAI-005",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-006",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-008",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-016",
+            "raw_value": 2
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-KAI-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-007",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "RAW-KAI-009"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.278,
+        "rules_fired": 5,
+        "rules_silent": 12,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 209,
+          "dimension": "completeness",
+          "field": "occupation_title",
+          "strategy": "null_occupation_title",
+          "old_value": "Medical equipment repairers",
+          "new_value": "null"
+        },
+        {
+          "row": 115,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_format",
+          "old_value": "19-2041",
+          "new_value": "15.1252"
+        },
+        {
+          "row": 342,
+          "dimension": "uniqueness",
+          "field": "slug",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_4 (slug=adult-literacy-and-ged-teachers)",
+          "new_value": "duplicate at position 342"
+        },
+        {
+          "row": 80,
+          "dimension": "consistency",
+          "field": "source_method",
+          "strategy": "source_method_url_mismatch",
+          "old_value": "github_download",
+          "new_value": "manual_entry"
+        },
+        {
+          "row": 193,
+          "dimension": "accuracy",
+          "field": "exposure_score",
+          "strategy": "plausible_wrong_score",
+          "old_value": "7",
+          "new_value": "10"
+        },
+        {
+          "row": 37,
+          "dimension": "reasonableness",
+          "field": "num_jobs_2024",
+          "strategy": "extreme_jobs",
+          "old_value": "82700",
+          "new_value": "831367443"
+        },
+        {
+          "row": 81,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-09 18:49:44.012739",
+          "new_value": "2030-06-15T12:00:00"
+        },
+        {
+          "row": 138,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "13-1131",
+          "new_value": "91-5746"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "343",
+          "new_value": "411"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_transportation-and-material-moving",
+          "old_value": "category=transportation-and-material-moving, count=14",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_media-and-communication",
+          "old_value": "category=media-and-communication, count=13",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "corruptions": 11,
+      "row_count": 394,
+      "dq_passed": 12,
+      "dq_failed": 6,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-KAI-002",
+            "raw_value": 3
+          },
+          {
+            "rule_id": "RAW-KAI-004",
+            "raw_value": 64
+          },
+          {
+            "rule_id": "RAW-KAI-005",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-006",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-016",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-KAI-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-007",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "RAW-KAI-009"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.278,
+        "rules_fired": 5,
+        "rules_silent": 12,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 213,
+          "dimension": "completeness",
+          "field": "exposure_score",
+          "strategy": "null_exposure_score",
+          "old_value": "6",
+          "new_value": "null"
+        },
+        {
+          "row": 155,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_format",
+          "old_value": "49-9021",
+          "new_value": "151252"
+        },
+        {
+          "row": 342,
+          "dimension": "uniqueness",
+          "field": "slug",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_58 (slug=claims-adjusters-appraisers-examiners-and-investigators)",
+          "new_value": "duplicate at position 342"
+        },
+        {
+          "row": 60,
+          "dimension": "consistency",
+          "field": "source_method",
+          "strategy": "source_method_url_mismatch",
+          "old_value": "github_download",
+          "new_value": "manual_entry"
+        },
+        {
+          "row": 332,
+          "dimension": "accuracy",
+          "field": "soc_code",
+          "strategy": "wrong_soc_prefix",
+          "old_value": "35-3031",
+          "new_value": "19-3031"
+        },
+        {
+          "row": 108,
+          "dimension": "reasonableness",
+          "field": "median_pay_annual",
+          "strategy": "extreme_pay",
+          "old_value": "106580.0",
+          "new_value": "87264419.0"
+        },
+        {
+          "row": 208,
+          "dimension": "freshness",
+          "field": "load_date",
+          "strategy": "future_load_date",
+          "old_value": "2026-04-09",
+          "new_value": "2030-01-01"
+        },
+        {
+          "row": 164,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "27-1021",
+          "new_value": "95-6243"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "343",
+          "new_value": "411"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_farming-fishing-and-forestry",
+          "old_value": "category=farming-fishing-and-forestry, count=4",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_media-and-communication",
+          "old_value": "category=media-and-communication, count=13",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "corruptions": 11,
+      "row_count": 367,
+      "dq_passed": 14,
+      "dq_failed": 4,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-KAI-004",
+            "raw_value": 57
+          },
+          {
+            "rule_id": "RAW-KAI-005",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "RAW-KAI-011",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-KAI-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-007",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "RAW-KAI-009"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.167,
+        "rules_fired": 3,
+        "rules_silent": 14,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 39,
+          "dimension": "completeness",
+          "field": "category",
+          "strategy": "null_category",
+          "old_value": "office-and-administrative-support",
+          "new_value": "null"
+        },
+        {
+          "row": 300,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_summary_code",
+          "old_value": "21-1093",
+          "new_value": "21-0000"
+        },
+        {
+          "row": 342,
+          "dimension": "uniqueness",
+          "field": "slug",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_15 (slug=airline-and-commercial-pilots)",
+          "new_value": "duplicate at position 342"
+        },
+        {
+          "row": 35,
+          "dimension": "consistency",
+          "field": "occupation_title",
+          "strategy": "slug_title_mismatch",
+          "old_value": "Biochemists and biophysicists",
+          "new_value": "Astronaut"
+        },
+        {
+          "row": 151,
+          "dimension": "accuracy",
+          "field": "exposure_score",
+          "strategy": "plausible_wrong_score",
+          "old_value": "2",
+          "new_value": "1"
+        },
+        {
+          "row": 245,
+          "dimension": "reasonableness",
+          "field": "median_pay_annual",
+          "strategy": "negative_pay",
+          "old_value": "43460.0",
+          "new_value": "-253206.0"
+        },
+        {
+          "row": 38,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-09 18:49:44.012739",
+          "new_value": "2030-06-15T12:00:00"
+        },
+        {
+          "row": 317,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "27-3042",
+          "new_value": "96-4708"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "343",
+          "new_value": "411"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_entertainment-and-sports",
+          "old_value": "category=entertainment-and-sports, count=9",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_life-physical-and-social-science",
+          "old_value": "category=life-physical-and-social-science, count=35",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "corruptions": 11,
+      "row_count": 394,
+      "dq_passed": 15,
+      "dq_failed": 3,
+      "dq_total": 18,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "RAW-KAI-004",
+            "raw_value": 56
+          },
+          {
+            "rule_id": "RAW-KAI-005",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "RAW-KAI-001",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-006",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-007",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-011",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-012",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "RAW-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "RAW-KAI-009"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 1,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 2
+        },
+        "detection_rate": 0.111,
+        "rules_fired": 2,
+        "rules_silent": 15,
+        "total_rules": 18
+      },
+      "manifest_entries": [
+        {
+          "row": 220,
+          "dimension": "completeness",
+          "field": "rationale",
+          "strategy": "null_rationale",
+          "old_value": "The occupation is a hybrid of high-exposure digital work (composing) and lower-exposure physical work (conducting). Generative AI is rapidly automating music composition, arrangement, and scoring for commercial media, while the music director role remains more resilient due to the need for live leadership, physical rehearsals, and human-to-human artistic interpretation.",
+          "new_value": "null"
+        },
+        {
+          "row": 131,
+          "dimension": "validity",
+          "field": "exposure_score",
+          "strategy": "bad_exposure_negative",
+          "old_value": "3",
+          "new_value": "0"
+        },
+        {
+          "row": 342,
+          "dimension": "uniqueness",
+          "field": "slug",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_337 (slug=wholesale-and-manufacturing-sales-representatives)",
+          "new_value": "duplicate at position 342"
+        },
+        {
+          "row": 52,
+          "dimension": "consistency",
+          "field": "category",
+          "strategy": "category_title_mismatch",
+          "old_value": "life-physical-and-social-science",
+          "new_value": "123numeric"
+        },
+        {
+          "row": 161,
+          "dimension": "accuracy",
+          "field": "median_pay_annual,num_jobs_2024",
+          "strategy": "swapped_pay_jobs",
+          "old_value": "pay=140030.0,jobs=221900",
+          "new_value": "pay=221900.0,jobs=140030"
+        },
+        {
+          "row": 267,
+          "dimension": "reasonableness",
+          "field": "num_jobs_2024",
+          "strategy": "extreme_jobs",
+          "old_value": "77300",
+          "new_value": "737415590"
+        },
+        {
+          "row": 17,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-09 18:49:44.012739",
+          "new_value": "2030-06-15T12:00:00"
+        },
+        {
+          "row": 307,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc",
+          "old_value": "29-1127",
+          "new_value": "93-1578"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "343",
+          "new_value": "411"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_farming-fishing-and-forestry",
+          "old_value": "category=farming-fishing-and-forestry, count=5",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_entertainment-and-sports",
+          "old_value": "category=entertainment-and-sports, count=12",
+          "new_value": "removed"
+        }
+      ]
+    }
+  ]
+}

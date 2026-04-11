@@ -1,0 +1,578 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-11T00:00:00.000000Z",
+    "run": {
+      "runId": "b3e8d4c1-5a29-4f07-8d6b-9f1c3a7e2d48",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/mcp-bea-rpp.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "MCP zone (Zone 5) registration of get_regional_price_parity tool on FutureProofMCPServer. Thin read-only passthrough over consumable.regional_price_parities (Gold). No derivation, no new data — the tool normalizes a user-supplied state identifier (USPS abbr / full name / FIPS) to a FIPS code, performs a point query via query_iceberg_simple with filters={'state_fips': fips}, and reshapes the resulting row into a Gemma-facing payload. Of the 15 Gold columns, 13 are read (record_id and promoted_at are excluded as pipeline metadata). Of those 13, 8 are DIRECT passthroughs to same-named response fields, 4 are BUNDLED into the adjusted_examples struct with shortened keys ('30k','50k','75k','100k'), and 1 (verification_status) is RENAMED to data_source for Gemma-facing clarity per Bronze staff-review Condition 7. governance.quality_tier ('partial_verification') and governance.owner ('@data-steward') are FRAMEWORK-INJECTED via attach_governance() reading the top-level contract YAML. The verified_only=true strict mode refuses estimate rows and returns a structured null response so Gemma can surface per-row provenance without joining back to Silver. No transformation of value content occurs at this layer — the only 'computation' is struct-reshaping and a field rename."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsAddressable": 51,
+          "fieldsRead": 13,
+          "fieldsExposed": 9,
+          "fieldsExcluded": 2,
+          "fieldsBundled": 4,
+          "fieldsRenamed": 1,
+          "fieldsFrameworkInjected": 3,
+          "transformations": 0,
+          "bronzeCondition7": "verification_status -> data_source (wire-level carry-forward)"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "mcp.register-get-regional-price-parity",
+      "facets": {
+        "documentation": {
+          "description": "Register the get_regional_price_parity MCP tool on the FutureProof MCP server. The tool performs a point lookup on consumable.regional_price_parities keyed by normalized state_fips (accepts USPS abbr, full state name, or FIPS as input) and returns a Gemma-facing payload with 9 top-level fields: state_name, state_abbr, state_fips, census_region, rpp_all_items, purchasing_power_multiplier, cost_tier, adjusted_examples (struct), data_source (renamed from verification_status per Bronze Condition 7), and data_year. The four adjusted_Nk Gold columns are bundled into an adjusted_examples struct with short keys ('30k','50k','75k','100k'). No transformation at this layer — the tool is a read-only passthrough with struct-reshaping and a single rename. verified_only=true strict mode refuses estimate rows with a structured null response. Unknown-state and missing-row paths also return structured nulls. governance.{table, quality_tier, owner} are injected by attach_governance() reading the top-level contract YAML."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/mcp_server/futureproof_server.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.regional_price_parities",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "description": "Pipeline surrogate key (prefix='rpc') — NOT read by this tool"},
+              {"name": "state_fips", "type": "STRING", "description": "2-digit zero-padded state FIPS; used as the lookup key and also returned in the payload"},
+              {"name": "state_name", "type": "STRING"},
+              {"name": "state_abbr", "type": "STRING"},
+              {"name": "census_region", "type": "STRING"},
+              {"name": "rpp_all_items", "type": "DOUBLE"},
+              {"name": "purchasing_power_multiplier", "type": "DOUBLE"},
+              {"name": "cost_tier", "type": "STRING"},
+              {"name": "adjusted_30k", "type": "DOUBLE"},
+              {"name": "adjusted_50k", "type": "DOUBLE"},
+              {"name": "adjusted_75k", "type": "DOUBLE"},
+              {"name": "adjusted_100k", "type": "DOUBLE"},
+              {"name": "verification_status", "type": "STRING", "description": "Per-row provenance ('bea_official' for 8 BEA-verified states; 'estimate' for 43 others) — RENAMED to data_source in the tool response per Bronze Condition 7"},
+              {"name": "data_year", "type": "INTEGER"},
+              {"name": "promoted_at", "type": "TIMESTAMP", "description": "Gold promote timestamp — NOT read by this tool"}
+            ]
+          },
+          "dataSource": {
+            "name": "Gold Iceberg warehouse",
+            "uri": "file://data/gold/iceberg_warehouse/consumable.db/regional_price_parities"
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "mcp._state_input",
+        "facets": {
+          "documentation": {
+            "description": "State-input normalization module used by both BEA RPP tools. Exposes normalize_state_input (accepts USPS abbr, full state name, or FIPS, case-insensitive, returns a 2-digit FIPS or None) and FIPS_TO_STATE_NAME lookup for null-case error messages. Pure function, unit-testable. Built on Silver's src/silver/_us_state_reference.py (FIPS_TO_USPS, FIPS_TO_CENSUS_REGION) extended with reverse USPS_TO_FIPS and STATE_NAME_TO_FIPS lookups per the spec's Implementation Notes."
+          },
+          "dataSource": {
+            "name": "In-code state normalization module",
+            "uri": "file://src/mcp_server/_state_input.py"
+          },
+          "schema": {
+            "fields": [
+              {"name": "normalize_state_input", "type": "FUNCTION", "description": "(raw: Any) -> str | None — returns 2-digit FIPS or None"},
+              {"name": "FIPS_TO_STATE_NAME", "type": "DICT<STRING,STRING>", "description": "51-entry FIPS -> canonical state name map"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "governance.data_contracts.consumable_regional_price_parities",
+        "facets": {
+          "documentation": {
+            "description": "Top-level contract YAML read by FutureProofMCPServer.attach_governance to inject governance.quality_tier and governance.owner into every tool response. The contract file stores table, owner, and quality_tier at the top level of the YAML (not nested under metadata/schema), so the framework's list_contracts() cannot surface those fields — this project-local override reads the YAML directly and caches by table name. quality_tier is parsed from the folded scalar via _extract_quality_tier_token which returns the first whitespace/em-dash-separated token ('partial_verification')."
+          },
+          "dataSource": {
+            "name": "Project governance contracts",
+            "uri": "file://governance/data-contracts/consumable-regional-price-parities.yaml"
+          },
+          "schema": {
+            "fields": [
+              {"name": "table", "type": "STRING", "description": "'consumable.regional_price_parities'"},
+              {"name": "owner", "type": "STRING", "description": "'@data-steward'"},
+              {"name": "quality_tier", "type": "STRING", "description": "'partial_verification' (first token of the folded scalar)"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "mcp.get_regional_price_parity",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "data.state_name", "type": "STRING"},
+              {"name": "data.state_abbr", "type": "STRING"},
+              {"name": "data.state_fips", "type": "STRING"},
+              {"name": "data.census_region", "type": "STRING"},
+              {"name": "data.rpp_all_items", "type": "DOUBLE"},
+              {"name": "data.purchasing_power_multiplier", "type": "DOUBLE"},
+              {"name": "data.cost_tier", "type": "STRING"},
+              {"name": "data.adjusted_examples", "type": "STRUCT<30k:DOUBLE,50k:DOUBLE,75k:DOUBLE,100k:DOUBLE>"},
+              {"name": "data.data_source", "type": "STRING"},
+              {"name": "data.data_year", "type": "INTEGER"},
+              {"name": "row_count", "type": "INTEGER"},
+              {"name": "governance.table", "type": "STRING"},
+              {"name": "governance.quality_tier", "type": "STRING"},
+              {"name": "governance.owner", "type": "STRING"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "data.state_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "state_name"}
+                ],
+                "transformationDescription": "DIRECT passthrough. Same name in the response.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_abbr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "state_abbr"}
+                ],
+                "transformationDescription": "DIRECT passthrough. Same name in the response.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_fips": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "state_fips"},
+                  {"namespace": "brightsmith", "name": "mcp._state_input", "field": "normalize_state_input"}
+                ],
+                "transformationDescription": "DIRECT passthrough in the response, but ALSO the lookup key. The handler calls normalize_state_input(raw_state) to convert the user's USPS/name/FIPS input to a canonical 2-digit FIPS, then queries consumable.regional_price_parities with filters={'state_fips': fips}. The value returned to Gemma is the Gold column verbatim.",
+                "transformationType": "DIRECT"
+              },
+              "data.census_region": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "census_region"}
+                ],
+                "transformationDescription": "DIRECT passthrough. Same name in the response.",
+                "transformationType": "DIRECT"
+              },
+              "data.rpp_all_items": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "rpp_all_items"}
+                ],
+                "transformationDescription": "DIRECT passthrough. Same name in the response. BEA national=100 index scale preserved.",
+                "transformationType": "DIRECT"
+              },
+              "data.purchasing_power_multiplier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "DIRECT passthrough at full precision (pre-review Advisory #1 — the caller must be able to reconstruct arithmetic exactly).",
+                "transformationType": "DIRECT"
+              },
+              "data.cost_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "cost_tier"}
+                ],
+                "transformationDescription": "DIRECT passthrough. Same name in the response. 5-bucket enum (very_high | high | average | low | very_low) already derived at Gold from the BT-106 frozen breakpoints — MCP layer does not reclassify.",
+                "transformationType": "DIRECT"
+              },
+              "data.adjusted_examples": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "adjusted_30k"},
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "adjusted_50k"},
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "adjusted_75k"},
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "adjusted_100k"}
+                ],
+                "transformationDescription": "BUNDLED (struct-reshape only, no value mutation). The four Gold adjusted_Nk columns are packed into a struct with short keys: {'30k': adjusted_30k, '50k': adjusted_50k, '75k': adjusted_75k, '100k': adjusted_100k}. Built client-side in _rpp_row_to_payload(). No rounding or recomputation — the already-rounded Gold values are copied verbatim. Short keys ('30k' vs. 'adjusted_30k') are a Gemma-facing ergonomics choice.",
+                "transformationType": "DIRECT"
+              },
+              "data.data_source": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "verification_status"}
+                ],
+                "transformationDescription": "RENAMED passthrough. verification_status from Gold is surfaced as data_source in the Gemma-facing response. Value content is unchanged: 'bea_official' for the 8 BEA-verified states; 'estimate' for the other 43. This is the wire-level implementation of Bronze staff-review Condition 7 (MCP half) — Gemma can hedge numeric precision when data_source='estimate'. The verified_only=true strict mode ALSO branches on this field and returns a structured null response for estimate rows.",
+                "transformationType": "DIRECT"
+              },
+              "data.data_year": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "data_year"}
+                ],
+                "transformationDescription": "DIRECT passthrough. Same name in the response. Single-vintage contract (2024) propagated from raw-ingest-bea-rpp through Silver and Gold.",
+                "transformationType": "DIRECT"
+              },
+              "row_count": {
+                "inputFields": [],
+                "transformationDescription": "FRAMEWORK: always 1 on success; omitted on structured-null paths.",
+                "transformationType": "DERIVED"
+              },
+              "governance.table": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "governance.data_contracts.consumable_regional_price_parities", "field": "table"}
+                ],
+                "transformationDescription": "FRAMEWORK: injected by BaseMCPServer.attach_governance — the fully-qualified table name 'consumable.regional_price_parities'.",
+                "transformationType": "DERIVED"
+              },
+              "governance.quality_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "governance.data_contracts.consumable_regional_price_parities", "field": "quality_tier"}
+                ],
+                "transformationDescription": "FRAMEWORK: injected by FutureProofMCPServer.attach_governance override. Reads the top-level quality_tier from the contract YAML, runs _extract_quality_tier_token to strip the trailing folded-scalar prose, and returns the canonical token 'partial_verification'. Cached by table name.",
+                "transformationType": "DERIVED"
+              },
+              "governance.owner": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "governance.data_contracts.consumable_regional_price_parities", "field": "owner"}
+                ],
+                "transformationDescription": "FRAMEWORK: injected by FutureProofMCPServer.attach_governance override. Reads the top-level owner from the contract YAML ('@data-steward'). Cached by table name.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "excludedFields": {
+            "fields": {
+              "record_id": {
+                "reason": "Pipeline surrogate key (prefix='rpc') not needed by MCP consumers. state_fips is the natural lookup key."
+              },
+              "promoted_at": {
+                "reason": "Gold promote timestamp not needed by MCP consumers. Governance metadata is attached separately via attach_governance()."
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-11T00:00:00.000000Z",
+    "run": {
+      "runId": "c4f9e5d2-6b3a-4018-9e7c-0a2d4b8f3e59",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/mcp-bea-rpp.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "MCP zone (Zone 5) registration of compare_purchasing_power tool on FutureProofMCPServer. Convenience tool for the 'What if I move?' scenario — fetches two RPP rows (one per state) from consumable.regional_price_parities and computes adjusted_salary = round(salary * purchasing_power_multiplier, 2) at tool-call time for each state, plus difference and difference_pct. Unlike get_regional_price_parity this tool DOES compute at tool-call time, but only three derived scalars (adjusted_salary per side, absolute difference, and difference_pct), all using banker's rounding (Python round() == DuckDB ROUND(), per IEEE 754 round-half-to-even) to match Gold and DQ-engine semantics. The computation does not materialize any new dataset or column — it is a per-request derivation passed straight to the response. Each per-state side payload carries 6 fields: state_name, state_abbr (DIRECT), cost_tier (DIRECT), purchasing_power_multiplier (DIRECT full precision), data_source (RENAMED from verification_status per Bronze Condition 7), and adjusted_salary (DERIVED per-request). The adjusted_Nk columns from Gold are NOT read by this tool — the tool derives a fresh adjusted value from the user-supplied salary. state_fips is used internally as the lookup key but is not exposed in the compact side payloads. governance.{table, quality_tier, owner} are framework-injected via attach_governance() as in tool 1. verified_only=true strict mode refuses mixed-provenance requests where either state has verification_status='estimate'."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsAddressable": 51,
+          "rowsPerCall": 2,
+          "fieldsReadFromGold": 8,
+          "fieldsExposedPerSide": 6,
+          "fieldsDerivedPerCall": 3,
+          "fieldsFrameworkInjected": 3,
+          "bronzeCondition7": "verification_status -> data_source (wire-level carry-forward, per side)"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "mcp.register-compare-purchasing-power",
+      "facets": {
+        "documentation": {
+          "description": "Register the compare_purchasing_power MCP tool on the FutureProof MCP server. The tool accepts (salary, state_a, state_b, verified_only) and returns a side-by-side purchasing-power comparison. For each state it normalizes input to FIPS, queries consumable.regional_price_parities with filters={'state_fips': fips}, and builds a compact per-side payload: state_name, state_abbr, adjusted_salary (derived per-request as round(salary * purchasing_power_multiplier, 2)), cost_tier, purchasing_power_multiplier (full precision), data_source (renamed from verification_status per Bronze Condition 7). Top-level the response also carries salary (echo of input), difference = round(state_b.adjusted_salary - state_a.adjusted_salary, 2), and difference_pct = round(difference / state_a.adjusted_salary * 100, 2). Null-case paths: invalid salary, unknown state, same state twice (after normalization), missing row, verified_only strict mode refusing mixed-provenance request. The four adjusted_Nk Gold columns are NOT read — this tool derives a fresh adjusted salary from the user-supplied input. governance.{table, quality_tier, owner} are injected by attach_governance()."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/mcp_server/futureproof_server.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.regional_price_parities",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "description": "Pipeline surrogate key — NOT read by this tool"},
+              {"name": "state_fips", "type": "STRING", "description": "Used internally as the lookup key; NOT surfaced in the compact side payloads"},
+              {"name": "state_name", "type": "STRING"},
+              {"name": "state_abbr", "type": "STRING"},
+              {"name": "census_region", "type": "STRING", "description": "Read by _fetch_rpp_row via RPP_QUERY_FIELDS but NOT surfaced in the compact side payloads"},
+              {"name": "rpp_all_items", "type": "DOUBLE", "description": "Read by _fetch_rpp_row but NOT surfaced in the compact side payloads"},
+              {"name": "purchasing_power_multiplier", "type": "DOUBLE", "description": "Surfaced in each side payload at full precision AND used as the multiplier input for adjusted_salary derivation"},
+              {"name": "cost_tier", "type": "STRING"},
+              {"name": "adjusted_30k", "type": "DOUBLE", "description": "Read by _fetch_rpp_row but NOT surfaced by this tool — adjusted_salary is derived per-request from the user-supplied salary"},
+              {"name": "adjusted_50k", "type": "DOUBLE", "description": "Read by _fetch_rpp_row but NOT surfaced by this tool — adjusted_salary is derived per-request from the user-supplied salary"},
+              {"name": "adjusted_75k", "type": "DOUBLE", "description": "Read by _fetch_rpp_row but NOT surfaced by this tool — adjusted_salary is derived per-request from the user-supplied salary"},
+              {"name": "adjusted_100k", "type": "DOUBLE", "description": "Read by _fetch_rpp_row but NOT surfaced by this tool — adjusted_salary is derived per-request from the user-supplied salary"},
+              {"name": "verification_status", "type": "STRING", "description": "Per-row provenance — RENAMED to data_source in each per-side payload per Bronze Condition 7. Also consumed by verified_only strict-mode branch."},
+              {"name": "data_year", "type": "INTEGER", "description": "Read by _fetch_rpp_row but NOT surfaced in the compact side payloads"},
+              {"name": "promoted_at", "type": "TIMESTAMP", "description": "Gold promote timestamp — NOT read by this tool"}
+            ]
+          },
+          "dataSource": {
+            "name": "Gold Iceberg warehouse",
+            "uri": "file://data/gold/iceberg_warehouse/consumable.db/regional_price_parities"
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "mcp._state_input",
+        "facets": {
+          "documentation": {
+            "description": "State-input normalization module (same as tool 1). Called twice per compare_purchasing_power invocation — once for state_a, once for state_b. Both inputs accept USPS abbr / full name / FIPS, case-insensitive. Returns None for unknown states; the handler surfaces a structured-null response in that case."
+          },
+          "dataSource": {
+            "name": "In-code state normalization module",
+            "uri": "file://src/mcp_server/_state_input.py"
+          },
+          "schema": {
+            "fields": [
+              {"name": "normalize_state_input", "type": "FUNCTION"},
+              {"name": "FIPS_TO_STATE_NAME", "type": "DICT<STRING,STRING>"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "mcp._tool_input.salary",
+        "facets": {
+          "documentation": {
+            "description": "User-supplied salary argument to compare_purchasing_power. Validated by _validate_salary (rejects None, bool, non-numeric, NaN, inf, <=0, and >=10_000_000). Used as the multiplicand for per-state adjusted_salary derivation. Not stored anywhere — lives for the lifetime of the request. Modeled as a named input so the adjusted_salary, difference, and difference_pct lineage has a traceable non-Gold source."
+          },
+          "schema": {
+            "fields": [
+              {"name": "salary", "type": "DOUBLE", "description": "Positive, < 10_000_000, finite; validated at request time"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "governance.data_contracts.consumable_regional_price_parities",
+        "facets": {
+          "documentation": {
+            "description": "Same contract YAML read by tool 1. Reused via the _contract_cache on FutureProofMCPServer so the second tool's attach_governance call is a cache hit, not a re-read."
+          },
+          "dataSource": {
+            "name": "Project governance contracts",
+            "uri": "file://governance/data-contracts/consumable-regional-price-parities.yaml"
+          },
+          "schema": {
+            "fields": [
+              {"name": "table", "type": "STRING"},
+              {"name": "owner", "type": "STRING"},
+              {"name": "quality_tier", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "mcp.compare_purchasing_power",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "data.salary", "type": "DOUBLE"},
+              {"name": "data.state_a.state_name", "type": "STRING"},
+              {"name": "data.state_a.state_abbr", "type": "STRING"},
+              {"name": "data.state_a.adjusted_salary", "type": "DOUBLE"},
+              {"name": "data.state_a.cost_tier", "type": "STRING"},
+              {"name": "data.state_a.purchasing_power_multiplier", "type": "DOUBLE"},
+              {"name": "data.state_a.data_source", "type": "STRING"},
+              {"name": "data.state_b.state_name", "type": "STRING"},
+              {"name": "data.state_b.state_abbr", "type": "STRING"},
+              {"name": "data.state_b.adjusted_salary", "type": "DOUBLE"},
+              {"name": "data.state_b.cost_tier", "type": "STRING"},
+              {"name": "data.state_b.purchasing_power_multiplier", "type": "DOUBLE"},
+              {"name": "data.state_b.data_source", "type": "STRING"},
+              {"name": "data.difference", "type": "DOUBLE"},
+              {"name": "data.difference_pct", "type": "DOUBLE"},
+              {"name": "row_count", "type": "INTEGER"},
+              {"name": "governance.table", "type": "STRING"},
+              {"name": "governance.quality_tier", "type": "STRING"},
+              {"name": "governance.owner", "type": "STRING"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "data.salary": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "mcp._tool_input.salary", "field": "salary"}
+                ],
+                "transformationDescription": "ECHO of the validated user-supplied salary, coerced to float. Not sourced from Gold.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_a.state_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "state_name"}
+                ],
+                "transformationDescription": "DIRECT passthrough from the row fetched for state_a's normalized FIPS.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_a.state_abbr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "state_abbr"}
+                ],
+                "transformationDescription": "DIRECT passthrough from the row fetched for state_a.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_a.adjusted_salary": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "mcp._tool_input.salary", "field": "salary"},
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "DERIVED at tool-call time as round(salary * state_a.purchasing_power_multiplier, 2) via Python's built-in round() (IEEE 754 round-half-to-even / banker's rounding) to match DuckDB's default ROUND() and the Gold adjusted_Nk rounding mode. Not sourced from the Gold adjusted_Nk columns — the tool derives a fresh adjusted value from the user-supplied salary so arbitrary salaries (not just 30k/50k/75k/100k) are supported.",
+                "transformationType": "DERIVED"
+              },
+              "data.state_a.cost_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "cost_tier"}
+                ],
+                "transformationDescription": "DIRECT passthrough from the row fetched for state_a. 5-bucket enum already derived at Gold.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_a.purchasing_power_multiplier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "DIRECT passthrough at full precision (pre-review Advisory #1).",
+                "transformationType": "DIRECT"
+              },
+              "data.state_a.data_source": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "verification_status"}
+                ],
+                "transformationDescription": "RENAMED passthrough. verification_status from Gold surfaces as data_source in each per-side payload per Bronze staff-review Condition 7 (MCP half). Value content unchanged ('bea_official' | 'estimate'). The verified_only=true strict mode also branches on this field and refuses the entire comparison when either side is an estimate.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_b.state_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "state_name"}
+                ],
+                "transformationDescription": "DIRECT passthrough from the row fetched for state_b's normalized FIPS.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_b.state_abbr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "state_abbr"}
+                ],
+                "transformationDescription": "DIRECT passthrough from the row fetched for state_b.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_b.adjusted_salary": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "mcp._tool_input.salary", "field": "salary"},
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "DERIVED at tool-call time as round(salary * state_b.purchasing_power_multiplier, 2) via Python's built-in round() (banker's rounding, matching DuckDB ROUND() and Gold adjusted_Nk semantics). Independent of the Gold adjusted_Nk columns.",
+                "transformationType": "DERIVED"
+              },
+              "data.state_b.cost_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "cost_tier"}
+                ],
+                "transformationDescription": "DIRECT passthrough from the row fetched for state_b.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_b.purchasing_power_multiplier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "DIRECT passthrough at full precision.",
+                "transformationType": "DIRECT"
+              },
+              "data.state_b.data_source": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "verification_status"}
+                ],
+                "transformationDescription": "RENAMED passthrough per Bronze Condition 7 — same semantics as data.state_a.data_source but for the second state. Both sides carry per-row provenance to the wire.",
+                "transformationType": "DIRECT"
+              },
+              "data.difference": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "mcp._tool_input.salary", "field": "salary"},
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "DERIVED at tool-call time as round(state_b.adjusted_salary - state_a.adjusted_salary, 2). Implicitly depends on BOTH fetched rows' purchasing_power_multiplier AND the user-supplied salary. Banker's rounding applied to match the per-side adjusted_salary rounding mode.",
+                "transformationType": "DERIVED"
+              },
+              "data.difference_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "mcp._tool_input.salary", "field": "salary"},
+                  {"namespace": "brightsmith", "name": "consumable.regional_price_parities", "field": "purchasing_power_multiplier"}
+                ],
+                "transformationDescription": "DERIVED at tool-call time as round(difference / state_a.adjusted_salary * 100, 2). Guarded against division-by-zero with a 0.0 fallback (pathological case — cannot occur within the valid RPP domain). Banker's rounding applied.",
+                "transformationType": "DERIVED"
+              },
+              "row_count": {
+                "inputFields": [],
+                "transformationDescription": "FRAMEWORK: always 2 on success (one row per side); omitted on structured-null paths.",
+                "transformationType": "DERIVED"
+              },
+              "governance.table": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "governance.data_contracts.consumable_regional_price_parities", "field": "table"}
+                ],
+                "transformationDescription": "FRAMEWORK: injected by BaseMCPServer.attach_governance — 'consumable.regional_price_parities'.",
+                "transformationType": "DERIVED"
+              },
+              "governance.quality_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "governance.data_contracts.consumable_regional_price_parities", "field": "quality_tier"}
+                ],
+                "transformationDescription": "FRAMEWORK: injected by FutureProofMCPServer.attach_governance override. Canonical token 'partial_verification' extracted from the folded scalar in the contract YAML. Cache hit (tool 1 primed the _contract_cache in the same server instance).",
+                "transformationType": "DERIVED"
+              },
+              "governance.owner": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "governance.data_contracts.consumable_regional_price_parities", "field": "owner"}
+                ],
+                "transformationDescription": "FRAMEWORK: injected by FutureProofMCPServer.attach_governance override. '@data-steward' from the contract YAML. Cache hit.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "excludedFields": {
+            "fields": {
+              "record_id": {
+                "reason": "Pipeline surrogate key not needed by MCP consumers. state_fips is the internal lookup key."
+              },
+              "promoted_at": {
+                "reason": "Gold promote timestamp not needed by MCP consumers. Governance metadata is attached separately via attach_governance()."
+              },
+              "state_fips": {
+                "reason": "Used internally by _fetch_rpp_row as the lookup key, but compare_purchasing_power's compact per-side payload intentionally omits state_fips. state_name and state_abbr are sufficient for Gemma-facing display; callers who need state_fips should use get_regional_price_parity instead."
+              },
+              "census_region": {
+                "reason": "Read from Gold via RPP_QUERY_FIELDS but not surfaced in compare_purchasing_power's compact per-side payload. Kept out of the response to reduce token footprint for the two-state comparison."
+              },
+              "rpp_all_items": {
+                "reason": "Read from Gold via RPP_QUERY_FIELDS but not surfaced. Full-precision purchasing_power_multiplier is sufficient for the comparison; rpp_all_items would be redundant (ppm = 100 / rpp_all_items)."
+              },
+              "data_year": {
+                "reason": "Read from Gold via RPP_QUERY_FIELDS but not surfaced. Omitted to reduce token footprint; available via get_regional_price_parity if needed."
+              },
+              "adjusted_30k": {
+                "reason": "Read from Gold via RPP_QUERY_FIELDS (shared _fetch_rpp_row) but NOT used by this tool — adjusted_salary is derived per-request from the user-supplied salary, not selected from the four frozen anchors."
+              },
+              "adjusted_50k": {
+                "reason": "Read from Gold via RPP_QUERY_FIELDS (shared _fetch_rpp_row) but NOT used by this tool — adjusted_salary is derived per-request from the user-supplied salary."
+              },
+              "adjusted_75k": {
+                "reason": "Read from Gold via RPP_QUERY_FIELDS (shared _fetch_rpp_row) but NOT used by this tool — adjusted_salary is derived per-request from the user-supplied salary."
+              },
+              "adjusted_100k": {
+                "reason": "Read from Gold via RPP_QUERY_FIELDS (shared _fetch_rpp_row) but NOT used by this tool — adjusted_salary is derived per-request from the user-supplied salary."
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

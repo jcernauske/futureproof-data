@@ -1,0 +1,662 @@
+{
+  "spec": "gold-futureproof-engine-backfill-ai",
+  "tables": [
+    "consumable.program_career_paths",
+    "consumable.career_branches"
+  ],
+  "run_timestamp": "2026-04-09T23:43:01.563519+00:00",
+  "cycles_completed": 5,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "corruptions": 257,
+      "pcp_row_count": 5986,
+      "cb_row_count": 13302,
+      "dq_passed": 4,
+      "dq_failed": 16,
+      "dq_total": 20,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-BF-001",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-BF-002",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-003",
+            "raw_value": 8
+          },
+          {
+            "rule_id": "GLD-BF-004",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-005",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-BF-006",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-BF-007",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-012",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-013",
+            "raw_value": 16
+          },
+          {
+            "rule_id": "GLD-BF-014",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-BF-015",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "GLD-BF-017",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-BF-018",
+            "raw_value": 9
+          },
+          {
+            "rule_id": "GLD-BF-019",
+            "raw_value": 13
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-BF-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-020",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 40,
+          "validity": 42,
+          "uniqueness": 25,
+          "consistency": 22,
+          "accuracy": 19,
+          "reasonableness": 42,
+          "freshness": 31,
+          "volume": 2,
+          "referential_integrity": 31,
+          "coverage": 3
+        },
+        "detection_rate": 0.8,
+        "rules_fired": 16,
+        "rules_silent": 4,
+        "rules_errored": 0,
+        "total_rules": 20
+      }
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "corruptions": 315,
+      "pcp_row_count": 7441,
+      "cb_row_count": 13539,
+      "dq_passed": 5,
+      "dq_failed": 15,
+      "dq_total": 20,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-BF-001",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-002",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-003",
+            "raw_value": 8
+          },
+          {
+            "rule_id": "GLD-BF-005",
+            "raw_value": 8
+          },
+          {
+            "rule_id": "GLD-BF-006",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-BF-007",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-BF-008",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-BF-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-012",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-013",
+            "raw_value": 17
+          },
+          {
+            "rule_id": "GLD-BF-014",
+            "raw_value": 9
+          },
+          {
+            "rule_id": "GLD-BF-015",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-BF-017",
+            "raw_value": 9
+          },
+          {
+            "rule_id": "GLD-BF-018",
+            "raw_value": 9
+          },
+          {
+            "rule_id": "GLD-BF-019",
+            "raw_value": 15
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-BF-004",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "GLD-BF-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-010",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "GLD-BF-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-020",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 47,
+          "validity": 51,
+          "uniqueness": 31,
+          "consistency": 29,
+          "accuracy": 25,
+          "reasonableness": 51,
+          "freshness": 38,
+          "volume": 2,
+          "referential_integrity": 38,
+          "coverage": 3
+        },
+        "detection_rate": 0.75,
+        "rules_fired": 15,
+        "rules_silent": 5,
+        "rules_errored": 0,
+        "total_rules": 20
+      }
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "corruptions": 369,
+      "pcp_row_count": 8665,
+      "cb_row_count": 13521,
+      "dq_passed": 3,
+      "dq_failed": 17,
+      "dq_total": 20,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-BF-001",
+            "raw_value": 3
+          },
+          {
+            "rule_id": "GLD-BF-002",
+            "raw_value": 2
+          },
+          {
+            "rule_id": "GLD-BF-003",
+            "raw_value": 14
+          },
+          {
+            "rule_id": "GLD-BF-004",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-005",
+            "raw_value": 11
+          },
+          {
+            "rule_id": "GLD-BF-006",
+            "raw_value": 10
+          },
+          {
+            "rule_id": "GLD-BF-007",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-BF-008",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-012",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-013",
+            "raw_value": 17
+          },
+          {
+            "rule_id": "GLD-BF-014",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-BF-015",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-BF-017",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "GLD-BF-018",
+            "raw_value": 14
+          },
+          {
+            "rule_id": "GLD-BF-019",
+            "raw_value": 13
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-BF-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-020",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 55,
+          "validity": 60,
+          "uniqueness": 36,
+          "consistency": 34,
+          "accuracy": 31,
+          "reasonableness": 60,
+          "freshness": 44,
+          "volume": 2,
+          "referential_integrity": 44,
+          "coverage": 3
+        },
+        "detection_rate": 0.85,
+        "rules_fired": 17,
+        "rules_silent": 3,
+        "rules_errored": 0,
+        "total_rules": 20
+      }
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "corruptions": 430,
+      "pcp_row_count": 5968,
+      "cb_row_count": 13320,
+      "dq_passed": 4,
+      "dq_failed": 16,
+      "dq_total": 20,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-BF-001",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-002",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-BF-003",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-BF-004",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-005",
+            "raw_value": 10
+          },
+          {
+            "rule_id": "GLD-BF-006",
+            "raw_value": 8
+          },
+          {
+            "rule_id": "GLD-BF-007",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-012",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-013",
+            "raw_value": 12
+          },
+          {
+            "rule_id": "GLD-BF-014",
+            "raw_value": 4
+          },
+          {
+            "rule_id": "GLD-BF-015",
+            "raw_value": 3
+          },
+          {
+            "rule_id": "GLD-BF-017",
+            "raw_value": 8
+          },
+          {
+            "rule_id": "GLD-BF-018",
+            "raw_value": 10
+          },
+          {
+            "rule_id": "GLD-BF-019",
+            "raw_value": 13
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-BF-008",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-020",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 64,
+          "validity": 68,
+          "uniqueness": 41,
+          "consistency": 46,
+          "accuracy": 36,
+          "reasonableness": 68,
+          "freshness": 51,
+          "volume": 2,
+          "referential_integrity": 51,
+          "coverage": 3
+        },
+        "detection_rate": 0.8,
+        "rules_fired": 16,
+        "rules_silent": 4,
+        "rules_errored": 0,
+        "total_rules": 20
+      }
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "corruptions": 534,
+      "pcp_row_count": 7413,
+      "cb_row_count": 13294,
+      "dq_passed": 5,
+      "dq_failed": 15,
+      "dq_total": 20,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "GLD-BF-001",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-002",
+            "raw_value": 5
+          },
+          {
+            "rule_id": "GLD-BF-003",
+            "raw_value": 17
+          },
+          {
+            "rule_id": "GLD-BF-005",
+            "raw_value": 10
+          },
+          {
+            "rule_id": "GLD-BF-006",
+            "raw_value": 10
+          },
+          {
+            "rule_id": "GLD-BF-007",
+            "raw_value": 9
+          },
+          {
+            "rule_id": "GLD-BF-008",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-011",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-012",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "GLD-BF-013",
+            "raw_value": 18
+          },
+          {
+            "rule_id": "GLD-BF-014",
+            "raw_value": 7
+          },
+          {
+            "rule_id": "GLD-BF-015",
+            "raw_value": 11
+          },
+          {
+            "rule_id": "GLD-BF-017",
+            "raw_value": 6
+          },
+          {
+            "rule_id": "GLD-BF-018",
+            "raw_value": 14
+          },
+          {
+            "rule_id": "GLD-BF-019",
+            "raw_value": 14
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "GLD-BF-004",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "GLD-BF-009",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-010",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "GLD-BF-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "GLD-BF-020",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          }
+        ],
+        "errored_rules": [],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 80,
+          "validity": 86,
+          "uniqueness": 51,
+          "consistency": 48,
+          "accuracy": 50,
+          "reasonableness": 86,
+          "freshness": 64,
+          "volume": 2,
+          "referential_integrity": 64,
+          "coverage": 3
+        },
+        "detection_rate": 0.75,
+        "rules_fired": 15,
+        "rules_silent": 5,
+        "rules_errored": 0,
+        "total_rules": 20
+      }
+    }
+  ]
+}

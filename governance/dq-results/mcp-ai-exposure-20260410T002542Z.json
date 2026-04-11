@@ -1,0 +1,11 @@
+{
+  "run_id": "1c2a4d7a",
+  "spec": "mcp-ai-exposure",
+  "executed_at": "2026-04-10T00:25:42.722322+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

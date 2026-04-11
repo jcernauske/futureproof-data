@@ -1,0 +1,217 @@
+{
+  "spec": "silver-base-bea-rpp",
+  "shadow_table": "shadow_base.bea_rpp",
+  "run_timestamp": "2026-04-11T00:21:28.707386+00:00",
+  "probes": [
+    {
+      "probe": 200,
+      "scenario": "probe_self_consistent_divergence",
+      "manifest": [
+        {
+          "scenario": "E1_self_consistent_divergence_from_bronze",
+          "dimensions": [
+            "referential_integrity",
+            "accuracy"
+          ],
+          "field": "rpp_all_items + purchasing_power_multiplier",
+          "strategy": "change_both_so_inverse_still_holds",
+          "old_value": "rpp=110.7, ppm=0.9033423667570009",
+          "new_value": "rpp=105.0, ppm=0.9524 (self-consistent, diverges from bronze=110.7)"
+        }
+      ],
+      "fired_rule_ids": [
+        "SIL-BEA-031"
+      ],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 51
+    },
+    {
+      "probe": 201,
+      "scenario": "probe_drop_northeast_region",
+      "manifest": [
+        {
+          "scenario": "E2_drop_northeast_region",
+          "dimensions": [
+            "coverage"
+          ],
+          "field": "census_region",
+          "strategy": "relabel_all_northeast_as_midwest",
+          "old_value": "9 Northeast rows",
+          "new_value": "9 relabeled to Midwest"
+        }
+      ],
+      "fired_rule_ids": [
+        "SIL-BEA-014",
+        "SIL-BEA-015",
+        "SIL-BEA-034"
+      ],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 51
+    },
+    {
+      "probe": 202,
+      "scenario": "probe_dc_abbr_zz",
+      "manifest": [
+        {
+          "scenario": "E3_dc_abbr_zz",
+          "dimensions": [
+            "validity",
+            "accuracy"
+          ],
+          "field": "state_abbr",
+          "strategy": "set_regex_compliant_but_non_canonical",
+          "old_value": "DC",
+          "new_value": "ZZ"
+        }
+      ],
+      "fired_rule_ids": [
+        "SIL-BEA-009",
+        "SIL-BEA-033"
+      ],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 51
+    },
+    {
+      "probe": 203,
+      "scenario": "probe_data_year_future",
+      "manifest": [
+        {
+          "scenario": "E4_data_year_future",
+          "dimensions": [
+            "freshness",
+            "validity"
+          ],
+          "field": "data_year",
+          "strategy": "set_future_year",
+          "old_value": "2024",
+          "new_value": "2025"
+        }
+      ],
+      "fired_rule_ids": [
+        "SIL-BEA-027",
+        "SIL-BEA-028"
+      ],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 51
+    },
+    {
+      "probe": 204,
+      "scenario": "probe_null_ppm",
+      "manifest": [
+        {
+          "scenario": "E5_null_ppm",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "purchasing_power_multiplier",
+          "strategy": "null_out",
+          "old_value": "1.1312217194570136",
+          "new_value": "null"
+        }
+      ],
+      "fired_rule_ids": [
+        "SIL-BEA-019"
+      ],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 51
+    },
+    {
+      "probe": 205,
+      "scenario": "probe_state_fips_unknown",
+      "manifest": [
+        {
+          "scenario": "E6_state_fips_unknown",
+          "dimensions": [
+            "validity"
+          ],
+          "field": "state_fips",
+          "strategy": "set_non_canonical_code",
+          "old_value": "02",
+          "new_value": "99"
+        }
+      ],
+      "fired_rule_ids": [],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 51
+    },
+    {
+      "probe": 206,
+      "scenario": "probe_duplicate_state_fips",
+      "manifest": [
+        {
+          "scenario": "E7_duplicate_state_fips",
+          "dimensions": [
+            "uniqueness"
+          ],
+          "field": "state_fips",
+          "strategy": "append_second_row_same_fips_unique_record_id",
+          "old_value": "state_fips=41 appears 1x",
+          "new_value": "state_fips=41 appears 2x (row count 52)"
+        }
+      ],
+      "fired_rule_ids": [
+        "SIL-BEA-001",
+        "SIL-BEA-003",
+        "SIL-BEA-006",
+        "SIL-BEA-015"
+      ],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 52
+    },
+    {
+      "probe": 207,
+      "scenario": "probe_all_bea_official",
+      "manifest": [
+        {
+          "scenario": "E8_all_bea_official",
+          "dimensions": [
+            "accuracy",
+            "consistency"
+          ],
+          "field": "verification_status",
+          "strategy": "mark_all_51_as_bea_official",
+          "old_value": "8 bea_official, 43 estimate",
+          "new_value": "51 bea_official, 0 estimate"
+        }
+      ],
+      "fired_rule_ids": [
+        "SIL-BEA-023",
+        "SIL-BEA-024"
+      ],
+      "errored_rule_ids": [
+        "SIL-BEA-018"
+      ],
+      "rules_total": 38,
+      "original_count": 51,
+      "corrupted_count": 51
+    }
+  ]
+}

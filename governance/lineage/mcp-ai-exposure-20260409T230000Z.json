@@ -1,0 +1,142 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-09T23:00:00.000000Z",
+    "run": {
+      "runId": "f7a2c918-3e4d-4b8a-91f5-6d0e2a8b4c73",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-karpathy-ai-exposure.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "MCP zone (Zone 5) registration of get_ai_exposure tool. Direct passthrough from consumable.ai_exposure. No transformation. Tool queries by soc_code equality filter and returns 7 of 9 Gold columns (excludes record_id, promoted_at). Null case returns structured {data: null, message: string}."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsAddressable": 389,
+          "fieldsExposed": 7,
+          "fieldsExcluded": 2,
+          "transformations": 0,
+          "evalCases": 62,
+          "evalCategories": 5
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "mcp.register-get-ai-exposure",
+      "facets": {
+        "documentation": {
+          "description": "Register the get_ai_exposure MCP tool on the FutureProof MCP server. The tool performs a point lookup on consumable.ai_exposure by soc_code and returns 7 fields: soc_code, occupation_title, exposure_score, stat_res, boss_ai_score, rationale, category. No transformation occurs at this layer -- it is a direct passthrough from the Gold consumable table. The tool handles null cases (SOC not found) gracefully with a structured null response."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/mcp_server/futureproof_server.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "mcp.get_ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "category", "type": "STRING"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "soc_code"}
+                ],
+                "transformationDescription": "Direct passthrough. Lookup key and response field.",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Direct passthrough. Display label for the occupation.",
+                "transformationType": "DIRECT"
+              },
+              "exposure_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "exposure_score"}
+                ],
+                "transformationDescription": "Direct passthrough. Original Karpathy AI exposure score (0-10).",
+                "transformationType": "DIRECT"
+              },
+              "stat_res": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "stat_res"}
+                ],
+                "transformationDescription": "Direct passthrough. AI Resilience pentagon stat (1-10), derived at Gold zone.",
+                "transformationType": "DIRECT"
+              },
+              "boss_ai_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "boss_ai_score"}
+                ],
+                "transformationDescription": "Direct passthrough. Fight AI boss strength (1-10), derived at Gold zone.",
+                "transformationType": "DIRECT"
+              },
+              "rationale": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "rationale"}
+                ],
+                "transformationDescription": "Direct passthrough. LLM-generated explanation of the exposure score.",
+                "transformationType": "DIRECT"
+              },
+              "category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "category"}
+                ],
+                "transformationDescription": "Direct passthrough. BLS category grouping for display.",
+                "transformationType": "DIRECT"
+              }
+            }
+          },
+          "excludedFields": {
+            "fields": {
+              "record_id": {
+                "reason": "Pipeline surrogate key not needed by MCP consumers. SOC code is the lookup key."
+              },
+              "promoted_at": {
+                "reason": "Pipeline metadata timestamp not needed by MCP consumers. Governance metadata is attached separately via enrich_response()."
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

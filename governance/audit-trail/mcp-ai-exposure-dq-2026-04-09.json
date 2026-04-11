@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-04-09T19:30:01Z",
+  "spec": "mcp-ai-exposure",
+  "zone": "mcp",
+  "agent": "@dq-engineer",
+  "action": "DQ execution and scorecard generation",
+  "rules_executed": 5,
+  "rules_passed": 5,
+  "rules_failed": 0,
+  "p0_gate": "PASS",
+  "results_file": "governance/dq-results/mcp-ai-exposure-20260410T003001Z.json",
+  "scorecard_file": "governance/dq-scorecards/mcp-ai-exposure-scorecard.md",
+  "execution_method": "manual (scripts/dq_mcp_manual.py) — standard DQ runner does not support MCP-layer rules",
+  "unit_tests": "13/13 passed (tests/mcp/test_get_ai_exposure.py)",
+  "eval_set": {
+    "total_cases": 62,
+    "passed": 62,
+    "pass_rate": 1.0,
+    "threshold": 0.80
+  },
+  "rule_results": [
+    {"rule_id": "MCP-AIE-001", "priority": "P0", "result": "PASS", "detail": "62/62 eval cases (100%)"},
+    {"rule_id": "MCP-AIE-002", "priority": "P0", "result": "PASS", "detail": "Tool callable, 149ms"},
+    {"rule_id": "MCP-AIE-003", "priority": "P0", "result": "PASS", "detail": "5/5 null cases handled"},
+    {"rule_id": "MCP-AIE-004", "priority": "P0", "result": "PASS", "detail": "7/7 fields present"},
+    {"rule_id": "MCP-AIE-005", "priority": "P1", "result": "PASS", "detail": "max 157ms (threshold 5000ms)"}
+  ],
+  "notes": [
+    "All 5 rules were already active (pre-approved by @dq-rule-writer)",
+    "No regressions — this is the first DQ run for mcp-ai-exposure",
+    "Catalog path: data/catalog/catalog.db (not warehouse/catalog.db)"
+  ]
+}

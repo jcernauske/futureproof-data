@@ -1,0 +1,128 @@
+{
+  "spec": "mcp-ai-exposure",
+  "zone": "mcp",
+  "mode": "greenfield",
+  "started": "2026-04-10T00:11:45.082393+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:14:02.128481+00:00",
+      "output": "governance/approvals/mcp-ai-exposure-pre-review.md",
+      "output_hash": "sha256:205d86b070c262e6b1cb1d69fa74bc01e0a750a206a441c89422db4303bfe4f9"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:20:16.307556+00:00",
+      "output": "src/mcp_server/futureproof_server.py",
+      "output_hash": "sha256:34aa9e3279022d618a95429f54666fc940de13b5fe86e74afc3e6f7ab05de6e8"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:24:53.591562+00:00",
+      "output": "governance/eda/mcp-ai-exposure-eda.md",
+      "output_hash": "sha256:8fe5df8319904e4fe5d47338fe9db080f9b6a04100cbd0b9a1a652da120ded0e"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:24:54.714869+00:00",
+      "output": "governance/dq-rules/mcp-ai-exposure.json",
+      "output_hash": "sha256:e8396c095328a024a0ac280e3205aaacbcd4b0c493128b6c46184c2606b6bb3b"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:31:15.750347+00:00",
+      "output": "governance/dq-scorecards/mcp-ai-exposure-scorecard.md",
+      "output_hash": "sha256:4608f3d02c038341188e31722a5f010b15c07a5c79ccb714940680c86bf43fbb"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:24:55.835564+00:00",
+      "output": "governance/lineage/mcp-ai-exposure-20260409T230000Z.json",
+      "output_hash": "sha256:dd6db9b11d0a5545113303163ec376d229d384f45dc9604c3b23c9fe51112a5d"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:24:56.955057+00:00",
+      "output": "governance/data-contracts/mcp-ai-exposure.yaml",
+      "output_hash": "sha256:0eb46cf9b56958d99f1ac7ef2fcd47f810860a72eea0c95805e85a1bcde492d4"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:31:16.885563+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:53511ef8698088a24c997547122abc880aef49479088ee470aa360cf7254bd52"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:34:21.037690+00:00",
+      "output": "governance/approvals/mcp-ai-exposure-post-review.md",
+      "output_hash": "sha256:a8a686a6a957f31fe74b04aeba6676d48ae5769cb6eb2eaa4d8732252b9a550a"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:37:57.818798+00:00",
+      "output": "governance/approvals/mcp-ai-exposure-staff-review.md",
+      "output_hash": "sha256:85b1cd86d8429b76f7c6a9b1c37baf55de1a295d36a4ae0ef5a31d04dd34af89"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

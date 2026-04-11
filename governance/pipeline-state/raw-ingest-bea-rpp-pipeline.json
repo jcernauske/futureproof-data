@@ -1,0 +1,200 @@
+{
+  "spec": "raw-ingest-bea-rpp",
+  "zone": "bronze",
+  "mode": "greenfield",
+  "started": "2026-04-10T22:02:43.315753+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:05:53.797808+00:00",
+      "output": "governance/approvals/raw-ingest-bea-rpp-pre-review.md",
+      "output_hash": "sha256:df9912941abe8d44b15278645897c5f7886675da4752ebd721b3aa48473a5111"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:14:37.578422+00:00",
+      "output": "src/raw/bea_rpp_ingestor.py",
+      "output_hash": "sha256:320532740755f97904210a4a13fcccb2c55fc373124825b97886ac17d8268f7a"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:21:27.362597+00:00",
+      "output": "governance/eda/raw-bea-rpp-eda.md",
+      "output_hash": "sha256:e6ae83ce133acf710c910a207f2b0d63a6f49664e932b1c33160d0b5e17199aa"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:26:22.519049+00:00",
+      "output": "governance/domain-context.md",
+      "output_hash": "sha256:05f1c21ec99eeab59b779543a6fb95d6927c19b1d5450eec18d6a309de2ee336"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:28:00.531496+00:00",
+      "output": "governance/dq-rules/raw-ingest-bea-rpp.json",
+      "output_hash": "sha256:a95353910119f95614b83da188dece68e131a65c9fad9f2cab6a49408c4ddc6d"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:35:25.656152+00:00",
+      "output": "governance/dq-scorecards/raw-ingest-bea-rpp-scorecard.md",
+      "output_hash": "sha256:d26579b70123e5f432deeb66c83213dfe1b6b536af873342fa87abadd96cb02d"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:42:30.784439+00:00",
+      "output": "governance/chaos-reports/raw-ingest-bea-rpp-chaos.md",
+      "output_hash": "sha256:95248c24d4367cf92753832f2461f88ad8b90b73fad1209124669050e8ca1627"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:45:40.992002+00:00",
+      "output": "governance/entity-resolution/raw-ingest-bea-rpp.md",
+      "output_hash": "sha256:b18ba261d40ad8c0c893f42f963d162dac435d40a7ae6281661c9d295acd1b80"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:48:24.215788+00:00",
+      "output": "governance/pii-scans/raw-ingest-bea-rpp.md",
+      "output_hash": "sha256:f315ad58564b0fae8b43a667eed5d8e6bf41387ae6d31e0365be47d12690e6c0"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:52:07.195096+00:00",
+      "output": "governance/temporal/raw-ingest-bea-rpp.md",
+      "output_hash": "sha256:91d51bf032d8ebdc7aaf2c624967f01287d13c0ae4dc3230e97f19270bb8039e"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:54:34.120257+00:00",
+      "output": "governance/lineage/raw-ingest-bea-rpp-20260410.json",
+      "output_hash": "sha256:c3c8f9318caae844612d548fe36bb225f5c32cd7ad5032bb57b6dc0bddb0dec7"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T22:57:44.684238+00:00",
+      "output": "governance/cde-tagging/raw-ingest-bea-rpp.md",
+      "output_hash": "sha256:4bbfbeaa15f255a505c2857b542cb0768000b79e367aebcf6573249520b225ea"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:28:01.718670+00:00",
+      "output": "governance/data-contracts/raw-bea-rpp.yaml",
+      "output_hash": "sha256:c3247f0cd0df0c8eea081248f5bad5a237c06790a396a76eb28655b73ca8db05"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:10:38.501560+00:00",
+      "output": "governance/adversarial-audits/raw-ingest-bea-rpp.md",
+      "output_hash": "sha256:851150dae52e184cddeb2025c2cf45a7c8d358cdf891fd37b653213d54e42324"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:22:11.448246+00:00",
+      "output": "governance/approvals/raw-ingest-bea-rpp-post-review.md",
+      "output_hash": "sha256:e4e0c3a45a7276f30f95aa5ae75b9a702c05e2b718a6299d6ff86513580d28d5"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:27:53.104967+00:00",
+      "output": "governance/approvals/raw-ingest-bea-rpp-staff-review.md",
+      "output_hash": "sha256:bc3b4f7efe9b7e8d1738bf1322cc157a5674dafd688f7bd4415c853ac1630c20"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

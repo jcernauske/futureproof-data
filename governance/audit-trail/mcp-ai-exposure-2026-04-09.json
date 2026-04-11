@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-04-09T00:00:00Z",
+  "spec": "docs/specs/raw-ingest-karpathy-ai-exposure.md",
+  "zone": "mcp",
+  "agent": "@mcp-engineer",
+  "decisions": [
+    {
+      "decision": "Tool name: get_ai_exposure",
+      "rationale": "Matches spec Zone 5 definition. Single SOC code input, returns full exposure record with governance metadata. Simple point-lookup pattern — no batch or aggregation at the tool level (clients can call query_table for that)."
+    },
+    {
+      "decision": "Module path: src/mcp_server/ instead of src/mcp/",
+      "rationale": "The directory name 'mcp' conflicts with the 'mcp' pip package (Model Context Protocol SDK). Renamed to 'mcp_server' to avoid import shadowing when pythonpath includes src/."
+    },
+    {
+      "decision": "Response excludes record_id and promoted_at",
+      "rationale": "Internal fields (grain hash and promotion timestamp) are not useful for AI agent consumption. The 7 returned fields match the spec: soc_code, occupation_title, exposure_score, stat_res, boss_ai_score, rationale, category."
+    },
+    {
+      "decision": "Null case returns data=null with descriptive message",
+      "rationale": "Per spec: 'If soc_code not found, returns null with a message indicating no AI exposure data is available.' Gemma handles this gracefully in guidance generation."
+    },
+    {
+      "decision": "Uses query_iceberg_simple (not raw SQL) for data access",
+      "rationale": "BaseMCPServer.query_iceberg_simple is the governed query path with audit logging hooks. Avoids raw SQL injection surface."
+    },
+    {
+      "decision": "Eval set: 62 cases across 5 categories",
+      "rationale": "Exceeds the 50-case minimum. Categories: point_lookup (34), comparison (8), ranking (5), aggregation (7, substitutes for trend since data is static), edge_case (8). All cases include source_table, source_filters, source_column for programmatic verification."
+    }
+  ],
+  "security_notes": [
+    "All data is read-only — no mutation paths exposed",
+    "SOC codes are public BLS identifiers, no PII",
+    "Exposure scores are LLM-generated estimates, not proprietary data"
+  ]
+}

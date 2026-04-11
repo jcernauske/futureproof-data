@@ -1,0 +1,176 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-09T22:00:00.000000Z",
+    "run": {
+      "runId": "d4e8a291-7f3b-4c5d-b612-9a1e3d7c8f50",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-karpathy-ai-exposure.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone transformation of Karpathy AI exposure data. Reads 419 rows from base.karpathy_ai_exposure (Silver), filters to bls_match = true (389 rows), derives stat_res via MIN(11 - exposure_score, 10), derives boss_ai_score via MAX(exposure_score, 1), drops Silver-only fields (slug, bls_match, soc_resolved_method, source_load_date, ingested_at), computes deterministic record_id via compute_grain_id with 'aie' prefix, adds promoted_at timestamp, and promotes to consumable.ai_exposure via idempotent promote pattern."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 419,
+          "rowsFiltered": 30,
+          "rowsTransformed": 389,
+          "promoted": 389,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "fieldsDropped": 5,
+          "fieldsDerived": 4,
+          "fieldsCarriedDirect": 5
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-ai-exposure",
+      "facets": {
+        "documentation": {
+          "description": "Transform Silver base.karpathy_ai_exposure into the consumable.ai_exposure Gold data product. Filters to bls_match = true (389 of 419 Silver rows). Derives stat_res (AI Resilience pentagon stat, 1-10) as MIN(11 - exposure_score, 10) and boss_ai_score (Fight AI boss strength, 1-10) as MAX(exposure_score, 1). Carries exposure_score, occupation_title, rationale, category, and soc_code verbatim from Silver. Drops slug, bls_match, soc_resolved_method, source_load_date, and ingested_at. Computes deterministic record_id with 'aie' prefix. Promotes via idempotent append with dedup on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/ai_exposure_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.karpathy_ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "slug", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "bls_match", "type": "BOOLEAN"},
+              {"name": "soc_resolved_method", "type": "STRING"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(row, ['soc_code'], prefix='aie'). SHA-256 of concatenated grain fields with 'aie' prefix. Note: prefix changes from Silver's 'kai' to Gold's 'aie', so the Gold record_id is a different hash than the Silver record_id for the same soc_code.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "soc_code"}
+                ],
+                "transformationDescription": "Direct carry from Silver. No transformation applied. XX-XXXX format validated in Silver zone. Non-null in Gold because only bls_match = true rows are promoted (which guarantees non-null SOC).",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Karpathy's occupation title retained for display in MCP tool and frontend.",
+                "transformationType": "DIRECT"
+              },
+              "exposure_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "exposure_score"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Original Karpathy 0-10 AI exposure score preserved for transparency. Input to stat_res and boss_ai_score derivations. Actual observed range in Gold is 1-10 (no exposure_score = 0 rows survived the bls_match filter).",
+                "transformationType": "DIRECT"
+              },
+              "stat_res": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "exposure_score"}
+                ],
+                "transformationDescription": "AI Resilience pentagon stat derived as MIN(11 - exposure_score, 10). Inverts the exposure score to a resilience scale: exposure 10 -> stat_res 1 (minimal resilience), exposure 1 -> stat_res 10 (maximal resilience). The MIN(_, 10) cap handles the theoretical exposure_score = 0 case (11 - 0 = 11, capped to 10), though no exposure_score = 0 rows exist in the current Gold data. Integer result, range 1-10. Backs the RES pentagon stat in FutureProof.",
+                "transformationType": "DERIVED"
+              },
+              "boss_ai_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "exposure_score"}
+                ],
+                "transformationDescription": "Fight AI boss strength derived as MAX(exposure_score, 1). Every boss has at least strength 1. Since all Gold rows have exposure_score >= 1 (no exposure_score = 0 survived bls_match filter), boss_ai_score equals exposure_score for all current rows. The MAX(_, 1) floor is defensive for future data. Integer result, range 1-10. Backs the Fight AI boss in the FutureProof gauntlet.",
+                "transformationType": "DERIVED"
+              },
+              "rationale": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "rationale"}
+                ],
+                "transformationDescription": "Direct carry from Silver. LLM-generated 2-3 sentence explanation of the AI exposure score. Display field for the Fight AI boss narrative in the FutureProof frontend and MCP tool get_ai_exposure().",
+                "transformationType": "DIRECT"
+              },
+              "category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.karpathy_ai_exposure", "field": "category"}
+                ],
+                "transformationDescription": "Direct carry from Silver. Karpathy's BLS category grouping (25 categories, e.g., 'business-and-financial'). Used for display grouping in frontend and MCP tool.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of any Silver timestamp. Replaces Silver's ingested_at in the metadata lineage chain. Framework-provided field set during promote().",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "record_id (Silver)": {
+                "reason": "Silver's record_id (prefix 'kai') is replaced by a new Gold record_id (prefix 'aie'). The Gold grain hash uses the same key field (soc_code) but a different prefix, producing a different hash value."
+              },
+              "slug": {
+                "reason": "Silver provenance field not needed in Gold consumable. SOC code is the authoritative identifier at Gold. Slug is available in base.karpathy_ai_exposure for lineage tracing."
+              },
+              "bls_match": {
+                "reason": "Used as a filter predicate (bls_match = true) to select rows for Gold. All promoted rows have bls_match = true by construction, making the field redundant in the Gold table."
+              },
+              "soc_resolved_method": {
+                "reason": "Silver data quality provenance field. Useful for Silver-level quality assessment but not needed by Gold consumers (MCP tool, frontend, backfill joins). Available in base.karpathy_ai_exposure for auditing."
+              },
+              "source_load_date": {
+                "reason": "Pipeline metadata from Bronze/Silver not carried to Gold consumable. Available in Silver for lineage tracing. Gold uses promoted_at for temporal metadata."
+              },
+              "ingested_at": {
+                "reason": "Silver zone metadata timestamp. Replaced by promoted_at in Gold zone. The promotion timestamp is the relevant metadata for Gold consumers."
+              }
+            }
+          },
+          "rowCountLineage": {
+            "description": "419 Silver rows -> 389 Gold rows. 30 rows filtered out by bls_match = true predicate. These 30 rows include ~28 'unresolved' rows (null SOC code, no BLS match possible) and ~2 rows with valid SOC codes not found in BLS OOH. No additional deduplication at Gold (grain uniqueness on soc_code is guaranteed by Silver dedup + bls_match filter)."
+          }
+        }
+      }
+    ]
+  }
+]

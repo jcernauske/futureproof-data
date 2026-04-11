@@ -1,0 +1,192 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-10T00:00:00.000000Z",
+    "run": {
+      "runId": "9f7b2d14-3c1a-4e85-b6a2-8a0d5f9c17e3",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/silver-base-bea-rpp.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver promote of BEA Regional Price Parities from bronze.bea_rpp (51 rows: 50 states + DC) to base.bea_rpp. Smallest Silver transformation in the project — no joins, no concept normalization, no cross-source work. Carries geo_fips/geo_name through as state_fips/state_name; passes rpp_all_items and data_year through verbatim; renames load_date to source_load_date. Derives four new columns from the canonical state_fips grain: state_abbr via FIPS_TO_USPS 51-entry lookup (structural U.S. geography, in-code constant in src/silver/_us_state_reference.py), census_region via FIPS_TO_CENSUS_REGION lookup (DC documented quirk — placed in 'South' per U.S. Census convention despite Northeast-like RPP), purchasing_power_multiplier as 100.0 / rpp_all_items (single source of truth for salary scaling across Gold/MCP/frontend), and verification_status via the 8-state BEA_VERIFIED_FIPS allow-list (CA, HI, DC, NJ, AR, MS, IA, OK -> 'bea_official'; all other 43 -> 'estimate', implementing Bronze staff-review Ruling 2 / Condition 6). Framework fields: record_id via compute_grain_id(['state_fips'], prefix='rpp'); ingested_at stamped at promotion time by transform_row. Idempotent promote pattern via brightsmith.infra.promote: re-running produces 0 new rows. No raw metadata (source_url, source_method) is carried forward — those stop at the Bronze layer."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 51,
+          "rowsTransformed": 51,
+          "rowsSkippedTransform": 0,
+          "promoted": 51,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "verificationCounts": {
+            "bea_official": 8,
+            "estimate": 43
+          }
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.promote-bea-rpp",
+      "facets": {
+        "documentation": {
+          "description": "Promote bronze.bea_rpp to base.bea_rpp (Silver base). Validates 2-digit state FIPS against the 51-entry US state reference, renames geo_fips/geo_name/load_date to state_fips/state_name/source_load_date, derives state_abbr and census_region from in-code FIPS lookups (src/silver/_us_state_reference.py), pre-computes purchasing_power_multiplier = 100.0 / rpp_all_items as the single source of truth for salary scaling, derives per-row verification_status from the 8-state BEA allow-list, passes rpp_all_items and data_year through, stamps ingested_at, computes a deterministic record_id via compute_grain_id(['state_fips'], prefix='rpp'), and promotes via the idempotent Brightsmith promote pattern (append with dedup on record_id)."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/bea_rpp_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.bea_rpp",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "geo_fips", "type": "STRING", "description": "2-digit zero-padded state FIPS code"},
+              {"name": "geo_name", "type": "STRING", "description": "Full state or DC name"},
+              {"name": "rpp_all_items", "type": "DOUBLE", "description": "Regional Price Parity index, All Items (national = 100.0)"},
+              {"name": "data_year", "type": "INTEGER", "description": "Year of the RPP estimate (2024 for this vintage)"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "description": "Bronze ingest timestamp — not carried to Silver"},
+              {"name": "source_url", "type": "STRING", "description": "BEA API URL (redacted) — not carried to Silver"},
+              {"name": "source_method", "type": "STRING", "description": "bea_api or csv_cache — not carried to Silver"},
+              {"name": "load_date", "type": "DATE", "description": "Bronze load date, renamed to source_load_date in Silver"}
+            ]
+          },
+          "dataSource": {
+            "name": "Bronze Iceberg warehouse",
+            "uri": "file://data/bronze/iceberg_warehouse/bronze.db/bea_rpp"
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "silver._us_state_reference",
+        "facets": {
+          "documentation": {
+            "description": "In-code 51-entry reference module loaded by the Silver transformer. Provides FIPS_TO_USPS (state FIPS -> 2-letter USPS code), FIPS_TO_CENSUS_REGION (state FIPS -> Northeast/Midwest/South/West per U.S. Census Bureau), and BEA_VERIFIED_FIPS ({'06','15','11','34','05','28','19','40'} — the 8 states with spec-verified RPP values). Treated as structural U.S. geography, not entity-specific data."
+          },
+          "dataSource": {
+            "name": "Static US state reference (in-code)",
+            "uri": "file://src/silver/_us_state_reference.py"
+          },
+          "schema": {
+            "fields": [
+              {"name": "FIPS_TO_USPS", "type": "MAP<STRING,STRING>", "description": "51 entries: state_fips -> USPS 2-letter abbreviation"},
+              {"name": "FIPS_TO_CENSUS_REGION", "type": "MAP<STRING,STRING>", "description": "51 entries: state_fips -> Northeast | Midwest | South | West"},
+              {"name": "BEA_VERIFIED_FIPS", "type": "SET<STRING>", "description": "8 BEA-verified state FIPS codes for the 2024 SARPP vintage"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.bea_rpp",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "transformation": "FRAMEWORK: compute_grain_id(row, ['state_fips'], prefix='rpp')"},
+              {"name": "state_fips", "type": "STRING", "transformation": "RENAME from bronze.geo_fips (validated against 51-entry FIPS_TO_USPS and 2-digit regex)"},
+              {"name": "state_name", "type": "STRING", "transformation": "RENAME from bronze.geo_name (trimmed, non-empty)"},
+              {"name": "state_abbr", "type": "STRING", "transformation": "DERIVED via FIPS_TO_USPS[state_fips] lookup"},
+              {"name": "census_region", "type": "STRING", "transformation": "DERIVED via FIPS_TO_CENSUS_REGION[state_fips] lookup"},
+              {"name": "rpp_all_items", "type": "DOUBLE", "transformation": "DIRECT passthrough from bronze.rpp_all_items"},
+              {"name": "purchasing_power_multiplier", "type": "DOUBLE", "transformation": "DERIVED as 100.0 / rpp_all_items"},
+              {"name": "verification_status", "type": "STRING", "transformation": "DERIVED via BEA_VERIFIED_FIPS allow-list membership"},
+              {"name": "data_year", "type": "INTEGER", "transformation": "DIRECT passthrough from bronze.data_year (default 2024 if null)"},
+              {"name": "source_load_date", "type": "DATE", "transformation": "RENAME from bronze.load_date"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "transformation": "FRAMEWORK: Silver promotion UTC timestamp"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "geo_fips"}
+                ],
+                "transformationDescription": "Deterministic grain id computed by compute_grain_id(record, ['state_fips'], prefix='rpp') after state_fips is normalized from bronze.geo_fips. Provides a stable natural key for the idempotent promote pattern's dedup step.",
+                "transformationType": "DERIVED"
+              },
+              "state_fips": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "geo_fips"}
+                ],
+                "transformationDescription": "Identity transform with validation. _validate_state_fips strips whitespace, enforces the ^\\d{2}$ regex, and requires membership in the 51-entry FIPS_TO_USPS lookup (50 states + DC). No value rewriting — the bytes are identical to bronze.geo_fips on success.",
+                "transformationType": "DIRECT"
+              },
+              "state_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "geo_name"}
+                ],
+                "transformationDescription": "Identity transform with null/empty guard. str(value).strip() — raises ValueError on missing or whitespace-only state_name. No relabeling or canonicalization of state names.",
+                "transformationType": "DIRECT"
+              },
+              "state_abbr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "geo_fips"},
+                  {"namespace": "brightsmith", "name": "silver._us_state_reference", "field": "FIPS_TO_USPS"}
+                ],
+                "transformationDescription": "derive_state_abbr(state_fips) performs FIPS_TO_USPS[state_fips] — a 51-entry in-code constant lookup of the USPS 2-letter uppercase abbreviation. Raises ValueError if the FIPS is not in the table. The lookup is treated as structural U.S. geography rather than entity-specific data, so it lives in src/silver/_us_state_reference.py rather than a governance file.",
+                "transformationType": "DERIVED"
+              },
+              "census_region": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "geo_fips"},
+                  {"namespace": "brightsmith", "name": "silver._us_state_reference", "field": "FIPS_TO_CENSUS_REGION"}
+                ],
+                "transformationDescription": "derive_census_region(state_fips) performs FIPS_TO_CENSUS_REGION[state_fips] — a 51-entry in-code constant lookup returning one of {'Northeast', 'Midwest', 'South', 'West'} per the U.S. Census Bureau's four-region grouping. Documented quirk: DC (FIPS '11') maps to 'South' per Census convention, despite DC's Northeast-like RPP. Raises ValueError on unknown FIPS.",
+                "transformationType": "DERIVED"
+              },
+              "rpp_all_items": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "rpp_all_items"}
+                ],
+                "transformationDescription": "Direct passthrough. float(value) coercion only — no rescaling, no unit change. Value remains on the BEA national=100 index scale. Null raises ValueError (enforces P0 non-null invariant from the Silver DQ rules).",
+                "transformationType": "DIRECT"
+              },
+              "purchasing_power_multiplier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "rpp_all_items"}
+                ],
+                "transformationDescription": "derive_purchasing_power_multiplier(rpp) computes 100.0 / rpp_all_items as a double. Guards against None, zero, and NaN. Pre-computed here so every downstream consumer (Gold consumable.regional_price_parities, MCP tools get_regional_price_parity and compare_purchasing_power, the frontend salary-adjustment display) reads the same canonical value. Inverse invariant purchasing_power_multiplier * rpp_all_items ≈ 100.0 is enforced as a P0 DQ rule.",
+                "transformationType": "DERIVED"
+              },
+              "verification_status": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "geo_fips"},
+                  {"namespace": "brightsmith", "name": "silver._us_state_reference", "field": "BEA_VERIFIED_FIPS"}
+                ],
+                "transformationDescription": "derive_verification_status(state_fips) returns 'bea_official' iff state_fips is in the BEA_VERIFIED_FIPS allow-list {'06','15','11','34','05','28','19','40'} (CA, HI, DC, NJ, AR, MS, IA, OK), else 'estimate'. Closes Bronze HIGH-3 / raw-ingest-bea-rpp-staff-review.md Ruling 2 / Condition 6 by surfacing provenance on a per-row basis. Expected distribution for the 2026-04-10 vintage: 8 bea_official, 43 estimate. When the live BEA API refresh lands post-hackathon, the allow-list expands to all 51 codes and every row flips to bea_official without schema changes.",
+                "transformationType": "DERIVED"
+              },
+              "data_year": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "data_year"}
+                ],
+                "transformationDescription": "Direct passthrough. int(value) coercion; if null, defaults to DEFAULT_DATA_YEAR = 2024. For the current Bronze vintage every row has data_year = 2024, which is enforced by the P0 DQ rule data_year = 2024 and COUNT(DISTINCT data_year) = 1. Single-vintage supersession-by-replacement contract inherited from raw-ingest-bea-rpp.",
+                "transformationType": "DIRECT"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bea_rpp", "field": "load_date"}
+                ],
+                "transformationDescription": "Rename with identity value. bronze.load_date is carried forward verbatim as source_load_date to preserve the Bronze vintage stamp at the Silver grain. Raises ValueError on missing load_date to catch malformed Bronze snapshots.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: Silver promotion UTC timestamp stamped by transform_row at row-build time (datetime.datetime.now(tz=datetime.timezone.utc) by default; tests pass a fixed value for determinism). Distinct from bronze.ingested_at, which is not carried forward.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

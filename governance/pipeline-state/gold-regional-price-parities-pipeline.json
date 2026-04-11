@@ -1,0 +1,254 @@
+{
+  "spec": "gold-regional-price-parities",
+  "zone": "gold",
+  "mode": "greenfield",
+  "started": "2026-04-11T01:50:42.861175+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T01:54:42.072063+00:00",
+      "output": "governance/approvals/gold-regional-price-parities-pre-review.md",
+      "output_hash": "sha256:ece1ecf2e5ead630218728ac759c3f5ad45151b35d3519e9eaf46fd6c355b08c"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T01:57:00.867640+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:8ef770e69c2c73f814b29641317e76884de3da9b562e68a3d623a87e1db6b7f3"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:07:47.056700+00:00",
+      "output": "governance/models/gold-regional-price-parities-conceptual.md",
+      "output_hash": "sha256:a3ea08b7ae870a4eb8805da96f983607f52c38012b80e1985151d7ee01bb8032"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:07:48.415829+00:00",
+      "output": "governance/models/gold-regional-price-parities-logical.md",
+      "output_hash": "sha256:a51db2f4c7c1c5be7293474e57188014ceab19e61a969d98a7b3a748ffdae286"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:13:05.649481+00:00",
+      "output": "governance/eda/gold-regional-price-parities-eda.md",
+      "output_hash": "sha256:edab583c42b44e0b395b9e77f26f08edff56daddf33ce688f2f9536a15c291db"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T03:37:36.926223+00:00",
+      "output": "governance/dq-rules/gold-regional-price-parities.json",
+      "output_hash": "sha256:0c23a09310edb47efef3e08b48e0afd8c5bd80a180278b3ceb98fc3350eb98e7"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T03:37:38.245927+00:00",
+      "output": "governance/models/gold-regional-price-parities-physical.md",
+      "output_hash": "sha256:39562f274671fa6de8c1fd0c0b631b8c291204978770a90d2f055bd58749eb83"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:28:58.221880+00:00",
+      "output": "src/gold/regional_price_parities_transformer.py",
+      "output_hash": "sha256:5b3177b18c9b86a24896309f0e5aa65dab8ece6fcf670f3e6ad4b19bcb5fbe91"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:30:41.236006+00:00",
+      "output": "governance/dq-scorecards/gold-regional-price-parities-scorecard.md",
+      "output_hash": "sha256:3ce83e25ec5a00a715491b1b7ea99bf2bd582410f1fda0d00b657e7b82b554c1"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:40:05.356015+00:00",
+      "output": "governance/chaos-reports/gold-regional-price-parities-chaos.md",
+      "output_hash": "sha256:eaaed4c58c6d0e0b86911bb7d78918b4a3a41fd13c576c2aa5962719ad29a0fc"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:42:51.562742+00:00",
+      "output": "governance/entity-resolution/gold-regional-price-parities.md",
+      "output_hash": "sha256:d8b373aaa0500d096fcbfcd960f8944ff61bac1ec4b26aa4cc3cc99992717b28"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:46:56.992257+00:00",
+      "output": "governance/pii-scans/gold-regional-price-parities.md",
+      "output_hash": "sha256:f5ee5462fe55ffcdd8db43c367251ef13c41d2d73989ff7d6c236cbfbe932e75"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:52:01.114496+00:00",
+      "output": "governance/temporal/gold-regional-price-parities.md",
+      "output_hash": "sha256:5bab754d432637695702d126e0e4307cc6e49f257becc54dce31d8fdcaefd286"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:55:30.425673+00:00",
+      "output": "governance/lineage/gold-regional-price-parities-20260411.json",
+      "output_hash": "sha256:bdad64ee9c59d378eecf31c9cd387d0f170e86be1a323e4c770e8b265258387a"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T02:59:01.238096+00:00",
+      "output": "governance/cde-tagging/gold-regional-price-parities.md",
+      "output_hash": "sha256:9bb5829abb450da7a3da0f02eb6028760dd63dd87c5516cad572899277a410f4"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T03:40:49.954009+00:00",
+      "output": "governance/data-contracts/consumable-regional-price-parities.yaml",
+      "output_hash": "sha256:893370030d389790a6dcc82b0e5ee0e8813327d05c689a5de63bd83008c99b30"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T03:23:07.810630+00:00",
+      "output": "governance/adversarial-audits/gold-regional-price-parities.md",
+      "output_hash": "sha256:c302c38953c011a2dbee807ea55750b8980314447050dbefc13ce11230677827"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T03:31:37.824003+00:00",
+      "output": "governance/approvals/gold-regional-price-parities-post-review.md",
+      "output_hash": "sha256:98df9a9bff71bcb90bb56d6f249500e2d019bb835ffe5064c575497ca5d8d3f9"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T03:40:51.302452+00:00",
+      "output": "governance/approvals/gold-regional-price-parities-staff-review.md",
+      "output_hash": "sha256:f6256865ed8357178ca804cc29e82082635401527c946cedea189829bb2b8bcc"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "Greenfield new table consumable.regional_price_parities \u2014 no existing schema to modify, no blast radius on existing Gold tables",
+      "evidence": "docs/specs/gold-regional-price-parities.md",
+      "skipped_at": "2026-04-11T02:28:59.535838+00:00"
+    }
+  },
+  "approvals": {}
+}

@@ -1,0 +1,99 @@
+{
+  "spec": "gold-ai-exposure",
+  "table": "consumable.ai_exposure",
+  "grain": ["soc_code"],
+  "created": "2026-04-09",
+  "agent": "@primary-agent",
+  "description": "Golden dataset for consumable.ai_exposure. Each chain traces from Karpathy source score through derivation formulas to expected Gold output. Values verified by @staff-engineer against source file (data/raw/karpathy_cache/scores.json) and actual Iceberg table.",
+  "values": [
+    {"soc_code": "31-9097", "field": "exposure_score", "expected": 2, "tolerance": 0},
+    {"soc_code": "31-9097", "field": "stat_res", "expected": 9, "tolerance": 0},
+    {"soc_code": "31-9097", "field": "boss_ai_score", "expected": 2, "tolerance": 0},
+    {"soc_code": "13-2061", "field": "exposure_score", "expected": 8, "tolerance": 0},
+    {"soc_code": "13-2061", "field": "stat_res", "expected": 3, "tolerance": 0},
+    {"soc_code": "13-2061", "field": "boss_ai_score", "expected": 8, "tolerance": 0},
+    {"soc_code": "31-9094", "field": "exposure_score", "expected": 10, "tolerance": 0},
+    {"soc_code": "31-9094", "field": "stat_res", "expected": 1, "tolerance": 0},
+    {"soc_code": "31-9094", "field": "boss_ai_score", "expected": 10, "tolerance": 0}
+  ],
+  "verification_chains": [
+    {
+      "name": "Phlebotomists (31-9097) -- low exposure, high resilience",
+      "source_input": {
+        "slug": "phlebotomists",
+        "exposure_score": 2
+      },
+      "derivation_steps": {
+        "stat_res": "MIN(11 - 2, 10) = MIN(9, 10) = 9",
+        "boss_ai_score": "MAX(2, 1) = 2",
+        "invariant_check": "9 + 2 = 11"
+      },
+      "expected_output": {
+        "soc_code": "31-9097",
+        "exposure_score": 2,
+        "stat_res": 9,
+        "boss_ai_score": 2
+      },
+      "verified_by": "@staff-engineer",
+      "verified_against": "data/raw/karpathy_cache/scores.json (grep phlebotomists) and Iceberg parquet"
+    },
+    {
+      "name": "Financial Examiners (13-2061) -- high exposure, low resilience",
+      "source_input": {
+        "slug": "financial-examiners",
+        "exposure_score": 8
+      },
+      "derivation_steps": {
+        "stat_res": "MIN(11 - 8, 10) = MIN(3, 10) = 3",
+        "boss_ai_score": "MAX(8, 1) = 8",
+        "invariant_check": "3 + 8 = 11"
+      },
+      "expected_output": {
+        "soc_code": "13-2061",
+        "exposure_score": 8,
+        "stat_res": 3,
+        "boss_ai_score": 8
+      },
+      "verified_by": "@staff-engineer",
+      "verified_against": "data/raw/karpathy_cache/scores.json (grep financial-examiners) and Iceberg parquet"
+    },
+    {
+      "name": "Medical Transcriptionists (31-9094) -- maximum exposure",
+      "source_input": {
+        "slug": "medical-transcriptionists",
+        "exposure_score": 10
+      },
+      "derivation_steps": {
+        "stat_res": "MIN(11 - 10, 10) = MIN(1, 10) = 1",
+        "boss_ai_score": "MAX(10, 1) = 10",
+        "invariant_check": "1 + 10 = 11"
+      },
+      "expected_output": {
+        "soc_code": "31-9094",
+        "exposure_score": 10,
+        "stat_res": 1,
+        "boss_ai_score": 10
+      },
+      "verified_by": "@staff-engineer",
+      "verified_against": "data/raw/karpathy_cache/scores.json (grep medical-transcriptionists) and Iceberg parquet"
+    },
+    {
+      "name": "Hypothetical edge case -- exposure_score = 0 (not in current data)",
+      "source_input": {
+        "slug": "hypothetical-zero-exposure",
+        "exposure_score": 0
+      },
+      "derivation_steps": {
+        "stat_res": "MIN(11 - 0, 10) = MIN(11, 10) = 10 (capped at 10)",
+        "boss_ai_score": "MAX(0, 1) = 1 (floored at 1)",
+        "invariant_check": "10 + 1 = 11 (invariant holds even at boundary)"
+      },
+      "expected_output": {
+        "exposure_score": 0,
+        "stat_res": 10,
+        "boss_ai_score": 1
+      },
+      "note": "This edge case does not exist in current Karpathy data (min score is 1) but the formulas must handle it correctly."
+    }
+  ]
+}

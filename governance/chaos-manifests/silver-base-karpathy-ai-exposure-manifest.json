@@ -1,0 +1,1345 @@
+{
+  "spec": "silver-base-karpathy-ai-exposure",
+  "table": "base.karpathy_ai_exposure",
+  "run_timestamp": "2026-04-09T20:32:41.634480+00:00",
+  "cycles_completed": 5,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "corruptions": 14,
+      "row_count": 445,
+      "dq_passed": 19,
+      "dq_failed": 4,
+      "dq_total": 23,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-KAI-001",
+            "raw_value": 69
+          },
+          {
+            "rule_id": "SLV-KAI-008",
+            "raw_value": 69
+          },
+          {
+            "rule_id": "SLV-KAI-023",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-006",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-009",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-011",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-012",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-021",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "SLV-KAI-022"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 3,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.13,
+        "rules_fired": 3,
+        "rules_silent": 19,
+        "total_rules": 23
+      },
+      "manifest_entries": [
+        {
+          "row": 417,
+          "dimension": "completeness",
+          "field": "occupation_title",
+          "strategy": "null_occupation_title",
+          "old_value": "Telecommunications technicians",
+          "new_value": "null"
+        },
+        {
+          "row": 373,
+          "dimension": "validity",
+          "field": "soc_code",
+          "strategy": "bad_soc_summary_code",
+          "old_value": "43-3071",
+          "new_value": "43-0000"
+        },
+        {
+          "row": 419,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_75 (record_id=kai-ccfe463c713ecee2)",
+          "new_value": "exact_duplicate at position 419"
+        },
+        {
+          "row": 420,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_333 (record_id=kai-d0ea1760d838107c)",
+          "new_value": "exact_duplicate at position 420"
+        },
+        {
+          "row": 421,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "near_duplicate_soc",
+          "old_value": "copy_of_row_205 (soc_code=15-1212)",
+          "new_value": "near_duplicate at position 421"
+        },
+        {
+          "row": 241,
+          "dimension": "consistency",
+          "field": "soc_resolved_method,bls_match",
+          "strategy": "broad_expansion_bls_false",
+          "old_value": "method=direct,bls_match=True",
+          "new_value": "method=broad_expansion,bls_match=False"
+        },
+        {
+          "row": 4,
+          "dimension": "accuracy",
+          "field": "exposure_score",
+          "strategy": "plausible_wrong_score",
+          "old_value": "5",
+          "new_value": "9"
+        },
+        {
+          "row": 323,
+          "dimension": "reasonableness",
+          "field": "rationale",
+          "strategy": "extremely_long_rationale",
+          "old_value": "len=510",
+          "new_value": "len=6800"
+        },
+        {
+          "row": 89,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "future_ingested_at",
+          "old_value": "2026-04-09 20:24:30.509946",
+          "new_value": "2030-06-15T12:00:00"
+        },
+        {
+          "row": 27,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc_with_bls_true",
+          "old_value": "25-4013",
+          "new_value": "93-3361"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "422",
+          "new_value": "506"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_personal-care-and-service",
+          "old_value": "category=personal-care-and-service, count=14",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_media-and-communication",
+          "old_value": "category=media-and-communication, count=19",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_resolved_method",
+          "strategy": "remove_all_unresolved",
+          "old_value": "method=unresolved, count=28",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "corruptions": 14,
+      "row_count": 426,
+      "dq_passed": 17,
+      "dq_failed": 6,
+      "dq_total": 23,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-KAI-001",
+            "raw_value": 63
+          },
+          {
+            "rule_id": "SLV-KAI-008",
+            "raw_value": 63
+          },
+          {
+            "rule_id": "SLV-KAI-010",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-KAI-017",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-KAI-020",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-006",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-009",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-011",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-012",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-021",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-023",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "SLV-KAI-022"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 3,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.217,
+        "rules_fired": 5,
+        "rules_silent": 17,
+        "total_rules": 23
+      },
+      "manifest_entries": [
+        {
+          "row": 224,
+          "dimension": "completeness",
+          "field": "category",
+          "strategy": "null_category",
+          "old_value": "farming-fishing-and-forestry",
+          "new_value": "null"
+        },
+        {
+          "row": 83,
+          "dimension": "validity",
+          "field": "record_id",
+          "strategy": "bad_record_id_format",
+          "old_value": "kai-2827b8459016676d",
+          "new_value": "12345"
+        },
+        {
+          "row": 419,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_15 (record_id=kai-4abc87119139c6e1)",
+          "new_value": "exact_duplicate at position 419"
+        },
+        {
+          "row": 420,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_102 (record_id=kai-f87b312867ae098f)",
+          "new_value": "exact_duplicate at position 420"
+        },
+        {
+          "row": 421,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "near_duplicate_soc",
+          "old_value": "copy_of_row_56 (soc_code=17-1021)",
+          "new_value": "near_duplicate at position 421"
+        },
+        {
+          "row": 367,
+          "dimension": "consistency",
+          "field": "soc_resolved_method,bls_match",
+          "strategy": "unresolved_bls_true",
+          "old_value": "method=direct,bls_match=True",
+          "new_value": "method=unresolved,bls_match=True"
+        },
+        {
+          "row": 352,
+          "dimension": "accuracy",
+          "field": "record_id",
+          "strategy": "record_id_hash_mismatch",
+          "old_value": "kai-c946218889329f65",
+          "new_value": "kai-00067eec761a8dce"
+        },
+        {
+          "row": 54,
+          "dimension": "reasonableness",
+          "field": "rationale",
+          "strategy": "very_short_rationale",
+          "old_value": "len=387: The role requires significant physical p...",
+          "new_value": "len=4: Yes."
+        },
+        {
+          "row": 362,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "epoch_ingested_at",
+          "old_value": "2026-04-09 20:24:30.509946",
+          "new_value": "1970-01-01T00:00:00"
+        },
+        {
+          "row": 383,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc_with_bls_true",
+          "old_value": "31-9096",
+          "new_value": "97-2599"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "422",
+          "new_value": "506"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_management",
+          "old_value": "category=management, count=34",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_protective-service",
+          "old_value": "category=protective-service, count=10",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_resolved_method",
+          "strategy": "remove_all_unresolved",
+          "old_value": "method=unresolved, count=36",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "corruptions": 14,
+      "row_count": 410,
+      "dq_passed": 19,
+      "dq_failed": 4,
+      "dq_total": 23,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-KAI-001",
+            "raw_value": 62
+          },
+          {
+            "rule_id": "SLV-KAI-008",
+            "raw_value": 62
+          },
+          {
+            "rule_id": "SLV-KAI-016",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-006",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-009",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-011",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-012",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-021",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-023",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "SLV-KAI-022"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 3,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.13,
+        "rules_fired": 3,
+        "rules_silent": 19,
+        "total_rules": 23
+      },
+      "manifest_entries": [
+        {
+          "row": 201,
+          "dimension": "completeness",
+          "field": "occupation_title",
+          "strategy": "null_occupation_title",
+          "old_value": "Industrial machinery mechanics, machinery maintenance workers, and millwrights",
+          "new_value": "null"
+        },
+        {
+          "row": 272,
+          "dimension": "validity",
+          "field": "exposure_score",
+          "strategy": "bad_exposure_zero",
+          "old_value": "4",
+          "new_value": "0"
+        },
+        {
+          "row": 419,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_389 (record_id=kai-4222b4ed750f4bf8)",
+          "new_value": "exact_duplicate at position 419"
+        },
+        {
+          "row": 420,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_196 (record_id=kai-fe9e6701d1bd62f8)",
+          "new_value": "exact_duplicate at position 420"
+        },
+        {
+          "row": 421,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "near_duplicate_soc",
+          "old_value": "copy_of_row_112 (soc_code=31-9091)",
+          "new_value": "near_duplicate at position 421"
+        },
+        {
+          "row": 199,
+          "dimension": "consistency",
+          "field": "soc_resolved_method,bls_match",
+          "strategy": "broad_expansion_bls_false",
+          "old_value": "method=direct,bls_match=True",
+          "new_value": "method=broad_expansion,bls_match=False"
+        },
+        {
+          "row": 288,
+          "dimension": "accuracy",
+          "field": "exposure_score",
+          "strategy": "plausible_wrong_score",
+          "old_value": "5",
+          "new_value": "10"
+        },
+        {
+          "row": 66,
+          "dimension": "reasonableness",
+          "field": "rationale",
+          "strategy": "very_short_rationale",
+          "old_value": "len=430: Civil engineering involves significant d...",
+          "new_value": "len=4: Yes."
+        },
+        {
+          "row": 180,
+          "dimension": "freshness",
+          "field": "source_load_date",
+          "strategy": "stale_load_date",
+          "old_value": "2026-04-09",
+          "new_value": "2020-01-01"
+        },
+        {
+          "row": 138,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc_with_bls_true",
+          "old_value": "11-9032",
+          "new_value": "95-2662"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "422",
+          "new_value": "506"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_architecture-and-engineering",
+          "old_value": "category=architecture-and-engineering, count=42",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_media-and-communication",
+          "old_value": "category=media-and-communication, count=15",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_resolved_method",
+          "strategy": "remove_all_unresolved",
+          "old_value": "method=unresolved, count=39",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "corruptions": 14,
+      "row_count": 426,
+      "dq_passed": 17,
+      "dq_failed": 6,
+      "dq_total": 23,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-KAI-001",
+            "raw_value": 68
+          },
+          {
+            "rule_id": "SLV-KAI-003",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-KAI-008",
+            "raw_value": 68
+          },
+          {
+            "rule_id": "SLV-KAI-017",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-KAI-023",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-006",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-009",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-011",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-012",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-013",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-015",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-021",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "SLV-KAI-022"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 3,
+          "consistency": 1,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.217,
+        "rules_fired": 5,
+        "rules_silent": 17,
+        "total_rules": 23
+      },
+      "manifest_entries": [
+        {
+          "row": 173,
+          "dimension": "completeness",
+          "field": "category",
+          "strategy": "null_category",
+          "old_value": "personal-care-and-service",
+          "new_value": "null"
+        },
+        {
+          "row": 196,
+          "dimension": "validity",
+          "field": "exposure_score",
+          "strategy": "exposure_out_of_range",
+          "old_value": "7",
+          "new_value": "100"
+        },
+        {
+          "row": 419,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_0 (record_id=kai-500c6aa3fc64a210)",
+          "new_value": "exact_duplicate at position 419"
+        },
+        {
+          "row": 420,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_162 (record_id=kai-17618b2ad1b2274d)",
+          "new_value": "exact_duplicate at position 420"
+        },
+        {
+          "row": 421,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "near_duplicate_soc",
+          "old_value": "copy_of_row_147 (soc_code=19-2041)",
+          "new_value": "near_duplicate at position 421"
+        },
+        {
+          "row": 113,
+          "dimension": "consistency",
+          "field": "soc_resolved_method,bls_match",
+          "strategy": "broad_expansion_bls_false",
+          "old_value": "method=direct,bls_match=True",
+          "new_value": "method=broad_expansion,bls_match=False"
+        },
+        {
+          "row": 108,
+          "dimension": "accuracy",
+          "field": "record_id",
+          "strategy": "record_id_hash_mismatch",
+          "old_value": "kai-b2cae3aa4a8a0a25",
+          "new_value": "kai-00224e6233e4c527"
+        },
+        {
+          "row": 398,
+          "dimension": "reasonableness",
+          "field": "rationale",
+          "strategy": "short_rationale",
+          "old_value": "len=421: While AI can significantly automate less...",
+          "new_value": "len=25: AI will affect this job."
+        },
+        {
+          "row": 119,
+          "dimension": "freshness",
+          "field": "ingested_at",
+          "strategy": "epoch_ingested_at",
+          "old_value": "2026-04-09 20:24:30.509946",
+          "new_value": "1970-01-01T00:00:00"
+        },
+        {
+          "row": 125,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc_with_bls_true",
+          "old_value": "17-3013",
+          "new_value": "98-8095"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "422",
+          "new_value": "506"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_legal",
+          "old_value": "category=legal, count=7",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_architecture-and-engineering",
+          "old_value": "category=architecture-and-engineering, count=38",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_resolved_method",
+          "strategy": "remove_all_unresolved",
+          "old_value": "method=unresolved, count=35",
+          "new_value": "removed"
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "corruptions": 15,
+      "row_count": 379,
+      "dq_passed": 17,
+      "dq_failed": 6,
+      "dq_total": 23,
+      "gap_analysis": {
+        "failed_rules": [
+          {
+            "rule_id": "SLV-KAI-001",
+            "raw_value": 57
+          },
+          {
+            "rule_id": "SLV-KAI-008",
+            "raw_value": 57
+          },
+          {
+            "rule_id": "SLV-KAI-009",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-KAI-013",
+            "raw_value": 1
+          },
+          {
+            "rule_id": "SLV-KAI-015",
+            "raw_value": 1
+          }
+        ],
+        "passed_rules": [
+          {
+            "rule_id": "SLV-KAI-002",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-003",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-004",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-005",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-006",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-007",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-010",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-011",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-012",
+            "raw_value": 0,
+            "threshold": "result = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-014",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-016",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-017",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-018",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-019",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-020",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-021",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          },
+          {
+            "rule_id": "SLV-KAI-023",
+            "raw_value": 0,
+            "threshold": "result_count = 0"
+          }
+        ],
+        "errored_rules": [
+          "SLV-KAI-022"
+        ],
+        "injected_dimensions": [
+          "accuracy",
+          "completeness",
+          "consistency",
+          "coverage",
+          "freshness",
+          "reasonableness",
+          "referential_integrity",
+          "uniqueness",
+          "validity",
+          "volume"
+        ],
+        "corruptions_per_dimension": {
+          "completeness": 1,
+          "validity": 1,
+          "uniqueness": 3,
+          "consistency": 2,
+          "accuracy": 1,
+          "reasonableness": 1,
+          "freshness": 1,
+          "referential_integrity": 1,
+          "volume": 1,
+          "coverage": 3
+        },
+        "detection_rate": 0.217,
+        "rules_fired": 5,
+        "rules_silent": 17,
+        "total_rules": 23
+      },
+      "manifest_entries": [
+        {
+          "row": 250,
+          "dimension": "completeness",
+          "field": "exposure_score",
+          "strategy": "null_exposure_score",
+          "old_value": "6",
+          "new_value": "null"
+        },
+        {
+          "row": 404,
+          "dimension": "validity",
+          "field": "exposure_score",
+          "strategy": "exposure_out_of_range",
+          "old_value": "2",
+          "new_value": "11"
+        },
+        {
+          "row": 419,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_101 (record_id=kai-e0fba59d643bb1fe)",
+          "new_value": "exact_duplicate at position 419"
+        },
+        {
+          "row": 420,
+          "dimension": "uniqueness",
+          "field": "record_id",
+          "strategy": "duplicate_row",
+          "old_value": "copy_of_row_157 (record_id=kai-14b3f0943a5bc320)",
+          "new_value": "exact_duplicate at position 420"
+        },
+        {
+          "row": 421,
+          "dimension": "uniqueness",
+          "field": "soc_code",
+          "strategy": "near_duplicate_soc",
+          "old_value": "copy_of_row_286 (soc_code=31-2022)",
+          "new_value": "near_duplicate at position 421"
+        },
+        {
+          "row": 43,
+          "dimension": "consistency",
+          "field": "soc_resolved_method,bls_match",
+          "strategy": "unresolved_bls_true",
+          "old_value": "method=direct,bls_match=True",
+          "new_value": "method=unresolved,bls_match=True"
+        },
+        {
+          "row": 246,
+          "dimension": "consistency",
+          "field": "bls_match,soc_code",
+          "strategy": "bls_match_true_null_soc",
+          "old_value": "bls_match=True,soc_code=19-1042",
+          "new_value": "bls_match=True,soc_code=None"
+        },
+        {
+          "row": 0,
+          "dimension": "accuracy",
+          "field": "record_id",
+          "strategy": "record_id_hash_mismatch",
+          "old_value": "kai-500c6aa3fc64a210",
+          "new_value": "kai-000469f9f270087f"
+        },
+        {
+          "row": 407,
+          "dimension": "reasonableness",
+          "field": "rationale",
+          "strategy": "very_short_rationale",
+          "old_value": "len=373: AI will significantly automate back-end ...",
+          "new_value": "len=4: Yes."
+        },
+        {
+          "row": 330,
+          "dimension": "freshness",
+          "field": "source_load_date",
+          "strategy": "future_load_date",
+          "old_value": "2026-04-09",
+          "new_value": "2030-01-01"
+        },
+        {
+          "row": 153,
+          "dimension": "referential_integrity",
+          "field": "soc_code",
+          "strategy": "orphan_soc_with_bls_true",
+          "old_value": "27-4032",
+          "new_value": "94-1749"
+        },
+        {
+          "row": -1,
+          "dimension": "volume",
+          "field": "row_count",
+          "strategy": "mass_duplicate",
+          "old_value": "422",
+          "new_value": "506"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_healthcare",
+          "old_value": "category=healthcare, count=75",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "category",
+          "strategy": "remove_all_category_education-training-and-library",
+          "old_value": "category=education-training-and-library, count=20",
+          "new_value": "removed"
+        },
+        {
+          "row": -1,
+          "dimension": "coverage",
+          "field": "soc_resolved_method",
+          "strategy": "remove_all_unresolved",
+          "old_value": "method=unresolved, count=32",
+          "new_value": "removed"
+        }
+      ]
+    }
+  ]
+}

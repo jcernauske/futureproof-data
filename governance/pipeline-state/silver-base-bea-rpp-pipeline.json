@@ -1,0 +1,254 @@
+{
+  "spec": "silver-base-bea-rpp",
+  "zone": "silver",
+  "mode": "greenfield",
+  "started": "2026-04-10T23:32:13.700177+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:38:06.748210+00:00",
+      "output": "governance/approvals/silver-base-bea-rpp-pre-review.md",
+      "output_hash": "sha256:ef905fc248cbc3b378275852e84ad261f5d733da292cfdb41b520c97c660812b"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:41:28.903601+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:1fec78c8e83942dd8ad66d9fe2f8b35feb7d417193ef41a9b0851fd14f261a5a"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:48:57.465376+00:00",
+      "output": "governance/models/silver-base-bea-rpp-conceptual.md",
+      "output_hash": "sha256:ee62ad652e4176571ff56518541b2b2a5e23bd573bfd502af1101371eebcf7f1"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:48:58.691296+00:00",
+      "output": "governance/models/silver-base-bea-rpp-logical.md",
+      "output_hash": "sha256:30eae5674a24c26bcd5e77f5f6491e5fa68f924f16c0956286e1842c8bc9ac9b"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T23:57:01.907672+00:00",
+      "output": "governance/eda/silver-base-bea-rpp-eda.md",
+      "output_hash": "sha256:946ef53dadd5de844e890b4430be81f16bcef55133ed9b5fcfe6bc7077bd9133"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:34:40.064113+00:00",
+      "output": "governance/dq-rules/silver-base-bea-rpp.json",
+      "output_hash": "sha256:36a65c4881565de95be7ab31ba2a2eb5d265c6f19cf5eedbdccf966e4193feef"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:03:57.693783+00:00",
+      "output": "governance/models/silver-base-bea-rpp-physical.md",
+      "output_hash": "sha256:b0581b97b328a8b761fff6af7faa7a3d85c7cd15b763ec0417b761385b103029"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:12:25.592924+00:00",
+      "output": "src/silver/bea_rpp_transformer.py",
+      "output_hash": "sha256:48c870f72e7f27ec96773b497a1c6dddc4541e2d52d53e6ae7fd74accaf898f0"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:34:41.368380+00:00",
+      "output": "governance/dq-scorecards/silver-base-bea-rpp-scorecard.md",
+      "output_hash": "sha256:b6b331259cf783874480796410235d36123acdee8810125fcbfc9dae0a38d19a"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:26:07.350757+00:00",
+      "output": "governance/chaos-reports/silver-base-bea-rpp-chaos.md",
+      "output_hash": "sha256:3f91ef9c12ae04586330d9682c95d7c7e677f9d4f7302c6747202cee28b3f0f8"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:37:00.050942+00:00",
+      "output": "governance/entity-resolution/silver-base-bea-rpp.md",
+      "output_hash": "sha256:427caa163ffb27032839ae1d6159201c61fa63c3f9e97a40871dd0dda282b7a6"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:40:05.095101+00:00",
+      "output": "governance/pii-scans/silver-base-bea-rpp.md",
+      "output_hash": "sha256:f47338d5179d4b0ff811780ee9b657582a1fff3d5a7857b595afe6ac68bb9934"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:43:23.699756+00:00",
+      "output": "governance/temporal/silver-base-bea-rpp.md",
+      "output_hash": "sha256:50f97c0f185434feb836080f1b3da91a3899790467487d32574226395307902a"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:46:23.747404+00:00",
+      "output": "governance/lineage/silver-base-bea-rpp-20260410.json",
+      "output_hash": "sha256:8b6fb9934fb9efa399c4e629cdadc7720154d78e2448f6324780732b8c1b9bba"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T00:50:15.922784+00:00",
+      "output": "governance/cde-tagging/silver-base-bea-rpp.md",
+      "output_hash": "sha256:55bdae5498551307b9059dca894a77843261b5b1d170491c0a4c5778618ef45f"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T01:40:36.127643+00:00",
+      "output": "governance/data-contracts/silver-base-bea-rpp.yaml",
+      "output_hash": "sha256:1431808e3bbb48fa1e8fbc88f24c57269b088dc57a7329f8d99165dccd925021"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T01:06:29.753894+00:00",
+      "output": "governance/adversarial-audits/silver-base-bea-rpp.md",
+      "output_hash": "sha256:12ad9dcdc6a77ee8dcb9818c9e3508a309e1816efb9f3f6ad14d8f58e8651562"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T01:33:55.260900+00:00",
+      "output": "governance/approvals/silver-base-bea-rpp-post-review.md",
+      "output_hash": "sha256:1b4907f88b6f6134df81eb1e33ba72521461f822e7a942056213f5120502adf6"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T01:40:34.556268+00:00",
+      "output": "governance/approvals/silver-base-bea-rpp-staff-review.md",
+      "output_hash": "sha256:d5ba8bd609718f908799c0243a0e2803f23ef4114f17e87989031101b48acd7f"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "Greenfield new table base.bea_rpp \u2014 no existing schema to modify, no blast radius on downstream tables (MCP and Gold specs not yet started)",
+      "evidence": "docs/specs/silver-base-bea-rpp.md",
+      "skipped_at": "2026-04-11T00:12:26.970609+00:00"
+    }
+  },
+  "approvals": {}
+}

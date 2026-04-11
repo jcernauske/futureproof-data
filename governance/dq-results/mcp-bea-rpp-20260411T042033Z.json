@@ -1,0 +1,345 @@
+{
+  "spec": "mcp-bea-rpp",
+  "zone": "mcp",
+  "timestamp": "20260411T042033Z",
+  "runner": "dq-engineer-mcp-bea-rpp-verify",
+  "eval_set": {
+    "path": "data/ai_ready/eval/mcp-bea-rpp-eval.jsonl",
+    "total": 65,
+    "passed": 65,
+    "failed": 0
+  },
+  "pytest_suite": {
+    "paths": [
+      "tests/mcp/test_get_regional_price_parity.py",
+      "tests/mcp/test_compare_purchasing_power.py"
+    ],
+    "status": "PASS",
+    "count": 106,
+    "note": "Full tests/mcp/ suite collected = 106 items; mcp-bea-rpp-relevant = 93 (get_regional_price_parity 51 + compare_purchasing_power 42); ai_exposure tests = 13"
+  },
+  "rules": [
+    {
+      "rule_id": "MCP-BEA-001",
+      "name": "data_source field present with valid enum value",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "verified-ar",
+        "verified-ca",
+        "verified-dc",
+        "verified-hi",
+        "verified-ia",
+        "verified-ms",
+        "verified-nj",
+        "verified-ok",
+        "estimate-ak",
+        "estimate-al",
+        "estimate-az",
+        "estimate-co",
+        "estimate-ct",
+        "estimate-ny",
+        "estimate-tx",
+        "estimate-wa"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "16/16 anchor cases have data_source in enum"
+    },
+    {
+      "rule_id": "MCP-BEA-002",
+      "name": "governance.quality_tier equals partial_verification",
+      "priority": "P0",
+      "verification_method": "in_process_probe",
+      "anchor_cases": [
+        "verified-ca",
+        "estimate-tx",
+        "compare-ca-ia-65000",
+        "compare-names-65k"
+      ],
+      "pytest_anchors": [
+        "tests/mcp/test_get_regional_price_parity.py::TestResponseShape::test_governance_metadata_attached",
+        "tests/mcp/test_compare_purchasing_power.py::TestResponseShape::test_governance_metadata_attached",
+        "tests/mcp/test_compare_purchasing_power.py::TestStrictMode::test_strict_mode_refusal_has_governance"
+      ],
+      "pass": false,
+      "detail": "verified-ca: governance.quality_tier=None"
+    },
+    {
+      "rule_id": "MCP-BEA-003",
+      "name": "bea_official rows are exactly the 8-state canonical set",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "verified-ar",
+        "verified-ca",
+        "verified-dc",
+        "verified-hi",
+        "verified-ia",
+        "verified-ms",
+        "verified-nj",
+        "verified-ok",
+        "strict-ok-ar",
+        "strict-ok-ca",
+        "strict-ok-dc",
+        "strict-ok-hi",
+        "strict-ok-ia",
+        "strict-ok-ms",
+        "strict-ok-nj",
+        "strict-ok-ok"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "bea_official canonical set = ['05', '06', '11', '15', '19', '28', '34', '40']"
+    },
+    {
+      "rule_id": "MCP-BEA-004",
+      "name": "adjusted_examples has exactly 4 keys: 30k, 50k, 75k, 100k",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "verified-ar",
+        "verified-ca",
+        "verified-dc",
+        "verified-hi",
+        "verified-ia",
+        "verified-ms",
+        "verified-nj",
+        "verified-ok",
+        "estimate-ak",
+        "estimate-tx",
+        "form-california-fips",
+        "form-california-usps",
+        "form-california-name",
+        "strict-ok-ca"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "14/14 anchor cases have 4-key adjusted_examples"
+    },
+    {
+      "rule_id": "MCP-BEA-005",
+      "name": "purchasing_power_multiplier returned at full precision",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "verified-ar",
+        "verified-ca",
+        "verified-dc",
+        "verified-hi",
+        "verified-ia",
+        "verified-ms",
+        "verified-nj",
+        "verified-ok"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "8/8 BEA rows reconstruct adjusted_Nk from full-precision ppm exactly"
+    },
+    {
+      "rule_id": "MCP-BEA-006",
+      "name": "cost_tier is a valid enum value",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "verified-ar",
+        "verified-ca",
+        "verified-dc",
+        "verified-hi",
+        "verified-ia",
+        "verified-ms",
+        "verified-nj",
+        "verified-ok",
+        "estimate-ak",
+        "estimate-al",
+        "estimate-az",
+        "estimate-co",
+        "estimate-ct",
+        "estimate-ny",
+        "estimate-tx",
+        "estimate-wa",
+        "compare-ca-ia-65000"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "17/17 anchor cases have cost_tier in valid enum"
+    },
+    {
+      "rule_id": "MCP-BEA-007",
+      "name": "Strict mode returns data for all 8 BEA-verified states",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "strict-ok-ar",
+        "strict-ok-ca",
+        "strict-ok-dc",
+        "strict-ok-hi",
+        "strict-ok-ia",
+        "strict-ok-ms",
+        "strict-ok-nj",
+        "strict-ok-ok"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "8/8 strict-ok cases returned data_source='bea_official'"
+    },
+    {
+      "rule_id": "MCP-BEA-008",
+      "name": "Strict mode refuses estimate states with null + 'strict' message",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "strict-refuse-tx",
+        "strict-refuse-ny",
+        "strict-refuse-wa",
+        "strict-refuse-fl",
+        "strict-refuse-il"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "5/5 strict-refuse cases refused with 'strict' substring"
+    },
+    {
+      "rule_id": "MCP-BEA-009",
+      "name": "compare_purchasing_power strict mode refuses any non-verified state",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "compare-strict-refuse-ca-tx",
+        "compare-strict-refuse-tx-ca",
+        "compare-strict-refuse-nj-ny",
+        "compare-strict-refuse-ia-fl"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "4/4 compare strict-refuse cases refused with 'Strict mode' substring identifying offender"
+    },
+    {
+      "rule_id": "MCP-BEA-010",
+      "name": "Unknown state returns null + helpful message; never raises",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "unknown-xanadu",
+        "unknown-puerto-rico",
+        "unknown-pr-usps",
+        "unknown-empty",
+        "unknown-whitespace",
+        "compare-unknown-a",
+        "compare-unknown-b"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "7/7 unknown-state cases returned null with a non-empty message"
+    },
+    {
+      "rule_id": "MCP-BEA-011",
+      "name": "Invalid salary returns null data; never raises",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "compare-bad-salary-negative",
+        "compare-bad-salary-zero",
+        "compare-bad-salary-at-max",
+        "compare-bad-salary-over-max",
+        "compare-bad-salary-string",
+        "compare-bad-salary-none",
+        "compare-bad-salary-bool-true"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "7/7 invalid-salary cases returned null with salary validation message"
+    },
+    {
+      "rule_id": "MCP-BEA-012",
+      "name": "Same state in both positions returns null + 'must be different'",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "compare-same-usps-same",
+        "compare-same-usps-vs-name",
+        "compare-same-fips-vs-usps"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "3/3 same-state cases refused with 'must be different' substring"
+    },
+    {
+      "rule_id": "MCP-BEA-013",
+      "name": "Canonical spec example: CA vs IA at $65K reproduces exactly",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "compare-ca-ia-65000",
+        "compare-names-65k",
+        "compare-fips-65k"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "3/3 canonical CA-vs-IA @ $65K cases reproduce exactly"
+    },
+    {
+      "rule_id": "MCP-BEA-014",
+      "name": "Ratio invariance: adjusted_Nk / Nk == ppm within 1e-9",
+      "priority": "P0",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "verified-ar",
+        "verified-ca",
+        "verified-dc",
+        "verified-hi",
+        "verified-ia",
+        "verified-ms",
+        "verified-nj",
+        "verified-ok"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "8/8 BEA rows have adjusted_Nk/Nk invariant within 1e-4"
+    },
+    {
+      "rule_id": "MCP-BEA-015",
+      "name": "Eval set has >= 50 cases",
+      "priority": "P1",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "__all__"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "eval_set has 65 cases (>= 50)"
+    },
+    {
+      "rule_id": "MCP-BEA-016",
+      "name": "Eval set covers all 11 spec requirement categories",
+      "priority": "P1",
+      "verification_method": "eval_set_execution",
+      "anchor_cases": [
+        "verified-ar",
+        "estimate-ak",
+        "form-california-fips",
+        "caseins-ca-19",
+        "strict-ok-ca",
+        "strict-refuse-tx",
+        "unknown-xanadu",
+        "compare-ca-ia-65000",
+        "compare-bad-salary-negative",
+        "compare-same-usps-same",
+        "compare-strict-refuse-ca-tx"
+      ],
+      "pytest_anchors": [],
+      "pass": true,
+      "detail": "11/11 spec categories have a passing anchor case (11 anchors)"
+    }
+  ],
+  "summary": {
+    "total": 16,
+    "passed": 15,
+    "failed": 1,
+    "p0_gate": "FAIL",
+    "p0_failures": [
+      "MCP-BEA-002"
+    ],
+    "p1_failures": []
+  }
+}

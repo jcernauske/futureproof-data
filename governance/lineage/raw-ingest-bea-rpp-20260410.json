@@ -1,0 +1,159 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-10T00:00:00.000000Z",
+    "run": {
+      "runId": "c3f1a872-6d24-4f8e-9a55-1b8c0d2e4e7a",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-bea-rpp.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze ingest of BEA Regional Price Parities (SARPP, All Items, 2024) for 50 states + DC. Primary path is the BEA JSON API; fallback is a locally-cached CSV whose columns mirror the API field layout so a single parser handles both. For this run the CSV fallback was used (51 rows loaded via csv_cache). GeoFips is normalized from the BEA 5-digit state form (e.g. '06000') to a 2-character zero-padded state FIPS ('06'); metro/CBSA rows (5-digit non-state) and territory rows are filtered with a warning. DataValue (string) is coerced to double; TimePeriod (string) is coerced to int; GeoName is passed through verbatim. Framework metadata (ingested_at, source_url, source_method, load_date) is injected by BaseIngestor.ingest()."
+        },
+        "brightsmith_runMetrics": {
+          "inputRowCount": 51,
+          "outputRowCount": 51,
+          "skippedDuplicates": 0,
+          "metroRowsFiltered": 0,
+          "nonStateRowsFiltered": 0,
+          "sourceMethod": "csv_cache",
+          "sourceFiles": ["data/raw/bea_cache/bea_rpp_2024.csv"],
+          "dataVintage": "BEA Regional Economic Accounts, SARPP, LineCode=1, Year=2024 (released February 2026)"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "ingest:bea_rpp",
+      "facets": {
+        "documentation": {
+          "description": "Ingest BEA Regional Price Parities (SARPP, All Items) for 50 states + DC from the BEA JSON API with CSV cache fallback. Produces the bronze.bea_rpp Iceberg table at grain geo_fips."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/bea_rpp_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "apps.bea.gov",
+        "name": "Regional/SARPP/LineCode=1/Year=2024/GeoFips=STATE",
+        "facets": {
+          "dataSource": {
+            "name": "BEA JSON API",
+            "uri": "https://apps.bea.gov/api/data/?&UserID=REDACTED&method=GetData&datasetname=Regional&TableName=SARPP&LineCode=1&Year=2024&GeoFips=STATE&ResultFormat=JSON"
+          },
+          "schema": {
+            "fields": [
+              {"name": "GeoFips", "type": "STRING", "description": "5-digit BEA geographic FIPS code (state-level form ends in '000')"},
+              {"name": "GeoName", "type": "STRING", "description": "Geographic name (state or DC)"},
+              {"name": "TimePeriod", "type": "STRING", "description": "Year of the RPP estimate"},
+              {"name": "DataValue", "type": "STRING", "description": "Regional Price Parity index as string (e.g. '110.7')"},
+              {"name": "CL_UNIT", "type": "STRING", "description": "Classification unit — informational only, not ingested"},
+              {"name": "UNIT_MULT", "type": "STRING", "description": "Unit multiplier — informational only, not ingested"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "local.fs",
+        "name": "data/raw/bea_cache/bea_rpp_2024.csv",
+        "facets": {
+          "dataSource": {
+            "name": "BEA RPP CSV cache (fallback)",
+            "uri": "file://data/raw/bea_cache/bea_rpp_2024.csv"
+          },
+          "schema": {
+            "fields": [
+              {"name": "GeoFips", "type": "STRING", "description": "Mirrors BEA API field name — 5-digit state FIPS"},
+              {"name": "GeoName", "type": "STRING"},
+              {"name": "TimePeriod", "type": "STRING"},
+              {"name": "DataValue", "type": "STRING"},
+              {"name": "CL_UNIT", "type": "STRING"},
+              {"name": "UNIT_MULT", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.bea_rpp",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "geo_fips", "type": "STRING", "transformation": "DERIVED from GeoFips via zero-pad normalization (5-digit '06000' -> 2-char '06')"},
+              {"name": "geo_name", "type": "STRING", "transformation": "DIRECT from GeoName (trimmed)"},
+              {"name": "rpp_all_items", "type": "DOUBLE", "transformation": "DERIVED from DataValue via string -> float coercion"},
+              {"name": "data_year", "type": "INTEGER", "transformation": "DERIVED from TimePeriod via string -> int coercion; defaults to 2024 if null"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "transformation": "FRAMEWORK: UTC timestamp at ingest time"},
+              {"name": "source_url", "type": "STRING", "transformation": "FRAMEWORK: BEA API URL (API key REDACTED) from get_source_url()"},
+              {"name": "source_method", "type": "STRING", "transformation": "FRAMEWORK: 'bea_api' or 'csv_cache' — resolved in ingest() based on actual fetch path"},
+              {"name": "load_date", "type": "DATE", "transformation": "FRAMEWORK: date of load"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "geo_fips": {
+                "inputFields": [
+                  {"namespace": "apps.bea.gov", "name": "Regional/SARPP/LineCode=1/Year=2024/GeoFips=STATE", "field": "GeoFips"},
+                  {"namespace": "local.fs", "name": "data/raw/bea_cache/bea_rpp_2024.csv", "field": "GeoFips"}
+                ],
+                "transformationDescription": "BEA returns state-level GeoFips as 5 digits ending in '000' (e.g. '06000' for California). _normalize_geo_fips strips trailing zeros and zero-pads to a 2-character state FIPS ('06'). Metro/CBSA 5-digit codes (e.g. '31080') are returned unchanged by the normalizer and then filtered out by the state-FIPS allow-list (50 states + DC); territory codes (60, 66, 69, 72, 78) are likewise filtered.",
+                "transformationType": "DERIVED"
+              },
+              "geo_name": {
+                "inputFields": [
+                  {"namespace": "apps.bea.gov", "name": "Regional/SARPP/LineCode=1/Year=2024/GeoFips=STATE", "field": "GeoName"},
+                  {"namespace": "local.fs", "name": "data/raw/bea_cache/bea_rpp_2024.csv", "field": "GeoName"}
+                ],
+                "transformationDescription": "Direct passthrough via _coerce_string: trimmed, empty strings become null. No renaming of state labels.",
+                "transformationType": "DIRECT"
+              },
+              "rpp_all_items": {
+                "inputFields": [
+                  {"namespace": "apps.bea.gov", "name": "Regional/SARPP/LineCode=1/Year=2024/GeoFips=STATE", "field": "DataValue"},
+                  {"namespace": "local.fs", "name": "data/raw/bea_cache/bea_rpp_2024.csv", "field": "DataValue"}
+                ],
+                "transformationDescription": "BEA returns DataValue as a string (e.g. '110.7'). _coerce_double strips commas/whitespace and coerces to float. Units are 'index, national = 100.0'. No rescaling applied.",
+                "transformationType": "DERIVED"
+              },
+              "data_year": {
+                "inputFields": [
+                  {"namespace": "apps.bea.gov", "name": "Regional/SARPP/LineCode=1/Year=2024/GeoFips=STATE", "field": "TimePeriod"},
+                  {"namespace": "local.fs", "name": "data/raw/bea_cache/bea_rpp_2024.csv", "field": "TimePeriod"}
+                ],
+                "transformationDescription": "TimePeriod is a year string (e.g. '2024'). _coerce_int converts via int(float(value)); falls back to DEFAULT_YEAR (2024) if null or unparseable.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected by BaseIngestor via BeaRppIngestor.get_source_url(): BEA API URL template with API_KEY redacted. Same value whether the API or CSV cache was used — represents the canonical source locator, not the fetch path.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected. BeaRppIngestor.ingest() overrides BaseIngestor to first run fetch() and inspect the returned payload's source_method ('bea_api' vs 'csv_cache'), then passes that value through to the framework so row-level source_method reflects the actual fetch path. This run: 'csv_cache'.",
+                "transformationType": "DERIVED"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: UTC timestamp at ingest time.",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: date of load.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

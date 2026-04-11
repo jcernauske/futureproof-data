@@ -1,0 +1,254 @@
+{
+  "spec": "gold-ai-exposure",
+  "zone": "gold",
+  "mode": "greenfield",
+  "started": "2026-04-09T21:06:59.645296+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:09:58.509981+00:00",
+      "output": "governance/approvals/gold-ai-exposure-pre-review.md",
+      "output_hash": "sha256:e1f5734262520fa18c010e077bce87d982367360eb9bfdd0a1964fd5c72ffcd1"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:11:08.945364+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:fc25b05c44d2c7e4fb5e6879bfe8e2962fb10894df88cdf0abda0ab01a8ab1c4"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:14:56.607486+00:00",
+      "output": "governance/models/gold-ai-exposure-conceptual.md",
+      "output_hash": "sha256:bd093242b6aa6091e53e8d2103fd712c6b4f1e085d347190c0cd6c783eef01ba"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:14:57.697771+00:00",
+      "output": "governance/models/gold-ai-exposure-logical.md",
+      "output_hash": "sha256:94bf9ed624b89dfedd0d6326c1cf4885d3dc3c9662026327c69fe039a44ecda4"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:19:09.213245+00:00",
+      "output": "governance/eda/gold-ai-exposure-eda.md",
+      "output_hash": "sha256:95b4371ee197580402c355a97d0e3ef1f0eb4ccea410081305618be1e017de6d"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:58:32.409375+00:00",
+      "output": "governance/dq-rules/gold-ai-exposure.json",
+      "output_hash": "sha256:b1ee09895e170c610d5c5f61c476d1b3eee8f8346ef9dfc6f647f46714a14b3f"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:14:58.772537+00:00",
+      "output": "governance/models/gold-ai-exposure-physical.md",
+      "output_hash": "sha256:d5716b4543aca2fc3f9c9e06f4da09aaabb2918671dd0945ddbcd8b30326e2a6"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:26:36.073024+00:00",
+      "output": "src/gold/ai_exposure_transformer.py",
+      "output_hash": "sha256:8894feddc240170365b19ad4897753ac013f0a343b44c99db8e69354e766c7e7"
+    },
+    "cab-review": {
+      "status": "SKIPPED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:29:04.079306+00:00",
+      "output": "governance/dq-scorecards/gold-ai-exposure-scorecard.md",
+      "output_hash": "sha256:4a0d73fa90c98c86bc2a243bcb9382248df02c42474b854405385b875ed29b74"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:35:48.536204+00:00",
+      "output": "governance/audit-trail/gold-ai-exposure-chaos-monkey.md",
+      "output_hash": "sha256:21989be91cbc9024358f4e7ce308e07106f6d12c332d605b8c58bc0b08d0826a"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:39:46.477800+00:00",
+      "output": "governance/audit-trail/gold-ai-exposure-entity-resolution.md",
+      "output_hash": "sha256:e310701cdd5ab0d1760328cd5ea94acad7b6b2a2682993e2c84d1a7ef5913ac1"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:39:47.595698+00:00",
+      "output": "governance/pii-scans/gold-ai-exposure-pii-scan.md",
+      "output_hash": "sha256:5ddc06cb3e03381f8e302c50f97125ab928f32d35d50b00ac791106f1998d786"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:39:48.675753+00:00",
+      "output": "governance/audit-trail/gold-ai-exposure-temporal-assessment.md",
+      "output_hash": "sha256:cc50b39306a516ecc9abcb0bbf45783a66eb3e5551eb8863a958f17035fbc8bc"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:45:19.451263+00:00",
+      "output": "governance/lineage/gold-ai-exposure-20260409T220000Z.json",
+      "output_hash": "sha256:c298dddfd1b108b798e0ff8780050376678ee84afd9286a4e65984b4a6c7f7f8"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:45:20.594364+00:00",
+      "output": "governance/data-contracts/consumable-ai-exposure.yaml",
+      "output_hash": "sha256:43d877f9eb542a49489729491db04d4d7e6929e67618cfb4f4f240c5e938300b"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:45:21.684985+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:c708d7a3ef3af49bd55da697b27d11a311c398a53ba887020afe231f6716b2d6"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:39:49.769490+00:00",
+      "output": "governance/audit-trail/gold-ai-exposure-adversarial-audit.md",
+      "output_hash": "sha256:4e515c0a1c4f7e9fd0157435b4b2f021b43822831f64207180ce00fd2b131b94"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:49:19.342831+00:00",
+      "output": "governance/approvals/gold-ai-exposure-post-review.md",
+      "output_hash": "sha256:e828deee5fe1a5c2e50a9e84e2600f1bed6c99ba80f28593a0f567249558afab"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T21:58:25.791073+00:00",
+      "output": "governance/approvals/gold-ai-exposure-staff-review.md",
+      "output_hash": "sha256:3064a0bf0a5be52937a6b1d87f4147fda7ed1a945a824e99b2f59c5898245ef5"
+    }
+  },
+  "skipped_steps": {
+    "cab-review": {
+      "reason": "Table is new (no existing contract) \u2014 CAB review only applies to schema modifications of existing tables",
+      "evidence": "governance/models/gold-ai-exposure-physical.md",
+      "skipped_at": "2026-04-09T21:26:34.989103+00:00"
+    }
+  },
+  "approvals": {}
+}

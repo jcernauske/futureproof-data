@@ -1,0 +1,128 @@
+{
+  "spec": "mcp-bea-rpp",
+  "zone": "mcp",
+  "mode": "greenfield",
+  "started": "2026-04-11T03:46:32.559766+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T03:50:30.678837+00:00",
+      "output": "governance/approvals/mcp-bea-rpp-pre-review.md",
+      "output_hash": "sha256:1c0be84c481b7cb77ff41285bef869b6124ff5fbef2981449c27853b29a74263"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T04:32:23.084741+00:00",
+      "output": "src/mcp_server/futureproof_server.py",
+      "output_hash": "sha256:bf76ee4700eeec205d3270db63069e82bb2ea556e03f90d6ce4685b1fcc3dc2f"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T04:11:56.140891+00:00",
+      "output": "governance/eda/mcp-bea-rpp-eda.md",
+      "output_hash": "sha256:6a9d21fbf06ff274d19c3bf13578d2bcb50470c85cdb377e7f65253760235269"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T04:17:09.320721+00:00",
+      "output": "governance/dq-rules/mcp-bea-rpp.json",
+      "output_hash": "sha256:70c1e57cdc578a4a0c272ddef54c94a0fc9fd45e65bb210fa2b526db3ec1c114"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T05:18:47.013258+00:00",
+      "output": "governance/dq-scorecards/mcp-bea-rpp-scorecard.md",
+      "output_hash": "sha256:90b8cc1b79659f9329e4f14bd2fede46d7d99b9bfb7adb6870f4d879177c91d5"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T04:38:06.278766+00:00",
+      "output": "governance/lineage/mcp-bea-rpp-20260411.json",
+      "output_hash": "sha256:82f5e2cab66c152d213d1700d883d3a5722cbb75ad7c1f13bbf73aadf3af7981"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T04:42:49.535693+00:00",
+      "output": "governance/cde-tagging/mcp-bea-rpp.md",
+      "output_hash": "sha256:9a72e2a05c4ba82ee9491b0f4844205c8ecab464b7e91795caa1c7465d772c14"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T05:18:48.400309+00:00",
+      "output": "governance/data-contracts/mcp-bea-rpp.yaml",
+      "output_hash": "sha256:0c58b79c601b2f184f1ecb80de165752d896d19429b21213b72726fbb2a1827c"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T05:13:04.285158+00:00",
+      "output": "governance/approvals/mcp-bea-rpp-post-review.md",
+      "output_hash": "sha256:e1e3ed2956a7463a9891d32b0ca83a7221408327449db1aa948285ec794d1c90"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-11T05:18:12.069261+00:00",
+      "output": "governance/approvals/mcp-bea-rpp-staff-review.md",
+      "output_hash": "sha256:b60f21a6c21b8931b13404746276921afbf4d5c2fb6d157dd72d20a601337b30"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

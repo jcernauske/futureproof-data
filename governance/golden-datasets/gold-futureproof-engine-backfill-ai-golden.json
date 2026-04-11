@@ -1,0 +1,187 @@
+{
+  "spec": "gold-futureproof-engine-backfill-ai",
+  "tables": ["consumable.program_career_paths", "consumable.career_branches"],
+  "created": "2026-04-09",
+  "agent": "@data-analyst",
+  "description": "Golden dataset for the AI exposure backfill into the FutureProof Engine. Each chain traces from consumable.ai_exposure source scores through the LEFT JOIN on soc_code to expected backfilled values in program_career_paths and career_branches. All values queried from actual Iceberg parquet files on 2026-04-09 and cross-validated against consumable.ai_exposure.",
+  "values": [
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 151324, "cipcode": "52.02", "soc_code": "11-2022"}, "field": "stat_res", "expected": 4, "tolerance": 0},
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 151324, "cipcode": "52.02", "soc_code": "11-2022"}, "field": "boss_ai_score", "expected": 7, "tolerance": 0},
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 151324, "cipcode": "52.02", "soc_code": "11-2022"}, "field": "stats_available_count", "expected": 5, "tolerance": 0},
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 100663, "cipcode": "09.01", "soc_code": "11-2033"}, "field": "stat_res", "expected": 4, "tolerance": 0},
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 100663, "cipcode": "09.01", "soc_code": "11-2033"}, "field": "boss_ai_score", "expected": 7, "tolerance": 0},
+    {"table": "consumable.program_career_paths", "grain": {"unitid": 100663, "cipcode": "09.01", "soc_code": "11-2033"}, "field": "bosses_available_count", "expected": 5, "tolerance": 0},
+    {"table": "consumable.career_branches", "grain": {"soc_code": "11-2021", "related_soc_code": "11-2022"}, "field": "res_delta", "expected": 1, "tolerance": 0},
+    {"table": "consumable.career_branches", "grain": {"soc_code": "11-2021", "related_soc_code": "11-2022"}, "field": "ai_boss_delta", "expected": -1, "tolerance": 0},
+    {"table": "consumable.career_branches", "grain": {"soc_code": "11-2021", "related_soc_code": "11-2022"}, "field": "source_res", "expected": 3, "tolerance": 0}
+  ],
+  "verification_chains": [
+    {
+      "name": "ISU Business Admin -> Sales Managers (stat_res backfill from Karpathy)",
+      "table": "consumable.program_career_paths",
+      "grain": {"unitid": 151324, "cipcode": "52.02", "soc_code": "11-2022"},
+      "source_inputs": {
+        "ai_exposure": {
+          "soc_code": "11-2022",
+          "occupation_title": "Sales managers",
+          "exposure_score": 7,
+          "stat_res": 4,
+          "boss_ai_score": 7
+        },
+        "pre_backfill_state": {
+          "stat_res": null,
+          "boss_ai_score": null,
+          "stats_available_count": 4,
+          "bosses_available_count": 4,
+          "overall_confidence": "high",
+          "note": "Before backfill, stat_res and boss_ai_score were NULL placeholders"
+        }
+      },
+      "derivation_steps": {
+        "stat_res": "LEFT JOIN ai_exposure ON soc_code = '11-2022' -> stat_res = 4 (passthrough from ai_exposure)",
+        "boss_ai_score": "LEFT JOIN ai_exposure ON soc_code = '11-2022' -> boss_ai_score = 7 (passthrough from ai_exposure)",
+        "invariant_check": "stat_res + boss_ai_score = 4 + 7 = 11 (invariant holds)",
+        "stats_available_count": "COUNT(non-null in [stat_ern=5, stat_roi=8, stat_res=4, stat_grw=6, stat_hmn=7]) = 5 (was 4 before backfill)",
+        "bosses_available_count": "COUNT(non-null in [boss_ai=7, boss_loans=3, boss_market=7, boss_burnout=6, boss_ceiling=2]) = 5 (was 4 before backfill)",
+        "overall_confidence": "stats>=4 AND match_quality='full' -> high (unchanged)"
+      },
+      "expected_output": {
+        "stat_ern": 5,
+        "stat_roi": 8,
+        "stat_res": 4,
+        "stat_grw": 6,
+        "stat_hmn": 7,
+        "boss_ai_score": 7,
+        "boss_loans_score": 3,
+        "boss_market_score": 7,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 2,
+        "match_quality": "full",
+        "stats_available_count": 5,
+        "bosses_available_count": 5,
+        "overall_confidence": "high"
+      },
+      "verified_by": "@data-analyst",
+      "verified_against": "consumable.ai_exposure parquet (soc_code=11-2022) and consumable.program_career_paths parquet (backfilled snapshot)"
+    },
+    {
+      "name": "UAB Communication -> Fundraising Managers (independent cross-validation)",
+      "table": "consumable.program_career_paths",
+      "grain": {"unitid": 100663, "cipcode": "09.01", "soc_code": "11-2033"},
+      "source_inputs": {
+        "ai_exposure": {
+          "soc_code": "11-2033",
+          "occupation_title": "Public relations and fundraising managers",
+          "exposure_score": 7,
+          "stat_res": 4,
+          "boss_ai_score": 7
+        },
+        "pre_backfill_state": {
+          "stat_res": null,
+          "boss_ai_score": null,
+          "stats_available_count": 4,
+          "bosses_available_count": 4,
+          "note": "Before backfill, AI fields were NULL"
+        }
+      },
+      "derivation_steps": {
+        "stat_res": "LEFT JOIN ai_exposure ON soc_code = '11-2033' -> stat_res = 4 (passthrough from ai_exposure)",
+        "boss_ai_score": "LEFT JOIN ai_exposure ON soc_code = '11-2033' -> boss_ai_score = 7 (passthrough from ai_exposure)",
+        "invariant_check": "stat_res + boss_ai_score = 4 + 7 = 11 (invariant holds)",
+        "stats_available_count": "COUNT(non-null in [stat_ern=6, stat_roi=8, stat_res=4, stat_grw=6, stat_hmn=5]) = 5",
+        "bosses_available_count": "COUNT(non-null in [boss_ai=7, boss_loans=3, boss_market=6, boss_burnout=6, boss_ceiling=2]) = 5"
+      },
+      "expected_output": {
+        "stat_ern": 6,
+        "stat_roi": 8,
+        "stat_res": 4,
+        "stat_grw": 6,
+        "stat_hmn": 5,
+        "boss_ai_score": 7,
+        "boss_loans_score": 3,
+        "boss_market_score": 6,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 2,
+        "match_quality": "full",
+        "stats_available_count": 5,
+        "bosses_available_count": 5,
+        "overall_confidence": "high"
+      },
+      "verified_by": "@data-analyst",
+      "verified_against": "consumable.ai_exposure parquet (soc_code=11-2033) and consumable.program_career_paths parquet (backfilled snapshot)"
+    },
+    {
+      "name": "Career branch: Marketing Managers -> Sales Managers (res_delta and ai_boss_delta)",
+      "table": "consumable.career_branches",
+      "grain": {"soc_code": "11-2021", "related_soc_code": "11-2022"},
+      "source_inputs": {
+        "ai_exposure_source": {
+          "soc_code": "11-2021",
+          "occupation_title": "Advertising, promotions, and marketing managers",
+          "exposure_score": 8,
+          "stat_res": 3,
+          "boss_ai_score": 8
+        },
+        "ai_exposure_related": {
+          "soc_code": "11-2022",
+          "occupation_title": "Sales managers",
+          "exposure_score": 7,
+          "stat_res": 4,
+          "boss_ai_score": 7
+        },
+        "career_transitions": {
+          "soc_code": "11-2021",
+          "related_soc_code": "11-2022",
+          "source_title": "Marketing Managers",
+          "related_title": "Sales Managers",
+          "best_index": 2,
+          "relatedness_tier": "Primary-Short",
+          "is_primary": true
+        }
+      },
+      "derivation_steps": {
+        "source_res": "LEFT JOIN ai_exposure ON soc_code = '11-2021' -> stat_res = 3",
+        "source_ai_boss": "LEFT JOIN ai_exposure ON soc_code = '11-2021' -> boss_ai_score = 8",
+        "related_res": "LEFT JOIN ai_exposure ON related_soc_code = '11-2022' -> stat_res = 4",
+        "related_ai_boss": "LEFT JOIN ai_exposure ON related_soc_code = '11-2022' -> boss_ai_score = 7",
+        "res_delta": "related_res - source_res = 4 - 3 = 1 (target is MORE AI-resilient)",
+        "ai_boss_delta": "related_ai_boss - source_ai_boss = 7 - 8 = -1 (target faces WEAKER AI boss)",
+        "invariant_check_source": "source stat_res + boss_ai_score = 3 + 8 = 11",
+        "invariant_check_related": "related stat_res + boss_ai_score = 4 + 7 = 11",
+        "invariant_check_deltas": "res_delta + ai_boss_delta = 1 + (-1) = 0 (delta invariant holds)"
+      },
+      "expected_output": {
+        "soc_code": "11-2021",
+        "source_title": "Marketing Managers",
+        "related_soc_code": "11-2022",
+        "related_title": "Sales Managers",
+        "best_index": 2,
+        "relatedness_tier": "Primary-Short",
+        "is_primary": true,
+        "source_res": 3,
+        "source_ai_boss": 8,
+        "related_res": 4,
+        "related_ai_boss": 7,
+        "res_delta": 1,
+        "ai_boss_delta": -1,
+        "source_grw": 7,
+        "source_hmn": 6,
+        "source_burnout": 6,
+        "source_wage": 161030.0,
+        "related_grw": 6,
+        "related_hmn": 7,
+        "related_burnout": 6,
+        "related_wage": 138060.0,
+        "grw_delta": -1,
+        "hmn_delta": 1,
+        "burnout_delta": 0,
+        "wage_delta": -22970.0,
+        "branch_has_full_data": true,
+        "related_growth_category": "growing",
+        "related_education_level": "Bachelor's degree"
+      },
+      "verified_by": "@data-analyst",
+      "verified_against": "consumable.ai_exposure parquet (soc_codes 11-2021 and 11-2022) and consumable.career_branches backfilled parquet"
+    }
+  ]
+}

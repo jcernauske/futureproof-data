@@ -1,0 +1,75 @@
+{
+  "decision_id": "CAB-001",
+  "spec": "gold-futureproof-engine-backfill-ai",
+  "timestamp": "2026-04-09T22:30:00Z",
+  "agent": "@cab-agent",
+  "tables_reviewed": [
+    "consumable.program_career_paths",
+    "consumable.career_branches"
+  ],
+  "contracts_checked": [
+    "governance/data-contracts/consumable-program-career-paths.yaml",
+    "governance/data-contracts/consumable-career-branches.yaml"
+  ],
+  "changes": [
+    {
+      "table": "consumable.program_career_paths",
+      "change_type": "backfill_existing_columns",
+      "classification": "MINOR",
+      "rationale": "stat_res and boss_ai_score columns already exist in schema as nullable INTEGER placeholders with CHECK (IS NULL) constraint. Backfill populates them. No new columns added. However: (1) CDE flags change from false to true for stat_res and boss_ai_score, (2) CHECK constraints change from IS NULL to range 1-10, (3) stats_available_count and bosses_available_count ranges expand from max 4 to max 5, (4) overall_confidence derivation changes. These are semantic changes to existing contract columns, but non-breaking for consumers because columns were already nullable and consumers already expected eventual population (documented as PLACEHOLDER).",
+      "columns_affected": [
+        {"column": "stat_res", "change": "populated (was always NULL)", "cde_change": "false -> true"},
+        {"column": "boss_ai_score", "change": "populated (was always NULL)", "cde_change": "false -> true"},
+        {"column": "stats_available_count", "change": "range expands 0-4 -> 0-5"},
+        {"column": "bosses_available_count", "change": "range expands 0-4 -> 0-5"},
+        {"column": "overall_confidence", "change": "derivation input changes (may upgrade tiers)"}
+      ]
+    },
+    {
+      "table": "consumable.career_branches",
+      "change_type": "new_nullable_columns",
+      "classification": "MINOR",
+      "rationale": "Six new nullable INTEGER columns added. All are additive. Existing queries selecting * will see new columns but will not break. Queries selecting named columns are completely unaffected. New columns are: source_res, source_ai_boss, related_res, related_ai_boss, res_delta, ai_boss_delta. Two of the new columns (source_res, related_res) are marked as CDE — this is new CDE exposure but on new columns only, not a CDE flag change on existing columns.",
+      "columns_added": [
+        {"column": "source_res", "type": "INTEGER", "nullable": true, "is_cde": true},
+        {"column": "source_ai_boss", "type": "INTEGER", "nullable": true, "is_cde": true},
+        {"column": "related_res", "type": "INTEGER", "nullable": true, "is_cde": false},
+        {"column": "related_ai_boss", "type": "INTEGER", "nullable": true, "is_cde": false},
+        {"column": "res_delta", "type": "INTEGER", "nullable": true, "is_cde": false},
+        {"column": "ai_boss_delta", "type": "INTEGER", "nullable": true, "is_cde": false}
+      ]
+    }
+  ],
+  "overall_classification": "MINOR",
+  "blast_radius": {
+    "golden_datasets": ["governance/golden-datasets/gold-futureproof-engine-golden.json"],
+    "golden_dataset_impact": "Golden dataset does not currently test stat_res or boss_ai_score values. New golden dataset entries will be needed for backfilled columns. Existing golden dataset assertions remain valid.",
+    "downstream_tables": [],
+    "mcp_tools": "No MCP server code references these tables yet. Zone 5 (MCP tool get_ai_exposure) is pending.",
+    "consumer_count": 0,
+    "consumer_detail": "No active downstream consumers. These are terminal Gold consumable tables."
+  },
+  "decision": "APPROVED",
+  "decision_rationale": "MINOR classification. All changes are additive or populate pre-existing placeholder columns. No existing consumer queries break. CDE flag changes on program_career_paths (stat_res, boss_ai_score: false->true) are noted but these columns were documented as placeholders awaiting this exact backfill. Zero downstream consumers currently exist. Golden dataset assertions remain valid. Auto-approving because REQUIRE_HUMAN_APPROVAL applies to governance-reviewer and staff-engineer gates per CLAUDE.md, not CAB MINOR classifications with zero blast radius.",
+  "contract_updates_required": [
+    {
+      "contract": "consumable-program-career-paths.yaml",
+      "updates": [
+        "stat_res: is_cde false -> true, remove CHECK (stat_res IS NULL), add CHECK (stat_res IS NULL OR (stat_res >= 1 AND stat_res <= 10)), update description to remove PLACEHOLDER language",
+        "boss_ai_score: is_cde false -> true, remove CHECK (boss_ai_score IS NULL), add CHECK (boss_ai_score IS NULL OR (boss_ai_score >= 1 AND boss_ai_score <= 10)), update description to remove PLACEHOLDER language",
+        "stats_available_count: update description (maximum 5, not 4)",
+        "bosses_available_count: update description (maximum 5, not 4)",
+        "version: bump to 1.1.0 (MINOR)"
+      ]
+    },
+    {
+      "contract": "consumable-career-branches.yaml",
+      "updates": [
+        "Add 6 new column definitions (source_res, source_ai_boss, related_res, related_ai_boss, res_delta, ai_boss_delta)",
+        "Update lineage.source_tables to include consumable.ai_exposure",
+        "version: bump to 1.1.0 (MINOR)"
+      ]
+    }
+  ],
+  "human_override": null
+}

@@ -1,0 +1,136 @@
+{
+  "spec": "mcp-bea-rpp",
+  "zone": "mcp",
+  "timestamp": "20260411T050916Z",
+  "runner": "governance-reviewer-post-review-rerun",
+  "runner_script": "/tmp/rerun_mcp_bea_rpp_dq.py",
+  "elapsed_seconds": 12.58,
+  "eval_set": {
+    "path": "data/ai_ready/eval/mcp-bea-rpp-eval.jsonl",
+    "total": 65,
+    "passed": 65,
+    "failed": 0
+  },
+  "summary": {
+    "total_rules": 16,
+    "passed": 16,
+    "failed": 0,
+    "p0_failures": 0,
+    "p0_passed": true
+  },
+  "rules": [
+    {
+      "rule_id": "MCP-BEA-001",
+      "name": "data_source field present with valid enum value",
+      "priority": "P0",
+      "pass": true,
+      "detail": "16/16 have data_source in enum"
+    },
+    {
+      "rule_id": "MCP-BEA-002",
+      "name": "governance.quality_tier equals partial_verification",
+      "priority": "P0",
+      "pass": true,
+      "detail": "65/65 responses have governance.quality_tier=='partial_verification'"
+    },
+    {
+      "rule_id": "MCP-BEA-003",
+      "name": "bea_official rows are exactly the 8-state canonical set",
+      "priority": "P0",
+      "pass": true,
+      "detail": "bea_official fips set = ['05', '06', '11', '15', '19', '28', '34', '40']"
+    },
+    {
+      "rule_id": "MCP-BEA-004",
+      "name": "adjusted_examples has exactly 4 keys: 30k, 50k, 75k, 100k",
+      "priority": "P0",
+      "pass": true,
+      "detail": "14/14 have exact 4-key adjusted_examples"
+    },
+    {
+      "rule_id": "MCP-BEA-005",
+      "name": "purchasing_power_multiplier returned at full precision",
+      "priority": "P0",
+      "pass": true,
+      "detail": "8/8 bea rows reconstruct adjusted_Nk from full-precision ppm"
+    },
+    {
+      "rule_id": "MCP-BEA-006",
+      "name": "cost_tier is a valid enum value",
+      "priority": "P0",
+      "pass": true,
+      "detail": "17/17 success responses have valid cost_tier"
+    },
+    {
+      "rule_id": "MCP-BEA-007",
+      "name": "Strict mode returns data for all 8 BEA-verified states",
+      "priority": "P0",
+      "pass": true,
+      "detail": "8/8 strict-ok cases returned bea_official data"
+    },
+    {
+      "rule_id": "MCP-BEA-008",
+      "name": "Strict mode refuses estimate states with null + 'strict' message",
+      "priority": "P0",
+      "pass": true,
+      "detail": "5/5 strict-refuse cases returned null with 'strict' in msg"
+    },
+    {
+      "rule_id": "MCP-BEA-009",
+      "name": "compare_purchasing_power strict mode refuses any non-verified state",
+      "priority": "P0",
+      "pass": true,
+      "detail": "4/4 compare-strict refusals with 'Strict mode'"
+    },
+    {
+      "rule_id": "MCP-BEA-010",
+      "name": "Unknown state returns null + helpful message; never raises",
+      "priority": "P0",
+      "pass": true,
+      "detail": "7/7 unknown-state null responses"
+    },
+    {
+      "rule_id": "MCP-BEA-011",
+      "name": "Invalid salary returns null data; never raises",
+      "priority": "P0",
+      "pass": true,
+      "detail": "7/7 bad-salary null responses"
+    },
+    {
+      "rule_id": "MCP-BEA-012",
+      "name": "Same state in both positions returns null + 'must be different'",
+      "priority": "P0",
+      "pass": true,
+      "detail": "3/3 same-state refusals"
+    },
+    {
+      "rule_id": "MCP-BEA-013",
+      "name": "Canonical spec example: CA vs IA at $65K reproduces exactly",
+      "priority": "P0",
+      "pass": true,
+      "detail": "3/3 canonical CA/IA $65K cases reproduce exactly"
+    },
+    {
+      "rule_id": "MCP-BEA-014",
+      "name": "Ratio invariance: adjusted_Nk / Nk == ppm within 1e-9",
+      "priority": "P0",
+      "pass": true,
+      "detail": "8/8 bea rows pass ratio-invariance"
+    },
+    {
+      "rule_id": "MCP-BEA-015",
+      "name": "Eval set has >= 50 cases",
+      "priority": "P1",
+      "pass": true,
+      "detail": "eval set has 65 cases"
+    },
+    {
+      "rule_id": "MCP-BEA-016",
+      "name": "Eval set covers all 11 spec requirement categories",
+      "priority": "P1",
+      "pass": true,
+      "detail": "11/11 category anchor cases present"
+    }
+  ],
+  "remediation_note": "Re-executed by @governance-reviewer after the primary-agent attach_governance override landed in src/mcp_server/futureproof_server.py (lines 305-334). The pre-remediation run (mcp-bea-rpp-20260411T042033Z.json) showed MCP-BEA-002 FAIL because BaseMCPServer.attach_governance did not surface quality_tier. The override reads contract YAML directly and injects quality_tier + owner into the governance block on every response."
+}

@@ -1,0 +1,71 @@
+{
+  "spec": "mcp-ai-exposure",
+  "timestamp": "20260410T002820Z",
+  "runner": "manual-mcp-dq",
+  "results": [
+    {
+      "rule_id": "MCP-AIE-001",
+      "passed": false,
+      "detail": "'list' object has no attribute 'strip'"
+    },
+    {
+      "rule_id": "MCP-AIE-002",
+      "passed": true,
+      "elapsed_ms": 150.6,
+      "detail": "data is present for SOC 13-2011"
+    },
+    {
+      "rule_id": "MCP-AIE-003",
+      "passed": true,
+      "detail": "5/5 null cases handled",
+      "sub_results": [
+        {
+          "soc": "99-9999",
+          "label": "nonexistent SOC",
+          "pass": true,
+          "message": "No AI exposure data available for this occupation"
+        },
+        {
+          "soc": "",
+          "label": "empty string",
+          "pass": true,
+          "message": "soc_code is required"
+        },
+        {
+          "soc": "ABCDE",
+          "label": "invalid format",
+          "pass": true,
+          "message": "No AI exposure data available for this occupation"
+        },
+        {
+          "soc": "15-125",
+          "label": "partial code",
+          "pass": true,
+          "message": "No AI exposure data available for this occupation"
+        },
+        {
+          "soc": "152052",
+          "label": "no hyphen",
+          "pass": true,
+          "message": "No AI exposure data available for this occupation"
+        }
+      ]
+    },
+    {
+      "rule_id": "MCP-AIE-004",
+      "passed": true,
+      "detail": "7/7 fields present"
+    },
+    {
+      "rule_id": "MCP-AIE-005",
+      "passed": true,
+      "detail": "max=150ms, avg=148ms (threshold: 5000ms)"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 4,
+    "failed": 1,
+    "p0_gate": "FAIL"
+  }
+}

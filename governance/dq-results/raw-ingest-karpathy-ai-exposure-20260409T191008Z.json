@@ -1,0 +1,11 @@
+{
+  "run_id": "91e270dc",
+  "spec": "raw-ingest-karpathy-ai-exposure",
+  "executed_at": "2026-04-09T19:10:08.551016+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

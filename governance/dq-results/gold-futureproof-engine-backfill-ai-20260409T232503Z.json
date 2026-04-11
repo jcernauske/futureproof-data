@@ -1,0 +1,11 @@
+{
+  "run_id": "331b483f",
+  "spec": "gold-futureproof-engine-backfill-ai",
+  "executed_at": "2026-04-09T23:25:03.044328+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

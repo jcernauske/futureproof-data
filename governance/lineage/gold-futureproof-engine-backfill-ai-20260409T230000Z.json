@@ -1,0 +1,297 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-09T23:00:00.000000Z",
+    "run": {
+      "runId": "f1a2b3c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/gold-futureproof-engine-backfill-ai.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone backfill of AI exposure scores into the existing FutureProof engine tables. Reads consumable.ai_exposure (389 rows, the NEW input added by this backfill), along with existing inputs base.bls_ooh, base.college_scorecard, and base.onet. Joins ai_exposure to program_career_paths via soc_code to populate stat_res (previously null placeholder) as ai_exposure.stat_res and boss_ai_score (previously null placeholder) as ai_exposure.boss_ai_score. For career_branches, joins ai_exposure on both soc_code (source_res, source_ai_boss) and related_soc_code (related_res, related_ai_boss), then derives res_delta (related_res - source_res) and ai_boss_delta (related_ai_boss - source_ai_boss). This backfill completes the fifth pentagon stat and fifth boss fight score, transitioning from MVP 4-stat mode to full 5-stat mode."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {
+            "ai_exposure": "389 rows (NEW input — consumable.ai_exposure filtered to bls_match=true SOC codes)",
+            "program_career_paths": "626,406 rows (existing Gold table, updated in-place)",
+            "career_branches": "15,944 rows (existing Gold table, updated with 6 new columns)"
+          },
+          "programCareerPaths": {
+            "rowsUpdated": 626406,
+            "statResPopulated": "rows with soc_code matching ai_exposure",
+            "bossAiScorePopulated": "rows with soc_code matching ai_exposure"
+          },
+          "careerBranches": {
+            "rowsUpdated": 15944,
+            "columnsAdded": 6,
+            "newColumns": ["source_res", "source_ai_boss", "related_res", "related_ai_boss", "res_delta", "ai_boss_delta"]
+          }
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.backfill-ai-exposure",
+      "facets": {
+        "documentation": {
+          "description": "Backfill AI exposure scores from consumable.ai_exposure into the two core FutureProof engine tables. For program_career_paths: LEFT JOIN ai_exposure on soc_code to populate stat_res and boss_ai_score (previously null placeholders). For career_branches: LEFT JOIN ai_exposure on both soc_code and related_soc_code to add 6 new columns (source_res, source_ai_boss, related_res, related_ai_boss, res_delta, ai_boss_delta). This completes the pentagon from 4 stats to 5 and the boss gauntlet from 4 bosses to 5."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/futureproof_engine.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "dataSource": {
+            "description": "NEW input added by this backfill. 389 rows of AI exposure scores per SOC code, derived from Karpathy AI exposure dataset. Provides stat_res (AI Resilience) and boss_ai_score (AI Boss strength) for each occupation."
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "grw_score_rounded", "type": "INTEGER"},
+              {"name": "market_score_rounded", "type": "INTEGER"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.college_scorecard",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.onet",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "hmn_score_rounded", "type": "INTEGER"},
+              {"name": "burnout_score_rounded", "type": "INTEGER"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.program_career_paths",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "program_name", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "cip_family_name", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "soc_major_group_name", "type": "STRING"},
+              {"name": "stat_ern", "type": "INTEGER"},
+              {"name": "stat_roi", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "stat_grw", "type": "INTEGER"},
+              {"name": "stat_hmn", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "boss_loans_score", "type": "INTEGER"},
+              {"name": "boss_market_score", "type": "INTEGER"},
+              {"name": "boss_burnout_score", "type": "INTEGER"},
+              {"name": "boss_ceiling_score", "type": "INTEGER"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "earnings_1yr_p25", "type": "DOUBLE"},
+              {"name": "earnings_1yr_p75", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"},
+              {"name": "debt_to_earnings_annual", "type": "DOUBLE"},
+              {"name": "confidence_tier_program", "type": "STRING"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "education_level_name", "type": "STRING"},
+              {"name": "top_5_activities", "type": "STRING"},
+              {"name": "top_human_activities", "type": "STRING"},
+              {"name": "burnout_drivers", "type": "STRING"},
+              {"name": "time_pressure", "type": "DOUBLE"},
+              {"name": "work_hours", "type": "DOUBLE"},
+              {"name": "match_quality", "type": "STRING"},
+              {"name": "stats_available_count", "type": "INTEGER"},
+              {"name": "bosses_available_count", "type": "INTEGER"},
+              {"name": "overall_confidence", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "stat_res": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "stat_res"}
+                ],
+                "transformationDescription": "AI Resilience score (1-10). Previously null placeholder. Now populated via LEFT JOIN to consumable.ai_exposure on soc_code. Carries ai_exposure.stat_res directly. Null if SOC code not found in ai_exposure (30 SOC codes filtered out due to bls_match=false).",
+                "transformationType": "DIRECT"
+              },
+              "boss_ai_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "boss_ai_score"}
+                ],
+                "transformationDescription": "AI Boss strength (1-10). Previously null placeholder. Now populated via LEFT JOIN to consumable.ai_exposure on soc_code. Carries ai_exposure.boss_ai_score directly. Null if SOC code not found in ai_exposure.",
+                "transformationType": "DIRECT"
+              },
+              "stats_available_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "stat_res"},
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "cip_family_earnings_rank"},
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "grw_score_rounded"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "hmn_score_rounded"}
+                ],
+                "transformationDescription": "Count of non-null values among the 5 pentagon stats. Now includes stat_res from ai_exposure, so maximum increases from 4 to 5.",
+                "transformationType": "DERIVED"
+              },
+              "bosses_available_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "boss_ai_score"},
+                  {"namespace": "brightsmith", "name": "consumable.career_outcomes", "field": "debt_to_earnings_annual"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "market_score_rounded"},
+                  {"namespace": "brightsmith", "name": "consumable.onet_work_profiles", "field": "burnout_score_rounded"},
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_percentile_education_tier"}
+                ],
+                "transformationDescription": "Count of non-null values among the 5 boss scores. Now includes boss_ai_score from ai_exposure, so maximum increases from 4 to 5.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "outputStatistics": {
+            "rowCount": 626406
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.career_branches",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "source_title", "type": "STRING"},
+              {"name": "related_soc_code", "type": "STRING"},
+              {"name": "related_title", "type": "STRING"},
+              {"name": "best_index", "type": "INTEGER"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"},
+              {"name": "source_grw", "type": "INTEGER"},
+              {"name": "source_hmn", "type": "INTEGER"},
+              {"name": "source_burnout", "type": "INTEGER"},
+              {"name": "source_wage", "type": "DOUBLE"},
+              {"name": "source_res", "type": "INTEGER"},
+              {"name": "source_ai_boss", "type": "INTEGER"},
+              {"name": "related_grw", "type": "INTEGER"},
+              {"name": "related_hmn", "type": "INTEGER"},
+              {"name": "related_burnout", "type": "INTEGER"},
+              {"name": "related_wage", "type": "DOUBLE"},
+              {"name": "related_growth_category", "type": "STRING"},
+              {"name": "related_education_level", "type": "STRING"},
+              {"name": "related_res", "type": "INTEGER"},
+              {"name": "related_ai_boss", "type": "INTEGER"},
+              {"name": "grw_delta", "type": "INTEGER"},
+              {"name": "hmn_delta", "type": "INTEGER"},
+              {"name": "burnout_delta", "type": "INTEGER"},
+              {"name": "wage_delta", "type": "DOUBLE"},
+              {"name": "res_delta", "type": "INTEGER"},
+              {"name": "ai_boss_delta", "type": "INTEGER"},
+              {"name": "branch_has_full_data", "type": "BOOLEAN"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "source_res": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "stat_res"}
+                ],
+                "transformationDescription": "Source occupation AI Resilience score (1-10). Looked up from ai_exposure dict keyed by soc_code (source occupation). Null if source SOC code not found in ai_exposure.",
+                "transformationType": "DIRECT"
+              },
+              "source_ai_boss": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "boss_ai_score"}
+                ],
+                "transformationDescription": "Source occupation AI Boss strength (1-10). Looked up from ai_exposure dict keyed by soc_code (source occupation). Null if source SOC code not found in ai_exposure.",
+                "transformationType": "DIRECT"
+              },
+              "related_res": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "stat_res"}
+                ],
+                "transformationDescription": "Branch target occupation AI Resilience score (1-10). Looked up from ai_exposure dict keyed by related_soc_code (branch target occupation). Null if target SOC code not found in ai_exposure.",
+                "transformationType": "DIRECT"
+              },
+              "related_ai_boss": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "boss_ai_score"}
+                ],
+                "transformationDescription": "Branch target occupation AI Boss strength (1-10). Looked up from ai_exposure dict keyed by related_soc_code (branch target occupation). Null if target SOC code not found in ai_exposure.",
+                "transformationType": "DIRECT"
+              },
+              "res_delta": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "stat_res"}
+                ],
+                "transformationDescription": "related_res - source_res. Positive = branch target is more AI-resilient. Null if either source_res or related_res is null.",
+                "transformationType": "DERIVED"
+              },
+              "ai_boss_delta": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "boss_ai_score"}
+                ],
+                "transformationDescription": "related_ai_boss - source_ai_boss. Positive = branch target faces stronger AI boss. Null if either side is null.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "outputStatistics": {
+            "rowCount": 15944,
+            "columnCount": 30
+          }
+        }
+      }
+    ]
+  }
+]

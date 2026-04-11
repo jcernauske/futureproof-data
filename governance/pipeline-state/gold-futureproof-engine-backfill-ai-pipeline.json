@@ -1,0 +1,153 @@
+{
+  "spec": "gold-futureproof-engine-backfill-ai",
+  "zone": "gold",
+  "mode": "backfill",
+  "started": "2026-04-09T23:10:11.160742+00:00",
+  "steps": {
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:15:02.069164+00:00",
+      "output": "governance/models/gold-futureproof-engine-backfill-ai-physical.md",
+      "output_hash": "sha256:326f486468f87bb23b21841b5997835fc1e447a8e510d3744d2edd6a14a60312"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:15:03.400419+00:00",
+      "output": "governance/models/gold-futureproof-engine-backfill-ai-logical.md",
+      "output_hash": "sha256:193023ad9d2bebc08358b0cf0fb7e3d4851dd681ec130a71ecfefa8643c6c127"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:20:50.516142+00:00",
+      "output": "governance/eda/gold-futureproof-engine-backfill-ai-eda.md",
+      "output_hash": "sha256:57f79cdb659a0ca46496f9510ccd8e99ac38a47977d975dd84e16143d0db0b04"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:25:58.352842+00:00",
+      "output": "governance/audit-trail/gold-futureproof-engine-backfill-ai-temporal-assessment.md",
+      "output_hash": "sha256:25cf92cdf05fc41c7940035ac9fd951e4ae4d473eaece1bade4bbe57ae716ca1"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:06:54.330039+00:00",
+      "output": "governance/dq-rules/gold-futureproof-engine-backfill-ai.json",
+      "output_hash": "sha256:ec1aff8a8f970c0e88815e8fbf80926304405dd12e2174b928c53384afe728ca"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:36:16.684751+00:00",
+      "output": "governance/dq-scorecards/gold-futureproof-engine-backfill-ai-scorecard.md",
+      "output_hash": "sha256:7f6347d883edd013c28fe8c1d166b16fb8499e34aa482235e49e2d306d327123"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:44:56.853034+00:00",
+      "output": "governance/audit-trail/gold-futureproof-engine-backfill-ai-chaos-monkey.md",
+      "output_hash": "sha256:65419477d98fcb5c18d8469e82bf61ef9351eb9a5679a243b4ca521eef5ed40f"
+    },
+    "cab-review": {
+      "status": "COMPLETED",
+      "agent": "@cab-agent",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": true,
+      "completed_at": "2026-04-09T23:47:38.418712+00:00",
+      "output": "governance/cab-decisions/CAB-001-gold-futureproof-engine-backfill-ai.json",
+      "output_hash": "sha256:37cf5587f2535b6f3b90b32127873a94f06b50b71e49f42730858213b8ed0fa1"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:50:59.044118+00:00",
+      "output": "governance/models/gold-futureproof-engine-backfill-ai-conceptual.md",
+      "output_hash": "sha256:ee557911bb40e9f713b78a91ed8af95d71a383bdea7d36fce86c23cd75a5e6c2"
+    },
+    "data-steward": {
+      "status": "COMPLETED",
+      "agent": "@data-steward",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-09T23:51:00.176105+00:00",
+      "output": "governance/audit-trail/gold-futureproof-engine-backfill-ai-data-steward.md",
+      "output_hash": "sha256:25bebb8a7bff4b29c0310d6f09608942b38a4b8cf30789ee94994d62ede51a9c"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "data-steward",
+        "cab-review"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:00:00.047436+00:00",
+      "output": "governance/approvals/gold-futureproof-engine-backfill-ai-post-review.md",
+      "output_hash": "sha256:a937478ea4ea037e5c0d13b41ec418bd813fe1fca76f27b8f349a09f1ecd4616"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-10T00:06:42.165922+00:00",
+      "output": "governance/approvals/gold-futureproof-engine-backfill-ai-staff-review.md",
+      "output_hash": "sha256:353dd764380bd8aae4102099936abe6f1ca9ebe3ef0d2c3ea85dbe924600712d"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}
