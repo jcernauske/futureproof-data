@@ -1,0 +1,173 @@
+"""Gemma-generated skill recommendations.
+
+Takes an assembled career outcome (with top O*NET activities and
+boss fight results) and asks Gemma for 3-5 concrete actions the
+student can take *while still in school* to strengthen weak stats.
+
+Output is parsed into ``SkillRec`` structs for the CLI table. If
+Gemma is unavailable, returns a deterministic placeholder set so
+the CLI still renders the section.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+
+from app.models.career import CareerOutcome, GauntletResult, SkillRec
+from app.services import gemma_client
+
+logger = logging.getLogger(__name__)
+
+
+_SYSTEM = (
+    "You generate skill and coursework recommendations for high school "
+    "students choosing a college major. You are concrete, specific, and "
+    "empowering. Every recommendation targets a measurable stat "
+    "improvement — ERN, ROI, RES, GRW, or HMN. Never propose changing "
+    "schools or majors; only actions the student can take *while still "
+    "in school* at their chosen institution.\n\n"
+    "Stat magnitudes must be +1 or +2. Only use +3 for a major "
+    "commitment like a full minor or certification program. Never use "
+    "+4 or higher — no single action transforms a stat by nearly half "
+    "the 1-10 scale."
+)
+
+
+# Hard ceiling on parsed stat deltas. Belt-and-suspenders for the
+# prompt: even if Gemma ignores the instruction and emits RES+5, the
+# parser clamps it to +2 so the downstream display never shows an
+# implausible gain.
+_MAX_POSITIVE_DELTA = 3
+_CLAMPED_DELTA = 2
+
+
+_REC_LINE = re.compile(
+    r"^\s*[-*\d.)]*\s*"
+    r"(?P<title>[^|;:()]+?)"
+    r"\s*[|;:()]+\s*"
+    r"(?P<impact>(?:ERN|ROI|RES|GRW|HMN)\s*[+\-]?\d+)"
+    r"\s*[|;:()]+\s*"
+    r"(?P<rationale>.+?)\s*$",
+    re.IGNORECASE,
+)
+
+_IMPACT_PARTS = re.compile(
+    r"^(?P<stat>ERN|ROI|RES|GRW|HMN)\s*(?P<sign>[+\-]?)(?P<mag>\d+)$",
+    re.IGNORECASE,
+)
+
+
+def _clamp_impact(raw: str) -> str:
+    """Normalize ``stat_impact`` and clamp runaway magnitudes.
+
+    Gemma occasionally emits ``RES+5`` or ``HMN+5`` even when the system
+    prompt forbids it. Anything larger than ``_MAX_POSITIVE_DELTA`` is
+    pulled back to ``_CLAMPED_DELTA``. Negative deltas are left alone —
+    the prompt never asks for them and the rare legitimate use (e.g.
+    "drop an elective that hurts GRW") is inherently modest. Unparseable
+    input falls back to the raw cleaned string so downstream display
+    doesn't crash.
+    """
+    cleaned = raw.replace(" ", "").upper()
+    match = _IMPACT_PARTS.match(cleaned)
+    if not match:
+        return cleaned
+    stat = match.group("stat")
+    sign = match.group("sign") or "+"
+    magnitude = int(match.group("mag"))
+    if sign == "+" and magnitude > _MAX_POSITIVE_DELTA:
+        logger.info(
+            "clamping skill rec delta %s%s%d -> %s+%d",
+            stat,
+            sign,
+            magnitude,
+            stat,
+            _CLAMPED_DELTA,
+        )
+        magnitude = _CLAMPED_DELTA
+        sign = "+"
+    return f"{stat}{sign}{magnitude}"
+
+
+def _prompt(career: CareerOutcome, gauntlet: GauntletResult) -> str:
+    stats = career.stats
+    weak_spots = [f.label for f in gauntlet.fights if f.result == "lose"]
+    weak_spots_str = ", ".join(weak_spots) or "none"
+    top_human = ", ".join(
+        str(item.get("activity", ""))
+        for item in career.top_human_activities[:4]
+        if item.get("activity")
+    )
+    return (
+        f"Student school: {career.institution_name}\n"
+        f"Major: {career.program_name}\n"
+        f"Primary career: {career.occupation_title} (SOC {career.soc_code})\n"
+        f"Stats: ERN {stats.ern}, ROI {stats.roi}, RES {stats.res}, "
+        f"GRW {stats.grw}, HMN {stats.hmn}\n"
+        f"Lost boss fights: {weak_spots_str}\n"
+        f"Uniquely human activities in this career: {top_human}\n\n"
+        f"Generate 4 skill recommendations. Each must target a specific "
+        f"stat. Format EXACTLY as:\n"
+        f"Name of action | STAT+N | 1-sentence reason\n\n"
+        f"Example:\n"
+        f"Data Analytics Minor | RES+2 | Learn to direct AI analysis, "
+        f"not compete with it.\n\n"
+        f"Do not number your responses. Do not add preamble."
+    )
+
+
+def _fallback_recs(career: CareerOutcome) -> list[SkillRec]:
+    return [
+        SkillRec(
+            title="Data Analytics coursework",
+            stat_impact="RES+1",
+            rationale="Learn to direct AI tools rather than compete with them.",
+        ),
+        SkillRec(
+            title="Internship in your field",
+            stat_impact="HMN+1",
+            rationale="Real-world exposure beats any classroom lecture.",
+        ),
+        SkillRec(
+            title="Communication-heavy elective",
+            stat_impact="HMN+1",
+            rationale="The human-facing side is where careers compound.",
+        ),
+    ]
+
+
+def generate_recs(
+    career: CareerOutcome, gauntlet: GauntletResult
+) -> list[SkillRec]:
+    text = gemma_client.generate(
+        system=_SYSTEM,
+        user=_prompt(career, gauntlet),
+        # 4 pipe-delimited lines at ~25 tokens each = ~100, plus
+        # Gemma preamble; 800 keeps every rec intact.
+        max_tokens=800,
+        temperature=0.6,
+    )
+    if not text:
+        return _fallback_recs(career)
+
+    recs: list[SkillRec] = []
+    for line in text.splitlines():
+        match = _REC_LINE.match(line)
+        if not match:
+            continue
+        title = match.group("title").strip(" -•")
+        impact = _clamp_impact(match.group("impact"))
+        rationale = match.group("rationale").strip().strip('"\'')
+        if not title or not rationale:
+            continue
+        recs.append(
+            SkillRec(title=title, stat_impact=impact, rationale=rationale)
+        )
+        if len(recs) >= 5:
+            break
+
+    if not recs:
+        logger.debug("skill rec parsing failed, using fallback. raw=%r", text[:200])
+        return _fallback_recs(career)
+    return recs

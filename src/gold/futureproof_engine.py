@@ -52,10 +52,13 @@ BR_GRAIN_PREFIX = "br"
 # ---------------------------------------------------------------------------
 
 ROI_BREAKPOINTS: list[tuple[float, float, float, float]] = [
-    (0.25, 0.75, 10.0, 8.0),
-    (0.75, 1.5, 8.0, 5.0),
-    (1.5, 2.5, 5.0, 3.0),
-    (2.5, 4.0, 3.0, 1.0),
+    # DTE <= 0.25              -> ROI 10  (excellent, handled as floor below)
+    (0.25, 0.50, 10.0, 9.0),  # excellent
+    (0.50, 0.75, 9.0, 7.0),   # good
+    (0.75, 1.00, 7.0, 5.0),   # mediocre
+    (1.00, 1.50, 5.0, 3.0),   # bad — debt exceeds annual earnings
+    (1.50, 2.50, 3.0, 1.0),   # terrible
+    # DTE >= 2.5               -> ROI 1   (catastrophic, handled as cap below)
 ]
 
 

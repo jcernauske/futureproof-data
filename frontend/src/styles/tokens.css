@@ -1,0 +1,154 @@
+/*
+ * Brightpath Design System — Token Definitions
+ * Source of truth for all visual tokens in FutureProof.
+ * Generated from: docs/design-system-proposal.md
+ *
+ * Usage: @import this file in your root CSS (or Tailwind's @layer base).
+ * All tokens are available as var(--token-name) in any CSS.
+ */
+
+@layer base {
+  :root {
+    /* ==============================
+       BACKGROUNDS
+       Night-sky indigo, not black.
+       ============================== */
+    --color-bg-void: #12131F;
+    --color-bg-deep: #1B1D30;
+    --color-bg-mid: #232545;
+    --color-bg-surface: #2D3060;
+    --color-bg-raised: #3A3D75;
+
+    /* ==============================
+       ACCENTS
+       The stars in the night sky.
+       ============================== */
+    --color-accent-thrive: #7DD4A3;
+    --color-accent-alert: #F4A97E;
+    --color-accent-caution: #F2D477;
+    --color-accent-insight: #B8A9E8;
+    --color-accent-info: #7BB8E0;
+    --color-accent-empathy: #E88BA9;
+
+    /* ==============================
+       STAT COLORS
+       One per pentagon axis.
+       ============================== */
+    --color-stat-ern: #F2D477;
+    --color-stat-roi: #7DD4A3;
+    --color-stat-res: #B8A9E8;
+    --color-stat-grw: #7BB8E0;
+    --color-stat-hmn: #E88BA9;
+
+    /* ==============================
+       TEXT
+       Warm white, never blue-white.
+       ============================== */
+    --color-text-primary: #F5F0E8;
+    --color-text-secondary: #C4BFB0;
+    --color-text-muted: #8A8595;
+    --color-text-inverse: #1B1D30;
+
+    /* ==============================
+       BOSS COLORS
+       Each boss has a signature hue.
+       ============================== */
+    --color-boss-ai: #B8A9E8;
+    --color-boss-loans: #F4A97E;
+    --color-boss-market: #7BB8E0;
+    --color-boss-burnout: #E88BA9;
+    --color-boss-ceiling: #C4BFB0;
+
+    /* ==============================
+       BORDERS
+       Soft white at low opacity.
+       ============================== */
+    --color-border-subtle: rgba(255, 255, 255, 0.06);
+    --color-border-default: rgba(255, 255, 255, 0.1);
+    --color-border-strong: rgba(255, 255, 255, 0.2);
+
+    /* ==============================
+       TYPOGRAPHY
+       ============================== */
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-data: 'Space Mono', monospace;
+
+    /* Type Scale (1.25 ratio, base 16px) */
+    --text-hero: 3rem;            /* 48px */
+    --text-display: 2.25rem;      /* 36px */
+    --text-heading: 1.75rem;      /* 28px */
+    --text-subheading: 1.375rem;  /* 22px */
+    --text-body: 1rem;            /* 16px */
+    --text-small: 0.875rem;       /* 14px */
+    --text-micro: 0.75rem;        /* 12px */
+    --text-data-large: 1.5rem;    /* 24px */
+    --text-data: 1rem;            /* 16px */
+    --text-data-small: 0.8125rem; /* 13px */
+
+    /* Line Heights */
+    --leading-tight: 1.1;
+    --leading-snug: 1.2;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.4;
+
+    /* ==============================
+       BORDER RADII
+       Everything is rounded.
+       ============================== */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+
+    /* ==============================
+       SHADOWS
+       Layered glow, not box-shadow.
+       ============================== */
+    --shadow-sm: 0 2px 8px rgba(27, 29, 48, 0.5);
+    --shadow-md: 0 4px 16px rgba(27, 29, 48, 0.6);
+    --shadow-lg: 0 8px 32px rgba(27, 29, 48, 0.7);
+    --shadow-glow-thrive: 0 0 20px rgba(125, 212, 163, 0.3);
+    --shadow-glow-alert: 0 0 20px rgba(244, 169, 126, 0.3);
+    --shadow-glow-caution: 0 0 20px rgba(242, 212, 119, 0.3);
+    --shadow-glow-insight: 0 0 20px rgba(184, 169, 232, 0.3);
+    --shadow-glow-info: 0 0 20px rgba(123, 184, 224, 0.3);
+    --shadow-glow-empathy: 0 0 20px rgba(232, 139, 169, 0.3);
+
+    /* ==============================
+       SPACING
+       4px base unit.
+       ============================== */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-20: 80px;
+
+    /* ==============================
+       TRANSITIONS (CSS)
+       For simple hover/focus states.
+       Springs are in motion.ts.
+       ============================== */
+    --transition-fast: 150ms ease-out;
+    --transition-normal: 200ms ease-out;
+    --transition-slow: 300ms ease-out;
+
+    /* ==============================
+       BREAKPOINTS (reference only)
+       Use Tailwind screens in practice.
+       ============================== */
+    --bp-mobile: 480px;
+    --bp-tablet: 768px;
+    --bp-desktop: 1200px;
+    --bp-wide: 1440px;
+    --bp-ultra: 1920px;
+  }
+}

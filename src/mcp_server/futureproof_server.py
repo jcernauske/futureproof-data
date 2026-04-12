@@ -174,6 +174,76 @@ CAREER_PATHS_RESPONSE_FIELDS = [
 CAREER_PATHS_SCAN_LIMIT = 500_000
 
 # ---------------------------------------------------------------------------
+# CIP intent substitution constants
+# ---------------------------------------------------------------------------
+#
+# See docs/specs/cip-intent-substitution.md. When a student provides
+# ``student_major`` and the school only reports the broad XX.01 CIP, we
+# substitute the 4-digit CIP whose crosswalk SOCs represent that major,
+# while preserving the school's broad-CIP earnings/debt for ERN and ROI.
+
+MAJOR_TO_CIP_LOOKUP_PATH = "data/reference/major_to_cip.yaml"
+
+CIP_SOC_CROSSWALK_TABLE = "base.cip_soc_crosswalk"
+OCCUPATION_PROFILES_TABLE = "consumable.occupation_profiles"
+ONET_WORK_PROFILES_TABLE = "consumable.onet_work_profiles"
+AI_EXPOSURE_TABLE_SUB = "consumable.ai_exposure"
+CAREER_OUTCOMES_TABLE = "consumable.career_outcomes"
+
+# Matches a "broad" (XX.01 or XX.0100) CIP — the "General" catch-all in
+# every CIP family.
+_BROAD_CIP_PATTERN = re.compile(r"^\d{2}\.01(00)?$")
+
+# Fields to pull from consumable.career_outcomes for the school's
+# broad-CIP row (used as the earnings/debt basis for blended rows).
+_SUB_CO_FIELDS = [
+    "unitid",
+    "institution_name",
+    "cipcode",
+    "program_name",
+    "cip_family_name",
+    "earnings_1yr_median",
+    "earnings_1yr_p25",
+    "earnings_1yr_p75",
+    "debt_median",
+    "debt_to_earnings_annual",
+    "cip_family_earnings_rank",
+    "confidence_tier",
+]
+
+# Fields to pull from consumable.occupation_profiles per SOC.
+_SUB_OP_FIELDS = [
+    "soc_code",
+    "occupation_title",
+    "soc_major_group_name",
+    "median_annual_wage",
+    "wage_percentile_overall",
+    "grw_score_rounded",
+    "market_score_rounded",
+    "growth_category",
+    "employment_current",
+    "education_level_name",
+]
+
+# Fields to pull from consumable.onet_work_profiles per SOC.
+_SUB_ONET_FIELDS = [
+    "bls_soc_code",
+    "primary_title",
+    "hmn_score_rounded",
+    "burnout_score_rounded",
+    "top_5_activities",
+    "top_human_activities",
+    "burnout_drivers",
+]
+
+# Fields to pull from consumable.ai_exposure per SOC.
+_SUB_AI_FIELDS = [
+    "soc_code",
+    "stat_res",
+    "boss_ai_score",
+]
+
+# ---------------------------------------------------------------------------
 # get_occupation_data constants
 # ---------------------------------------------------------------------------
 
@@ -475,7 +545,11 @@ class FutureProofMCPServer(BaseMCPServer):
                     "earnings/growth context, and O*NET task summaries. "
                     "Results are sorted by stats_available_count DESC so "
                     "best-data careers come first. Zero results means the "
-                    "program lacks CIP-SOC crosswalk coverage."
+                    "program lacks CIP-SOC crosswalk coverage. When the "
+                    "school only reports a broad XX.01 CIP, pass "
+                    "student_major to substitute the major-specific SOC "
+                    "set while preserving the school's broad-program "
+                    "earnings for ERN/ROI."
                 ),
                 input_schema={
                     "type": "object",
@@ -494,6 +568,20 @@ class FutureProofMCPServer(BaseMCPServer):
                                 "CIP program code in XX.XX or XX.XXXX format "
                                 "(e.g., '52.02' for Business Administration). "
                                 "Get this from get_school_programs results."
+                            ),
+                        },
+                        "student_major": {
+                            "type": "string",
+                            "description": (
+                                "Optional. The student's stated major "
+                                "(e.g., 'Marketing', 'Accounting'). When "
+                                "provided and the school's reported CIP is a "
+                                "broad XX.01 code, the system substitutes "
+                                "the specific CIP's crosswalk SOC mappings "
+                                "while keeping the school's broad-program "
+                                "earnings for ERN/ROI. When omitted, returns "
+                                "the school's reported CIP career paths "
+                                "as-is."
                             ),
                         },
                     },
@@ -1228,10 +1316,293 @@ class FutureProofMCPServer(BaseMCPServer):
     # Tool handler: get_career_paths
     # ------------------------------------------------------------------
 
+    _major_to_cip_cache: list[dict] | None = None
+
+    def _load_major_to_cip_lookup(self) -> list[dict]:
+        """Load and cache the major->CIP intent lookup table.
+
+        Reads data/reference/major_to_cip.yaml once per server and caches
+        the parsed list. Missing or malformed files log a warning and
+        return an empty list so substitution degrades to the standard
+        path rather than breaking the handler.
+        """
+        if self._major_to_cip_cache is not None:
+            return self._major_to_cip_cache
+        try:
+            from brightsmith.config import PROJECT_ROOT
+            root = Path(PROJECT_ROOT)
+        except Exception:
+            root = Path.cwd()
+        path = root / MAJOR_TO_CIP_LOOKUP_PATH
+        if not path.exists():
+            logger.warning("major_to_cip.yaml not found at %s", path)
+            self._major_to_cip_cache = []
+            return self._major_to_cip_cache
+        try:
+            with path.open() as f:
+                data = yaml.safe_load(f) or []
+            if not isinstance(data, list):
+                logger.warning(
+                    "major_to_cip.yaml has unexpected shape; expected list"
+                )
+                self._major_to_cip_cache = []
+                return self._major_to_cip_cache
+            self._major_to_cip_cache = data
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Failed to load major_to_cip.yaml: %s", e)
+            self._major_to_cip_cache = []
+        return self._major_to_cip_cache
+
+    def _find_major_intent(self, student_major: str) -> dict | None:
+        """Match a student_major string to a lookup entry (case-insensitive).
+
+        Matches against both ``major`` and each alias in ``aliases``.
+        Returns the first matching entry or None.
+        """
+        if not student_major:
+            return None
+        needle = student_major.strip().lower()
+        if not needle:
+            return None
+        for entry in self._load_major_to_cip_lookup():
+            major = str(entry.get("major") or "").lower()
+            if needle == major:
+                return entry
+            for alias in entry.get("aliases") or []:
+                if needle == str(alias).lower():
+                    return entry
+        return None
+
+    @staticmethod
+    def _is_broad_cip(cipcode: str) -> bool:
+        """True if cipcode is the 'General' XX.01 catch-all in its family."""
+        return bool(_BROAD_CIP_PATTERN.match(cipcode))
+
+    @staticmethod
+    def _cip_family(cipcode: str) -> str:
+        """Return the 2-digit family prefix of a CIP code."""
+        return cipcode.split(".", 1)[0] if "." in cipcode else cipcode[:2]
+
+    def _fetch_crosswalk_socs(self, cip4: str) -> list[str]:
+        """Return distinct SOC codes for a 4-digit CIP prefix.
+
+        The base.cip_soc_crosswalk view is registered by query_iceberg as
+        ``base_cip_soc_crosswalk``. Rows with NULL or catch-all SOCs
+        ('99-9999') are excluded.
+        """
+        # Sanity-check the prefix before formatting into SQL. This value
+        # comes from our own YAML file but we still treat it as
+        # untrusted input to prevent injection.
+        if not re.match(r"^\d{2}\.\d{2}$", cip4):
+            return []
+        sql = (
+            "SELECT DISTINCT soc_code FROM base_cip_soc_crosswalk "
+            f"WHERE SUBSTR(cipcode, 1, 5) = '{cip4}' "
+            "AND soc_code IS NOT NULL AND soc_code <> '99-9999' "
+            "ORDER BY soc_code"
+        )
+        try:
+            rows = self.query_iceberg(sql)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Crosswalk lookup failed for %s: %s", cip4, e)
+            return []
+        return [str(r["soc_code"]) for r in rows if r.get("soc_code")]
+
+    def _build_substituted_rows(
+        self,
+        *,
+        unitid: int,
+        reported_cipcode: str,
+        substituted_cipcode: str,
+        substituted_program_name: str,
+        loan_pct: float = 1.0,
+    ) -> tuple[list[dict] | None, str | None]:
+        """Assemble blended career-path rows for a substitution.
+
+        Pulls the school's broad-CIP row from career_outcomes for the
+        earnings/debt basis, fetches the substituted CIP's SOCs from
+        the crosswalk, and joins occupation_profiles + onet_work_profiles
+        + ai_exposure for each SOC to compute the 5-stat pentagon.
+
+        Returns (rows, None) on success or (None, message) on failure
+        (e.g. school's broad-CIP row missing, crosswalk empty).
+        """
+        # Lazy import to avoid a hard dependency on the gold module at
+        # server import time.
+        from gold.futureproof_engine import compute_stat_ern, compute_stat_roi
+
+        # 1. School's broad-CIP row from career_outcomes.
+        co_rows = self.query_iceberg_simple(
+            CAREER_OUTCOMES_TABLE,
+            filters={"unitid": unitid, "cipcode": reported_cipcode},
+            columns=_SUB_CO_FIELDS,
+            limit=1,
+        )
+        if co_rows and "error" in co_rows[0]:
+            return None, co_rows[0]["error"]
+        if not co_rows:
+            return None, (
+                f"No career_outcomes row for unitid={unitid}, "
+                f"cipcode='{reported_cipcode}'; cannot substitute."
+            )
+        school = co_rows[0]
+        cip_fam_rank = school.get("cip_family_earnings_rank")
+        dte = school.get("debt_to_earnings_annual")
+        # loan_pct scales the student's debt before ROI/loans-boss are
+        # derived. 1.0 = full published debt (no-op), 0.0 = no loans
+        # taken (DTE pinned to 0, ROI saturates at 10). Applied here so
+        # the substitution path's inline stat_roi matches what
+        # stat_engine derives for the main path.
+        if dte is not None and 0.0 <= loan_pct < 1.0:
+            adj_dte: float | None = float(dte) * float(loan_pct)
+        else:
+            adj_dte = dte
+
+        # 2. Substituted SOCs from the crosswalk.
+        socs = self._fetch_crosswalk_socs(substituted_cipcode)
+        if not socs:
+            return None, (
+                f"No crosswalk SOCs found for substituted CIP "
+                f"'{substituted_cipcode}'."
+            )
+
+        # 3. For each SOC, join occupation_profiles, onet, ai_exposure.
+        rows: list[dict] = []
+        for soc in socs:
+            op_rows = self.query_iceberg_simple(
+                OCCUPATION_PROFILES_TABLE,
+                filters={"soc_code": soc},
+                columns=_SUB_OP_FIELDS,
+                limit=1,
+            )
+            op = (
+                op_rows[0]
+                if op_rows and "error" not in op_rows[0]
+                else {}
+            )
+
+            onet_rows = self.query_iceberg_simple(
+                ONET_WORK_PROFILES_TABLE,
+                filters={"bls_soc_code": soc},
+                columns=_SUB_ONET_FIELDS,
+                limit=1,
+            )
+            onet = (
+                onet_rows[0]
+                if onet_rows and "error" not in onet_rows[0]
+                else {}
+            )
+
+            ai_rows = self.query_iceberg_simple(
+                AI_EXPOSURE_TABLE_SUB,
+                filters={"soc_code": soc},
+                columns=_SUB_AI_FIELDS,
+                limit=1,
+            )
+            ai = (
+                ai_rows[0]
+                if ai_rows and "error" not in ai_rows[0]
+                else {}
+            )
+
+            stat_ern = compute_stat_ern(
+                cip_fam_rank, op.get("wage_percentile_overall")
+            )
+            stat_roi = compute_stat_roi(adj_dte)
+            boss_loans_sub = (
+                (11 - stat_roi) if stat_roi is not None else None
+            )
+            stat_grw = op.get("grw_score_rounded")
+            stat_hmn = onet.get("hmn_score_rounded")
+            stat_res = ai.get("stat_res")
+
+            stats_available = sum(
+                1
+                for v in (stat_ern, stat_roi, stat_res, stat_grw, stat_hmn)
+                if v is not None
+            )
+            boss_ai = ai.get("boss_ai_score")
+            boss_market = op.get("market_score_rounded")
+            boss_burnout = onet.get("burnout_score_rounded")
+            # boss_ceiling is not derivable from occupation-level tables;
+            # it lives on program_career_paths and stays omitted on
+            # substituted rows. boss_loans mirrors the inline stat_roi
+            # above so the CLI can still render the loans fight.
+            bosses_available = sum(
+                1
+                for v in (boss_ai, boss_loans_sub, boss_market, boss_burnout)
+                if v is not None
+            )
+
+            row = {
+                "unitid": unitid,
+                "institution_name": school.get("institution_name"),
+                "cipcode": substituted_cipcode,
+                "program_name": substituted_program_name,
+                "cip_family_name": school.get("cip_family_name"),
+                "soc_code": soc,
+                "occupation_title": (
+                    op.get("occupation_title")
+                    or onet.get("primary_title")
+                    or None
+                ),
+                "soc_major_group_name": op.get("soc_major_group_name"),
+                "stat_ern": stat_ern,
+                "stat_roi": stat_roi,
+                "stat_res": stat_res,
+                "stat_grw": stat_grw,
+                "stat_hmn": stat_hmn,
+                "boss_ai_score": boss_ai,
+                "boss_loans_score": boss_loans_sub,
+                "boss_market_score": boss_market,
+                "boss_burnout_score": boss_burnout,
+                "boss_ceiling_score": None,
+                "earnings_1yr_median": school.get("earnings_1yr_median"),
+                "earnings_1yr_p25": school.get("earnings_1yr_p25"),
+                "earnings_1yr_p75": school.get("earnings_1yr_p75"),
+                "debt_median": school.get("debt_median"),
+                "debt_to_earnings_annual": school.get(
+                    "debt_to_earnings_annual"
+                ),
+                "confidence_tier_program": school.get("confidence_tier"),
+                "median_annual_wage": op.get("median_annual_wage"),
+                "growth_category": op.get("growth_category"),
+                "employment_current": op.get("employment_current"),
+                "education_level_name": op.get("education_level_name"),
+                "top_5_activities": onet.get("top_5_activities"),
+                "top_human_activities": onet.get("top_human_activities"),
+                "burnout_drivers": onet.get("burnout_drivers"),
+                "match_quality": "substituted_cip",
+                "stats_available_count": stats_available,
+                "bosses_available_count": bosses_available,
+                "overall_confidence": (
+                    "high" if stats_available == 5 else "medium"
+                ),
+            }
+            rows.append(row)
+        return rows, None
+
     def _handle_get_career_paths(self, input_dict: dict) -> dict:
-        """Query consumable.program_career_paths by unitid + cipcode."""
+        """Query consumable.program_career_paths by unitid + cipcode.
+
+        When ``student_major`` is provided and the school's reported
+        cipcode is a broad XX.01 code, substitutes the matched specific
+        CIP's crosswalk SOC set while keeping the school's broad-program
+        earnings for the ERN/ROI stats. See docs/specs/
+        cip-intent-substitution.md for the full flow.
+        """
         raw_unitid = input_dict.get("unitid")
         raw_cipcode = input_dict.get("cipcode")
+        raw_student_major = input_dict.get("student_major")
+        raw_loan_pct = input_dict.get("loan_pct", 1.0)
+
+        # loan_pct is optional; clamp to [0.0, 1.0] and fall back to 1.0
+        # on garbage input so the tool remains permissive.
+        try:
+            loan_pct_value = float(raw_loan_pct)
+        except (TypeError, ValueError):
+            loan_pct_value = 1.0
+        loan_pct_value = max(0.0, min(1.0, loan_pct_value))
 
         # Validate unitid: positive integer (accept string of digits too).
         unitid_value: int | None = None
@@ -1266,7 +1637,111 @@ class FutureProofMCPServer(BaseMCPServer):
                 CAREER_PATHS_TABLE,
             )
 
-        # query_iceberg_simple supports multi-column equality filters.
+        # ------------------------------------------------------------------
+        # CIP intent substitution decision
+        # ------------------------------------------------------------------
+        student_major = (
+            str(raw_student_major).strip()
+            if raw_student_major is not None
+            else ""
+        )
+        substitution_note: str | None = None
+        substitution: dict | None = None  # set if substitution fires
+
+        if student_major:
+            if not self._is_broad_cip(cipcode):
+                # School already reports the specific CIP — standard path.
+                substitution_note = (
+                    f"student_major='{student_major}' provided but cipcode "
+                    f"'{cipcode}' is already specific; showing reported "
+                    f"career paths."
+                )
+            else:
+                entry = self._find_major_intent(student_major)
+                if entry is None:
+                    substitution_note = (
+                        f"Could not map '{student_major}' to a specific "
+                        f"program. Showing results for the school's "
+                        f"reported program."
+                    )
+                else:
+                    matched_cip4 = str(entry.get("cip4") or "")
+                    if self._cip_family(matched_cip4) != self._cip_family(
+                        cipcode
+                    ):
+                        substitution_note = (
+                            f"Student major '{student_major}' maps to CIP "
+                            f"family {self._cip_family(matched_cip4)}, "
+                            f"but the school's reported cipcode "
+                            f"'{cipcode}' is in family "
+                            f"{self._cip_family(cipcode)}. Showing the "
+                            f"reported program; no substitution applied."
+                        )
+                    else:
+                        substitution = {
+                            "entry": entry,
+                            "matched_cip4": matched_cip4,
+                        }
+
+        # ------------------------------------------------------------------
+        # Substituted path
+        # ------------------------------------------------------------------
+        if substitution is not None:
+            entry = substitution["entry"]
+            matched_cip4 = substitution["matched_cip4"]
+            rows, err = self._build_substituted_rows(
+                unitid=unitid_value,
+                reported_cipcode=cipcode,
+                substituted_cipcode=matched_cip4,
+                substituted_program_name=str(entry.get("major") or ""),
+                loan_pct=loan_pct_value,
+            )
+            if err is not None:
+                return self.attach_governance(
+                    {"data": None, "message": err},
+                    CAREER_PATHS_TABLE,
+                )
+
+            def _sub_sort_key(row: dict) -> tuple:
+                stats = row.get("stats_available_count")
+                stats_sort = -(stats if isinstance(stats, (int, float)) else 0)
+                return (stats_sort, str(row.get("occupation_title") or ""))
+
+            rows.sort(key=_sub_sort_key)
+            for row in rows:
+                _decode_json_struct_fields(row)
+
+            caveat = {
+                "type": "blended_substitution",
+                "message": (
+                    f"Earnings and debt reflect all "
+                    f"{(rows[0].get('cip_family_name') or 'program').lower()} "
+                    f"graduates at this school. Career paths reflect "
+                    f"typical {entry.get('major')} outcomes nationally. "
+                    f"This school does not report "
+                    f"{entry.get('major')}-specific outcome data."
+                ),
+                "reported_cipcode": cipcode,
+                "substituted_cipcode": matched_cip4,
+                "substituted_program": entry.get("major"),
+                "earnings_specificity": "school_broad",
+                "career_path_specificity": "national_major_specific",
+            }
+
+            response = {
+                "data": rows,
+                "row_count": len(rows),
+                "substitution_applied": True,
+                "reported_cipcode": cipcode,
+                "substituted_cipcode": matched_cip4,
+                "student_major": student_major,
+                "data_caveat": caveat,
+            }
+            return self.enrich_response(response, CAREER_PATHS_TABLE)
+
+        # ------------------------------------------------------------------
+        # Standard path
+        # ------------------------------------------------------------------
         rows = self.query_iceberg_simple(
             CAREER_PATHS_TABLE,
             filters={"unitid": unitid_value, "cipcode": cipcode},
@@ -1304,10 +1779,14 @@ class FutureProofMCPServer(BaseMCPServer):
         for row in rows:
             _decode_json_struct_fields(row)
 
-        return self.enrich_response(
-            {"data": rows, "row_count": len(rows)},
-            CAREER_PATHS_TABLE,
-        )
+        response = {
+            "data": rows,
+            "row_count": len(rows),
+            "substitution_applied": False,
+        }
+        if substitution_note:
+            response["substitution_note"] = substitution_note
+        return self.enrich_response(response, CAREER_PATHS_TABLE)
 
     # ------------------------------------------------------------------
     # Tool handler: get_occupation_data

@@ -200,24 +200,56 @@ class TestStatErn:
 
 
 class TestStatRoi:
-    """Tests for Return on Investment stat derivation."""
+    """Tests for Return on Investment stat derivation.
+
+    Breakpoints (tightened to punish DTE >= 1.0):
+        DTE <= 0.25       -> 10
+        0.25 -> 0.50      -> 10 -> 9
+        0.50 -> 0.75      ->  9 -> 7
+        0.75 -> 1.00      ->  7 -> 5
+        1.00 -> 1.50      ->  5 -> 3
+        1.50 -> 2.50      ->  3 -> 1
+        DTE >= 2.50       -> 1
+    """
 
     def test_roi_excellent(self):
         """DTE <= 0.25 should produce ROI = 10."""
         assert compute_stat_roi(0.10) == 10
         assert compute_stat_roi(0.25) == 10
 
-    def test_roi_poor(self):
-        """DTE > 4.0 should produce ROI = 1."""
+    def test_roi_catastrophic(self):
+        """DTE >= 2.5 should produce ROI = 1."""
+        assert compute_stat_roi(2.5) == 1
+        assert compute_stat_roi(3.0) == 1
         assert compute_stat_roi(5.0) == 1
-        assert compute_stat_roi(4.1) == 1
 
-    def test_roi_midrange(self):
-        """DTE = 1.125 (midpoint of 0.75-1.5 band) should produce ~6.5 -> 7."""
-        result = compute_stat_roi(1.125)
-        # fraction = (1.125 - 0.75) / (1.5 - 0.75) = 0.375/0.75 = 0.5
-        # roi = 8.0 + 0.5 * (5.0 - 8.0) = 8.0 - 1.5 = 6.5 -> ROUND = 7
-        assert result == 7
+    def test_roi_good_band(self):
+        """DTE 0.50 -> 0.75 interpolates 9 -> 7."""
+        # midpoint DTE 0.625: fraction=0.5, roi = 9 - 0.5*2 = 8
+        assert compute_stat_roi(0.625) == 8
+        assert compute_stat_roi(0.50) == 9
+        assert compute_stat_roi(0.75) == 7
+
+    def test_roi_mediocre_band(self):
+        """DTE 0.75 -> 1.00 interpolates 7 -> 5."""
+        # midpoint DTE 0.875: fraction=0.5, roi = 7 - 0.5*2 = 6
+        assert compute_stat_roi(0.875) == 6
+
+    def test_roi_bad_band_dte_one(self):
+        """DTE >= 1.0 must cap at ROI <= 5 (spec: debt exceeds earnings)."""
+        assert compute_stat_roi(1.00) == 5
+        # DTE 1.244 (Millikin Drama): fraction=(1.244-1.0)/0.5=0.488
+        # roi = 5 - 0.488*2 = 4.024 -> 4
+        assert compute_stat_roi(1.244) == 4
+        # DTE 1.25: fraction=0.5, roi = 5 - 1 = 4
+        assert compute_stat_roi(1.25) == 4
+        # DTE 1.5 boundary: lands at 3 via next band start
+        assert compute_stat_roi(1.5) == 3
+
+    def test_roi_terrible_band(self):
+        """DTE 1.5 -> 2.5 interpolates 3 -> 1."""
+        # midpoint DTE 2.0: fraction=0.5, roi = 3 - 0.5*2 = 2
+        assert compute_stat_roi(2.0) == 2
 
     def test_roi_null_when_dte_null(self):
         """stat_roi is null when debt_to_earnings_annual is null."""

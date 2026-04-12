@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "futureproof-backend"
+version = "0.1.0"
+description = "FutureProof — AI Career Impact Tool Backend API"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "duckdb>=1.1.0",
+    # CLI harness (backend/cli.py) dependencies — also present in the
+    # root ``pyproject.toml`` so running the CLI from the unified
+    # monorepo venv works. Listed here so installing just the backend
+    # (``pip install -e backend[dev]``) still pulls them.
+    "openai>=1.40",
+    "python-dotenv>=1.0",
+    "rich>=13.7",
+    "pyyaml>=6.0",
+    "brightsmith @ git+https://github.com/jcernauske/brightsmith.git",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

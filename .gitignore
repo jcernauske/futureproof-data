@@ -1,4 +1,12 @@
+# Data pipeline
 data/
+
+# CLI harness local state
+backend/data/
+
+# Gemma call logs (JSONL, one record per API call)
+logs/
+backend/.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -7,3 +15,21 @@ dist/
 build/
 .venv/
 .env
+
+# Python
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+
+# Build artifacts
+*.tsbuildinfo
