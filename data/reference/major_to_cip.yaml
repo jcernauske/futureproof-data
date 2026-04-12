@@ -1,0 +1,481 @@
+# Major-to-CIP Intent Lookup
+# Used when a school reports only a broad XX.01 CIP and the student
+# specifies a more specific major. Maps the student's stated intent
+# to the specific CIP whose crosswalk SOC mappings best represent
+# that major's career paths.
+#
+# Structure: list of entries, each with:
+#   - major: the canonical name for the major
+#   - cip4: the 4-digit CIP prefix to substitute (XX.YY)
+#   - cip_family: the 2-digit family this belongs to
+#   - aliases: alternate names, abbreviations, misspellings
+#
+# Hackathon scope: CIP families 52 (Business) and 13 (Education).
+# Phase 3 = remaining families (26/42/23/09/11/14/51 and full coverage).
+#
+# Curation source: docs/specs/spike-intent-substitution.md Test 5
+# (cross-checked against base.cip_soc_crosswalk coverage).
+
+# ---------------------------------------------------------------------------
+# CIP Family 52 — Business, Management, Marketing, and Related Support Services
+# ---------------------------------------------------------------------------
+
+- major: "Business Administration"
+  cip4: "52.02"
+  cip_family: "52"
+  aliases:
+    - "business admin"
+    - "BBA"
+    - "business management"
+    - "general management"
+    - "management"
+
+- major: "Accounting"
+  cip4: "52.03"
+  cip_family: "52"
+  aliases:
+    - "accountancy"
+    - "acct"
+    - "accounting and auditing"
+
+- major: "Entrepreneurship"
+  cip4: "52.07"
+  cip_family: "52"
+  aliases:
+    - "small business"
+    - "startup"
+    - "entrepreneurial studies"
+
+- major: "Finance"
+  cip4: "52.08"
+  cip_family: "52"
+  aliases:
+    - "financial management"
+    - "corporate finance"
+    - "fin"
+
+- major: "Hospitality Management"
+  cip4: "52.09"
+  cip_family: "52"
+  aliases:
+    - "hotel management"
+    - "hospitality"
+    - "tourism management"
+    - "hotel administration"
+
+- major: "Human Resources"
+  cip4: "52.10"
+  cip_family: "52"
+  aliases:
+    - "HR"
+    - "human resource management"
+    - "personnel management"
+    - "HRM"
+
+- major: "International Business"
+  cip4: "52.11"
+  cip_family: "52"
+  aliases:
+    - "global business"
+    - "intl business"
+    - "international trade"
+
+- major: "Management Information Systems"
+  cip4: "52.12"
+  cip_family: "52"
+  aliases:
+    - "MIS"
+    - "business information systems"
+    - "IT management"
+    - "information systems"
+
+- major: "Business Analytics"
+  cip4: "52.13"
+  cip_family: "52"
+  aliases:
+    - "management science"
+    - "business stats"
+    - "decision sciences"
+    - "analytics"
+
+- major: "Marketing"
+  cip4: "52.14"
+  cip_family: "52"
+  aliases:
+    - "marketing management"
+    - "mktg"
+    - "digital marketing"
+
+- major: "Real Estate"
+  cip4: "52.15"
+  cip_family: "52"
+  aliases:
+    - "real estate management"
+    - "property management"
+
+- major: "Taxation"
+  cip4: "52.16"
+  cip_family: "52"
+  aliases:
+    - "tax"
+    - "tax accounting"
+
+- major: "Insurance"
+  cip4: "52.17"
+  cip_family: "52"
+  aliases:
+    - "risk management and insurance"
+    - "actuarial insurance"
+
+- major: "General Sales"
+  cip4: "52.18"
+  cip_family: "52"
+  aliases:
+    - "sales"
+    - "merchandising"
+    - "retail management"
+
+- major: "Specialized Sales"
+  cip4: "52.19"
+  cip_family: "52"
+  aliases:
+    - "specialized merchandising"
+    - "auctioneering"
+
+- major: "Construction Management"
+  cip4: "52.20"
+  cip_family: "52"
+  aliases:
+    - "construction mgmt"
+    - "building construction management"
+
+- major: "Telecommunications Management"
+  cip4: "52.21"
+  cip_family: "52"
+  aliases:
+    - "telecom management"
+    - "telecom mgmt"
+
+- major: "Supply Chain Management"
+  cip4: "52.02"
+  cip_family: "52"
+  aliases:
+    - "operations management"
+    - "logistics"
+    - "SCM"
+
+# ---------------------------------------------------------------------------
+# CIP Family 13 — Education
+# ---------------------------------------------------------------------------
+
+# --- Special Education (13.10xx) ---
+# Schools often report broad 13.10; these entries disambiguate to
+# specific disability-area CIPs whose crosswalk SOCs are special
+# education teachers (25-2051 through 25-2059).
+
+- major: "Special Education"
+  cip4: "13.10"
+  cip_family: "13"
+  aliases:
+    - "special ed"
+    - "sped"
+    - "special education and teaching"
+
+- major: "Deaf Education"
+  cip4: "13.1003"
+  cip_family: "13"
+  aliases:
+    - "deaf and hard of hearing education"
+    - "education of the deaf"
+    - "DHH education"
+    - "hearing impairment education"
+    - "special education deaf"
+
+- major: "Education of the Emotionally Disturbed"
+  cip4: "13.1005"
+  cip_family: "13"
+  aliases:
+    - "emotional disturbances education"
+    - "EBD education"
+    - "emotional behavioral disorders"
+
+- major: "Intellectual Disabilities Education"
+  cip4: "13.1006"
+  cip_family: "13"
+  aliases:
+    - "education of the intellectually disabled"
+    - "cognitive disabilities education"
+
+- major: "Education of the Visually Impaired"
+  cip4: "13.1009"
+  cip_family: "13"
+  aliases:
+    - "blind education"
+    - "vision impairment education"
+    - "TVI"
+    - "teacher of the visually impaired"
+
+- major: "Learning Disabilities Education"
+  cip4: "13.1011"
+  cip_family: "13"
+  aliases:
+    - "specific learning disabilities"
+    - "LD education"
+    - "learning differences"
+
+- major: "Speech-Language Impairments Education"
+  cip4: "13.1012"
+  cip_family: "13"
+  aliases:
+    - "speech education"
+    - "speech pathology education"
+
+- major: "Autism Education"
+  cip4: "13.1013"
+  cip_family: "13"
+  aliases:
+    - "autism spectrum education"
+    - "ASD education"
+
+- major: "Early Childhood Special Education"
+  cip4: "13.1015"
+  cip_family: "13"
+  aliases:
+    - "ECSE"
+    - "early intervention"
+    - "preschool special education"
+
+# --- General Education Levels (13.12xx) ---
+# Schools report broad 13.12; these map to level-specific CIPs.
+
+- major: "Elementary Education"
+  cip4: "13.1202"
+  cip_family: "13"
+  aliases:
+    - "elementary ed"
+    - "elementary teaching"
+    - "primary education"
+    - "grades K-6"
+
+- major: "Middle School Education"
+  cip4: "13.1203"
+  cip_family: "13"
+  aliases:
+    - "middle school teaching"
+    - "intermediate education"
+    - "junior high education"
+    - "grades 5-8"
+
+- major: "Secondary Education"
+  cip4: "13.1205"
+  cip_family: "13"
+  aliases:
+    - "secondary ed"
+    - "high school education"
+    - "high school teaching"
+    - "grades 9-12"
+
+- major: "Early Childhood Education"
+  cip4: "13.1210"
+  cip_family: "13"
+  aliases:
+    - "ECE"
+    - "early childhood"
+    - "preschool education"
+    - "pre-K education"
+    - "prekindergarten"
+
+- major: "Kindergarten Education"
+  cip4: "13.1209"
+  cip_family: "13"
+  aliases:
+    - "kindergarten teaching"
+    - "K education"
+
+# --- Subject-Area Teacher Education (13.13xx) ---
+# Schools report broad 13.13; these map to subject-specific CIPs.
+
+- major: "Math Education"
+  cip4: "13.1311"
+  cip_family: "13"
+  aliases:
+    - "mathematics education"
+    - "math teaching"
+    - "mathematics teacher education"
+
+- major: "English Education"
+  cip4: "13.1305"
+  cip_family: "13"
+  aliases:
+    - "English language arts education"
+    - "ELA education"
+    - "English teaching"
+    - "language arts education"
+
+- major: "Science Education"
+  cip4: "13.1316"
+  cip_family: "13"
+  aliases:
+    - "science teaching"
+    - "general science education"
+
+- major: "Social Studies Education"
+  cip4: "13.1318"
+  cip_family: "13"
+  aliases:
+    - "social studies teaching"
+    - "social science education"
+    - "history and social studies education"
+
+- major: "History Education"
+  cip4: "13.1328"
+  cip_family: "13"
+  aliases:
+    - "history teaching"
+
+- major: "Biology Education"
+  cip4: "13.1322"
+  cip_family: "13"
+  aliases:
+    - "biology teaching"
+    - "bio education"
+
+- major: "Chemistry Education"
+  cip4: "13.1323"
+  cip_family: "13"
+  aliases:
+    - "chemistry teaching"
+
+- major: "Physics Education"
+  cip4: "13.1329"
+  cip_family: "13"
+  aliases:
+    - "physics teaching"
+
+- major: "Music Education"
+  cip4: "13.1312"
+  cip_family: "13"
+  aliases:
+    - "music teaching"
+    - "music ed"
+
+- major: "Art Education"
+  cip4: "13.1302"
+  cip_family: "13"
+  aliases:
+    - "art teaching"
+    - "visual arts education"
+
+- major: "Physical Education"
+  cip4: "13.1314"
+  cip_family: "13"
+  aliases:
+    - "PE"
+    - "phys ed"
+    - "physical education and coaching"
+    - "kinesiology education"
+
+- major: "Health Education"
+  cip4: "13.1307"
+  cip_family: "13"
+  aliases:
+    - "health teaching"
+    - "school health education"
+
+- major: "Foreign Language Education"
+  cip4: "13.1306"
+  cip_family: "13"
+  aliases:
+    - "world language education"
+    - "language teaching"
+
+- major: "Drama Education"
+  cip4: "13.1324"
+  cip_family: "13"
+  aliases:
+    - "theater education"
+    - "theatre education"
+    - "drama and dance education"
+
+- major: "Agricultural Education"
+  cip4: "13.1301"
+  cip_family: "13"
+  aliases:
+    - "ag education"
+    - "ag teaching"
+    - "agriculture education"
+
+- major: "Business Education"
+  cip4: "13.1303"
+  cip_family: "13"
+  aliases:
+    - "business teaching"
+    - "business teacher education"
+
+- major: "Reading Education"
+  cip4: "13.1315"
+  cip_family: "13"
+  aliases:
+    - "reading specialist"
+    - "literacy education"
+    - "reading teacher"
+
+# --- Other Education (13.xx) ---
+
+- major: "Bilingual Education"
+  cip4: "13.02"
+  cip_family: "13"
+  aliases:
+    - "multilingual education"
+    - "dual language education"
+    - "bilingual teaching"
+
+- major: "Curriculum and Instruction"
+  cip4: "13.03"
+  cip_family: "13"
+  aliases:
+    - "C&I"
+    - "curriculum design"
+    - "instructional design"
+
+- major: "Educational Leadership"
+  cip4: "13.04"
+  cip_family: "13"
+  aliases:
+    - "education administration"
+    - "school administration"
+    - "educational admin"
+    - "school leadership"
+
+- major: "Instructional Technology"
+  cip4: "13.05"
+  cip_family: "13"
+  aliases:
+    - "educational technology"
+    - "ed tech"
+    - "learning technology"
+
+- major: "School Counseling"
+  cip4: "13.1101"
+  cip_family: "13"
+  aliases:
+    - "counselor education"
+    - "school guidance"
+    - "guidance counseling"
+
+- major: "ESL Education"
+  cip4: "13.1401"
+  cip_family: "13"
+  aliases:
+    - "TESOL"
+    - "teaching english as a second language"
+    - "ELL education"
+    - "ESL teaching"
+    - "english language learner"
+
+- major: "Adult Education"
+  cip4: "13.1201"
+  cip_family: "13"
+  aliases:
+    - "adult and continuing education"
+    - "adult learning"

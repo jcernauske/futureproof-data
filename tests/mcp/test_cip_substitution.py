@@ -269,7 +269,7 @@ class TestSubstitutionFires:
             )
         assert result["substitution_applied"] is False
         assert "substitution_note" in result
-        assert "already specific" in result["substitution_note"]
+        assert "specific" in result["substitution_note"]
 
 
 class TestAliasMatching:

@@ -1379,6 +1379,20 @@ class FutureProofMCPServer(BaseMCPServer):
         return bool(_BROAD_CIP_PATTERN.match(cipcode))
 
     @staticmethod
+    def _matched_cip_is_more_specific(
+        school_cip: str, matched_cip: str
+    ) -> bool:
+        """True if matched_cip is a child of school_cip.
+
+        Example: school reports 13.10 (Special Education, General),
+        student says "Deaf Education" → matched 13.1003. The matched
+        CIP starts with the school CIP prefix and is more specific.
+        """
+        if len(matched_cip) <= len(school_cip):
+            return False
+        return matched_cip.startswith(school_cip)
+
+    @staticmethod
     def _cip_family(cipcode: str) -> str:
         """Return the 2-digit family prefix of a CIP code."""
         return cipcode.split(".", 1)[0] if "." in cipcode else cipcode[:2]
@@ -1649,39 +1663,51 @@ class FutureProofMCPServer(BaseMCPServer):
         substitution: dict | None = None  # set if substitution fires
 
         if student_major:
-            if not self._is_broad_cip(cipcode):
-                # School already reports the specific CIP — standard path.
-                substitution_note = (
-                    f"student_major='{student_major}' provided but cipcode "
-                    f"'{cipcode}' is already specific; showing reported "
-                    f"career paths."
-                )
-            else:
-                entry = self._find_major_intent(student_major)
-                if entry is None:
+            entry = self._find_major_intent(student_major)
+            if entry is None:
+                if self._is_broad_cip(cipcode):
                     substitution_note = (
                         f"Could not map '{student_major}' to a specific "
                         f"program. Showing results for the school's "
                         f"reported program."
                     )
                 else:
-                    matched_cip4 = str(entry.get("cip4") or "")
-                    if self._cip_family(matched_cip4) != self._cip_family(
-                        cipcode
-                    ):
-                        substitution_note = (
-                            f"Student major '{student_major}' maps to CIP "
-                            f"family {self._cip_family(matched_cip4)}, "
-                            f"but the school's reported cipcode "
-                            f"'{cipcode}' is in family "
-                            f"{self._cip_family(cipcode)}. Showing the "
-                            f"reported program; no substitution applied."
-                        )
-                    else:
-                        substitution = {
-                            "entry": entry,
-                            "matched_cip4": matched_cip4,
-                        }
+                    substitution_note = (
+                        f"student_major='{student_major}' provided but "
+                        f"no lookup match found and cipcode '{cipcode}' "
+                        f"is already specific; showing reported career "
+                        f"paths."
+                    )
+            else:
+                matched_cip4 = str(entry.get("cip4") or "")
+                if self._cip_family(matched_cip4) != self._cip_family(
+                    cipcode
+                ):
+                    substitution_note = (
+                        f"Student major '{student_major}' maps to CIP "
+                        f"family {self._cip_family(matched_cip4)}, "
+                        f"but the school's reported cipcode "
+                        f"'{cipcode}' is in family "
+                        f"{self._cip_family(cipcode)}. Showing the "
+                        f"reported program; no substitution applied."
+                    )
+                elif (
+                    self._is_broad_cip(cipcode)
+                    or self._matched_cip_is_more_specific(
+                        cipcode, matched_cip4
+                    )
+                ):
+                    substitution = {
+                        "entry": entry,
+                        "matched_cip4": matched_cip4,
+                    }
+                else:
+                    substitution_note = (
+                        f"student_major='{student_major}' matched CIP "
+                        f"'{matched_cip4}' but school cipcode "
+                        f"'{cipcode}' is equally or more specific; "
+                        f"showing reported career paths."
+                    )
 
         # ------------------------------------------------------------------
         # Substituted path
