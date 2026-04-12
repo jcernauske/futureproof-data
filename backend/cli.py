@@ -12,8 +12,13 @@ as long as ``..`` is on ``sys.path`` via the shim below.
 
 from __future__ import annotations
 
+import json
+import re
+import subprocess
 import sys
+import time
 from collections import OrderedDict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +54,9 @@ from app.services import (  # noqa: E402
     builds,
     career_tiering,
     career_tree,
+    gemma_client,
     guidance,
+    mcp_client,
     next_steps,
     receipts,
     report_gen,
@@ -587,6 +594,664 @@ def _render_guidance(text: str) -> Panel:
         border_style="bright_blue",
         padding=(1, 2),
     )
+
+
+# ---------------------------------------------------------------------------
+# Gemma intent resolution cache + flow (spike)
+# ---------------------------------------------------------------------------
+
+_intent_cache: dict[tuple[str, int], dict[str, Any]] = {}
+
+_INTENT_SYSTEM_PROMPT = """\
+You are a college program advisor who understands how students, parents, \
+counselors, and registrars all describe academic programs differently.
+
+A student has told you what they want to study. Your job is to match their \
+intent to the most appropriate CIP (Classification of Instructional Programs) \
+code from the available options.
+
+Consider how different people describe the same program:
+- Students say: "pre-med", "CS", "business", "art"
+- Parents say: "Physical Therapy", "Deaf Education", "Criminal Justice"
+- Counselors say: "Special Ed", "STEM", "Allied Health"
+- Registrars say: "CIP 51.2308 Physical Therapy/Therapist"
+
+The student typed: "{student_input}"
+School: {school_name}
+
+Programs this school reports (these have earnings data):
+{school_cip_list}
+
+Additional specific programs in the same families (from the national \
+crosswalk — these have career path data even if the school doesn't report \
+them separately):
+{crosswalk_cip_list}
+
+Respond in JSON only, no preamble, no markdown:
+{{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
+"confidence": "high|medium|low", \
+"reasoning": "2-3 sentences explaining why this is the best match", \
+"parent_cip": "XX.XX (the school-reported CIP that covers this program, \
+if different from matched_cip)", \
+"alternatives": [{{"cip": "XX.XXXX", "title": "Title", \
+"why": "one sentence"}}]}}\
+"""
+
+
+def _get_school_cips(unitid: int) -> list[dict[str, str]]:
+    """Get distinct CIP codes and program names for a school."""
+    server = mcp_client.get_server()
+    sql = (
+        "SELECT DISTINCT cipcode, program_name "
+        "FROM consumable_career_outcomes "
+        f"WHERE unitid = {int(unitid)} "
+        "ORDER BY cipcode"
+    )
+    try:
+        rows = server.query_iceberg(sql)
+    except Exception:
+        return []
+    return [
+        {"cipcode": str(r["cipcode"]), "program_name": str(r.get("program_name", ""))}
+        for r in rows
+        if r.get("cipcode")
+    ]
+
+
+def _get_crosswalk_cips_for_families(
+    family_prefixes: list[str],
+) -> list[dict[str, str]]:
+    """Get specific CIPs from the crosswalk for given families."""
+    if not family_prefixes:
+        return []
+    server = mcp_client.get_server()
+    conditions = " OR ".join(
+        f"SUBSTR(cipcode, 1, 2) = '{p[:2]}'" for p in family_prefixes
+    )
+    sql = (
+        f"SELECT DISTINCT cipcode, cip_title "
+        f"FROM base_cip_soc_crosswalk "
+        f"WHERE ({conditions}) "
+        f"ORDER BY cipcode"
+    )
+    try:
+        rows = server.query_iceberg(sql)
+    except Exception:
+        return []
+    return [
+        {"cipcode": str(r["cipcode"]), "cip_title": str(r.get("cip_title", ""))}
+        for r in rows
+        if r.get("cipcode")
+    ]
+
+
+def _get_career_titles_for_cip(cipcode: str) -> list[str]:
+    """Get occupation titles from the crosswalk for a CIP code."""
+    server = mcp_client.get_server()
+    prefix = cipcode[:5] if len(cipcode) >= 5 else cipcode
+    if not re.match(r"^\d{2}\.\d{2}", prefix):
+        return []
+    sql = (
+        "SELECT DISTINCT soc_title "
+        "FROM base_cip_soc_crosswalk "
+        f"WHERE SUBSTR(cipcode, 1, 5) = '{prefix}' "
+        "AND soc_title IS NOT NULL "
+        "ORDER BY soc_title "
+        "LIMIT 5"
+    )
+    try:
+        rows = server.query_iceberg(sql)
+    except Exception:
+        return []
+    return [str(r["soc_title"]) for r in rows if r.get("soc_title")]
+
+
+def _call_gemma_intent(
+    student_input: str,
+    school_name: str,
+    school_cips: list[dict[str, str]],
+    crosswalk_cips: list[dict[str, str]],
+    clarification: str | None = None,
+) -> tuple[dict[str, Any] | None, float, dict[str, Any]]:
+    """Call Gemma for intent resolution."""
+    school_cip_list = "\n".join(
+        f"- {c['cipcode']} {c['program_name']}" for c in school_cips
+    )
+    crosswalk_cip_list = "\n".join(
+        f"- {c['cipcode']} {c['cip_title']}" for c in crosswalk_cips[:60]
+    )
+
+    prompt_input = student_input
+    if clarification:
+        prompt_input = f"{student_input} (clarification: {clarification})"
+
+    system = _INTENT_SYSTEM_PROMPT.format(
+        student_input=prompt_input,
+        school_name=school_name,
+        school_cip_list=school_cip_list or "(no programs reported)",
+        crosswalk_cip_list=crosswalk_cip_list or "(no crosswalk data)",
+    )
+
+    start = time.perf_counter()
+    raw_response = gemma_client.generate(
+        system=system,
+        user=f'Match this student input to a CIP code: "{prompt_input}"',
+        max_tokens=500,
+        temperature=0.1,
+    )
+    latency = time.perf_counter() - start
+
+    config = gemma_client.current_config()
+    stats: dict[str, Any] = {
+        "latency_s": round(latency, 2),
+        "model": config.model,
+        "backend": config.backend,
+        "raw_response": raw_response,
+    }
+
+    if not raw_response:
+        return None, latency, stats
+
+    cleaned = raw_response.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        stats["parse_error"] = f"Could not parse JSON: {cleaned[:200]}"
+        return None, latency, stats
+
+    return parsed, latency, stats
+
+
+def _prompt_major_gemma_intent(
+    school: SchoolMatch,
+) -> tuple[Program, MajorMatch] | None:
+    """Gemma intent resolution flow: free text → cache → Gemma → confirm."""
+    status_msg = f"[cyan]loading programs for {school.institution_name}...[/cyan]"
+    with console.status(status_msg):
+        programs = school_lookup.get_programs(school.unitid)
+    if not programs:
+        console.print("[red]No programs found for this school.[/red]")
+        return None
+
+    while True:
+        console.print()
+        raw_input = Prompt.ask(
+            "[bold]What do you want to study?[/bold]"
+        ).strip()
+        if not raw_input:
+            return None
+        if raw_input.lower() == "list":
+            _show_programs(programs)
+            continue
+
+        # Numeric direct pick (unchanged from original flow)
+        if raw_input.isdigit():
+            idx = int(raw_input)
+            if not 1 <= idx <= len(programs):
+                console.print(
+                    f"[red]{idx} is out of range (1-{len(programs)}). "
+                    f"Type 'list' to see the picker.[/red]"
+                )
+                continue
+            picked = programs[idx - 1]
+            console.print(
+                f"[green]Picked #{idx}:[/green] {picked.program_name} "
+                f"[dim](CIP {picked.cipcode})[/dim]"
+            )
+            return picked, MajorMatch(
+                method="exact",
+                cipcode=picked.cipcode,
+                program_name=picked.program_name,
+            )
+
+        normalized = raw_input.lower().strip()
+        cache_key = (normalized, school.unitid)
+
+        # --- Step 2: Cache check ---
+        if cache_key in _intent_cache:
+            cached = _intent_cache[cache_key]
+            console.print()
+            console.print(
+                f"[cyan]🔁 Cache hit[/cyan] — using previous mapping: "
+                f"[bold]{cached['title']}[/bold] (CIP {cached['cip']})"
+            )
+            return _build_program_from_intent(
+                school, programs, cached, raw_input
+            )
+
+        # --- Step 3: Cache miss → Gemma intent resolution ---
+        console.print()
+        console.print("[dim]Cache miss — calling Gemma for intent resolution...[/dim]")
+
+        with console.status("[cyan]loading school CIP data...[/cyan]"):
+            school_cips = _get_school_cips(school.unitid)
+            family_prefixes = list({c["cipcode"][:2] for c in school_cips})
+            crosswalk_cips = _get_crosswalk_cips_for_families(family_prefixes)
+
+        with console.status("[cyan]🤖 Gemma is thinking...[/cyan]"):
+            parsed, latency, stats = _call_gemma_intent(
+                raw_input,
+                school.institution_name,
+                school_cips,
+                crosswalk_cips,
+            )
+
+        # Log spike metrics
+        console.print()
+        _receipt_box(
+            [
+                f"Latency: {stats['latency_s']:.2f}s",
+                f"Model: {stats.get('model', '?')}",
+                f"Backend: {stats.get('backend', '?')}",
+                "Cache: MISS",
+            ],
+            title="Spike: Gemma Intent Resolution",
+        )
+
+        if parsed is None:
+            console.print(
+                f"[red]Gemma could not resolve '{raw_input}'.[/red]"
+            )
+            if stats.get("parse_error"):
+                console.print(f"[dim]{stats['parse_error']}[/dim]")
+            console.print("[dim]Try rephrasing or type 'list' to pick directly.[/dim]")
+            continue
+
+        # --- Step 4: Present to student for confirmation ---
+        result = _present_intent_for_confirmation(
+            school, programs, raw_input, parsed, stats,
+            school_cips, crosswalk_cips,
+        )
+        if result is not None:
+            return result
+        # If None, loop back to ask again
+
+
+def _present_intent_for_confirmation(
+    school: SchoolMatch,
+    programs: list[Program],
+    student_input: str,
+    parsed: dict[str, Any],
+    stats: dict[str, Any],
+    school_cips: list[dict[str, str]],
+    crosswalk_cips: list[dict[str, str]],
+) -> tuple[Program, MajorMatch] | None:
+    """Show Gemma's match and let the student confirm, clarify, or pick alt."""
+    matched_cip = str(parsed.get("matched_cip", ""))
+    matched_title = str(parsed.get("matched_title", ""))
+    confidence = str(parsed.get("confidence", "unknown"))
+    reasoning = str(parsed.get("reasoning", ""))
+    alternatives = parsed.get("alternatives") or []
+
+    career_titles = _get_career_titles_for_cip(matched_cip)
+    career_list = (
+        "\n".join(f"   - {t}" for t in career_titles)
+        if career_titles
+        else "   (career data pending)"
+    )
+
+    console.print()
+    console.print(Panel(
+        Text.assemble(
+            ("🤖 Gemma thinks ", ""),
+            (f'"{student_input}"', "bold cyan"),
+            (" maps to:\n", ""),
+            (f"   {matched_title}", "bold"),
+            (f" (CIP {matched_cip})\n\n", "dim"),
+            ("   This would show you careers like:\n", ""),
+            (f"{career_list}\n\n", "green"),
+            ("   Gemma's reasoning: ", "dim"),
+            (f'"{reasoning}"\n\n', "italic"),
+            ("   Confidence: ", "dim"),
+            (
+                confidence,
+                "bold cyan"
+                if confidence == "high"
+                else "bold yellow"
+                if confidence == "medium"
+                else "bold red",
+            ),
+        ),
+        border_style="bright_blue",
+        padding=(1, 2),
+    ))
+
+    console.print("  [bold][1][/bold] Yes, that's right")
+    console.print("  [bold][2][/bold] Not quite — let me clarify")
+    console.print("  [bold][3][/bold] Show me other options")
+
+    choice = Prompt.ask(
+        "", choices=["1", "2", "3"], default="1"
+    ).strip()
+
+    if choice == "1":
+        # Confirmed — audit then save to cache
+        return _audit_and_save(
+            student_input, school.unitid, parsed, stats,
+            career_titles, programs, school,
+        )
+
+    if choice == "2":
+        # Clarification round
+        clarification = Prompt.ask(
+            "  [bold]What did you mean?[/bold]"
+        ).strip()
+        if not clarification:
+            return None
+
+        with console.status("[cyan]🤖 Gemma is re-thinking...[/cyan]"):
+            parsed2, latency2, stats2 = _call_gemma_intent(
+                student_input,
+                school.institution_name,
+                school_cips,
+                crosswalk_cips,
+                clarification=clarification,
+            )
+
+        console.print()
+        _receipt_box(
+            [
+                f"Latency: {stats2['latency_s']:.2f}s",
+                "Round: clarification",
+                "Cache: MISS (clarification)",
+            ],
+            title="Spike: Gemma Intent Resolution (round 2)",
+        )
+
+        if parsed2 is None:
+            console.print("[red]Gemma still couldn't resolve. Try 'list'.[/red]")
+            return None
+
+        return _present_intent_for_confirmation(
+            school, programs, student_input, parsed2, stats2,
+            school_cips, crosswalk_cips,
+        )
+
+    if choice == "3":
+        # Show alternatives
+        if not alternatives:
+            console.print("[yellow]No alternatives suggested by Gemma.[/yellow]")
+            return None
+        console.print()
+        for idx, alt in enumerate(alternatives, start=1):
+            console.print(
+                f"  [bold]{idx}.[/bold] {alt.get('title', '?')} "
+                f"[dim](CIP {alt.get('cip', '?')})[/dim] — "
+                f"{alt.get('why', '')}"
+            )
+        alt_choice = Prompt.ask(
+            "  [bold]Pick one[/bold]",
+            choices=[str(i) for i in range(1, len(alternatives) + 1)],
+            default="1",
+        ).strip()
+        alt_idx = int(alt_choice) - 1
+        alt_entry = alternatives[alt_idx]
+        # Build a parsed dict from the alternative
+        alt_parsed = {
+            "matched_cip": alt_entry.get("cip", ""),
+            "matched_title": alt_entry.get("title", ""),
+            "confidence": "medium",
+            "reasoning": alt_entry.get("why", "Selected from alternatives"),
+            "parent_cip": parsed.get("parent_cip", ""),
+            "alternatives": [],
+        }
+        alt_cip = str(alt_entry.get("cip", ""))
+        alt_careers = _get_career_titles_for_cip(alt_cip)
+        return _audit_and_save(
+            student_input, school.unitid, alt_parsed, stats,
+            alt_careers, programs, school,
+        )
+
+    return None
+
+
+_AUDIT_SYSTEM_PROMPT = """\
+You are an auditor checking whether a student's major selection makes sense.
+
+The student typed: "{student_input}"
+The system mapped it to: {matched_cip} — {matched_title}
+Career outcomes for this mapping include: {top_3_career_titles}
+
+Does the student's input plausibly refer to this academic program?
+
+Respond in JSON only, no preamble, no markdown:
+{{"valid": true|false, "tone": "clean|playful_warning|hard_reject", \
+"message": "Your message to the student"}}
+
+Rules:
+- If the mapping is legitimate: valid=true, tone="clean", message is \
+a brief encouraging confirmation
+- If the input is vaguely off but close enough: valid=true, \
+tone="playful_warning", message gently notes the mismatch but accepts it
+- If the input is obviously nonsense, adversarial, or a joke: \
+valid=false, tone="hard_reject", message calls it out directly. \
+Be real with them. This is a $100K+ decision. Don't be mean, but \
+don't play along. Example energy: "Look, this is one of the biggest \
+financial decisions of your life. The tool works better when you give \
+it something real. Try again."
+- Keep it short — 1-2 sentences max
+- Match the energy of a cool older sibling, not a guidance counselor\
+"""
+
+
+def _audit_intent_mapping(
+    student_input: str,
+    matched_cip: str,
+    matched_title: str,
+    career_titles: list[str],
+) -> dict[str, Any] | None:
+    """Call Gemma to audit a confirmed mapping. Returns parsed JSON."""
+    top_3 = ", ".join(career_titles[:3]) or "unknown"
+    system = _AUDIT_SYSTEM_PROMPT.format(
+        student_input=student_input,
+        matched_cip=matched_cip,
+        matched_title=matched_title,
+        top_3_career_titles=top_3,
+    )
+    raw = gemma_client.generate(
+        system=system,
+        user=(
+            f'Student typed: "{student_input}"\n'
+            f"Mapped to: {matched_cip} — {matched_title}\n"
+            f"Careers: {top_3}\n"
+            "Is this a valid mapping?"
+        ),
+        max_tokens=200,
+        temperature=0.3,
+    )
+    if not raw:
+        return None
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        return None
+
+
+def _audit_and_save(
+    student_input: str,
+    unitid: int,
+    parsed: dict[str, Any],
+    stats: dict[str, Any],
+    career_titles: list[str],
+    programs: list[Program],
+    school: SchoolMatch,
+) -> tuple[Program, MajorMatch] | None:
+    """Audit a confirmed mapping, save to cache if valid."""
+    matched_cip = str(parsed.get("matched_cip", ""))
+    matched_title = str(parsed.get("matched_title", ""))
+
+    with console.status("[cyan]🔍 Gemma is auditing...[/cyan]"):
+        audit = _audit_intent_mapping(
+            student_input, matched_cip, matched_title, career_titles,
+        )
+
+    if audit is None:
+        console.print(
+            "[yellow]Audit inconclusive — saving anyway.[/yellow]"
+        )
+        cache_entry = _save_to_cache(
+            student_input, unitid, parsed, stats,
+        )
+        return _build_program_from_intent(
+            school, programs, cache_entry, student_input,
+        )
+
+    tone = str(audit.get("tone", "clean"))
+    message = str(audit.get("message", ""))
+    valid = bool(audit.get("valid", True))
+
+    _receipt_box(
+        [
+            f"Valid: {valid}",
+            f"Tone: {tone}",
+            f"Message: {message[:80]}",
+        ],
+        title="Spike: Gemma Audit",
+    )
+
+    if valid and tone == "clean":
+        console.print(f"\n[green]✅ {message}[/green]")
+        cache_entry = _save_to_cache(
+            student_input, unitid, parsed, stats,
+        )
+        return _build_program_from_intent(
+            school, programs, cache_entry, student_input,
+        )
+
+    if valid and tone == "playful_warning":
+        console.print(f"\n[yellow]⚠️  {message}[/yellow]")
+        cache_entry = _save_to_cache(
+            student_input, unitid, parsed, stats,
+        )
+        console.print(
+            "[dim]💾 Mapping saved anyway — "
+            "but keep that in mind.[/dim]"
+        )
+        return _build_program_from_intent(
+            school, programs, cache_entry, student_input,
+        )
+
+    # hard_reject or any other invalid state
+    console.print(f"\n[red]🚫 {message}[/red]")
+    console.print("[dim]Let's try again.[/dim]")
+    return None
+
+
+def _save_to_cache(
+    student_input: str,
+    unitid: int,
+    parsed: dict[str, Any],
+    stats: dict[str, Any],
+) -> dict[str, Any]:
+    """Save a confirmed mapping to the intent cache."""
+    normalized = student_input.lower().strip()
+    config = gemma_client.current_config()
+    entry = {
+        "cip": str(parsed.get("matched_cip", "")),
+        "title": str(parsed.get("matched_title", "")),
+        "confidence": str(parsed.get("confidence", "unknown")),
+        "reasoning": str(parsed.get("reasoning", "")),
+        "parent_cip": str(parsed.get("parent_cip", "")),
+        "confirmed_by_student": True,
+        "confirmation_count": 1,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "gemma_model": config.model,
+        "original_input": student_input,
+    }
+    _intent_cache[(normalized, unitid)] = entry
+    console.print(
+        f"\n[green]💾 Mapping saved to cache:[/green] "
+        f'"{student_input}" → {entry["cip"]} ({entry["title"]})'
+    )
+    return entry
+
+
+def _build_program_from_intent(
+    school: SchoolMatch,
+    programs: list[Program],
+    cache_entry: dict[str, Any],
+    student_input: str,
+) -> tuple[Program, MajorMatch]:
+    """Build a Program + MajorMatch from a confirmed intent cache entry."""
+    matched_cip = cache_entry["cip"]
+    matched_title = cache_entry["title"]
+    parent_cip = cache_entry.get("parent_cip", "")
+
+    # If parent_cip differs from matched_cip, use parent for earnings lookup
+    use_substitution = (
+        parent_cip
+        and parent_cip != matched_cip
+        and len(parent_cip) >= 5
+    )
+
+    if use_substitution:
+        broad = next(
+            (p for p in programs if p.cipcode == parent_cip),
+            None,
+        )
+        if broad is None:
+            broad = next(
+                (p for p in programs if p.cipcode.startswith(parent_cip[:2])),
+                None,
+            )
+        chosen = Program(
+            unitid=school.unitid,
+            institution_name=school.institution_name,
+            cipcode=parent_cip if broad else matched_cip,
+            program_name=matched_title,
+            cip_family_name=broad.cip_family_name if broad else None,
+            earnings_1yr_median=broad.earnings_1yr_median if broad else None,
+            debt_median=broad.debt_median if broad else None,
+            confidence_tier=broad.confidence_tier if broad else None,
+        )
+        match = MajorMatch(
+            method="gemma_intent",
+            cipcode=matched_cip,
+            program_name=matched_title,
+            substitution_applied=True,
+            reported_cipcode=parent_cip if broad else None,
+            substituted_cipcode=matched_cip,
+            note=(
+                f"Gemma intent resolution: '{student_input}' → "
+                f"{matched_title} ({matched_cip}). "
+                f"School reports {parent_cip}; substituting for career paths."
+            ),
+        )
+    else:
+        direct = next(
+            (p for p in programs if p.cipcode == matched_cip),
+            None,
+        )
+        if direct is None:
+            direct = next(
+                (p for p in programs if p.cipcode.startswith(matched_cip[:5])),
+                None,
+            )
+        chosen = direct or Program(
+            unitid=school.unitid,
+            institution_name=school.institution_name,
+            cipcode=matched_cip,
+            program_name=matched_title,
+        )
+        match = MajorMatch(
+            method="gemma_intent",
+            cipcode=matched_cip,
+            program_name=matched_title,
+            note=(
+                f"Gemma intent resolution: '{student_input}' → "
+                f"{matched_title} ({matched_cip})."
+            ),
+        )
+
+    return chosen, match
 
 
 # ---------------------------------------------------------------------------
@@ -1159,7 +1824,7 @@ def main() -> int:
             school = _prompt_school()
             if school is None:
                 return 0
-            prompt_result = _prompt_major(school)
+            prompt_result = _prompt_major_gemma_intent(school)
             if prompt_result is None:
                 return 0
             program, major_match = prompt_result
@@ -1204,6 +1869,14 @@ def main() -> int:
                 current_build, tree=tree_data
             )
             console.print(f"[green]Report saved →[/green] {path}")
+            try:
+                subprocess.Popen(
+                    ["open", "-a", "Typora", str(path)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except FileNotFoundError:
+                pass
         elif action == "7":
             _career_tree_flow(current_build)
 

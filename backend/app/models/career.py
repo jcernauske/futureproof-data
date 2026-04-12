@@ -33,7 +33,9 @@ class Program(BaseModel):
 
 
 class MajorMatch(BaseModel):
-    method: Literal["exact", "substring", "yaml", "gemma", "unmatched"]
+    method: Literal[
+        "exact", "substring", "yaml", "gemma", "gemma_intent", "unmatched"
+    ]
     cipcode: str | None = None
     program_name: str | None = None
     substitution_applied: bool = False
