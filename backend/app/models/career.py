@@ -202,3 +202,31 @@ class BuildSummary(BaseModel):
     hmn: int | None
     wins: int
     losses: int
+
+
+class IntentResult(BaseModel):
+    matched_cip: str
+    matched_title: str
+    confidence: str
+    reasoning: str = ""
+    careers_preview: list[str] = Field(default_factory=list)
+    audit_flag: str | None = None
+    audit_message: str | None = None
+    needs_clarification: bool = False
+    alternatives: list[dict] | None = None
+    parent_cip: str = ""
+
+
+class ProfileResult(BaseModel):
+    profile_name: str
+    animal_emoji: str
+    animal_name: str
+
+
+class ProfileLookupResult(BaseModel):
+    found: bool
+    profile_name: str | None = None
+    animal_emoji: str | None = None
+    animal_name: str | None = None
+    builds: list[BuildSummary] = Field(default_factory=list)
+    suggestion: str | None = None

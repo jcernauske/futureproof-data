@@ -1,5 +1,95 @@
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap");
 @import "./styles/tokens.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    margin: 0;
+    background-color: var(--color-bg-void);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Stat label fade-in */
+@keyframes stat-label-fade {
+  from { opacity: 0; }
+  to { opacity: 0.5; }
+}
+
+.stat-label-fade {
+  opacity: 0;
+  animation: stat-label-fade 1s ease-out forwards;
+}
+
+/* HTML vertex glow dots — scale pulse matching mockup */
+@keyframes vertex-glow-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.8); opacity: 1; }
+}
+
+.vertex-glow-dot {
+  animation: vertex-glow-pulse 4s ease-in-out infinite;
+}
+
+/* Ambient glow breathing */
+@keyframes ambient-breathe {
+  0%, 100% { transform: translate(-50%, -60%) scale(1); opacity: 0.8; }
+  50% { transform: translate(-50%, -60%) scale(1.08); opacity: 1; }
+}
+
+.ambient-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle,
+    rgba(125,212,163,0.06) 0%,
+    rgba(184,169,232,0.04) 25%,
+    rgba(123,184,224,0.03) 40%,
+    transparent 65%);
+  pointer-events: none;
+  animation: ambient-breathe 6s ease-in-out infinite;
+}
+
+/* Twinkling stars */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.05; }
+  50% { opacity: 0.45; }
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--color-text-primary);
+  border-radius: var(--radius-full);
+  animation: twinkle 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Noise texture overlay */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  z-index: 50;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Gradient tagline */
+.gradient-tagline {
+  background: linear-gradient(135deg, var(--color-accent-thrive), var(--color-accent-info));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
