@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LandingScreen } from "@/screens/LandingScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
+import { SchoolMajorScreen } from "@/screens/SchoolMajorScreen";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
 
 function App() {
@@ -9,10 +10,11 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
+        <Route path="/school" element={<SchoolMajorScreen />} />
         <Route
-          path="/school"
+          path="/build"
           element={
-            <PlaceholderScreen label="School + Major — coming soon" />
+            <PlaceholderScreen label="Career reveal — coming in F3" />
           }
         />
       </Routes>
