@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutureProof — Screen 5: Career Pick</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-void: #12131F;
+    --bg-deep: #1B1D30;
+    --bg-mid: #232545;
+    --bg-surface: #2D3060;
+    --bg-raised: #3A3D75;
+    --accent-thrive: #7DD4A3;
+    --accent-alert: #F4A97E;
+    --accent-caution: #F2D477;
+    --accent-insight: #B8A9E8;
+    --accent-info: #7BB8E0;
+    --accent-empathy: #E88BA9;
+    --stat-ern: #F2D477;
+    --stat-roi: #7DD4A3;
+    --stat-res: #B8A9E8;
+    --stat-grw: #7BB8E0;
+    --stat-hmn: #E88BA9;
+    --text-primary: #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted: #8A8595;
+    --text-inverse: #1B1D30;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.1);
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-data: 'Space Mono', monospace;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+    --shadow-md: 0 4px 16px rgba(27,29,48,0.6);
+    --shadow-lg: 0 8px 32px rgba(27,29,48,0.7);
+  }
+
+  body {
+    background: var(--bg-deep);
+    min-height: 100vh;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  }
+
+  .profile-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    background: rgba(27,29,48,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .scenario-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    padding: 4px;
+    z-index: 200;
+    box-shadow: var(--shadow-lg);
+  }
+  .scenario-btn {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+  }
+  .scenario-btn.active { background: var(--bg-raised); color: var(--text-primary); }
+
+  .container {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 68px 24px 120px;
+  }
+
+  .screen-title {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .screen-subtitle {
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .screen-context {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  /* === TIER SECTIONS === */
+  .tier-section {
+    margin-bottom: 16px;
+  }
+  .tier-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    user-select: none;
+  }
+  .tier-header:hover { background: var(--bg-surface); }
+  .tier-header.open { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .tier-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tier-icon { font-size: 18px; }
+  .tier-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .tier-count {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+  }
+  .tier-chevron {
+    font-size: 14px;
+    color: var(--text-muted);
+    transition: transform 200ms;
+  }
+  .tier-header.open .tier-chevron { transform: rotate(180deg); }
+
+  /* Tier body */
+  .tier-body {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .tier-body.open { max-height: 800px; }
+  .tier-body-inner {
+    border: 1px solid var(--border-subtle);
+    border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    padding: 8px;
+    background: rgba(35,37,69,0.5);
+  }
+
+  /* Career card */
+  .career-card {
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .career-card:last-child { margin-bottom: 0; }
+  .career-card:hover {
+    border-color: var(--accent-info);
+    background: var(--bg-surface);
+  }
+  .career-card.selected {
+    border-color: var(--accent-thrive);
+    background: rgba(125,212,163,0.06);
+    box-shadow: 0 0 16px rgba(125,212,163,0.1);
+  }
+  .career-info { flex: 1; }
+  .career-name {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+  .career-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .career-salary {
+    font-family: var(--font-data);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--stat-ern);
+    white-space: nowrap;
+    margin-left: 12px;
+  }
+  .career-selected-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-thrive);
+    background: rgba(125,212,163,0.15);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    margin-left: 8px;
+  }
+
+  /* Stretch indicator */
+  .stretch-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent-insight);
+    background: rgba(184,169,232,0.12);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    margin-left: 6px;
+  }
+
+  /* CTA */
+  .cta-section {
+    margin-top: 24px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 300ms ease-out;
+    pointer-events: none;
+  }
+  .cta-section.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .cta-btn {
+    font-family: var(--font-body);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-inverse);
+    background: var(--accent-thrive);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 16px 40px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    display: block;
+    width: 100%;
+  }
+  .cta-btn:hover { transform: scale(1.02); box-shadow: 0 0 24px rgba(125,212,163,0.3); }
+
+  .receipt-link {
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    cursor: pointer;
+    display: block;
+    text-align: center;
+    margin-top: 8px;
+    transition: opacity 200ms;
+  }
+  .receipt-link:hover { opacity: 1; }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-mid) 25%, var(--bg-surface) 50%, var(--bg-mid) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-md);
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  @media (max-width: 640px) {
+    .container { padding: 56px 16px 120px; }
+    .career-card { flex-direction: column; align-items: flex-start; }
+    .career-salary { margin-left: 0; margin-top: 4px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="profile-header">
+  <span>dancing happy bear</span>
+  <span>&#x1F43B;</span>
+</div>
+
+<div class="container" id="mainContent"></div>
+
+<div class="scenario-bar">
+  <button class="scenario-btn active" onclick="switchScenario('populated')">Populated</button>
+  <button class="scenario-btn" onclick="switchScenario('selected')">Selected</button>
+  <button class="scenario-btn" onclick="switchScenario('loading')">Loading</button>
+  <button class="scenario-btn" onclick="switchScenario('empty')">Empty</button>
+</div>
+
+<script>
+const TIERS = {
+  common: {
+    name: 'Common Paths',
+    icon: '\u{1F31F}',
+    careers: [
+      { name: 'Financial Analyst', salary: '$68,400', hint: 'Strong earning power, moderate AI exposure' },
+      { name: 'Accountant', salary: '$58,200', hint: 'Stable demand, high return on investment' },
+      { name: 'Marketing Manager', salary: '$72,100', hint: 'High human edge, creative work' },
+      { name: 'Human Resources Manager', salary: '$65,800', hint: 'People-focused, growing field' }
+    ]
+  },
+  lessCommon: {
+    name: 'Less Common',
+    icon: '\u{1F50D}',
+    careers: [
+      { name: 'Management Consultant', salary: '$82,500', hint: 'High earning ceiling, demanding hours' },
+      { name: 'Market Research Analyst', salary: '$55,200', hint: 'Data-driven, good resilience to AI' },
+      { name: 'Insurance Underwriter', salary: '$60,100', hint: 'Stable, moderate growth' },
+      { name: 'User Experience Designer', salary: '$71,400', hint: 'Creative + analytical crossover' },
+      { name: 'Compliance Officer', salary: '$67,800', hint: 'Regulatory expertise, hard to automate' }
+    ]
+  },
+  stretch: {
+    name: 'Stretch Paths',
+    icon: '\u{1F680}',
+    careers: [
+      { name: 'Software Project Manager', salary: '$95,200', hint: 'Tech-adjacent management' },
+      { name: 'Real Estate Appraiser', salary: '$52,600', hint: 'Independent, field-based' },
+      { name: 'Urban Planner', salary: '$56,400', hint: 'Public sector, community impact' }
+    ]
+  }
+};
+
+let selectedCareer = null;
+let openTiers = { common: true, lessCommon: false, stretch: false };
+
+function switchScenario(scenario) {
+  document.querySelectorAll('.scenario-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === scenario);
+  });
+  selectedCareer = null;
+  openTiers = { common: true, lessCommon: false, stretch: false };
+
+  switch(scenario) {
+    case 'populated': render(); break;
+    case 'selected': selectedCareer = 'Financial Analyst'; render(); break;
+    case 'loading': renderLoading(); break;
+    case 'empty': renderEmpty(); break;
+  }
+}
+
+function render() {
+  const c = document.getElementById('mainContent');
+  c.innerHTML = `
+    <div class="screen-title">Where does your degree lead?</div>
+    <div class="screen-subtitle">ISU Business Administration opens these career paths.</div>
+    <div class="screen-context">Gemma grouped these by how common each path is for your school + major.</div>
+
+    ${renderTier('common')}
+    ${renderTier('lessCommon')}
+    ${renderTier('stretch')}
+
+    <div class="cta-section ${selectedCareer ? 'visible' : ''}" id="ctaSection">
+      <button class="cta-btn" onclick="alert('Navigate to Screen 6: Reveal + Stats for ${selectedCareer}')">
+        Build around ${selectedCareer || '...'} \u2192
+      </button>
+      <div class="receipt-link" onclick="alert('Receipt: Career Tiering\\nTiering method: Gemma\\nTotal outcomes: 12\\nSchool: ISU (145813)\\nCIP: 52.0201\\nSource: CIP-SOC Crosswalk + College Scorecard')">? How careers were grouped</div>
+    </div>
+  `;
+}
+
+function renderTier(tierKey) {
+  const tier = TIERS[tierKey];
+  const isOpen = openTiers[tierKey];
+  const isStretch = tierKey === 'stretch';
+
+  return `
+    <div class="tier-section">
+      <div class="tier-header ${isOpen ? 'open' : ''}" onclick="toggleTier('${tierKey}')">
+        <div class="tier-info">
+          <span class="tier-icon">${tier.icon}</span>
+          <span class="tier-name">${tier.name}</span>
+          <span class="tier-count">${tier.careers.length}</span>
+        </div>
+        <span class="tier-chevron">\u25BC</span>
+      </div>
+      <div class="tier-body ${isOpen ? 'open' : ''}">
+        <div class="tier-body-inner">
+          ${tier.careers.map(career => `
+            <div class="career-card ${selectedCareer === career.name ? 'selected' : ''}" onclick="selectCareer('${career.name}')">
+              <div class="career-info">
+                <div class="career-name">
+                  ${career.name}
+                  ${isStretch ? '<span class="stretch-badge">STRETCH</span>' : ''}
+                  ${selectedCareer === career.name ? '<span class="career-selected-badge">SELECTED</span>' : ''}
+                </div>
+                <div class="career-hint">${career.hint}</div>
+              </div>
+              <div class="career-salary">${career.salary}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleTier(key) {
+  openTiers[key] = !openTiers[key];
+  render();
+}
+
+function selectCareer(name) {
+  selectedCareer = selectedCareer === name ? null : name;
+  render();
+}
+
+function renderLoading() {
+  const c = document.getElementById('mainContent');
+  c.innerHTML = `
+    <div class="screen-title">Where does your degree lead?</div>
+    <div class="screen-subtitle" style="margin-bottom:32px;">
+      <span style="color:var(--accent-insight);animation:pulse-text 1.5s ease-in-out infinite;display:inline-block;">
+        \u2728 Gemma is grouping your career paths...
+      </span>
+    </div>
+    ${[1,2,3].map(() => `<div class="skeleton" style="height:54px;margin-bottom:12px;border-radius:14px;"></div>`).join('')}
+  `;
+}
+
+function renderEmpty() {
+  const c = document.getElementById('mainContent');
+  c.innerHTML = `
+    <div style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;">
+      <div style="font-size:64px;opacity:0.5;">\u{1F9ED}</div>
+      <div style="font-family:var(--font-display);font-size:24px;font-weight:600;">No career data available</div>
+      <div style="font-size:16px;color:var(--text-secondary);max-width:360px;">
+        This school + major combination doesn't have enough career outcome data in the College Scorecard. Try a different school or major.
+      </div>
+    </div>
+  `;
+}
+
+// Extra CSS
+const style = document.createElement('style');
+style.textContent = `@keyframes pulse-text { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }`;
+document.head.appendChild(style);
+
+switchScenario('populated');
+</script>
+</body>
+</html>

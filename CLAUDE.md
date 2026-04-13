@@ -211,6 +211,8 @@ cd backend && python cli.py        # Interactive CLI harness
 | spike-gemma-intent-resolution | Spike | COMPLETE (100%, Ollama E4B) |
 | spike-gemma-intent-openrouter | Spike | COMPLETE (100%, OpenRouter 26B MoE) |
 | cloud-gemma-deployment | Infra | READY |
+| fastapi-router-wiring | App | COMPLETE |
+| profile-service | App | COMPLETE |
 | cli-harness | App | READY |
 | feature-onboarding-screens | App | DRAFT |
 | feature-project-scaffolding | App | COMPLETE |

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutureProof — Screen 2: Profile Name</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-void: #12131F;
+    --bg-deep: #1B1D30;
+    --bg-mid: #232545;
+    --bg-surface: #2D3060;
+    --bg-raised: #3A3D75;
+    --accent-thrive: #7DD4A3;
+    --accent-alert: #F4A97E;
+    --accent-insight: #B8A9E8;
+    --text-primary: #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted: #8A8595;
+    --text-inverse: #1B1D30;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+  }
+
+  body {
+    background: var(--bg-deep);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+  }
+
+  .profile-screen {
+    width: 100%;
+    max-width: 480px;
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+
+  .you-are {
+    font-family: var(--font-body);
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    letter-spacing: 0.03em;
+  }
+
+  .emoji-big {
+    font-size: 64px;
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+
+  .profile-name {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 24px;
+  }
+
+  .reroll-btn {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 150ms ease-out;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 48px;
+  }
+  .reroll-btn:hover { background: var(--bg-raised); }
+  .reroll-icon { font-size: 16px; }
+
+  .divider {
+    width: 60px;
+    height: 1px;
+    background: rgba(245,240,232,0.08);
+    margin: 0 auto 48px;
+  }
+
+  .cta {
+    font-family: var(--font-body);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-inverse);
+    background: var(--accent-thrive);
+    border: none;
+    border-radius: 14px;
+    padding: 16px 40px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    width: 100%;
+    max-width: 300px;
+    margin-bottom: 20px;
+  }
+  .cta:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 28px rgba(125,212,163,0.35);
+  }
+
+  .lookup-link {
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 150ms ease-out;
+    margin-bottom: 16px;
+    display: inline-block;
+  }
+  .lookup-link:hover { color: var(--text-secondary); }
+
+  /* Lookup panel — toggled via JS */
+  .lookup-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 300ms ease-out;
+    margin-top: 8px;
+  }
+  .lookup-panel.open { max-height: 200px; }
+
+  .lookup-row {
+    display: flex;
+    gap: 8px;
+    max-width: 340px;
+    margin: 0 auto 12px;
+  }
+
+  .lookup-input {
+    flex: 1;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-primary);
+    background: var(--bg-mid);
+    border: 1px solid rgba(245,240,232,0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 200ms ease-out;
+  }
+  .lookup-input:focus { border-color: rgba(184,169,232,0.5); }
+  .lookup-input::placeholder { color: var(--text-muted); }
+
+  .lookup-btn {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 150ms ease-out;
+    white-space: nowrap;
+  }
+  .lookup-btn:hover { background: var(--bg-raised); }
+
+  .lookup-result {
+    background: rgba(184,169,232,0.08);
+    border-radius: 10px;
+    padding: 12px 16px;
+    max-width: 340px;
+    margin: 0 auto;
+    display: none;
+  }
+  .lookup-result.visible { display: block; }
+  .lookup-result p {
+    font-size: 14px;
+    color: var(--accent-insight);
+    margin-bottom: 8px;
+  }
+  .lookup-result strong { color: var(--text-primary); }
+  .lookup-confirm {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-inverse);
+    background: var(--accent-insight);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: all 150ms ease-out;
+  }
+  .lookup-confirm:hover { opacity: 0.9; }
+
+  /* Animations */
+  .profile-screen > * { animation: fadeUp 0.5s ease-out both; }
+  .emoji-big { animation-delay: 0.05s; }
+  .profile-name { animation-delay: 0.1s; }
+  .reroll-btn { animation-delay: 0.15s; }
+  .divider { animation-delay: 0.2s; }
+  .cta { animation-delay: 0.25s; }
+  .lookup-link { animation-delay: 0.3s; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 640px) {
+    .profile-name { font-size: 26px; }
+    .emoji-big { font-size: 52px; }
+    .cta { padding: 14px 32px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="profile-screen">
+  <div class="you-are">You are</div>
+  <div class="emoji-big">🐻</div>
+  <div class="profile-name">dancing happy bear</div>
+
+  <button class="reroll-btn" onclick="rerollName()">
+    <span class="reroll-icon">🎲</span> New name
+  </button>
+
+  <div class="divider"></div>
+
+  <button class="cta">Let's go →</button>
+
+  <div class="lookup-link" onclick="toggleLookup()">Already have a name?</div>
+
+  <div class="lookup-panel" id="lookupPanel">
+    <div class="lookup-row">
+      <input class="lookup-input" type="text" placeholder="Type your name..." id="lookupInput" />
+      <button class="lookup-btn" onclick="doLookup()">Look up</button>
+    </div>
+    <div class="lookup-result" id="lookupResult">
+      <p>Did you mean <strong>dancing happy bear 🐻</strong>?</p>
+      <button class="lookup-confirm">That's me</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const names = [
+    { adj1: 'dancing', adj2: 'happy', animal: 'bear', emoji: '🐻' },
+    { adj1: 'brave', adj2: 'curious', animal: 'fox', emoji: '🦊' },
+    { adj1: 'steady', adj2: 'bold', animal: 'turtle', emoji: '🐢' },
+    { adj1: 'cosmic', adj2: 'fuzzy', animal: 'bunny', emoji: '🐰' },
+    { adj1: 'bright', adj2: 'nimble', animal: 'owl', emoji: '🦉' },
+    { adj1: 'epic', adj2: 'chill', animal: 'penguin', emoji: '🐧' },
+    { adj1: 'magic', adj2: 'savvy', animal: 'cat', emoji: '🐱' },
+    { adj1: 'plucky', adj2: 'swift', animal: 'chipmunk', emoji: '🐿️' },
+  ];
+  let currentIdx = 0;
+
+  function rerollName() {
+    currentIdx = (currentIdx + 1) % names.length;
+    const n = names[currentIdx];
+    document.querySelector('.emoji-big').textContent = n.emoji;
+    document.querySelector('.profile-name').style.opacity = '0';
+    setTimeout(() => {
+      document.querySelector('.profile-name').textContent = n.adj1 + ' ' + n.adj2 + ' ' + n.animal;
+      document.querySelector('.profile-name').style.opacity = '1';
+    }, 150);
+  }
+
+  function toggleLookup() {
+    document.getElementById('lookupPanel').classList.toggle('open');
+  }
+
+  function doLookup() {
+    const val = document.getElementById('lookupInput').value.trim();
+    if (val.length > 2) {
+      document.getElementById('lookupResult').classList.add('visible');
+    }
+  }
+</script>
+
+</body>
+</html>

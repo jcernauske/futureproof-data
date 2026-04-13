@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutureProof — Screen 3: School + Major</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-void: #12131F;
+    --bg-deep: #1B1D30;
+    --bg-mid: #232545;
+    --bg-surface: #2D3060;
+    --bg-raised: #3A3D75;
+    --accent-thrive: #7DD4A3;
+    --accent-alert: #F4A97E;
+    --accent-caution: #F2D477;
+    --accent-insight: #B8A9E8;
+    --accent-info: #7BB8E0;
+    --accent-empathy: #E88BA9;
+    --stat-ern: #F2D477;
+    --stat-roi: #7DD4A3;
+    --stat-res: #B8A9E8;
+    --stat-grw: #7BB8E0;
+    --stat-hmn: #E88BA9;
+    --text-primary: #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted: #8A8595;
+    --text-inverse: #1B1D30;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.1);
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-data: 'Space Mono', monospace;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+    --shadow-md: 0 4px 16px rgba(27,29,48,0.6);
+    --shadow-lg: 0 8px 32px rgba(27,29,48,0.7);
+  }
+
+  body {
+    background: var(--bg-deep);
+    min-height: 100vh;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  }
+
+  .profile-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    background: rgba(27,29,48,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .scenario-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    padding: 4px;
+    z-index: 200;
+    box-shadow: var(--shadow-lg);
+  }
+  .scenario-btn {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+  }
+  .scenario-btn.active { background: var(--bg-raised); color: var(--text-primary); }
+
+  /* === MAIN === */
+  .container {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 80px 24px 120px;
+  }
+
+  .screen-title {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .screen-subtitle {
+    font-size: 16px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  /* === SEARCH INPUT === */
+  .search-group {
+    margin-bottom: 24px;
+  }
+  .search-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    display: block;
+  }
+  .search-input-wrapper {
+    position: relative;
+  }
+  .search-input {
+    width: 100%;
+    height: 56px;
+    background: var(--bg-void);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 0 16px 0 48px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--text-primary);
+    outline: none;
+    transition: all 200ms ease-out;
+  }
+  .search-input:focus {
+    border-color: var(--accent-info);
+    box-shadow: 0 0 0 3px rgba(123,184,224,0.15);
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  /* Autocomplete dropdown */
+  .autocomplete {
+    background: var(--bg-raised);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    margin-top: 4px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    display: none;
+  }
+  .autocomplete.visible { display: block; }
+  .autocomplete-item {
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 150ms;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover { background: var(--bg-surface); }
+  .autocomplete-item.selected { background: var(--bg-surface); border-left: 3px solid var(--accent-info); }
+  .autocomplete-name {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+  .autocomplete-location {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* Selected school chip */
+  .selected-school {
+    background: var(--bg-mid);
+    border: 1px solid var(--accent-info);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    box-shadow: 0 0 12px rgba(123,184,224,0.08);
+  }
+  .selected-school-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .selected-school-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(123,184,224,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .selected-school-name { font-weight: 700; font-size: 15px; }
+  .selected-school-loc { font-size: 13px; color: var(--text-secondary); }
+  .change-btn {
+    font-size: 13px;
+    color: var(--accent-info);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 600;
+  }
+  .change-btn:hover { text-decoration: underline; }
+
+  /* === MAJOR INPUT === */
+  .major-section {
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .major-section.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .major-input {
+    width: 100%;
+    height: 48px;
+    background: var(--bg-void);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 0 16px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--text-primary);
+    outline: none;
+    transition: all 200ms ease-out;
+  }
+  .major-input:focus {
+    border-color: var(--accent-insight);
+    box-shadow: 0 0 0 3px rgba(184,169,232,0.15);
+  }
+  .major-input::placeholder { color: var(--text-muted); }
+
+  /* === GEMMA THINKING === */
+  .gemma-thinking {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(184,169,232,0.06);
+    border: 1px solid rgba(184,169,232,0.12);
+    border-radius: var(--radius-lg);
+    margin-top: 16px;
+    opacity: 0;
+    transition: opacity 300ms;
+  }
+  .gemma-thinking.visible { opacity: 1; }
+  .gemma-thinking-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(184,169,232,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    animation: pulse-icon 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-icon { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+  .gemma-thinking-text {
+    font-size: 14px;
+    color: var(--accent-insight);
+    font-weight: 600;
+  }
+
+  /* === GEMMA MATCH CARD === */
+  .gemma-match {
+    background: var(--bg-mid);
+    border: 1px solid rgba(184,169,232,0.15);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    margin-top: 16px;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .gemma-match.visible { opacity: 1; transform: translateY(0); }
+  .match-label {
+    font-size: 12px;
+    color: var(--accent-insight);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .match-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .match-cip {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .match-careers-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .career-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .career-pill {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    background: rgba(125,212,163,0.08);
+    border: 1px solid rgba(125,212,163,0.15);
+    color: var(--text-secondary);
+    transition: all 200ms;
+  }
+  .career-pill:hover { background: rgba(125,212,163,0.15); color: var(--text-primary); }
+
+  .match-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .match-confirm {
+    flex: 1;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-inverse);
+    background: var(--accent-thrive);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+  }
+  .match-confirm:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(125,212,163,0.3); }
+  .match-clarify {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: all 200ms;
+  }
+  .match-clarify:hover { border-color: var(--text-muted); color: var(--text-secondary); }
+
+  /* === AUDIT REJECTION === */
+  .audit-card {
+    background: rgba(244,169,126,0.06);
+    border: 1px solid rgba(244,169,126,0.15);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    margin-top: 16px;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .audit-card.visible { opacity: 1; transform: translateY(0); }
+  .audit-icon { font-size: 32px; margin-bottom: 8px; }
+  .audit-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent-alert);
+    margin-bottom: 8px;
+  }
+  .audit-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Receipt link */
+  .receipt-link {
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0.6;
+    cursor: pointer;
+    margin-top: 12px;
+    display: inline-block;
+    transition: opacity 200ms;
+  }
+  .receipt-link:hover { opacity: 1; }
+
+  /* Skeleton */
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-mid) 25%, var(--bg-surface) 50%, var(--bg-mid) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-md);
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  @media (max-width: 640px) {
+    .container { padding: 60px 16px 120px; }
+    .screen-title { font-size: 22px; }
+    .search-input { height: 48px; }
+    .career-pills { gap: 4px; }
+    .career-pill { font-size: 12px; padding: 4px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="profile-header">
+  <span>dancing happy bear</span>
+  <span>&#x1F43B;</span>
+</div>
+
+<div class="container" id="mainContent"></div>
+
+<div class="scenario-bar">
+  <button class="scenario-btn active" onclick="switchScenario('search')">Search</button>
+  <button class="scenario-btn" onclick="switchScenario('selected')">School Selected</button>
+  <button class="scenario-btn" onclick="switchScenario('thinking')">Gemma Thinking</button>
+  <button class="scenario-btn" onclick="switchScenario('matched')">Match Found</button>
+  <button class="scenario-btn" onclick="switchScenario('audit')">Audit Reject</button>
+  <button class="scenario-btn" onclick="switchScenario('loading')">Loading</button>
+</div>
+
+<script>
+const SCHOOLS = [
+  { name: 'Illinois State University', loc: 'Normal, IL', id: 145813 },
+  { name: 'Illinois Institute of Technology', loc: 'Chicago, IL', id: 145725 },
+  { name: 'University of Illinois Urbana-Champaign', loc: 'Champaign, IL', id: 145637 },
+  { name: 'University of Illinois Chicago', loc: 'Chicago, IL', id: 145600 }
+];
+
+const CAREER_PREVIEWS = [
+  'Financial Analyst', 'Marketing Manager', 'Management Consultant',
+  'Human Resources Manager', 'Accountant'
+];
+
+function switchScenario(scenario) {
+  document.querySelectorAll('.scenario-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase().replace(' ', '') === scenario ||
+      btn.textContent.toLowerCase() === scenario);
+  });
+  const c = document.getElementById('mainContent');
+
+  switch(scenario) {
+    case 'search': renderSearch(c); break;
+    case 'selected': renderSchoolSelected(c); break;
+    case 'thinking': renderThinking(c); break;
+    case 'matched': renderMatched(c); break;
+    case 'audit': renderAudit(c); break;
+    case 'loading': renderLoading(c); break;
+  }
+}
+
+function renderSearch(c) {
+  c.innerHTML = `
+    <div class="screen-title">Where are you headed?</div>
+    <div class="screen-subtitle">Pick your school and tell us what you want to study.</div>
+
+    <div class="search-group">
+      <label class="search-label">Your school</label>
+      <div class="search-input-wrapper">
+        <span class="search-icon">\u{1F50D}</span>
+        <input class="search-input" id="schoolInput" type="text" placeholder="Search for your school..." value="Ill" oninput="filterSchools()">
+      </div>
+      <div class="autocomplete visible" id="schoolDropdown">
+        ${SCHOOLS.map((s, i) => `
+          <div class="autocomplete-item" onclick="selectSchool(${i})">
+            <div class="autocomplete-name">${s.name}</div>
+            <div class="autocomplete-location">${s.loc}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="major-section" id="majorSection">
+      <label class="search-label">What do you want to study?</label>
+      <input class="major-input" type="text" placeholder="Type anything: 'business', 'pre-med', 'CS'...">
+    </div>
+  `;
+}
+
+function renderSchoolSelected(c) {
+  c.innerHTML = `
+    <div class="screen-title">Where are you headed?</div>
+    <div class="screen-subtitle">Pick your school and tell us what you want to study.</div>
+
+    <div class="selected-school">
+      <div class="selected-school-info">
+        <div class="selected-school-icon">\u{1F3EB}</div>
+        <div>
+          <div class="selected-school-name">Illinois State University</div>
+          <div class="selected-school-loc">Normal, IL</div>
+        </div>
+      </div>
+      <button class="change-btn" onclick="switchScenario('search')">Change</button>
+    </div>
+
+    <div class="major-section visible" id="majorSection">
+      <label class="search-label">What do you want to study?</label>
+      <input class="major-input" id="majorInput" type="text" placeholder="Type anything: 'business', 'pre-med', 'CS'..." autofocus>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+        Gemma AI will match your input to ISU's actual programs.
+      </div>
+    </div>
+  `;
+}
+
+function renderThinking(c) {
+  c.innerHTML = `
+    <div class="screen-title">Where are you headed?</div>
+    <div class="screen-subtitle">Pick your school and tell us what you want to study.</div>
+
+    <div class="selected-school">
+      <div class="selected-school-info">
+        <div class="selected-school-icon">\u{1F3EB}</div>
+        <div>
+          <div class="selected-school-name">Illinois State University</div>
+          <div class="selected-school-loc">Normal, IL</div>
+        </div>
+      </div>
+      <button class="change-btn">Change</button>
+    </div>
+
+    <div class="major-section visible">
+      <label class="search-label">What do you want to study?</label>
+      <input class="major-input" type="text" value="business" disabled style="opacity:0.7;">
+    </div>
+
+    <div class="gemma-thinking visible">
+      <div class="gemma-thinking-icon">\u2728</div>
+      <div class="gemma-thinking-text">Gemma is matching 'business' to ISU's programs...</div>
+    </div>
+  `;
+}
+
+function renderMatched(c) {
+  c.innerHTML = `
+    <div class="screen-title">Where are you headed?</div>
+    <div class="screen-subtitle">Pick your school and tell us what you want to study.</div>
+
+    <div class="selected-school">
+      <div class="selected-school-info">
+        <div class="selected-school-icon">\u{1F3EB}</div>
+        <div>
+          <div class="selected-school-name">Illinois State University</div>
+          <div class="selected-school-loc">Normal, IL</div>
+        </div>
+      </div>
+      <button class="change-btn">Change</button>
+    </div>
+
+    <div class="major-section visible">
+      <label class="search-label">What do you want to study?</label>
+      <input class="major-input" type="text" value="business" disabled style="opacity:0.7;">
+    </div>
+
+    <div class="gemma-match visible" id="gemmaMatch">
+      <div class="match-label">\u2728 Gemma's Match</div>
+      <div class="match-title">Business Administration and Management</div>
+      <div class="match-cip">CIP 52.0201</div>
+      <div class="match-careers-label">This program leads to careers like:</div>
+      <div class="career-pills">
+        ${CAREER_PREVIEWS.map(c => `<span class="career-pill">${c}</span>`).join('')}
+      </div>
+      <div class="match-actions">
+        <button class="match-confirm" onclick="alert('Navigate to Screen 4: Effort + Loans')">That's right</button>
+        <button class="match-clarify" onclick="alert('Clarification round')">Not quite</button>
+      </div>
+      <div class="receipt-link" onclick="alert('Receipt: Intent Resolution\\nInput: business\\nMatch: Business Administration (CIP 52.0201)\\nConfidence: 0.94\\nSchool programs checked: 47\\nSource: College Scorecard + CIP Crosswalk')">? How Gemma matched this</div>
+    </div>
+  `;
+  setTimeout(() => document.getElementById('gemmaMatch').classList.add('visible'), 100);
+}
+
+function renderAudit(c) {
+  c.innerHTML = `
+    <div class="screen-title">Where are you headed?</div>
+    <div class="screen-subtitle">Pick your school and tell us what you want to study.</div>
+
+    <div class="selected-school">
+      <div class="selected-school-info">
+        <div class="selected-school-icon">\u{1F3EB}</div>
+        <div>
+          <div class="selected-school-name">Illinois State University</div>
+          <div class="selected-school-loc">Normal, IL</div>
+        </div>
+      </div>
+      <button class="change-btn">Change</button>
+    </div>
+
+    <div class="major-section visible">
+      <label class="search-label">What do you want to study?</label>
+      <input class="major-input" type="text" value="pizza making" style="border-color: var(--accent-alert);">
+    </div>
+
+    <div class="audit-card visible" id="auditCard">
+      <div class="audit-icon">\u{1F914}</div>
+      <div class="audit-title">Let's try that again</div>
+      <div class="audit-text">
+        This is one of the biggest financial decisions of your life. FutureProof works best when you give it a real field of study \u2014 something you're considering or already enrolled in.
+        <br><br>
+        Try something like "business", "nursing", "computer science", or "education."
+      </div>
+    </div>
+  `;
+  setTimeout(() => document.getElementById('auditCard').classList.add('visible'), 100);
+}
+
+function renderLoading(c) {
+  c.innerHTML = `
+    <div class="screen-title">Where are you headed?</div>
+    <div class="screen-subtitle">Pick your school and tell us what you want to study.</div>
+
+    <div class="search-group">
+      <label class="search-label">Your school</label>
+      <div class="skeleton" style="height:56px;"></div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <label class="search-label" style="opacity:0.5;">What do you want to study?</label>
+      <div class="skeleton" style="height:48px;opacity:0.5;"></div>
+    </div>
+  `;
+}
+
+function selectSchool(idx) {
+  switchScenario('selected');
+}
+
+function filterSchools() {
+  // In the mockup, always show all results
+}
+
+// Init
+switchScenario('search');
+</script>
+</body>
+</html>

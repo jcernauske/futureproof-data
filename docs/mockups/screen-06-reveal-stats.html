@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutureProof — Screen 6: Reveal + Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-void: #12131F;
+    --bg-deep: #1B1D30;
+    --bg-mid: #232545;
+    --bg-surface: #2D3060;
+    --bg-raised: #3A3D75;
+    --accent-thrive: #7DD4A3;
+    --accent-alert: #F4A97E;
+    --accent-caution: #F2D477;
+    --accent-insight: #B8A9E8;
+    --accent-info: #7BB8E0;
+    --accent-empathy: #E88BA9;
+    --stat-ern: #F2D477;
+    --stat-roi: #7DD4A3;
+    --stat-res: #B8A9E8;
+    --stat-grw: #7BB8E0;
+    --stat-hmn: #E88BA9;
+    --text-primary: #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted: #8A8595;
+    --text-inverse: #1B1D30;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.1);
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-data: 'Space Mono', monospace;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+    --shadow-md: 0 4px 16px rgba(27,29,48,0.6);
+    --shadow-lg: 0 8px 32px rgba(27,29,48,0.7);
+  }
+
+  body {
+    background: var(--bg-deep);
+    min-height: 100vh;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  }
+
+  /* === PROFILE HEADER === */
+  .profile-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    background: rgba(27,29,48,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .profile-header span { margin: 0 4px; }
+
+  /* === SCENARIO SWITCHER === */
+  .scenario-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    padding: 4px;
+    z-index: 200;
+    box-shadow: var(--shadow-lg);
+  }
+  .scenario-btn {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+  }
+  .scenario-btn.active {
+    background: var(--bg-raised);
+    color: var(--text-primary);
+  }
+  .scenario-btn:hover:not(.active) { color: var(--text-secondary); }
+
+  /* === MAIN CONTAINER === */
+  .reveal-container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 68px 24px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* === LOADING STATE === */
+  .loading-state {
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+  .loading-text {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    animation: pulse-text 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-text { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+  .loading-dots {
+    display: flex;
+    gap: 8px;
+  }
+  .loading-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-insight);
+    animation: dot-bounce 1.2s ease-in-out infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot-bounce {
+    0%,100% { transform: translateY(0); opacity: 0.4; }
+    50% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* === GEMMA'S TAKE === */
+  .gemma-take {
+    width: 100%;
+    background: var(--bg-mid);
+    border: 1px solid rgba(184,169,232,0.15);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    margin-bottom: 40px;
+    position: relative;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .gemma-take.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .gemma-take-label {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-insight);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gemma-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(184,169,232,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+  }
+  .gemma-take p {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+
+  /* === CAREER HEADER === */
+  .career-header {
+    text-align: center;
+    margin-bottom: 12px;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .career-header.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .career-emoji {
+    font-size: 48px;
+    margin-bottom: 8px;
+  }
+  .career-title {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .career-school {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  .career-salary {
+    font-family: var(--font-data);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--stat-ern);
+    margin-bottom: 4px;
+  }
+  .career-salary-label {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* === STAT CHART TOGGLE === */
+  .stat-chart-wrapper {
+    position: relative;
+    width: 340px;
+    margin: 32px 0 40px;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 500ms ease-out, transform 800ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .stat-chart-wrapper.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .chart-toggle-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+  }
+  .chart-toggle-btn {
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: all 200ms ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chart-toggle-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 200ms ease-out;
+  }
+  .chart-toggle-btn:hover svg { stroke: var(--text-primary); }
+  .chart-toggle-btn:hover { background: rgba(255,255,255,0.05); }
+
+  /* Crossfade views */
+  .chart-view {
+    transition: opacity 200ms ease-out;
+  }
+  .chart-view.hidden {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    top: 0; left: 0;
+  }
+
+  /* Bar chart */
+  .bar-chart-view {
+    padding: 20px 0;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .bar-label {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    width: 100px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .bar-track {
+    flex: 1;
+    height: 24px;
+    background: rgba(255,255,255,0.04);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transform-origin: left center;
+    transform: scaleX(0);
+    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .bar-fill.animate {
+    transform: scaleX(1);
+  }
+  .bar-score {
+    font-family: var(--font-data);
+    font-size: 14px;
+    font-weight: 700;
+    width: 28px;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* === PENTAGON CHART === */
+  .pentagon-section {
+    position: relative;
+    width: 340px;
+    height: 340px;
+  }
+  .pentagon-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(125,212,163,0.1) 0%,
+      rgba(184,169,232,0.06) 30%,
+      rgba(123,184,224,0.04) 50%,
+      transparent 70%);
+    pointer-events: none;
+    animation: pentagon-breathe 4s ease-in-out infinite;
+  }
+  @keyframes pentagon-breathe {
+    0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.7; }
+    50% { transform: translate(-50%,-50%) scale(1.05); opacity: 1; }
+  }
+  .pentagon-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Stat labels around pentagon */
+  .stat-vertex {
+    position: absolute;
+    text-align: center;
+    cursor: pointer;
+  }
+  .stat-vertex .stat-name {
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+  .stat-vertex .stat-value {
+    font-family: var(--font-data);
+    font-size: 20px;
+    font-weight: 700;
+    display: block;
+  }
+  .stat-vertex .stat-receipt {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    cursor: pointer;
+    transition: opacity 200ms;
+  }
+  .stat-vertex .stat-receipt:hover { opacity: 1; }
+
+  .stat-vertex.ern { top: -24px; left: 50%; transform: translateX(-50%); }
+  .stat-vertex.ern .stat-name, .stat-vertex.ern .stat-value { color: var(--stat-ern); }
+  .stat-vertex.roi { top: 26%; right: -70px; }
+  .stat-vertex.roi .stat-name, .stat-vertex.roi .stat-value { color: var(--stat-roi); }
+  .stat-vertex.res { bottom: 0; right: -30px; }
+  .stat-vertex.res .stat-name, .stat-vertex.res .stat-value { color: var(--stat-res); }
+  .stat-vertex.grw { bottom: 0; left: -30px; }
+  .stat-vertex.grw .stat-name, .stat-vertex.grw .stat-value { color: var(--stat-grw); }
+  .stat-vertex.hmn { top: 26%; left: -70px; }
+  .stat-vertex.hmn .stat-name, .stat-vertex.hmn .stat-value { color: var(--stat-hmn); }
+
+  /* === STAT TUTORIAL OVERLAY === */
+  .tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(18,19,31,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 300ms ease-out;
+  }
+  .tutorial-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .tutorial-card {
+    background: var(--bg-mid);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+    transform: scale(0.95);
+    transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .tutorial-overlay.visible .tutorial-card { transform: scale(1); }
+  .tutorial-stat-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+  .tutorial-stat-name {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .tutorial-stat-full {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .tutorial-description {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+  .tutorial-progress {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .tutorial-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bg-raised);
+    transition: all 200ms ease;
+  }
+  .tutorial-dot.active { background: var(--accent-thrive); transform: scale(1.3); }
+  .tutorial-dot.done { background: var(--accent-thrive); opacity: 0.5; }
+  .tutorial-next {
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-inverse);
+    background: var(--accent-thrive);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 12px 32px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+  }
+  .tutorial-next:hover { transform: scale(1.03); box-shadow: 0 0 24px rgba(125,212,163,0.3); }
+
+  /* === RECEIPT POPOVER === */
+  .receipt-popover {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    background: var(--bg-raised);
+    border: 1px solid rgba(184,169,232,0.2);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    max-width: 360px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+    z-index: 250;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .receipt-popover.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .receipt-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 249;
+    display: none;
+  }
+  .receipt-backdrop.visible { display: block; }
+  .receipt-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .receipt-score {
+    font-family: var(--font-data);
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .receipt-section-label {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    margin-top: 12px;
+  }
+  .receipt-row {
+    font-family: var(--font-data);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .receipt-footer {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  /* === CTA BUTTON === */
+  .continue-btn {
+    font-family: var(--font-body);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-inverse);
+    background: var(--accent-thrive);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 16px 40px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    opacity: 0;
+    transform: translateY(15px);
+    margin-top: 8px;
+  }
+  .continue-btn.visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 500ms ease-out 200ms, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms,
+                box-shadow 200ms ease-out, background 200ms ease-out;
+  }
+  .continue-btn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 32px rgba(125,212,163,0.4);
+  }
+
+  /* === EMPTY STATE === */
+  .empty-state {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    padding: 40px;
+  }
+  .empty-icon { font-size: 64px; opacity: 0.5; }
+  .empty-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+  }
+  .empty-desc {
+    font-size: 16px;
+    color: var(--text-secondary);
+    max-width: 360px;
+  }
+  .empty-btn {
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent-info);
+    background: transparent;
+    border: 1px solid var(--accent-info);
+    border-radius: var(--radius-lg);
+    padding: 12px 28px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 200ms ease-out;
+  }
+  .empty-btn:hover { background: rgba(123,184,224,0.1); }
+
+  /* === ERROR STATE === */
+  .error-state {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    padding: 40px;
+  }
+  .error-icon { font-size: 48px; }
+  .error-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--accent-alert);
+  }
+  .error-desc {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 360px;
+  }
+
+  /* === SKELETON STATES === */
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-mid) 25%, var(--bg-surface) 50%, var(--bg-mid) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-md);
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* === RADIAL GLOW BEHIND PENTAGON === */
+  .pentagon-radial-glow {
+    position: fixed;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(125,212,163,0.06) 0%,
+      rgba(184,169,232,0.04) 30%,
+      transparent 60%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1s ease-out;
+  }
+  .pentagon-radial-glow.visible { opacity: 1; }
+
+  /* === MOBILE === */
+  @media (max-width: 640px) {
+    .reveal-container { padding: 56px 16px 100px; }
+    .career-title { font-size: 22px; }
+    .career-salary { font-size: 20px; }
+    .stat-chart-wrapper { width: 260px; }
+    .pentagon-section { width: 260px; height: 260px; }
+    .stat-vertex.roi { right: -55px; }
+    .stat-vertex.hmn { left: -55px; }
+
+    .stat-vertex .stat-value { font-size: 16px; }
+    .gemma-take { padding: 20px; }
+    .tutorial-card { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="profile-header">
+  <span>dancing happy bear</span>
+  <span>&#x1F43B;</span>
+</div>
+
+<div class="pentagon-radial-glow" id="radialGlow"></div>
+
+<!-- Receipt backdrop -->
+<div class="receipt-backdrop" id="receiptBackdrop" onclick="closeReceipt()"></div>
+
+<!-- Receipt popover -->
+<div class="receipt-popover" id="receiptPopover">
+  <div class="receipt-title" id="receiptTitle">ERN: Earning Power</div>
+  <div class="receipt-score" id="receiptScore" style="color: var(--stat-ern);">7 / 10</div>
+  <div class="receipt-section-label">Raw Data</div>
+  <div class="receipt-row" id="receiptData">
+    Median earnings: $68,400<br>
+    Percentile used: 75th (All-in)<br>
+    Source: College Scorecard 2022
+  </div>
+  <div class="receipt-section-label">Threshold</div>
+  <div class="receipt-row" id="receiptThreshold" style="font-size: 11px;">
+    1-2: &lt;$30K &middot; 3-4: $30-45K &middot; 5-6: $45-65K<br>
+    7-8: $65-90K &middot; 9-10: &gt;$90K
+  </div>
+  <div class="receipt-footer">Data last updated: Jan 2024</div>
+</div>
+
+<!-- Stat tutorial overlay -->
+<div class="tutorial-overlay" id="tutorialOverlay">
+  <div class="tutorial-card">
+    <div class="tutorial-stat-icon" id="tutorialIcon"></div>
+    <div class="tutorial-stat-name" id="tutorialName"></div>
+    <div class="tutorial-stat-full" id="tutorialFull"></div>
+    <div class="tutorial-description" id="tutorialDesc"></div>
+    <div class="tutorial-progress" id="tutorialProgress"></div>
+    <button class="tutorial-next" id="tutorialNext" onclick="nextTutorial()">Next</button>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="reveal-container" id="mainContent"></div>
+
+<!-- SCENARIO SWITCHER -->
+<div class="scenario-bar">
+  <button class="scenario-btn active" onclick="switchScenario('populated')">Populated</button>
+  <button class="scenario-btn" onclick="switchScenario('loading')">Loading</button>
+  <button class="scenario-btn" onclick="switchScenario('empty')">Empty</button>
+  <button class="scenario-btn" onclick="switchScenario('error')">Error</button>
+</div>
+
+<script>
+// === DATA ===
+const MOCK_DATA = {
+  profileName: 'dancing happy bear',
+  profileEmoji: '\u{1F43B}',
+  school: 'Illinois State University',
+  major: 'Business Administration',
+  career: 'Financial Analyst',
+  careerEmoji: '\u{1F4CA}',
+  salary: '$68,400',
+  salaryLabel: 'Median annual salary',
+  stats: {
+    ERN: { value: 7, color: '#F2D477', full: 'Earning Power', icon: '\u{1FA99}', desc: 'Based on what graduates of Business Administration at ISU actually earn. Your all-in effort pushes this to the 75th percentile \u2014 $68,400 median.' },
+    ROI: { value: 6, color: '#7DD4A3', full: 'Return on Investment', icon: '\u{1F4B0}', desc: 'Compares your expected earnings to your student debt. At 50% loans, your debt-to-earnings ratio is manageable but not exceptional.' },
+    RES: { value: 5, color: '#B8A9E8', full: 'AI Resilience', icon: '\u{1F6E1}\uFE0F', desc: 'How exposed is this career to AI automation? Financial analysis has moderate exposure \u2014 AI handles the models, but humans still interpret context.' },
+    GRW: { value: 8, color: '#7BB8E0', full: 'Growth', icon: '\u{1F331}', desc: 'Is this field growing or shrinking? Financial analyst roles are projected to grow 9% over the next decade \u2014 well above average.' },
+    HMN: { value: 6, color: '#E88BA9', full: 'Human Edge', icon: '\u2764\uFE0F', desc: 'How much does this job depend on uniquely human skills? Client relationships and judgment calls keep the human edge moderate.' }
+  },
+  gemmaTake: "Your ISU Business degree opens a solid path into financial analysis. The earning power is strong at the 75th percentile, and the field is growing faster than most. The catch? AI is reshaping how financial modeling works \u2014 your AI Resilience score of 5 means this is a career where you'll want to stay ahead of the tools, not compete with them. The good news: your Human Edge and Growth numbers give you room to evolve. This is a build with real upside and one clear risk to manage."
+};
+
+const TUTORIAL_STEPS = [
+  { stat: 'ERN', icon: '\u{1FA99}', name: 'ERN', full: 'Earning Power', desc: 'This measures what you can expect to earn based on real graduate salary data from your specific school and program. Higher is better.', color: '#F2D477' },
+  { stat: 'ROI', icon: '\u{1F4B0}', name: 'ROI', full: 'Return on Investment', desc: 'Compares your expected earnings to your student debt. Your loan percentage drives this number \u2014 less debt means better ROI.', color: '#7DD4A3' },
+  { stat: 'RES', icon: '\u{1F6E1}\uFE0F', name: 'RES', full: 'AI Resilience', desc: 'How exposed is this career to AI automation? Higher means the work needs humans. Based on real task-level analysis of what people in this job do every day.', color: '#B8A9E8' },
+  { stat: 'GRW', icon: '\u{1F331}', name: 'GRW', full: 'Growth', desc: 'Is this field growing or shrinking? Based on 10-year job projections from the Bureau of Labor Statistics. Higher means more opportunity ahead.', color: '#7BB8E0' },
+  { stat: 'HMN', icon: '\u2764\uFE0F', name: 'HMN', full: 'Human Edge', desc: 'How much does this job depend on uniquely human skills \u2014 empathy, creativity, judgment, persuasion? Higher means harder to replace.', color: '#E88BA9' }
+];
+
+const RECEIPT_DATA = {
+  ERN: { title: 'ERN: Earning Power', score: '7 / 10', color: '#F2D477', data: 'Median earnings: $68,400<br>Percentile used: 75th (All-in)<br>Source: College Scorecard 2022', threshold: '1-2: <$30K \u00b7 3-4: $30-45K \u00b7 5-6: $45-65K<br>7-8: $65-90K \u00b7 9-10: >$90K' },
+  ROI: { title: 'ROI: Return on Investment', score: '6 / 10', color: '#7DD4A3', data: 'Debt-to-earnings: 0.62<br>Loan %: 50% of published debt<br>Source: College Scorecard 2022', threshold: '1-2: DTE >1.5 \u00b7 3-4: 1.0-1.5 \u00b7 5-6: 0.5-1.0<br>7-8: 0.25-0.5 \u00b7 9-10: <0.25' },
+  RES: { title: 'RES: AI Resilience', score: '5 / 10', color: '#B8A9E8', data: 'AI exposure score: 5.2 / 10<br>Inverted to resilience: 4.8<br>Source: Karpathy + O*NET tasks', threshold: '1-2: Exposure >8 \u00b7 3-4: 6-8 \u00b7 5-6: 4-6<br>7-8: 2-4 \u00b7 9-10: <2' },
+  GRW: { title: 'GRW: Growth', score: '8 / 10', color: '#7BB8E0', data: 'Projected growth: +9% (2024-2034)<br>National avg: +4%<br>Source: BLS Employment Projections', threshold: '1-2: Decline \u00b7 3-4: 0-2% \u00b7 5-6: 2-5%<br>7-8: 5-10% \u00b7 9-10: >10%' },
+  HMN: { title: 'HMN: Human Edge', score: '6 / 10', color: '#E88BA9', data: 'Human task ratio: 0.61<br>Key tasks: Client advising, judgment calls<br>Source: O*NET Work Activities', threshold: '1-2: <0.2 \u00b7 3-4: 0.2-0.4 \u00b7 5-6: 0.4-0.6<br>7-8: 0.6-0.8 \u00b7 9-10: >0.8' }
+};
+
+// === PENTAGON GEOMETRY ===
+function pentagonPoint(cx, cy, r, index) {
+  // 5 vertices starting from top, going clockwise
+  const angle = (Math.PI * 2 * index / 5) - Math.PI / 2;
+  return {
+    x: cx + r * Math.cos(angle),
+    y: cy + r * Math.sin(angle)
+  };
+}
+
+function drawPentagonSVG(stats, animate = true) {
+  const cx = 170, cy = 170, outerR = 130;
+  const statOrder = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
+
+  // Outer pentagon (grid lines)
+  let gridSVG = '';
+  for (let ring = 1; ring <= 3; ring++) {
+    const r = outerR * ring / 3;
+    const pts = statOrder.map((_, i) => pentagonPoint(cx, cy, r, i));
+    gridSVG += `<polygon points="${pts.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>`;
+  }
+
+  // Axis lines
+  let axisSVG = '';
+  statOrder.forEach((_, i) => {
+    const p = pentagonPoint(cx, cy, outerR, i);
+    axisSVG += `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>`;
+  });
+
+  // Data polygon
+  const dataPoints = statOrder.map((s, i) => {
+    const r = outerR * (stats[s].value / 10);
+    return pentagonPoint(cx, cy, r, i);
+  });
+  const dataPath = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
+
+  // Gradient
+  const gradientSVG = `
+    <defs>
+      <radialGradient id="dataGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="rgba(125,212,163,0.05)"/>
+        <stop offset="100%" stop-color="rgba(184,169,232,0.15)"/>
+      </radialGradient>
+    </defs>`;
+
+  // Vertex dots
+  let vertexSVG = '';
+  const outerPts = statOrder.map((_, i) => pentagonPoint(cx, cy, outerR, i));
+  statOrder.forEach((s, i) => {
+    const p = dataPoints[i];
+    vertexSVG += `<circle cx="${p.x}" cy="${p.y}" r="5" fill="${stats[s].color}" opacity="0.9">
+      ${animate ? `<animate attributeName="r" from="0" to="5" dur="0.4s" begin="${0.3 + i * 0.1}s" fill="freeze"/>
+      <animate attributeName="opacity" from="0" to="0.9" dur="0.3s" begin="${0.3 + i * 0.1}s" fill="freeze"/>` : ''}
+    </circle>`;
+    // Glow
+    vertexSVG += `<circle cx="${p.x}" cy="${p.y}" r="12" fill="${stats[s].color}" opacity="0.15">
+      ${animate ? `<animate attributeName="opacity" from="0" to="0.15" dur="0.5s" begin="${0.4 + i * 0.1}s" fill="freeze"/>` : ''}
+    </circle>`;
+  });
+
+  const animAttr = animate ? `opacity="0" style="animation: fadeIn 0.6s ease-out 0.2s forwards;"` : '';
+
+  return `<svg viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg" class="pentagon-svg">
+    ${gradientSVG}
+    ${gridSVG}
+    ${axisSVG}
+    <polygon points="${dataPath}" fill="url(#dataGrad)" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" ${animAttr}/>
+    ${vertexSVG}
+  </svg>`;
+}
+
+// === RENDER FUNCTIONS ===
+let tutorialStep = 0;
+let currentScenario = 'populated';
+
+function switchScenario(scenario) {
+  currentScenario = scenario;
+  document.querySelectorAll('.scenario-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === scenario);
+  });
+  render(scenario);
+}
+
+function render(scenario) {
+  chartMode06 = 'pentagon'; // Reset toggle on re-render
+  const container = document.getElementById('mainContent');
+  const glow = document.getElementById('radialGlow');
+  glow.classList.remove('visible');
+  closeTutorial();
+  closeReceipt();
+
+  switch(scenario) {
+    case 'populated': renderPopulated(container); break;
+    case 'loading': renderLoading(container); break;
+    case 'empty': renderEmpty(container); break;
+    case 'error': renderError(container); break;
+    case 'tutorial': renderPopulated(container, true); break;
+  }
+}
+
+function renderPopulated(container, showTutorial = false) {
+  const d = MOCK_DATA;
+  const statOrder = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
+
+  container.innerHTML = `
+    <div class="gemma-take" id="gemmaTake">
+      <div class="gemma-take-label">
+        <div class="gemma-icon">\u2728</div>
+        Gemma's Take
+      </div>
+      <p>${d.gemmaTake}</p>
+    </div>
+
+    <div class="career-header" id="careerHeader">
+      <div class="career-emoji">${d.careerEmoji}</div>
+      <div class="career-title">${d.career}</div>
+      <div class="career-school">${d.school} \u2022 ${d.major}</div>
+      <div class="career-salary" id="salaryDisplay">$0</div>
+      <div class="career-salary-label">${d.salaryLabel} <span class="stat-receipt" onclick="showReceipt('ERN')">?</span></div>
+    </div>
+
+    <div class="stat-chart-wrapper" id="pentagonSection">
+      <div class="chart-toggle-toolbar">
+        <button class="chart-toggle-btn" onclick="toggleChartView06()" title="Switch to bar chart" id="chartToggle06">
+          <svg viewBox="0 0 20 20" id="chartToggleIcon06">
+            <rect x="2" y="12" width="3" height="6" rx="1"/>
+            <rect x="7" y="6" width="3" height="12" rx="1"/>
+            <rect x="12" y="9" width="3" height="9" rx="1"/>
+            <rect x="17" y="3" width="3" height="15" rx="1" transform="translate(-2,0)"/>
+          </svg>
+        </button>
+      </div>
+      <div class="chart-view" id="pentagonView06">
+        <div class="pentagon-section">
+          <div class="pentagon-glow"></div>
+          ${drawPentagonSVG(d.stats, true)}
+          ${statOrder.map(s => {
+            const positions = { ERN: 'ern', ROI: 'roi', RES: 'res', GRW: 'grw', HMN: 'hmn' };
+            return `<div class="stat-vertex ${positions[s]}" onclick="showReceipt('${s}')">
+              <div class="stat-name">${d.stats[s].full}</div>
+              <span class="stat-value" data-target="${d.stats[s].value}" data-stat="${s}">0</span>
+              <span class="stat-receipt">?</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="chart-view hidden" id="barView06">
+        ${drawBarChartHTML06(d.stats)}
+      </div>
+    </div>
+
+    <button class="continue-btn" id="continueBtn" onclick="alert('Navigate to Boss Gauntlet (Screen 7)')">Fight the Bosses \u2694\uFE0F</button>
+  `;
+
+  // Staggered reveal animation
+  const glow = document.getElementById('radialGlow');
+  setTimeout(() => {
+    glow.classList.add('visible');
+    document.getElementById('gemmaTake').classList.add('visible');
+  }, 200);
+
+  setTimeout(() => {
+    document.getElementById('careerHeader').classList.add('visible');
+    animateSalary();
+  }, 700);
+
+  setTimeout(() => {
+    document.getElementById('pentagonSection').classList.add('visible');
+    animateStatCounters();
+  }, 1200);
+
+  setTimeout(() => {
+    document.getElementById('continueBtn').classList.add('visible');
+  }, 2200);
+
+  if (showTutorial) {
+    tutorialStep = 0;
+    setTimeout(() => showTutorialOverlay(), 2400);
+  }
+}
+
+function animateSalary() {
+  const el = document.getElementById('salaryDisplay');
+  if (!el) return;
+  const target = 68400;
+  const duration = 800;
+  const start = performance.now();
+
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // Ease out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(target * eased);
+    el.textContent = '$' + current.toLocaleString();
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function animateStatCounters() {
+  document.querySelectorAll('.stat-value[data-target]').forEach((el, i) => {
+    const target = parseInt(el.dataset.target);
+    const delay = i * 100;
+
+    setTimeout(() => {
+      const duration = 800;
+      const start = performance.now();
+
+      function tick(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        // Spring-like overshoot
+        const eased = progress < 1
+          ? 1 - Math.pow(1 - progress, 3) + Math.sin(progress * Math.PI) * 0.08
+          : 1;
+        const current = Math.round(target * Math.min(eased, 1.08));
+        el.textContent = Math.min(current, target);
+        if (progress < 1) requestAnimationFrame(tick);
+        else el.textContent = target;
+      }
+      requestAnimationFrame(tick);
+    }, delay);
+  });
+}
+
+function renderLoading(container) {
+  container.innerHTML = `
+    <div class="loading-state">
+      <div class="loading-text">Specing dancing happy bear \u{1F43B}...</div>
+      <div class="loading-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <div style="margin-top: 48px; width: 100%; max-width: 480px;">
+        <div class="skeleton" style="height: 120px; margin-bottom: 24px;"></div>
+        <div class="skeleton" style="height: 24px; width: 60%; margin: 0 auto 12px;"></div>
+        <div class="skeleton" style="height: 16px; width: 40%; margin: 0 auto 32px;"></div>
+        <div class="skeleton" style="height: 240px; width: 240px; margin: 0 auto; border-radius: 50%;"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderEmpty(container) {
+  container.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">\u{1F52E}</div>
+      <div class="empty-title">No build yet</div>
+      <div class="empty-desc">Pick a school and major, choose your effort level, and select a career to see your personalized stats.</div>
+      <button class="empty-btn" onclick="alert('Navigate to Screen 3')">Start a build</button>
+    </div>
+  `;
+}
+
+function renderError(container) {
+  container.innerHTML = `
+    <div class="error-state">
+      <div class="error-icon">\u{1F635}\u200D\u{1F4AB}</div>
+      <div class="error-title">Something went sideways</div>
+      <div class="error-desc">Gemma couldn't compute your stats right now. This usually means the inference server is warming up. Give it a moment and try again.</div>
+      <button class="empty-btn" style="margin-top: 12px;" onclick="switchScenario('loading')">Retry</button>
+    </div>
+  `;
+}
+
+// === TUTORIAL ===
+function showTutorialOverlay() {
+  tutorialStep = 0;
+  renderTutorialStep();
+  document.getElementById('tutorialOverlay').classList.add('visible');
+}
+
+function renderTutorialStep() {
+  const step = TUTORIAL_STEPS[tutorialStep];
+  document.getElementById('tutorialIcon').textContent = step.icon;
+  document.getElementById('tutorialIcon').style.filter = `drop-shadow(0 0 12px ${step.color})`;
+  document.getElementById('tutorialName').textContent = step.name;
+  document.getElementById('tutorialName').style.color = step.color;
+  document.getElementById('tutorialFull').textContent = step.full;
+  document.getElementById('tutorialDesc').textContent = step.desc;
+  document.getElementById('tutorialNext').textContent = tutorialStep < 4 ? 'Next' : 'Got it';
+
+  const dots = document.getElementById('tutorialProgress');
+  dots.innerHTML = TUTORIAL_STEPS.map((_, i) =>
+    `<div class="tutorial-dot ${i === tutorialStep ? 'active' : i < tutorialStep ? 'done' : ''}"></div>`
+  ).join('');
+}
+
+function nextTutorial() {
+  tutorialStep++;
+  if (tutorialStep >= TUTORIAL_STEPS.length) {
+    closeTutorial();
+    return;
+  }
+  renderTutorialStep();
+}
+
+function closeTutorial() {
+  document.getElementById('tutorialOverlay').classList.remove('visible');
+}
+
+// === RECEIPTS ===
+function showReceipt(stat) {
+  const data = RECEIPT_DATA[stat];
+  document.getElementById('receiptTitle').textContent = data.title;
+  document.getElementById('receiptScore').textContent = data.score;
+  document.getElementById('receiptScore').style.color = data.color;
+  document.getElementById('receiptData').innerHTML = data.data;
+  document.getElementById('receiptThreshold').innerHTML = data.threshold;
+  document.getElementById('receiptPopover').classList.add('visible');
+  document.getElementById('receiptBackdrop').classList.add('visible');
+}
+
+function closeReceipt() {
+  document.getElementById('receiptPopover').classList.remove('visible');
+  document.getElementById('receiptBackdrop').classList.remove('visible');
+}
+
+// === CHART TOGGLE (Screen 06) ===
+let chartMode06 = 'pentagon'; // 'pentagon' | 'bar'
+
+const PENTAGON_ICON_SVG = `<svg viewBox="0 0 20 20"><polygon points="10,1 18.5,7.2 15.2,17 4.8,17 1.5,7.2" fill="none" stroke="inherit" stroke-width="1.5"/></svg>`;
+const BAR_ICON_SVG = `<svg viewBox="0 0 20 20"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="7" y="6" width="3" height="12" rx="1"/><rect x="12" y="9" width="3" height="9" rx="1"/><rect x="15" y="3" width="3" height="15" rx="1"/></svg>`;
+
+function drawBarChartHTML06(stats) {
+  const order = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
+  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', HMN: '#E88BA9' };
+  return `<div class="bar-chart-view">${order.map((s, i) => {
+    const val = stats[s].value || stats[s];
+    return `<div class="bar-row">
+      <div class="bar-label" style="color:${colors[s]}">${stats[s].full || s}</div>
+      <div class="bar-track">
+        <div class="bar-fill" data-bar-index="${i}" style="width:${val * 10}%;background:${colors[s]};opacity:0.85;"></div>
+      </div>
+      <div class="bar-score" style="color:${colors[s]}">${val}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function toggleChartView06() {
+  const pentView = document.getElementById('pentagonView06');
+  const barView = document.getElementById('barView06');
+  const toggleBtn = document.getElementById('chartToggleIcon06');
+
+  if (chartMode06 === 'pentagon') {
+    chartMode06 = 'bar';
+    pentView.classList.add('hidden');
+    barView.classList.remove('hidden');
+    toggleBtn.outerHTML = PENTAGON_ICON_SVG.replace('<svg', '<svg id="chartToggleIcon06"');
+    // Staggered bar animation
+    setTimeout(() => {
+      barView.querySelectorAll('.bar-fill').forEach((bar, i) => {
+        setTimeout(() => bar.classList.add('animate'), i * 60);
+      });
+    }, 50);
+  } else {
+    chartMode06 = 'pentagon';
+    barView.classList.add('hidden');
+    pentView.classList.remove('hidden');
+    toggleBtn.outerHTML = BAR_ICON_SVG.replace('<svg', '<svg id="chartToggleIcon06"');
+    // Reset bars for next toggle
+    barView.querySelectorAll('.bar-fill').forEach(bar => bar.classList.remove('animate'));
+  }
+}
+
+// Add fadeIn keyframe for SVG
+const style = document.createElement('style');
+style.textContent = `@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`;
+document.head.appendChild(style);
+
+// Initial render
+render('populated');
+</script>
+</body>
+</html>

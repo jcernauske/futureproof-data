@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutureProof — Application Chrome Shell</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-void: #12131F;
+    --bg-deep: #1B1D30;
+    --bg-mid: #232545;
+    --bg-surface: #2D3060;
+    --bg-raised: #3A3D75;
+    --accent-thrive: #7DD4A3;
+    --accent-alert: #F4A97E;
+    --accent-caution: #F2D477;
+    --accent-insight: #B8A9E8;
+    --accent-info: #7BB8E0;
+    --accent-empathy: #E88BA9;
+    --stat-ern: #F2D477;
+    --stat-roi: #7DD4A3;
+    --stat-res: #B8A9E8;
+    --stat-grw: #7BB8E0;
+    --stat-hmn: #E88BA9;
+    --text-primary: #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted: #8A8595;
+    --text-inverse: #1B1D30;
+    --border-subtle: rgba(255,255,255,0.04);
+    --border-bright: rgba(255,255,255,0.08);
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-data: 'Space Mono', monospace;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+    --shadow-md: 0 4px 16px rgba(27,29,48,0.6);
+    --shadow-lg: 0 8px 32px rgba(27,29,48,0.7);
+    --chrome-height: 48px;
+  }
+
+  body {
+    background: var(--bg-deep);
+    min-height: 100vh;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    transition: background 0.5s ease;
+  }
+
+  /* Noise texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  }
+
+  /* ========== CHROME HEADER ========== */
+  .chrome-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--chrome-height);
+    background: rgba(27, 29, 48, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+    transition: opacity 0.4s ease, background 0.4s ease, border-color 0.4s ease;
+  }
+
+  .chrome-header.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-100%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .chrome-header.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition: opacity 0.4s ease 0.3s, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s;
+  }
+
+  .chrome-header.cinematic {
+    background: rgba(27, 29, 48, 0.55);
+    border-bottom-color: rgba(255,255,255,0.02);
+  }
+  .chrome-header.cinematic .profile-name {
+    opacity: 0.35;
+  }
+  .chrome-header.cinematic .back-btn {
+    opacity: 0.5;
+  }
+
+  .chrome-header.bright-border {
+    border-bottom-color: var(--border-bright);
+  }
+
+  /* Left zone */
+  .header-left {
+    width: 80px;
+    display: flex;
+    align-items: center;
+  }
+
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s, opacity 0.3s;
+    font-size: 18px;
+    width: 36px;
+    height: 36px;
+  }
+  .back-btn:hover {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-secondary);
+  }
+  .back-btn.home-mode {
+    font-size: 16px;
+  }
+
+  /* Center zone */
+  .header-center {
+    flex: 1;
+    text-align: center;
+    font-size: 14px;
+    transition: color 0.5s ease;
+  }
+  .profile-name {
+    transition: color 0.5s ease, opacity 0.4s ease;
+  }
+  .profile-name.muted {
+    color: var(--text-muted);
+  }
+  .profile-name.secondary {
+    color: var(--text-secondary);
+  }
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* Right zone */
+  .header-right {
+    width: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .new-build-btn {
+    background: transparent;
+    border: 1px solid var(--accent-info);
+    color: var(--accent-info);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s, opacity 0.4s;
+    opacity: 0;
+    transform: translateX(20px);
+    white-space: nowrap;
+  }
+  .new-build-btn.visible {
+    opacity: 1;
+    transform: translateX(0);
+    transition: background 0.2s, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+  }
+  .new-build-btn:hover {
+    background: rgba(123, 184, 224, 0.12);
+  }
+  .new-build-btn:active {
+    transform: scale(0.96);
+  }
+
+  /* ========== SCREEN CONTENT ========== */
+  .screen-content {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--chrome-height) + 32px) 24px 32px;
+    transition: padding 0.4s ease;
+    position: relative;
+  }
+  .screen-content.no-header-pad {
+    padding-top: 0;
+  }
+  .screen-content.chromeless {
+    padding-top: 32px;
+  }
+
+  /* ========== PLACEHOLDER SCREEN CONTENT ========== */
+  .screen-title {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .screen-subtitle {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    text-align: center;
+    max-width: 480px;
+  }
+  .screen-number {
+    font-family: var(--font-data);
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Placeholder content boxes */
+  .content-placeholder {
+    width: 100%;
+    max-width: 560px;
+    background: var(--bg-mid);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+  .content-placeholder .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    font-family: var(--font-data);
+  }
+  .content-placeholder .mock-input {
+    width: 100%;
+    height: 48px;
+    background: var(--bg-deep);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+  }
+  .content-placeholder .mock-text {
+    height: 14px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .content-placeholder .mock-text:last-child { margin-bottom: 0; }
+  .content-placeholder .mock-text.short { width: 60%; }
+  .content-placeholder .mock-text.med { width: 80%; }
+
+  /* CTA Button */
+  .cta-btn {
+    background: var(--accent-thrive);
+    color: var(--text-inverse);
+    border: none;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    padding: 14px 48px;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(125, 212, 163, 0.25);
+    margin-top: 16px;
+  }
+  .cta-btn:hover {
+    box-shadow: 0 6px 28px rgba(125, 212, 163, 0.35);
+    transform: translateY(-1px);
+  }
+  .cta-btn:active {
+    transform: scale(0.97);
+  }
+
+  /* Pentagon glow for landing */
+  .pentagon-glow {
+    width: 200px;
+    height: 200px;
+    position: relative;
+    margin-bottom: 48px;
+  }
+  .pentagon-glow .dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  .pentagon-glow .dot:nth-child(1) { top: 0; left: 50%; transform: translateX(-50%); background: var(--stat-ern); animation-delay: 0s; }
+  .pentagon-glow .dot:nth-child(2) { top: 38%; right: 0; background: var(--stat-roi); animation-delay: 0.6s; }
+  .pentagon-glow .dot:nth-child(3) { bottom: 5%; right: 12%; background: var(--stat-res); animation-delay: 1.2s; }
+  .pentagon-glow .dot:nth-child(4) { bottom: 5%; left: 12%; background: var(--stat-grw); animation-delay: 1.8s; }
+  .pentagon-glow .dot:nth-child(5) { top: 38%; left: 0; background: var(--stat-hmn); animation-delay: 2.4s; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; box-shadow: 0 0 12px currentColor; }
+    50% { opacity: 0.9; box-shadow: 0 0 24px currentColor; }
+  }
+
+  /* Profile name hero */
+  .profile-hero {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .profile-hero .emoji {
+    font-size: 56px;
+    display: block;
+    margin-bottom: 16px;
+  }
+  .you-are {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  /* Boss gauntlet pips */
+  .gauntlet-pips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 32px;
+  }
+  .pip {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.3s;
+  }
+  .pip.win { background: var(--accent-thrive); border-color: transparent; box-shadow: 0 0 8px rgba(125,212,163,0.4); }
+  .pip.lose { background: var(--accent-alert); border-color: transparent; box-shadow: 0 0 8px rgba(244,169,126,0.4); }
+  .pip.draw { background: var(--accent-caution); border-color: transparent; box-shadow: 0 0 8px rgba(242,212,119,0.4); }
+  .pip.current { background: var(--text-primary); border-color: transparent; transform: scale(1.3); box-shadow: 0 0 10px rgba(245,240,232,0.3); }
+  .pip-divider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255,255,255,0.1);
+    margin: 0 4px;
+  }
+  .pip.final { width: 14px; height: 14px; }
+
+  /* Boss emoji */
+  .boss-display {
+    font-size: 72px;
+    margin-bottom: 16px;
+  }
+  .boss-name {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .boss-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+
+  /* Branch tree placeholder */
+  .tree-placeholder {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+  }
+  .tree-root {
+    position: absolute;
+    left: 60px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .tree-root-emoji { font-size: 40px; }
+  .tree-root-label {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-thrive);
+    white-space: nowrap;
+  }
+  .tree-root-glow {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(125,212,163,0.12) 0%, transparent 70%);
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .branch-line {
+    position: absolute;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(125,212,163,0.4), rgba(184,169,232,0.3));
+    border-radius: 1px;
+    transform-origin: left center;
+  }
+  .branch-node {
+    position: absolute;
+    background: var(--bg-mid);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  }
+  .branch-node:hover {
+    border-color: var(--accent-thrive);
+    color: var(--text-primary);
+    box-shadow: 0 0 16px rgba(125,212,163,0.15);
+  }
+
+  /* Menu grid */
+  .menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    max-width: 560px;
+  }
+  .menu-card {
+    background: var(--bg-mid);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  }
+  .menu-card:hover {
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  .menu-card .card-icon { font-size: 28px; margin-bottom: 12px; }
+  .menu-card .card-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .menu-card .card-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* ========== SCREEN SELECTOR ========== */
+  .screen-selector {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(35, 37, 69, 0.92);
+    backdrop-filter: blur(12px);
+    padding: 6px 8px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(255,255,255,0.08);
+    z-index: 200;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 32px);
+  }
+  .screen-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .screen-btn:hover {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-secondary);
+  }
+  .screen-btn.active {
+    background: var(--accent-thrive);
+    color: var(--text-inverse);
+  }
+
+  /* ========== CHROME ANNOTATION ========== */
+  .chrome-annotations {
+    position: fixed;
+    top: var(--chrome-height);
+    left: 0;
+    right: 0;
+    z-index: 99;
+  }
+  .annotation {
+    position: fixed;
+    background: rgba(184, 169, 232, 0.12);
+    border: 1px solid rgba(184, 169, 232, 0.25);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    font-size: 11px;
+    font-family: var(--font-data);
+    color: var(--accent-insight);
+    line-height: 1.4;
+    max-width: 220px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 101;
+  }
+  .annotation.visible { opacity: 1; }
+  .annotation.left-zone { top: 56px; left: 24px; }
+  .annotation.center-zone { top: 56px; left: 50%; transform: translateX(-50%); }
+  .annotation.right-zone { top: 56px; right: 24px; }
+
+  .annotation-toggle {
+    position: fixed;
+    top: 8px;
+    right: calc(50% - 200px);
+    z-index: 201;
+    background: rgba(184, 169, 232, 0.15);
+    border: 1px solid rgba(184, 169, 232, 0.3);
+    color: var(--accent-insight);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .annotation-toggle:hover {
+    background: rgba(184, 169, 232, 0.25);
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .chrome-header { padding: 0 16px; }
+    .header-left { width: 44px; }
+    .header-right { width: 44px; }
+    .profile-hero { font-size: 36px; }
+    .screen-title { font-size: 28px; }
+    .menu-grid { grid-template-columns: 1fr; }
+    .content-placeholder { padding: 24px; }
+    .new-build-btn span.label { display: none; }
+    .screen-selector { gap: 2px; padding: 4px 6px; }
+    .screen-btn { padding: 5px 7px; font-size: 10px; }
+    .annotation { max-width: 160px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="chrome-header hidden" id="chromeHeader">
+  <div class="header-left">
+    <button class="back-btn" id="backBtn" title="Go back" style="display:none;">
+      <span id="backIcon">&#8592;</span>
+    </button>
+  </div>
+  <div class="header-center">
+    <span id="headerCenter"></span>
+  </div>
+  <div class="header-right">
+    <button class="new-build-btn" id="newBuildBtn">
+      + <span class="label">New</span>
+    </button>
+  </div>
+</div>
+
+<!-- Annotations -->
+<div class="annotation left-zone" id="annotLeft"></div>
+<div class="annotation center-zone" id="annotCenter"></div>
+<div class="annotation right-zone" id="annotRight"></div>
+<button class="annotation-toggle" id="annotToggle" style="display:none;">Show Chrome Notes</button>
+
+<div class="screen-content" id="screenContent"></div>
+
+<div class="screen-selector" id="screenSelector"></div>
+
+<script>
+const PROFILE = { name: 'dancing happy bear', emoji: '🐻' };
+
+const SCREENS = [
+  {
+    id: 1,
+    label: '1 Landing',
+    title: 'Landing',
+    bg: '#12131F',
+    header: false,
+    annotations: {}
+  },
+  {
+    id: 2,
+    label: '2 Profile',
+    title: 'Profile Name',
+    bg: '#1B1D30',
+    header: true,
+    headerFadeIn: true,
+    backBtn: false,
+    centerContent: 'wordmark',
+    newBuild: false,
+    brightBorder: false,
+    nameColor: 'muted',
+    annotations: {
+      center: 'FutureProof wordmark. Profile name is the hero content below, not repeated here.',
+      left: 'No back button. Screen 1 is chromeless -- nothing to go back to.'
+    }
+  },
+  {
+    id: 3,
+    label: '3 School',
+    title: 'School + Major',
+    bg: '#1B1D30',
+    header: true,
+    backBtn: true,
+    backMode: 'arrow',
+    centerContent: 'profile',
+    newBuild: false,
+    brightBorder: false,
+    nameColor: 'muted',
+    annotations: {
+      center: 'Profile name in text-muted (#8A8595). Quiet companion, not a label.',
+      left: 'Back arrow navigates to Screen 2.'
+    }
+  },
+  {
+    id: 4,
+    label: '4 Effort',
+    title: 'Effort + Loans',
+    bg: '#1B1D30',
+    header: true,
+    backBtn: true,
+    backMode: 'arrow',
+    centerContent: 'profile',
+    newBuild: false,
+    brightBorder: false,
+    nameColor: 'muted',
+    annotations: {
+      center: 'Same muted profile name. Chrome holds steady during input screens.'
+    }
+  },
+  {
+    id: 5,
+    label: '5 Career',
+    title: 'Career Pick',
+    bg: '#1B1D30',
+    header: true,
+    backBtn: true,
+    backMode: 'arrow',
+    centerContent: 'profile',
+    newBuild: false,
+    brightBorder: false,
+    nameColor: 'muted',
+    annotations: {
+      center: 'Still muted. The student has not been "revealed" yet.'
+    }
+  },
+  {
+    id: 6,
+    label: '6 Reveal',
+    title: 'Reveal + Stats',
+    bg: '#1B1D30',
+    header: true,
+    backBtn: true,
+    backMode: 'arrow',
+    centerContent: 'profile',
+    newBuild: false,
+    brightBorder: true,
+    nameColor: 'secondary',
+    annotations: {
+      center: 'Progressive Illumination: name brightens to text-secondary (#C4BFB0). The student has been revealed.',
+      left: 'Border brightens to rgba(255,255,255,0.08). Subtle but narratively meaningful.'
+    }
+  },
+  {
+    id: 7,
+    label: '7 Gauntlet',
+    title: 'Boss Gauntlet',
+    bg: '#12131F',
+    header: true,
+    cinematic: true,
+    backBtn: true,
+    backMode: 'arrow',
+    centerContent: 'profile',
+    newBuild: false,
+    brightBorder: false,
+    nameColor: 'secondary',
+    annotations: {
+      center: 'Header dims to 55% opacity during fights. Chrome recedes so the boss commands attention.',
+      left: 'Back button dimmed but functional. Escape hatch preserved.'
+    }
+  },
+  {
+    id: 8,
+    label: '8 Branches',
+    title: 'Branch Tree',
+    bg: '#12131F',
+    header: true,
+    voidBlended: true,
+    backBtn: true,
+    backMode: 'arrow',
+    centerContent: 'profile',
+    newBuild: false,
+    brightBorder: true,
+    nameColor: 'secondary',
+    noPadTop: true,
+    annotations: {
+      center: 'Header floats over the tree. No padding-top -- tree extends to full viewport edge.',
+      left: 'Frosted glass blends with bg-void. Nearly invisible against the dark canvas.'
+    }
+  },
+  {
+    id: 9,
+    label: '9 Save',
+    title: 'Save + Share',
+    bg: '#1B1D30',
+    header: true,
+    backBtn: true,
+    backMode: 'arrow',
+    centerContent: 'profile',
+    newBuild: false,
+    brightBorder: true,
+    nameColor: 'secondary',
+    annotations: {
+      center: 'Bright border, bright name. The student is in the light now.'
+    }
+  },
+  {
+    id: 10,
+    label: '10 Menu',
+    title: 'Menu',
+    bg: '#1B1D30',
+    header: true,
+    backBtn: true,
+    backMode: 'home',
+    centerContent: 'profile',
+    newBuild: true,
+    brightBorder: true,
+    nameColor: 'secondary',
+    annotations: {
+      left: 'Mode shift: back arrow becomes home icon. Hub, not sequence.',
+      right: '"+ New" button fades in. The student now has hub capabilities.',
+      center: 'Profile name stays text-secondary. The menu itself has a larger welcome.'
+    }
+  }
+];
+
+let currentScreen = 0;
+let showAnnotations = false;
+
+function setScreen(index) {
+  currentScreen = index;
+  const s = SCREENS[index];
+  const header = document.getElementById('chromeHeader');
+  const backBtn = document.getElementById('backBtn');
+  const backIcon = document.getElementById('backIcon');
+  const headerCenter = document.getElementById('headerCenter');
+  const newBuildBtn = document.getElementById('newBuildBtn');
+  const content = document.getElementById('screenContent');
+  const annotToggle = document.getElementById('annotToggle');
+
+  // Background
+  document.body.style.background = s.bg;
+
+  // Header visibility
+  if (!s.header) {
+    header.className = 'chrome-header hidden';
+    annotToggle.style.display = 'none';
+  } else {
+    let classes = 'chrome-header visible';
+    if (s.cinematic) classes += ' cinematic';
+    if (s.brightBorder) classes += ' bright-border';
+    header.className = classes;
+    annotToggle.style.display = 'block';
+  }
+
+  // Back button
+  if (s.backBtn) {
+    backBtn.style.display = 'flex';
+    if (s.backMode === 'home') {
+      backIcon.innerHTML = '&#8962;';
+      backBtn.className = 'back-btn home-mode';
+      backBtn.title = 'Menu';
+    } else {
+      backIcon.innerHTML = '&#8592;';
+      backBtn.className = 'back-btn';
+      backBtn.title = 'Go back';
+    }
+  } else {
+    backBtn.style.display = 'none';
+  }
+
+  // Center content
+  if (s.centerContent === 'wordmark') {
+    headerCenter.innerHTML = '<span class="wordmark">FutureProof</span>';
+  } else if (s.centerContent === 'profile') {
+    const colorClass = s.nameColor === 'secondary' ? 'secondary' : 'muted';
+    headerCenter.innerHTML = `<span class="profile-name ${colorClass}">${PROFILE.name} ${PROFILE.emoji}</span>`;
+  } else {
+    headerCenter.innerHTML = '';
+  }
+
+  // New build button
+  if (s.newBuild) {
+    newBuildBtn.classList.add('visible');
+  } else {
+    newBuildBtn.classList.remove('visible');
+  }
+
+  // Render content
+  content.innerHTML = renderScreenContent(s);
+  content.className = 'screen-content' + (s.noPadTop ? ' no-header-pad' : '') + (!s.header ? ' chromeless' : '');
+
+  // Annotations
+  updateAnnotations(s);
+
+  // Update selector
+  document.querySelectorAll('.screen-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === index);
+  });
+}
+
+function renderScreenContent(s) {
+  switch(s.id) {
+    case 1: return renderLanding();
+    case 2: return renderProfile();
+    case 3: return renderSchool();
+    case 4: return renderEffort();
+    case 5: return renderCareerPick();
+    case 6: return renderReveal();
+    case 7: return renderGauntlet();
+    case 8: return renderBranchTree();
+    case 9: return renderSaveShare();
+    case 10: return renderMenu();
+    default: return '';
+  }
+}
+
+function renderLanding() {
+  return `
+    <div class="pentagon-glow">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+    <div class="screen-title" style="font-size:42px; margin-bottom:12px;">Where does your degree<br>actually lead?</div>
+    <div class="screen-subtitle">Five stats. Five boss fights. One branching future -- all from real data.</div>
+    <button class="cta-btn">Begin Your Quest</button>
+    <div style="margin-top:32px; font-size:12px; color:var(--text-muted);">No account needed. No data collected.</div>
+  `;
+}
+
+function renderProfile() {
+  return `
+    <div class="you-are">You are</div>
+    <div class="profile-hero">
+      <span class="emoji">${PROFILE.emoji}</span>
+      ${PROFILE.name}
+    </div>
+    <div style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Your quest identity. No account needed.</div>
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:24px;">
+      <button style="background:var(--bg-surface); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary); font-family:var(--font-body); font-size:14px; padding:8px 16px; border-radius:var(--radius-full); cursor:pointer;">&#127922; Reroll</button>
+    </div>
+    <button class="cta-btn">Let's Go</button>
+    <div style="margin-top:24px; font-size:13px; color:var(--text-muted); cursor:pointer;">Already have a name? Look it up</div>
+  `;
+}
+
+function renderSchool() {
+  return `
+    <div class="screen-number">Step: School + Major</div>
+    <div class="screen-title">Where are you studying?</div>
+    <div class="screen-subtitle">Search for your school, then tell Gemma what you want to study.</div>
+    <div class="content-placeholder">
+      <div class="label">School</div>
+      <div class="mock-input" style="display:flex; align-items:center; padding:0 16px; color:var(--text-muted); font-size:14px;">
+        Search schools...
+      </div>
+      <div class="label" style="margin-top:20px;">What do you want to study?</div>
+      <div class="mock-input" style="display:flex; align-items:center; padding:0 16px; color:var(--text-muted); font-size:14px;">
+        e.g. "business", "pre-med", "CS"
+      </div>
+    </div>
+    <button class="cta-btn" style="opacity:0.5; cursor:default;">Lock In</button>
+  `;
+}
+
+function renderEffort() {
+  return `
+    <div class="screen-number">Step: Effort + Loans</div>
+    <div class="screen-title">How much can you give?</div>
+    <div class="screen-subtitle">These sliders adjust your stats. Be honest -- this is for you.</div>
+    <div class="content-placeholder">
+      <div class="label">How much time will you have to focus on school?</div>
+      <div style="display:flex; justify-content:space-between; margin:16px 0 8px; font-size:13px;">
+        <span style="color:var(--text-muted);">Working + school</span>
+        <span style="color:var(--text-primary); font-weight:600;">Balanced</span>
+        <span style="color:var(--text-muted);">All-in</span>
+      </div>
+      <div style="height:4px; background:var(--bg-void); border-radius:2px; position:relative;">
+        <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:20px; height:20px; background:var(--bg-raised); border-radius:50%; border:2px solid var(--accent-info);"></div>
+      </div>
+      <div class="label" style="margin-top:28px;">How much of your costs will you cover with loans?</div>
+      <div style="display:flex; justify-content:space-between; margin:16px 0 8px; font-size:12px; color:var(--text-muted);">
+        <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+      </div>
+      <div style="height:4px; background:var(--bg-void); border-radius:2px; position:relative;">
+        <div style="position:absolute; left:25%; top:50%; transform:translate(-50%,-50%); width:20px; height:20px; background:var(--bg-raised); border-radius:50%; border:2px solid var(--accent-info);"></div>
+      </div>
+    </div>
+    <button class="cta-btn">Spec My Build</button>
+  `;
+}
+
+function renderCareerPick() {
+  const careers = [
+    { tier: 'Common', items: ['Financial Analyst', 'Marketing Manager', 'Management Consultant'] },
+    { tier: 'Less Common', items: ['UX Researcher', 'Data Scientist', 'Product Manager'] },
+    { tier: 'Stretch', items: ['Venture Capitalist', 'Chief Strategy Officer'] },
+  ];
+  let html = `
+    <div class="screen-number">Step: Career Pick</div>
+    <div class="screen-title">Where does this lead?</div>
+    <div class="screen-subtitle">Gemma grouped your career paths. Pick the one to build around.</div>
+  `;
+  careers.forEach(tier => {
+    html += `<div class="content-placeholder" style="padding:20px 24px;">
+      <div class="label">${tier.tier} Paths</div>
+      ${tier.items.map(c => `
+        <div style="padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.04); display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+          <span style="font-weight:600;">${c}</span>
+          <span style="font-family:var(--font-data); font-size:12px; color:var(--text-muted);">$62K-$95K</span>
+        </div>
+      `).join('')}
+    </div>`;
+  });
+  html += '<button class="cta-btn" style="opacity:0.5; cursor:default;">Build This Career</button>';
+  return html;
+}
+
+function renderReveal() {
+  return `
+    <div class="screen-number">Your Build</div>
+    <div class="screen-title" style="margin-bottom:4px;">Financial Analyst</div>
+    <div style="font-family:var(--font-data); font-size:14px; color:var(--text-muted); margin-bottom:24px;">ISU Business Administration</div>
+    <div class="content-placeholder" style="text-align:center; padding:40px 32px;">
+      <div style="font-family:var(--font-display); font-size:18px; margin-bottom:16px; color:var(--accent-insight);">Gemma's Take</div>
+      <div class="mock-text"></div>
+      <div class="mock-text"></div>
+      <div class="mock-text med"></div>
+      <div class="mock-text short"></div>
+    </div>
+    <div style="width:200px; height:200px; margin:16px 0 24px; position:relative;">
+      <svg viewBox="0 0 200 200" style="width:100%; height:100%;">
+        <polygon points="100,20 180,75 155,165 45,165 20,75" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <polygon points="100,50 155,85 140,140 60,140 45,85" fill="rgba(125,212,163,0.1)" stroke="rgba(125,212,163,0.4)" stroke-width="2"/>
+        <circle cx="100" cy="50" r="4" fill="var(--stat-ern)"/>
+        <circle cx="155" cy="85" r="4" fill="var(--stat-roi)"/>
+        <circle cx="140" cy="140" r="4" fill="var(--stat-res)"/>
+        <circle cx="60" cy="140" r="4" fill="var(--stat-grw)"/>
+        <circle cx="45" cy="85" r="4" fill="var(--stat-hmn)"/>
+      </svg>
+    </div>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-bottom:24px;">
+      ${['ERN 7','ROI 6','RES 5','GRW 8','HMN 7'].map((s, i) => {
+        const colors = ['var(--stat-ern)','var(--stat-roi)','var(--stat-res)','var(--stat-grw)','var(--stat-hmn)'];
+        return `<span style="font-family:var(--font-data); font-size:13px; color:${colors[i]};">${s}</span>`;
+      }).join('')}
+    </div>
+    <button class="cta-btn">Fight the Bosses</button>
+  `;
+}
+
+function renderGauntlet() {
+  return `
+    <div class="gauntlet-pips">
+      <div class="pip win"></div>
+      <div class="pip win"></div>
+      <div class="pip lose"></div>
+      <div class="pip current"></div>
+      <div class="pip"></div>
+      <div class="pip-divider"></div>
+      <div class="pip final"></div>
+    </div>
+    <div class="boss-display">🔥</div>
+    <div class="boss-name">Fight Burnout</div>
+    <div class="boss-desc">Tests: O*NET work context -- hours, stress, schedule pressure</div>
+    <div class="content-placeholder" style="text-align:center;">
+      <div style="font-family:var(--font-display); font-size:20px; margin-bottom:16px;">Calculating...</div>
+      <div style="display:flex; justify-content:center; gap:24px;">
+        <span style="color:var(--stat-hmn); font-family:var(--font-data);">HMN: 7</span>
+        <span style="color:var(--stat-ern); font-family:var(--font-data);">ERN: 7</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderBranchTree() {
+  const branches = [
+    { label: 'Senior Analyst', x: 300, y: '25%' },
+    { label: 'Portfolio Manager', x: 500, y: '15%' },
+    { label: 'Quant Analyst', x: 480, y: '35%' },
+    { label: 'Finance Director', x: 350, y: '55%' },
+    { label: 'CFO', x: 560, y: '50%' },
+    { label: 'Strategy Director', x: 520, y: '65%' },
+    { label: 'Risk Manager', x: 320, y: '75%' },
+    { label: 'Compliance Officer', x: 500, y: '82%' },
+  ];
+  return `
+    <div class="tree-placeholder">
+      <div class="tree-root">
+        <div class="tree-root-glow"></div>
+        <div class="tree-root-emoji">${PROFILE.emoji}</div>
+        <div class="tree-root-label">Financial Analyst</div>
+      </div>
+      ${branches.map(b => `
+        <div class="branch-node" style="left:${b.x}px; top:${b.y}; transform:translateY(-50%);">${b.label}</div>
+      `).join('')}
+      <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+        ${branches.map(b => {
+          const startX = 130;
+          const endX = b.x;
+          const cy = 50;
+          return `<path d="M ${startX} 50% Q ${(startX+endX)/2} ${b.y}, ${endX} ${b.y}" stroke="rgba(125,212,163,0.15)" fill="none" stroke-width="1.5"/>`;
+        }).join('')}
+      </svg>
+    </div>
+  `;
+}
+
+function renderSaveShare() {
+  return `
+    <div class="screen-number">Save Your Build</div>
+    <div class="screen-title">Financial Analyst</div>
+    <div class="screen-subtitle">Name this build and share your story.</div>
+    <div class="content-placeholder">
+      <div class="label">Build Name</div>
+      <div class="mock-input" style="display:flex; align-items:center; padding:0 16px; color:var(--text-primary); font-size:14px; font-weight:600;">
+        Build #1: Financial Analyst
+      </div>
+      <button style="width:100%; margin-top:16px; background:var(--accent-thrive); color:var(--text-inverse); border:none; padding:12px; border-radius:var(--radius-lg); font-family:var(--font-display); font-size:16px; font-weight:600; cursor:pointer;">
+        Save Build
+      </button>
+    </div>
+    <div class="content-placeholder" style="text-align:center;">
+      <div class="label">Share Your Story</div>
+      <div style="width:120px; height:213px; background:var(--bg-deep); border:2px solid rgba(255,255,255,0.08); border-radius:12px; margin:16px auto; display:flex; align-items:center; justify-content:center; font-size:32px;">
+        ${PROFILE.emoji}
+      </div>
+      <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Wrapped preview</div>
+      <button style="background:transparent; border:1px solid var(--accent-info); color:var(--accent-info); padding:10px 24px; border-radius:var(--radius-full); font-family:var(--font-body); font-size:14px; font-weight:600; cursor:pointer;">
+        Download Frames
+      </button>
+    </div>
+    <button class="cta-btn">Go to Menu</button>
+  `;
+}
+
+function renderMenu() {
+  return `
+    <div style="margin-bottom:32px; text-align:center;">
+      <div style="font-size:40px; margin-bottom:8px;">${PROFILE.emoji}</div>
+      <div class="screen-title">${PROFILE.name}'s builds</div>
+      <div class="screen-subtitle" style="margin-bottom:0;">1 build saved. What's next?</div>
+    </div>
+    <div class="menu-grid">
+      <div class="menu-card">
+        <div class="card-icon">&#9878;</div>
+        <div class="card-title">Compare</div>
+        <div class="card-desc">Side-by-side risk tradeoffs between builds</div>
+      </div>
+      <div class="menu-card">
+        <div class="card-icon">&#127795;</div>
+        <div class="card-title">Branches</div>
+        <div class="card-desc">Explore career trees deeper</div>
+      </div>
+      <div class="menu-card">
+        <div class="card-icon">&#10024;</div>
+        <div class="card-title">Ask Gemma</div>
+        <div class="card-desc">Chat about your build with full context</div>
+      </div>
+      <div class="menu-card">
+        <div class="card-icon">&#128196;</div>
+        <div class="card-title">Report</div>
+        <div class="card-desc">Download a counselor-ready PDF</div>
+      </div>
+    </div>
+  `;
+}
+
+function updateAnnotations(s) {
+  const left = document.getElementById('annotLeft');
+  const center = document.getElementById('annotCenter');
+  const right = document.getElementById('annotRight');
+
+  left.textContent = s.annotations?.left || '';
+  center.textContent = s.annotations?.center || '';
+  right.textContent = s.annotations?.right || '';
+
+  if (showAnnotations && s.header) {
+    left.classList.toggle('visible', !!s.annotations?.left);
+    center.classList.toggle('visible', !!s.annotations?.center);
+    right.classList.toggle('visible', !!s.annotations?.right);
+  } else {
+    left.classList.remove('visible');
+    center.classList.remove('visible');
+    right.classList.remove('visible');
+  }
+}
+
+// Build screen selector
+const selectorEl = document.getElementById('screenSelector');
+SCREENS.forEach((s, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'screen-btn';
+  btn.textContent = s.label;
+  btn.addEventListener('click', () => setScreen(i));
+  selectorEl.appendChild(btn);
+});
+
+// Annotation toggle
+document.getElementById('annotToggle').addEventListener('click', () => {
+  showAnnotations = !showAnnotations;
+  document.getElementById('annotToggle').textContent = showAnnotations ? 'Hide Chrome Notes' : 'Show Chrome Notes';
+  updateAnnotations(SCREENS[currentScreen]);
+});
+
+// Back button navigates backward
+document.getElementById('backBtn').addEventListener('click', () => {
+  if (SCREENS[currentScreen].backMode === 'home') {
+    setScreen(9); // Menu
+  } else if (currentScreen > 0) {
+    setScreen(currentScreen - 1);
+  }
+});
+
+// Initialize
+setScreen(0);
+</script>
+</body>
+</html>

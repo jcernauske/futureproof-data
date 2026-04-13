@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutureProof — Screen 9: Save + Share</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-void: #12131F;
+    --bg-deep: #1B1D30;
+    --bg-mid: #232545;
+    --bg-surface: #2D3060;
+    --bg-raised: #3A3D75;
+    --accent-thrive: #7DD4A3;
+    --accent-alert: #F4A97E;
+    --accent-caution: #F2D477;
+    --accent-insight: #B8A9E8;
+    --accent-info: #7BB8E0;
+    --accent-empathy: #E88BA9;
+    --stat-ern: #F2D477;
+    --stat-roi: #7DD4A3;
+    --stat-res: #B8A9E8;
+    --stat-grw: #7BB8E0;
+    --stat-hmn: #E88BA9;
+    --text-primary: #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted: #8A8595;
+    --text-inverse: #1B1D30;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.1);
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-data: 'Space Mono', monospace;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+    --shadow-md: 0 4px 16px rgba(27,29,48,0.6);
+    --shadow-lg: 0 8px 32px rgba(27,29,48,0.7);
+  }
+
+  body {
+    background: var(--bg-deep);
+    min-height: 100vh;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  }
+
+  .profile-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    background: rgba(27,29,48,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .scenario-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    padding: 4px;
+    z-index: 200;
+    box-shadow: var(--shadow-lg);
+  }
+  .scenario-btn {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+  }
+  .scenario-btn.active { background: var(--bg-raised); color: var(--text-primary); }
+
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 68px 24px 120px;
+  }
+
+  /* === SAVE SECTION === */
+  .save-section {
+    margin-bottom: 40px;
+  }
+  .save-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .save-card {
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .save-emoji { font-size: 36px; }
+  .save-info { flex: 1; }
+  .save-build-name {
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    width: 100%;
+    outline: none;
+    padding: 0;
+    border-bottom: 1px dashed var(--border-default);
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+  .save-build-name:focus { border-bottom-color: var(--accent-info); }
+  .save-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .save-btn {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-inverse);
+    background: var(--accent-thrive);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    white-space: nowrap;
+  }
+  .save-btn:hover { transform: scale(1.03); box-shadow: 0 0 16px rgba(125,212,163,0.3); }
+  .save-btn.saved {
+    background: rgba(125,212,163,0.15);
+    color: var(--accent-thrive);
+  }
+
+  /* Saved builds list */
+  .saved-builds {
+    margin-top: 16px;
+  }
+  .saved-build-slot {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 200ms;
+  }
+  .saved-build-slot:hover { border-color: var(--accent-info); }
+  .slot-emoji { font-size: 20px; }
+  .slot-info { flex: 1; }
+  .slot-name { font-weight: 700; font-size: 14px; }
+  .slot-meta { font-size: 12px; color: var(--text-muted); }
+  .slot-date {
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* === WRAPPED SECTION === */
+  .wrapped-section {
+    text-align: center;
+  }
+  .wrapped-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .wrapped-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+
+  /* Phone frame */
+  .phone-frame {
+    width: 280px;
+    height: 498px; /* 9:16 ratio */
+    margin: 0 auto 20px;
+    background: var(--bg-void);
+    border-radius: 24px;
+    border: 2px solid var(--border-default);
+    overflow: hidden;
+    position: relative;
+    box-shadow: var(--shadow-lg), 0 0 40px rgba(0,0,0,0.3);
+  }
+  .phone-notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 20px;
+    background: var(--bg-void);
+    border-radius: 0 0 14px 14px;
+    z-index: 2;
+  }
+
+  /* Wrapped frames */
+  .wrapped-frame {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    transition: opacity 300ms ease-out;
+  }
+  .wrapped-frame.active { opacity: 1; }
+
+  /* Frame 1: Identity */
+  .frame-identity .frame-emoji { font-size: 64px; margin-bottom: 16px; }
+  .frame-identity .frame-name {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .frame-identity .frame-subtext {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.4;
+  }
+  .frame-identity .frame-brand {
+    position: absolute;
+    bottom: 24px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* Frame 2: Pentagon */
+  .frame-pentagon { padding: 32px 20px; }
+  .frame-pentagon .mini-profile {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .frame-chart-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .frame-chart-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+    width: 100%;
+  }
+  .frame-chart-toggle {
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    transition: all 200ms ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .frame-chart-toggle svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 200ms ease-out;
+  }
+  .frame-chart-toggle:hover svg { stroke: var(--text-primary); }
+  .frame-chart-toggle:hover { background: rgba(255,255,255,0.05); }
+  .frame-chart-view {
+    transition: opacity 200ms ease-out;
+  }
+  .frame-chart-view.hidden {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    top: 0; left: 0; right: 0;
+  }
+  .frame-bar-chart { padding: 8px 0; width: 180px; }
+  .frame-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .frame-bar-label {
+    font-family: var(--font-body);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    width: 60px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .frame-bar-track {
+    flex: 1;
+    height: 14px;
+    background: rgba(255,255,255,0.04);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+  .frame-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transform-origin: left center;
+    transform: scaleX(0);
+    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .frame-bar-fill.animate { transform: scaleX(1); }
+  .frame-bar-score {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    width: 18px;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* Frame 3: Scorecard */
+  .frame-scorecard { padding: 32px 20px; justify-content: flex-start; padding-top: 48px; }
+  .frame-scorecard .frame-headline {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  .boss-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 0;
+    font-size: 14px;
+  }
+  .boss-result-row .boss-left { display: flex; align-items: center; gap: 8px; }
+  .boss-result-badge {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+  }
+  .boss-result-badge.win { color: var(--accent-thrive); background: rgba(125,212,163,0.15); }
+  .boss-result-badge.lose { color: var(--accent-alert); background: rgba(244,169,126,0.15); }
+  .boss-result-badge.draw { color: var(--accent-caution); background: rgba(242,212,119,0.15); }
+
+  /* Frame 4: Comparative */
+  .frame-comparative { padding: 40px 24px; }
+  .frame-comparative .stat-highlight {
+    font-family: var(--font-data);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--stat-grw);
+    margin-bottom: 8px;
+  }
+  .frame-comparative .stat-context {
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* Frame 5: Risk */
+  .frame-risk { padding: 40px 24px; }
+  .frame-risk .risk-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .frame-risk .risk-boss {
+    font-size: 48px;
+    margin-bottom: 8px;
+  }
+  .frame-risk .risk-name {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent-alert);
+    margin-bottom: 8px;
+  }
+  .frame-risk .risk-reason {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* Frame 6: CTA */
+  .frame-cta { padding: 40px 24px; }
+  .frame-cta .cta-headline {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.3;
+    margin-bottom: 24px;
+  }
+  .frame-cta .cta-url {
+    font-family: var(--font-data);
+    font-size: 14px;
+    color: var(--accent-thrive);
+  }
+
+  /* Frame dots */
+  .frame-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .frame-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bg-raised);
+    cursor: pointer;
+    transition: all 200ms;
+  }
+  .frame-dot.active { background: var(--accent-thrive); transform: scale(1.3); }
+
+  /* Share buttons */
+  .share-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  .share-btn {
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    border: none;
+  }
+  .share-btn.primary {
+    color: var(--text-inverse);
+    background: var(--accent-thrive);
+  }
+  .share-btn.primary:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(125,212,163,0.3); }
+  .share-btn.secondary {
+    color: var(--accent-info);
+    background: transparent;
+    border: 1px solid var(--accent-info);
+  }
+  .share-btn.secondary:hover { background: rgba(123,184,224,0.08); }
+
+  /* Continue link */
+  .continue-link {
+    display: block;
+    text-align: center;
+    margin-top: 32px;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 200ms;
+  }
+  .continue-link:hover { color: var(--text-secondary); }
+
+  @media (max-width: 640px) {
+    .container { padding: 56px 16px 120px; }
+    .phone-frame { width: 240px; height: 427px; }
+    .save-card { flex-direction: column; text-align: center; }
+    .save-btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="profile-header">
+  <span>dancing happy bear</span>
+  <span>&#x1F43B;</span>
+</div>
+
+<div class="container" id="mainContent"></div>
+
+<div class="scenario-bar">
+  <button class="scenario-btn active" onclick="switchScenario('populated')">Populated</button>
+  <button class="scenario-btn" onclick="switchScenario('saved')">Saved</button>
+  <button class="scenario-btn" onclick="switchScenario('empty')">Empty</button>
+  <button class="scenario-btn" onclick="switchScenario('loading')">Loading</button>
+</div>
+
+<script>
+let currentFrame = 0;
+const TOTAL_FRAMES = 6;
+
+function switchScenario(scenario) {
+  document.querySelectorAll('.scenario-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === scenario);
+  });
+  const c = document.getElementById('mainContent');
+
+  switch(scenario) {
+    case 'populated': renderPopulated(c); break;
+    case 'saved': renderSaved(c); break;
+    case 'empty': renderEmpty(c); break;
+    case 'loading': renderLoading(c); break;
+  }
+}
+
+function renderPopulated(c) {
+  currentFrame = 0;
+  c.innerHTML = `
+    <div class="save-section">
+      <div class="save-title">Save Your Build</div>
+      <div class="save-card">
+        <div class="save-emoji">\u{1F4CA}</div>
+        <div class="save-info">
+          <input class="save-build-name" type="text" value="Build #1: Financial Analyst">
+          <div class="save-meta">ISU Business \u2022 April 12, 2026</div>
+        </div>
+        <button class="save-btn" id="saveBtn" onclick="handleSave()">Save</button>
+      </div>
+    </div>
+
+    <div class="wrapped-section">
+      <div class="wrapped-title">Your Wrapped Story</div>
+      <div class="wrapped-subtitle">Tap through your build story, then share it.</div>
+
+      <div class="phone-frame" onclick="nextFrame()">
+        <div class="phone-notch"></div>
+
+        <!-- Frame 1: Identity -->
+        <div class="wrapped-frame frame-identity active" data-frame="0">
+          <div class="frame-emoji">\u{1F43B}</div>
+          <div class="frame-name">dancing happy bear</div>
+          <div class="frame-subtext">just speced<br><strong>ISU Business</strong></div>
+          <div class="frame-brand">FUTUREPROOF</div>
+        </div>
+
+        <!-- Frame 2: Pentagon -->
+        <div class="wrapped-frame frame-pentagon" data-frame="1">
+          <div class="mini-profile">\u{1F43B} dancing happy bear</div>
+          <div class="frame-chart-wrap">
+            <div class="frame-chart-toolbar">
+              <button class="frame-chart-toggle" onclick="event.stopPropagation();toggleChart09()" title="Switch view" id="chartToggle09">
+                <svg viewBox="0 0 20 20" id="chartToggleIcon09">
+                  <rect x="2" y="12" width="3" height="6" rx="1"/>
+                  <rect x="7" y="6" width="3" height="12" rx="1"/>
+                  <rect x="12" y="9" width="3" height="9" rx="1"/>
+                  <rect x="15" y="3" width="3" height="15" rx="1"/>
+                </svg>
+              </button>
+            </div>
+            <div class="frame-chart-view" id="pentView09">
+              <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="180" height="180">
+                <defs>
+                  <radialGradient id="wg" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="rgba(125,212,163,0.05)"/>
+                    <stop offset="100%" stop-color="rgba(184,169,232,0.12)"/>
+                  </radialGradient>
+                </defs>
+                <polygon points="100,15 185,76 153,166 47,166 15,76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+                <polygon points="100,35 158,78 138,148 62,148 42,78" fill="url(#wg)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+                <circle cx="100" cy="35" r="4" fill="#F2D477"/>
+                <circle cx="158" cy="78" r="4" fill="#7DD4A3"/>
+                <circle cx="138" cy="148" r="4" fill="#B8A9E8"/>
+                <circle cx="62" cy="148" r="4" fill="#7BB8E0"/>
+                <circle cx="42" cy="78" r="4" fill="#E88BA9"/>
+                <text x="100" y="10" text-anchor="middle" fill="#F2D477" font-family="Space Mono" font-size="9" font-weight="700">7</text>
+                <text x="172" y="78" text-anchor="start" fill="#7DD4A3" font-family="Space Mono" font-size="9" font-weight="700">6</text>
+                <text x="148" y="162" text-anchor="start" fill="#B8A9E8" font-family="Space Mono" font-size="9" font-weight="700">5</text>
+                <text x="48" y="162" text-anchor="end" fill="#7BB8E0" font-family="Space Mono" font-size="9" font-weight="700">8</text>
+                <text x="28" y="78" text-anchor="end" fill="#E88BA9" font-family="Space Mono" font-size="9" font-weight="700">6</text>
+              </svg>
+            </div>
+            <div class="frame-chart-view hidden" id="barView09">
+              <div class="frame-bar-chart">
+                <div class="frame-bar-row"><div class="frame-bar-label" style="color:#F2D477">Earning Power</div><div class="frame-bar-track"><div class="frame-bar-fill" data-bar-index="0" style="width:70%;background:#F2D477;opacity:0.85;"></div></div><div class="frame-bar-score" style="color:#F2D477">7</div></div>
+                <div class="frame-bar-row"><div class="frame-bar-label" style="color:#7DD4A3">Return on Investment</div><div class="frame-bar-track"><div class="frame-bar-fill" data-bar-index="1" style="width:60%;background:#7DD4A3;opacity:0.85;"></div></div><div class="frame-bar-score" style="color:#7DD4A3">6</div></div>
+                <div class="frame-bar-row"><div class="frame-bar-label" style="color:#B8A9E8">AI Resilience</div><div class="frame-bar-track"><div class="frame-bar-fill" data-bar-index="2" style="width:50%;background:#B8A9E8;opacity:0.85;"></div></div><div class="frame-bar-score" style="color:#B8A9E8">5</div></div>
+                <div class="frame-bar-row"><div class="frame-bar-label" style="color:#7BB8E0">Growth</div><div class="frame-bar-track"><div class="frame-bar-fill" data-bar-index="3" style="width:80%;background:#7BB8E0;opacity:0.85;"></div></div><div class="frame-bar-score" style="color:#7BB8E0">8</div></div>
+                <div class="frame-bar-row"><div class="frame-bar-label" style="color:#E88BA9">Human Edge</div><div class="frame-bar-track"><div class="frame-bar-fill" data-bar-index="4" style="width:60%;background:#E88BA9;opacity:0.85;"></div></div><div class="frame-bar-score" style="color:#E88BA9">6</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Frame 3: Scorecard -->
+        <div class="wrapped-frame frame-scorecard" data-frame="2">
+          <div class="frame-headline">I fought five bosses</div>
+          <div class="boss-result-row"><div class="boss-left"><span>\u{1F916}</span><span>Fight AI</span></div><span class="boss-result-badge lose">LOSE</span></div>
+          <div class="boss-result-row"><div class="boss-left"><span>\u{1F4B0}</span><span>Fight Loans</span></div><span class="boss-result-badge win">WIN</span></div>
+          <div class="boss-result-row"><div class="boss-left"><span>\u{1F4C8}</span><span>Fight Market</span></div><span class="boss-result-badge win">WIN</span></div>
+          <div class="boss-result-row"><div class="boss-left"><span>\u{1F525}</span><span>Fight Burnout</span></div><span class="boss-result-badge draw">DRAW</span></div>
+          <div class="boss-result-row"><div class="boss-left"><span>\u{1F4CA}</span><span>Fight Ceiling</span></div><span class="boss-result-badge win">WIN</span></div>
+          <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);width:100%;">
+            <div class="boss-result-row"><div class="boss-left"><span>\u2694\uFE0F</span><strong>Fight the Future</strong></div><span class="boss-result-badge win">WIN</span></div>
+          </div>
+        </div>
+
+        <!-- Frame 4: Comparative -->
+        <div class="wrapped-frame frame-comparative" data-frame="3">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Your Growth stat</div>
+          <div class="stat-highlight">8</div>
+          <div class="stat-context">Higher than <strong style="color:var(--stat-grw);">72%</strong> of business paths.<br>This field is growing fast.</div>
+        </div>
+
+        <!-- Frame 5: Risk -->
+        <div class="wrapped-frame frame-risk" data-frame="4">
+          <div class="risk-label">Your biggest risk</div>
+          <div class="risk-boss">\u{1F916}</div>
+          <div class="risk-name">Fight AI</div>
+          <div class="risk-reason">Financial analysis has moderate AI exposure. The models can build the spreadsheets \u2014 but they still need someone asking the right questions.</div>
+        </div>
+
+        <!-- Frame 6: CTA -->
+        <div class="wrapped-frame frame-cta" data-frame="5">
+          <div style="font-size:40px;margin-bottom:16px;">\u2728</div>
+          <div class="cta-headline">See where<br>your path leads</div>
+          <div class="cta-url">futureproof.app</div>
+        </div>
+      </div>
+
+      <div class="frame-dots" id="frameDots">
+        ${Array(TOTAL_FRAMES).fill(0).map((_, i) => `<div class="frame-dot ${i===0?'active':''}" onclick="goToFrame(${i})"></div>`).join('')}
+      </div>
+
+      <div class="share-actions">
+        <button class="share-btn primary" onclick="alert('Download all frames as PNGs')">Download</button>
+        <button class="share-btn secondary" onclick="alert('Share via native share sheet')">Share</button>
+      </div>
+
+      <div class="continue-link" onclick="alert('Navigate to Screen 10: Menu')">
+        Continue to menu \u2192
+      </div>
+    </div>
+  `;
+}
+
+function renderSaved(c) {
+  renderPopulated(c);
+  // Simulate saved state
+  setTimeout(() => {
+    const btn = document.getElementById('saveBtn');
+    if (btn) {
+      btn.classList.add('saved');
+      btn.innerHTML = '\u2713 Saved';
+    }
+  }, 100);
+
+  // Add saved builds
+  setTimeout(() => {
+    const saveSection = c.querySelector('.save-section');
+    const buildsHTML = `
+      <div class="saved-builds">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Saved Builds</div>
+        <div class="saved-build-slot">
+          <span class="slot-emoji">\u{1F4CA}</span>
+          <div class="slot-info">
+            <div class="slot-name">Build #1: Financial Analyst</div>
+            <div class="slot-meta">ISU Business</div>
+          </div>
+          <span class="slot-date">Apr 12</span>
+        </div>
+        <div class="saved-build-slot">
+          <span class="slot-emoji">\u{1F4BB}</span>
+          <div class="slot-info">
+            <div class="slot-name">Build #2: Software Developer</div>
+            <div class="slot-meta">ISU Computer Science</div>
+          </div>
+          <span class="slot-date">Apr 11</span>
+        </div>
+      </div>
+    `;
+    saveSection.insertAdjacentHTML('beforeend', buildsHTML);
+  }, 100);
+}
+
+function renderEmpty(c) {
+  c.innerHTML = `
+    <div style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;">
+      <div style="font-size:64px;opacity:0.5;">\u{1F4BE}</div>
+      <div style="font-family:var(--font-display);font-size:24px;font-weight:600;">Nothing to save yet</div>
+      <div style="font-size:16px;color:var(--text-secondary);max-width:360px;">
+        Complete a build first \u2014 pick a school, choose a career, fight the bosses. Then come back to save and share.
+      </div>
+      <button class="share-btn secondary" style="margin-top:8px;" onclick="alert('Go to Screen 3')">Start a build</button>
+    </div>
+  `;
+}
+
+function renderLoading(c) {
+  c.innerHTML = `
+    <div style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;">
+      <div style="font-size:48px;animation:pulse-text 1.5s ease-in-out infinite;">\u{1F3AC}</div>
+      <div style="font-size:18px;font-weight:600;color:var(--text-secondary);animation:pulse-text 1.5s ease-in-out infinite;">
+        Rendering your Wrapped story...
+      </div>
+      <div style="width:280px;">
+        <div class="skeleton" style="height:498px;border-radius:24px;"></div>
+      </div>
+    </div>
+  `;
+}
+
+function nextFrame() {
+  currentFrame = (currentFrame + 1) % TOTAL_FRAMES;
+  updateFrame();
+}
+
+function goToFrame(idx) {
+  currentFrame = idx;
+  updateFrame();
+}
+
+function updateFrame() {
+  document.querySelectorAll('.wrapped-frame').forEach(f => {
+    f.classList.toggle('active', parseInt(f.dataset.frame) === currentFrame);
+  });
+  document.querySelectorAll('.frame-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === currentFrame);
+  });
+}
+
+function handleSave() {
+  const btn = document.getElementById('saveBtn');
+  btn.classList.add('saved');
+  btn.innerHTML = '\u2713 Saved';
+  setTimeout(() => {
+    btn.classList.remove('saved');
+    btn.innerHTML = 'Save';
+  }, 2000);
+}
+
+// Extra CSS for animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes pulse-text { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+  .skeleton { background: linear-gradient(90deg, var(--bg-mid) 25%, var(--bg-surface) 50%, var(--bg-mid) 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 10px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+`;
+document.head.appendChild(style);
+
+// === CHART TOGGLE (Screen 09) ===
+let chartMode09 = 'pentagon';
+
+function toggleChart09() {
+  const pentView = document.getElementById('pentView09');
+  const barView = document.getElementById('barView09');
+  const iconEl = document.getElementById('chartToggleIcon09');
+  if (!pentView || !barView) return;
+
+  if (chartMode09 === 'pentagon') {
+    chartMode09 = 'bar';
+    pentView.classList.add('hidden');
+    barView.classList.remove('hidden');
+    iconEl.outerHTML = `<svg viewBox="0 0 20 20" id="chartToggleIcon09"><polygon points="10,1 18.5,7.2 15.2,17 4.8,17 1.5,7.2" fill="none" stroke="inherit" stroke-width="1.5"/></svg>`;
+    setTimeout(() => {
+      barView.querySelectorAll('.frame-bar-fill').forEach((bar, i) => {
+        setTimeout(() => bar.classList.add('animate'), i * 60);
+      });
+    }, 50);
+  } else {
+    chartMode09 = 'pentagon';
+    barView.classList.add('hidden');
+    pentView.classList.remove('hidden');
+    iconEl.outerHTML = `<svg viewBox="0 0 20 20" id="chartToggleIcon09"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="7" y="6" width="3" height="12" rx="1"/><rect x="12" y="9" width="3" height="9" rx="1"/><rect x="15" y="3" width="3" height="15" rx="1"/></svg>`;
+    barView.querySelectorAll('.frame-bar-fill').forEach(bar => bar.classList.remove('animate'));
+  }
+}
+
+switchScenario('populated');
+</script>
+</body>
+</html>
