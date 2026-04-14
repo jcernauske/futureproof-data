@@ -802,4 +802,25 @@ All mockups live in `docs/mockups/`. Created by @fp-design-visionary. These are 
 
 -----
 
+---
+
+## Backlog
+
+### School Location Data in Search Dropdown
+
+**Priority:** Low — polish item, not blocking
+**Status:** BACKLOG
+
+Add city and state to each school search result so the dropdown shows the institution name on the left and "City, ST" on the right (e.g. "Indiana State University → Terre Haute, IN"). Matches the autocomplete dropdown spec in DESIGN.md.
+
+**Work required:**
+
+1. **Data:** Ingest the College Scorecard institution-level file (only `unitid`, `INSTNM`, `CITY`, `STABBR` needed). Lightweight reference table — not a full bronze→silver→gold pipeline. Store in `data/reference/` or as a simple DuckDB table the MCP server can join against. Source: `https://collegescorecard.ed.gov/data/` → "Most Recent Institution-Level Data" CSV.
+
+2. **Backend:** Add `city` and `state_abbr` fields to `SchoolMatch` model (`backend/app/models/career.py`). Update `search_schools()` in `school_lookup.py` to join location from the reference table.
+
+3. **Frontend:** Add `city` and `state_abbr` to `SchoolSearchResult` type (`frontend/src/types/buildInput.ts`). Update `SchoolSearch.tsx` dropdown rows to show city/state right-aligned in `font-data text-data-sm text-text-muted` per DESIGN.md autocomplete dropdown spec. Add 3px left border in `accent-thrive` on highlighted rows.
+
+---
+
 *— End of Hackathon PRD v8 —*
