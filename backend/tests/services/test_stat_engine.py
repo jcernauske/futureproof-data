@@ -82,7 +82,8 @@ class TestComputePentagon:
 
     def test_effort_all_in_bumps_ern_only(self, monkeypatch):
         """ROI is intentionally excluded from the effort shift — debt
-        load isn't something the student controls by studying harder."""
+        load isn't something the student controls by studying harder.
+        all_in now shifts ERN by +2 (base 8 → 10, clamped)."""
         _patch_mcp(
             monkeypatch,
             {"data": [_RAW_ROW], "substitution_applied": False},
@@ -94,7 +95,7 @@ class TestComputePentagon:
             effort="all_in",
         )
         career = outcomes[0]
-        assert career.stats.ern == 9
+        assert career.stats.ern == 10  # base 8 + 2, clamped to 10
         assert career.stats.roi == 6  # unchanged by effort
         assert career.stats.res == 4
         assert career.stats.grw == 6

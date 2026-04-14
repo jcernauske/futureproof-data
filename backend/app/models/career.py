@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-EffortLevel = Literal["working", "balanced", "all_in"]
+EffortLevel = Literal["working_hard", "working", "balanced", "focused", "all_in"]
 BossOutcome = Literal["win", "lose", "draw", "unknown"]
 BossId = Literal["ai", "loans", "market", "burnout", "ceiling"]
 

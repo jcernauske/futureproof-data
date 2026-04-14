@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
 import { springs } from "@/styles/motion";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { DiscreteSlider } from "@/components/ui/DiscreteSlider";
 import { StatBadge } from "@/components/ui/StatBadge";
+import type { SliderStop } from "@/components/ui/DiscreteSlider";
 import type { EffortSelection, LoanSelection } from "@/types/buildInput";
-import type { Segment } from "@/components/ui/SegmentedControl";
 
 interface EffortLoansPanelProps {
   effort: EffortSelection;
@@ -15,45 +15,34 @@ interface EffortLoansPanelProps {
   submitting: boolean;
 }
 
-const EFFORT_SEGMENTS: Segment<string>[] = [
-  {
-    value: "working",
-    label: "Working + school",
-    shortLabel: "Work",
-    subtext: "Limited time to focus",
-  },
-  {
-    value: "balanced",
-    label: "Balanced",
-    shortLabel: "Bal",
-    subtext: "Solid effort",
-  },
-  {
-    value: "all_in",
-    label: "All-in",
-    shortLabel: "All",
-    subtext: "Maximum focus",
-  },
+const EFFORT_STOPS: SliderStop<string>[] = [
+  { value: "working_hard", label: "Working two jobs" },
+  { value: "working", label: "Working + school" },
+  { value: "balanced", label: "Balanced" },
+  { value: "focused", label: "Strong focus" },
+  { value: "all_in", label: "All-in" },
 ];
 
 const EFFORT_MAP: Record<
   string,
-  { percentile: 25 | 50 | 75; ernShift: -1 | 0 | 1 }
+  { percentile: 10 | 25 | 50 | 75 | 90; ernShift: -2 | -1 | 0 | 1 | 2; desc: string }
 > = {
-  working: { percentile: 25, ernShift: -1 },
-  balanced: { percentile: 50, ernShift: 0 },
-  all_in: { percentile: 75, ernShift: 1 },
+  working_hard: { percentile: 10, ernShift: -2, desc: "Very limited focus" },
+  working: { percentile: 25, ernShift: -1, desc: "Limited focus" },
+  balanced: { percentile: 50, ernShift: 0, desc: "Balanced focus" },
+  focused: { percentile: 75, ernShift: 1, desc: "Strong academic focus" },
+  all_in: { percentile: 90, ernShift: 2, desc: "Maximum focus" },
 };
 
-const LOAN_SEGMENTS: Segment<number>[] = [
-  { value: 0, label: "No loans", shortLabel: "0%" },
-  { value: 25, label: "Some", shortLabel: "25%" },
-  { value: 50, label: "Half", shortLabel: "50%" },
-  { value: 75, label: "Mostly", shortLabel: "75%" },
-  { value: 100, label: "All loans", shortLabel: "100%" },
+const LOAN_STOPS: SliderStop<number>[] = [
+  { value: 0, label: "No loans" },
+  { value: 25, label: "Some" },
+  { value: 50, label: "Half" },
+  { value: 75, label: "Mostly" },
+  { value: 100, label: "All loans" },
 ];
 
-const LOAN_LABELS: Record<number, string> = {
+const LOAN_IMPACT: Record<number, string> = {
   0: "best case — no debt",
   25: "scales debt-to-earnings to 25%",
   50: "scales debt-to-earnings to 50%",
@@ -67,8 +56,8 @@ function ernShiftDisplay(shift: number): string {
 }
 
 function loanLabel(pct: number): string {
-  const seg = LOAN_SEGMENTS.find((s) => s.value === pct);
-  return seg?.label ?? "Half";
+  const stop = LOAN_STOPS.find((s) => s.value === pct);
+  return stop?.label ?? "Half";
 }
 
 export function EffortLoansPanel({
@@ -93,60 +82,85 @@ export function EffortLoansPanel({
     onLoanChange({ percentage: pct as LoanSelection["percentage"] });
   }
 
+  const effortInfo = EFFORT_MAP[effort.level] ?? EFFORT_MAP.balanced!;
+
   return (
     <motion.div
-      className="space-y-8"
+      className="space-y-5"
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={springs.smooth}
     >
       {/* Effort slider */}
-      <div>
-        <h2 className="font-display text-subheading font-semibold text-text-primary mb-1">
+      <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
+        <div className="font-display text-[22px] font-semibold text-text-primary text-center mb-8">
           How much time will you have to focus on school?
-        </h2>
-        <p className="text-sm text-text-muted mb-4">
-          This isn't about intelligence — it's about circumstances.
-        </p>
-        <SegmentedControl
-          segments={EFFORT_SEGMENTS}
+        </div>
+        <DiscreteSlider
+          stops={EFFORT_STOPS}
           value={effort.level}
           onChange={handleEffortChange}
+          labelLeft="Working to support myself"
+          labelRight="Full focus on school"
+          fillGradient="linear-gradient(90deg, var(--color-accent-info), var(--color-accent-thrive))"
           ariaLabel="Effort level"
         />
-        <p className="mt-2 text-sm">
-          <span className="text-stat-ern font-data">
-            ERN impact: {ernShiftDisplay(effort.ernShift)}
-          </span>
-        </p>
+        <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
+          {effortInfo!.desc}
+        </div>
+        <div className="flex justify-center gap-10 mt-6">
+          <div className="text-center">
+            <div className="text-[12px] text-text-muted mb-1">ERN</div>
+            <div
+              className="font-data font-bold text-[28px]"
+              style={{ color: "var(--color-stat-ern)" }}
+            >
+              {ernShiftDisplay(effort.ernShift)}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-[12px] text-text-muted mb-1">ROI</div>
+            <div
+              className="font-data font-bold text-[28px]"
+              style={{ color: "var(--color-stat-roi)" }}
+            >
+              —
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-[12px] text-text-muted mb-1">RES</div>
+            <div
+              className="font-data font-bold text-[28px]"
+              style={{ color: "var(--color-stat-res)" }}
+            >
+              —
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Loan slider */}
-      <div>
-        <h2 className="font-display text-subheading font-semibold text-text-primary mb-1">
-          How much of your school costs will you cover with loans?
-        </h2>
-        <p className="text-sm text-text-muted mb-4">
-          Scholarships, savings, family help — anything that isn't borrowed
-          money.
-        </p>
-        <SegmentedControl
-          segments={LOAN_SEGMENTS}
+      <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
+        <div className="font-display text-[22px] font-semibold text-text-primary text-center mb-8">
+          How much will you cover with loans?
+        </div>
+        <DiscreteSlider
+          stops={LOAN_STOPS}
           value={loans.percentage}
           onChange={handleLoanChange}
-          warningValues={[75, 100]}
+          labelLeft="No loans"
+          labelRight="All loans"
+          fillGradient="linear-gradient(90deg, var(--color-accent-thrive), var(--color-accent-alert))"
           ariaLabel="Loan percentage"
         />
-        <p className="mt-2 text-sm">
-          <span className="text-stat-roi font-data">
-            ROI impact: {LOAN_LABELS[loans.percentage]}
-          </span>
-        </p>
+        <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
+          {LOAN_IMPACT[loans.percentage]}
+        </div>
       </div>
 
       {/* Live stat preview */}
       <motion.div
-        className="bg-bp-raised rounded-md p-4 flex justify-center gap-8"
+        className="bg-bp-mid border border-border-subtle rounded-xl p-6 flex justify-center gap-8"
         layout
         transition={springs.snappy}
       >

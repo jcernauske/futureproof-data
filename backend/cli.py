@@ -69,9 +69,11 @@ from app.services import (  # noqa: E402
 console = Console()
 
 EFFORT_CHOICES: list[tuple[str, EffortLevel, str]] = [
+    ("Working two jobs — very limited focus (10th percentile)", "working_hard", "10th"),
     ("Working + school — limited focus (25th percentile)", "working", "25th"),
     ("Balanced — solid effort (50th percentile)", "balanced", "50th"),
-    ("All-in — maximum focus (75th percentile)", "all_in", "75th"),
+    ("Strong focus — academic priority (75th percentile)", "focused", "75th"),
+    ("All-in — maximum focus (90th percentile)", "all_in", "90th"),
 ]
 
 # How much of this program's debt the student expects to finance with

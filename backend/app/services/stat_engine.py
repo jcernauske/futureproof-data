@@ -33,9 +33,11 @@ logger = logging.getLogger(__name__)
 # school, not debt load. A student studying harder doesn't reduce the
 # tuition bill; ROI is set by the school's DTE and the loan_pct knob.
 EFFORT_SHIFT: dict[str, int] = {
+    "working_hard": -2,
     "working": -1,
     "balanced": 0,
-    "all_in": +1,
+    "focused": +1,
+    "all_in": +2,
 }
 
 

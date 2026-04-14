@@ -1,4 +1,4 @@
-export type EffortLevel = "working" | "balanced" | "all_in";
+export type EffortLevel = "working_hard" | "working" | "balanced" | "focused" | "all_in";
 
 export interface SchoolSelection {
   unitid: number;
@@ -16,8 +16,8 @@ export interface MajorSelection {
 
 export interface EffortSelection {
   level: EffortLevel;
-  percentile: 25 | 50 | 75;
-  ernShift: -1 | 0 | 1;
+  percentile: 10 | 25 | 50 | 75 | 90;
+  ernShift: -2 | -1 | 0 | 1 | 2;
 }
 
 export interface LoanSelection {

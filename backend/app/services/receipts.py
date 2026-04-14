@@ -37,9 +37,11 @@ def stats_receipt(
 ) -> list[str]:
     stats = career.stats
     effort_note = {
+        "working_hard": "−2 effort shift",
         "working": "−1 effort shift",
         "balanced": "no shift",
-        "all_in": "+1 effort shift",
+        "focused": "+1 effort shift",
+        "all_in": "+2 effort shift",
     }.get(effort, "")
 
     lines = []
