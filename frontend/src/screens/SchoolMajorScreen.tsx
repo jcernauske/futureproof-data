@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
@@ -31,20 +31,15 @@ export function SchoolMajorScreen() {
     setEffort,
     setLoans,
     clearSchool,
-    reset,
   } = useBuildInputStore();
 
-  const [submitting, setSubmitting] = useState(false);
+  const submitting = false;
 
   useEffect(() => {
     if (!profileName) navigate("/");
   }, [profileName, navigate]);
 
-  useEffect(() => {
-    return () => {
-      reset();
-    };
-  }, [reset]);
+
 
   async function handleSchoolSelect(selected: SchoolSelection) {
     setSchool(selected);
@@ -64,8 +59,7 @@ export function SchoolMajorScreen() {
 
   function handleSubmit() {
     if (!school || !major || !profileName) return;
-    setSubmitting(true);
-    navigate("/build", {
+    navigate("/career-pick", {
       state: {
         school,
         major,

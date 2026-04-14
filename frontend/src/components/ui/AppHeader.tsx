@@ -22,7 +22,7 @@ export function AppHeader() {
   const isLanding = location.pathname === "/";
   const isSchool = location.pathname === "/school";
   const isHub = location.pathname === "/menu";
-  const isPostReveal = ["/build", "/branches", "/save", "/menu"].some((p) =>
+  const isPostReveal = ["/build", "/reveal", "/bosses", "/branches", "/save", "/menu"].some((p) =>
     location.pathname.startsWith(p),
   );
 

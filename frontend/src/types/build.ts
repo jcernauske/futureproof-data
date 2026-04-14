@@ -1,0 +1,142 @@
+/**
+ * TypeScript types matching Pydantic models in backend/app/models/career.py.
+ * These are the API contract — shapes match what the backend returns verbatim.
+ */
+
+export interface PentagonStats {
+  ern: number | null;
+  roi: number | null;
+  res: number | null;
+  grw: number | null;
+  hmn: number | null;
+}
+
+export interface BossScores {
+  ai: number | null;
+  loans: number | null;
+  market: number | null;
+  burnout: number | null;
+  ceiling: number | null;
+}
+
+export interface CareerOutcome {
+  unitid: number;
+  institution_name: string;
+  cipcode: string;
+  program_name: string;
+  soc_code: string;
+  occupation_title: string;
+  soc_major_group_name: string | null;
+
+  median_annual_wage: number | null;
+  earnings_1yr_median: number | null;
+  earnings_1yr_p25: number | null;
+  earnings_1yr_p75: number | null;
+  debt_median: number | null;
+  debt_to_earnings_annual: number | null;
+  education_level_name: string | null;
+  growth_category: string | null;
+
+  stats: PentagonStats;
+  bosses: BossScores;
+
+  top_5_activities: Array<Record<string, unknown>>;
+  top_human_activities: Array<Record<string, unknown>>;
+  burnout_drivers: Array<Record<string, unknown>>;
+
+  stats_available_count: number | null;
+  overall_confidence: string | null;
+
+  substitution_applied: boolean;
+  reported_cipcode: string | null;
+  substituted_cipcode: string | null;
+  data_caveat: Record<string, unknown> | null;
+
+  loan_pct: number;
+}
+
+export interface TieredCareers {
+  common: CareerOutcome[];
+  less_common: CareerOutcome[];
+  stretch: CareerOutcome[];
+}
+
+export type BossOutcome = "win" | "lose" | "draw" | "unknown";
+export type BossId = "ai" | "loans" | "market" | "burnout" | "ceiling";
+
+export interface BossFightResult {
+  boss: BossId;
+  label: string;
+  result: BossOutcome;
+  raw_score: number | null;
+  threshold_win: number;
+  threshold_draw: number;
+  reason: string;
+  narrative: string;
+  rerolled: boolean;
+  reroll_count: number;
+  original_result: BossOutcome | null;
+  original_raw_score: number | null;
+}
+
+export interface GauntletResult {
+  fights: BossFightResult[];
+  wins: number;
+  losses: number;
+  draws: number;
+  unknown: number;
+  verdict: string;
+}
+
+export interface CareerBranch {
+  from_soc: string;
+  to_soc: string;
+  to_title: string;
+  delta_ern: number | null;
+  delta_roi: number | null;
+  delta_res: number | null;
+  delta_grw: number | null;
+  delta_hmn: number | null;
+  unlock: string | null;
+  relatedness: number | null;
+}
+
+export interface SkillRec {
+  title: string;
+  stat_impact: string;
+  rationale: string;
+}
+
+export interface AppliedSkill {
+  id: string;
+  title: string;
+  rationale: string;
+  targets: BossId[];
+  delta_ern: number;
+  delta_roi: number;
+  delta_res: number;
+  delta_grw: number;
+  delta_hmn: number;
+  delta_burnout_raw: number;
+  delta_ceiling_raw: number;
+}
+
+export interface Build {
+  build_id: string;
+  created_at: string;
+  school_name: string;
+  unitid: number;
+  major_text: string;
+  cipcode: string;
+  program_name: string;
+  effort: string;
+  loan_pct: number;
+  career: CareerOutcome;
+  gauntlet: GauntletResult;
+  branches: CareerBranch[];
+  skill_recs: SkillRec[];
+  guidance: string;
+  skills_crafted: AppliedSkill[];
+  skill_pool: AppliedSkill[];
+  next_steps: string;
+}

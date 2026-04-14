@@ -208,6 +208,9 @@ cd backend && python cli.py        # Interactive CLI harness
 | profile-service | App | COMPLETE |
 | cli-harness | App | READY |
 | feature-onboarding-screens | App | DRAFT |
+| screen-career-pick-reveal (F3) | App | IMPLEMENTATION |
+| unmock-f3-api (F3.1) | App | IMPLEMENTATION |
+| career-path-fallback (F3.2) | MCP | COMPLETE |
 | feature-project-scaffolding | App | COMPLETE |
 
 ---
