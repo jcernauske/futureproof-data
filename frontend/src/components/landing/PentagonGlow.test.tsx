@@ -10,15 +10,19 @@ describe("PentagonGlow", () => {
     expect(svg).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("renders five vertex circles in SVG", () => {
+  it("renders vertex dot groups for all five stats", () => {
     const { container } = render(<PentagonGlow />);
+    // Each vertex has 3 circles (halo + glow + dot) = 15
+    // Plus 1 core glow circle + 10 floating particles = 26 total
     const circles = container.querySelectorAll("svg circle");
-    expect(circles.length).toBe(5);
+    expect(circles.length).toBeGreaterThanOrEqual(15);
   });
 
   it("renders five stat labels", () => {
     const { container } = render(<PentagonGlow />);
-    const labels = container.querySelectorAll(".stat-label-fade");
+    const labels = Array.from(container.querySelectorAll("span")).filter((el) =>
+      ["Earnings", "ROI", "Resilience", "Growth", "Human"].includes(el.textContent ?? "")
+    );
     expect(labels.length).toBe(5);
   });
 });

@@ -102,7 +102,7 @@ export function SchoolSearch({
   if (selected) {
     return (
       <motion.div
-        className="flex items-center gap-2 bg-bp-surface rounded-bp-md px-4 py-3 border border-border-subtle"
+        className="flex items-center gap-2 bg-bp-surface rounded-md px-4 py-3 border border-border-subtle"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={springs.smooth}
@@ -131,8 +131,8 @@ export function SchoolSearch({
         onKeyDown={handleKeyDown}
         onFocus={() => results.length > 0 && setShowDropdown(true)}
         placeholder="Search for your school..."
-        className={`w-full bg-bp-surface text-text-primary font-body text-body px-4 py-3 rounded-bp-md border border-border-subtle focus:border-accent-insight focus:outline-none transition-colors duration-normal placeholder:text-text-muted ${
-          loading ? "animate-pulse border-accent-insight/50" : ""
+        className={`w-full bg-bp-deep text-text-primary font-body text-body px-4 py-3 h-14 rounded-lg border border-border focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-colors duration-normal placeholder:text-text-muted ${
+          loading ? "animate-pulse border-accent-info/50" : ""
         }`}
         aria-label="Search for your school"
         aria-expanded={showDropdown}
@@ -150,7 +150,7 @@ export function SchoolSearch({
             ref={dropdownRef}
             id="school-results"
             role="listbox"
-            className="absolute z-50 w-full mt-1 bg-bp-raised border border-border-subtle rounded-bp-md shadow-lg max-h-[320px] overflow-y-auto"
+            className="absolute z-50 w-full mt-1 bg-bp-mid border border-border rounded-lg shadow-lg max-h-[320px] overflow-y-auto overflow-hidden"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
@@ -162,15 +162,15 @@ export function SchoolSearch({
                 id={`school-result-${i}`}
                 role="option"
                 aria-selected={i === highlightIndex}
-                className={`px-4 py-3 cursor-pointer transition-colors duration-fast ${
+                className={`flex justify-between items-center px-[18px] py-3 cursor-pointer transition-[background] duration-fast border-b border-border-subtle last:border-b-0 ${
                   i === highlightIndex
-                    ? "bg-accent-insight/15 text-text-primary"
-                    : "text-text-secondary hover:bg-bp-surface"
+                    ? "bg-[rgba(125,212,163,0.1)] border-l-[3px] border-l-accent-thrive"
+                    : "hover:bg-bp-surface"
                 }`}
                 onClick={() => handleSelect(result)}
                 onMouseEnter={() => setHighlightIndex(i)}
               >
-                <span className="font-semibold text-text-primary">
+                <span className="font-semibold" style={{ fontSize: 15 }}>
                   {result.institution_name}
                 </span>
               </li>

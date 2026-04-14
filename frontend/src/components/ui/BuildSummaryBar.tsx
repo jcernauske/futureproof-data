@@ -12,7 +12,7 @@ export function BuildSummaryBar({
 }: BuildSummaryBarProps) {
   return (
     <motion.div
-      className="w-full bg-bp-mid rounded-bp-sm px-4 py-2.5 flex items-center gap-2 text-sm overflow-hidden"
+      className="w-full bg-bp-mid rounded-sm px-4 py-2.5 flex items-center gap-2 text-sm overflow-hidden"
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
       transition={springs.smooth}

@@ -43,7 +43,7 @@ export function SegmentedControl<T extends string | number>({
 
   return (
     <div
-      className="relative flex bg-bp-surface rounded-bp-md p-1 gap-1"
+      className="relative flex bg-bp-surface rounded-md p-1 gap-1"
       role="radiogroup"
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
@@ -60,7 +60,7 @@ export function SegmentedControl<T extends string | number>({
             role="radio"
             aria-checked={isSelected}
             tabIndex={isSelected ? 0 : -1}
-            className={`relative flex-1 flex flex-col items-center gap-0.5 py-2.5 px-2 rounded-bp-sm z-10 transition-colors duration-fast cursor-pointer ${
+            className={`relative flex-1 flex flex-col items-center gap-0.5 py-2.5 px-2 rounded-sm z-10 transition-colors duration-fast cursor-pointer ${
               isSelected
                 ? "text-text-primary font-semibold"
                 : "text-text-secondary"
@@ -69,7 +69,7 @@ export function SegmentedControl<T extends string | number>({
           >
             {isSelected && (
               <motion.div
-                className={`absolute inset-0 ${bg} rounded-bp-sm`}
+                className={`absolute inset-0 ${bg} rounded-sm`}
                 layoutId="segment-active"
                 transition={springs.snappy}
                 style={{ zIndex: -1 }}

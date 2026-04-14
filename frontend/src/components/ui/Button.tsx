@@ -2,7 +2,7 @@ import type { HTMLMotionProps } from "framer-motion";
 import { motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 
-type ButtonVariant = "primary" | "secondary";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "icon";
 
 interface ButtonProps extends HTMLMotionProps<"button"> {
   variant?: ButtonVariant;
@@ -11,9 +11,15 @@ interface ButtonProps extends HTMLMotionProps<"button"> {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-accent-thrive text-text-inverse font-bold text-cta px-10 py-4 hover:shadow-glow-thrive",
+    "bg-accent-thrive text-text-inverse font-bold text-cta h-12 px-[28px] hover:bg-[#6bc494] hover:shadow-glow-thrive",
   secondary:
-    "bg-bp-surface text-text-secondary font-body text-small px-5 py-3",
+    "bg-transparent text-accent-info border border-accent-info h-[44px] px-6 text-body-sm hover:bg-accent-info/10",
+  ghost:
+    "bg-transparent text-text-secondary h-10 px-4 text-small hover:text-text-primary hover:bg-white/5",
+  danger:
+    "bg-accent-alert/15 text-accent-alert h-[44px] px-6 text-body-sm hover:bg-accent-alert/25",
+  icon:
+    "bg-bp-surface text-text-primary w-10 h-10 !rounded-full text-body-lg !px-0 hover:bg-bp-raised",
 };
 
 export function Button({
@@ -30,7 +36,6 @@ export function Button({
         disabled || loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
       } ${className}`}
       disabled={disabled || loading}
-      whileHover={disabled || loading ? undefined : { scale: 1.02 }}
       whileTap={disabled || loading ? undefined : { scale: 0.97 }}
       transition={springs.snappy}
       {...props}

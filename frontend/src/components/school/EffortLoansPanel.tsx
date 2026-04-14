@@ -96,13 +96,13 @@ export function EffortLoansPanel({
   return (
     <motion.div
       className="space-y-8"
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      transition={springs.smooth}
     >
       {/* Effort slider */}
       <div>
-        <h2 className="font-display text-lg text-text-primary mb-1">
+        <h2 className="font-display text-subheading font-semibold text-text-primary mb-1">
           How much time will you have to focus on school?
         </h2>
         <p className="text-sm text-text-muted mb-4">
@@ -123,7 +123,7 @@ export function EffortLoansPanel({
 
       {/* Loan slider */}
       <div>
-        <h2 className="font-display text-lg text-text-primary mb-1">
+        <h2 className="font-display text-subheading font-semibold text-text-primary mb-1">
           How much of your school costs will you cover with loans?
         </h2>
         <p className="text-sm text-text-muted mb-4">
@@ -146,7 +146,7 @@ export function EffortLoansPanel({
 
       {/* Live stat preview */}
       <motion.div
-        className="bg-bp-raised rounded-bp-md p-4 flex justify-center gap-8"
+        className="bg-bp-raised rounded-md p-4 flex justify-center gap-8"
         layout
         transition={springs.snappy}
       >
@@ -169,9 +169,8 @@ export function EffortLoansPanel({
       <motion.button
         onClick={onSubmit}
         disabled={submitting}
-        className="w-full bg-accent-thrive text-text-primary font-display text-lg py-4 rounded-bp-md cursor-pointer hover:shadow-glow-thrive transition-shadow duration-normal disabled:opacity-60 disabled:cursor-not-allowed"
-        whileHover={submitting ? undefined : { scale: 1.01 }}
-        whileTap={submitting ? undefined : { scale: 0.98 }}
+        className="w-full bg-accent-thrive text-text-inverse font-body font-bold text-cta h-12 rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-60 disabled:cursor-not-allowed"
+        whileTap={submitting ? undefined : { scale: 0.97 }}
         transition={springs.snappy}
       >
         {submitting ? `Specing ${profileName}...` : "Spec my build →"}
