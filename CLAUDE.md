@@ -68,8 +68,8 @@ The data pipeline is built on [Brightsmith](https://github.com/jcernauske/bright
 | MCP Server | Python, exposes Gold-zone data as Gemma-callable tools |
 | Backend | Python 3.11+, FastAPI, Pydantic v2 |
 | LLM | Gemma 4 via Ollama (local) or OpenRouter (cloud) |
-| Web Frontend | React, Vite, TypeScript, Tailwind CSS, shadcn/ui |
-| Design | Dark-first "Cozy Quest" aesthetic (Animal Crossing × Stardew Valley) |
+| Web Frontend | React, Vite, TypeScript, Tailwind CSS, Framer Motion |
+| Design | Brightpath design system — dark-first, plush, cinematic (see DESIGN.md) |
 | Linting | ruff |
 | Testing | pytest (pipeline + backend), vitest (frontend) |
 
@@ -146,14 +146,7 @@ OPENROUTER_API_KEY=sk-or-v1-...   # only needed for openrouter backend
 
 ## Visual Design
 
-The design system is **Cozy Quest** — dark-first, plush/soft, cinematic.
-
-**Palette:**
-- Backgrounds: `#1B1D30`, `#232545`, `#2D3060`, `#3A3D75`
-- Accents: `#7DD4A3` (thrive), `#F4A97E` (alert), `#F2D477` (caution), `#B8A9E8` (insight), `#7BB8E0` (info), `#E88BA9` (empathy)
-- Text: `#F5F0E8`, `#C4BFB0`, `#8A8595`
-
-**Typography:** Display: Fredoka One / Nunito Black. Body: Nunito / Quicksand. Data: Space Mono.
+The design system is **Brightpath** — dark-first, plush/soft, cinematic. See `DESIGN.md` at the project root for the complete specification including all tokens, components, motion presets, and usage guidelines.
 
 ## Rules
 
@@ -240,11 +233,11 @@ When given a spec file to execute:
 | Step | Agent | Role |
 |------|-------|------|
 | Architecture Review | `@fp-architect` | System architecture: data flow, Brightsmith integration, Gemma function calling, API contracts |
-| Design Vision | `@fp-design-visionary` | Proposes the premium version of each screen. Owns Cozy Quest aesthetic. |
+| Design Vision | `@fp-design-visionary` | Proposes the premium version of each screen. Owns Brightpath aesthetic. |
 | Data Review | `@fp-data-reviewer` | Pipeline quality: ingestor output, CIP → SOC crosswalk, stat formulas, boss fight data |
 | Implementation | Claude Code (general) | Writes the code |
 | Testing | `@test-writer` | pytest (backend/pipeline) + vitest (frontend) |
-| Design Audit | `@design-builder` | Mechanical token/pattern compliance against Cozy Quest design system |
+| Design Audit | `@fp-design-auditor` | Mechanical token/pattern compliance against Brightpath design system (DESIGN.md) |
 | Code Review | `@faang-staff-engineer` | Security, performance, error handling, architecture |
 | Verification | `@fp-builder` | ruff + mypy + pytest + TypeScript + vitest + Vite build |
 

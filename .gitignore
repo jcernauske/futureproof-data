@@ -28,6 +28,11 @@ node_modules/
 .idea/
 *.swp
 
+# TypeScript build artifacts
+*.d.ts
+*.d.ts.map
+!src/**/*.d.ts
+
 # OS
 .DS_Store
 
