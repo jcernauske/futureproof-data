@@ -1,0 +1,2565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brightpath Design System v2 — Built from DESIGN.md</title>
+  <!-- DESIGN.md: Google Fonts import: Fredoka:wght@400;500;600;700, Nunito:wght@400;600;700;800, Space Mono:wght@400;700 -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ============================================================
+       DESIGN TOKENS — All values sourced from DESIGN.md
+       ============================================================ */
+    :root {
+      /* Backgrounds: Night-sky indigo, not black */
+      --bg-void: #12131F;
+      --bg-deep: #1B1D30;
+      --bg-mid: #232545;
+      --bg-surface: #2D3060;
+      --bg-raised: #3A3D75;
+
+      /* Accents: The stars in the night sky */
+      --accent-thrive: #7DD4A3;
+      --accent-alert: #F4A97E;
+      --accent-caution: #F2D477;
+      --accent-insight: #B8A9E8;
+      --accent-info: #7BB8E0;
+      --accent-empathy: #E88BA9;
+
+      /* Stat Colors: One per pentagon axis */
+      --stat-ern: #F2D477;
+      --stat-roi: #7DD4A3;
+      --stat-res: #B8A9E8;
+      --stat-grw: #7BB8E0;
+      --stat-hmn: #E88BA9;
+
+      /* Text: Warm white, never blue-white */
+      --text-primary: #F5F0E8;
+      --text-secondary: #C4BFB0;
+      --text-muted: #8A8595;
+      --text-inverse: #1B1D30;
+
+      /* Boss Colors */
+      --boss-ai: #B8A9E8;
+      --boss-loans: #F4A97E;
+      --boss-market: #7BB8E0;
+      --boss-burnout: #E88BA9;
+      --boss-ceiling: #C4BFB0;
+
+      /* Borders: Soft white at low opacity */
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-default: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.2);
+
+      /* Border Radii */
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --radius-full: 9999px;
+
+      /* Shadows: Layered glow, not box-shadow */
+      --shadow-sm: 0 2px 8px rgba(27, 29, 48, 0.5);
+      --shadow-md: 0 4px 16px rgba(27, 29, 48, 0.6);
+      --shadow-lg: 0 8px 32px rgba(27, 29, 48, 0.7);
+      --shadow-glow-thrive: 0 0 20px rgba(125, 212, 163, 0.3);
+      --shadow-glow-alert: 0 0 20px rgba(244, 169, 126, 0.3);
+      --shadow-glow-caution: 0 0 20px rgba(242, 212, 119, 0.3);
+      --shadow-glow-insight: 0 0 20px rgba(184, 169, 232, 0.3);
+      --shadow-glow-info: 0 0 20px rgba(123, 184, 224, 0.3);
+      --shadow-glow-empathy: 0 0 20px rgba(232, 139, 169, 0.3);
+
+      /* ==============================
+         PROPOSED TOKENS — From full-vision-report.md §5
+         Not yet in DESIGN.md. Rendered here for evaluation.
+         ============================== */
+
+      /* State Tokens (§5.2) */
+      --color-state-loading: rgba(184, 169, 232, 0.15);
+      --color-state-success: rgba(125, 212, 163, 0.15);
+      --color-state-error: rgba(244, 169, 126, 0.15);
+      --color-state-disabled: rgba(138, 133, 149, 0.3);
+      --color-state-active: rgba(125, 212, 163, 0.1);
+      --color-focus-ring: rgba(123, 184, 224, 0.4);
+
+      /* Result Tokens (§5.5) — semantic aliases for boss fight outcomes */
+      --color-result-win: #7DD4A3;
+      --color-result-lose: #F4A97E;
+      --color-result-draw: #F2D477;
+      --color-result-structural: #8A8595;
+
+      /* Reroll State Tokens (§5.5) */
+      --color-reroll-available: #B8A9E8;
+      --color-reroll-equipped: #7DD4A3;
+      --color-reroll-exhausted: #8A8595;
+
+      /* Overlay Tokens (§5.4) */
+      --overlay-backdrop: rgba(18, 19, 31, 0.85);
+      --overlay-blur: 8px;
+
+      /* Receipt Tokens (§5.3) */
+      --receipt-bg: #3A3D75;
+      --receipt-border: rgba(184, 169, 232, 0.2);
+      --receipt-radius: 14px;
+      --receipt-max-width: 360px;
+
+      /* Pentagon Size Tokens (§5.7) */
+      --pentagon-size-hero: 300px;
+      --pentagon-size-default: 200px;
+      --pentagon-size-mini: 120px;
+      --pentagon-size-micro: 80px;
+      --pentagon-glow-radius: 20px;
+    }
+
+    /* ============================================================
+       BODY — Surface Treatments from DESIGN.md
+       Background gradient, noise texture, font defaults
+       ============================================================ */
+    body {
+      background: var(--bg-void);
+      /* DESIGN.md: Background Gradient — layered radial gradients over void */
+      background-image:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(45, 48, 96, 0.5) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 50% at 80% 35%, rgba(58, 61, 117, 0.35) 0%, transparent 65%),
+        radial-gradient(ellipse 70% 40% at 50% 70%, rgba(35, 37, 69, 0.6) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 10% 90%, rgba(58, 61, 117, 0.25) 0%, transparent 55%),
+        linear-gradient(180deg, #12131F 0%, #1B1D30 30%, #181A2E 60%, #12131F 100%);
+      color: var(--text-primary);
+      /* DESIGN.md: Body/UI font is Nunito */
+      font-family: 'Nunito', sans-serif;
+      /* DESIGN.md: body line-height 1.5 */
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* DESIGN.md: Noise Texture — SVG noise at 2.5% opacity (pseudo-element) */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.025;
+      pointer-events: none;
+      z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    }
+
+    /* ============================================================
+       NAVIGATION — DESIGN.md: Navigation Bar
+       Fixed, frosted glass, backdrop-filter blur(12px)
+       ============================================================ */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      /* DESIGN.md: rgba(18, 19, 31, 0.92) */
+      background: rgba(18, 19, 31, 0.92);
+      /* DESIGN.md: backdrop-filter: blur(12px) */
+      backdrop-filter: blur(12px);
+      /* DESIGN.md: border-bottom 1px solid border-subtle */
+      border-bottom: 1px solid var(--border-subtle);
+      /* DESIGN.md: height 56px, padding 0 32px */
+      padding: 0 32px;
+    }
+    nav .nav-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 56px;
+      overflow-x: auto;
+    }
+    /* DESIGN.md: Nav links 13px, weight 600, text-muted, radius-full */
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+      /* DESIGN.md: transition normal = 200ms ease-out */
+      transition: all 200ms ease-out;
+    }
+    /* DESIGN.md: Active/hover: text-primary, bg-surface */
+    nav a:hover, nav a.active {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+    }
+
+    /* ============================================================
+       LAYOUT
+       ============================================================ */
+    .page { max-width: 1280px; margin: 0 auto; padding: 80px 32px 64px; }
+    section { margin-bottom: 80px; scroll-margin-top: 72px; }
+
+    /* DESIGN.md: Section Labels — font-data, 11px, weight 700, uppercase, letter-spacing 2px, accent-info */
+    .section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent-info);
+      margin-bottom: 8px;
+    }
+
+    /* DESIGN.md Typography: hero = Fredoka 700, 48px, line-height 1.1 */
+    h1 {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 48px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    /* DESIGN.md Typography: display = Fredoka 700, 36px, line-height 1.15 */
+    h2 {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 36px;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+    /* DESIGN.md Typography: heading = Fredoka 600, 28px, line-height 1.2 */
+    h3 {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 24px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    /* DESIGN.md Typography: body-lg = Nunito 400, 18px */
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 18px;
+      max-width: 640px;
+      margin-bottom: 32px;
+    }
+
+    /* ============================================================
+       HERO
+       ============================================================ */
+    .hero {
+      text-align: center;
+      padding: 100px 32px 80px;
+      position: relative;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      /* DESIGN.md: accent-thrive glow at 8% */
+      background: radial-gradient(circle, rgba(125, 212, 163, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero h1 { font-size: 64px; margin-bottom: 20px; }
+    /* DESIGN.md Typography: subheading = Nunito 700, 22px */
+    .hero .tagline {
+      font-family: 'Nunito', sans-serif;
+      font-size: 22px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    /* DESIGN.md: Pill pattern — accent at 15% bg, full accent text, radius-full */
+    .hero .badge {
+      display: inline-block;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-thrive);
+      background: rgba(125, 212, 163, 0.1);
+      border: 1px solid rgba(125, 212, 163, 0.2);
+      padding: 6px 16px;
+      border-radius: var(--radius-full);
+      letter-spacing: 1px;
+    }
+
+    /* ============================================================
+       COLOR PALETTE SWATCHES
+       ============================================================ */
+    .color-group { margin-bottom: 40px; }
+    .color-group h3 { margin-bottom: 16px; }
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .swatch {
+      /* DESIGN.md: radius-lg = 14px */
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      /* DESIGN.md: transition normal = 200ms */
+      transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+      cursor: default;
+    }
+    .swatch:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+    .swatch-color { height: 100px; }
+    .swatch-info {
+      padding: 12px 14px;
+      /* DESIGN.md: Card backgrounds = bg-mid */
+      background: var(--bg-mid);
+    }
+    /* DESIGN.md Typography: small = 14px Nunito */
+    .swatch-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+    /* DESIGN.md Typography: data-sm = Space Mono 13px */
+    .swatch-hex { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-muted); }
+    .swatch-role { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* ============================================================
+       TYPOGRAPHY SPECIMEN
+       ============================================================ */
+    .type-specimen {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      margin-bottom: 20px;
+    }
+    .type-sample {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .type-sample:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .type-meta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    /* DESIGN.md: micro = 12px Nunito 600, but these tags use Space Mono 11px */
+    .type-tag {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--accent-insight);
+      background: rgba(184, 169, 232, 0.1);
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-weight: 700;
+    }
+    .type-tag.font-display { color: var(--accent-thrive); background: rgba(125, 212, 163, 0.1); }
+    .type-tag.font-data { color: var(--accent-caution); background: rgba(242, 212, 119, 0.1); }
+
+    /* ============================================================
+       ELEVATION DEMO
+       ============================================================ */
+    .elevation-demo {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 20px;
+    }
+    .elevation-card {
+      aspect-ratio: 1;
+      border-radius: var(--radius-xl);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      border: 1px solid var(--border-subtle);
+      /* DESIGN.md: transition slow = 300ms */
+      transition: transform 300ms ease-out;
+    }
+    .elevation-card:hover { transform: translateY(-4px); }
+    .elevation-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+    .elevation-name {
+      /* DESIGN.md: Fredoka 600, body size */
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    /* ============================================================
+       BORDER RADII DEMO
+       ============================================================ */
+    .radii-grid {
+      display: flex;
+      gap: 24px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+    .radii-item { text-align: center; }
+    .radii-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      margin-bottom: 8px;
+    }
+    .radii-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .radii-value { font-size: 12px; color: var(--text-secondary); }
+
+    /* ============================================================
+       COMPONENTS — All specs from DESIGN.md Components section
+       ============================================================ */
+    .component-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    /* --- Buttons ---
+       DESIGN.md: All buttons: font-body, font-weight 700, rounded-lg, press scale(0.97) */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      border-radius: var(--radius-lg);
+      /* DESIGN.md: transition fast = 150ms */
+      transition: all 150ms ease-out;
+      position: relative;
+    }
+    /* DESIGN.md: press feedback scale(0.97) */
+    .btn:active { transform: scale(0.97); }
+
+    /* DESIGN.md: Primary — bg accent-thrive, text-inverse, height 48px, padding 0 28px */
+    .btn-primary {
+      background: var(--accent-thrive);
+      color: var(--text-inverse);
+      height: 48px;
+      padding: 0 28px;
+      font-size: 16px;
+    }
+    /* DESIGN.md: Primary hover — darken to #6bc494, add shadow-glow-thrive */
+    .btn-primary:hover { background: #6bc494; box-shadow: var(--shadow-glow-thrive); }
+
+    /* DESIGN.md: Secondary — transparent, accent-info border, height 44px, padding 0 24px */
+    .btn-secondary {
+      background: transparent;
+      color: var(--accent-info);
+      border: 1px solid var(--accent-info);
+      height: 44px;
+      padding: 0 24px;
+      font-size: 15px;
+    }
+    /* DESIGN.md: Secondary hover — rgba(123, 184, 224, 0.1) background */
+    .btn-secondary:hover { background: rgba(123, 184, 224, 0.1); }
+
+    /* DESIGN.md: Ghost — transparent, text-secondary, height 40px, padding 0 16px */
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      height: 40px;
+      padding: 0 16px;
+      font-size: 14px;
+    }
+    /* DESIGN.md: Ghost hover — text-primary, rgba(255,255,255,0.05) bg */
+    .btn-ghost:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.05); }
+
+    /* DESIGN.md: Danger — accent-alert at 15% opacity, accent-alert text, height 44px */
+    .btn-danger {
+      background: rgba(244, 169, 126, 0.15);
+      color: var(--accent-alert);
+      height: 44px;
+      padding: 0 24px;
+      font-size: 15px;
+    }
+    /* DESIGN.md: Danger hover — opacity increases to 25% */
+    .btn-danger:hover { background: rgba(244, 169, 126, 0.25); }
+
+    /* DESIGN.md: Icon — bg-surface, text-primary, 40px, circular (radius-full) */
+    .btn-icon {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-full);
+      font-size: 18px;
+      padding: 0;
+    }
+    /* DESIGN.md: Icon hover — bg-raised */
+    .btn-icon:hover { background: var(--bg-raised); }
+
+    /* --- Cards ---
+       DESIGN.md: Base Card — bg-mid, border-subtle, radius-xl, padding 24px, shadow-md */
+    .card {
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      box-shadow: var(--shadow-md);
+      /* DESIGN.md: transition normal = 200ms */
+      transition: all 200ms ease-out;
+    }
+    /* DESIGN.md: Card hover — bg-surface, border-default, shadow-lg, translateY(-2px) */
+    .card:hover {
+      background: var(--bg-surface);
+      border-color: var(--border-default);
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+    /* DESIGN.md: Card selected — rgba(125, 212, 163, 0.4) border, thrive glow */
+    .card-selected {
+      border-color: rgba(125, 212, 163, 0.4);
+      box-shadow: 0 0 20px rgba(125, 212, 163, 0.15);
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    /* DESIGN.md: Card label — font-data, 11px, text-muted, uppercase, letter-spacing 1px */
+    .card-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    /* DESIGN.md: Card title — font-display, weight 600, 20px */
+    .card-title {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 20px;
+      margin-bottom: 6px;
+    }
+    /* DESIGN.md: Card description — font-body, 14px, text-secondary */
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    /* DESIGN.md: Card stat value — font-data, weight 700, 24px */
+    .card-stat {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 24px;
+    }
+
+    /* --- Inputs ---
+       DESIGN.md: bg-deep, border-default, radius-md, padding 12px 16px, Nunito 16px, height 48px */
+    .input-demo { max-width: 480px; }
+    .input {
+      width: 100%;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 16px;
+      color: var(--text-primary);
+      height: 48px;
+      outline: none;
+      /* DESIGN.md: transition normal = 200ms */
+      transition: all 200ms ease-out;
+    }
+    .input::placeholder { color: var(--text-muted); }
+    /* DESIGN.md: Focus — border accent-info, box-shadow 0 0 0 3px rgba(123, 184, 224, 0.15) */
+    .input:focus {
+      border-color: var(--accent-info);
+      box-shadow: 0 0 0 3px rgba(123, 184, 224, 0.15);
+    }
+    /* DESIGN.md: Large variant — height 56px, font-size 18px, radius-lg */
+    .input-large {
+      height: 56px;
+      font-size: 18px;
+      border-radius: var(--radius-lg);
+    }
+    .input-group { margin-bottom: 16px; }
+    /* DESIGN.md: Input label — 14px, weight 600, text-secondary, margin-bottom 6px */
+    .input-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    /* --- Pills / Badges ---
+       DESIGN.md: inline-flex, gap 6px, 13px, weight 600, padding 5px 14px, radius-full
+       Pattern: accent at 15% opacity bg, full accent text */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 5px 14px;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+    }
+    .pill-thrive { background: rgba(125, 212, 163, 0.15); color: var(--accent-thrive); }
+    .pill-alert { background: rgba(244, 169, 126, 0.15); color: var(--accent-alert); }
+    .pill-caution { background: rgba(242, 212, 119, 0.15); color: var(--accent-caution); }
+    .pill-insight { background: rgba(184, 169, 232, 0.15); color: var(--accent-insight); }
+    .pill-info { background: rgba(123, 184, 224, 0.15); color: var(--accent-info); }
+    .pill-empathy { background: rgba(232, 139, 169, 0.15); color: var(--accent-empathy); }
+
+    /* ============================================================
+       STAT PENTAGON
+       DESIGN.md: Grid 4 concentric pentagons, axes 5 lines, filled polygon
+       with radial gradient, vertex dots 5px + 10px glow
+       ============================================================ */
+    .pentagon-section {
+      display: flex;
+      gap: 48px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .pentagon-chart { flex-shrink: 0; }
+    .pentagon-legend { flex: 1; min-width: 240px; }
+    /* DESIGN.md: Legend row — stat dot 12px, abbreviation font-data 12px text-muted,
+       name font-display 15px, value font-data 18px stat color */
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: var(--radius-full);
+      flex-shrink: 0;
+    }
+    .stat-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      flex: 1;
+    }
+    .stat-abbr {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      width: 32px;
+    }
+    .stat-value {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    /* ============================================================
+       BOSS FIGHT CARDS
+       DESIGN.md: bg-mid, border-subtle, radius-xl, padding 24px 20px,
+       radial gradient overlay at 8% opacity, icon 56px circle at 15% opacity bg
+       ============================================================ */
+    .boss-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .boss-card {
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 24px 20px;
+      text-align: center;
+      transition: all 200ms ease-out;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+    .boss-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-xl);
+      opacity: 0;
+      transition: opacity 300ms ease-out;
+    }
+    .boss-card:hover::before { opacity: 1; }
+    /* DESIGN.md: Boss card hover — translateY(-3px), border-default */
+    .boss-card:hover { transform: translateY(-3px); border-color: var(--border-default); }
+    .boss-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 12px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      position: relative;
+      z-index: 1;
+    }
+    /* DESIGN.md: Boss name — font-display weight 600, 16px */
+    .boss-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+    /* DESIGN.md: Boss desc — 12px, text-muted */
+    .boss-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ============================================================
+       EFFORT SLIDER
+       DESIGN.md: Track 6px, bg-deep, radius-full. Fill gradient info->thrive.
+       Thumb 28px circle, bg-raised, 3px text-primary border, shadow-glow-info.
+       ============================================================ */
+    .slider-container {
+      max-width: 560px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    /* DESIGN.md: Question — font-display weight 600, 22px (subheading) */
+    .slider-question {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 22px;
+      margin-bottom: 32px;
+    }
+    .slider-track {
+      position: relative;
+      height: 6px;
+      background: var(--bg-deep);
+      border-radius: var(--radius-full);
+      margin: 0 12px 12px;
+    }
+    /* DESIGN.md: Fill — linear gradient from accent-info to accent-thrive */
+    .slider-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: linear-gradient(90deg, var(--accent-info), var(--accent-thrive));
+      transition: width 100ms ease-out;
+    }
+    /* DESIGN.md: Thumb — 28px, bg-raised, 3px text-primary border, shadow-glow-info */
+    .slider-thumb {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 28px;
+      height: 28px;
+      background: var(--bg-raised);
+      border: 3px solid var(--text-primary);
+      border-radius: var(--radius-full);
+      cursor: grab;
+      box-shadow: var(--shadow-glow-info);
+      transition: box-shadow 200ms ease-out;
+      z-index: 2;
+    }
+    /* DESIGN.md: Thumb hover — shadow-glow-thrive */
+    .slider-thumb:hover { box-shadow: var(--shadow-glow-thrive); }
+    /* DESIGN.md: Labels — 13px, text-muted */
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 0 12px;
+    }
+    /* DESIGN.md: Current value — font-data, 14px, weight 700, accent-thrive */
+    .slider-current {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-thrive);
+      margin-top: 20px;
+    }
+    .slider-stats-preview {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 24px;
+    }
+    .slider-stat { text-align: center; }
+    .slider-stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+    /* DESIGN.md: Stats preview — font-data weight 700, 28px, stat colors */
+    .slider-stat-value {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 28px;
+    }
+
+    /* ============================================================
+       BRANCH TREE
+       DESIGN.md: bg-void container, border-subtle, radius-xl, padding 48px
+       Root glow: accent-thrive at 10% radial gradient
+       ============================================================ */
+    .tree-container {
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 48px;
+      position: relative;
+      overflow: hidden;
+      min-height: 400px;
+    }
+    .tree-container::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 80px;
+      transform: translateY(-50%);
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(125, 212, 163, 0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .tree-svg { width: 100%; height: 350px; }
+
+    /* ============================================================
+       MOTION DEMO
+       DESIGN.md: Spring configs — bouncy(300/20), smooth(200/25), gentle(150/30), snappy(400/25)
+       ============================================================ */
+    .motion-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+    .motion-card {
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 200ms ease-out;
+    }
+    .motion-card:hover { border-color: var(--border-default); }
+    .motion-ball {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-full);
+      margin: 0 auto 16px;
+    }
+    .motion-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .motion-desc { font-size: 12px; color: var(--text-muted); }
+    .motion-config {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--accent-insight);
+      margin-top: 8px;
+    }
+
+    /* ============================================================
+       CHARACTER SELECT
+       DESIGN.md: bg-mid, 2px transparent border, radius-xl, padding 20px 16px,
+       min-width 140px. Selected: border accent-thrive, glow, scale(1.08).
+       Hover: bg-surface, scale(1.05).
+       ============================================================ */
+    .character-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 16px;
+    }
+    .character-card {
+      background: var(--bg-mid);
+      border: 2px solid transparent;
+      border-radius: var(--radius-xl);
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 200ms ease-out;
+    }
+    .character-card:hover {
+      background: var(--bg-surface);
+      transform: scale(1.05);
+    }
+    .character-card.selected {
+      border-color: var(--accent-thrive);
+      box-shadow: 0 0 24px rgba(125, 212, 163, 0.2);
+      transform: scale(1.08);
+    }
+    .character-emoji { font-size: 48px; margin-bottom: 8px; display: block; }
+    .character-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .character-vibe { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ============================================================
+       SCREEN FLOW
+       DESIGN.md: Emotional Framework — 8 screens with target emotions
+       ============================================================ */
+    .screen-flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .screen-card {
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 20px;
+      transition: all 200ms ease-out;
+      cursor: default;
+    }
+    .screen-card:hover {
+      background: var(--bg-surface);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+    .screen-number {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .screen-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 17px;
+      margin-bottom: 6px;
+    }
+    .screen-emotion {
+      font-size: 13px;
+      color: var(--accent-thrive);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .screen-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ============================================================
+       SAVE SLOTS
+       DESIGN.md: horizontal layout, bg-mid, border-subtle, radius-lg,
+       padding 16px 20px, flex, gap 16px. Hover: bg-surface, translateX(4px).
+       ============================================================ */
+    .save-slot {
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 200ms ease-out;
+      cursor: pointer;
+    }
+    .save-slot:hover {
+      background: var(--bg-surface);
+      transform: translateX(4px);
+    }
+    .save-slot-avatar { font-size: 36px; flex-shrink: 0; }
+    .save-slot-info { flex: 1; }
+    .save-slot-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .save-slot-meta { font-size: 13px; color: var(--text-secondary); }
+    /* DESIGN.md: Save slot date — font-data, 11px, text-muted */
+    .save-slot-date {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* ============================================================
+       RESPONSIVE — DESIGN.md: tablet breakpoint = 768px
+       ============================================================ */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 40px; }
+      .elevation-demo { grid-template-columns: repeat(3, 1fr); }
+      .motion-grid { grid-template-columns: repeat(2, 1fr); }
+      .screen-flow { grid-template-columns: repeat(2, 1fr); }
+      .pentagon-section { flex-direction: column; }
+    }
+
+    /* ============================================================
+       ANIMATIONS
+       DESIGN.md: CSS Keyframe Animations section + Motion System
+       ============================================================ */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes glowPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.7; }
+    }
+    @keyframes drawLine {
+      from { stroke-dashoffset: 1000; }
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes particleDrift {
+      0% { offset-distance: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { offset-distance: 100%; opacity: 0; }
+    }
+    @keyframes countUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes springBounce {
+      0% { transform: scale(0.8); }
+      40% { transform: scale(1.08); }
+      70% { transform: scale(0.97); }
+      100% { transform: scale(1); }
+    }
+    .animate-in {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    .animate-in.visible {
+      animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* ============================================================
+       PROPOSED TOKEN DEMOS — visual evaluation sections
+       ============================================================ */
+
+    /* State tokens demo */
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .state-card {
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      text-align: center;
+      border: 1px solid var(--border-subtle);
+    }
+    .state-card-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .state-card-token {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+    }
+    .state-card-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+      margin-top: 4px;
+    }
+
+    /* Focus ring demo */
+    .focus-ring-demo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 200px;
+      height: 48px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      font-family: 'Nunito', sans-serif;
+      font-size: 16px;
+      color: var(--text-primary);
+      box-shadow: 0 0 0 3px var(--color-focus-ring);
+    }
+
+    /* Result tokens demo */
+    .result-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .result-row:last-child { border-bottom: none; }
+    .result-indicator {
+      width: 80px;
+      height: 32px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .result-boss-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      flex: 1;
+    }
+    .result-token {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Reroll demo */
+    .reroll-grid {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .reroll-skill {
+      background: var(--bg-mid);
+      border: 2px solid transparent;
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 200ms ease-out;
+      min-width: 200px;
+    }
+    .reroll-skill-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .reroll-skill-delta {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+    }
+    .reroll-skill-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 8px;
+    }
+
+    /* Receipt demo */
+    .receipt-demo {
+      background: var(--receipt-bg);
+      border: 1px solid var(--receipt-border);
+      border-radius: var(--receipt-radius);
+      max-width: var(--receipt-max-width);
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+    }
+    .receipt-title {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+    .receipt-score {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+    .receipt-section-label {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 6px;
+      margin-top: 16px;
+    }
+    .receipt-data {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .receipt-footer {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* Overlay demo */
+    .overlay-demo {
+      position: relative;
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      height: 280px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay-backdrop {
+      position: absolute;
+      inset: 0;
+      background: var(--overlay-backdrop);
+      backdrop-filter: blur(var(--overlay-blur));
+      z-index: 1;
+    }
+    .overlay-content {
+      position: relative;
+      z-index: 2;
+      background: var(--bg-mid);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+    }
+    .overlay-behind {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 40px;
+      z-index: 0;
+    }
+
+    /* Application Header demo */
+    .header-demo-container {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .header-demo {
+      position: relative;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+    }
+    .header-demo-bar {
+      height: 56px;
+      background: rgba(18, 19, 31, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      z-index: 2;
+      position: relative;
+    }
+    .header-demo-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .header-demo-wordmark {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--accent-thrive);
+      white-space: nowrap;
+    }
+    .header-demo-center {
+      flex: 1;
+      text-align: center;
+      font-family: 'Nunito', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .header-demo-right {
+      width: 100px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+    .header-demo-content {
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .header-demo-back {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      transition: all 200ms ease-out;
+      line-height: 1;
+    }
+    .header-demo-back:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+    }
+    .header-demo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-info);
+      border: none;
+      background: transparent;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: all 200ms ease-out;
+    }
+    .header-demo-pill:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+    }
+    .header-demo-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 8px;
+    }
+    .header-demo-bar--dimmed {
+      background: rgba(18, 19, 31, 0.6);
+      border-bottom-color: rgba(255, 255, 255, 0.02);
+    }
+    .header-demo-bar--dimmed .header-demo-center,
+    .header-demo-bar--dimmed .header-demo-back {
+      opacity: 0.4;
+    }
+
+    /* Pentagon sizes demo */
+    .pentagon-sizes {
+      display: flex;
+      gap: 40px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+    .pentagon-size-item {
+      text-align: center;
+    }
+    .pentagon-size-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-full);
+      margin: 0 auto 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .pentagon-size-box::after {
+      content: '⬠';
+      color: var(--accent-thrive);
+      opacity: 0.4;
+    }
+    .pentagon-size-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .pentagon-size-value {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .pentagon-size-usage {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      max-width: 120px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav>
+  <div class="nav-inner">
+    <a href="#hero" class="active" style="font-family: 'Fredoka', sans-serif; font-weight: 700; color: var(--accent-thrive);">Brightpath</a>
+    <a href="#colors">Colors</a>
+    <a href="#typography">Typography</a>
+    <a href="#elevation">Elevation</a>
+    <a href="#radii">Radii</a>
+    <a href="#components">Components</a>
+    <a href="#header">Header</a>
+    <a href="#pentagon">Stats</a>
+    <a href="#slider">Slider</a>
+    <a href="#characters">Characters</a>
+    <a href="#bosses">Bosses</a>
+    <a href="#tree">Branch Tree</a>
+    <a href="#motion">Motion</a>
+    <a href="#screens">Screens</a>
+    <a href="#saves">Save Slots</a>
+    <a href="#states" style="color: var(--accent-caution);">States*</a>
+    <a href="#results" style="color: var(--accent-caution);">Results*</a>
+    <a href="#reroll" style="color: var(--accent-caution);">Reroll*</a>
+    <a href="#receipts" style="color: var(--accent-caution);">Receipts*</a>
+    <a href="#overlays" style="color: var(--accent-caution);">Overlays*</a>
+    <a href="#pentagon-sizes" style="color: var(--accent-caution);">Sizes*</a>
+    <a href="#durations" style="color: var(--accent-caution);">Durations*</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- ===== HERO ===== -->
+  <section id="hero" class="hero">
+    <div class="badge">DESIGN SYSTEM v2 — BUILT FROM DESIGN.MD</div>
+    <h1 style="margin-top: 20px;">Brightpath</h1>
+    <p class="tagline">A college degree isn't a destination. It's a starting position. Brightpath lights the way forward.</p>
+    <p style="color: var(--text-muted); font-size: 14px;">Cinematic dark. Plush materiality. Progressive illumination.</p>
+  </section>
+
+  <!-- ===== COLORS ===== -->
+  <section id="colors" class="animate-in">
+    <div class="section-label">Palette</div>
+    <h2>Colors</h2>
+    <p class="subtitle">Night-sky indigo backgrounds. Stars of accent color. Warm white light.</p>
+
+    <!-- DESIGN.md: Backgrounds — 5 tokens -->
+    <div class="color-group">
+      <h3>Backgrounds</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background: #12131F;"></div><div class="swatch-info"><div class="swatch-name">Void</div><div class="swatch-hex">#12131F</div><div class="swatch-role">Deepest canvas</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #1B1D30;"></div><div class="swatch-info"><div class="swatch-name">Deep</div><div class="swatch-hex">#1B1D30</div><div class="swatch-role">Page background</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #232545;"></div><div class="swatch-info"><div class="swatch-name">Mid</div><div class="swatch-hex">#232545</div><div class="swatch-role">Card background</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #2D3060;"></div><div class="swatch-info"><div class="swatch-name">Surface</div><div class="swatch-hex">#2D3060</div><div class="swatch-role">Interactive surface</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #3A3D75;"></div><div class="swatch-info"><div class="swatch-name">Raised</div><div class="swatch-hex">#3A3D75</div><div class="swatch-role">Tooltips, popovers</div></div></div>
+      </div>
+    </div>
+
+    <!-- DESIGN.md: Accents — 6 tokens -->
+    <div class="color-group">
+      <h3>Accents</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background: #7DD4A3;"></div><div class="swatch-info"><div class="swatch-name">Thrive</div><div class="swatch-hex">#7DD4A3</div><div class="swatch-role">Growth, wins, CTAs</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #F4A97E;"></div><div class="swatch-info"><div class="swatch-name">Alert</div><div class="swatch-hex">#F4A97E</div><div class="swatch-role">Warning, losses</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #F2D477;"></div><div class="swatch-info"><div class="swatch-name">Caution</div><div class="swatch-hex">#F2D477</div><div class="swatch-role">Draw states, attention</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #B8A9E8;"></div><div class="swatch-info"><div class="swatch-name">Insight</div><div class="swatch-hex">#B8A9E8</div><div class="swatch-role">AI, analysis, data</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #7BB8E0;"></div><div class="swatch-info"><div class="swatch-name">Info</div><div class="swatch-hex">#7BB8E0</div><div class="swatch-role">Navigation, links</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #E88BA9;"></div><div class="swatch-info"><div class="swatch-name">Empathy</div><div class="swatch-hex">#E88BA9</div><div class="swatch-role">Human connection</div></div></div>
+      </div>
+    </div>
+
+    <!-- DESIGN.md: Stat Colors — 5 tokens -->
+    <div class="color-group">
+      <h3>Stat Colors</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background: #F2D477;"></div><div class="swatch-info"><div class="swatch-name">ERN</div><div class="swatch-hex">#F2D477</div><div class="swatch-role">Earning Power</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #7DD4A3;"></div><div class="swatch-info"><div class="swatch-name">ROI</div><div class="swatch-hex">#7DD4A3</div><div class="swatch-role">Return on Investment</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #B8A9E8;"></div><div class="swatch-info"><div class="swatch-name">RES</div><div class="swatch-hex">#B8A9E8</div><div class="swatch-role">AI Resilience</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #7BB8E0;"></div><div class="swatch-info"><div class="swatch-name">GRW</div><div class="swatch-hex">#7BB8E0</div><div class="swatch-role">Growth Potential</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #E88BA9;"></div><div class="swatch-info"><div class="swatch-name">HMN</div><div class="swatch-hex">#E88BA9</div><div class="swatch-role">Human Edge</div></div></div>
+      </div>
+    </div>
+
+    <!-- DESIGN.md: Text — 3 visible tokens (inverse shown on accents) -->
+    <div class="color-group">
+      <h3>Text</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background: #F5F0E8;"></div><div class="swatch-info"><div class="swatch-name">Primary</div><div class="swatch-hex">#F5F0E8</div><div class="swatch-role">Body text, warm white</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #C4BFB0;"></div><div class="swatch-info"><div class="swatch-name">Secondary</div><div class="swatch-hex">#C4BFB0</div><div class="swatch-role">Labels, descriptions</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background: #8A8595;"></div><div class="swatch-info"><div class="swatch-name">Muted</div><div class="swatch-hex">#8A8595</div><div class="swatch-role">Disabled, fine print</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TYPOGRAPHY ===== -->
+  <section id="typography" class="animate-in">
+    <div class="section-label">Typography</div>
+    <h2>Type System</h2>
+    <p class="subtitle">Fredoka for personality. Nunito for readability. Space Mono for truth.</p>
+
+    <div class="type-specimen">
+      <!-- DESIGN.md: hero = Fredoka 700, 48px, line-height 1.1 -->
+      <div class="type-sample">
+        <div class="type-meta">
+          <span class="type-tag font-display">Fredoka</span>
+          <span class="type-tag">48px / Hero</span>
+        </div>
+        <div style="font-family: 'Fredoka'; font-weight: 700; font-size: 48px; line-height: 1.1;">Your Future, Illuminated</div>
+      </div>
+      <!-- DESIGN.md: display = Fredoka 700, 36px, line-height 1.15 -->
+      <div class="type-sample">
+        <div class="type-meta">
+          <span class="type-tag font-display">Fredoka</span>
+          <span class="type-tag">36px / Display</span>
+        </div>
+        <div style="font-family: 'Fredoka'; font-weight: 700; font-size: 36px; line-height: 1.15;">Financial Analyst Bear</div>
+      </div>
+      <!-- DESIGN.md: heading = Fredoka 600, 28px, line-height 1.2 -->
+      <div class="type-sample">
+        <div class="type-meta">
+          <span class="type-tag font-display">Fredoka</span>
+          <span class="type-tag">28px / Heading</span>
+        </div>
+        <div style="font-family: 'Fredoka'; font-weight: 600; font-size: 28px; line-height: 1.2;">Fight the AI Boss</div>
+      </div>
+      <!-- DESIGN.md: subheading = Nunito 700, 22px, line-height 1.3 -->
+      <div class="type-sample">
+        <div class="type-meta">
+          <span class="type-tag">Nunito</span>
+          <span class="type-tag">22px / Subheading</span>
+        </div>
+        <div style="font-family: 'Nunito'; font-weight: 700; font-size: 22px; line-height: 1.3;">Senior Data Analyst at Fortune 500</div>
+      </div>
+      <!-- DESIGN.md: body = Nunito 400, 16px, line-height 1.5 -->
+      <div class="type-sample">
+        <div class="type-meta">
+          <span class="type-tag">Nunito</span>
+          <span class="type-tag">16px / Body</span>
+        </div>
+        <div style="font-family: 'Nunito'; font-weight: 400; font-size: 16px; line-height: 1.5; color: var(--text-secondary); max-width: 560px;">Your bear has evolved from a scrappy student into a career-ready professional. The stats below reflect the earning power, growth potential, and AI resilience of your chosen path.</div>
+      </div>
+      <!-- DESIGN.md: data-lg = Space Mono 700, 24px, line-height 1.2 -->
+      <div class="type-sample">
+        <div class="type-meta">
+          <span class="type-tag font-data">Space Mono</span>
+          <span class="type-tag">24px / Data Large</span>
+        </div>
+        <div style="font-family: 'Space Mono'; font-weight: 700; font-size: 24px; line-height: 1.2; color: var(--stat-ern);">$87,450</div>
+      </div>
+      <!-- DESIGN.md: data = Space Mono 400, 16px, line-height 1.4 -->
+      <div class="type-sample">
+        <div class="type-meta">
+          <span class="type-tag font-data">Space Mono</span>
+          <span class="type-tag">16px / Data</span>
+        </div>
+        <div style="font-family: 'Space Mono'; font-weight: 400; font-size: 16px; line-height: 1.4;">
+          <span style="color: var(--stat-ern);">ERN 78</span> &nbsp;
+          <span style="color: var(--stat-roi);">ROI 82</span> &nbsp;
+          <span style="color: var(--stat-res);">RES 65</span> &nbsp;
+          <span style="color: var(--stat-grw);">GRW 71</span> &nbsp;
+          <span style="color: var(--stat-hmn);">HMN 59</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ELEVATION ===== -->
+  <section id="elevation" class="animate-in">
+    <div class="section-label">Depth</div>
+    <h2>Elevation System</h2>
+    <p class="subtitle">Five layers of depth. The darkness has structure.</p>
+    <div class="elevation-demo">
+      <div class="elevation-card" style="background: var(--bg-void);"><div class="elevation-name">Void</div><div class="elevation-label">#12131F</div></div>
+      <div class="elevation-card" style="background: var(--bg-deep);"><div class="elevation-name">Deep</div><div class="elevation-label">#1B1D30</div></div>
+      <div class="elevation-card" style="background: var(--bg-mid);"><div class="elevation-name">Mid</div><div class="elevation-label">#232545</div></div>
+      <div class="elevation-card" style="background: var(--bg-surface);"><div class="elevation-name">Surface</div><div class="elevation-label">#2D3060</div></div>
+      <div class="elevation-card" style="background: var(--bg-raised);"><div class="elevation-name">Raised</div><div class="elevation-label">#3A3D75</div></div>
+    </div>
+  </section>
+
+  <!-- ===== RADII ===== -->
+  <section id="radii" class="animate-in">
+    <div class="section-label">Shape</div>
+    <h2>Border Radii</h2>
+    <p class="subtitle">Everything is rounded. Nothing in this world has a sharp corner.</p>
+    <div class="radii-grid">
+      <!-- DESIGN.md: sm=6px, md=10px, lg=14px, xl=20px, full=9999px -->
+      <div class="radii-item"><div class="radii-box" style="width: 80px; height: 80px; border-radius: 6px;"></div><div class="radii-label">radius-sm</div><div class="radii-value">6px</div></div>
+      <div class="radii-item"><div class="radii-box" style="width: 90px; height: 90px; border-radius: 10px;"></div><div class="radii-label">radius-md</div><div class="radii-value">10px</div></div>
+      <div class="radii-item"><div class="radii-box" style="width: 100px; height: 100px; border-radius: 14px;"></div><div class="radii-label">radius-lg</div><div class="radii-value">14px</div></div>
+      <div class="radii-item"><div class="radii-box" style="width: 110px; height: 110px; border-radius: 20px;"></div><div class="radii-label">radius-xl</div><div class="radii-value">20px</div></div>
+      <div class="radii-item"><div class="radii-box" style="width: 100px; height: 100px; border-radius: 9999px;"></div><div class="radii-label">radius-full</div><div class="radii-value">9999px</div></div>
+    </div>
+  </section>
+
+  <!-- ===== COMPONENTS ===== -->
+  <section id="components" class="animate-in">
+    <div class="section-label">Components</div>
+    <h2>UI Kit</h2>
+    <p class="subtitle">Buttons, cards, inputs, pills. The building blocks of the world.</p>
+
+    <!-- DESIGN.md: Buttons — 5 variants -->
+    <h3 style="margin-top: 32px; margin-bottom: 16px;">Buttons</h3>
+    <div class="component-row">
+      <button class="btn btn-primary">Build My Future</button>
+      <button class="btn btn-secondary">Compare Builds</button>
+      <button class="btn btn-ghost">Go Back</button>
+      <button class="btn btn-danger">Delete Save</button>
+      <button class="btn btn-icon">&times;</button>
+    </div>
+
+    <!-- DESIGN.md: Pills — 6 accent variants -->
+    <h3 style="margin-top: 32px; margin-bottom: 16px;">Pills / Badges</h3>
+    <div class="component-row">
+      <span class="pill pill-thrive">Win</span>
+      <span class="pill pill-alert">Lose</span>
+      <span class="pill pill-caution">Draw</span>
+      <span class="pill pill-insight">AI Powered</span>
+      <span class="pill pill-info">Stage 2</span>
+      <span class="pill pill-empathy">Human Edge</span>
+    </div>
+
+    <!-- DESIGN.md: Inputs — standard + large variant -->
+    <h3 style="margin-top: 32px; margin-bottom: 16px;">Inputs</h3>
+    <div class="input-demo">
+      <div class="input-group">
+        <label class="input-label">Search your school</label>
+        <input class="input input-large" type="text" placeholder="Iowa State University..." />
+      </div>
+      <div class="input-group">
+        <label class="input-label">Name your build</label>
+        <input class="input" type="text" placeholder="Build #1: Doctor Bear" />
+      </div>
+    </div>
+
+    <!-- DESIGN.md: Cards — career, selected, boss result variants -->
+    <h3 style="margin-top: 40px; margin-bottom: 16px;">Cards</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">Career Path</div>
+        <div class="card-title">Financial Analyst</div>
+        <div class="card-desc">Corporate finance, investment analysis, risk assessment. Strong quantitative foundation.</div>
+        <div style="margin-top: 16px;">
+          <span class="pill pill-thrive" style="font-size: 12px;">ERN 78</span>
+          <span class="pill pill-insight" style="font-size: 12px;">RES 65</span>
+        </div>
+      </div>
+      <div class="card card-selected">
+        <div class="card-label">Selected Build</div>
+        <div class="card-title" style="color: var(--accent-thrive);">Doctor Bear</div>
+        <div class="card-desc">ISU Business &rarr; Financial Analyst &rarr; Portfolio Manager branch selected.</div>
+        <div style="margin-top: 16px; font-family: 'Space Mono'; font-size: 14px; color: var(--stat-ern);">$87,450 median</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Boss Result</div>
+        <div class="card-title">Fight the AI</div>
+        <div class="card-desc">Your RES stat of 65 held strong. AI augments this role, it doesn't replace it.</div>
+        <div style="margin-top: 16px;"><span class="pill pill-thrive">Win</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== APPLICATION HEADER ===== -->
+  <section id="header" class="animate-in">
+    <div class="section-label">Chrome</div>
+    <h2>Application Header</h2>
+    <p class="subtitle">Frosted glass. Three zones. Adapts per screen. The only persistent chrome.</p>
+
+    <div class="header-demo-container">
+      <!-- State: Linear flow (Screens 3-5) -->
+      <div>
+        <div class="header-demo" style="background: var(--bg-deep);">
+          <div class="header-demo-bar">
+            <div class="header-demo-left"><span class="header-demo-wordmark">FutureProof</span><button class="header-demo-back">&#x2190;</button></div>
+            <div class="header-demo-center" style="color: var(--text-muted);">dancing happy bear &#x1F43B;</div>
+            <div class="header-demo-right"></div>
+          </div>
+          <div class="header-demo-content" style="background: var(--bg-deep);">Screen 3-5 content &mdash; profile name in text-muted</div>
+        </div>
+        <div class="header-demo-label">Linear Flow (Screens 3-5) &mdash; back arrow, profile muted, right zone empty</div>
+      </div>
+
+      <!-- State: Post-reveal (Screens 6, 8, 9) -->
+      <div>
+        <div class="header-demo" style="background: var(--bg-deep);">
+          <div class="header-demo-bar">
+            <div class="header-demo-left"><span class="header-demo-wordmark">FutureProof</span><button class="header-demo-back">&#x2190;</button></div>
+            <div class="header-demo-center" style="color: var(--text-secondary);">dancing happy bear &#x1F43B;</div>
+            <div class="header-demo-right"></div>
+          </div>
+          <div class="header-demo-content" style="background: var(--bg-deep); background-image: radial-gradient(circle at 50% 80%, rgba(125, 212, 163, 0.06) 0%, transparent 60%);">Screen 6+ content &mdash; profile name brightens to text-secondary</div>
+        </div>
+        <div class="header-demo-label">Post-Reveal (Screen 6+) &mdash; Progressive Illumination: name brightens</div>
+      </div>
+
+      <!-- State: Boss gauntlet dimmed (Screen 7) -->
+      <div>
+        <div class="header-demo" style="background: var(--bg-void);">
+          <div class="header-demo-bar header-demo-bar--dimmed">
+            <div class="header-demo-left"><span class="header-demo-wordmark">FutureProof</span><button class="header-demo-back">&#x2190;</button></div>
+            <div class="header-demo-center" style="color: var(--text-secondary);">dancing happy bear &#x1F43B;</div>
+            <div class="header-demo-right"></div>
+          </div>
+          <div class="header-demo-content" style="background: var(--bg-void); background-image: radial-gradient(circle at 50% 60%, rgba(184, 169, 232, 0.08) 0%, transparent 50%);">
+            <span style="font-size: 48px; opacity: 0.6;">&#x1F916;</span>
+          </div>
+        </div>
+        <div class="header-demo-label">Boss Gauntlet (Screen 7) &mdash; header dims to 60%, profile fades</div>
+      </div>
+
+      <!-- State: Hub mode (Screen 10) -->
+      <div>
+        <div class="header-demo" style="background: var(--bg-deep);">
+          <div class="header-demo-bar">
+            <div class="header-demo-left"><span class="header-demo-wordmark">FutureProof</span><button class="header-demo-back">&#x2302;</button></div>
+            <div class="header-demo-center" style="color: var(--text-secondary);">dancing happy bear &#x1F43B;</div>
+            <div class="header-demo-right"><button class="header-demo-pill">+ New</button></div>
+          </div>
+          <div class="header-demo-content" style="background: var(--bg-deep);">Menu hub &mdash; home icon replaces back, "New Build" appears</div>
+        </div>
+        <div class="header-demo-label">Hub Mode (Screen 10) &mdash; home icon, right zone activates</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PENTAGON STATS ===== -->
+  <section id="pentagon" class="animate-in">
+    <div class="section-label">Stats</div>
+    <h2>The Pentagon</h2>
+    <p class="subtitle">Five stats. Five dimensions of a career. One shape that tells the whole story.</p>
+
+    <div class="pentagon-section">
+      <div class="pentagon-chart">
+        <!-- DESIGN.md: Grid 4 concentric pentagons at 100/80/60/40%, axes 5 lines,
+             filled polygon with radial gradient bg-surface -> accent-thrive 40% opacity,
+             vertex dots 5px + 10px glow, labels font-display 14px stat color -->
+        <svg width="320" height="320" viewBox="0 0 320 320" id="pentagonSvg">
+          <g opacity="0.15" stroke="var(--text-muted)" fill="none">
+            <polygon id="grid5" stroke-width="1" />
+            <polygon id="grid4" stroke-width="0.5" />
+            <polygon id="grid3" stroke-width="0.5" />
+            <polygon id="grid2" stroke-width="0.5" />
+          </g>
+          <g id="axes" stroke="var(--text-muted)" stroke-width="0.5" opacity="0.2"></g>
+          <polygon id="statPoly" fill="url(#statGrad)" stroke="none" opacity="0.35" />
+          <polygon id="statPolyStroke" fill="none" stroke-width="2" />
+          <g id="statDots"></g>
+          <g id="statLabels" font-family="Fredoka" font-weight="600" font-size="14" fill="var(--text-primary)"></g>
+          <defs>
+            <!-- DESIGN.md: Radial gradient from bg-surface (center) to accent-thrive at 40% opacity -->
+            <radialGradient id="statGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="var(--bg-surface)" />
+              <stop offset="100%" stop-color="var(--accent-thrive)" stop-opacity="0.4" />
+            </radialGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="pentagon-legend">
+        <!-- DESIGN.md: Legend row specs -->
+        <div class="stat-row"><div class="stat-dot" style="background: var(--stat-ern);"></div><div class="stat-abbr">ERN</div><div class="stat-name">Earning Power</div><div class="stat-value" style="color: var(--stat-ern);" id="val-ern">78</div></div>
+        <div class="stat-row"><div class="stat-dot" style="background: var(--stat-roi);"></div><div class="stat-abbr">ROI</div><div class="stat-name">Return on Investment</div><div class="stat-value" style="color: var(--stat-roi);" id="val-roi">82</div></div>
+        <div class="stat-row"><div class="stat-dot" style="background: var(--stat-res);"></div><div class="stat-abbr">RES</div><div class="stat-name">AI Resilience</div><div class="stat-value" style="color: var(--stat-res);" id="val-res">65</div></div>
+        <div class="stat-row"><div class="stat-dot" style="background: var(--stat-grw);"></div><div class="stat-abbr">GRW</div><div class="stat-name">Growth Potential</div><div class="stat-value" style="color: var(--stat-grw);" id="val-grw">71</div></div>
+        <div class="stat-row"><div class="stat-dot" style="background: var(--stat-hmn);"></div><div class="stat-abbr">HMN</div><div class="stat-name">Human Edge</div><div class="stat-value" style="color: var(--stat-hmn);" id="val-hmn">59</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== EFFORT SLIDER ===== -->
+  <section id="slider" class="animate-in">
+    <div class="section-label">Interaction</div>
+    <h2>The Effort Slider</h2>
+    <p class="subtitle">Compassionate self-reflection. Not judgmental — empowering.</p>
+
+    <div style="background: var(--bg-deep); border-radius: var(--radius-xl); padding: 40px; border: 1px solid var(--border-subtle); margin-top: 24px;">
+      <div class="slider-container">
+        <div class="slider-question">How much time will you have to focus on school?</div>
+        <div class="slider-track" id="sliderTrack">
+          <div class="slider-fill" id="sliderFill" style="width: 60%;"></div>
+          <div class="slider-thumb" id="sliderThumb" style="left: 60%;"></div>
+        </div>
+        <div class="slider-labels">
+          <span>Working to support myself</span>
+          <span>Full focus on school</span>
+        </div>
+        <div class="slider-current" id="sliderLabel">Balanced focus</div>
+        <div class="slider-stats-preview">
+          <div class="slider-stat"><div class="slider-stat-label">ERN</div><div class="slider-stat-value" style="color: var(--stat-ern);" id="sliderErn">78</div></div>
+          <div class="slider-stat"><div class="slider-stat-label">ROI</div><div class="slider-stat-value" style="color: var(--stat-roi);" id="sliderRoi">82</div></div>
+          <div class="slider-stat"><div class="slider-stat-label">RES</div><div class="slider-stat-value" style="color: var(--stat-res);" id="sliderRes">65</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CHARACTERS ===== -->
+  <section id="characters" class="animate-in">
+    <div class="section-label">Identity</div>
+    <h2>Character Select</h2>
+    <p class="subtitle">Pick your animal. Claim your identity. This is you.</p>
+    <div class="character-grid" id="characterGrid">
+      <div class="character-card selected" data-idx="0"><span class="character-emoji">&#x1F43B;</span><div class="character-name">Bear</div><div class="character-vibe">Sturdy &amp; warm</div></div>
+      <div class="character-card" data-idx="1"><span class="character-emoji">&#x1F430;</span><div class="character-name">Bunny</div><div class="character-vibe">Quick &amp; adaptable</div></div>
+      <div class="character-card" data-idx="2"><span class="character-emoji">&#x1F98A;</span><div class="character-name">Fox</div><div class="character-vibe">Clever &amp; strategic</div></div>
+      <div class="character-card" data-idx="3"><span class="character-emoji">&#x1F422;</span><div class="character-name">Turtle</div><div class="character-vibe">Steady &amp; wise</div></div>
+      <div class="character-card" data-idx="4"><span class="character-emoji">&#x1F43F;&#xFE0F;</span><div class="character-name">Squirrel</div><div class="character-vibe">Energetic &amp; resourceful</div></div>
+      <div class="character-card" data-idx="5"><span class="character-emoji">&#x1F989;</span><div class="character-name">Owl</div><div class="character-vibe">Observant &amp; analytical</div></div>
+      <div class="character-card" data-idx="6"><span class="character-emoji">&#x1F431;</span><div class="character-name">Cat</div><div class="character-vibe">Independent &amp; creative</div></div>
+      <div class="character-card" data-idx="7"><span class="character-emoji">&#x1F98C;</span><div class="character-name">Deer</div><div class="character-vibe">Gentle &amp; graceful</div></div>
+    </div>
+  </section>
+
+  <!-- ===== BOSS FIGHTS ===== -->
+  <section id="bosses" class="animate-in">
+    <div class="section-label">Gauntlet</div>
+    <h2>Boss Fights</h2>
+    <p class="subtitle">Five threats. Five battles. Tension, then relief. Funny-scary, not actually scary.</p>
+    <div class="boss-grid">
+      <!-- DESIGN.md: Boss Colors — ai=#B8A9E8, loans=#F4A97E, market=#7BB8E0, burnout=#E88BA9, ceiling=#C4BFB0 -->
+      <!-- DESIGN.md: Boss card radial gradient overlay at 8% opacity, icon 56px at 15% opacity bg -->
+      <div class="boss-card">
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(184, 169, 232, 0.08) 0%, transparent 70%); border-radius: var(--radius-xl);"></div>
+        <div class="boss-icon" style="background: rgba(184, 169, 232, 0.15);">&#x1F916;</div>
+        <div class="boss-name">Fight the AI</div>
+        <div class="boss-desc">Tests RES stat</div>
+      </div>
+      <div class="boss-card">
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(244, 169, 126, 0.08) 0%, transparent 70%); border-radius: var(--radius-xl);"></div>
+        <div class="boss-icon" style="background: rgba(244, 169, 126, 0.15);">&#x1F4B8;</div>
+        <div class="boss-name">Student Loans</div>
+        <div class="boss-desc">Tests ERN + ROI</div>
+      </div>
+      <div class="boss-card">
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(123, 184, 224, 0.08) 0%, transparent 70%); border-radius: var(--radius-xl);"></div>
+        <div class="boss-icon" style="background: rgba(123, 184, 224, 0.15);">&#x1F9CA;</div>
+        <div class="boss-name">The Market</div>
+        <div class="boss-desc">Tests GRW stat</div>
+      </div>
+      <div class="boss-card">
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(232, 139, 169, 0.08) 0%, transparent 70%); border-radius: var(--radius-xl);"></div>
+        <div class="boss-icon" style="background: rgba(232, 139, 169, 0.15);">&#x1F525;</div>
+        <div class="boss-name">Burnout</div>
+        <div class="boss-desc">Tests HMN stat</div>
+      </div>
+      <div class="boss-card">
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(196, 191, 176, 0.08) 0%, transparent 70%); border-radius: var(--radius-xl);"></div>
+        <div class="boss-icon" style="background: rgba(196, 191, 176, 0.15);">&#x1FAA8;</div>
+        <div class="boss-name">The Ceiling</div>
+        <div class="boss-desc">Tests all stats</div>
+      </div>
+      <!-- DESIGN.md: The Future — "shifts through all five" -->
+      <div class="boss-card">
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(125, 212, 163, 0.06) 0%, rgba(184, 169, 232, 0.06) 50%, rgba(232, 139, 169, 0.06) 100%); border-radius: var(--radius-xl);"></div>
+        <div class="boss-icon" style="background: linear-gradient(135deg, rgba(184, 169, 232, 0.15), rgba(232, 139, 169, 0.15));">&#x26A1;</div>
+        <div class="boss-name">The Future</div>
+        <div class="boss-desc">Final Boss — all threats</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== BRANCH TREE ===== -->
+  <section id="tree" class="animate-in">
+    <div class="section-label">The Product</div>
+    <h2>The Branch Tree</h2>
+    <p class="subtitle">This is the screen that wins the hackathon. Progressive illumination in action.</p>
+
+    <div class="tree-container" id="treeContainer">
+      <svg class="tree-svg" id="treeSvg" viewBox="0 0 1100 350">
+        <defs>
+          <!-- DESIGN.md: Branch gradients using stat colors -->
+          <linearGradient id="branchGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--accent-thrive)" stop-opacity="0.6" />
+            <stop offset="100%" stop-color="var(--stat-ern)" stop-opacity="0.4" />
+          </linearGradient>
+          <linearGradient id="branchGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--accent-thrive)" stop-opacity="0.6" />
+            <stop offset="100%" stop-color="var(--stat-grw)" stop-opacity="0.4" />
+          </linearGradient>
+          <linearGradient id="branchGrad3" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--accent-thrive)" stop-opacity="0.6" />
+            <stop offset="100%" stop-color="var(--stat-res)" stop-opacity="0.4" />
+          </linearGradient>
+          <linearGradient id="branchGrad4" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--accent-thrive)" stop-opacity="0.6" />
+            <stop offset="100%" stop-color="var(--stat-hmn)" stop-opacity="0.4" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        <!-- Branch lines -->
+        <g id="branchLines" opacity="0">
+          <!-- Stay Technical -->
+          <path d="M 100,175 C 200,175 220,60 340,60" stroke="url(#branchGrad1)" stroke-width="2.5" fill="none" />
+          <path d="M 340,60 C 420,60 440,30 560,30" stroke="url(#branchGrad1)" stroke-width="2" fill="none" />
+          <path d="M 560,30 C 640,30 660,30 780,30" stroke="url(#branchGrad1)" stroke-width="1.5" fill="none" opacity="0.7" />
+          <path d="M 340,60 C 420,60 440,90 560,90" stroke="url(#branchGrad1)" stroke-width="2" fill="none" />
+          <!-- Go Management -->
+          <path d="M 100,175 C 200,175 220,145 340,145" stroke="url(#branchGrad2)" stroke-width="2.5" fill="none" />
+          <path d="M 340,145 C 420,145 440,130 560,130" stroke="url(#branchGrad2)" stroke-width="2" fill="none" />
+          <path d="M 560,130 C 640,130 660,115 780,115" stroke="url(#branchGrad2)" stroke-width="1.5" fill="none" opacity="0.7" />
+          <path d="M 560,130 C 640,130 660,155 780,155" stroke="url(#branchGrad2)" stroke-width="1.5" fill="none" opacity="0.7" />
+          <!-- Pivot Lateral -->
+          <path d="M 100,175 C 200,175 220,230 340,230" stroke="url(#branchGrad3)" stroke-width="2.5" fill="none" />
+          <path d="M 340,230 C 420,230 440,215 560,215" stroke="url(#branchGrad3)" stroke-width="2" fill="none" />
+          <path d="M 560,215 C 640,215 660,205 780,205" stroke="url(#branchGrad3)" stroke-width="1.5" fill="none" opacity="0.7" />
+          <!-- Specialize -->
+          <path d="M 100,175 C 200,175 220,300 340,300" stroke="url(#branchGrad4)" stroke-width="2.5" fill="none" />
+          <path d="M 340,300 C 420,300 440,290 560,290" stroke="url(#branchGrad4)" stroke-width="2" fill="none" />
+          <path d="M 560,290 C 640,290 660,280 780,280" stroke="url(#branchGrad4)" stroke-width="1.5" fill="none" opacity="0.7" />
+          <path d="M 340,300 C 420,300 440,325 560,325" stroke="url(#branchGrad4)" stroke-width="2" fill="none" />
+        </g>
+
+        <!-- Root node glow -->
+        <circle cx="100" cy="175" r="40" fill="var(--accent-thrive)" opacity="0.08" id="rootGlow" />
+        <circle cx="100" cy="175" r="25" fill="var(--accent-thrive)" opacity="0.04" />
+
+        <!-- Root node -->
+        <g id="rootNode" opacity="0">
+          <circle cx="100" cy="175" r="22" fill="var(--bg-surface)" stroke="var(--accent-thrive)" stroke-width="2" />
+          <text x="100" y="172" text-anchor="middle" font-family="sans-serif" font-size="24" fill="var(--text-primary)">&#x1F43B;</text>
+          <text x="100" y="215" text-anchor="middle" font-family="Fredoka" font-weight="600" font-size="11" fill="var(--text-secondary)">Financial</text>
+          <text x="100" y="228" text-anchor="middle" font-family="Fredoka" font-weight="600" font-size="11" fill="var(--text-secondary)">Analyst</text>
+        </g>
+
+        <!-- Branch label nodes -->
+        <g id="branchLabels" opacity="0">
+          <g><rect x="290" y="45" width="100" height="30" rx="15" fill="var(--bg-surface)" stroke="var(--stat-ern)" stroke-width="1" opacity="0.6" /><text x="340" y="65" text-anchor="middle" font-family="Nunito" font-weight="600" font-size="12" fill="var(--text-primary)">Stay Technical</text></g>
+          <g><rect x="285" y="130" width="110" height="30" rx="15" fill="var(--bg-surface)" stroke="var(--stat-grw)" stroke-width="1" opacity="0.6" /><text x="340" y="150" text-anchor="middle" font-family="Nunito" font-weight="600" font-size="12" fill="var(--text-primary)">Go Management</text></g>
+          <g><rect x="290" y="215" width="100" height="30" rx="15" fill="var(--bg-surface)" stroke="var(--stat-res)" stroke-width="1" opacity="0.6" /><text x="340" y="235" text-anchor="middle" font-family="Nunito" font-weight="600" font-size="12" fill="var(--text-primary)">Pivot Lateral</text></g>
+          <g><rect x="297" y="285" width="86" height="30" rx="15" fill="var(--bg-surface)" stroke="var(--stat-hmn)" stroke-width="1" opacity="0.6" /><text x="340" y="305" text-anchor="middle" font-family="Nunito" font-weight="600" font-size="12" fill="var(--text-primary)">Specialize</text></g>
+        </g>
+
+        <!-- Career progression nodes -->
+        <g id="careerNodes" opacity="0">
+          <g><rect x="510" y="18" width="100" height="24" rx="12" fill="var(--bg-mid)" /><text x="560" y="35" text-anchor="middle" font-family="Nunito" font-size="11" fill="var(--text-secondary)">Sr. Analyst</text></g>
+          <g><rect x="510" y="78" width="100" height="24" rx="12" fill="var(--bg-mid)" /><text x="560" y="95" text-anchor="middle" font-family="Nunito" font-size="11" fill="var(--text-secondary)">Risk Manager</text></g>
+          <g><rect x="510" y="118" width="100" height="24" rx="12" fill="var(--bg-mid)" /><text x="560" y="135" text-anchor="middle" font-family="Nunito" font-size="11" fill="var(--text-secondary)">Team Lead</text></g>
+          <g><rect x="510" y="203" width="100" height="24" rx="12" fill="var(--bg-mid)" /><text x="560" y="220" text-anchor="middle" font-family="Nunito" font-size="11" fill="var(--text-secondary)">Consultant</text></g>
+          <g><rect x="510" y="278" width="110" height="24" rx="12" fill="var(--bg-mid)" /><text x="565" y="295" text-anchor="middle" font-family="Nunito" font-size="11" fill="var(--text-secondary)">Healthcare Fin</text></g>
+          <g><rect x="510" y="313" width="100" height="24" rx="12" fill="var(--bg-mid)" /><text x="560" y="330" text-anchor="middle" font-family="Nunito" font-size="11" fill="var(--text-secondary)">Actuary</text></g>
+        </g>
+
+        <!-- Endpoint silhouettes -->
+        <g id="endpoints" opacity="0">
+          <g><circle cx="810" cy="30" r="18" fill="var(--bg-mid)" stroke="var(--stat-ern)" stroke-width="1" opacity="0.5" /><text x="810" y="34" text-anchor="middle" font-size="16" opacity="0.5">&#x1F43B;</text><text x="845" y="34" font-family="Space Mono" font-size="10" fill="var(--text-muted)">Quant</text></g>
+          <g><circle cx="810" cy="90" r="18" fill="var(--bg-mid)" stroke="var(--stat-ern)" stroke-width="1" opacity="0.5" /><text x="810" y="94" text-anchor="middle" font-size="16" opacity="0.5">&#x1F43B;</text><text x="845" y="94" font-family="Space Mono" font-size="10" fill="var(--text-muted)">CRO</text></g>
+          <g><circle cx="810" cy="115" r="18" fill="var(--bg-mid)" stroke="var(--stat-grw)" stroke-width="1" opacity="0.5" /><text x="810" y="119" text-anchor="middle" font-size="16" opacity="0.5">&#x1F43B;</text><text x="845" y="119" font-family="Space Mono" font-size="10" fill="var(--text-muted)">VP Finance</text></g>
+          <g><circle cx="810" cy="155" r="18" fill="var(--bg-mid)" stroke="var(--stat-grw)" stroke-width="1" opacity="0.5" /><text x="810" y="159" text-anchor="middle" font-size="16" opacity="0.5">&#x1F43B;</text><text x="845" y="159" font-family="Space Mono" font-size="10" fill="var(--text-muted)">CFO</text></g>
+          <g><circle cx="810" cy="205" r="18" fill="var(--bg-mid)" stroke="var(--stat-res)" stroke-width="1" opacity="0.5" /><text x="810" y="209" text-anchor="middle" font-size="16" opacity="0.5">&#x1F43B;</text><text x="845" y="209" font-family="Space Mono" font-size="10" fill="var(--text-muted)">Strategy Dir</text></g>
+          <g><circle cx="810" cy="280" r="18" fill="var(--bg-mid)" stroke="var(--stat-hmn)" stroke-width="1" opacity="0.5" /><text x="810" y="284" text-anchor="middle" font-size="16" opacity="0.5">&#x1F43B;</text><text x="845" y="284" font-family="Space Mono" font-size="10" fill="var(--text-muted)">Hospital CFO</text></g>
+          <g><circle cx="810" cy="325" r="18" fill="var(--bg-mid)" stroke="var(--stat-hmn)" stroke-width="1" opacity="0.5" /><text x="810" y="329" text-anchor="middle" font-size="16" opacity="0.5">&#x1F43B;</text><text x="845" y="329" font-family="Space Mono" font-size="10" fill="var(--text-muted)">Chief Actuary</text></g>
+        </g>
+      </svg>
+      <div style="text-align: center; margin-top: 12px;">
+        <button class="btn btn-secondary" onclick="replayTree()" style="font-size: 13px; height: 36px; padding: 0 20px;">Replay Animation</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MOTION ===== -->
+  <section id="motion" class="animate-in">
+    <div class="section-label">Animation</div>
+    <h2>Motion System</h2>
+    <p class="subtitle">Springs, not timing functions. Click each to see the spring personality.</p>
+    <!-- DESIGN.md: Spring Configurations — bouncy(300/20), smooth(200/25), gentle(150/30), snappy(400/25) -->
+    <div class="motion-grid">
+      <div class="motion-card" onclick="demoSpring(this, 300, 20)">
+        <div class="motion-ball" style="background: var(--accent-thrive);"></div>
+        <div class="motion-name">Bouncy</div>
+        <div class="motion-desc">Playful pop, noticeable overshoot</div>
+        <div class="motion-config">stiffness: 300, damping: 20</div>
+      </div>
+      <div class="motion-card" onclick="demoSpring(this, 200, 25)">
+        <div class="motion-ball" style="background: var(--accent-info);"></div>
+        <div class="motion-name">Smooth</div>
+        <div class="motion-desc">Confident settle, gentle overshoot</div>
+        <div class="motion-config">stiffness: 200, damping: 25</div>
+      </div>
+      <div class="motion-card" onclick="demoSpring(this, 150, 30)">
+        <div class="motion-ball" style="background: var(--accent-insight);"></div>
+        <div class="motion-name">Gentle</div>
+        <div class="motion-desc">Slow and graceful, minimal overshoot</div>
+        <div class="motion-config">stiffness: 150, damping: 30</div>
+      </div>
+      <div class="motion-card" onclick="demoSpring(this, 400, 25)">
+        <div class="motion-ball" style="background: var(--accent-caution);"></div>
+        <div class="motion-name">Snappy</div>
+        <div class="motion-desc">Quick and responsive, slight bounce</div>
+        <div class="motion-config">stiffness: 400, damping: 25</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SCREENS ===== -->
+  <section id="screens" class="animate-in">
+    <div class="section-label">Flow</div>
+    <h2>The Eight Screens</h2>
+    <p class="subtitle">Each screen has an emotional target. The student's journey from uncertainty to clarity.</p>
+    <!-- DESIGN.md: Emotional Framework — 8 screens -->
+    <div class="screen-flow">
+      <div class="screen-card"><div class="screen-number">01</div><div class="screen-name">Character Select</div><div class="screen-emotion">Playful delight</div><div class="screen-desc">Pick your animal. Claim your identity. Low stakes, high charm.</div></div>
+      <div class="screen-card"><div class="screen-number">02</div><div class="screen-name">School + Major</div><div class="screen-emotion">Curious anticipation</div><div class="screen-desc">Search, select, watch your character wait. "This is getting real."</div></div>
+      <div class="screen-card"><div class="screen-number">03</div><div class="screen-name">Effort Slider</div><div class="screen-emotion">Honest reflection</div><div class="screen-desc">Compassionate self-assessment. Stats shift in real-time.</div></div>
+      <div class="screen-card"><div class="screen-number">04</div><div class="screen-name">Stage 2 Reveal</div><div class="screen-emotion">Awe + pride</div><div class="screen-desc">Your bear evolves. Pentagon blooms. "That's ME."</div></div>
+      <div class="screen-card"><div class="screen-number">05</div><div class="screen-name">Boss Gauntlet</div><div class="screen-emotion">Tension + fun</div><div class="screen-desc">Five boss fights. Funny-scary. Losses teach, wins celebrate.</div></div>
+      <div class="screen-card"><div class="screen-number">06</div><div class="screen-name">Branch Tree</div><div class="screen-emotion">WONDER</div><div class="screen-desc">The telescope moment. Futures illuminating across the screen.</div></div>
+      <div class="screen-card"><div class="screen-number">07</div><div class="screen-name">Save + Share</div><div class="screen-emotion">Proud ownership</div><div class="screen-desc">"I got Doctor Bear." Download, share, come back.</div></div>
+      <div class="screen-card"><div class="screen-number">08</div><div class="screen-name">Compare</div><div class="screen-emotion">Informed confidence</div><div class="screen-desc">Side-by-side builds. Pentagons overlay. Decide with clarity.</div></div>
+    </div>
+  </section>
+
+  <!-- ===== SAVE SLOTS ===== -->
+  <section id="saves" class="animate-in">
+    <div class="section-label">Persistence</div>
+    <h2>Save Slots</h2>
+    <p class="subtitle">RPG save files. Each build is a possibility you explored.</p>
+    <div style="max-width: 480px; display: flex; flex-direction: column; gap: 12px;">
+      <div class="save-slot">
+        <div class="save-slot-avatar">&#x1F43B;</div>
+        <div class="save-slot-info">
+          <div class="save-slot-name" style="color: var(--accent-thrive);">Build #1: Doctor Bear</div>
+          <div class="save-slot-meta">ISU Business &rarr; Financial Analyst</div>
+        </div>
+        <div class="save-slot-date">Apr 4</div>
+      </div>
+      <div class="save-slot">
+        <div class="save-slot-avatar">&#x1F98A;</div>
+        <div class="save-slot-info">
+          <div class="save-slot-name" style="color: var(--accent-info);">Build #2: Clever Fox</div>
+          <div class="save-slot-meta">Michigan Ross &rarr; Marketing Strategist</div>
+        </div>
+        <div class="save-slot-date">Apr 3</div>
+      </div>
+      <!-- DESIGN.md: Empty slot — 40% opacity, dashed border -->
+      <div class="save-slot" style="opacity: 0.4; border-style: dashed;">
+        <div class="save-slot-avatar" style="opacity: 0.3;">&#x2795;</div>
+        <div class="save-slot-info">
+          <div class="save-slot-name" style="color: var(--text-muted);">Empty Slot</div>
+          <div class="save-slot-meta">Create a new build</div>
+        </div>
+        <div class="save-slot-date"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PROPOSED TOKENS — From full-vision-report.md §5
+       Not yet in DESIGN.md. Rendered for evaluation.
+       ============================================================ -->
+
+  <div style="margin-top: 80px; padding-top: 40px; border-top: 2px solid var(--border-strong);">
+    <div style="text-align: center; margin-bottom: 60px;">
+      <div class="badge" style="color: var(--accent-caution); background: rgba(242, 212, 119, 0.1); border-color: rgba(242, 212, 119, 0.2);">PROPOSED — NOT YET IN DESIGN.MD</div>
+      <h1 style="margin-top: 20px; font-size: 48px;">Proposed Tokens</h1>
+      <p class="tagline" style="margin: 12px auto 0;">From full-vision-report.md &sect;5. Review these to decide what belongs in DESIGN.md.</p>
+    </div>
+  </div>
+
+  <!-- ===== STATE TOKENS ===== -->
+  <section id="states" class="animate-in">
+    <div class="section-label">Proposed &sect;5.2</div>
+    <h2>State Tokens</h2>
+    <p class="subtitle">Interactive state backgrounds. Loading, success, error, disabled, active, and focus ring.</p>
+
+    <div class="state-grid">
+      <div class="state-card" style="background: var(--color-state-loading);">
+        <div class="state-card-label">Loading</div>
+        <div class="state-card-name">Loading</div>
+        <div style="font-size: 28px; margin: 12px 0;">&#x1F52E;</div>
+        <div class="state-card-token">rgba(184, 169, 232, 0.15)</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Insight-tinted wash</div>
+      </div>
+      <div class="state-card" style="background: var(--color-state-success);">
+        <div class="state-card-label">Success</div>
+        <div class="state-card-name">Success</div>
+        <div style="font-size: 28px; margin: 12px 0;">&#x2705;</div>
+        <div class="state-card-token">rgba(125, 212, 163, 0.15)</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Thrive-tinted flash</div>
+      </div>
+      <div class="state-card" style="background: var(--color-state-error);">
+        <div class="state-card-label">Error</div>
+        <div class="state-card-name">Error</div>
+        <div style="font-size: 28px; margin: 12px 0;">&#x26A0;&#xFE0F;</div>
+        <div class="state-card-token">rgba(244, 169, 126, 0.15)</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Alert-tinted wash</div>
+      </div>
+      <div class="state-card" style="background: var(--color-state-disabled);">
+        <div class="state-card-label">Disabled</div>
+        <div class="state-card-name" style="opacity: 0.5;">Disabled</div>
+        <div style="font-size: 28px; margin: 12px 0; opacity: 0.3;">&#x1F6AB;</div>
+        <div class="state-card-token">rgba(138, 133, 149, 0.3)</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Muted overlay</div>
+      </div>
+      <div class="state-card" style="background: var(--color-state-active);">
+        <div class="state-card-label">Active</div>
+        <div class="state-card-name">Active</div>
+        <div style="font-size: 28px; margin: 12px 0;">&#x2728;</div>
+        <div class="state-card-token">rgba(125, 212, 163, 0.1)</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Subtle thrive selection</div>
+      </div>
+      <div class="state-card" style="background: var(--bg-mid);">
+        <div class="state-card-label">Focus Ring</div>
+        <div class="state-card-name">Focus Ring</div>
+        <div style="margin: 16px 0;">
+          <div class="focus-ring-demo">Input field</div>
+        </div>
+        <div class="state-card-token">rgba(123, 184, 224, 0.4)</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Accessibility focus</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== RESULT TOKENS ===== -->
+  <section id="results" class="animate-in">
+    <div class="section-label">Proposed &sect;5.5</div>
+    <h2>Boss Fight Result Tokens</h2>
+    <p class="subtitle">Semantic aliases for fight outcomes. Point to existing accents but give them fight-specific meaning.</p>
+
+    <div style="background: var(--bg-deep); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 32px; max-width: 560px;">
+      <div class="result-row">
+        <div style="font-size: 28px;">&#x1F916;</div>
+        <div class="result-boss-name">Fight the AI</div>
+        <div class="result-indicator" style="background: rgba(125, 212, 163, 0.15); color: var(--color-result-win);">WIN</div>
+        <div class="result-token">--color-result-win</div>
+      </div>
+      <div class="result-row">
+        <div style="font-size: 28px;">&#x1F4B8;</div>
+        <div class="result-boss-name">Student Loans</div>
+        <div class="result-indicator" style="background: rgba(244, 169, 126, 0.15); color: var(--color-result-lose);">LOSE</div>
+        <div class="result-token">--color-result-lose</div>
+      </div>
+      <div class="result-row">
+        <div style="font-size: 28px;">&#x1F9CA;</div>
+        <div class="result-boss-name">The Market</div>
+        <div class="result-indicator" style="background: rgba(242, 212, 119, 0.15); color: var(--color-result-draw);">DRAW</div>
+        <div class="result-token">--color-result-draw</div>
+      </div>
+      <div class="result-row">
+        <div style="font-size: 28px;">&#x1F525;</div>
+        <div class="result-boss-name">Burnout</div>
+        <div class="result-indicator" style="background: rgba(138, 133, 149, 0.15); color: var(--color-result-structural);">STRUCT</div>
+        <div class="result-token">--color-result-structural</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== REROLL TOKENS ===== -->
+  <section id="reroll" class="animate-in">
+    <div class="section-label">Proposed &sect;5.5</div>
+    <h2>Reroll State Tokens</h2>
+    <p class="subtitle">Three states for skill equip flow: available, equipped, exhausted.</p>
+
+    <div class="reroll-grid">
+      <div class="reroll-skill" style="border-color: var(--color-reroll-available);">
+        <div class="reroll-skill-name" style="color: var(--color-reroll-available);">Data Analytics Minor</div>
+        <div class="reroll-skill-delta" style="color: var(--color-reroll-available);">RES +2</div>
+        <div class="reroll-skill-label" style="color: var(--color-reroll-available);">Available</div>
+      </div>
+      <div class="reroll-skill" style="border-color: var(--color-reroll-equipped); background: rgba(125, 212, 163, 0.08);">
+        <div class="reroll-skill-name" style="color: var(--color-reroll-equipped);">Python Certification</div>
+        <div class="reroll-skill-delta" style="color: var(--color-reroll-equipped);">RES +3, ERN +1</div>
+        <div class="reroll-skill-label" style="color: var(--color-reroll-equipped);">&#x2713; Equipped</div>
+      </div>
+      <div class="reroll-skill" style="border-color: transparent; opacity: 0.4;">
+        <div class="reroll-skill-name" style="color: var(--color-reroll-exhausted);">Leadership Track</div>
+        <div class="reroll-skill-delta" style="color: var(--color-reroll-exhausted);">HMN +2</div>
+        <div class="reroll-skill-label" style="color: var(--color-reroll-exhausted);">Exhausted</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== RECEIPT TOKENS ===== -->
+  <section id="receipts" class="animate-in">
+    <div class="section-label">Proposed &sect;5.3</div>
+    <h2>Receipt Popover</h2>
+    <p class="subtitle">Data provenance UI. Shows where every number comes from. For students and auditors.</p>
+
+    <div style="display: flex; gap: 32px; flex-wrap: wrap; align-items: start;">
+      <div class="receipt-demo">
+        <div class="receipt-title" style="color: var(--stat-ern);">ERN: Earning Power</div>
+        <div class="receipt-score" style="color: var(--stat-ern);">7 / 10</div>
+
+        <div class="receipt-section-label">Raw Data</div>
+        <div class="receipt-data">
+          Median earnings: $68,400<br>
+          Percentile used: 75th (All-in)<br>
+          Source: College Scorecard 2022
+        </div>
+
+        <div class="receipt-section-label">Threshold</div>
+        <div class="receipt-data">
+          1-2: &lt; $30K &nbsp;|&nbsp; 3-4: $30-45K<br>
+          5-6: $45-65K &nbsp;|&nbsp; 7-8: $65-90K<br>
+          9-10: &gt; $90K
+        </div>
+
+        <div class="receipt-footer">&#x25C7; Data last updated: Jan 2024</div>
+      </div>
+
+      <div style="flex: 1; min-width: 240px;">
+        <h3 style="margin-bottom: 12px;">Token Set</h3>
+        <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-secondary); line-height: 2;">
+          --receipt-bg: <span style="color: var(--text-muted);">#3A3D75 (bg-raised)</span><br>
+          --receipt-border: <span style="color: var(--text-muted);">insight @ 20%</span><br>
+          --receipt-radius: <span style="color: var(--text-muted);">14px (radius-lg)</span><br>
+          --receipt-max-width: <span style="color: var(--text-muted);">360px</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== OVERLAY TOKENS ===== -->
+  <section id="overlays" class="animate-in">
+    <div class="section-label">Proposed &sect;5.4</div>
+    <h2>Overlay / Backdrop</h2>
+    <p class="subtitle">Modal and tutorial backdrop. Void at 85% opacity with 8px blur.</p>
+
+    <div class="overlay-demo">
+      <!-- Simulated content behind the overlay -->
+      <div class="overlay-behind">
+        <div class="card" style="width: 200px;"><div class="card-label">Career</div><div class="card-title">Analyst</div><div class="card-desc">Blurred behind overlay</div></div>
+        <div class="card" style="width: 200px;"><div class="card-label">Stats</div><div class="card-title">ERN 78</div><div class="card-desc">Content underneath</div></div>
+      </div>
+      <!-- Overlay backdrop -->
+      <div class="overlay-backdrop"></div>
+      <!-- Modal on top -->
+      <div class="overlay-content">
+        <div style="font-family: 'Fredoka'; font-weight: 600; font-size: 20px; margin-bottom: 8px;">Stat Tutorial</div>
+        <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;">ERN measures your career's earning power based on median salary data from the College Scorecard.</div>
+        <div style="font-family: 'Space Mono'; font-size: 11px; color: var(--text-muted);">
+          --overlay-backdrop: rgba(18, 19, 31, 0.85)<br>
+          --overlay-blur: 8px
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PENTAGON SIZES ===== -->
+  <section id="pentagon-sizes" class="animate-in">
+    <div class="section-label">Proposed &sect;5.7</div>
+    <h2>Pentagon Size Tokens</h2>
+    <p class="subtitle">Four sizes for the pentagon across different contexts.</p>
+
+    <div class="pentagon-sizes">
+      <div class="pentagon-size-item">
+        <div class="pentagon-size-box" style="width: 150px; height: 150px; font-size: 64px;"></div>
+        <div class="pentagon-size-label">hero</div>
+        <div class="pentagon-size-value">300px</div>
+        <div class="pentagon-size-usage">Screen 6 reveal</div>
+      </div>
+      <div class="pentagon-size-item">
+        <div class="pentagon-size-box" style="width: 100px; height: 100px; font-size: 42px;"></div>
+        <div class="pentagon-size-label">default</div>
+        <div class="pentagon-size-value">200px</div>
+        <div class="pentagon-size-usage">Landing glow, Wrapped</div>
+      </div>
+      <div class="pentagon-size-item">
+        <div class="pentagon-size-box" style="width: 60px; height: 60px; font-size: 24px;"></div>
+        <div class="pentagon-size-label">mini</div>
+        <div class="pentagon-size-value">120px</div>
+        <div class="pentagon-size-usage">Branch endpoints, compare</div>
+      </div>
+      <div class="pentagon-size-item">
+        <div class="pentagon-size-box" style="width: 40px; height: 40px; font-size: 16px;"></div>
+        <div class="pentagon-size-label">micro</div>
+        <div class="pentagon-size-value">80px</div>
+        <div class="pentagon-size-usage">Career cards, compact</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DURATION CONSTANTS ===== -->
+  <section id="durations" class="animate-in">
+    <div class="section-label">Proposed &sect;5.1</div>
+    <h2>Duration Constants</h2>
+    <p class="subtitle">Named timing values for key animation sequences. Not springs — fixed durations.</p>
+
+    <div style="background: var(--bg-deep); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 32px; max-width: 560px;">
+      <div class="stat-row">
+        <div class="stat-name">durationCount</div>
+        <div style="font-family: 'Space Mono', monospace; font-size: 14px; color: var(--accent-caution);">800ms</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-left: 12px;">Stat number counting</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-name">durationReveal</div>
+        <div style="font-family: 'Space Mono', monospace; font-size: 14px; color: var(--accent-thrive);">3500ms</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-left: 12px;">Branch tree full reveal</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-name">durationBossBeat</div>
+        <div style="font-family: 'Space Mono', monospace; font-size: 14px; color: var(--accent-alert);">600ms</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-left: 12px;">Boss fight suspense shimmer</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div style="text-align: center; padding: 40px 0 20px; border-top: 1px solid var(--border-subtle);">
+    <p style="font-family: 'Fredoka'; font-weight: 600; font-size: 20px; color: var(--accent-thrive); margin-bottom: 8px;">Brightpath Design System v2</p>
+    <p style="font-size: 13px; color: var(--text-muted);">Built entirely from DESIGN.md — FutureProof</p>
+    <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Proposed tokens from full-vision-report.md &sect;5 shown below the divider</p>
+  </div>
+
+</div>
+
+<script>
+// ====== SCROLL ANIMATIONS ======
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
+
+// ====== NAV ACTIVE STATE ======
+const navLinks = document.querySelectorAll('nav a');
+const sections = document.querySelectorAll('section[id]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+});
+
+// ====== PENTAGON CHART ======
+// DESIGN.md: Grid 4 concentric pentagons at 100/80/60/40%, axes 5 lines,
+// vertex dots 5px + 10px glow at 20% opacity, labels font-display 14px stat color
+(function drawPentagon() {
+  const cx = 160, cy = 160, maxR = 120;
+  const stats = [78, 82, 65, 71, 59];
+  // DESIGN.md: Stat Colors — ERN=#F2D477, ROI=#7DD4A3, RES=#B8A9E8, GRW=#7BB8E0, HMN=#E88BA9
+  const colors = ['#F2D477', '#7DD4A3', '#B8A9E8', '#7BB8E0', '#E88BA9'];
+  const labels = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
+
+  function point(i, r) {
+    const angle = (Math.PI * 2 * i / 5) - Math.PI / 2;
+    return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+  }
+  function polyPoints(r) {
+    return Array.from({length: 5}, (_, i) => point(i, r).join(',')).join(' ');
+  }
+
+  // DESIGN.md: Grid — 4 concentric pentagons at 100%, 80%, 60%, 40%
+  [1, 0.8, 0.6, 0.4].forEach((s, idx) => {
+    const el = document.getElementById('grid' + (5 - idx));
+    if (el) el.setAttribute('points', polyPoints(maxR * s));
+  });
+
+  // DESIGN.md: Axes — 5 lines from center to each vertex
+  const axesG = document.getElementById('axes');
+  for (let i = 0; i < 5; i++) {
+    const [x, y] = point(i, maxR);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', cx); line.setAttribute('y1', cy);
+    line.setAttribute('x2', x); line.setAttribute('y2', y);
+    axesG.appendChild(line);
+  }
+
+  // DESIGN.md: Filled polygon — fill opacity 35%
+  const statPoints = stats.map((v, i) => point(i, maxR * v / 100).join(',')).join(' ');
+  document.getElementById('statPoly').setAttribute('points', statPoints);
+  const stroke = document.getElementById('statPolyStroke');
+  stroke.setAttribute('points', statPoints);
+  stroke.setAttribute('stroke', 'url(#statGrad)');
+
+  // DESIGN.md: Vertex dots — 5px radius + 10px glow at 20% opacity
+  const dotsG = document.getElementById('statDots');
+  const labelsG = document.getElementById('statLabels');
+  stats.forEach((v, i) => {
+    const [x, y] = point(i, maxR * v / 100);
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+    dot.setAttribute('r', 5); dot.setAttribute('fill', colors[i]);
+    dotsG.appendChild(dot);
+
+    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    glow.setAttribute('cx', x); glow.setAttribute('cy', y);
+    glow.setAttribute('r', 10); glow.setAttribute('fill', colors[i]); glow.setAttribute('opacity', '0.2');
+    dotsG.appendChild(glow);
+
+    // DESIGN.md: Labels — outside each vertex, font-display 14px, stat color
+    const [lx, ly] = point(i, maxR + 24);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', lx); text.setAttribute('y', ly + 5);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', colors[i]);
+    text.textContent = labels[i];
+    labelsG.appendChild(text);
+  });
+})();
+
+// ====== EFFORT SLIDER ======
+(function setupSlider() {
+  const track = document.getElementById('sliderTrack');
+  const fill = document.getElementById('sliderFill');
+  const thumb = document.getElementById('sliderThumb');
+  const label = document.getElementById('sliderLabel');
+  const ernEl = document.getElementById('sliderErn');
+  const roiEl = document.getElementById('sliderRoi');
+  const resEl = document.getElementById('sliderRes');
+
+  const labels = [
+    [0, 'Working two jobs'],
+    [25, 'Working to support myself'],
+    [40, 'Part-time focus'],
+    [50, 'Balanced focus'],
+    [65, 'Strong academic focus'],
+    [80, 'Full focus on school'],
+    [100, 'Full focus on school'],
+  ];
+
+  function getLabel(pct) {
+    for (let i = labels.length - 1; i >= 0; i--) {
+      if (pct >= labels[i][0]) return labels[i][1];
+    }
+    return labels[0][1];
+  }
+
+  function update(pct) {
+    pct = Math.max(0, Math.min(100, pct));
+    fill.style.width = pct + '%';
+    thumb.style.left = pct + '%';
+    label.textContent = getLabel(pct);
+    ernEl.textContent = Math.round(55 + pct * 0.35);
+    roiEl.textContent = Math.round(60 + pct * 0.3);
+    resEl.textContent = Math.round(50 + pct * 0.2);
+  }
+
+  let dragging = false;
+  function startDrag(e) { dragging = true; e.preventDefault(); moveDrag(e); }
+  function moveDrag(e) {
+    if (!dragging) return;
+    const rect = track.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = ((clientX - rect.left) / rect.width) * 100;
+    update(pct);
+  }
+  function endDrag() { dragging = false; }
+
+  thumb.addEventListener('mousedown', startDrag);
+  thumb.addEventListener('touchstart', startDrag);
+  track.addEventListener('mousedown', startDrag);
+  window.addEventListener('mousemove', moveDrag);
+  window.addEventListener('touchmove', moveDrag);
+  window.addEventListener('mouseup', endDrag);
+  window.addEventListener('touchend', endDrag);
+})();
+
+// ====== CHARACTER SELECT ======
+// DESIGN.md: Selected = border accent-thrive, glow, scale(1.08). Press = scale(0.92) bounce.
+document.getElementById('characterGrid').addEventListener('click', (e) => {
+  const card = e.target.closest('.character-card');
+  if (!card) return;
+  document.querySelectorAll('.character-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  card.style.transform = 'scale(0.92)';
+  setTimeout(() => { card.style.transform = ''; }, 120);
+});
+
+// ====== SPRING ANIMATION DEMO ======
+// DESIGN.md: Spring physics simulation for bouncy/smooth/gentle/snappy
+function demoSpring(card, stiffness, damping) {
+  const ball = card.querySelector('.motion-ball');
+  let pos = -40, vel = 0;
+  const target = 0;
+  const mass = 1;
+  const dt = 1 / 60;
+
+  ball.style.transform = `translateY(${pos}px) scale(0.7)`;
+
+  function step() {
+    const force = -stiffness * (pos - target) - damping * vel;
+    vel += (force / mass) * dt;
+    pos += vel * dt;
+    const scale = 0.7 + 0.3 * (1 - Math.abs(pos) / 40);
+    ball.style.transform = `translateY(${pos}px) scale(${scale})`;
+    if (Math.abs(pos - target) > 0.1 || Math.abs(vel) > 0.1) {
+      requestAnimationFrame(step);
+    } else {
+      ball.style.transform = 'translateY(0) scale(1)';
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// ====== BRANCH TREE ANIMATION ======
+// DESIGN.md: Branch Tree Illumination sequence —
+// Root glow (t=0), branch lines (t=0.3s), labels (t=0.8s),
+// career nodes (t=1.5s), endpoints (t=2.2s), total 3.5s
+function animateTree() {
+  const rootNode = document.getElementById('rootNode');
+  const branchLines = document.getElementById('branchLines');
+  const branchLabels = document.getElementById('branchLabels');
+  const careerNodes = document.getElementById('careerNodes');
+  const endpoints = document.getElementById('endpoints');
+  const rootGlow = document.getElementById('rootGlow');
+
+  // Reset
+  [rootNode, branchLines, branchLabels, careerNodes, endpoints].forEach(el => {
+    el.style.opacity = '0';
+    el.style.transition = 'none';
+  });
+  rootGlow.style.opacity = '0.02';
+
+  // Beat 1: Root node appears (t=200ms)
+  setTimeout(() => {
+    rootNode.style.transition = 'opacity 400ms ease-out';
+    rootNode.style.opacity = '1';
+    rootGlow.style.transition = 'opacity 600ms ease-out';
+    rootGlow.style.opacity = '0.15';
+  }, 200);
+
+  // Beat 2: Glow intensifies (t=500ms)
+  setTimeout(() => {
+    rootGlow.style.transition = 'opacity 500ms ease-out';
+    rootGlow.style.opacity = '0.25';
+  }, 500);
+
+  // Beat 3: Branch lines draw (t=700ms ~ DESIGN.md t=0.3s from root)
+  setTimeout(() => {
+    branchLines.style.transition = 'opacity 800ms ease-out';
+    branchLines.style.opacity = '1';
+  }, 700);
+
+  // Beat 4: Branch labels appear (t=1200ms ~ DESIGN.md t=0.8s)
+  setTimeout(() => {
+    branchLabels.style.transition = 'opacity 500ms ease-out';
+    branchLabels.style.opacity = '1';
+  }, 1200);
+
+  // Beat 5: Career nodes (t=1700ms ~ DESIGN.md t=1.5s)
+  setTimeout(() => {
+    careerNodes.style.transition = 'opacity 600ms ease-out';
+    careerNodes.style.opacity = '1';
+  }, 1700);
+
+  // Beat 6: Endpoints (t=2300ms ~ DESIGN.md t=2.2s)
+  setTimeout(() => {
+    endpoints.style.transition = 'opacity 800ms ease-out';
+    endpoints.style.opacity = '1';
+  }, 2300);
+
+  // Final glow settle (t=3200ms ~ DESIGN.md total 3.5s)
+  setTimeout(() => {
+    rootGlow.style.transition = 'opacity 1s ease-in-out';
+    rootGlow.style.opacity = '0.12';
+  }, 3200);
+}
+
+function replayTree() { animateTree(); }
+
+// Auto-play tree when visible
+const treeObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      animateTree();
+      treeObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.3 });
+treeObserver.observe(document.getElementById('treeContainer'));
+</script>
+
+</body>
+</html>
