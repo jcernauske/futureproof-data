@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiPost } from "@/api/client";
+import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
+import { GemmaStar } from "@/components/ui/GemmaStar";
 import type {
   IntentResult,
   MajorSelection,
@@ -150,7 +152,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
     >
-      <h2 className="font-display text-xl text-text-primary mb-4">
+      <h2 className="font-display text-subheading font-bold text-text-primary mb-4">
         What do you want to study?
       </h2>
 
@@ -172,7 +174,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
           }}
           placeholder="Type anything — 'pre-med', 'CS', 'business'..."
           disabled={phase === "thinking"}
-          className={`flex-1 bg-bp-surface text-text-primary font-body text-body px-4 py-3 rounded-bp-md border border-border-subtle focus:border-accent-insight focus:outline-none transition-colors duration-normal placeholder:text-text-muted disabled:opacity-60 ${
+          className={`flex-1 bg-bp-deep text-text-primary font-body text-body px-4 py-3 h-12 rounded-md border border-border focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-all duration-normal placeholder:text-text-muted disabled:opacity-60 ${
             phase === "thinking" ? "text-text-muted" : ""
           }`}
           aria-label="What do you want to study?"
@@ -180,108 +182,40 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
         <button
           onClick={handleSubmit}
           disabled={!rawText.trim() || phase === "thinking"}
-          className="bg-bp-surface text-text-secondary px-4 rounded-bp-md border border-border-subtle hover:border-accent-insight transition-colors duration-fast disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="bg-bp-surface text-text-secondary px-4 rounded-md border border-border-subtle hover:border-accent-insight transition-colors duration-fast disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           aria-label="Submit major"
         >
           →
         </button>
       </div>
 
-      {/* Thinking indicator */}
+      {/* Thinking indicator — collapses on exit to transfer energy to card */}
       <AnimatePresence>
         {phase === "thinking" && (
           <motion.div
-            className="mt-3 flex items-center gap-2"
+            className="mt-4 flex items-center gap-3"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{ opacity: 0, scale: 0.4 }}
+            transition={{ duration: 0.25, ease: "easeIn" }}
           >
-            <div className="flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full bg-accent-insight"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{
-                    duration: 1.2,
-                    repeat: Infinity,
-                    delay: i * 0.2,
-                  }}
-                />
-              ))}
-            </div>
-            <span className="text-sm text-text-secondary">
-              Matching your input...
+            <GemmaSpinner size={28} />
+            <span className="text-small text-text-secondary">
+              Gemma is matching your input...
             </span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Match card */}
+      {/* Match card — arrives with energy from collapsed spinner */}
       <AnimatePresence>
         {phase === "match" && intentResult && (
-          <motion.div
-            className="mt-4 bg-bp-raised rounded-bp-lg p-5 border border-accent-insight/20 shadow-glow-insight"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={springs.smooth}
-          >
-            <p className="text-sm text-text-muted mb-2">
-              Gemma matched "{rawText}" →
-            </p>
-            <p className="text-lg text-text-primary font-semibold">
-              📚 {intentResult.matched_title}
-              {intentResult.confidence === "low" && (
-                <span className="text-sm text-text-muted font-normal ml-2">
-                  (best guess)
-                </span>
-              )}
-            </p>
-            <p className="text-xs text-text-muted mt-0.5">
-              CIP {intentResult.matched_cip}
-            </p>
-
-            {intentResult.careers_preview.length > 0 && (
-              <div className="mt-3">
-                <p className="text-sm text-text-secondary mb-1">
-                  Graduates typically become:
-                </p>
-                <ul className="space-y-0.5">
-                  {intentResult.careers_preview.slice(0, 5).map((career) => (
-                    <li
-                      key={career}
-                      className="text-sm text-text-secondary pl-3"
-                    >
-                      • {career}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {intentResult.audit_flag === "playful_warning" &&
-              intentResult.audit_message && (
-                <p className="mt-3 text-sm text-accent-caution">
-                  {intentResult.audit_message}
-                </p>
-              )}
-
-            <div className="mt-4 flex gap-3 flex-col mobile:flex-row">
-              <button
-                onClick={handleConfirm}
-                className="flex-1 bg-accent-thrive text-text-primary font-semibold py-2.5 px-4 rounded-bp-md cursor-pointer hover:shadow-glow-thrive transition-shadow duration-normal"
-              >
-                ✓ That's right
-              </button>
-              <button
-                onClick={handleNotQuite}
-                className="flex-1 bg-bp-surface text-text-secondary py-2.5 px-4 rounded-bp-md cursor-pointer hover:bg-bp-mid transition-colors duration-fast"
-              >
-                ✎ Not quite
-              </button>
-            </div>
-          </motion.div>
+          <MatchCard
+            intentResult={intentResult}
+            rawText={rawText}
+            onConfirm={handleConfirm}
+            onNotQuite={handleNotQuite}
+          />
         )}
       </AnimatePresence>
 
@@ -289,7 +223,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       <AnimatePresence>
         {phase === "audit_fail" && intentResult?.audit_message && (
           <motion.div
-            className="mt-4 bg-bp-raised rounded-bp-lg p-5 border border-accent-caution/30"
+            className="mt-4 bg-bp-raised rounded-lg p-5 border border-accent-caution/30"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -301,7 +235,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
             </p>
             <button
               onClick={handleTryAgain}
-              className="mt-3 bg-accent-caution text-text-inverse font-semibold py-2 px-4 rounded-bp-md cursor-pointer"
+              className="mt-3 bg-accent-caution text-text-inverse font-semibold py-2 px-4 rounded-md cursor-pointer"
             >
               Try again
             </button>
@@ -313,7 +247,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       <AnimatePresence>
         {phase === "clarify" && (
           <motion.div
-            className="mt-4 bg-bp-raised rounded-bp-lg p-5 border border-border-subtle"
+            className="mt-4 bg-bp-raised rounded-lg p-5 border border-border-subtle"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -331,13 +265,13 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
                   if (e.key === "Enter") handleClarifySubmit();
                 }}
                 placeholder="e.g., 'I want to be a doctor'"
-                className="flex-1 bg-bp-surface text-text-primary font-body text-body px-4 py-2.5 rounded-bp-md border border-border-subtle focus:border-accent-insight focus:outline-none transition-colors duration-normal placeholder:text-text-muted"
+                className="flex-1 bg-bp-deep text-text-primary font-body text-body px-4 py-2.5 h-12 rounded-md border border-border focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-all duration-normal placeholder:text-text-muted"
                 aria-label="Clarify your major choice"
               />
               <button
                 onClick={handleClarifySubmit}
                 disabled={!clarifyText.trim()}
-                className="bg-accent-thrive text-text-primary font-semibold py-2.5 px-4 rounded-bp-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="bg-accent-thrive text-text-inverse font-bold py-2.5 px-4 rounded-md cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 →
               </button>
@@ -407,7 +341,7 @@ function ProgramList({
   );
 
   return (
-    <ul className="max-h-[240px] overflow-y-auto space-y-0.5 rounded-bp-md border border-border-subtle bg-bp-surface">
+    <ul className="max-h-[240px] overflow-y-auto space-y-0.5 rounded-md border border-border-subtle bg-bp-surface">
       {unique.map((program) => (
         <li key={program.cipcode}>
           <button
@@ -419,5 +353,149 @@ function ProgramList({
         </li>
       ))}
     </ul>
+  );
+}
+
+function MatchCard({
+  intentResult,
+  rawText,
+  onConfirm,
+  onNotQuite,
+}: {
+  intentResult: IntentResult;
+  rawText: string;
+  onConfirm: () => void;
+  onNotQuite: () => void;
+}) {
+  const isLowConfidence = intentResult.confidence === "low";
+
+  return (
+    <motion.div
+      className={`mt-4 bg-bp-mid rounded-xl p-6 border border-[rgba(255,255,255,0.5)] ${
+        isLowConfidence
+          ? "animate-[card-breathe-caution_4s_ease-in-out_infinite]"
+          : "animate-[card-breathe_4s_ease-in-out_infinite]"
+      }`}
+      initial={{
+        opacity: 0,
+        scale: 0.85,
+        y: 12,
+      }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        y: 0,
+      }}
+      exit={{ opacity: 0, y: -12, scale: 0.98 }}
+      transition={springs.bouncy}
+    >
+      {/* Zone A: Attribution */}
+      <div className="flex items-center gap-2 mb-3">
+        <GemmaStar size={14} />
+        <span className="text-small text-text-muted">
+          Gemma matched "<span className="font-semibold text-text-secondary">{rawText}</span>"
+        </span>
+      </div>
+
+      {/* Zone B: Program title — slides in and brightens */}
+      <motion.div
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ ...springs.smooth, delay: 0.15 }}
+      >
+        <motion.h3
+          className="font-display text-subheading font-semibold mb-1"
+          initial={{ color: "var(--color-text-muted)" }}
+          animate={{ color: "var(--color-text-primary)" }}
+          transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
+        >
+          {intentResult.matched_title}
+        </motion.h3>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="font-data text-data-sm text-text-muted">
+            CIP {intentResult.matched_cip}
+          </span>
+          {isLowConfidence && (
+            <span className="inline-flex items-center bg-[rgba(242,212,119,0.15)] text-accent-caution rounded-full px-3 py-0.5 text-micro font-semibold">
+              best guess
+            </span>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Zone C: Career preview — staggers in */}
+      {intentResult.careers_preview.length > 0 && (
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.05, delayChildren: 0.4 } },
+          }}
+        >
+          <span className="font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info mb-2.5 block">
+            Where this leads
+          </span>
+          <div className="flex flex-col gap-0.5">
+            {intentResult.careers_preview.slice(0, 5).map((career) => (
+              <motion.div
+                key={career}
+                className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-bp-surface transition-colors duration-fast group"
+                variants={{
+                  hidden: { opacity: 0, y: 12 },
+                  visible: { opacity: 1, y: 0, transition: springs.smooth },
+                }}
+              >
+                <span className="text-accent-info/50 text-[10px] group-hover:text-accent-info transition-colors duration-fast">
+                  ▸
+                </span>
+                <span className="font-body text-body-sm font-semibold text-text-secondary group-hover:text-text-primary transition-colors duration-fast">
+                  {career}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Zone D: Playful warning (conditional) */}
+      {intentResult.audit_flag === "playful_warning" &&
+        intentResult.audit_message && (
+          <div className="border-t border-border-subtle pt-3 mt-4">
+            <p className="text-small text-accent-caution italic">
+              {intentResult.audit_message}
+            </p>
+          </div>
+        )}
+
+      {/* Zone E: Actions — delayed entrance */}
+      <motion.div
+        className="mt-5 flex gap-3 flex-col mobile:flex-row"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...springs.smooth, delay: 0.7 }}
+      >
+        <motion.button
+          onClick={onConfirm}
+          className="flex-1 bg-accent-thrive text-text-inverse font-body text-cta font-bold h-12 px-[28px] rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal"
+          whileTap={{ scale: 0.97 }}
+          transition={springs.snappy}
+        >
+          {isLowConfidence ? "Close enough" : "That's right"}
+        </motion.button>
+        <motion.button
+          onClick={onNotQuite}
+          className={`mobile:flex-none font-body text-cta font-bold h-12 px-6 rounded-lg cursor-pointer transition-all duration-normal ${
+            isLowConfidence
+              ? "text-text-primary hover:bg-[rgba(255,255,255,0.05)]"
+              : "text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)]"
+          }`}
+          whileTap={{ scale: 0.97 }}
+          transition={springs.snappy}
+        >
+          Not quite
+        </motion.button>
+      </motion.div>
+    </motion.div>
   );
 }
