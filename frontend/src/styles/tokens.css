@@ -1,7 +1,7 @@
 /*
  * Brightpath Design System — Token Definitions
  * Source of truth for all visual tokens in FutureProof.
- * Generated from: docs/design-system-proposal.md
+ * Generated from: DESIGN.md
  *
  * Usage: @import this file in your root CSS (or Tailwind's @layer base).
  * All tokens are available as var(--token-name) in any CSS.
@@ -66,6 +66,17 @@
     --color-border-subtle: rgba(255, 255, 255, 0.06);
     --color-border-default: rgba(255, 255, 255, 0.1);
     --color-border-strong: rgba(255, 255, 255, 0.2);
+
+    /* ==============================
+       STATES
+       Background washes for interactive states.
+       ============================== */
+    --color-state-loading: rgba(184, 169, 232, 0.15);
+    --color-state-success: rgba(125, 212, 163, 0.15);
+    --color-state-error: rgba(244, 169, 126, 0.15);
+    --color-state-disabled: rgba(138, 133, 149, 0.3);
+    --color-state-active: rgba(125, 212, 163, 0.1);
+    --color-focus-ring: rgba(123, 184, 224, 0.4);
 
     /* ==============================
        TYPOGRAPHY

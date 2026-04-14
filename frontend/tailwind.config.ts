@@ -57,6 +57,16 @@ export default {
           DEFAULT: "var(--color-border-default)",
           strong: "var(--color-border-strong)",
         },
+        state: {
+          loading: "var(--color-state-loading)",
+          success: "var(--color-state-success)",
+          error: "var(--color-state-error)",
+          disabled: "var(--color-state-disabled)",
+          active: "var(--color-state-active)",
+        },
+        focus: {
+          ring: "var(--color-focus-ring)",
+        },
       },
       fontFamily: {
         display: ["Fredoka", "sans-serif"],
