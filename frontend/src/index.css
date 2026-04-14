@@ -104,3 +104,8 @@
   0%, 100% { box-shadow: 0 0 24px rgba(242, 212, 119, 0.10); }
   50% { box-shadow: 0 0 36px rgba(242, 212, 119, 0.22); }
 }
+
+@keyframes card-breathe-info {
+  0%, 100% { box-shadow: 0 0 24px rgba(123, 184, 224, 0.10); }
+  50% { box-shadow: 0 0 36px rgba(123, 184, 224, 0.22); }
+}

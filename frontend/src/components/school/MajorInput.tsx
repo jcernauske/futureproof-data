@@ -21,8 +21,8 @@ type MajorPhase =
   | "input"
   | "thinking"
   | "match"
-  | "audit_fail"
   | "clarify"
+  | "audit_fail"
   | "fallback";
 
 export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
@@ -30,14 +30,15 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
   const [phase, setPhase] = useState<MajorPhase>("input");
   const [intentResult, setIntentResult] = useState<IntentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [clarifyText, setClarifyText] = useState("");
-  const [clarifyRounds, setClarifyRounds] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function resolveIntent(text: string, isClarification = false) {
+  const uniquePrograms = programs.filter(
+    (p, i, arr) => arr.findIndex((x) => x.cipcode === p.cipcode) === i,
+  );
+
+  async function resolveIntent(text: string) {
     setPhase("thinking");
     setError(null);
-    const startTime = Date.now();
 
     try {
       const programDicts = programs.map((p) => ({
@@ -52,37 +53,21 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
         programs: programDicts,
       });
 
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 200) {
-        handleIntentResult(result);
-        return;
-      }
-
       setIntentResult(result);
 
       if (result.audit_flag === "hard_reject") {
         setPhase("audit_fail");
-      } else if (result.needs_clarification && !isClarification) {
+      } else if (result.needs_clarification) {
         setPhase("clarify");
       } else {
         setPhase("match");
       }
     } catch {
       setError(
-        "Gemma couldn't match that — try a different description, or pick from the list below.",
+        "Gemma couldn't match that — pick from the list below.",
       );
       setPhase("fallback");
     }
-  }
-
-  function handleIntentResult(result: IntentResult) {
-    if (result.audit_flag === "hard_reject") {
-      setIntentResult(result);
-      setPhase("audit_fail");
-      return;
-    }
-    setIntentResult(result);
-    setPhase("match");
   }
 
   function handleSubmit() {
@@ -112,19 +97,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
   }
 
   function handleNotQuite() {
-    if (clarifyRounds >= 2) {
-      setPhase("fallback");
-      return;
-    }
-    setClarifyRounds((r) => r + 1);
     setPhase("clarify");
-    setClarifyText("");
-  }
-
-  function handleClarifySubmit() {
-    const text = clarifyText.trim();
-    if (!text) return;
-    resolveIntent(text, true);
   }
 
   function handleProgramPick(program: ProgramResult) {
@@ -137,27 +110,33 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
     });
   }
 
-  function handleTryAgain() {
+  function handleStartOver() {
     setRawText("");
     setPhase("input");
     setIntentResult(null);
     setError(null);
-    setClarifyRounds(0);
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
+  const inputDimmed = phase === "clarify" || phase === "fallback";
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      transition={springs.smooth}
     >
       <h2 className="font-display text-subheading font-bold text-text-primary mb-4">
         What do you want to study?
       </h2>
 
-      {/* Text input */}
-      <div className="flex gap-2">
+      {/* Text input — dims when clarify/fallback is active */}
+      <motion.div
+        className="flex gap-2"
+        animate={{ opacity: inputDimmed ? 0.4 : 1 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        style={{ pointerEvents: inputDimmed ? "none" : "auto" }}
+      >
         <input
           ref={inputRef}
           type="text"
@@ -179,17 +158,19 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
           }`}
           aria-label="What do you want to study?"
         />
-        <button
+        <motion.button
           onClick={handleSubmit}
           disabled={!rawText.trim() || phase === "thinking"}
-          className="bg-bp-surface text-text-secondary px-4 rounded-md border border-border-subtle hover:border-accent-insight transition-colors duration-fast disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="bg-accent-thrive text-text-inverse font-bold h-12 w-12 rounded-md cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-40 disabled:cursor-not-allowed"
+          whileTap={{ scale: 0.97 }}
+          transition={springs.snappy}
           aria-label="Submit major"
         >
           →
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
-      {/* Thinking indicator — collapses on exit to transfer energy to card */}
+      {/* Thinking indicator */}
       <AnimatePresence>
         {phase === "thinking" && (
           <motion.div
@@ -207,15 +188,43 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
         )}
       </AnimatePresence>
 
-      {/* Match card — arrives with energy from collapsed spinner */}
+      {/* Match + Clarify card — single container that transforms */}
       <AnimatePresence>
-        {phase === "match" && intentResult && (
-          <MatchCard
-            intentResult={intentResult}
-            rawText={rawText}
-            onConfirm={handleConfirm}
-            onNotQuite={handleNotQuite}
-          />
+        {(phase === "match" || phase === "clarify") && intentResult && (
+          <motion.div
+            className={`mt-4 bg-bp-mid rounded-xl p-6 border border-[rgba(255,255,255,0.5)] ${
+              phase === "clarify"
+                ? "animate-[card-breathe-info_4s_ease-in-out_infinite]"
+                : intentResult.confidence === "low"
+                  ? "animate-[card-breathe-caution_4s_ease-in-out_infinite]"
+                  : "animate-[card-breathe_4s_ease-in-out_infinite]"
+            }`}
+            initial={{ opacity: 0, scale: 0.85, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12, scale: 0.98 }}
+            transition={springs.bouncy}
+          >
+            <AnimatePresence mode="wait">
+              {phase === "match" && (
+                <MatchContent
+                  key="match"
+                  intentResult={intentResult}
+                  rawText={rawText}
+                  onConfirm={handleConfirm}
+                  onNotQuite={handleNotQuite}
+                />
+              )}
+              {phase === "clarify" && (
+                <ClarifyContent
+                  key="clarify"
+                  school={school}
+                  programs={uniquePrograms}
+                  onPick={handleProgramPick}
+                  onStartOver={handleStartOver}
+                />
+              )}
+            </AnimatePresence>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -223,18 +232,18 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       <AnimatePresence>
         {phase === "audit_fail" && intentResult?.audit_message && (
           <motion.div
-            className="mt-4 bg-bp-raised rounded-lg p-5 border border-accent-caution/30"
+            className="mt-4 bg-bp-mid rounded-xl p-6 border border-accent-caution/20"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={springs.smooth}
             role="alert"
           >
-            <p className="text-sm text-text-primary leading-relaxed">
+            <p className="text-small text-text-primary leading-relaxed">
               ⚠️ {intentResult.audit_message}
             </p>
             <button
-              onClick={handleTryAgain}
+              onClick={handleStartOver}
               className="mt-3 bg-accent-caution text-text-inverse font-semibold py-2 px-4 rounded-md cursor-pointer"
             >
               Try again
@@ -243,80 +252,28 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
         )}
       </AnimatePresence>
 
-      {/* Clarification round */}
-      <AnimatePresence>
-        {phase === "clarify" && (
-          <motion.div
-            className="mt-4 bg-bp-raised rounded-lg p-5 border border-border-subtle"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={springs.smooth}
-          >
-            <p className="text-sm text-text-secondary mb-3">
-              Tell us more — what career are you thinking about?
-            </p>
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                value={clarifyText}
-                onChange={(e) => setClarifyText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleClarifySubmit();
-                }}
-                placeholder="e.g., 'I want to be a doctor'"
-                className="flex-1 bg-bp-deep text-text-primary font-body text-body px-4 py-2.5 h-12 rounded-md border border-border focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-all duration-normal placeholder:text-text-muted"
-                aria-label="Clarify your major choice"
-              />
-              <button
-                onClick={handleClarifySubmit}
-                disabled={!clarifyText.trim()}
-                className="bg-accent-thrive text-text-inverse font-bold py-2.5 px-4 rounded-md cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                →
-              </button>
-            </div>
-
-            {programs.length > 0 && (
-              <>
-                <p className="text-sm text-text-muted mb-2">
-                  Or pick from {school.name}'s programs:
-                </p>
-                <ProgramList
-                  programs={programs}
-                  onPick={handleProgramPick}
-                />
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Fallback program picker */}
+      {/* Fallback — Gemma errored, just show program list */}
       <AnimatePresence>
         {phase === "fallback" && (
           <motion.div
-            className="mt-4"
+            className="mt-4 bg-bp-mid rounded-xl p-6 border border-border-subtle"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={springs.smooth}
           >
             {error && (
-              <p className="text-sm text-text-muted mb-3">{error}</p>
+              <p className="text-small text-text-muted mb-4">{error}</p>
             )}
-            {programs.length > 0 ? (
-              <>
-                <p className="text-sm text-text-secondary mb-2">
-                  Pick from {school.name}'s programs:
-                </p>
-                <ProgramList
-                  programs={programs}
-                  onPick={handleProgramPick}
-                />
-              </>
+            {uniquePrograms.length > 0 ? (
+              <ClarifyContent
+                school={school}
+                programs={uniquePrograms}
+                onPick={handleProgramPick}
+                onStartOver={handleStartOver}
+              />
             ) : (
-              <p className="text-sm text-text-muted">
+              <p className="text-small text-text-muted">
                 No programs available. Please go back and try a different
                 school.
               </p>
@@ -328,35 +285,11 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
   );
 }
 
-function ProgramList({
-  programs,
-  onPick,
-}: {
-  programs: ProgramResult[];
-  onPick: (p: ProgramResult) => void;
-}) {
-  const unique = programs.filter(
-    (p, i, arr) =>
-      arr.findIndex((x) => x.cipcode === p.cipcode) === i,
-  );
+/* ================================================================
+   Match Content — shown inside the card when Gemma has a match
+   ================================================================ */
 
-  return (
-    <ul className="max-h-[240px] overflow-y-auto space-y-0.5 rounded-md border border-border-subtle bg-bp-surface">
-      {unique.map((program) => (
-        <li key={program.cipcode}>
-          <button
-            onClick={() => onPick(program)}
-            className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:bg-bp-mid hover:text-text-primary transition-colors duration-fast cursor-pointer"
-          >
-            {program.program_name}
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function MatchCard({
+function MatchContent({
   intentResult,
   rawText,
   onConfirm,
@@ -371,25 +304,12 @@ function MatchCard({
 
   return (
     <motion.div
-      className={`mt-4 bg-bp-mid rounded-xl p-6 border border-[rgba(255,255,255,0.5)] ${
-        isLowConfidence
-          ? "animate-[card-breathe-caution_4s_ease-in-out_infinite]"
-          : "animate-[card-breathe_4s_ease-in-out_infinite]"
-      }`}
-      initial={{
-        opacity: 0,
-        scale: 0.85,
-        y: 12,
-      }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        y: 0,
-      }}
-      exit={{ opacity: 0, y: -12, scale: 0.98 }}
-      transition={springs.bouncy}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2 }}
     >
-      {/* Zone A: Attribution */}
+      {/* Attribution */}
       <div className="flex items-center gap-2 mb-3">
         <GemmaStar size={14} />
         <span className="text-small text-text-muted">
@@ -397,7 +317,7 @@ function MatchCard({
         </span>
       </div>
 
-      {/* Zone B: Program title — slides in and brightens */}
+      {/* Program title */}
       <motion.div
         initial={{ opacity: 0, x: -8 }}
         animate={{ opacity: 1, x: 0 }}
@@ -423,7 +343,7 @@ function MatchCard({
         </div>
       </motion.div>
 
-      {/* Zone C: Career preview — staggers in */}
+      {/* Career preview */}
       {intentResult.careers_preview.length > 0 && (
         <motion.div
           initial="hidden"
@@ -458,7 +378,7 @@ function MatchCard({
         </motion.div>
       )}
 
-      {/* Zone D: Playful warning (conditional) */}
+      {/* Playful warning */}
       {intentResult.audit_flag === "playful_warning" &&
         intentResult.audit_message && (
           <div className="border-t border-border-subtle pt-3 mt-4">
@@ -468,7 +388,7 @@ function MatchCard({
           </div>
         )}
 
-      {/* Zone E: Actions — delayed entrance */}
+      {/* Actions */}
       <motion.div
         className="mt-5 flex gap-3 flex-col mobile:flex-row"
         initial={{ opacity: 0, y: 8 }}
@@ -496,6 +416,134 @@ function MatchCard({
           Not quite
         </motion.button>
       </motion.div>
+    </motion.div>
+  );
+}
+
+/* ================================================================
+   Clarify Content — searchable program picker, no second Gemma call
+   ================================================================ */
+
+function ClarifyContent({
+  school,
+  programs,
+  onPick,
+  onStartOver,
+}: {
+  school: SchoolSelection;
+  programs: ProgramResult[];
+  onPick: (p: ProgramResult) => void;
+  onStartOver: () => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const [hoverIndex, setHoverIndex] = useState(-1);
+
+  const filtered = filter
+    ? programs.filter((p) =>
+        p.program_name.toLowerCase().includes(filter.toLowerCase()),
+      )
+    : programs;
+
+  return (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: {},
+        visible: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } },
+      }}
+    >
+      {/* Header */}
+      <motion.div
+        className="flex items-center gap-2 mb-4"
+        variants={{
+          hidden: { opacity: 0, y: 16 },
+          visible: { opacity: 1, y: 0, transition: springs.smooth },
+        }}
+      >
+        <GemmaStar size={14} />
+        <span className="text-small text-text-secondary">
+          Let's find the right one
+        </span>
+      </motion.div>
+
+      {/* Search filter */}
+      <motion.div
+        className="relative mb-3"
+        variants={{
+          hidden: { opacity: 0, y: 16 },
+          visible: { opacity: 1, y: 0, transition: springs.smooth },
+        }}
+      >
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-body-sm pointer-events-none">
+          ⌕
+        </span>
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => {
+            setFilter(e.target.value);
+            setHoverIndex(-1);
+          }}
+          placeholder="Filter programs..."
+          className="w-full bg-bp-deep text-text-primary font-body text-body-sm h-[44px] pl-10 pr-4 rounded-md border border-border focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-all duration-normal placeholder:text-text-muted"
+          autoFocus
+        />
+      </motion.div>
+
+      {/* Program list */}
+      <motion.div
+        variants={{
+          hidden: { opacity: 0, y: 16 },
+          visible: { opacity: 1, y: 0, transition: springs.smooth },
+        }}
+      >
+        <span className="font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info mb-2 block">
+          {school.name}
+        </span>
+
+        {filtered.length > 0 ? (
+          <ul className="max-h-[288px] overflow-y-auto rounded-lg border border-border-subtle overflow-hidden">
+            {filtered.map((program, i) => (
+              <li key={program.cipcode}>
+                <button
+                  onClick={() => onPick(program)}
+                  onMouseEnter={() => setHoverIndex(i)}
+                  onMouseLeave={() => setHoverIndex(-1)}
+                  className={`w-full text-left flex justify-between items-center px-[18px] py-3 cursor-pointer transition-[background] duration-fast border-b border-border-subtle last:border-b-0 border-l-[3px] ${
+                    i === hoverIndex
+                      ? "bg-[rgba(125,212,163,0.1)] border-l-accent-thrive text-text-primary"
+                      : "border-l-transparent text-text-secondary hover:bg-bp-surface hover:text-text-primary"
+                  }`}
+                >
+                  <span className="font-body text-body-sm font-semibold">
+                    {program.program_name}
+                  </span>
+                  <span className="font-data text-data-sm text-text-muted ml-3 shrink-0">
+                    {program.cipcode}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-body-sm text-text-muted text-center py-8">
+            No programs match — try a shorter search
+          </p>
+        )}
+      </motion.div>
+
+      {/* Start over */}
+      <motion.button
+        className="w-full mt-3 font-body text-small font-semibold text-text-muted hover:text-text-secondary cursor-pointer transition-colors duration-normal text-center py-2"
+        onClick={onStartOver}
+        variants={{
+          hidden: { opacity: 0, y: 16 },
+          visible: { opacity: 1, y: 0, transition: springs.smooth },
+        }}
+      >
+        Start over
+      </motion.button>
     </motion.div>
   );
 }

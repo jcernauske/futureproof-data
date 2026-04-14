@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiPost } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
+import { useBuildInputStore } from "@/store/buildInputStore";
 
 interface ProfileResponse {
   profile_name: string;
@@ -16,15 +17,28 @@ export function AppHeader() {
   const location = useLocation();
   const { profileName, animalEmoji, setProfile } = useProfileStore();
   const [starting, setStarting] = useState(false);
+  const { phase, clearMajor, clearSchool } = useBuildInputStore();
 
   const isLanding = location.pathname === "/";
+  const isSchool = location.pathname === "/school";
   const isHub = location.pathname === "/menu";
   const isPostReveal = ["/build", "/branches", "/save", "/menu"].some((p) =>
     location.pathname.startsWith(p),
   );
 
   function handleBack() {
-    navigate(-1);
+    if (isSchool) {
+      // Step back through internal phases before leaving the route
+      if (phase === "sliders") {
+        clearMajor();
+      } else if (phase === "major") {
+        clearSchool();
+      } else {
+        navigate(-1);
+      }
+    } else {
+      navigate(-1);
+    }
   }
 
   function handleHome() {

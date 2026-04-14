@@ -102,7 +102,7 @@ export function SchoolSearch({
   if (selected) {
     return (
       <motion.div
-        className="flex items-center gap-2 bg-bp-surface rounded-md px-4 py-3 border border-border-subtle"
+        className="flex items-center gap-2 bg-bp-deep rounded-lg h-14 px-4 border border-border"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={springs.smooth}
