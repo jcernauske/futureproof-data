@@ -55,7 +55,7 @@ export function LandingScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-bp-void relative overflow-hidden">
+    <div className="min-h-screen bg-bp-void relative overflow-hidden pt-14">
       <div className="noise-overlay" />
       <div className="ambient-glow" />
 
@@ -78,20 +78,12 @@ export function LandingScreen() {
         initial="hidden"
         animate="show"
       >
-        <motion.p
-          className="absolute top-8 font-display text-small font-semibold text-text-muted tracking-[0.15em] uppercase"
-          style={{ opacity: 0.5 }}
-          variants={staggerItem}
-        >
-          FutureProof
-        </motion.p>
-
         <motion.div className="mb-12" variants={staggerItem}>
           <PentagonGlow />
         </motion.div>
 
         <motion.div className="text-center max-w-[600px] mb-3" variants={staggerItem}>
-          <h1 className="font-display text-heading tablet:text-title font-semibold text-text-primary leading-snug">
+          <h1 className="font-display text-heading tablet:text-title font-bold text-text-primary leading-snug">
             A college degree isn't a destination.
             <br />
             It's a <span className="gradient-tagline">starting position.</span>

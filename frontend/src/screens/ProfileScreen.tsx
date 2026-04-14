@@ -114,11 +114,11 @@ export function ProfileScreen() {
   if (!profileName) return null;
 
   return (
-    <div className="min-h-screen bg-bp-deep relative overflow-hidden">
+    <div className="min-h-screen bg-bp-deep relative overflow-hidden pt-14">
       <div className="noise-overlay" />
 
       <motion.div
-        className="min-h-screen flex flex-col items-center justify-center px-6 relative"
+        className="min-h-[calc(100vh-56px)] flex flex-col items-center justify-center px-6 relative"
         variants={staggerContainer}
         initial="hidden"
         animate="show"
@@ -140,7 +140,7 @@ export function ProfileScreen() {
               top: "50%",
               transform: "translate(-50%, -50%)",
               background:
-                "radial-gradient(circle, rgba(125,212,163,0.08) 0%, transparent 70%)",
+                "radial-gradient(circle, var(--color-state-active) 0%, transparent 70%)",
               animation: "ambient-breathe 4s ease-in-out infinite",
             }}
           />
@@ -182,7 +182,7 @@ export function ProfileScreen() {
         </motion.p>
 
         <motion.button
-          className="mt-6 flex items-center gap-2 text-accent-info font-body text-small px-5 py-3 rounded-lg cursor-pointer border border-accent-info/30 bg-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+          className="mt-6 flex items-center gap-2 text-accent-info font-body text-small h-[44px] px-6 rounded-lg cursor-pointer border border-accent-info bg-transparent hover:bg-accent-info/10 transition-all duration-normal disabled:opacity-60 disabled:cursor-not-allowed"
           onClick={handleReroll}
           disabled={rerolling}
           aria-label="Generate a new profile name"
@@ -192,7 +192,7 @@ export function ProfileScreen() {
         >
           <motion.span
             animate={rerolling ? { rotate: 180 } : { rotate: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 15 }}
+            transition={springs.bouncy}
           >
             🎲
           </motion.span>

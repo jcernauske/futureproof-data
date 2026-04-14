@@ -79,10 +79,10 @@ export function SchoolMajorScreen() {
   if (!profileName) return null;
 
   return (
-    <div className="min-h-screen bg-bp-deep relative overflow-hidden">
+    <div className="min-h-screen bg-bp-deep relative overflow-hidden pt-14">
       <div className="noise-overlay" />
 
-      <div className="min-h-screen flex flex-col items-center px-6 py-12 relative">
+      <div className="min-h-[calc(100vh-56px)] flex flex-col items-center px-6 py-12 relative">
         <div className="w-full max-w-lg space-y-6">
           {/* Summary bar when in sliders phase */}
           <AnimatePresence>
@@ -104,7 +104,7 @@ export function SchoolMajorScreen() {
             >
               {/* School search */}
               <div>
-                <h2 className="font-display text-xl text-text-primary mb-4">
+                <h2 className="font-display text-subheading font-bold text-text-primary mb-4">
                   Where are you headed?
                 </h2>
                 <SchoolSearch
