@@ -781,8 +781,8 @@ function renderTree() {
 
     branch.nodes.forEach((node, ni) => {
       // Draw bezier from parent to node
-      const fromX = ni === 0 || (branch.nodes.length <= 2) ? root.x + 200 : branch.nodes[0].x + 200;
-      const fromY = ni === 0 || (branch.nodes.length <= 2) ? root.y + 40 : branch.nodes[0].y + 30;
+      const fromX = ni === 0 ? root.x + 200 : branch.nodes[0].x + 200;
+      const fromY = ni === 0 ? root.y + 40 : branch.nodes[0].y + 30;
       const toX = node.x;
       const toY = node.y + 30;
 
