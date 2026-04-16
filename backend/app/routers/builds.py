@@ -91,6 +91,7 @@ async def create_build(request: BuildRequest):
         skill_pool=pool,
     )
     state.store_build(build)
+    builds.save_build(build)
     return build
 
 

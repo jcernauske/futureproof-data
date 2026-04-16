@@ -160,6 +160,8 @@ def _row_to_outcome(
         earnings_1yr_p25=row.get("earnings_1yr_p25"),
         earnings_1yr_p75=row.get("earnings_1yr_p75"),
         debt_median=row.get("debt_median"),
+        debt_p25=row.get("debt_p25"),
+        debt_p75=row.get("debt_p75"),
         debt_to_earnings_annual=dte if isinstance(dte, (int, float)) else None,
         education_level_name=row.get("education_level_name"),
         growth_category=row.get("growth_category"),

@@ -11,6 +11,7 @@ import logging
 
 from app.models.career import AppliedSkill, Build
 from app.services import gemma_client
+from app.services.boss_fights import fmt_dollars, stat_explainer
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +21,16 @@ _SYSTEM = (
     "Drop all RPG and game metaphors — write as a knowledgeable, empowering "
     "advisor speaking plainly.\n\n"
     "Every item you write must reference something concrete from this "
-    "student's specific data: their school name, major, career, stats, "
-    "boss fight results, or skills. No filler like 'research your options' "
-    "— every item tied to an actual data point from their session.\n\n"
+    "student's specific data: their school name, major, career, salary "
+    "figures, debt levels, or boss fight results. NEVER reference raw stat "
+    "scores like 'ROI 9/10' or 'ERN 7' — students don't know what those "
+    "mean. Instead use the plain-English explanations and dollar figures "
+    "provided. No filler like 'research your options' — every item tied "
+    "to an actual data point from their session.\n\n"
     "Tone: empowering, specific, actionable. Respectful of parents — not "
     "adversarial. When the data shows real weaknesses, acknowledge them "
-    "honestly and pair with the mitigation strategy."
+    "honestly and pair with the mitigation strategy. Write at a 6th grade "
+    "reading level. No jargon."
 )
 
 
@@ -80,13 +85,9 @@ def _format_skill_recs(build: Build) -> str:
 
 def _build_prompt(build: Build) -> str:
     career = build.career
-    stats = career.stats
     gauntlet = build.gauntlet
-    wage = (
-        f"${int(career.median_annual_wage):,}"
-        if career.median_annual_wage
-        else "unknown"
-    )
+    wage = fmt_dollars(career.median_annual_wage)
+    stats_block = stat_explainer(career)
 
     return (
         f"School: {career.institution_name}\n"
@@ -96,8 +97,7 @@ def _build_prompt(build: Build) -> str:
         f"Entry education: {career.education_level_name or 'unknown'}\n"
         f"Effort level: {build.effort}\n"
         f"Loan coverage: {int(build.loan_pct * 100)}%\n\n"
-        f"Stats: ERN {stats.ern}/10, ROI {stats.roi}/10, "
-        f"RES {stats.res}/10, GRW {stats.grw}/10, HMN {stats.hmn}/10\n\n"
+        f"{stats_block}\n\n"
         f"Boss fight results ({gauntlet.wins}W/{gauntlet.losses}L/"
         f"{gauntlet.draws}D):\n{_format_fights(build)}\n\n"
         f"Skills crafted during rerolls:\n"
@@ -107,9 +107,9 @@ def _build_prompt(build: Build) -> str:
         "Write a 'Your Next Steps' action checklist with exactly four "
         "sections. Number the items within each section.\n\n"
         "## Questions to Ask Your Guidance Counselor\n"
-        "3-5 questions grounded in this student's specific stats, boss "
-        "fight results, and skill gaps. Each question should reference "
-        "actual data from the build.\n\n"
+        "3-5 questions grounded in this student's specific salary, debt, "
+        "career outlook, boss fight results, and skill gaps. Use real "
+        "dollar figures, not stat scores.\n\n"
         "## Questions to Ask College Recruiters\n"
         "3-5 questions to ask admissions/recruiters at this specific "
         "school, grounded in the build results.\n\n"

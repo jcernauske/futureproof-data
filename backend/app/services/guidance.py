@@ -20,6 +20,7 @@ from app.models.career import (
     SkillRec,
 )
 from app.services import gemma_client
+from app.services.boss_fights import fmt_dollars, stat_explainer
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +30,12 @@ _SYSTEM = (
     "college and major choice. You are direct, specific, and empowering. "
     "You never tell a student their path is doomed — you tell them what "
     "to do about their weaknesses. You reference the student's specific "
-    "school, major, and stats. You never use bullet points. You never "
-    "start with 'Great choice' or similar platitudes. Write "
-    "conversationally, in 4-6 sentences."
+    "school, major, and the real dollar figures provided. NEVER reference "
+    "raw stat scores like 'ROI 9/10' or 'ERN 7' — students don't know "
+    "what those mean. Instead explain in real-world terms: salary amounts, "
+    "debt levels, job growth trends, AI risk. You never use bullet points. "
+    "You never start with 'Great choice' or similar platitudes. Write "
+    "conversationally, in 4-6 sentences, at a 6th grade reading level."
 )
 
 
@@ -76,28 +80,28 @@ def _prompt(
     gauntlet: GauntletResult,
     branches: list[CareerBranch],
 ) -> str:
-    stats = career.stats
-    wage = (
-        f"${int(career.median_annual_wage):,}"
-        if career.median_annual_wage
-        else "unknown"
-    )
+    wage = fmt_dollars(career.median_annual_wage)
+    stats_block = stat_explainer(career)
     return (
         f"Student is considering {career.institution_name}, majoring in "
         f"{career.program_name}.\n\n"
         f"Primary career after graduation: {career.occupation_title} "
         f"(SOC {career.soc_code})\n"
         f"Median salary: {wage}\n"
-        f"Entry education: {career.education_level_name or 'unknown'}\n"
-        f"Stats: ERN {stats.ern}/10, ROI {stats.roi}/10, RES {stats.res}/10, "
-        f"GRW {stats.grw}/10, HMN {stats.hmn}/10\n\n"
+        f"Entry education: {career.education_level_name or 'unknown'}\n\n"
+        f"{stats_block}\n\n"
         f"Boss fights:\n{_format_bosses(gauntlet)}\n\n"
         f"Career branches available:\n{_format_branches(branches)}\n\n"
-        f"Write 4-6 sentences of career guidance for this student. Be "
-        f"specific to their school and major — not generic advice. "
-        f"Reference their stats and boss fight results. If they lost a "
-        f"boss fight, explain what they can do about it. Mention 1-2 "
-        f"concrete actions they can take while still in school."
+        "Write 4-6 sentences of career guidance for this student. Be "
+        "specific to their school and major — not generic advice. "
+        "IMPORTANT: Do NOT reference stat scores directly (like 'ROI 9/10' "
+        "or 'ERN 7/10') — students don't know what those mean. Instead, "
+        "explain the real-world meaning: talk about salary amounts, debt "
+        "levels, job market trends, and AI risk in plain English. Use the "
+        "dollar figures and explanations provided above. "
+        "If they lost a boss fight, explain what they can do about it. "
+        "Mention 1-2 concrete actions they can take while still in school. "
+        "Write at a 6th grade reading level. No jargon."
     )
 
 
@@ -140,13 +144,18 @@ _CHAT_SYSTEM = (
     "career paths. A high school student has just built their FutureProof "
     "character and is asking follow-up questions.\n\n"
     "Answer their question directly and specifically. Reference their "
-    "actual stats, school, and career data. If they ask \"what if\" "
-    "questions about different schools or majors, give your best "
-    "assessment but note that you'd need to run a new build to get "
-    "exact numbers.\n\n"
+    "actual school, career, and the dollar figures and plain-English stat "
+    "explanations provided in the context. NEVER reference raw stat "
+    "scores like 'ROI 9/10' or 'ERN 7' — students don't know what "
+    "those mean. Instead explain in real-world terms: salary amounts, "
+    "debt levels, job growth, AI risk.\n\n"
+    "If they ask \"what if\" questions about different schools or majors, "
+    "give your best assessment but note that you'd need to run a new "
+    "build to get exact numbers.\n\n"
     "Be conversational. Be specific. Never give generic advice. If you "
     "don't know something, say so — don't make it up. Keep replies to "
-    "4-8 sentences unless the student asks for more detail."
+    "4-8 sentences unless the student asks for more detail. "
+    "Write at a 6th grade reading level. No jargon."
 )
 
 
@@ -176,21 +185,16 @@ def _build_context_block(
     branches: list[CareerBranch],
     skill_recs: list[SkillRec],
 ) -> str:
-    stats = career.stats
-    wage = (
-        f"${int(career.median_annual_wage):,}"
-        if career.median_annual_wage
-        else "unknown"
-    )
+    wage = fmt_dollars(career.median_annual_wage)
+    stats_block = stat_explainer(career)
     return (
         "Student's build:\n"
         f"- School: {career.institution_name}\n"
         f"- Major: {career.program_name} (CIP {career.cipcode})\n"
         f"- Primary career: {career.occupation_title} "
         f"(SOC {career.soc_code}), median {wage}\n"
-        f"- Entry education: {career.education_level_name or 'unknown'}\n"
-        f"- Stats: ERN {stats.ern}/10, ROI {stats.roi}/10, "
-        f"RES {stats.res}/10, GRW {stats.grw}/10, HMN {stats.hmn}/10\n"
+        f"- Entry education: {career.education_level_name or 'unknown'}\n\n"
+        f"{stats_block}\n\n"
         f"- Boss fight results: {_format_boss_summary(gauntlet)}\n"
         f"- Available career branches: {_format_branch_summary(branches)}\n"
         f"- Skill recommendations given: {_format_recs_summary(skill_recs)}"

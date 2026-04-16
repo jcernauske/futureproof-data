@@ -74,6 +74,8 @@ class CareerOutcome(BaseModel):
     earnings_1yr_p25: float | None = None
     earnings_1yr_p75: float | None = None
     debt_median: float | None = None
+    debt_p25: float | None = None
+    debt_p75: float | None = None
     debt_to_earnings_annual: float | None = None
     education_level_name: str | None = None
     growth_category: str | None = None

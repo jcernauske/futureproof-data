@@ -180,8 +180,8 @@ class TestBuildTree:
     def test_boss_results_computed(self, monkeypatch):
         _mock_branches(monkeypatch, {})
         root, _ = career_tree.build_tree(_build(), max_depth=1)
-        assert root.boss_ai in ("W", "L", "D", "?")
-        assert root.boss_market in ("W", "L", "D", "?")
+        assert root.boss_ai in ("win", "lose", "draw", "unknown")
+        assert root.boss_market in ("win", "lose", "draw", "unknown")
 
     def test_roi_inherited_from_build(self, monkeypatch):
         _mock_branches(monkeypatch, {

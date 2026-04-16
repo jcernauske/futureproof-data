@@ -83,9 +83,7 @@ def _fetch_raw_branches(soc_code: str) -> list[dict[str, Any]]:
 
 
 def _score_boss(result: str) -> str:
-    return {"win": "W", "lose": "L", "draw": "D", "unknown": "?"}.get(
-        result, "?"
-    )
+    return result if result in ("win", "lose", "draw") else "unknown"
 
 
 def _compute_boss_results(node: TreeNode, roi: int | None) -> None:
