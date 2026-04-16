@@ -745,6 +745,7 @@ Specs are written to `docs/specs/` and executed by Claude Code. This table track
 | S1 | `gemma-ai-exposure-rescore` | Rebuild Karpathy's scores natively with Gemma using O*NET task-level data. Spec already written at `docs/specs/gemma-ai-exposure-rescore.md`. | ⬜ Not started | All frontend complete |
 | S2 | `historical-parallels` | Add curated historical parallel data to boss fight narrative prompts. | ⬜ Not started | F4 |
 | S3 | `counselor-report` | "Download report" button in menu. Backend `report_gen.py` already works — needs frontend button + PDF render endpoint. | ⬜ Not started | F7 |
+| S4 | `three-signal-ai-exposure-composite` | Three-signal RES composite: Gemma theoretical (40%) + Anthropic observed adoption (35%) + velocity ratio (25%). Single 1-10 score for pentagon. Spec at `docs/specs/three-signal-ai-exposure-composite.md`. | ⬜ Not started | S1 (gemma-ai-exposure-rescore) |
 
 ### Completed Specs (Reference)
 

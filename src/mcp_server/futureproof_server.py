@@ -105,6 +105,8 @@ SCHOOL_PROGRAMS_RESPONSE_FIELDS = [
     "earnings_1yr_p25",
     "earnings_1yr_p75",
     "debt_median",
+    "debt_p25",
+    "debt_p75",
     "debt_to_earnings_annual",
     "debt_to_earnings_tier",
     "program_value_index",
@@ -153,6 +155,8 @@ CAREER_PATHS_RESPONSE_FIELDS = [
     "earnings_1yr_p25",
     "earnings_1yr_p75",
     "debt_median",
+    "debt_p25",
+    "debt_p75",
     "debt_to_earnings_annual",
     "confidence_tier_program",
     "median_annual_wage",
@@ -206,6 +210,8 @@ _SUB_CO_FIELDS = [
     "earnings_1yr_p25",
     "earnings_1yr_p75",
     "debt_median",
+    "debt_p25",
+    "debt_p75",
     "debt_to_earnings_annual",
     "cip_family_earnings_rank",
     "confidence_tier",
@@ -1575,6 +1581,8 @@ class FutureProofMCPServer(BaseMCPServer):
                 "earnings_1yr_p25": school.get("earnings_1yr_p25"),
                 "earnings_1yr_p75": school.get("earnings_1yr_p75"),
                 "debt_median": school.get("debt_median"),
+                "debt_p25": school.get("debt_p25"),
+                "debt_p75": school.get("debt_p75"),
                 "debt_to_earnings_annual": school.get(
                     "debt_to_earnings_annual"
                 ),
@@ -1806,6 +1814,8 @@ class FutureProofMCPServer(BaseMCPServer):
                 row["earnings_1yr_p25"] = school_row.get("earnings_1yr_p25")
                 row["earnings_1yr_p75"] = school_row.get("earnings_1yr_p75")
                 row["debt_median"] = school_row.get("debt_median")
+                row["debt_p25"] = school_row.get("debt_p25")
+                row["debt_p75"] = school_row.get("debt_p75")
                 row["debt_to_earnings_annual"] = school_row.get("debt_to_earnings_annual")
                 ern = compute_stat_ern(
                     school_row.get("cip_family_earnings_rank"),
