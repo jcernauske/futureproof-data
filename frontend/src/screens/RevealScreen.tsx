@@ -238,7 +238,7 @@ export function RevealScreen() {
             <button
               id="btn-fight-bosses"
               aria-label="Fight the Bosses"
-              onClick={() => navigate("/bosses")}
+              onClick={() => navigate("/gauntlet")}
               className="font-display font-semibold text-cta px-8 py-3.5 rounded-lg bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive transition-all duration-normal"
             >
               Fight the Bosses →

@@ -4,6 +4,8 @@ import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SchoolMajorScreen } from "@/screens/SchoolMajorScreen";
 import { CareerPickScreen } from "@/screens/CareerPickScreen";
 import { RevealScreen } from "@/screens/RevealScreen";
+import { GauntletScreen } from "@/screens/GauntletScreen";
+import { BranchTreeScreen } from "@/screens/BranchTreeScreen";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
 
@@ -17,6 +19,8 @@ function App() {
         <Route path="/school" element={<SchoolMajorScreen />} />
         <Route path="/career-pick" element={<CareerPickScreen />} />
         <Route path="/reveal" element={<RevealScreen />} />
+        <Route path="/gauntlet" element={<GauntletScreen />} />
+        <Route path="/branches" element={<BranchTreeScreen />} />
         <Route
           path="/build"
           element={

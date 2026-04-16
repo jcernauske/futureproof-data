@@ -67,12 +67,6 @@ export function CareerCard({ career, selected, onSelect }: CareerCardProps) {
         })}
       </div>
 
-      {career.data_caveat && (
-        <p className="mt-2 text-text-muted text-small flex items-center gap-1">
-          <span>⚠️</span>
-          <span>Limited data available</span>
-        </p>
-      )}
     </motion.button>
   );
 }

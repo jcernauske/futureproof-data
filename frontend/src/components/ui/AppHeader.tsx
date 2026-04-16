@@ -22,7 +22,8 @@ export function AppHeader() {
   const isLanding = location.pathname === "/";
   const isSchool = location.pathname === "/school";
   const isHub = location.pathname === "/menu";
-  const isPostReveal = ["/build", "/reveal", "/bosses", "/branches", "/save", "/menu"].some((p) =>
+  const isGauntlet = location.pathname === "/gauntlet";
+  const isPostReveal = ["/build", "/reveal", "/bosses", "/gauntlet", "/branches", "/save", "/menu"].some((p) =>
     location.pathname.startsWith(p),
   );
 
@@ -50,7 +51,9 @@ export function AppHeader() {
       {(
         <motion.header
           key="app-header"
-          className="fixed top-0 left-0 right-0 z-[100] h-14 px-8 flex items-center backdrop-blur-[12px] border-b border-border-subtle"
+          className={`fixed top-0 left-0 right-0 z-[100] h-14 px-8 flex items-center backdrop-blur-[12px] border-b transition-opacity duration-slow ${
+            isGauntlet ? "border-[rgba(255,255,255,0.02)] opacity-60" : "border-border-subtle"
+          }`}
           style={{ background: "rgba(18, 19, 31, 0.92)" }}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -78,7 +81,7 @@ export function AppHeader() {
             {profileName && (
               <span
                 className={`font-body text-small font-semibold transition-colors duration-slow ${
-                  isPostReveal ? "text-text-secondary" : "text-text-muted"
+                  isGauntlet ? "text-text-muted opacity-40" : isPostReveal ? "text-text-secondary" : "text-text-muted"
                 }`}
               >
                 {profileName} {animalEmoji}

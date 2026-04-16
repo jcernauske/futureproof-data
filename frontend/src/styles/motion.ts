@@ -79,7 +79,7 @@ export const transitions = {
 // ============================================================
 
 /** Container that staggers its children. */
-export const staggerContainer = (delayChildren = 0, staggerAmount = stagger.normal): Variants => ({
+export const staggerContainer = (delayChildren: number = 0, staggerAmount: number = stagger.normal): Variants => ({
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
