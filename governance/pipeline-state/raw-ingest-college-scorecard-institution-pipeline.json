@@ -1,0 +1,190 @@
+{
+  "spec": "raw-ingest-college-scorecard-institution",
+  "zone": "bronze",
+  "mode": "greenfield",
+  "started": "2026-04-15T03:39:02.603685+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-15T03:41:14.612205+00:00",
+      "output": "governance review: partial approval, bronze cleared, silver/gold blocked pending data models"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-15T03:46:06.372981+00:00",
+      "output": "src/raw/college_scorecard_institution_ingestor.py",
+      "output_hash": "sha256:3040e1a1297122d06b668506f050444afca0f9fc62e6d9348006dc507554cf1a"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:25:48.270349+00:00",
+      "output": "docs/sessions/eda-college-scorecard-institution.md",
+      "output_hash": "sha256:487a0a6e8c61e4b7c2ab6c204af1e278305ee077c345383e0502c9c4c3a50107"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:29:10.680821+00:00",
+      "output": "domain/raw-ingest-college-scorecard-institution-context.md",
+      "output_hash": "sha256:231ed0df65ee64f5ff988db5d3ec0b0ef7006698bf741baaec4e17c50053874a"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:33:05.814559+00:00",
+      "output": "governance/dq-rules/raw-ingest-college-scorecard-institution.json",
+      "output_hash": "sha256:0dd53e72a6bd36111c26957fc688fe716f80c60bae1da58a30ee66415a2d374c"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:37:30.853442+00:00",
+      "output": "governance/dq-scorecards/raw-ingest-college-scorecard-institution-scorecard.md",
+      "output_hash": "sha256:ef7a3c1c95fa1832ab4ea78f6db12551fe6b12f770b12271229ba39e7727248d"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:44:12.880788+00:00",
+      "output": "governance/chaos-manifests/raw-ingest-college-scorecard-institution-chaos.md",
+      "output_hash": "sha256:21f6b7b5c10117648ce0402023256ae6ebdd5f161aaa867d2d8bc9b4904a6180"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:46:11.952511+00:00",
+      "output": "governance/entity-resolution/raw-ingest-college-scorecard-institution.md",
+      "output_hash": "sha256:36c7204f213efde281b8444878f130837a0679d6d208493cea206874504ccb33"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:46:14.201717+00:00",
+      "output": "governance/pii-scans/raw-ingest-college-scorecard-institution-pii-scan.md",
+      "output_hash": "sha256:2aca34ad669bd2f0961b509bdb93f64d3877a272f205ac046d39611c63b94a71"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:46:15.986626+00:00",
+      "output": "governance/temporal-models/raw-ingest-college-scorecard-institution-temporal.md",
+      "output_hash": "sha256:756593ff42d8a017f0fcfe0079532ac696a1170828b3b2078563eb29dc65d103"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:54:56.213210+00:00",
+      "output": "governance/lineage/raw-ingest-college-scorecard-institution-20260414T213000Z.json",
+      "output_hash": "sha256:2ed9bc1b34d5daa552447b1681ad54f688bb22f51e575ee6c6c6f2b91594e7ea"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:59:48.765466+00:00",
+      "output": "governance/cde-registry/raw-ingest-college-scorecard-institution-cdes.md",
+      "output_hash": "sha256:942f970a486c8c2d4a77382e0f49d26a3e141e6d5fa55a5d2b7e5e0aa9aae1bf"
+    },
+    "doc-generator": {
+      "status": "NOT_STARTED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T02:52:31.848807+00:00",
+      "output": "governance/audits/raw-ingest-college-scorecard-institution-adversarial-audit.md",
+      "output_hash": "sha256:c3869d27efb1e88a8935729f89a9b57f2d5ca0674d882020ba32ecc211fc5d0c"
+    },
+    "governance-reviewer-post": {
+      "status": "NOT_STARTED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "staff-engineer": {
+      "status": "NOT_STARTED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

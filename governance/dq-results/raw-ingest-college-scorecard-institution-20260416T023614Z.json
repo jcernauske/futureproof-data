@@ -1,0 +1,168 @@
+{
+  "run_id": "c2578683",
+  "spec": "raw-ingest-college-scorecard-institution",
+  "executed_at": "2026-04-16T02:36:14.152539+00:00",
+  "rules_total": 13,
+  "rules_passed": 13,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": [
+    {
+      "rule_id": "RAW-CSI-001",
+      "name": "Row count within expected range",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-002",
+      "name": "unitid uniqueness",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-003",
+      "name": "unitid not null",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-004",
+      "name": "control valid values",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-005",
+      "name": "costt4_a range check",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-006",
+      "name": "npt4_pub range check",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-007",
+      "name": "npt4_priv range check",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-008",
+      "name": "tuitionfee_in range check",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-009",
+      "name": "roomboard_on range check",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-010",
+      "name": "COA coverage (costt4_a or costt4_p non-null)",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-011",
+      "name": "Public institution net price coverage",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-012",
+      "name": "Private institution net price coverage",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "RAW-CSI-013",
+      "name": "Quintile span monotonicity (Q1 <= Q5)",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 46,
+      "threshold": "result_count <= 50",
+      "details": null
+    }
+  ],
+  "supplementary_stats": {
+    "total_rows": 3039,
+    "distinct_unitids": 3039,
+    "control_dist": [
+      {
+        "control": 1,
+        "count": 867
+      },
+      {
+        "control": 2,
+        "count": 1754
+      },
+      {
+        "control": 3,
+        "count": 418
+      }
+    ],
+    "costt4_a_nonnull": 2192,
+    "costt4_a_min": 6362.0,
+    "costt4_a_max": 87804.0,
+    "costt4_a_median": 30288.0,
+    "npt4_pub_nonnull": 774,
+    "npt4_pub_min": -1180.0,
+    "npt4_pub_max": 32598.0,
+    "npt4_priv_nonnull": 1459,
+    "npt4_priv_min": 1525.0,
+    "npt4_priv_max": 77180.0,
+    "tuitionfee_in_nonnull": 2518,
+    "tuitionfee_in_min": 600.0,
+    "tuitionfee_in_max": 69330.0,
+    "roomboard_on_nonnull": 1719,
+    "roomboard_on_min": 1000.0,
+    "roomboard_on_max": 29874.0,
+    "coa_coverage_pct": 73.5,
+    "pub_npt4_coverage_pct": 89.3,
+    "priv_npt4_coverage_pct": 70.6,
+    "q1_gt_q5_pub": 7,
+    "q1_gt_q5_priv": 39
+  }
+}

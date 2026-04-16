@@ -16,6 +16,7 @@
 | 2026-04-07 | Added O*NET section | Third data source — O*NET 30.2 task/activity/context/pathway data. Documents missing Career Changers/Starters files, scale type system, 93 "All Other"/Military gap, and SOC code format bridging to BLS. |
 | 2026-04-09 | Added Karpathy AI Exposure section | Fourth data source — LLM-generated AI exposure scores for 342 BLS occupations. Completes the RES stat and Fight AI boss in the FutureProof pentagon. |
 | 2026-04-10 | Added BEA Regional Price Parities section | Fifth data source — state-level cost-of-living index (50 states + DC, annual snapshot, national=100). Enables salary purchasing power adjustment in the frontend and the Tier 3 Fight Location Lock boss. Does NOT join to other sources by SOC/CIP — joins at query time by the student's selected state. |
+| 2026-04-14 | Added College Scorecard Institution-Level section | Sixth data source — institution-level cost of attendance, net price, tuition, room/board. Joins to existing field-of-study data on UNITID (91.9% coverage). Enables true ROI formula using net_price instead of debt_median. Source-specific context document: `domain/raw-ingest-college-scorecard-institution-context.md`. Key EDA corrections: row count is 3,039 (not ~6,500), COA coverage 73.5% (not 90%), negative net prices are legitimate, quintile monotonicity unreliable at adjacent pairs. All conditional agents (entity-resolver, pii-scanner, temporal-modeler) can be SKIPPED. |
 
 ---
 

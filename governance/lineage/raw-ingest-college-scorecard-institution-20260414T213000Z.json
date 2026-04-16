@@ -1,0 +1,316 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-14T21:30:00.000000Z",
+    "run": {
+      "runId": "81ba1e54-0862-441e-b1d0-62fbc014b8f3",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-college-scorecard-institution.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of College Scorecard institution-level cost data. Downloads bulk CSV from ed.gov, extracts ~24 cost/price fields from the 1,900+ column source, filters to PREDDEG=3 (bachelor's) OR ICLEVEL=1 (4-year), deduplicates on UNITID, converts PrivacySuppressed sentinel values to null, coerces types, and appends to raw.college_scorecard_institution Iceberg table. This data joins to the existing field-of-study raw table on UNITID and enables honest ROI (net_price_annual x 4 x loan_pct) rather than historical median debt."
+        },
+        "brightsmith_runtimeMetrics": {
+          "expectedRowCount": "5000-8000",
+          "filterPredicate": "PREDDEG == 3 OR ICLEVEL == 1",
+          "dedupGrain": "unitid",
+          "dedupPolicy": "first-row-wins",
+          "nullGrainSkipped": "rows with null unitid skipped during flatten",
+          "sentinelsNullified": ["PrivacySuppressed", "PS", "NA", "NULL", ""]
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-college-scorecard-institution",
+      "facets": {
+        "documentation": {
+          "description": "Ingest U.S. Department of Education College Scorecard institution-level cost data (cost of attendance, net price, tuition, room & board) into the bronze zone. Downloads bulk CSV, handles both plain and ZIP-wrapped responses, filters to 4-year bachelor's-granting institutions (PREDDEG=3 OR ICLEVEL=1), converts PrivacySuppressed values to null, coerces numeric strings to long/int/double, deduplicates on UNITID (first row wins), and appends to raw.college_scorecard_institution Iceberg table. Provides the institution-level cost structure missing from the field-of-study file."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/college_scorecard_institution_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "ed.gov",
+        "name": "college-scorecard.institution-csv",
+        "facets": {
+          "dataSource": {
+            "uri": "https://ed-public-download.app.cloud.gov/downloads/Most-Recent-Cohorts-Institution.csv",
+            "method": "bulk_csv_download",
+            "userAgent": "FutureProof/0.1 (jeff@hyenastudios.com)",
+            "approximateSize": "170MB",
+            "approximateColumnCount": 1900,
+            "license": "U.S. Government Work - public domain"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING"},
+              {"name": "INSTNM", "type": "STRING"},
+              {"name": "STABBR", "type": "STRING"},
+              {"name": "CONTROL", "type": "STRING"},
+              {"name": "PREDDEG", "type": "STRING"},
+              {"name": "ICLEVEL", "type": "STRING"},
+              {"name": "COSTT4_A", "type": "STRING"},
+              {"name": "COSTT4_P", "type": "STRING"},
+              {"name": "NPT4_PUB", "type": "STRING"},
+              {"name": "NPT4_PRIV", "type": "STRING"},
+              {"name": "NPT41_PUB", "type": "STRING"},
+              {"name": "NPT42_PUB", "type": "STRING"},
+              {"name": "NPT43_PUB", "type": "STRING"},
+              {"name": "NPT44_PUB", "type": "STRING"},
+              {"name": "NPT45_PUB", "type": "STRING"},
+              {"name": "NPT41_PRIV", "type": "STRING"},
+              {"name": "NPT42_PRIV", "type": "STRING"},
+              {"name": "NPT43_PRIV", "type": "STRING"},
+              {"name": "NPT44_PRIV", "type": "STRING"},
+              {"name": "NPT45_PRIV", "type": "STRING"},
+              {"name": "TUITIONFEE_IN", "type": "STRING"},
+              {"name": "TUITIONFEE_OUT", "type": "STRING"},
+              {"name": "ROOMBOARD_ON", "type": "STRING"},
+              {"name": "ROOMBOARD_OFF", "type": "STRING"},
+              {"name": "BOOKSUPPLY", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.college_scorecard_institution",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG"},
+              {"name": "instnm", "type": "STRING"},
+              {"name": "stabbr", "type": "STRING"},
+              {"name": "control", "type": "INTEGER"},
+              {"name": "preddeg", "type": "INTEGER"},
+              {"name": "costt4_a", "type": "DOUBLE"},
+              {"name": "costt4_p", "type": "DOUBLE"},
+              {"name": "npt4_pub", "type": "DOUBLE"},
+              {"name": "npt4_priv", "type": "DOUBLE"},
+              {"name": "npt41_pub", "type": "DOUBLE"},
+              {"name": "npt42_pub", "type": "DOUBLE"},
+              {"name": "npt43_pub", "type": "DOUBLE"},
+              {"name": "npt44_pub", "type": "DOUBLE"},
+              {"name": "npt45_pub", "type": "DOUBLE"},
+              {"name": "npt41_priv", "type": "DOUBLE"},
+              {"name": "npt42_priv", "type": "DOUBLE"},
+              {"name": "npt43_priv", "type": "DOUBLE"},
+              {"name": "npt44_priv", "type": "DOUBLE"},
+              {"name": "npt45_priv", "type": "DOUBLE"},
+              {"name": "tuitionfee_in", "type": "DOUBLE"},
+              {"name": "tuitionfee_out", "type": "DOUBLE"},
+              {"name": "roomboard_on", "type": "DOUBLE"},
+              {"name": "roomboard_off", "type": "DOUBLE"},
+              {"name": "booksupply", "type": "DOUBLE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "UNITID"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to long integer via int(). Used as dedup grain key (first row per UNITID wins). Null if parse fails; rows with null unitid are skipped during flatten().",
+                "transformationType": "DIRECT"
+              },
+              "instnm": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "INSTNM"}
+                ],
+                "transformationDescription": "Direct string copy with whitespace stripped. PrivacySuppressed/PS/NA/NULL/empty sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "stabbr": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "STABBR"}
+                ],
+                "transformationDescription": "Direct 2-letter state abbreviation string copy. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "control": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "CONTROL"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to integer via int(). Values: 1=Public, 2=Private nonprofit, 3=Private for-profit. Used downstream in Silver to pick NPT4_PUB vs NPT4_PRIV. Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "preddeg": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "PREDDEG"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to integer via int(). Pre-filtered: rows retained only if PREDDEG=3 (predominantly bachelor's) OR ICLEVEL=1 (4-year institution). Null if parse fails.",
+                "transformationType": "DIRECT"
+              },
+              "costt4_a": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "COSTT4_A"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Represents average cost of attendance for academic-year programs (tuition + fees + books + room & board + living expenses). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "costt4_p": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "COSTT4_P"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Represents average cost of attendance for program-year programs. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt4_pub": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT4_PUB"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Average net price for public institutions (COA minus grants/scholarships). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt4_priv": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT4_PRIV"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Average net price for private institutions (COA minus grants/scholarships). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt41_pub": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT41_PUB"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Public-institution net price for families in the $0-$30K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt42_pub": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT42_PUB"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Public-institution net price for families in the $30K-$48K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt43_pub": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT43_PUB"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Public-institution net price for families in the $48K-$75K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt44_pub": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT44_PUB"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Public-institution net price for families in the $75K-$110K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt45_pub": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT45_PUB"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Public-institution net price for families in the $110K+ income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt41_priv": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT41_PRIV"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Private-institution net price for families in the $0-$30K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt42_priv": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT42_PRIV"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Private-institution net price for families in the $30K-$48K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt43_priv": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT43_PRIV"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Private-institution net price for families in the $48K-$75K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt44_priv": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT44_PRIV"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Private-institution net price for families in the $75K-$110K income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "npt45_priv": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "NPT45_PRIV"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Private-institution net price for families in the $110K+ income bracket. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "tuitionfee_in": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "TUITIONFEE_IN"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). In-state tuition and fees (tuition only, no housing). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "tuitionfee_out": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "TUITIONFEE_OUT"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Out-of-state tuition and fees (tuition only, no housing). Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "roomboard_on": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "ROOMBOARD_ON"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). On-campus room and board cost. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "roomboard_off": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "ROOMBOARD_OFF"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Off-campus (not with family) room and board cost. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "booksupply": {
+                "inputFields": [
+                  {"namespace": "ed.gov", "name": "college-scorecard.institution-csv", "field": "BOOKSUPPLY"}
+                ],
+                "transformationDescription": "Parsed from CSV string, coerced to double via float(). Estimated books and supplies cost. Sentinel values converted to null.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the download URL used for this ingest run (https://ed-public-download.app.cloud.gov/downloads/Most-Recent-Cohorts-Institution.csv).",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_csv_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

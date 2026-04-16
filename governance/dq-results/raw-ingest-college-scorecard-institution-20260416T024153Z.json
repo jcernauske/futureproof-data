@@ -1,0 +1,11 @@
+{
+  "run_id": "098f3a94",
+  "spec": "raw-ingest-college-scorecard-institution",
+  "executed_at": "2026-04-16T02:41:53.517229+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}
