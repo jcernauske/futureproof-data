@@ -1,0 +1,53 @@
+task_name,feedback_loop,directive,task_iteration,validation,learning,filtered
+write computer programs to meet client requirements.,0.10,0.30,0.40,0.10,0.05,0.05
+debug code to identify and resolve software defects.,0.15,0.25,0.45,0.08,0.02,0.05
+review and refactor code for maintainability and performance.,0.10,0.20,0.50,0.10,0.05,0.05
+design software architecture for new applications.,0.05,0.15,0.55,0.15,0.05,0.05
+collaborate with product managers on feature specification.,0.08,0.22,0.40,0.15,0.05,0.10
+analyze financial statements to assess company performance.,0.15,0.30,0.35,0.10,0.05,0.05
+build valuation models for equity research.,0.10,0.35,0.40,0.08,0.02,0.05
+prepare investment recommendations for institutional clients.,0.0,0.0,0.0,0.0,0.0,1.0
+monitor industry trends and economic indicators.,0.10,0.40,0.30,0.10,0.05,0.05
+present financial findings to senior management.,0.10,0.30,0.30,0.15,0.05,0.10
+administer medications and treatments to patients.,0.0,0.0,0.0,0.0,0.0,1.0
+monitor vital signs and record patient health data.,0.0,0.0,0.0,0.0,0.0,1.0
+educate patients and families about health management.,0.10,0.40,0.20,0.10,0.10,0.10
+coordinate care with physicians and other health professionals.,0.0,0.0,0.0,0.0,0.0,1.0
+respond to medical emergencies in clinical settings.,0.0,0.0,0.0,0.0,0.0,1.0
+prepare lesson plans aligned with curriculum standards.,0.05,0.35,0.40,0.10,0.05,0.05
+grade student assignments and tests.,0.10,0.50,0.20,0.10,0.05,0.05
+communicate with parents about student progress.,0.0,0.0,0.0,0.0,0.0,1.0
+facilitate classroom discussions and group activities.,0.05,0.20,0.40,0.15,0.10,0.10
+adapt instructional methods to diverse learners.,0.05,0.25,0.45,0.10,0.10,0.05
+greet customers and determine their needs.,0.0,0.0,0.0,0.0,0.0,1.0
+process sales transactions at point-of-sale terminals.,0.0,0.0,0.0,0.0,0.0,1.0
+stock shelves and maintain inventory displays.,0.0,0.0,0.0,0.0,0.0,1.0
+handle customer returns and exchanges.,0.0,0.0,0.0,0.0,0.0,1.0
+upsell products based on customer interactions.,0.0,0.0,0.0,0.0,0.0,1.0
+create visual designs for print and digital media.,0.10,0.15,0.55,0.15,0.05,0.0
+select color palettes and typography for brand assets.,0.05,0.20,0.50,0.15,0.05,0.05
+present design concepts to clients for feedback.,0.05,0.25,0.40,0.15,0.05,0.10
+revise designs based on client feedback iteratively.,0.20,0.15,0.55,0.05,0.02,0.03
+prepare design files for printing or digital publishing.,0.05,0.30,0.45,0.10,0.05,0.05
+load and unload building materials at job sites.,0.0,0.0,0.0,0.0,0.0,1.0
+operate hand tools and power equipment to complete tasks.,0.0,0.0,0.0,0.0,0.0,1.0
+dig trenches and excavate soil for foundations.,0.0,0.0,0.0,0.0,0.0,1.0
+clean and prepare construction sites for the next phase.,0.0,0.0,0.0,0.0,0.0,1.0
+follow safety protocols to prevent workplace injuries.,0.05,0.40,0.25,0.15,0.05,0.10
+draft legal documents such as contracts and briefs.,0.05,0.20,0.55,0.15,0.03,0.02
+research case law and statutes relevant to client matters.,0.10,0.30,0.45,0.10,0.03,0.02
+advise clients on legal rights and obligations.,0.10,0.35,0.30,0.15,0.05,0.05
+represent clients in court proceedings and negotiations.,0.0,0.0,0.0,0.0,0.0,1.0
+review evidence and prepare witnesses for testimony.,0.05,0.25,0.50,0.15,0.03,0.02
+plan and direct daily operations of the organization.,0.05,0.25,0.45,0.15,0.05,0.05
+manage staff by setting goals and evaluating performance.,0.10,0.30,0.35,0.15,0.05,0.05
+review financial statements to inform business decisions.,0.10,0.25,0.40,0.15,0.05,0.05
+develop and implement operational policies.,0.05,0.20,0.45,0.20,0.05,0.05
+coordinate interdepartmental projects and initiatives.,0.05,0.30,0.40,0.15,0.05,0.05
+mix and bake ingredients according to standardized recipes.,0.0,0.0,0.0,0.0,0.0,1.0
+decorate cakes and pastries with icing and embellishments.,0.0,0.0,0.0,0.0,0.0,1.0
+check product quality for appearance and taste.,0.0,0.0,0.0,0.0,0.0,1.0
+clean and sanitize baking equipment and surfaces.,0.0,0.0,0.0,0.0,0.0,1.0
+orphan task with no mapping row.,0.10,0.20,0.50,0.15,0.05,0.0
+write documentation for new features.,0.10,0.30,0.40,0.10,0.05,0.05
+none,0.05,0.10,0.50,0.20,0.10,0.05

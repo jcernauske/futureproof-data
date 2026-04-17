@@ -1,0 +1,53 @@
+O*NET-SOC Code,Title,Task ID,Task,Task Type,Incumbents Responding,Date,Domain Source
+15-1252.00,Software Developers,1001,write computer programs to meet client requirements.,Core,100.0,07/2023,Incumbent
+15-1252.00,Software Developers,1002,debug code to identify and resolve software defects.,Core,95.0,07/2023,Incumbent
+15-1252.00,Software Developers,1003,review and refactor code for maintainability and performance.,Core,80.0,07/2023,Incumbent
+15-1252.00,Software Developers,1004,design software architecture for new applications.,Core,75.0,07/2023,Incumbent
+15-1252.00,Software Developers,1005,collaborate with product managers on feature specification.,Core,70.0,07/2023,Incumbent
+13-2051.00,Financial and Investment Analysts,2001,analyze financial statements to assess company performance.,Core,100.0,07/2023,Incumbent
+13-2051.00,Financial and Investment Analysts,2002,build valuation models for equity research.,Core,90.0,07/2023,Incumbent
+13-2051.00,Financial and Investment Analysts,2003,prepare investment recommendations for institutional clients.,Core,85.0,07/2023,Incumbent
+13-2051.00,Financial and Investment Analysts,2004,monitor industry trends and economic indicators.,Core,80.0,07/2023,Incumbent
+13-2051.00,Financial and Investment Analysts,2005,present financial findings to senior management.,Core,75.0,07/2023,Incumbent
+29-1141.00,Registered Nurses,3001,administer medications and treatments to patients.,Core,100.0,07/2023,Incumbent
+29-1141.00,Registered Nurses,3002,monitor vital signs and record patient health data.,Core,98.0,07/2023,Incumbent
+29-1141.00,Registered Nurses,3003,educate patients and families about health management.,Core,80.0,07/2023,Incumbent
+29-1141.00,Registered Nurses,3004,coordinate care with physicians and other health professionals.,Core,85.0,07/2023,Incumbent
+29-1141.00,Registered Nurses,3005,respond to medical emergencies in clinical settings.,Core,70.0,07/2023,Incumbent
+25-2021.00,Elementary School Teachers,4001,prepare lesson plans aligned with curriculum standards.,Core,100.0,07/2023,Incumbent
+25-2021.00,Elementary School Teachers,4002,grade student assignments and tests.,Core,95.0,07/2023,Incumbent
+25-2021.00,Elementary School Teachers,4003,communicate with parents about student progress.,Core,85.0,07/2023,Incumbent
+25-2021.00,Elementary School Teachers,4004,facilitate classroom discussions and group activities.,Core,90.0,07/2023,Incumbent
+25-2021.00,Elementary School Teachers,4005,adapt instructional methods to diverse learners.,Core,80.0,07/2023,Incumbent
+41-2031.00,Retail Salespersons,5001,greet customers and determine their needs.,Core,100.0,07/2023,Incumbent
+41-2031.00,Retail Salespersons,5002,process sales transactions at point-of-sale terminals.,Core,95.0,07/2023,Incumbent
+41-2031.00,Retail Salespersons,5003,stock shelves and maintain inventory displays.,Core,70.0,07/2023,Incumbent
+41-2031.00,Retail Salespersons,5004,handle customer returns and exchanges.,Core,80.0,07/2023,Incumbent
+41-2031.00,Retail Salespersons,5005,upsell products based on customer interactions.,Core,65.0,07/2023,Incumbent
+27-1024.00,Graphic Designers,6001,create visual designs for print and digital media.,Core,100.0,07/2023,Incumbent
+27-1024.00,Graphic Designers,6002,select color palettes and typography for brand assets.,Core,90.0,07/2023,Incumbent
+27-1024.00,Graphic Designers,6003,present design concepts to clients for feedback.,Core,80.0,07/2023,Incumbent
+27-1024.00,Graphic Designers,6004,revise designs based on client feedback iteratively.,Core,85.0,07/2023,Incumbent
+27-1024.00,Graphic Designers,6005,prepare design files for printing or digital publishing.,Core,75.0,07/2023,Incumbent
+47-2061.00,Construction Laborers,7001,load and unload building materials at job sites.,Core,100.0,07/2023,Incumbent
+47-2061.00,Construction Laborers,7002,operate hand tools and power equipment to complete tasks.,Core,95.0,07/2023,Incumbent
+47-2061.00,Construction Laborers,7003,dig trenches and excavate soil for foundations.,Core,80.0,07/2023,Incumbent
+47-2061.00,Construction Laborers,7004,clean and prepare construction sites for the next phase.,Core,75.0,07/2023,Incumbent
+47-2061.00,Construction Laborers,7005,follow safety protocols to prevent workplace injuries.,Core,90.0,07/2023,Incumbent
+23-1011.00,Lawyers,8001,draft legal documents such as contracts and briefs.,Core,100.0,07/2023,Incumbent
+23-1011.00,Lawyers,8002,research case law and statutes relevant to client matters.,Core,95.0,07/2023,Incumbent
+23-1011.00,Lawyers,8003,advise clients on legal rights and obligations.,Core,90.0,07/2023,Incumbent
+23-1011.00,Lawyers,8004,represent clients in court proceedings and negotiations.,Core,85.0,07/2023,Incumbent
+23-1011.00,Lawyers,8005,review evidence and prepare witnesses for testimony.,Core,75.0,07/2023,Incumbent
+11-1021.00,General and Operations Managers,9001,plan and direct daily operations of the organization.,Core,100.0,07/2023,Incumbent
+11-1021.00,General and Operations Managers,9002,manage staff by setting goals and evaluating performance.,Core,95.0,07/2023,Incumbent
+11-1021.00,General and Operations Managers,9003,review financial statements to inform business decisions.,Core,85.0,07/2023,Incumbent
+11-1021.00,General and Operations Managers,9004,develop and implement operational policies.,Core,80.0,07/2023,Incumbent
+11-1021.00,General and Operations Managers,9005,coordinate interdepartmental projects and initiatives.,Core,75.0,07/2023,Incumbent
+51-3010.00,Bakers,10001,mix and bake ingredients according to standardized recipes.,Core,100.0,07/2023,Incumbent
+51-3010.00,Bakers,10002,decorate cakes and pastries with icing and embellishments.,Core,85.0,07/2023,Incumbent
+51-3010.00,Bakers,10003,check product quality for appearance and taste.,Core,90.0,07/2023,Incumbent
+51-3010.00,Bakers,10004,clean and sanitize baking equipment and surfaces.,Core,95.0,07/2023,Incumbent
+51-3010.00,Bakers,10005,package baked goods for display and distribution.,Core,80.0,07/2023,Incumbent
+15-1252.00,Software Developers,11001,write documentation for new features.,Core,85.0,07/2023,Incumbent
+27-3042.00,Technical Writers,11002,write documentation for new features.,Core,90.0,07/2023,Incumbent
