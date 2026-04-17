@@ -1,0 +1,53 @@
+{
+  "run_id": "af7050ce",
+  "agent": "@dq-engineer",
+  "spec": "raw-ingest-anthropic-economic-index",
+  "executed_at": "2026-04-17T00:54:04.359602+00:00",
+  "wall_clock_seconds": 0.14,
+  "bronze": {
+    "rows": 4082,
+    "rules": {
+      "total": 16,
+      "pass": 16,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "p0_fail": [],
+      "p1_fail": []
+    }
+  },
+  "silver": {
+    "rows": 587,
+    "rules": {
+      "total": 13,
+      "pass": 13,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "p0_fail": [],
+      "p1_fail": []
+    }
+  },
+  "gold": {
+    "rows": 815,
+    "rules": {
+      "total": 8,
+      "pass": 7,
+      "fail": 0,
+      "error": 0,
+      "skipped": 1,
+      "p0_fail": [],
+      "p1_fail": []
+    }
+  },
+  "results_files": [
+    "governance/dq-results/raw-anthropic-economic-index-20260417T005404Z.json",
+    "governance/dq-results/silver-anthropic-observed-exposure-20260417T005404Z.json",
+    "governance/dq-results/gold-ai-exposure-anthropic-20260417T005404Z.json"
+  ],
+  "scorecard_files": [
+    "governance/dq-scorecards/raw-anthropic-economic-index-scorecard.md",
+    "governance/dq-scorecards/silver-anthropic-observed-exposure-scorecard.md",
+    "governance/dq-scorecards/gold-ai-exposure-anthropic-scorecard.md"
+  ]
+}

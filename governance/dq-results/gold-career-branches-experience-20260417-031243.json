@@ -1,0 +1,104 @@
+{
+  "run_id": "988dd93e",
+  "spec": "onet-experience-requirements",
+  "zone": "gold",
+  "table": "consumable.career_branches",
+  "iceberg_snapshot_id": "5050994341048740398",
+  "source": "iceberg_parquet_via_pyiceberg",
+  "source_warehouse": "/Users/jcernauske/code/bright/futureproof-data/data/gold/iceberg_warehouse",
+  "executed_at": "2026-04-17T03:12:43.311249+00:00",
+  "rules_file": "governance/dq-rules/gold-career-branches-experience.json",
+  "rules_total": 3,
+  "rules_passed": 3,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "p0_failures": [],
+  "p1_failures": [],
+  "results": [
+    {
+      "rule_id": "GLD-CB-EXP-001",
+      "name": "career_branches: related_experience_years null rate < 15%",
+      "priority": "P1",
+      "dimension": "Completeness",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "GLD-CB-EXP-002",
+      "name": "career_branches: experience_delta_years range -12 to 12 (NULL-propagating)",
+      "priority": "P1",
+      "dimension": "Validity",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "GLD-CB-EXP-003",
+      "name": "career_branches: senior tier consistency (related_experience_years >= 8)",
+      "priority": "P0",
+      "dimension": "Consistency",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    }
+  ],
+  "supplementary_stats": {
+    "total_rows": 15944,
+    "null_counts": {
+      "related_experience_years": 872,
+      "source_experience_years": 618,
+      "experience_delta_years": 1450,
+      "related_experience_tier": 872
+    },
+    "null_rates_pct": {
+      "related_experience_years": 5.4691,
+      "source_experience_years": 3.8761,
+      "experience_delta_years": 9.0943,
+      "related_experience_tier": 5.4691
+    },
+    "related_experience_tier_distribution": [
+      {
+        "tier": "early",
+        "rows": 8121
+      },
+      {
+        "tier": "entry",
+        "rows": 5701
+      },
+      {
+        "tier": "mid",
+        "rows": 1211
+      },
+      {
+        "tier": "(null)",
+        "rows": 872
+      },
+      {
+        "tier": "senior",
+        "rows": 39
+      }
+    ],
+    "experience_delta_years_where_both_nonnull": {
+      "rows": 14494,
+      "min": -7.75,
+      "max": 8.5,
+      "avg": 0.10428622878432538
+    },
+    "senior_tier_check": {
+      "rows": 39,
+      "min_related_experience_years": 8.5,
+      "max_related_experience_years": 8.5
+    }
+  }
+}

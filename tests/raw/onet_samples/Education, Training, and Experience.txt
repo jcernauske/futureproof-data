@@ -1,0 +1,28 @@
+O*NET-SOC Code	Element ID	Element Name	Scale ID	Category	Data Value	N	Standard Error	Lower CI Bound	Upper CI Bound	Recommend Suppress	Date	Domain Source
+11-1011.00	2.D.1	Required Level of Education	RL	1	0.00	29	0.00	0.00	3.50	N	08/2023	Incumbent
+11-1011.00	2.D.1	Required Level of Education	RL	9	35.21	29	9.12	18.32	56.47	N	08/2023	Incumbent
+11-1011.00	2.D.1	Required Level of Education	RL	10	48.15	29	9.55	29.33	67.05	N	08/2023	Incumbent
+11-1011.00	2.D.1	Required Level of Education	RL	12	16.64	29	7.01	6.52	35.55	N	08/2023	Incumbent
+11-1011.00	3.A.1	Related Work Experience	RW	1	0.00	29	0.00	0.00	3.50	N	08/2023	Incumbent
+11-1011.00	3.A.1	Related Work Experience	RW	7	5.30	29	3.73	1.01	18.87	N	08/2023	Incumbent
+11-1011.00	3.A.1	Related Work Experience	RW	8	12.45	29	5.98	4.37	30.11	N	08/2023	Incumbent
+11-1011.00	3.A.1	Related Work Experience	RW	9	20.12	29	7.29	9.45	37.75	N	08/2023	Incumbent
+11-1011.00	3.A.1	Related Work Experience	RW	10	24.55	29	7.82	12.98	41.83	N	08/2023	Incumbent
+11-1011.00	3.A.1	Related Work Experience	RW	11	37.58	29	8.89	22.17	56.03	N	08/2023	Incumbent
+11-1011.00	3.B.1	On-Site or In-Plant Training	PT	1	62.21	29	8.87	43.62	78.14	N	08/2023	Incumbent
+11-1011.00	3.B.1	On-Site or In-Plant Training	PT	3	25.83	29	8.09	13.07	44.72	N	08/2023	Incumbent
+11-1011.00	3.B.1	On-Site or In-Plant Training	PT	5	11.96	29	6.03	4.24	29.38	N	08/2023	Incumbent
+11-1011.00	3.B.2	On-the-Job Training	OJ	1	24.51	29	7.91	11.99	43.18	N	08/2023	Incumbent
+11-1011.00	3.B.2	On-the-Job Training	OJ	7	52.17	29	9.38	33.25	70.40	N	08/2023	Incumbent
+11-1011.00	3.B.2	On-the-Job Training	OJ	10	23.32	29	7.73	10.98	42.04	N	08/2023	Incumbent
+15-1252.00	3.A.1	Related Work Experience	RW	1	5.11	42	3.41	1.09	15.82	N	08/2023	Incumbent
+15-1252.00	3.A.1	Related Work Experience	RW	6	18.27	42	5.81	8.21	34.78	N	08/2023	Incumbent
+15-1252.00	3.A.1	Related Work Experience	RW	7	45.33	42	7.53	30.09	61.52	N	08/2023	Incumbent
+15-1252.00	3.A.1	Related Work Experience	RW	8	21.05	42	6.15	10.27	37.67	N	08/2023	Incumbent
+15-1252.00	3.A.1	Related Work Experience	RW	9	10.24	42	4.60	3.36	24.48	N	08/2023	Incumbent
+41-2031.00	3.A.1	Related Work Experience	RW	1	72.43	55	5.88	60.14	82.25	N	08/2023	Incumbent
+41-2031.00	3.A.1	Related Work Experience	RW	2	18.12	55	5.15	9.28	30.94	N	08/2023	Incumbent
+41-2031.00	3.A.1	Related Work Experience	RW	3	9.45	55	3.93	3.48	21.62	N	08/2023	Incumbent
+29-1069.01	3.A.1	Related Work Experience	RW	1		15	0.00			Y	08/2023	Incumbent
+29-1069.01	3.A.1	Related Work Experience	RW	7	100.00	15				Y	08/2023	Incumbent
+49-9071.00	3.A.1	Related Work Experience	RW	4	100.00	12	0.00			N	08/2023	Incumbent
