@@ -192,13 +192,14 @@ def ingest_cip_soc_crosswalk(manifest: DomainManifest) -> dict:
 
 
 def ingest_onet(manifest: DomainManifest) -> dict:
-    """Ingest all O*NET tables (5 ingestors sharing one ZIP download)."""
+    """Ingest all O*NET tables (6 ingestors sharing one ZIP download)."""
     from raw.onet_ingestor import (
+        OnetExperienceIngestor,
         OnetOccupationsIngestor,
+        OnetRelatedOccupationsIngestor,
         OnetTaskStatementsIngestor,
         OnetWorkActivitiesIngestor,
         OnetWorkContextIngestor,
-        OnetRelatedOccupationsIngestor,
     )
 
     onet_tables = [
@@ -207,6 +208,7 @@ def ingest_onet(manifest: DomainManifest) -> dict:
         ("onet_work_activities", OnetWorkActivitiesIngestor, ["onet_soc_code", "element_id", "scale_id"]),
         ("onet_work_context", OnetWorkContextIngestor, ["onet_soc_code", "element_id", "scale_id", "category"]),
         ("onet_related_occupations", OnetRelatedOccupationsIngestor, ["onet_soc_code", "related_onet_soc_code"]),
+        ("onet_experience", OnetExperienceIngestor, ["onet_soc_code", "element_id", "scale_id", "category"]),
     ]
 
     results = {}
@@ -239,6 +241,12 @@ def transform_silver_bls_ooh() -> dict:
 
 def transform_silver_onet() -> dict:
     from silver.onet_transformer import transform
+    return transform(project_dir=PROJECT_ROOT)
+
+
+def transform_silver_onet_experience() -> dict:
+    """Silver base.onet_experience_profiles (depends on base.onet_occupations)."""
+    from silver.onet_experience_transformer import transform
     return transform(project_dir=PROJECT_ROOT)
 
 
@@ -379,6 +387,10 @@ def main():
     results.append(_run_step("Silver College Scorecard", "silver", transform_silver_college_scorecard))
     results.append(_run_step("Silver BLS OOH", "silver", transform_silver_bls_ooh))
     results.append(_run_step("Silver O*NET", "silver", transform_silver_onet))
+    # O*NET experience profiles depends on base.onet_occupations (same zone)
+    results.append(_run_step(
+        "Silver O*NET Experience", "silver", transform_silver_onet_experience
+    ))
     # CIP-SOC crosswalk depends on the above three
     results.append(_run_step("Silver CIP-SOC Crosswalk", "silver", transform_silver_cip_soc_crosswalk))
     # Karpathy AI exposure depends on Silver BLS OOH

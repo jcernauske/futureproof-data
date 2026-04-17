@@ -50,6 +50,16 @@ def _make_row(
         "has_earnings": True,
         "has_debt": True,
         "outcome_completeness": 1.0,
+        # Institution-level cost fields surfaced by
+        # raw-ingest-college-scorecard-institution. Stubbed here so the
+        # response-shape assertion doesn't regress once the pre-existing
+        # debt_p25/debt_p75 fixture gap is resolved.
+        "net_price_annual": 14_200.0,
+        "cost_of_attendance_annual": 22_800.0,
+        "net_price_4yr": 56_800.0,
+        "tuition_in_state": 9_800.0,
+        "tuition_out_of_state": 21_400.0,
+        "room_board_on_campus": 11_500.0,
     }
     row.update(overrides)
     return row

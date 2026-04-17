@@ -207,11 +207,40 @@ def get_pcp_schema() -> Schema:
         NestedField(39, "overall_confidence", StringType(), required=True),
         # Metadata
         NestedField(40, "promoted_at", TimestampType(), required=True),
+        # Option B composite provenance (S4 v4 — three-signal-ai-exposure-composite).
+        # Threaded through from consumable.ai_exposure so receipts and the
+        # Fight AI narrative prompt can reference the composite method and
+        # velocity label without re-joining at query time.
+        NestedField(41, "ai_adoption_share", DoubleType(), required=False),
+        NestedField(42, "velocity_label", StringType(), required=False),
+        NestedField(43, "composite_method", StringType(), required=False),
+        NestedField(44, "adoption_percentile", DoubleType(), required=False),
+        # Cost-based ROI + institution cost enrichment — threaded through from
+        # consumable.career_outcomes so the backend stat_engine can drive the
+        # cost-based ROI + financing-aware Loans Boss without falling back to
+        # the debt_median legacy path. Plan:
+        # ~/.claude/plans/why-are-we-still-jaunty-curry.md
+        NestedField(45, "roi_cost_basis", StringType(), required=False),
+        NestedField(46, "net_price_annual", DoubleType(), required=False),
+        NestedField(47, "cost_of_attendance_annual", DoubleType(), required=False),
+        NestedField(48, "institution_control", StringType(), required=False),
+        NestedField(49, "net_price_4yr", DoubleType(), required=False),
+        NestedField(50, "tuition_in_state", DoubleType(), required=False),
+        NestedField(51, "tuition_out_of_state", DoubleType(), required=False),
+        NestedField(52, "room_board_on_campus", DoubleType(), required=False),
     )
 
 
 def get_br_schema() -> Schema:
-    """Iceberg schema for consumable.career_branches (24 columns)."""
+    """Iceberg schema for consumable.career_branches (34 columns).
+
+    30 baseline columns (24 originals + 6 AI Exposure backfill) plus 4
+    additive experience columns (IDs 31-34) introduced by the
+    ``onet-experience-requirements`` spec (§Zone 3, 2026-04-16). All four
+    experience columns are ``required=False`` — they NULL-propagate when
+    the source or target BLS SOC has no row in
+    ``base.onet_experience_profiles``.
+    """
     return Schema(
         # Core Identity
         NestedField(1, "record_id", StringType(), required=True),
@@ -249,6 +278,11 @@ def get_br_schema() -> Schema:
         NestedField(28, "related_ai_boss", IntegerType(), required=False),
         NestedField(29, "res_delta", IntegerType(), required=False),
         NestedField(30, "ai_boss_delta", IntegerType(), required=False),
+        # Experience (spec: onet-experience-requirements §Zone 3, 2026-04-16)
+        NestedField(31, "related_experience_years", DoubleType(), required=False),
+        NestedField(32, "related_experience_tier", StringType(), required=False),
+        NestedField(33, "source_experience_years", DoubleType(), required=False),
+        NestedField(34, "experience_delta_years", DoubleType(), required=False),
     )
 
 
@@ -283,6 +317,18 @@ joined AS (
         co.debt_to_earnings_annual,
         co.confidence_tier AS confidence_tier_program,
         co.cip_family_earnings_rank,
+        -- Cost-based ROI provenance + institution-level cost fields.
+        -- These carry through from consumable.career_outcomes so the
+        -- backend can drive cost-based stat_roi + financing-aware
+        -- boss_loans_score without refetching from raw Silver.
+        co.roi_cost_basis,
+        co.net_price_annual,
+        co.cost_of_attendance_annual,
+        co.institution_control,
+        co.net_price_4yr,
+        co.tuition_in_state,
+        co.tuition_out_of_state,
+        co.room_board_on_campus,
         -- Occupation context (from occupation_profiles)
         op.median_annual_wage,
         op.wage_percentile_overall,
@@ -432,6 +478,13 @@ def derive_pcp_rows(
 
         # Boss scores
         row["boss_ai_score"] = ai_data.get("boss_ai_score")  # From ai_exposure lookup
+        # Option B composite provenance threaded through to program_career_paths
+        # so the backend receives velocity_label / composite_method / adoption
+        # share without a second ai_exposure lookup per row.
+        row["ai_adoption_share"] = ai_data.get("ai_adoption_share")
+        row["velocity_label"] = ai_data.get("velocity_label")
+        row["composite_method"] = ai_data.get("composite_method")
+        row["adoption_percentile"] = ai_data.get("adoption_percentile")
         row["boss_loans_score"] = (11 - stat_roi) if stat_roi is not None else None
         row["boss_market_score"] = row.pop("market_score_rounded", None)
         row["boss_burnout_score"] = row.get("burnout_score_rounded")
@@ -495,8 +548,18 @@ def derive_br_rows(
     occupation_profiles_rows: list[dict],
     onet_work_profiles_rows: list[dict],
     ai_exposure_rows: list[dict] | None = None,
+    onet_experience_rows: list[dict] | None = None,
 ) -> list[dict]:
     """Enrich career transitions with source/target stats and compute deltas.
+
+    When ``onet_experience_rows`` (from ``base.onet_experience_profiles``) is
+    supplied, the 4 additive experience columns (spec:
+    ``onet-experience-requirements`` §Zone 3, 2026-04-16) are populated on
+    each branch via a LEFT-JOIN-style lookup on ``bls_soc_code``. The delta
+    NULL-propagates when either side is NULL — we do NOT coalesce to 0.
+
+    When ``onet_experience_rows`` is None or empty (backward-compat), all 4
+    experience columns come out None.
 
     Returns a list of dicts ready for grain-id computation and promotion.
     """
@@ -515,6 +578,16 @@ def derive_br_rows(
     ai_by_soc: dict[str, dict] = {}
     if ai_exposure_rows:
         ai_by_soc = {r["soc_code"]: r for r in ai_exposure_rows if r.get("soc_code")}
+
+    # Build experience lookup keyed by bls_soc_code (Silver grain).
+    # Silver table is base.onet_experience_profiles (~765 rows).
+    exp_by_soc: dict[str, dict] = {}
+    if onet_experience_rows:
+        exp_by_soc = {
+            r["bls_soc_code"]: r
+            for r in onet_experience_rows
+            if r.get("bls_soc_code")
+        }
 
     gold_rows: list[dict] = []
     for tr in transition_rows:
@@ -544,6 +617,24 @@ def derive_br_rows(
         source_ai_boss = src_ai.get("boss_ai_score")
         related_res = rel_ai.get("stat_res")
         related_ai_boss = rel_ai.get("boss_ai_score")
+
+        # Experience stats (source and related) — spec §Zone 3.
+        # LEFT JOIN on bls_soc_code; missing rows yield all-None fields,
+        # which propagates into experience_delta_years as NULL.
+        src_exp = exp_by_soc.get(soc, {})
+        rel_exp = exp_by_soc.get(related_soc, {})
+        source_experience_years = src_exp.get("experience_years_typical")
+        related_experience_years = rel_exp.get("experience_years_typical")
+        related_experience_tier = rel_exp.get("experience_tier")
+        if (
+            source_experience_years is not None
+            and related_experience_years is not None
+        ):
+            experience_delta_years: float | None = (
+                related_experience_years - source_experience_years
+            )
+        else:
+            experience_delta_years = None
 
         # Deltas (null if either side null)
         grw_delta = (related_grw - source_grw) if (related_grw is not None and source_grw is not None) else None
@@ -585,6 +676,10 @@ def derive_br_rows(
             "related_ai_boss": related_ai_boss,
             "res_delta": res_delta,
             "ai_boss_delta": ai_boss_delta,
+            "related_experience_years": related_experience_years,
+            "related_experience_tier": related_experience_tier,
+            "source_experience_years": source_experience_years,
+            "experience_delta_years": experience_delta_years,
         }
         gold_rows.append(row)
 
@@ -691,15 +786,35 @@ def transform(
         ai_exposure_rows = []
         logger.info("consumable.ai_exposure not available — AI stats will be null")
 
+    # O*NET experience profiles (optional — graceful degradation if the Silver
+    # table from the onet-experience-requirements spec has not yet been
+    # materialized). Powers the 4 additive experience columns on
+    # consumable.career_branches per §Zone 3.
+    try:
+        onet_experience_rows = _read_table(
+            silver_catalog, "base.onet_experience_profiles"
+        )
+        logger.info(
+            "Read %d onet_experience_profiles rows", len(onet_experience_rows)
+        )
+    except Exception:
+        onet_experience_rows = []
+        logger.info(
+            "base.onet_experience_profiles not available — "
+            "experience columns will be null"
+        )
+
     logger.info(
         "Read: %d career_outcomes, %d crosswalk, %d occupation_profiles, "
-        "%d onet_work_profiles, %d career_transitions, %d ai_exposure",
+        "%d onet_work_profiles, %d career_transitions, %d ai_exposure, "
+        "%d onet_experience_profiles",
         len(career_outcomes_rows),
         len(crosswalk_rows),
         len(occupation_profiles_rows),
         len(onet_work_profiles_rows),
         len(career_transitions_rows),
         len(ai_exposure_rows),
+        len(onet_experience_rows),
     )
 
     # -----------------------------------------------------------------------
@@ -722,6 +837,25 @@ def transform(
     pcp_table = get_or_create_table(
         gold_catalog, "consumable", "program_career_paths", get_pcp_schema()
     )
+    # Schema evolution: append Option B composite provenance fields (S4 v4)
+    # if the table was created pre-v4. Mirrors the career_branches pattern
+    # below. Idempotent — no-op when the new fields already exist.
+    existing_pcp_fields = {f.name for f in pcp_table.schema().fields}
+    target_pcp_schema = get_pcp_schema()
+    new_pcp_fields = [
+        f for f in target_pcp_schema.fields if f.name not in existing_pcp_fields
+    ]
+    if new_pcp_fields:
+        with pcp_table.update_schema() as update:
+            for field in new_pcp_fields:
+                update.add_column(
+                    field.name, field.field_type, doc=None, required=field.required
+                )
+        logger.info(
+            "Evolved program_career_paths schema: added %d fields (%s)",
+            len(new_pcp_fields),
+            [f.name for f in new_pcp_fields],
+        )
     if overwrite:
         logger.info("Overwrite mode: replacing all data in program_career_paths")
         snapshot_id = _overwrite_table(pcp_table, pcp_rows)
@@ -749,6 +883,7 @@ def transform(
         occupation_profiles_rows,
         onet_work_profiles_rows,
         ai_exposure_rows=ai_exposure_rows,
+        onet_experience_rows=onet_experience_rows,
     )
     logger.info("Derived %d career_branches rows", len(br_rows))
 

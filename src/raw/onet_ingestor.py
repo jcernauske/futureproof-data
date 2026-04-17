@@ -4,7 +4,9 @@ Downloads a ZIP archive containing tab-delimited text files and loads
 each into a separate Iceberg table in the raw namespace.
 
 Architecture: OnetBaseIngestor handles ZIP download/cache and shared
-coercion utilities. Seven thin subclasses each target one file/table.
+coercion utilities. Six thin subclasses each target one file/table:
+Occupations, TaskStatements, WorkActivities, WorkContext,
+RelatedOccupations, Experience.
 """
 
 import csv
@@ -134,6 +136,10 @@ class OnetBaseIngestor(BaseIngestor):
         text = content.decode("utf-8")
         reader = csv.DictReader(io.StringIO(text), delimiter="\t")
         rows = list(reader)
+        if len(rows) == 0:
+            raise ValueError(
+                f"{self.SOURCE_FILENAME}: parsed 0 rows (truncated or empty file?)"
+            )
         logger.info(
             "Parsed %d rows from %s", len(rows), self.SOURCE_FILENAME
         )
@@ -497,4 +503,104 @@ class OnetRelatedOccupationsIngestor(OnetBaseIngestor):
             NestedField(7, "source_url", StringType(), required=True),
             NestedField(8, "source_method", StringType(), required=True),
             NestedField(9, "load_date", DateType(), required=True),
+        )
+
+
+class OnetExperienceIngestor(OnetBaseIngestor):
+    """Ingestor for O*NET Education, Training, and Experience (raw.onet_experience).
+
+    Percent frequency distributions across four scales per occupation:
+    - RL: Required Level of Education
+    - RW: Related Work Experience (what Silver filters to via element_id 3.A.1)
+    - PT: On-Site or In-Plant Training
+    - OJ: On-the-Job Training
+
+    All four scales are ingested at Bronze; Silver (`base.onet_experience_profiles`)
+    filters to `scale_id = 'RW'` and `element_id = '3.A.1'` to compute the
+    typical-experience distribution per occupation.
+
+    Grain: (onet_soc_code, element_id, scale_id, category). Expected ~35,881 rows.
+    """
+
+    SOURCE_FILENAME = "Education, Training, and Experience.txt"
+
+    def flatten(self, raw_data: Any, entity_id: Any) -> list[dict]:
+        """Flatten Education, Training, and Experience rows into Iceberg-ready dicts.
+
+        Required fields (skip row on null): onet_soc_code, element_id,
+        element_name, scale_id, category, data_value.
+
+        ``recommend_suppress`` is preserved verbatim as a string ("Y"/"N") for
+        downstream DQ rules. ``n``, ``standard_error``, and the CI bounds are
+        nullable numerics coerced via the shared base utilities.
+        """
+        flat_rows: list[dict] = []
+        skipped = 0
+
+        for raw_row in raw_data:
+            onet_soc = self._coerce_onet_soc(raw_row.get("O*NET-SOC Code"))
+            element_id = self._coerce_string(raw_row.get("Element ID"))
+            element_name = self._coerce_string(raw_row.get("Element Name"))
+            scale_id = self._coerce_string(raw_row.get("Scale ID"))
+            category = self._coerce_int(raw_row.get("Category"))
+            data_value = self._coerce_double(raw_row.get("Data Value"))
+
+            if any(
+                v is None
+                for v in (
+                    onet_soc,
+                    element_id,
+                    element_name,
+                    scale_id,
+                    category,
+                    data_value,
+                )
+            ):
+                skipped += 1
+                continue
+
+            record = {
+                "onet_soc_code": onet_soc,
+                "element_id": element_id,
+                "element_name": element_name,
+                "scale_id": scale_id,
+                "category": category,
+                "data_value": data_value,
+                "n": self._coerce_int(raw_row.get("N")),
+                "standard_error": self._coerce_double(raw_row.get("Standard Error")),
+                "lower_ci_bound": self._coerce_double(raw_row.get("Lower CI Bound")),
+                "upper_ci_bound": self._coerce_double(raw_row.get("Upper CI Bound")),
+                "recommend_suppress": self._coerce_string(
+                    raw_row.get("Recommend Suppress")
+                ),
+                "date": self._coerce_string(raw_row.get("Date")),
+                "domain_source": self._coerce_string(raw_row.get("Domain Source")),
+            }
+            flat_rows.append(record)
+
+        if skipped:
+            logger.warning("Skipped %d rows with null grain/required fields", skipped)
+        return flat_rows
+
+    def get_schema(self) -> Schema:
+        """Iceberg schema for raw.onet_experience."""
+        return Schema(
+            NestedField(1, "onet_soc_code", StringType(), required=True),
+            NestedField(2, "element_id", StringType(), required=True),
+            NestedField(3, "element_name", StringType(), required=True),
+            NestedField(4, "scale_id", StringType(), required=True),
+            NestedField(5, "category", IntegerType(), required=True),
+            NestedField(6, "data_value", DoubleType(), required=True),
+            NestedField(7, "n", IntegerType(), required=False),
+            NestedField(8, "standard_error", DoubleType(), required=False),
+            NestedField(9, "lower_ci_bound", DoubleType(), required=False),
+            NestedField(10, "upper_ci_bound", DoubleType(), required=False),
+            NestedField(11, "recommend_suppress", StringType(), required=False),
+            NestedField(12, "date", StringType(), required=False),
+            NestedField(13, "domain_source", StringType(), required=False),
+            # Metadata
+            NestedField(14, "ingested_at", TimestampType(), required=True),
+            NestedField(15, "source_url", StringType(), required=True),
+            NestedField(16, "source_method", StringType(), required=True),
+            NestedField(17, "load_date", DateType(), required=True),
         )

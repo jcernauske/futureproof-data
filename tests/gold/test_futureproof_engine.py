@@ -50,6 +50,14 @@ def _make_career_outcome(
     debt_to_earnings_annual=0.643,
     confidence_tier="medium",
     cip_family_earnings_rank=0.45,
+    roi_cost_basis="debt_median",
+    net_price_annual=None,
+    cost_of_attendance_annual=None,
+    institution_control=None,
+    net_price_4yr=None,
+    tuition_in_state=None,
+    tuition_out_of_state=None,
+    room_board_on_campus=None,
 ):
     return {
         "unitid": unitid,
@@ -65,6 +73,18 @@ def _make_career_outcome(
         "debt_to_earnings_annual": debt_to_earnings_annual,
         "confidence_tier": confidence_tier,
         "cip_family_earnings_rank": cip_family_earnings_rank,
+        # Cost-based ROI provenance + institution cost fields (added by
+        # plan ~/.claude/plans/why-are-we-still-jaunty-curry.md). All
+        # optional — fixtures that don't exercise these paths pass the
+        # defaults (debt_median basis, no institution cost columns).
+        "roi_cost_basis": roi_cost_basis,
+        "net_price_annual": net_price_annual,
+        "cost_of_attendance_annual": cost_of_attendance_annual,
+        "institution_control": institution_control,
+        "net_price_4yr": net_price_4yr,
+        "tuition_in_state": tuition_in_state,
+        "tuition_out_of_state": tuition_out_of_state,
+        "room_board_on_campus": room_board_on_campus,
     }
 
 
@@ -446,10 +466,16 @@ class TestOccupationTitleFallback:
 class TestPcpSchemaAndRecordIds:
     """Tests for Table 1 schema and record ID generation."""
 
-    def test_schema_has_40_columns(self):
-        """Physical model specifies 40 columns."""
+    def test_schema_has_52_columns(self):
+        """Cost-based ROI rewrite (plan why-are-we-still-jaunty-curry)
+        extends the PCP physical model to 52 columns. Fields 41-44 are
+        S4 Option B composite provenance; field 45 is roi_cost_basis;
+        fields 46-52 thread institution-level cost fields through from
+        consumable.career_outcomes so the backend can drive cost-based
+        stat_roi + financing-aware boss_loans_score without refetching.
+        """
         schema = get_pcp_schema()
-        assert len(schema.fields) == 40
+        assert len(schema.fields) == 52
 
     def test_record_id_deterministic(self):
         """record_id is deterministic for same grain."""
@@ -637,10 +663,12 @@ class TestCareerBranches:
 class TestBrSchemaAndRecordIds:
     """Tests for Table 2 schema and record ID generation."""
 
-    def test_schema_has_30_columns(self):
-        """Physical model specifies 30 columns (24 original + 6 AI backfill)."""
+    def test_schema_has_34_columns(self):
+        """Physical model specifies 34 columns (24 original + 6 AI backfill +
+        4 experience columns added by the onet-experience-requirements spec).
+        """
         schema = get_br_schema()
-        assert len(schema.fields) == 30
+        assert len(schema.fields) == 34
 
     def test_record_id_deterministic(self):
         """record_id is deterministic for same grain."""
