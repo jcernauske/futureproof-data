@@ -1,0 +1,304 @@
+{
+  "run_id": "21e6a396",
+  "spec": "silver-base-college-scorecard-institution",
+  "zone": "silver",
+  "table": "base.college_scorecard_institution",
+  "executed_at": "2026-04-16T04:28:01.132021+00:00",
+  "rules_total": 23,
+  "rules_passed": 21,
+  "rules_failed": 2,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": [
+    {
+      "rule_id": "SLV-CSI-001",
+      "name": "Row count exact match to Bronze (3,039 +/- 5)",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-002",
+      "name": "record_id uniqueness",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-003",
+      "name": "unitid uniqueness and non-null",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-004",
+      "name": "record_id non-null",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-005",
+      "name": "institution_control valid enum values",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-006",
+      "name": "institution_control 100% non-null",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-007",
+      "name": "net_price_annual <= cost_of_attendance_annual (both non-null)",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-008",
+      "name": "net_price_4yr = net_price_annual * 4 (IEEE-754 exact)",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-009",
+      "name": "cost_of_attendance_4yr = cost_of_attendance_annual * 4 (IEEE-754 exact)",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-010",
+      "name": "net_price_annual non-null coverage >= 70% overall",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-011",
+      "name": "cost_of_attendance_annual non-null coverage >= 70% overall",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-012",
+      "name": "Public institution (control=1) net_price_annual coverage >= 85%",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-013",
+      "name": "Private nonprofit (control=2) net_price_annual coverage >= 65%",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-014",
+      "name": "Private for-profit (control=3) net_price_annual coverage >= 50%",
+      "priority": "P2",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-015",
+      "name": "Quintile span monotonicity (net_price_q1 <= net_price_q5)",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 46,
+      "threshold": "result_count <= 50",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-016",
+      "name": "net_price_annual range [-$5,000, $80,000]",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-017",
+      "name": "cost_of_attendance_annual range [$5,000, $100,000]",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-018",
+      "name": "state_abbr matches ^[A-Z]{2}$",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-019",
+      "name": "tuition_in_state range [$0, $70,000]",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-020",
+      "name": "tuition_out_of_state range [$0, $75,000]",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-021",
+      "name": "room_board_on_campus range [$1,000, $30,000]",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-022",
+      "name": "room_board_off_campus range [$1,000, $30,000]",
+      "priority": "P1",
+      "status": "FAIL",
+      "actual_value": 4,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "SLV-CSI-023",
+      "name": "books_supplies range [$0, $5,000]",
+      "priority": "P2",
+      "status": "FAIL",
+      "actual_value": 3,
+      "threshold": "result_count = 0",
+      "details": null
+    }
+  ],
+  "supplementary_stats": {
+    "total_rows": 3039,
+    "distinct_unitids": 3039,
+    "distinct_record_ids": 3039,
+    "control_distribution": [
+      {
+        "label": "Private for-profit",
+        "count": 418
+      },
+      {
+        "label": "Private nonprofit",
+        "count": 1754
+      },
+      {
+        "label": "Public",
+        "count": 867
+      }
+    ],
+    "net_price_annual_coverage_pct": 73.48,
+    "cost_of_attendance_annual_coverage_pct": 73.48,
+    "coverage_by_control": [
+      {
+        "control": "Private for-profit",
+        "total": 418,
+        "np_nonnull": 220,
+        "np_pct": 52.63
+      },
+      {
+        "control": "Private nonprofit",
+        "total": 1754,
+        "np_nonnull": 1239,
+        "np_pct": 70.64
+      },
+      {
+        "control": "Public",
+        "total": 867,
+        "np_nonnull": 774,
+        "np_pct": 89.27
+      }
+    ],
+    "net_price_annual_profile": {
+      "min": -1180.0,
+      "max": 77180.0,
+      "median": 18990.0,
+      "nonnull": 2233
+    },
+    "net_price_4yr_profile": {
+      "min": -4720.0,
+      "max": 308720.0,
+      "median": 75960.0,
+      "nonnull": 2233
+    },
+    "cost_of_attendance_annual_profile": {
+      "min": 6362.0,
+      "max": 87804.0,
+      "median": 30354.0,
+      "nonnull": 2233
+    },
+    "cost_of_attendance_4yr_profile": {
+      "min": 25448.0,
+      "max": 351216.0,
+      "median": 121416.0,
+      "nonnull": 2233
+    },
+    "np_le_coa_violations": 0,
+    "np4yr_tautology_violations": 0,
+    "coa4yr_tautology_violations": 0,
+    "q1_gt_q5_total": 46,
+    "q1_gt_q5_by_control": [
+      {
+        "control": "Private for-profit",
+        "violations": 6
+      },
+      {
+        "control": "Private nonprofit",
+        "violations": 33
+      },
+      {
+        "control": "Public",
+        "violations": 7
+      }
+    ]
+  }
+}

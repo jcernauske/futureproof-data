@@ -1,0 +1,126 @@
+{
+  "spec": "raw-ingest-college-scorecard-institution",
+  "table": "consumable.career_outcomes",
+  "zone": "gold",
+  "description": "Golden-dataset values for the Gold enrichment of consumable.career_outcomes with 7 institution-level cost columns via LEFT JOIN on base.college_scorecard_institution. Values are independently verifiable against public U.S. Department of Education College Scorecard data at https://collegescorecard.ed.gov/ and against the materialized Iceberg table at /data/gold/iceberg_warehouse/consumable/career_outcomes.",
+  "created": "2026-04-16",
+  "created_by": "@staff-engineer post-review",
+  "iceberg_path": "data/gold/iceberg_warehouse/consumable/career_outcomes",
+  "silver_source": "data/silver/iceberg_warehouse/base/college_scorecard_institution",
+  "evidence_run_id": "9dd4463a",
+  "evidence_hash": "1f57cd28e28b296b",
+  "values": [
+    {
+      "description": "MIT net_price_annual (verifiable via College Scorecard public profile)",
+      "filters": {"unitid": 166683},
+      "column": "net_price_annual",
+      "expected_value": 19813.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "silver_source": "base.college_scorecard_institution WHERE unitid=166683",
+        "silver_value": 19813.0,
+        "derivation": "LEFT JOIN on unitid from base.college_scorecard_institution — no transformation applied at Gold",
+        "verification_note": "https://collegescorecard.ed.gov/school/?166683 — MIT average net price for federal-aid students. Consistent with MIT's need-based aid profile for a $79,850 sticker."
+      }
+    },
+    {
+      "description": "MIT cost_of_attendance_annual (verifiable via College Scorecard public profile)",
+      "filters": {"unitid": 166683},
+      "column": "cost_of_attendance_annual",
+      "expected_value": 79850.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "silver_source": "base.college_scorecard_institution WHERE unitid=166683",
+        "silver_value": 79850.0,
+        "derivation": "COALESCE(costt4_a, costt4_p) computed at Silver, passed through at Gold",
+        "verification_note": "https://collegescorecard.ed.gov/school/?166683 — MIT published COA."
+      }
+    },
+    {
+      "description": "MIT net_price_4yr invariant: 4 × net_price_annual = 4 × 19813 = 79252",
+      "filters": {"unitid": 166683},
+      "column": "net_price_4yr",
+      "expected_value": 79252.0,
+      "tolerance_pct": 1.0,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "silver_source": "base.college_scorecard_institution WHERE unitid=166683",
+        "silver_value": 79252.0,
+        "derivation": "net_price_annual × 4 per BT-113 definition; invariant enforced by GLD-CSI-003",
+        "verification_note": "Direct invariant: 19813 × 4 = 79252.0. Validates GLD-CSI-003 (|net_price_4yr − net_price_annual×4| ≤ $1)."
+      }
+    },
+    {
+      "description": "Princeton net_price_annual (lowest-priced Ivy due to generous aid)",
+      "filters": {"unitid": 186131},
+      "column": "net_price_annual",
+      "expected_value": 10555.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "silver_source": "base.college_scorecard_institution WHERE unitid=186131",
+        "silver_value": 10555.0,
+        "derivation": "LEFT JOIN on unitid",
+        "verification_note": "https://collegescorecard.ed.gov/school/?186131 — Princeton's no-loan financial aid policy produces the lowest net price among top-tier privates."
+      }
+    },
+    {
+      "description": "Stanford net_price_annual (verifiable via College Scorecard public profile)",
+      "filters": {"unitid": 243744},
+      "column": "net_price_annual",
+      "expected_value": 12136.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "silver_source": "base.college_scorecard_institution WHERE unitid=243744",
+        "silver_value": 12136.0,
+        "derivation": "LEFT JOIN on unitid from base.college_scorecard_institution",
+        "verification_note": "https://collegescorecard.ed.gov/school/?243744 — Stanford average net price with need-based aid applied."
+      }
+    },
+    {
+      "description": "Harvard cost_of_attendance_annual (verifiable via College Scorecard public profile)",
+      "filters": {"unitid": 166027},
+      "column": "cost_of_attendance_annual",
+      "expected_value": 82842.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "silver_source": "base.college_scorecard_institution WHERE unitid=166027",
+        "silver_value": 82842.0,
+        "derivation": "COALESCE(costt4_a, costt4_p) from Silver; LEFT JOIN to Gold",
+        "verification_note": "https://collegescorecard.ed.gov/school/?166027 — Harvard published cost of attendance."
+      }
+    },
+    {
+      "description": "UC Berkeley tuition_in_state < tuition_out_of_state invariant (public institution tuition differential)",
+      "filters": {"unitid": 110635},
+      "column": "tuition_in_state",
+      "expected_value": 14850.0,
+      "tolerance_pct": 0.001,
+      "tolerance_type": "absolute",
+      "traceability": {
+        "silver_source": "base.college_scorecard_institution WHERE unitid=110635",
+        "silver_value": 14850.0,
+        "derivation": "TUITIONFEE_IN passed through from Bronze via Silver",
+        "verification_note": "https://collegescorecard.ed.gov/school/?110635 — UC Berkeley in-state tuition. At a public institution, in-state < out-of-state ($14,850 vs $45,627) per expected public-tuition differential."
+      }
+    },
+    {
+      "description": "Row count invariant: 69,947 total rows preserved by LEFT JOIN",
+      "filters": {},
+      "column": "row_count",
+      "expected_value": 69947,
+      "tolerance_pct": 0,
+      "tolerance_type": "exact_match",
+      "traceability": {
+        "silver_source": "consumable.career_outcomes pre-enrichment count",
+        "silver_value": 69947,
+        "derivation": "COUNT(*) on Gold table; LEFT JOIN cannot drop rows",
+        "verification_note": "Validates GLD-CSI-001. Re-promote must preserve the pre-enrichment row count exactly."
+      }
+    }
+  ]
+}

@@ -1,0 +1,389 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-14T22:00:00.000000Z",
+    "run": {
+      "runId": "a3f21c7e-9d48-4b2a-bf6c-1f24e0b1d905",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-college-scorecard-institution.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of College Scorecard institution-level cost data. Reads raw.college_scorecard_institution (Bronze, 28 fields) and produces base.college_scorecard_institution (Silver, 35 fields). Key business logic: (1) control-based routing resolves the public/private net-price ambiguity (rows carry both NPT4_PUB and NPT4_PRIV values; control picks one), (2) unified cost_of_attendance_annual collapses costt4_a (academic-year) and costt4_p (program-year) into a single measure via COALESCE, (3) 4-year multipliers produce long-term totals used by honest ROI (net_price_annual * 4 * loan_pct), (4) control label mapping replaces opaque integers with human-readable strings, (5) all quintile fields routed the same way as top-line net price, (6) raw fields passed through with _raw suffix for provenance and audit. Idempotent promote on record_id (hash of unitid with prefix 'csi'). Rows skipped if unitid/instnm/stabbr null or control unmappable."
+        },
+        "brightsmith_runtimeMetrics": {
+          "expectedRowCount": "5000-8000",
+          "grain": "unitid",
+          "grainPrefix": "csi",
+          "promotePattern": "idempotent on record_id",
+          "rowsSkippedReason": "null unitid/instnm/stabbr or unmappable control",
+          "upstreamBronzeRun": "81ba1e54-0862-441e-b1d0-62fbc014b8f3"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "base.transform-college-scorecard-institution",
+      "facets": {
+        "documentation": {
+          "description": "Silver zone transformer for College Scorecard institution-level data. Reads raw.college_scorecard_institution from Bronze and produces base.college_scorecard_institution with: (1) unified cost_of_attendance (coalesce costt4_a / costt4_p), (2) unified net_price with control-based public/private routing, (3) unified net_price_q1..q5 by income quintile using the same routing, (4) 4-year total derivations (annual * 4), (5) human-readable institution_control label, (6) tuition and living-cost pass-through, (7) raw field pass-through with _raw suffix for provenance. Grain: unitid (one row per institution). Uses Brightsmith promote pattern for idempotent upsert on record_id."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/college_scorecard_institution_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.college_scorecard_institution",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG"},
+              {"name": "instnm", "type": "STRING"},
+              {"name": "stabbr", "type": "STRING"},
+              {"name": "control", "type": "INTEGER"},
+              {"name": "preddeg", "type": "INTEGER"},
+              {"name": "costt4_a", "type": "DOUBLE"},
+              {"name": "costt4_p", "type": "DOUBLE"},
+              {"name": "npt4_pub", "type": "DOUBLE"},
+              {"name": "npt4_priv", "type": "DOUBLE"},
+              {"name": "npt41_pub", "type": "DOUBLE"},
+              {"name": "npt42_pub", "type": "DOUBLE"},
+              {"name": "npt43_pub", "type": "DOUBLE"},
+              {"name": "npt44_pub", "type": "DOUBLE"},
+              {"name": "npt45_pub", "type": "DOUBLE"},
+              {"name": "npt41_priv", "type": "DOUBLE"},
+              {"name": "npt42_priv", "type": "DOUBLE"},
+              {"name": "npt43_priv", "type": "DOUBLE"},
+              {"name": "npt44_priv", "type": "DOUBLE"},
+              {"name": "npt45_priv", "type": "DOUBLE"},
+              {"name": "tuitionfee_in", "type": "DOUBLE"},
+              {"name": "tuitionfee_out", "type": "DOUBLE"},
+              {"name": "roomboard_on", "type": "DOUBLE"},
+              {"name": "roomboard_off", "type": "DOUBLE"},
+              {"name": "booksupply", "type": "DOUBLE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.college_scorecard_institution",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "state_abbr", "type": "STRING"},
+              {"name": "institution_control", "type": "STRING"},
+              {"name": "cost_of_attendance_annual", "type": "DOUBLE"},
+              {"name": "cost_of_attendance_4yr", "type": "DOUBLE"},
+              {"name": "net_price_annual", "type": "DOUBLE"},
+              {"name": "net_price_4yr", "type": "DOUBLE"},
+              {"name": "net_price_q1", "type": "DOUBLE"},
+              {"name": "net_price_q2", "type": "DOUBLE"},
+              {"name": "net_price_q3", "type": "DOUBLE"},
+              {"name": "net_price_q4", "type": "DOUBLE"},
+              {"name": "net_price_q5", "type": "DOUBLE"},
+              {"name": "tuition_in_state", "type": "DOUBLE"},
+              {"name": "tuition_out_of_state", "type": "DOUBLE"},
+              {"name": "room_board_on_campus", "type": "DOUBLE"},
+              {"name": "room_board_off_campus", "type": "DOUBLE"},
+              {"name": "books_supplies", "type": "DOUBLE"},
+              {"name": "costt4_a_raw", "type": "DOUBLE"},
+              {"name": "costt4_p_raw", "type": "DOUBLE"},
+              {"name": "npt4_pub_raw", "type": "DOUBLE"},
+              {"name": "npt4_priv_raw", "type": "DOUBLE"},
+              {"name": "npt41_pub_raw", "type": "DOUBLE"},
+              {"name": "npt42_pub_raw", "type": "DOUBLE"},
+              {"name": "npt43_pub_raw", "type": "DOUBLE"},
+              {"name": "npt44_pub_raw", "type": "DOUBLE"},
+              {"name": "npt45_pub_raw", "type": "DOUBLE"},
+              {"name": "npt41_priv_raw", "type": "DOUBLE"},
+              {"name": "npt42_priv_raw", "type": "DOUBLE"},
+              {"name": "npt43_priv_raw", "type": "DOUBLE"},
+              {"name": "npt44_priv_raw", "type": "DOUBLE"},
+              {"name": "npt45_priv_raw", "type": "DOUBLE"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "unitid"}
+                ],
+                "transformationDescription": "Deterministic hash-based grain ID computed by brightsmith.infra.grain.compute_grain_id over GRAIN_FIELDS=['unitid'] with GRAIN_PREFIX='csi'. Form: 'csi_<hash>'. Used as the idempotent upsert key by the promote pattern.",
+                "transformationType": "DERIVED"
+              },
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "unitid"}
+                ],
+                "transformationDescription": "Direct pass-through of the IPEDS institution identifier (LONG). Null rows are skipped in transform_row() before promotion.",
+                "transformationType": "DIRECT"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "instnm"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'instnm' to silver 'institution_name'. Null or empty values cause the row to be skipped.",
+                "transformationType": "DIRECT"
+              },
+              "state_abbr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "stabbr"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'stabbr' (2-letter state abbreviation) to silver 'state_abbr'. Null or empty values cause the row to be skipped.",
+                "transformationType": "DIRECT"
+              },
+              "institution_control": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"}
+                ],
+                "transformationDescription": "Integer control code mapped to human-readable string via CONTROL_LABELS: 1 -> 'Public', 2 -> 'Private nonprofit', 3 -> 'Private for-profit'. Rows with null or unmappable control are skipped (required field per physical model).",
+                "transformationType": "DERIVED"
+              },
+              "cost_of_attendance_annual": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "costt4_a"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "costt4_p"}
+                ],
+                "transformationDescription": "Unified cost-of-attendance: COALESCE(costt4_a, costt4_p). Prefers academic-year COA; falls back to program-year COA when academic-year is null. Returns null only if both are null.",
+                "transformationType": "DERIVED"
+              },
+              "cost_of_attendance_4yr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "costt4_a"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "costt4_p"}
+                ],
+                "transformationDescription": "4-year total cost of attendance: cost_of_attendance_annual * 4, via null-propagating multiply_or_none(). Null if cost_of_attendance_annual is null.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_annual": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt4_pub"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt4_priv"}
+                ],
+                "transformationDescription": "Unified net price with control-based routing via pick_by_control(): control=1 -> npt4_pub; control in {2,3} -> npt4_priv. Null if control is null or outside {1,2,3} so missing control does not silently collapse to the private branch. Resolves the public/private net-price ambiguity that exists in the source.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_4yr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt4_pub"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt4_priv"}
+                ],
+                "transformationDescription": "4-year total net price: net_price_annual * 4, via null-propagating multiply_or_none(). This is the key input to honest ROI (net_price_4yr * loan_pct) used downstream in Gold.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_q1": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt41_pub"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt41_priv"}
+                ],
+                "transformationDescription": "Net price for income quintile 1 ($0-$30K), control-routed: control=1 -> npt41_pub; control in {2,3} -> npt41_priv. Null if control outside {1,2,3}.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_q2": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt42_pub"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt42_priv"}
+                ],
+                "transformationDescription": "Net price for income quintile 2 ($30K-$48K), control-routed: control=1 -> npt42_pub; control in {2,3} -> npt42_priv.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_q3": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt43_pub"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt43_priv"}
+                ],
+                "transformationDescription": "Net price for income quintile 3 ($48K-$75K), control-routed: control=1 -> npt43_pub; control in {2,3} -> npt43_priv.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_q4": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt44_pub"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt44_priv"}
+                ],
+                "transformationDescription": "Net price for income quintile 4 ($75K-$110K), control-routed: control=1 -> npt44_pub; control in {2,3} -> npt44_priv.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_q5": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "control"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt45_pub"},
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt45_priv"}
+                ],
+                "transformationDescription": "Net price for income quintile 5 ($110K+), control-routed: control=1 -> npt45_pub; control in {2,3} -> npt45_priv.",
+                "transformationType": "DERIVED"
+              },
+              "tuition_in_state": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "tuitionfee_in"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'tuitionfee_in' to silver 'tuition_in_state'. Double pass-through.",
+                "transformationType": "DIRECT"
+              },
+              "tuition_out_of_state": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "tuitionfee_out"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'tuitionfee_out' to silver 'tuition_out_of_state'. Double pass-through.",
+                "transformationType": "DIRECT"
+              },
+              "room_board_on_campus": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "roomboard_on"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'roomboard_on' to silver 'room_board_on_campus'. Double pass-through.",
+                "transformationType": "DIRECT"
+              },
+              "room_board_off_campus": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "roomboard_off"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'roomboard_off' to silver 'room_board_off_campus'. Double pass-through.",
+                "transformationType": "DIRECT"
+              },
+              "books_supplies": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "booksupply"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'booksupply' to silver 'books_supplies'. Double pass-through.",
+                "transformationType": "DIRECT"
+              },
+              "costt4_a_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "costt4_a"}
+                ],
+                "transformationDescription": "Raw pass-through of costt4_a (academic-year cost of attendance) for provenance and audit. Preserved alongside the unified cost_of_attendance_annual so analysts can see which input was used.",
+                "transformationType": "DIRECT"
+              },
+              "costt4_p_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "costt4_p"}
+                ],
+                "transformationDescription": "Raw pass-through of costt4_p (program-year cost of attendance) for provenance and audit.",
+                "transformationType": "DIRECT"
+              },
+              "npt4_pub_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt4_pub"}
+                ],
+                "transformationDescription": "Raw pass-through of npt4_pub (average net price, public institutions) for provenance and audit. Preserved even when control routing selected npt4_priv so the full source record is auditable.",
+                "transformationType": "DIRECT"
+              },
+              "npt4_priv_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt4_priv"}
+                ],
+                "transformationDescription": "Raw pass-through of npt4_priv (average net price, private institutions) for provenance and audit. Preserved even when control routing selected npt4_pub.",
+                "transformationType": "DIRECT"
+              },
+              "npt41_pub_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt41_pub"}
+                ],
+                "transformationDescription": "Raw pass-through of npt41_pub (public institution net price, quintile 1: $0-$30K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt42_pub_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt42_pub"}
+                ],
+                "transformationDescription": "Raw pass-through of npt42_pub (public institution net price, quintile 2: $30K-$48K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt43_pub_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt43_pub"}
+                ],
+                "transformationDescription": "Raw pass-through of npt43_pub (public institution net price, quintile 3: $48K-$75K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt44_pub_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt44_pub"}
+                ],
+                "transformationDescription": "Raw pass-through of npt44_pub (public institution net price, quintile 4: $75K-$110K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt45_pub_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt45_pub"}
+                ],
+                "transformationDescription": "Raw pass-through of npt45_pub (public institution net price, quintile 5: $110K+) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt41_priv_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt41_priv"}
+                ],
+                "transformationDescription": "Raw pass-through of npt41_priv (private institution net price, quintile 1: $0-$30K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt42_priv_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt42_priv"}
+                ],
+                "transformationDescription": "Raw pass-through of npt42_priv (private institution net price, quintile 2: $30K-$48K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt43_priv_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt43_priv"}
+                ],
+                "transformationDescription": "Raw pass-through of npt43_priv (private institution net price, quintile 3: $48K-$75K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt44_priv_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt44_priv"}
+                ],
+                "transformationDescription": "Raw pass-through of npt44_priv (private institution net price, quintile 4: $75K-$110K) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "npt45_priv_raw": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "npt45_priv"}
+                ],
+                "transformationDescription": "Raw pass-through of npt45_priv (private institution net price, quintile 5: $110K+) for provenance.",
+                "transformationType": "DIRECT"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.college_scorecard_institution", "field": "load_date"}
+                ],
+                "transformationDescription": "Direct rename from bronze 'load_date' to silver 'source_load_date'. Preserves the Bronze ingest date for downstream staleness checks and time-travel queries.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Silver-generated UTC timestamp set at the moment of Silver transformation (datetime.datetime.now(tz=utc) inside transform_row). NOT the Bronze ingested_at; this marks when the Silver row was produced. Used for Silver-zone freshness metrics.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

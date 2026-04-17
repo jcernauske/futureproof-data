@@ -1,0 +1,557 @@
+{
+  "spec": "gold-career-outcomes-college-scorecard",
+  "rules_tested": [
+    "GLD-CSI-001",
+    "GLD-CSI-002",
+    "GLD-CSI-003",
+    "GLD-CSI-004",
+    "GLD-CSI-005",
+    "GLD-CSI-006",
+    "GLD-CSI-007",
+    "GLD-CSI-008",
+    "GLD-CSI-009"
+  ],
+  "cycles": [
+    {
+      "cycle": 1,
+      "seed": 43,
+      "baseline_rows": 69947,
+      "scenarios": [
+        {
+          "rule_id": "GLD-CSI-001",
+          "scenario": "drop_100_rows",
+          "effect": {
+            "dropped": 100
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-002",
+          "scenario": "netprice_gt_coa_50rows",
+          "effect": {
+            "inflated": 50
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 50,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-003",
+          "scenario": "netprice4yr_mismatch_30rows",
+          "effect": {
+            "miscomputed": 30
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 30,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-004",
+          "scenario": "netprice_below_floor_10rows",
+          "effect": {
+            "sub_floor": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 10,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-005",
+          "scenario": "null_netprice_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-006",
+          "scenario": "null_coa_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-007",
+          "scenario": "null_instctrl_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-008",
+          "scenario": "phantom_500_unmatched_unitids",
+          "effect": {
+            "phantom_unitids": 500
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": [
+            "GLD-CSI-005",
+            "GLD-CSI-006",
+            "GLD-CSI-007"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-009",
+          "scenario": "bad_instctrl_value_25rows",
+          "effect": {
+            "out_of_set": 25
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 25,
+          "collateral_firings": []
+        }
+      ],
+      "detection_count": 9,
+      "scenarios_total": 9,
+      "detection_rate_pct": 100.0
+    },
+    {
+      "cycle": 2,
+      "seed": 44,
+      "baseline_rows": 69947,
+      "scenarios": [
+        {
+          "rule_id": "GLD-CSI-001",
+          "scenario": "drop_100_rows",
+          "effect": {
+            "dropped": 100
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-002",
+          "scenario": "netprice_gt_coa_50rows",
+          "effect": {
+            "inflated": 50
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 50,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-003",
+          "scenario": "netprice4yr_mismatch_30rows",
+          "effect": {
+            "miscomputed": 30
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 30,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-004",
+          "scenario": "netprice_below_floor_10rows",
+          "effect": {
+            "sub_floor": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 10,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-005",
+          "scenario": "null_netprice_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-006",
+          "scenario": "null_coa_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-007",
+          "scenario": "null_instctrl_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-008",
+          "scenario": "phantom_500_unmatched_unitids",
+          "effect": {
+            "phantom_unitids": 500
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": [
+            "GLD-CSI-005",
+            "GLD-CSI-006",
+            "GLD-CSI-007"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-009",
+          "scenario": "bad_instctrl_value_25rows",
+          "effect": {
+            "out_of_set": 25
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 25,
+          "collateral_firings": []
+        }
+      ],
+      "detection_count": 9,
+      "scenarios_total": 9,
+      "detection_rate_pct": 100.0
+    },
+    {
+      "cycle": 3,
+      "seed": 45,
+      "baseline_rows": 69947,
+      "scenarios": [
+        {
+          "rule_id": "GLD-CSI-001",
+          "scenario": "drop_100_rows",
+          "effect": {
+            "dropped": 100
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-002",
+          "scenario": "netprice_gt_coa_50rows",
+          "effect": {
+            "inflated": 50
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 50,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-003",
+          "scenario": "netprice4yr_mismatch_30rows",
+          "effect": {
+            "miscomputed": 30
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 30,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-004",
+          "scenario": "netprice_below_floor_10rows",
+          "effect": {
+            "sub_floor": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 10,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-005",
+          "scenario": "null_netprice_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-006",
+          "scenario": "null_coa_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-007",
+          "scenario": "null_instctrl_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-008",
+          "scenario": "phantom_500_unmatched_unitids",
+          "effect": {
+            "phantom_unitids": 500
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": [
+            "GLD-CSI-005",
+            "GLD-CSI-006",
+            "GLD-CSI-007"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-009",
+          "scenario": "bad_instctrl_value_25rows",
+          "effect": {
+            "out_of_set": 25
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 25,
+          "collateral_firings": []
+        }
+      ],
+      "detection_count": 9,
+      "scenarios_total": 9,
+      "detection_rate_pct": 100.0
+    },
+    {
+      "cycle": 4,
+      "seed": 46,
+      "baseline_rows": 69947,
+      "scenarios": [
+        {
+          "rule_id": "GLD-CSI-001",
+          "scenario": "drop_100_rows",
+          "effect": {
+            "dropped": 100
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-002",
+          "scenario": "netprice_gt_coa_50rows",
+          "effect": {
+            "inflated": 50
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 50,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-003",
+          "scenario": "netprice4yr_mismatch_30rows",
+          "effect": {
+            "miscomputed": 30
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 30,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-004",
+          "scenario": "netprice_below_floor_10rows",
+          "effect": {
+            "sub_floor": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 10,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-005",
+          "scenario": "null_netprice_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-006",
+          "scenario": "null_coa_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-007",
+          "scenario": "null_instctrl_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-008",
+          "scenario": "phantom_500_unmatched_unitids",
+          "effect": {
+            "phantom_unitids": 500
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": [
+            "GLD-CSI-005",
+            "GLD-CSI-006",
+            "GLD-CSI-007"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-009",
+          "scenario": "bad_instctrl_value_25rows",
+          "effect": {
+            "out_of_set": 25
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 25,
+          "collateral_firings": []
+        }
+      ],
+      "detection_count": 9,
+      "scenarios_total": 9,
+      "detection_rate_pct": 100.0
+    },
+    {
+      "cycle": 5,
+      "seed": 47,
+      "baseline_rows": 69947,
+      "scenarios": [
+        {
+          "rule_id": "GLD-CSI-001",
+          "scenario": "drop_100_rows",
+          "effect": {
+            "dropped": 100
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-002",
+          "scenario": "netprice_gt_coa_50rows",
+          "effect": {
+            "inflated": 50
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 50,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-003",
+          "scenario": "netprice4yr_mismatch_30rows",
+          "effect": {
+            "miscomputed": 30
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 30,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-004",
+          "scenario": "netprice_below_floor_10rows",
+          "effect": {
+            "sub_floor": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 10,
+          "collateral_firings": [
+            "GLD-CSI-003"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-005",
+          "scenario": "null_netprice_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-006",
+          "scenario": "null_coa_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-007",
+          "scenario": "null_instctrl_10pct",
+          "effect": {
+            "nulled_pct_of_total": 10
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": []
+        },
+        {
+          "rule_id": "GLD-CSI-008",
+          "scenario": "phantom_500_unmatched_unitids",
+          "effect": {
+            "phantom_unitids": 500
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 1,
+          "collateral_firings": [
+            "GLD-CSI-005",
+            "GLD-CSI-006",
+            "GLD-CSI-007"
+          ]
+        },
+        {
+          "rule_id": "GLD-CSI-009",
+          "scenario": "bad_instctrl_value_25rows",
+          "effect": {
+            "out_of_set": 25
+          },
+          "target_rule_detected": true,
+          "target_rule_value": 25,
+          "collateral_firings": []
+        }
+      ],
+      "detection_count": 9,
+      "scenarios_total": 9,
+      "detection_rate_pct": 100.0
+    }
+  ],
+  "run_at_utc": "2026-04-16T16:25:40.241947+00:00"
+}
