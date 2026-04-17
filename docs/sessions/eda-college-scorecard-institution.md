@@ -29,7 +29,7 @@
 - **COA coverage is only 73.5%**, not the 90% the spec assumes. 806 institutions (26.5%) have neither COSTT4_A nor COSTT4_P. These are heavily concentrated in PREDDEG=0 (not classified, 288), PREDDEG=4 (graduate-dominant, 280), and private nonprofits (515).
 - **Unified net price coverage is also 73.5%** -- exactly the same set as COA. Where COA is missing, net price is also missing.
 - **Negative net prices are legitimate.** MIT's lowest-income quintile net price is -$4,129 (aid exceeds total cost). 3 public schools and 5 private schools have negative average net prices. DQ rules should allow negatives in net price fields.
-- **Quintile monotonicity violations are common** (Q1 > Q2 in 481 of 1,073 private rows = 44.8%). This is NOT a data quality issue -- it reflects that the lowest-income students may receive less institutional aid at some schools, or have higher need-based housing costs. The Q1-vs-Q5 inversion rate is much lower (34 of 1,073 = 3.2% private, 7 of 713 = 1.0% public).
+- **Quintile monotonicity violations are common** (Q1 > Q2 in 481 of 1,073 private rows = 44.8%). This is NOT a data quality issue -- it reflects that the lowest-income students may receive less institutional aid at some schools, or have higher need-based housing costs. The Q1-vs-Q5 inversion rate is much lower (39 of 1,073 = 3.6% private, 7 of 713 = 1.0% public; 46 total — reconfirmed by staff-engineer re-count. An earlier draft cited 34 private inversions; corrected here).
 - **For-profit institutions have poor data coverage:** only 52.6% have net price, 44.3% have COA. These schools serve 418 of 3,039 filtered rows (13.8%).
 - **UNITID join coverage is strong:** 2,352 of 2,559 field-of-study UNITIDs (91.9%) match institution-level data. 207 FoS schools have no institution match (likely closed or reporting gaps).
 - **72 public schools report in-state = out-of-state tuition.** These appear to be tribal colleges, online-only, and state systems with uniform pricing. Not a data error.
@@ -171,7 +171,8 @@ COSTT4_A and COSTT4_P are mutually exclusive -- zero overlap. The COALESCE(costt
 
 **Full-span inversions (Q1 > Q5):**
 - Public: 7 of 713 (1.0%)
-- Private: 34 of 1,073 (3.2%)
+- Private: 39 of 1,073 (3.6%)
+- Total: 46 inversions (matches DQ scorecard)
 
 The Q1>Q2 inversion rate is very high (37.9% for private schools). This is a known pattern in College Scorecard data: many private institutions provide substantial merit aid to middle-income students (Q2: $30-48K) but their Pell-eligible lowest-income students (Q1: $0-30K) may face higher net prices because federal aid caps out. The median inversion magnitude is $1,378 and max is $13,584. The DQ rule "net_price_q1 <= net_price_q5" should use the full-span comparison only, and expect ~3% violation rate.
 

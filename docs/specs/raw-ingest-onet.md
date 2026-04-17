@@ -1,6 +1,6 @@
 # Spec: raw-ingest-onet
 
-**Status:** DRAFT
+**Status:** COMPLETE
 **Zone:** Raw (Bronze)
 **Primary Agent:** @primary-agent
 **Created:** 2026-04-07

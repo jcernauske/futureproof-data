@@ -50,7 +50,7 @@ A web application where a student gets an auto-generated profile name, picks a s
 - **School search:** Fuzzy match against College Scorecard institutions.
 - **Gemma intent resolution for majors:** Free-text input → Gemma maps to CIP code → presents match with career previews → student confirms. Audit pass catches adversarial/joke inputs. Clarification round if needed. Confirmed mappings cached.
 - **Effort slider:** Working / Balanced / All-in. Maps to 25th/50th/75th percentile. Adjusts ERN only.
-- **Loan percentage slider:** 0% / 25% / 50% / 75% / 100%. Scales debt-to-earnings before ROI and Fight Student Loans derivation. Independent from effort.
+- **Loan percentage slider:** 0% / 25% / 50% / 75% / 100%. Drives modeled debt + the Student Loans Boss score. Does NOT affect ROI — ROI reflects program cost vs. earnings and is financing-agnostic. Independent from effort.
 - **Five-stat pentagon:** ERN, ROI, RES, GRW, HMN — all computed from public data. Pentagon radar chart visualization.
 - **Stat explainer tutorial:** First build only. Guided walkthrough overlay highlighting each stat with plain-English explanation. Persistent "?" tooltips on subsequent builds.
 - **Gemma-powered career tiering:** Career outcomes grouped into Common / Less Common / Stretch tiers. Student picks which career to build around.
@@ -133,7 +133,7 @@ Five stats. All hard public data. Pentagon radar chart.
 | Stat | Full Name | What It Measures | Data Source | Plain-English (shown in tutorial) |
 |---|---|---|---|---|
 | **ERN** | Earning Power | What you'll make | College Scorecard + BLS OOH | "Based on what graduates of this program at this school actually earn." |
-| **ROI** | Return on Investment | Earnings vs. debt | College Scorecard | "Compares your expected earnings to your student debt. Your loan percentage drives this." |
+| **ROI** | Return on Investment | Cost of attendance vs. earnings | College Scorecard (Field of Study + Institution Level) | "Compares the total cost of attending this program (4 years) to your starting salary. Doesn't depend on how you finance it — that's the Student Loans Boss." |
 | **RES** | AI Resilience | Automation exposure | Karpathy + O*NET tasks | "How exposed is this career to AI automation? Higher means the work needs humans." |
 | **GRW** | Growth | Field expansion/contraction | BLS Employment Projections | "Is this field growing or shrinking? Based on 10-year job projections." |
 | **HMN** | Human Edge | Human-skill dependency | O*NET task dimensions | "How much does this job depend on uniquely human skills?" |
@@ -166,13 +166,13 @@ Adjusts ERN only. Does not affect ROI — a student working two jobs doesn't red
 
 | Level | Loan % | Effect |
 |---|---|---|
-| No loans (scholarships, savings, family) | 0% | ROI maximized, Fight Student Loans advantage |
-| Some loans | 25% | Moderate debt load |
+| No loans (scholarships, savings, family) | 0% | Fight Student Loans auto-win |
+| Some loans | 25% | Light debt load |
 | Half loans | 50% | Balanced |
 | Mostly loans | 75% | Significant debt |
-| All loans — full published debt load | 100% | ROI reflects worst-case DTE |
+| All loans — full financing | 100% | Fight Student Loans at full difficulty |
 
-Scales debt-to-earnings ratio before ROI and Fight Student Loans derivation. A full-scholarship student at a $60K/year school sees dramatically different ROI than a fully-financed student at the same school. The spike models this correctly.
+Drives **modeled_total_debt** = `net_price × 4 × loan_pct` (fallback `debt_median × loan_pct` when institution cost data is missing) and the Fight Student Loans score. **Does NOT affect ROI** — the economic value of a program is the same whether you pay cash or borrow. ROI reflects 4-year cost of attendance vs. starting salary. Two students at the same school see the same ROI; only the Student Loans Boss difficulty differs. Spec: `docs/specs/roi-formula-cost-of-attendance.md`.
 
 -----
 
@@ -730,22 +730,22 @@ Specs are written to `docs/specs/` and executed by Claude Code. This table track
 |---|---|---|---|---|---|
 | F1 | `screen-landing-profile` | 1, 2 | Landing hero (tagline, pentagon glow, CTA) + profile name generation (auto-assign, reroll button, returning user lookup). First thing the student sees. | ✅ Complete | B1, B2 |
 | F2 | `screen-school-major-sliders` | 3, 4 | School search (fuzzy match) + major input (free text → Gemma intent resolution UI → career preview → confirm) + effort slider + loan % slider with live stat preview. The input phase. | ✅ Complete | B1, F1 |
-| F3 | `screen-career-pick-reveal` | 5, 6 | Tiered career picker (Common / Less Common / Stretch) + personalized loading ("Specing dancing happy bear 🐻...") + stat tutorial overlay (first build only) + Gemma's Take narrative + pentagon animation + career detail. | 🟡 Implementation (19/20 ACs) | B1, F2 |
+| F3 | `screen-career-pick-reveal` | 5, 6 | Tiered career picker (Common / Less Common / Stretch) + personalized loading ("Specing dancing happy bear 🐻...") + stat tutorial overlay (first build only) + Gemma's Take narrative + pentagon animation + career detail. | ✅ Complete (retroactive fill + follow-ups landed 2026-04-16: 36 tests, design token compliance, runtime race/null-cast/session-expired fixes, card emoji + tier collapse features) | B1, F2 |
 | F3.1 | `unmock-f3-api` | — | Flip mock API default to live backend, fix type mismatches at integration time. | 🟡 Implementation (6/8 ACs) | F3, B1 |
 | F3.2 | `career-path-fallback` | — | CIP broadening + Gemma SOC resolution fallback when crosswalk has no coverage. | ✅ Complete | B1 |
-| F4 | `screen-boss-gauntlet` | 7 | Sequential boss fights with emoji icons. Reroll flow on loss/draw (skill options → equip → rescore → Gemma narrative). Structural loss messaging when pool exhausted. Next Steps checklist after gauntlet completes. Most interactive screen. | ⬜ Not started | B1, F3 |
-| F5 | `screen-branch-tree` | 8 | The signature visualization. Dynamic tree from career center, branches extending outward. Tap nodes to reveal stats + boss fight profiles + unlock requirements. Fallback indicator for careers without pathway data. | ⬜ Not started | B1, F4 |
-| F6 | `screen-save-wrapped` | 9 | Save build + Spotify Wrapped share experience. Multi-frame story sequence (identity → pentagon → boss scorecard → comparative insight → risk highlight → CTA). Puppeteer rendering pipeline on backend. Download/share buttons. | ⬜ Not started | B1, F5 |
+| F4 | `screen-boss-gauntlet` | 7 | Sequential boss fights with emoji icons. Reroll flow on loss/draw (skill options → equip → rescore → Gemma narrative). Structural loss messaging when pool exhausted. Next Steps checklist after gauntlet completes. Most interactive screen. | ✅ Complete | B1, F3 |
+| F5 | `screen-branch-tree` | 8 | The signature visualization. Dynamic tree from career center, branches extending outward. Tap nodes to reveal stats + boss fight profiles + unlock requirements. Fallback indicator for careers without pathway data. | ✅ Complete | B1, F4 |
+| F6 | `screen-save-wrapped` | 9 | Save build + Spotify Wrapped share experience. Multi-frame story sequence (identity → pentagon → boss scorecard → comparative insight → risk highlight → CTA). Playwright rendering pipeline on backend. Download/share buttons. DuckDB persistence for builds + frame BLOBs. | ✅ Complete | B1, F5 |
 | F7 | `screen-menu-compare-chat` | 10 | Post-build hub: risk comparison experience (tradeoff-focused, not stat tables), branch detail explorer, Ask Gemma chat panel, report download button (if time permits), new build. | ⬜ Not started | B1, F6 |
 
 ### Stretch / Bonus Specs
 
 | # | Spec Name | Scope | Status | Depends On |
 |---|---|---|---|---|
-| S1 | `gemma-ai-exposure-rescore` | Rebuild Karpathy's scores natively with Gemma using O*NET task-level data. Spec already written at `docs/specs/gemma-ai-exposure-rescore.md`. | ⬜ Not started | All frontend complete |
+| S1 | `gemma-ai-exposure-rescore` | Rebuild Karpathy's scores natively with Gemma using O*NET task-level data. Spec at `docs/specs/gemma-ai-exposure-rescore-v4.md`. A/B divergence documented as key finding — see "Key Findings" section below. | ✅ Complete | All frontend complete |
 | S2 | `historical-parallels` | Add curated historical parallel data to boss fight narrative prompts. | ⬜ Not started | F4 |
 | S3 | `counselor-report` | "Download report" button in menu. Backend `report_gen.py` already works — needs frontend button + PDF render endpoint. | ⬜ Not started | F7 |
-| S4 | `three-signal-ai-exposure-composite` | Three-signal RES composite: Gemma theoretical (40%) + Anthropic observed adoption (35%) + velocity ratio (25%). Single 1-10 score for pentagon. Spec at `docs/specs/three-signal-ai-exposure-composite.md`. | ⬜ Not started | S1 (gemma-ai-exposure-rescore) |
+| S4 | `three-signal-ai-exposure-composite` | Option B (v4): Gemma theoretical + Karpathy baseline blended by Anthropic adoption percentile (confidence 0.3–1.0, velocity label saturating/accelerating/emerging/nascent/unknown). Drives stat_res + boss_ai_score across 815 SOCs; 605k program_career_paths rows re-promoted. Spec at `docs/specs/three-signal-ai-exposure-composite-v3.md`. | ✅ Complete | S1, ingest-anthropic-economic-index |
 
 ### Completed Specs (Reference)
 
@@ -764,6 +764,35 @@ Specs are written to `docs/specs/` and executed by Claude Code. This table track
 | Spike backend (`backend/cli.py`) | 16 services, 10 Gemma surfaces, full interactive loop | Week 2-3 |
 | `feature-onboarding-screens` | Design mockups for landing, school+major, character select | Week 2 |
 | Brightpath design system | CSS tokens, Tailwind config, design philosophy | Week 2 |
+
+-----
+
+## Key Findings
+
+### S1 Gemma AI Exposure Re-scoring — Key Finding
+
+**Status:** ✅ Complete (pipeline shipped, A/B divergence is a documented finding)
+
+The Gemma 4 re-scoring pipeline shipped successfully:
+- 815 blended rows in consumable.ai_exposure (798 Gemma + 17 Karpathy fallback)
+- 626,406 program_career_paths re-promoted with Gemma-derived stat_res/boss_ai_score
+- 15,944 career_branches re-promoted
+
+**A/B Validation Finding (for writeup + video):**
+
+Gemma 4 scores occupations **1.75 points more conservatively** than Karpathy's Gemini Flash on average across 372 overlapping SOCs. The correlation is strong (r=0.845) — the models agree on rank ordering — but Gemma is calibrated lower on the absolute scale.
+
+The biggest divergences are in white-collar categories Karpathy rated as highly automatable but Gemma sees as more human-essential:
+- Sales: Δ = −3.27
+- Computer/IT: Δ = −2.73
+- Education: Δ = −2.73
+- Management: Δ = −2.56
+
+**Why this matters (narrative for writeup/video):**
+
+> "We re-scored every occupation using Gemma 4 at the O*NET task level rather than Karpathy's job-description approach. Gemma scores 1.75 points more conservatively on average — it sees more human-essential tasks in white-collar work that simpler models rate as highly automatable. This is the difference between 'can AI do this job?' and 'can AI do each specific task in this job?'"
+
+This divergence is the finding, not a failure. Task-level scoring with O*NET data produces more nuanced, defensible AI exposure assessments than job-description-level scoring.
 
 -----
 

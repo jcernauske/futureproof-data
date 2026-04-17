@@ -1,6 +1,6 @@
 # Spec: raw-ingest-college-scorecard
 
-**Status:** DRAFT
+**Status:** COMPLETE
 **Zone:** Raw
 **Primary Agent:** @primary-agent
 **Created:** 2026-04-05

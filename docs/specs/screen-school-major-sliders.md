@@ -2,7 +2,7 @@
 
 *Screens 3 & 4 — The Input Phase*
 
-**Status:** Draft
+**Status:** COMPLETE (implementation shipped; spec file predates the §6/§9 agent-workflow convention — no per-spec implementation log. Verified 2026-04-15 via code audit: `SchoolMajorScreen.tsx` + `SchoolSearch.tsx` + `MajorInput.tsx` + `EffortLoansPanel.tsx` implemented end-to-end with backend `intent.py` + `schools.py` routers.)
 **Depends on:** B1 (`fastapi-router-wiring`), F1 (`screen-landing-profile`)
 **Governing doc:** PRD v8
 **Reference implementation:** `backend/cli.py` → `_prompt_school()`, `_prompt_major_gemma_intent()`, `_prompt_effort()`, `_prompt_loans()`
