@@ -9,7 +9,7 @@
 table: consumable.career_outcomes
 namespace: consumable
 zone: gold
-version: "1.0.0"
+version: "1.1.0"
 grain:
   - unitid
   - cipcode
@@ -68,17 +68,25 @@ columns:
 
   - name: institution_control
     type: varchar
-    required: true
+    required: false
     business_term: "*pending*"
     is_cde: false
-    cde_rationale: ""
+    cde_rationale: >
+      Not CDE at Gold. Categorical, segmentation/bracket-selection only. The
+      control-multiplexer that selects npt4_pub vs npt4_priv was already
+      consumed at Silver; at Gold the column is informational (CareerCard label,
+      institution-type filter in MCP). Not a driver of any stat, boss, or ROI
+      calculation. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.
     is_pii: false
     pii_rationale: ""
     description: >
       Type of institutional governance: Public, Private nonprofit, or Private
-      for-profit. Used for segmentation analysis.
+      for-profit. Used for segmentation analysis and receipt labels. Populated
+      via LEFT JOIN to base.college_scorecard_institution on unitid (nullable
+      for unmatched UNITIDs; measured 97.42% non-null post-enrichment per EDA
+      docs/sessions/eda-gold-career-outcomes-csi-enrichment.md).
     constraints:
-      - "CHECK (institution_control IN ('Public', 'Private nonprofit', 'Private for-profit'))"
+      - "CHECK (institution_control IS NULL OR institution_control IN ('Public', 'Private nonprofit', 'Private for-profit'))"
 
   - name: cipcode
     type: varchar
@@ -477,6 +485,136 @@ columns:
     constraints:
       - "CHECK (outcome_completeness IN (0.0, 0.33, 0.67, 1.0))"
 
+  # --- Institution-cost enrichment (added 2026-04-16 via spec
+  # raw-ingest-college-scorecard-institution.md §Zone 3 LEFT JOIN on unitid).
+  # All 7 columns nullable; 207 unmatched UNITIDs get NULL (4.55% of rows on
+  # cost fields, 2.58% on institution_control — see EDA
+  # docs/sessions/eda-gold-career-outcomes-csi-enrichment.md). Row count
+  # preserved at 69,947. CDE flags per spec §Zone 3.
+
+  - name: net_price_annual
+    type: double
+    required: false
+    business_term: BT-111
+    is_cde: true
+    cde_rationale: >
+      Becomes the ROI-formula driver in the follow-up spec
+      roi-formula-cost-of-attendance.md (ROI = earnings / (net_price × 4 ×
+      loan_pct)), replacing debt_median as the denominator input. Directly
+      consumed by MCP get_school_programs as the authoritative per-year
+      after-aid cost exposed to Gemma and the product UI. Every ROI score and
+      Fight Student Loans outcome for a matched-UNITID institution traces
+      through this single column. Highest-criticality column among the 7
+      enrichment fields. Inherits P0 invariant net_price_annual <=
+      cost_of_attendance_annual (GLD-CSI-002).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Average annual net price (cost of attendance minus grants and
+      scholarships) for the institution. Sourced from
+      base.college_scorecard_institution via LEFT JOIN on unitid; derived at
+      Silver as npt4_pub when control=1 else npt4_priv. Null for unmatched
+      UNITIDs and for institutions with no reported net price.
+    constraints:
+      - "CHECK (net_price_annual IS NULL OR net_price_annual >= -10000)"
+      - "CHECK (net_price_annual IS NULL OR cost_of_attendance_annual IS NULL OR net_price_annual <= cost_of_attendance_annual)"
+
+  - name: cost_of_attendance_annual
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: true
+    cde_rationale: >
+      Upper-bound invariant partner for net_price_annual (GLD-CSI-002:
+      net_price_annual <= cost_of_attendance_annual). Invariant partners are
+      operationally CDE — violations mean either net_price_annual is silently
+      inflating costs or cost_of_attendance_annual is silently breaking the
+      sticker-price display. Primary display field for CareerCard receipts
+      ("Cost of attendance per year: $22,800"). Basis for any future
+      cost_of_attendance_4yr derivation surfaced at Gold.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Average total annual cost of attendance (tuition + fees + books + room &
+      board + living expenses). Sourced from
+      base.college_scorecard_institution via LEFT JOIN on unitid; derived at
+      Silver as COALESCE(costt4_a, costt4_p). Null for unmatched UNITIDs.
+    constraints:
+      - "CHECK (cost_of_attendance_annual IS NULL OR cost_of_attendance_annual >= 0)"
+
+  - name: net_price_4yr
+    type: double
+    required: false
+    business_term: BT-111
+    is_cde: false
+    cde_rationale: >
+      Not CDE. Derivable display field — net_price_annual × 4. Pre-materialized
+      for query-performance convenience; all business criticality lives on
+      net_price_annual (CDE). Errors here can be detected and healed from the
+      CDE partner. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Four-year total net price estimate (net_price_annual × 4). Pre-materialized
+      from Silver. Null-propagating — null when net_price_annual is null.
+    constraints:
+      - "CHECK (net_price_4yr IS NULL OR net_price_4yr >= -40000)"
+
+  - name: tuition_in_state
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: >
+      Not CDE. Display-only — already rolled into cost_of_attendance_annual
+      (CDE). Surfaced for receipt transparency ("your $22,800 COA breaks down
+      as: $11,200 tuition + ..."); does not drive any stat, boss, or ROI
+      calculation. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      In-state tuition and fees. Sourced from base.college_scorecard_institution
+      via LEFT JOIN on unitid. Display-only component of COA.
+    constraints:
+      - "CHECK (tuition_in_state IS NULL OR tuition_in_state >= 0)"
+
+  - name: tuition_out_of_state
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: >
+      Not CDE. Display-only — same role as tuition_in_state, already rolled
+      into cost_of_attendance_annual. Per spec
+      raw-ingest-college-scorecard-institution.md §Zone 3.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Out-of-state tuition and fees. Sourced from
+      base.college_scorecard_institution via LEFT JOIN on unitid. Display-only
+      component of COA.
+    constraints:
+      - "CHECK (tuition_out_of_state IS NULL OR tuition_out_of_state >= 0)"
+
+  - name: room_board_on_campus
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: >
+      Not CDE. Display-only — already rolled into cost_of_attendance_annual
+      per the Scorecard COA definition (tuition + fees + books + room & board
+      + living expenses). Surfaced for receipts only. Per spec
+      raw-ingest-college-scorecard-institution.md §Zone 3.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      On-campus room and board cost. Sourced from
+      base.college_scorecard_institution via LEFT JOIN on unitid. Display-only
+      component of COA.
+    constraints:
+      - "CHECK (room_board_on_campus IS NULL OR room_board_on_campus >= 0)"
+
   - name: source_load_date
     type: date
     required: true
@@ -532,6 +670,32 @@ quality:
     has_debt_matches_derivation: true
     null_propagation_debt_to_earnings: true
 
+# CDE summary — column-level is_cde flags summarized for fast consumer lookup.
+# Source of truth remains the per-column `is_cde` field above; this block is a
+# derived index to support cross-artifact consistency checks (registry ↔
+# contract ↔ data-dictionary).
+cde_summary:
+  cde_count: 13
+  pii_count: 0
+  registry: governance/cde-registry/gold-career-outcomes-college-scorecard-cdes.md
+  last_updated: "2026-04-16"
+  last_updated_by: "@cde-tagger"
+  cde_columns:
+    - unitid
+    - earnings_1yr_median
+    - earnings_2yr_median
+    - debt_median
+    - earnings_1yr_p25
+    - earnings_1yr_p75
+    - earnings_2yr_p25
+    - earnings_2yr_p75
+    - debt_p25
+    - debt_p75
+    - debt_to_earnings_annual
+    - net_price_annual
+    - cost_of_attendance_annual
+  pii_columns: []
+
 # Breaking change policy.
 breaking_changes:
   policy: >
@@ -542,7 +706,32 @@ breaking_changes:
     Breaking changes logged in governance/audit-trail/ with 30-day deprecation
     notice before removal.
 
+# Version history.
+changelog:
+  - version: "1.1.0"
+    date: "2026-04-16"
+    type: minor
+    change: >
+      Institution-cost enrichment per spec raw-ingest-college-scorecard-institution.md
+      §Zone 3. Added 7 nullable columns via LEFT JOIN on unitid: net_price_annual
+      (CDE), cost_of_attendance_annual (CDE), net_price_4yr, tuition_in_state,
+      tuition_out_of_state, room_board_on_campus (all non-CDE per spec), and
+      populated the pre-existing institution_control column (previously 100%
+      null pending Bronze re-ingest). CDE count 11 → 13 (+2). Row count
+      preserved at 69,947. Backward compatible — no existing column renamed,
+      retyped, or removed.
+    cde_delta: "+2 (net_price_annual, cost_of_attendance_annual)"
+    pii_delta: "0"
+  - version: "1.0.0"
+    date: "2026-04-06"
+    type: initial
+    change: Initial contract for consumable.career_outcomes.
+
 # Lineage reference.
 lineage:
-  source_table: base.college_scorecard
+  source_tables:
+    - base.college_scorecard
+    - base.college_scorecard_institution
   transformation: src/gold/college_scorecard_career_outcomes.py
+  lineage_events:
+    - governance/lineage/gold-career-outcomes-college-scorecard-20260406T220000Z.json

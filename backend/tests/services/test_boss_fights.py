@@ -15,6 +15,15 @@ def _career(
     hmn=None,
     burnout=None,
     ceiling=None,
+    net_price_annual=None,
+    cost_of_attendance_annual=None,
+    modeled_total_debt=None,
+    debt_median_reference=None,
+    debt_median=None,
+    earnings_1yr_median=None,
+    institution_control=None,
+    roi_cost_basis=None,
+    financed_dte=None,
 ) -> CareerOutcome:
     return CareerOutcome(
         unitid=1,
@@ -23,6 +32,15 @@ def _career(
         program_name="Test",
         soc_code="11-1021",
         occupation_title="Test Career",
+        net_price_annual=net_price_annual,
+        cost_of_attendance_annual=cost_of_attendance_annual,
+        modeled_total_debt=modeled_total_debt,
+        debt_median_reference=debt_median_reference,
+        debt_median=debt_median,
+        earnings_1yr_median=earnings_1yr_median,
+        institution_control=institution_control,
+        roi_cost_basis=roi_cost_basis,
+        financed_dte=financed_dte,
         stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, hmn=hmn),
         bosses=BossScores(
             ai=None, loans=None, market=None, burnout=burnout, ceiling=ceiling
@@ -250,6 +268,112 @@ class TestRerollCommentary:
         assert text == ""
 
 
+class TestFightLoansWithCostOfAttendance:
+    """Fight Student Loans must score across both ROI input paths.
+
+    Spec: docs/specs/roi-formula-cost-of-attendance.md §F (P0). The
+    fight's score-of function reads ``career.stats.roi`` directly, so it
+    is agnostic to whether ROI was derived from net_price_annual or
+    debt_median — but we exercise both paths end-to-end to guarantee the
+    fight still resolves win/draw/lose under either input.
+    """
+
+    def test_loans_fight_with_cost_of_attendance_inputs(self):
+        """Net-price path produced ROI = 8 → loans fight WIN."""
+        career = _career(
+            roi=8,
+            net_price_annual=14_200.0,
+            modeled_total_debt=14_200.0 * 4.0,
+            debt_median_reference=19_500.0,
+            debt_median=19_500.0,
+            earnings_1yr_median=63_371.0,
+        )
+        fight = _run_one(career, "loans")
+        assert fight.result == "win"
+        assert fight.raw_score == 8
+
+    def test_loans_fight_fallback_path_still_scores(self):
+        """Legacy ROI input (no cost fields set) — fight still resolves."""
+        career = _career(roi=4)
+        fight = _run_one(career, "loans")
+        assert fight.result == "lose"
+        assert fight.raw_score == 4
+
+    def test_loans_fight_unknown_when_roi_missing(self):
+        career = _career(
+            roi=None,
+            net_price_annual=14_200.0,
+            modeled_total_debt=56_800.0,
+        )
+        fight = _run_one(career, "loans")
+        assert fight.result == "unknown"
+
+
+class TestNarrativePromptIncludesCostContext:
+    """The Fight Student Loans narrative prompt must include cost context.
+
+    Spec: docs/specs/roi-formula-cost-of-attendance.md §4 / §F (P1).
+    When net_price_annual is available the prompt should carry the
+    school net price, modeled 4-year debt, and the median-debt reference
+    so Gemma can name the gap between modeled and median.
+    """
+
+    def test_prompt_carries_net_price_and_modeled_debt(self):
+        from app.models.career import BossFightResult
+        from app.services import boss_fights as bf
+
+        career = _career(
+            roi=4,
+            net_price_annual=14_200.0,
+            cost_of_attendance_annual=22_800.0,
+            modeled_total_debt=14_200.0 * 4.0 * 0.75,
+            debt_median_reference=19_500.0,
+            debt_median=19_500.0,
+            earnings_1yr_median=63_371.0,
+            institution_control="Public",
+        )
+        fight = BossFightResult(
+            boss="loans",  # type: ignore[arg-type]
+            label="Fight Student Loans",
+            result="lose",  # type: ignore[arg-type]
+            raw_score=4,
+            threshold_win=7,
+            threshold_draw=5,
+            reason="ROI 4",
+        )
+        prompt = bf._narrative_prompt(career, fight)
+        # School cost context must be present.
+        assert "$14,200" in prompt  # net_price_annual
+        assert "$42,600" in prompt  # modeled_total_debt 14200*4*0.75
+        assert "$19,500" in prompt  # debt_median_reference
+        # And the fight context still names the boss + result.
+        assert "Fight Student Loans" in prompt
+        assert "LOSE" in prompt
+
+    def test_prompt_falls_back_when_no_net_price(self):
+        from app.models.career import BossFightResult
+        from app.services import boss_fights as bf
+
+        career = _career(
+            roi=4,
+            debt_median=19_500.0,
+            earnings_1yr_median=63_371.0,
+        )
+        fight = BossFightResult(
+            boss="loans",  # type: ignore[arg-type]
+            label="Fight Student Loans",
+            result="lose",  # type: ignore[arg-type]
+            raw_score=4,
+            threshold_win=7,
+            threshold_draw=5,
+            reason="ROI 4",
+        )
+        prompt = bf._narrative_prompt(career, fight)
+        # Fallback path: legacy median-debt context still present.
+        assert "$19,500" in prompt
+        assert "Fight Student Loans" in prompt
+
+
 class TestRescoreFight:
     def test_rescores_with_updated_stats(self):
         original = _career(res=2, hmn=3)
@@ -308,3 +432,74 @@ class TestRecomputeTotals:
         boss_fights.recompute_totals(gauntlet)
         assert gauntlet.losses == 0
         assert "DOMINANT" in gauntlet.verdict or "SOLID" in gauntlet.verdict
+
+
+class TestStatExplainerRoiNarrative:
+    """stat_explainer ROI narrative is cost-based, loan_pct-agnostic.
+
+    Plan: ~/.claude/plans/why-are-we-still-jaunty-curry.md. The ROI
+    explanation talks about the 4-year cost of the program vs. the
+    starting salary. Financing-specific wording (modeled debt, loan
+    coverage %) belongs to the Student Loans Boss narrative, not here.
+    """
+
+    def test_cost_of_attendance_narrative_cites_4yr_cost(self):
+        career = _career(
+            roi=5,
+            net_price_annual=14_200.0,
+            earnings_1yr_median=50_000.0,
+            roi_cost_basis="cost_of_attendance",
+        )
+        result = boss_fights.stat_explainer(career)
+
+        # 4-year cost = 14_200 × 4 = 56_800
+        assert "$56,800" in result
+        assert "4-year cost" in result
+        assert "$50,000" in result
+        # Loan-specific wording belongs to the Loans Boss narrative only.
+        assert "projected debt" not in result.lower()
+        assert "loan coverage" not in result.lower()
+
+    def test_debt_median_fallback_narrative(self):
+        career = _career(
+            roi=5,
+            debt_median=19_500.0,
+            earnings_1yr_median=50_000.0,
+            roi_cost_basis="debt_median",
+        )
+        result = boss_fights.stat_explainer(career)
+
+        assert "$19,500" in result
+        assert "median graduate debt" in result.lower()
+        assert "program-level estimate" in result.lower()
+
+    def test_roi_narrative_independent_of_loan_pct(self):
+        """The ROI narrative wording must not change with loan_pct."""
+        base = dict(
+            roi=5,
+            net_price_annual=14_200.0,
+            earnings_1yr_median=50_000.0,
+            roi_cost_basis="cost_of_attendance",
+        )
+        c0 = _career(**base)
+        c0.loan_pct = 0.0
+        c1 = _career(**base)
+        c1.loan_pct = 1.0
+        assert boss_fights.stat_explainer(c0) == boss_fights.stat_explainer(c1)
+
+    def test_roi_narrative_has_no_debt_figures_when_inputs_null(self):
+        career = _career(
+            roi=5,
+            modeled_total_debt=None,
+            debt_median=None,
+            net_price_annual=None,
+            earnings_1yr_median=50_000.0,
+        )
+        result = boss_fights.stat_explainer(career)
+
+        assert "ROI" in result
+        # No cost/debt dollar amounts should appear in the ROI explanation.
+        assert "$19,500" not in result
+        assert "$56,800" not in result
+        assert "projected debt" not in result.lower()
+        assert "median graduate debt" not in result.lower()

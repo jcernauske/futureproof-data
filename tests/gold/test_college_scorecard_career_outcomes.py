@@ -9,6 +9,7 @@ import datetime
 import pytest
 
 from gold.college_scorecard_career_outcomes import (
+    CSI_ENRICHMENT_COLUMNS,
     GOLD_SQL,
     GRAIN_FIELDS,
     GRAIN_PREFIX,
@@ -18,6 +19,7 @@ from gold.college_scorecard_career_outcomes import (
     get_gold_schema,
 )
 from brightsmith.infra.grain import compute_grain_id
+from pyiceberg.types import DoubleType, StringType
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +64,34 @@ def _make_silver_row(
         "small_cohort_flag": small_cohort_flag,
         "source_load_date": source_load_date,
         "ingested_at": ingested_at,
+    }
+
+
+def _make_institution_row(
+    unitid=100000,
+    net_price_annual=20000.0,
+    cost_of_attendance_annual=60000.0,
+    net_price_4yr=None,
+    institution_control="Private nonprofit",
+    tuition_in_state=35000.0,
+    tuition_out_of_state=55000.0,
+    room_board_on_campus=15000.0,
+):
+    """Build an institution-silver-shaped row for CSI enrichment tests.
+
+    Mirrors the columns read by the ``institution`` CTE in GOLD_SQL.
+    """
+    if net_price_4yr is None and net_price_annual is not None:
+        net_price_4yr = net_price_annual * 4
+    return {
+        "unitid": unitid,
+        "net_price_annual": net_price_annual,
+        "cost_of_attendance_annual": cost_of_attendance_annual,
+        "net_price_4yr": net_price_4yr,
+        "institution_control": institution_control,
+        "tuition_in_state": tuition_in_state,
+        "tuition_out_of_state": tuition_out_of_state,
+        "room_board_on_campus": room_board_on_campus,
     }
 
 
@@ -123,7 +153,11 @@ class TestGoldSchema:
 
     def test_schema_field_count(self):
         schema = get_gold_schema()
-        assert len(schema.fields) == 31  # 30 columns + field IDs are 1-31
+        # 31 original career-outcomes columns + 6 CSI enrichment columns
+        # (field IDs 32-37) + 1 roi_cost_basis column (field ID 38, added
+        # by plan ~/.claude/plans/why-are-we-still-jaunty-curry.md so
+        # downstream can tell which numerator drove the cost-based DTE).
+        assert len(schema.fields) == 38
 
     def test_required_fields(self):
         schema = get_gold_schema()
@@ -625,3 +659,153 @@ class TestSnapOutcomeCompleteness:
         assert _snap_outcome_completeness(0.666667) == 0.67
         assert _snap_outcome_completeness(0.001) == 0.0
         assert _snap_outcome_completeness(0.999) == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Tests: CSI Enrichment (spec raw-ingest-college-scorecard-institution §Zone 3)
+# ---------------------------------------------------------------------------
+
+
+class TestCsiEnrichmentSchema:
+    """Schema-level assertions for the 6 net-new CSI enrichment columns."""
+
+    def test_csi_enrichment_columns_exist(self):
+        """All 6 CSI enrichment columns are present in the Iceberg schema."""
+        schema = get_gold_schema()
+        names = {f.name for f in schema.fields}
+        for col in CSI_ENRICHMENT_COLUMNS:
+            assert col in names, f"Missing CSI enrichment column: {col}"
+
+    def test_csi_enrichment_columns_are_double_and_nullable(self):
+        schema = get_gold_schema()
+        by_name = {f.name: f for f in schema.fields}
+        for col in CSI_ENRICHMENT_COLUMNS:
+            field = by_name[col]
+            assert isinstance(field.field_type, DoubleType), (
+                f"{col} must be DoubleType, got {field.field_type}"
+            )
+            assert field.required is False, f"{col} must be nullable"
+
+    def test_institution_control_is_nullable_string(self):
+        """institution_control is kept at field ID 4 and is nullable (spec
+        §Zone 3: the column is re-sourced from the institution file; unmatched
+        UNITIDs must produce NULL not a constraint violation)."""
+        schema = get_gold_schema()
+        by_name = {f.name: f for f in schema.fields}
+        field = by_name["institution_control"]
+        assert field.field_id == 4
+        assert isinstance(field.field_type, StringType)
+        assert field.required is False
+
+    def test_csi_enrichment_field_ids_are_32_through_37(self):
+        """Spec §Zone 3 + physical model: field IDs 32-37 for the 6 net-new
+        columns. Existing field IDs must not be reused."""
+        schema = get_gold_schema()
+        by_name = {f.name: f for f in schema.fields}
+        expected = {
+            "net_price_annual": 32,
+            "cost_of_attendance_annual": 33,
+            "net_price_4yr": 34,
+            "tuition_in_state": 35,
+            "tuition_out_of_state": 36,
+            "room_board_on_campus": 37,
+        }
+        for name, field_id in expected.items():
+            assert by_name[name].field_id == field_id
+
+
+class TestCsiEnrichmentDerive:
+    """Row-level assertions for ``derive_gold_rows`` with CSI enrichment."""
+
+    def test_derive_output_contains_all_seven_enrichment_columns(self, single_row):
+        """All 7 enrichment columns (6 new + institution_control) are present
+        on every derived row with the correct types when an institution row is
+        supplied."""
+        inst = [_make_institution_row(unitid=100000)]
+        result = derive_gold_rows(single_row, inst)
+        assert len(result) == 1
+        row = result[0]
+        # 6 net-new enrichment columns populated from the institution row
+        for col in CSI_ENRICHMENT_COLUMNS:
+            assert col in row, f"Missing column in output: {col}"
+            assert isinstance(row[col], float), (
+                f"{col} must be float, got {type(row[col]).__name__}"
+            )
+        # institution_control populated from the institution row (str)
+        assert row["institution_control"] == "Private nonprofit"
+
+    def test_left_join_preserves_row_count_when_no_match(self, two_cip_families):
+        """LEFT JOIN must not drop any silver rows even when NO institution
+        rows match. count(in) == count(out)."""
+        # Zero matching institutions
+        result = derive_gold_rows(two_cip_families, institution_rows=[])
+        assert len(result) == len(two_cip_families)
+        # All CSI enrichment columns are null for every row
+        for row in result:
+            for col in CSI_ENRICHMENT_COLUMNS:
+                assert row[col] is None, (
+                    f"{col} should be NULL with no institution match"
+                )
+            assert row["institution_control"] is None
+
+    def test_left_join_preserves_row_count_partial_match(self, two_cip_families):
+        """Partial match: some silver unitids match, some don't. Row count is
+        still preserved and unmatched rows get NULLs."""
+        # two_cip_families uses unitids 100000, 100001, 100002 (cip 11) and
+        # 100000, 100001, 100002 (cip 52). Provide an institution row for
+        # only one of them.
+        inst = [_make_institution_row(unitid=100001, institution_control="Public")]
+        result = derive_gold_rows(two_cip_families, inst)
+        assert len(result) == len(two_cip_families)
+        matched = [r for r in result if r["unitid"] == 100001]
+        unmatched = [r for r in result if r["unitid"] != 100001]
+        # Matched rows have populated enrichment
+        assert len(matched) >= 1
+        for row in matched:
+            assert row["net_price_annual"] is not None
+            assert row["institution_control"] == "Public"
+        # Unmatched rows have null enrichment
+        for row in unmatched:
+            assert row["net_price_annual"] is None
+            assert row["institution_control"] is None
+
+    def test_net_price_4yr_equals_4x_annual(self, single_row):
+        """Silver invariant preserved in Gold: net_price_4yr ≈ annual × 4
+        within $1 tolerance (GLD-CSI-003)."""
+        inst = [_make_institution_row(
+            unitid=100000,
+            net_price_annual=12345.67,
+            net_price_4yr=12345.67 * 4,
+        )]
+        result = derive_gold_rows(single_row, inst)
+        row = result[0]
+        assert row["net_price_annual"] == pytest.approx(12345.67)
+        assert row["net_price_4yr"] == pytest.approx(12345.67 * 4)
+        assert abs(row["net_price_4yr"] - row["net_price_annual"] * 4) <= 1.0
+
+    def test_institution_control_resourced_from_institution_file(self, single_row):
+        """Spec §Zone 3: institution_control on the output is sourced from the
+        institution file, NOT carried forward from the field-of-study silver
+        row. Verify by supplying a field-of-study row with a conflicting value
+        and confirming the institution-file value wins."""
+        # Silver row's institution_control is None (default), but even if a
+        # field-of-study value were propagated incorrectly, the institution
+        # file must override.
+        silver = [_make_silver_row(
+            unitid=100000,
+            institution_control="STALE_VALUE",  # Should not appear in output.
+        )]
+        inst = [_make_institution_row(
+            unitid=100000,
+            institution_control="Public",
+        )]
+        result = derive_gold_rows(silver, inst)
+        assert result[0]["institution_control"] == "Public"
+
+    def test_empty_institution_rows_defaults_to_nulls(self, single_row):
+        """When the institution silver side is empty, derive_gold_rows must
+        still succeed and produce NULLs for all 7 enrichment columns."""
+        result = derive_gold_rows(single_row, institution_rows=None)
+        row = result[0]
+        for col in CSI_ENRICHMENT_COLUMNS:
+            assert row[col] is None

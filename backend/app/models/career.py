@@ -13,6 +13,22 @@ from pydantic import BaseModel, Field
 EffortLevel = Literal["working_hard", "working", "balanced", "focused", "all_in"]
 BossOutcome = Literal["win", "lose", "draw", "unknown"]
 BossId = Literal["ai", "loans", "market", "burnout", "ceiling"]
+ScoringModel = Literal["gemma-4", "gemini-flash"]
+VelocityLabel = Literal[
+    "saturating", "accelerating", "emerging", "nascent", "unknown"
+]
+CompositeMethod = Literal[
+    "three_signal",
+    "two_signal_no_anthropic",
+    "gemma_plus_anthropic",
+    "gemma_only",
+    "karpathy_only",
+    "observed_override",
+    "no_data",
+]
+# Cost-based ROI provenance. Plan:
+# ~/.claude/plans/why-are-we-still-jaunty-curry.md
+RoiCostBasis = Literal["cost_of_attendance", "debt_median", "none"]
 
 
 class SchoolMatch(BaseModel):
@@ -80,8 +96,63 @@ class CareerOutcome(BaseModel):
     education_level_name: str | None = None
     growth_category: str | None = None
 
+    # Institution-level cost fields (raw-ingest-college-scorecard-institution).
+    # Drive the new ROI formula: net_price_annual × 4 × loan_pct.
+    # All nullable — when net_price_annual is None the stat engine falls
+    # back to the legacy debt_median × loan_pct formula.
+    net_price_annual: float | None = None
+    cost_of_attendance_annual: float | None = None
+    # Computed in the stat engine as net_price_annual × 4 × loan_pct
+    # (or debt_median × loan_pct on the fallback path) so receipts /
+    # narrative prompts can render the student's modeled debt directly.
+    modeled_total_debt: float | None = None
+    # Clearer-named alias for ``debt_median`` when surfaced as a "what
+    # past graduates actually borrowed" reference. The legacy
+    # ``debt_median`` field above stays populated for backward compat.
+    debt_median_reference: float | None = None
+    institution_control: str | None = None
+    tuition_in_state: float | None = None
+    tuition_out_of_state: float | None = None
+    room_board_on_campus: float | None = None
+
     stats: PentagonStats
     bosses: BossScores
+
+    # AI exposure provenance (v4 of gemma-ai-exposure-rescore).
+    # scoring_model = "gemma-4" when this career's RES/Fight AI comes
+    # from our Gemma batch, "gemini-flash" when it came from Karpathy.
+    # model_tag records the exact Ollama tag for Gemma rows so receipts
+    # and audit trails can surface the model version.
+    # task_breakdown_automatable / task_breakdown_human are populated
+    # for Gemma-scored rows only — they power the Fight AI narrative
+    # ("what AI can do", "what still needs humans").
+    scoring_model: ScoringModel | None = None
+    model_tag: str | None = None
+    karpathy_score: int | None = None
+    task_breakdown_automatable: list[str] = Field(default_factory=list)
+    task_breakdown_human: list[str] = Field(default_factory=list)
+
+    # Option B composite provenance (S4 v4 — three-signal-ai-exposure-composite).
+    # All four fields are populated from consumable.program_career_paths when
+    # the ai_exposure pipeline has been re-run with the composite formula.
+    # Pre-v4 rows stay None and fall through to legacy RES receipt wording.
+    ai_adoption_share: float | None = None
+    adoption_percentile: float | None = None
+    velocity_label: VelocityLabel | None = None
+    composite_method: CompositeMethod | None = None
+
+    # Cost-based ROI provenance.
+    # roi_cost_basis records which numerator the Gold layer used for
+    # debt_to_earnings_annual (see plan
+    # ~/.claude/plans/why-are-we-still-jaunty-curry.md):
+    #   'cost_of_attendance' — net_price_annual × 4 (preferred)
+    #   'debt_median'        — legacy fallback when net_price is null
+    #   'none'               — neither input available (DTE is null)
+    # financed_dte is the loan_pct-aware companion ratio used to drive
+    # the Student Loans Boss — distinct from debt_to_earnings_annual,
+    # which is the financing-agnostic cost-vs-earnings ratio.
+    roi_cost_basis: RoiCostBasis | None = None
+    financed_dte: float | None = None
 
     top_5_activities: list[dict[str, object]] = Field(default_factory=list)
     top_human_activities: list[dict[str, object]] = Field(default_factory=list)
@@ -135,6 +206,13 @@ class CareerBranch(BaseModel):
     delta_hmn: int | None = None
     unlock: str | None = None
     relatedness: float | None = None
+    # O*NET experience requirements (onet-experience-requirements spec,
+    # Gold contract v1.2.0). All three fields are nullable when the
+    # target occupation lacks O*NET ETE coverage; downstream UI treats
+    # NULL as "unknown" (never filtered).
+    experience_years: float | None = None
+    experience_tier: str | None = None
+    experience_delta: float | None = None
 
 
 class SkillRec(BaseModel):
@@ -189,6 +267,7 @@ class Build(BaseModel):
     skills_crafted: list[AppliedSkill] = Field(default_factory=list)
     skill_pool: list[AppliedSkill] = Field(default_factory=list)
     next_steps: str = ""
+    profile_name: str = ""
 
 
 class BuildSummary(BaseModel):
@@ -204,6 +283,28 @@ class BuildSummary(BaseModel):
     hmn: int | None
     wins: int
     losses: int
+    draws: int = 0
+    profile_name: str = ""
+
+
+class WrappedFrameInfo(BaseModel):
+    """Metadata for a single rendered Wrapped frame."""
+
+    index: int = Field(..., ge=0, le=5)
+    url: str
+
+
+class WrappedResponse(BaseModel):
+    """GET /build/{build_id}/wrapped response."""
+
+    frames: list[WrappedFrameInfo]
+
+
+class RenderResponse(BaseModel):
+    """POST /build/{build_id}/wrapped/render response."""
+
+    status: Literal["ok", "cached"]
+    frame_count: int
 
 
 class IntentResult(BaseModel):

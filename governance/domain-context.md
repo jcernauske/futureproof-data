@@ -2,7 +2,7 @@
 **Date:** 2026-04-05
 **Agent:** @domain-context
 **Based On:** governance/eda/raw-college-scorecard-eda.md (2026-04-05)
-**Data Sources:** college_scorecard (U.S. Department of Education College Scorecard — Field of Study), bls_ooh (Bureau of Labor Statistics — Employment Projections / Occupational Outlook Handbook), onet (O*NET 30.2 Database — Task-Level Occupation Data), karpathy_ai_exposure (Karpathy AI Exposure Scores — LLM-generated occupation-level AI reshaping estimates), bea_rpp (BEA Regional Price Parities — state-level cost-of-living index, national=100)
+**Data Sources:** college_scorecard (U.S. Department of Education College Scorecard — Field of Study), bls_ooh (Bureau of Labor Statistics — Employment Projections / Occupational Outlook Handbook), onet (O*NET 30.2 Database — Task-Level Occupation Data), karpathy_ai_exposure (Karpathy AI Exposure Scores — LLM-generated occupation-level AI reshaping estimates), bea_rpp (BEA Regional Price Parities — state-level cost-of-living index, national=100), anthropic_economic_index (Anthropic Economic Index v2 — empirical Claude usage observations mapped to O*NET tasks / SOC occupations, release 2025-03-27)
 **Confidence:** High
 
 ---
@@ -17,6 +17,7 @@
 | 2026-04-09 | Added Karpathy AI Exposure section | Fourth data source — LLM-generated AI exposure scores for 342 BLS occupations. Completes the RES stat and Fight AI boss in the FutureProof pentagon. |
 | 2026-04-10 | Added BEA Regional Price Parities section | Fifth data source — state-level cost-of-living index (50 states + DC, annual snapshot, national=100). Enables salary purchasing power adjustment in the frontend and the Tier 3 Fight Location Lock boss. Does NOT join to other sources by SOC/CIP — joins at query time by the student's selected state. |
 | 2026-04-14 | Added College Scorecard Institution-Level section | Sixth data source — institution-level cost of attendance, net price, tuition, room/board. Joins to existing field-of-study data on UNITID (91.9% coverage). Enables true ROI formula using net_price instead of debt_median. Source-specific context document: `domain/raw-ingest-college-scorecard-institution-context.md`. Key EDA corrections: row count is 3,039 (not ~6,500), COA coverage 73.5% (not 90%), negative net prices are legitimate, quintile monotonicity unreliable at adjacent pairs. All conditional agents (entity-resolver, pii-scanner, temporal-modeler) can be SKIPPED. |
+| 2026-04-16 | Added Anthropic Economic Index section | Seventh data source — Anthropic's empirical observations of Claude usage mapped to O*NET tasks / SOC occupations (release 2025-03-27, CC-BY 4.0). Complements Karpathy's theoretical AI exposure with observed adoption. Grain: `(task_id, soc_code)` Bronze, `soc_code` Silver. Aggregation is SUM (not mean) with even `pct / N` split across multi-SOC tasks to preserve the 100% global-share invariant. SOC coverage revised from ≥80% to ≥60% (actual 61.3% — gaps are in manual/physical occupations Claude traffic doesn't touch, not an ingestor defect). Extends `consumable.ai_exposure` with `observed_exposure_pct` and `automation_pct`. Blocks S4 (`three-signal-ai-exposure-composite`). |
 
 ---
 
@@ -1620,3 +1621,492 @@ The only open item is the data provenance caveat — 43 of 51 rows are estimates
 - Whether the frontend should default to RPP-adjusted or national salary figures (UX question, not a data question)
 - Whether metro-area RPPs (BEA MARPP) should replace state RPPs once available — student lived experience in SF Bay Area differs sharply from "California" as a whole
 - The Fight Location Lock boss formula depends on geographic occupation wage data from BLS OES, which is not yet in the pipeline
+
+---
+
+## Anthropic Economic Index
+
+**Date Added:** 2026-04-16
+**Based On:** `governance/eda/raw-anthropic-economic-index-eda.md` (2026-04-16)
+**Source:** HuggingFace `Anthropic/EconomicIndex`, release `release_2025_03_27`
+**Spec:** `docs/specs/raw-ingest-anthropic-economic-index.md`
+**User Familiarity:** Familiar — knows the dataset as the empirical complement to Karpathy exposure
+**Confidence:** High (domain identification, grain, and aggregation strategy are unambiguous; SOC coverage shortfall is a documented dataset limitation, not a defect)
+
+### Source Methodology
+
+Anthropic's Economic Index v2 is an empirical measurement of how Claude is *actually being used*, derived by classifying a sample window of Claude.ai conversations against the O*NET task taxonomy. Each conversation is assigned to at most one O*NET task statement; per-task volume is reported as a global share of classified traffic, and each task is further decomposed across five v2 interaction modes (`directive`, `feedback_loop`, `task_iteration`, `validation`, `learning`) plus a `filtered` residual for conversations removed by safety or quality classifiers.
+
+**Critical contrast with Karpathy AI Exposure:** Karpathy scores are *theoretical* (an LLM reading BLS descriptions and estimating "how much will AI reshape this occupation"). Anthropic's index is *observational* (measured adoption on Claude traffic, right now). They are orthogonal signals — a high Karpathy score means "AI could reshape this job"; a high Anthropic `observed_exposure_pct` means "AI users are already working on this job's tasks." Both are needed; neither replaces the other.
+
+The two Automation/Augmentation taxonomies Anthropic publishes are **not interchangeable**. FutureProof uses the v2 file (`automation_vs_augmentation_by_task.csv`, five modes + filtered). In v2:
+- `automation = directive + feedback_loop` — Claude acts without the user in the loop (delegation or autonomous feedback loops)
+- `augmentation = task_iteration + validation + learning` — Claude assists; the user remains the driver
+- `learning` is **augmentation**, not a separate third category, because the user is learning *from* Claude while remaining in control
+- `filtered` is excluded from both (privacy/safety suppression or classifier miss)
+
+### Domain Vocabulary
+
+| Term | Definition | Source | Notes for @data-steward |
+|------|-----------|--------|------------------------|
+| task_pct | Global share (percent units, 0-100) of classified Claude conversations attributed to this O*NET task statement. Sum across all 3,365 task rows = 100.0000 exactly. **Aggregation must be SUM, not mean.** | Anthropic v2 methodology (authoritative for this dataset) | Propose. Emphasize "global share, percent units" in business term definition — this is the single gotcha readers will miss. |
+| directive | v2 interaction mode: user delegates a task to Claude and Claude executes without clarification loops. **Automation.** | Anthropic v2 (authoritative) | Auto-approve — Anthropic-published standard. |
+| feedback_loop | v2 interaction mode: Claude acts autonomously with environmental feedback (e.g., running code, reading results, iterating). **Automation.** | Anthropic v2 (authoritative) | Auto-approve. |
+| task_iteration | v2 interaction mode: user and Claude iterate on a task collaboratively. **Augmentation.** | Anthropic v2 (authoritative) | Auto-approve. |
+| validation | v2 interaction mode: Claude reviews or validates user-produced work. **Augmentation.** | Anthropic v2 (authoritative) | Auto-approve. |
+| learning | v2 interaction mode: user learns *from* Claude (tutoring, explanation, knowledge transfer). **Augmentation** (user remains the driver). | Anthropic v2 (authoritative) | Auto-approve. Explicitly document that this is augmentation, not a third category — users will assume "learning = neutral." |
+| filtered | Residual bucket — conversations removed by safety classifiers, privacy filters, or classifier miss. Not counted as automation or augmentation. | Anthropic v2 (authoritative) | Auto-approve. |
+| automation_pct | FutureProof-derived Silver field: `directive + feedback_loop` share of Claude traffic on a SOC's tasks (volume-weighted across tasks within SOC). Range 0-1 (fraction). | FutureProof project-specific | Propose. **Naming inconsistency flag:** the `_pct` suffix elsewhere in this pipeline implies 0-100, but this field is 0-1. See @semantic-modeler recommendation. |
+| augmentation_pct | FutureProof-derived Silver field: `task_iteration + validation + learning` share (volume-weighted). Range 0-1. | FutureProof project-specific | Propose. Same naming caveat as `automation_pct`. |
+| filtered_pct | FutureProof-derived Silver field: `filtered` share (volume-weighted). Range 0-1. Per-SOC, `automation_pct + augmentation_pct + filtered_pct ≈ 1.0`. | FutureProof project-specific | Propose. Same naming caveat. |
+| observed_exposure_pct | FutureProof-derived Silver/Gold field: sum of split task shares for a SOC (percent units, 0-100, same scale as source `task_pct`). The empirical counterpart to Karpathy's theoretical `exposure_score`. | FutureProof project-specific | Propose. Emphasize this is in percent units (matches source), not a 0-10 score (that's Karpathy). |
+
+### Taxonomy / Classification Systems
+
+| System | Description | Authority | Coverage in Data |
+|--------|-------------|-----------|-----------------|
+| O*NET task statements (free text) | 3,364 distinct Anthropic-measured task strings; join key is normalized task text (lowercase + strip trailing period). | O*NET / U.S. Department of Labor (task statements); Anthropic (measurement) | 3,364 / 3,365 Anthropic rows match an O*NET task statement (99.97%). The one non-match is the literal placeholder `task_name='none'` (1.78% of all traffic). |
+| O*NET-SOC codes | `XX-XXXX.NN` format (detailed O*NET extension). Strip `.NN` to get base SOC `XX-XXXX`. | O*NET / BLS | 588 distinct base SOCs derivable from Anthropic data (after task→SOC expansion). |
+| SOC 2018 (base) | Standard Occupational Classification — `XX-XXXX` codes shared across BLS OOH, O*NET, Karpathy, and this source. | BLS / OMB | 510 of 832 SOCs in `consumable.occupation_profiles` have Anthropic coverage (61.3%). See coverage analysis below. |
+| v2 interaction mode taxonomy | Five modes + filtered residual. Fixed 6-axis vector summing to 1.0 per task. | Anthropic Economic Index v2 (authoritative) | 100% of `automation_vs_augmentation_by_task.csv` rows conform (3,364/3,364 rows sum to 1.0 within 1e-6). |
+
+### Enumerated Values with Business Meaning
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| v2 interaction mode | `directive`, `feedback_loop`, `task_iteration`, `validation`, `learning`, `filtered` | Six-axis decomposition of how Claude was used on a task. First two = automation; next three = augmentation; last = suppressed/excluded. |
+| task_name | 3,364 O*NET task strings + 1 literal `'none'` placeholder | `'none'` is the uncategorized-traffic bucket (1.78% of volume) and MUST be filtered before Silver aggregation. |
+
+### Entity Types
+
+| Entity Type | Identifier Field(s) | Example | Notes for @entity-resolver |
+|-------------|---------------------|---------|---------------------------|
+| O*NET Task Statement | `task_name` (normalized free text) | `"modify existing software to correct errors / adapt to new hardware / upgrade interfaces"` (6.65% of all traffic) | Bronze grain. Join to O*NET bridge by normalized text equality (lowercase + rstrip `.`). One non-match is `'none'` — filter it in Silver, do not attempt to resolve. |
+| Occupation (SOC 2018) | `soc_code` (base `XX-XXXX`, stripped from `XX-XXXX.NN`) | `15-1252` (Software Developers) | Silver grain. Shared identifier with BLS OOH, O*NET, and Karpathy pipelines. No new entity resolution work required here — reuses the SOC entity already established upstream. |
+
+**Task → SOC fan-out:** 82 of 3,364 Anthropic tasks map to ≥2 SOCs (max 34-way). These are boilerplate task statements that O*NET reuses across related occupations (e.g., generic "collaborate with colleagues" phrasings). The Bronze/Silver split strategy preserves the global-sum invariant — see Aggregation Strategy below.
+
+### Temporal Patterns
+
+| Pattern | Description | Notes for @temporal-modeler |
+|---------|-------------|---------------------------|
+| Snapshot per release | One release = one window of classified Claude traffic. No row-level timestamps. | Model as a pinned-release static reference, not a time-series. The `source_release` should be a table-level property, not a per-row column. |
+| Release pinning required | Anthropic has published newer releases (`release_2026_01_15`, `release_2026_03_24`) that contain only raw conversation snapshots and lack task-level aggregates. `release_2025_03_27` is the canonical and currently only release carrying `task_pct_v2.csv` + `automation_vs_augmentation_by_task.csv`. | Hard-pin `release_2025_03_27` in the ingestor. Do not auto-follow HEAD. A refresh requires Anthropic to re-publish task-level v2 aggregates — not guaranteed on any cadence. |
+| No amendment pattern | No row-level corrections. Full-refresh on new release. | No SCD handling needed. Replace the table on refresh; archive prior release snapshots if cross-release comparison is ever needed (post-hackathon). |
+
+### Data Quality Considerations
+
+#### Known Edge Cases
+
+| Edge Case | Description | Impact | Notes for @dq-rule-writer |
+|-----------|-------------|--------|--------------------------|
+| `task_name='none'` placeholder | 1 row in `task_pct_v2.csv` (pct = 1.78) representing Claude conversations that could not be classified to any O*NET task. | Must be preserved in Bronze, filtered in Silver. If not filtered, it will fail the task→SOC join and silently appear as data loss. | P0: Bronze must preserve the row verbatim. P0: Silver must filter `task_name='none'` before join. Dedicated test: `dropped_none_pct` between 1.5 and 2.5. |
+| Row-sum invariant on v2 axes | Every row in `automation_vs_augmentation_by_task.csv` has `directive + feedback_loop + task_iteration + validation + learning + filtered = 1.0`. Verified exact in EDA (3,364/3,364 rows within 1e-6). | If violated, either the source is corrupted or the ingestor has dropped a column. Always fatal. | P0: `abs(row_sum - 1.0) <= 1e-6` on every Bronze row. Chaos test: corrupt one axis, verify it fails. |
+| Task → multi-SOC fan-out | 82 tasks (2.4% of tasks) map to ≥2 SOCs; maximum 34-way. These are O*NET boilerplate statements. | Naive sum-without-split would inflate the global total to ~118% (violating the 100% invariant). Silver must split `pct / N` before aggregating. | P0: post-split global sum = sum of non-`none` task_pct, tolerance ±0.01. P1 informational: log tasks mapping to >5 SOCs. |
+| Fully-filtered tasks | 1,066 tasks (31.69%) have `filtered ≥ 0.999` — the entire task was suppressed in classified traffic. | Aggregated SOCs whose tasks are all fully filtered will have near-zero `automation_pct` and `augmentation_pct`. That is real, not a bug. | Informational only. Do not fail a SOC row with near-zero automation/augmentation — annotate with low-confidence flag instead. |
+| SOC coverage shortfall | 510 of 832 target SOCs in `consumable.occupation_profiles` have Anthropic coverage (61.3%). Spec's original target was 80%. | Gaps cluster in 47-XXXX (Construction), 49-XXXX (Maintenance/Repair), 51-XXXX (Production), 53-XXXX (Transportation), 35-XXXX (Food Service) — occupations Claude traffic rarely touches. | **Revise P0 threshold from ≥80% to ≥60% SOC coverage.** Document the dataset limitation in the contract. This is not an ingestor defect — it is a structural property of Claude's user base. |
+| `pct > 1` outliers | 8 tasks exceed 1% share. All are software-engineering / IT-support / technical-writing tasks. | Expected — consistent with Anthropic's published v2 report. | P1: verify all `pct > 1` rows map to 15-XXXX (Computer), 25-3099 (Education), or 27-30XX (Media/Communications) SOCs. Flag if an outlier maps to an unexpected major group. |
+| Release freshness | Newer releases lack task-level aggregates; pipeline is pinned to 2025-03-27. | Staleness risk grows over time as Claude usage shifts. | Informational: monitor Anthropic HuggingFace for future v2 task-level releases. No SLA; refresh is event-driven. |
+
+#### Domain-Specific Validity Rules
+
+| Rule | Description | Source |
+|------|-------------|--------|
+| Global-share invariant | Sum of all `task_pct` values = 100.00 (± 0.01). | Anthropic v2 methodology |
+| v2 mode-vector invariant | Every task's six v2 axes sum to 1.0 (± 1e-6). | Anthropic v2 methodology |
+| Automation/augmentation partition | `automation + augmentation + filtered = 1.0` at every row (where automation = directive + feedback_loop, augmentation = task_iteration + validation + learning). | Anthropic v2 methodology |
+| SOC format | Base SOC must match `^\d{2}-\d{4}$` after stripping the `.NN` O*NET extension. | BLS SOC 2018 |
+| Post-split sum invariant | After splitting `pct / N_soc` across multi-SOC tasks, sum(pct_split) = sum(non-`none` task_pct) = 98.22 (± 0.01). | FutureProof Silver transform |
+
+### Regulatory & Compliance Context
+
+| Regulation | Relevance | Key Requirements | Notes for @bcbs239-auditor |
+|-----------|-----------|-----------------|---------------------------|
+| CC-BY 4.0 International | Applicable — this is the dataset's published license. | Attribution required in any downstream product. Must cite: "Anthropic Economic Index v2, release 2025-03-27, CC-BY 4.0." | Add citation string to MCP tool descriptions and any UI surface that displays Anthropic-derived metrics. No compliance controls beyond attribution. |
+| None others directly applicable | Aggregated conversation-usage statistics on public data. No HIPAA, FERPA, SOX, GDPR, or PCI DSS triggers. | N/A | If the product ever expands to employment decisions (hiring, compensation), AI-exposure scores could trigger EEOC concerns — same caveat as Karpathy. |
+
+### PII Expectations
+
+| PII Type | Present? | Sensitivity | Notes for @pii-scanner |
+|----------|----------|-------------|----------------------|
+| Personal names | No | N/A | Anthropic publishes aggregated shares across millions of conversations; no per-conversation, per-user, or per-message content. |
+| Conversation content | No | N/A | Only task-level volume and interaction-mode aggregates. No text from any conversation is in the release. |
+| User identifiers | No | N/A | No user IDs, session IDs, or pseudonymous tokens. |
+| Location data | No | N/A | Not present — task-level aggregates are global, not geolocated. |
+| Anthropic-internal classifier metadata | No | N/A | The `filtered` bucket is a single aggregate number; the underlying classifier decisions are not exposed. |
+
+**Conclusion:** No PII. This is structurally aggregate-over-millions-of-conversations data; individual-level inference is not possible from the release files.
+
+### External Data Opportunities
+
+| External Source | What It Adds | Join Key | Notes for @insight-manager |
+|----------------|-------------|----------|---------------------------|
+| Karpathy AI Exposure | Theoretical exposure — "could AI reshape this?" Pairs with Anthropic's observational "is AI already working on this?" to form a two-signal exposure frame. | SOC code | Already in pipeline. This is the **primary** consumer of Anthropic data in FutureProof — see `three-signal-ai-exposure-composite` spec. |
+| Gemma re-scoring (post-hackathon) | Open-model rescoring of the same BLS descriptions; combined with Anthropic observation and Karpathy theoretical, produces a three-signal composite. | SOC code | Spec S4 (three-signal-ai-exposure-composite) consumes this. Blocked until this ingestor is COMPLETE. |
+| Future Anthropic releases | If Anthropic republishes v2 task-level aggregates, compare cross-release drift to measure adoption velocity by occupation. | (release, SOC) tuple | Post-hackathon. Would enable a **velocity** signal (how fast is AI adoption growing for this occupation?) to complement the current static snapshot. |
+| BLS OES (Occupational Employment Statistics) | Employment counts per SOC — would allow weighting `observed_exposure_pct` by workforce size for "how much of the labor market is Claude touching?" | SOC code | Not currently in pipeline. Optional enrichment. |
+
+### Concept Mapping Guidance
+
+#### Source Codes → Business Concepts
+
+| Source Code Pattern | Maps To | Confidence | Notes for @cde-tagger |
+|--------------------|---------|------------|----------------------|
+| `task_pct` (percent units, 0-100) | Observed AI Exposure (per-task volume share) | Exact | Units: percent. Carry forward to Silver without rescaling. |
+| `directive` + `feedback_loop` | Automation Share | Exact | Defined by Anthropic v2 methodology; no alternative decomposition is valid for this dataset. |
+| `task_iteration` + `validation` + `learning` | Augmentation Share | Exact | Same caveat. Document explicitly that `learning` is augmentation (users will misread). |
+| `filtered` | Filtered / Suppressed Share | Exact | Residual bucket; not a third category of "use." |
+| O*NET-SOC `XX-XXXX.NN` (stripped to `XX-XXXX`) | Standard Occupational Classification (SOC 2018) | Exact | Shared CDE with BLS/ONET/Karpathy pipelines. Already registered. |
+| Task name (free text, lowercase + stripped period) | O*NET Task Statement | Exact | Ephemeral — not a registered CDE. Used only for the Bronze → Silver join. |
+
+#### Known Mapping Ambiguities
+
+| Source Code | Candidates | Recommended | Rationale |
+|------------|-----------|-------------|-----------|
+| Task with N > 1 SOC mappings | (a) Assign full `pct` to each SOC (inflates total). (b) Split `pct / N` evenly (conserves total). (c) Weight by `incumbents_responding` (O*NET survey metadata). | **(b) Split `pct / N` evenly.** | (a) violates the global-sum invariant. (c) would be preferable but `incumbents_responding` has ~5,200 of 19,530 nulls and is reported at the (task, O*NET-SOC detailed) grain with inconsistent coverage — even-split is the maximum-entropy defensible choice. |
+| `task_name='none'` | (a) Assign to a synthetic SOC. (b) Proportionally redistribute to all SOCs. (c) Drop. | **(c) Drop in Silver.** | `'none'` represents uncategorized traffic — it has no meaningful occupation mapping. Dropping is documented in the contract; the 1.78% loss is expected and explicit. |
+| `learning` mode classification | (a) Augmentation. (b) Neutral / third category. (c) Automation (Claude is "teaching"). | **(a) Augmentation.** | Anthropic v2 methodology is explicit: in `learning`, the user remains in control and is learning *from* Claude — user stays in the loop, so it is augmentation, not automation. |
+
+### Canonical Concept Map (Anthropic Economic Index)
+
+**Status:** CONFIRMED
+**Source:** Spec `docs/specs/raw-ingest-anthropic-economic-index.md` (primary) + Anthropic v2 methodology (authoritative taxonomy)
+
+#### Target Business Concepts
+
+| # | Business Concept | Plain English Name | Expected Source Columns | Category | Priority |
+|---|-----------------|-------------------|-------------------------|----------|----------|
+| 1 | observed_exposure_pct | Observed AI Exposure (% of Claude traffic) | `task_pct` (split by N_soc, summed per SOC) | AI Exposure — Observed | CORE |
+| 2 | automation_pct | Automation Share (Claude acts without user) | `directive + feedback_loop` (volume-weighted per SOC) | AI Interaction Mode | CORE |
+| 3 | augmentation_pct | Augmentation Share (Claude assists user) | `task_iteration + validation + learning` (volume-weighted per SOC) | AI Interaction Mode | CORE |
+| 4 | filtered_pct | Filtered / Suppressed Share | `filtered` (volume-weighted per SOC) | AI Interaction Mode | EXTENDED |
+| 5 | task_count | Number of Anthropic-measured tasks contributing to this SOC | count of distinct task_name per SOC | Provenance / Confidence | EXTENDED |
+| 6 | soc_code | Standard Occupational Classification | stripped from O*NET-SOC `XX-XXXX.NN` → `XX-XXXX` | Taxonomy | CORE |
+| 7 | source_release | Anthropic release identifier | constant `'release_2025_03_27'` at ingest time | Provenance / Temporal | CORE |
+
+#### Cross-Source Concept Linkages (FutureProof Integration)
+
+This source is the **empirical half of the AI exposure story**. It integrates with three other sources at the SOC level:
+
+```
+Anthropic Economic Index (observed_exposure_pct, automation_pct)
+  → consumable.ai_exposure (joined by soc_code)
+      ↘ Karpathy AI Exposure (exposure_score, theoretical)
+      ↘ Gemma re-scoring (post-hackathon, theoretical, open-model)
+  → three-signal-ai-exposure-composite (S4, downstream spec)
+      → theoretical + observed + velocity → composite AI exposure
+  → consumable.program_career_paths (via soc_code)
+      → Frontend: "Fight AI" boss scoring + stat_res + a future "observed adoption" badge
+```
+
+**Key integration fact:** `consumable.ai_exposure` was **extended** (not replaced) to carry the Anthropic fields. The Karpathy `exposure_score` remains the primary `stat_res`/`boss_ai_score` driver for the hackathon demo; the Anthropic `observed_exposure_pct` and `automation_pct` are carried as **metadata/context fields** for the MCP server and for the S4 composite spec. This dual-occupation posture is deliberate: Karpathy gives coverage (342 SOCs, LLM-scored), Anthropic gives ground truth on the 510 SOCs Claude actually touches.
+
+**The two are complementary, not competing signals.** Correlating them is a valid post-hackathon analysis but the pipeline does not pre-compute a fused score in Silver; it carries both and lets the MCP server / frontend combine them for context.
+
+**Notes for @semantic-modeler and @principal-data-architect:** Model this as an extension of the existing SOC-keyed fact (`consumable.ai_exposure`), not a new entity. Do not introduce a new Gold table unless the S4 composite spec warrants it (at which point a derived `ai_exposure_composite` table may be appropriate). Naming inconsistency flag: the `_pct` suffix implies 0-100 elsewhere in the pipeline but `automation_pct`/`augmentation_pct`/`filtered_pct` carry 0-1 fractions. Decide once, consistently — either rename to `automation_share` (preferred) or rescale to 0-100 to match `observed_exposure_pct`.
+
+#### Concept-to-Code Mapping Rules
+
+Ingestor tier:
+- **Bronze:** 1:1 passthrough at `(task_name, soc_code)` grain after joining Anthropic task files to the O*NET bridge. Preserve `task_name='none'` verbatim. Do not split or aggregate in Bronze.
+- **Silver:** Filter `task_name='none'`. Split `pct` evenly across a task's N mapped SOCs (`pct_split = pct / N`). Aggregate to SOC grain: `observed_exposure_pct = SUM(pct_split)`, `automation_pct = weighted_mean(directive + feedback_loop, weight=pct_split)`, `augmentation_pct = weighted_mean(task_iteration + validation + learning, weight=pct_split)`, `filtered_pct = weighted_mean(filtered, weight=pct_split)`, `task_count = COUNT(DISTINCT task_name)`.
+- **Gold:** Join to `consumable.occupation_profiles` by `soc_code`. Carry all Silver fields through as extensions to `consumable.ai_exposure`. No further transformation.
+
+#### Collision Resolution Rules
+
+**At task grain:** no collisions (task_name is unique per file).
+**At task-SOC grain:** Anthropic provides one pct per task; SOC multiplicity is resolved by the even-split rule above. This is not a collision — it is a defined fan-out.
+**At SOC grain:** after aggregation, `soc_code` is unique. If a SOC ever appeared twice (grain bug), the first P0 DQ rule on the Silver table would catch it.
+
+### AI-Ready Considerations
+
+| Consideration | Recommendation | Notes for @mcp-engineer |
+|--------------|---------------|------------------------|
+| User questions about "is AI already doing this job?" | Expose `observed_exposure_pct` and `automation_pct`/`augmentation_pct` through MCP. Common queries: "Are AI users already working on [occupation]?", "How much of Claude usage is aimed at my career?", "Is AI automating or assisting [occupation]?" | Return the triple (observed_exposure_pct, automation_pct, augmentation_pct) together. Any one in isolation is misleading: high exposure + high augmentation = "AI is heavily used but as an assistant" is very different from high exposure + high automation = "AI is doing the work." |
+| Contrast with Karpathy theoretical score | When both signals exist for a SOC, surface them side-by-side with explicit framing. | MCP response template: "Theoretical exposure (Karpathy): X/10 — how much AI *could* reshape this. Observed exposure (Anthropic): Y% of Claude traffic — how much AI users *are actually* doing this work today. Of that, Z% is automation and W% is augmentation." |
+| Coverage gaps | 510 of 832 SOCs have Anthropic data. Missing SOCs are real (Claude traffic doesn't touch them), not a data error. | When a user queries a SOC with no Anthropic data (e.g., a truck driver), MCP should explicitly say "No observed Claude usage for this occupation — this does not mean AI won't affect it, only that it is not prominent in current Claude conversations." Do not silently substitute zero. |
+| Methodology caveats | Always cite the release and license when serving Anthropic-derived metrics. | Add to every MCP response carrying this data: "Source: Anthropic Economic Index v2, release 2025-03-27, CC-BY 4.0." |
+| `learning` interpretation | Users will assume "learning" means AI is teaching (automation-like). It is not — the user remains in control. | Include a one-sentence clarifier on any MCP response that breaks out interaction modes: "Learning mode is counted as augmentation because the user is actively learning from Claude, not delegating work to it." |
+| Filtered share interpretation | High `filtered_pct` on a SOC does **not** mean the occupation is dangerous or suppressed — it means its tasks' conversations were often removed by safety/privacy classifiers. | Do not surface `filtered_pct` as a first-class metric on the student-facing UI. Carry it for completeness and debugging but avoid showing it without context. |
+
+### Assumptions (User-Deferred)
+
+No user-deferred assumptions on this source. The spec and Anthropic v2 methodology are explicit on every design decision:
+
+- **Grain:** `(task_name, soc_code)` at Bronze, `soc_code` at Silver (spec).
+- **Release pinning:** `release_2025_03_27` is the canonical release; newer releases lack task-level aggregates (verified in EDA).
+- **Automation/augmentation definition:** Anthropic v2 taxonomy (authoritative; no project-specific reclassification).
+- **Fan-out handling:** even `pct / N` split (decided in Aggregation Strategy Decision section of the EDA; no alternative defensible given null-rich `incumbents_responding`).
+- **`'none'` row:** preserve in Bronze, drop in Silver (spec).
+- **SOC coverage target:** revised from ≥80% to ≥60% based on EDA finding of 61.3% actual coverage — this is a **documented threshold revision**, not a user decision.
+- **Naming inconsistency:** `_pct` suffix on fraction fields is a project-wide decision deferred to @semantic-modeler — see recommendation above.
+
+### Confidence Notes
+
+**High confidence:**
+- Domain identification (empirical observation of Claude usage mapped to O*NET tasks) — unambiguous from source, methodology, and EDA.
+- Grain at Bronze `(task, soc_code)` and Silver `soc_code` — verified in EDA.
+- Global-share invariant (sum(task_pct) = 100.0000 exactly; sum of post-split shares = 98.22 after dropping `'none'`) — verified.
+- v2 mode-vector invariant (6 axes sum to 1.0 per row, 3,364/3,364 within 1e-6) — verified.
+- Even-split `pct / N` aggregation strategy — mathematically defensible and the only sum-conserving option given `incumbents_responding` nulls.
+- No PII — structural aggregate-over-millions-of-conversations posture.
+- License is CC-BY 4.0 — confirmed from HuggingFace dataset card.
+- Integration with `consumable.ai_exposure` and downstream `three-signal-ai-exposure-composite` (S4) — explicit in spec, unambiguous.
+
+**Medium confidence:**
+- Whether 61.3% SOC coverage is stable across future releases. Claude's user base is evolving; the coverage gap in manual/physical occupations may widen or narrow.
+- Whether Anthropic will republish v2 task-level aggregates on newer release dates. If `release_2025_03_27` remains the only v2 task-level snapshot indefinitely, staleness risk grows.
+- The `filtered` bucket's semantic interpretation — Anthropic documents it as a residual but does not publish the classifier cutoffs. A high filtered share could be safety, privacy, or quality-driven; we cannot decompose further.
+
+**Low confidence / Needs post-hackathon revisit:**
+- Whether to weight task-SOC splits by `incumbents_responding` (or another O*NET signal) instead of even-split. Would require a separate EDA pass on O*NET's null patterns.
+- Whether to fuse Karpathy theoretical + Anthropic observed scores into a single composite `stat_res` or keep them separate. Deferred to the S4 spec.
+- Whether the `_pct` naming (0-1 vs. 0-100) should be normalized project-wide. A rename affects downstream columns, tests, and MCP tool schemas — a multi-spec refactor.
+- Cross-release velocity signal (how fast is AI adoption growing per occupation?). Blocked on Anthropic republishing v2 aggregates at a second date.
+
+---
+
+## O*NET Education, Training, and Experience (ETE)
+
+**Date Added:** 2026-04-16
+**Based On:** `governance/eda/raw-onet-experience-eda.md` (2026-04-16, 35,998 rows across 878 O*NET-SOC occupations)
+**Source:** O*NET 30.2 Database — `Education, Training, and Experience.txt` (same `db_30_2_text.zip` bundle used by the other five O*NET ingestors)
+**Spec:** `docs/specs/onet-experience-requirements.md`
+**Primary User-Facing Purpose:** Gates the Stage 3 career branching tree by realistic experience requirements — "Chief Technology Officer" no longer appears as a one-hop branch off "Software Developer" because its 10+ year experience profile pushes it behind a locked tier.
+**User Familiarity:** Expert — Jeff approved the tier thresholds and the "Over 10 years" midpoint in `governance/approvals/onet-experience-requirements-open-decisions.md` on 2026-04-16.
+**Confidence:** High (all data structure, taxonomy, and scale semantics are externally defined by O*NET; the only FutureProof-derived artifacts are the tier-bucket thresholds and the midpoint-years mapping, both human-approved)
+
+### Relationship to the Existing O*NET Section
+
+This section extends the O*NET domain context above. It does **not** redefine O*NET-SOC format rules, the six-table architecture, the Incumbent-vs-Expert domain-source split, the `recommend_suppress` semantics, or the BLS-SOC truncation pattern — those are already captured in the main O*NET section and apply identically here. Read this section as a specialization for the ETE file only. Cross-references:
+
+- **O*NET-SOC code format** (`XX-XXXX.XX`), suffix semantics (`.00` base vs. non-`.00` detailed), and truncation-to-BLS rules → see "O*NET-Specific: SOC Code Cross-Source Bridging" above.
+- **The 93 "All Other" / Military gap** → applies identically; none of those 93 codes appear in the ETE file.
+- **Scale-type interpretation as a general concept** (always use `scale_id` to interpret `data_value`) → same principle applies, but ETE uses a different set of four scales, enumerated below.
+
+### What O*NET Publishes in the ETE File
+
+The Education, Training, and Experience file carries **percent-frequency distributions** across four scales. Unlike Work Activities (where each occupation gets one IM and one LV rating per element) or Work Context (point estimates), ETE reports full distributions: each occupation × scale produces a set of category rows whose `data_value` percentages sum to approximately 100.
+
+| Scale ID | Element ID | Full Name | Categories | Rows in File | What It Measures |
+|----------|-----------|-----------|-----------:|-------------:|------------------|
+| RL | 2.D.1 | Required Level of Education | 12 | 10,536 | Distribution of respondents across 12 education tiers (Less than High School → Post-Doctoral Training) |
+| **RW** | **3.A.1** | **Related Work Experience** | **11** | **9,658** | **Distribution across 11 duration buckets (None → Over 10 years) — THIS is what FutureProof consumes** |
+| PT | 3.A.2 | On-Site or In-Plant Training | 9 | 7,902 | Distribution across 9 duration buckets for employer-provided in-plant training |
+| OJ | 3.A.3 | On-the-Job Training | 9 | 7,902 | Distribution across 9 duration buckets for post-hire OJT |
+
+Arithmetic invariant: 878 occupations × (12 + 11 + 9 + 9) = 878 × 41 = **35,998 rows** (matches the EDA row count exactly).
+
+**Spec-drafting caveat now fixed in spec §Source Data:** The original spec claimed OJ had 11 categories. OJ actually has 9 in every occupation, the same cardinality as PT. Category-count DQ rules must assert `RL=12, RW=11, PT=9, OJ=9`; anything else is a drafting error, not source drift.
+
+### What a "Percent Frequency Distribution" Means Here
+
+Each row carries `data_value` — the percentage of survey respondents who chose that category for that (occupation, scale). O*NET collects this via two data-collection modes, both present in the ETE file:
+
+| `domain_source` | Rows | `recommend_suppress` pattern | `standard_error` / CI bounds | How it is collected |
+|-----------------|-----:|------------------------------|------------------------------|---------------------|
+| `Incumbent` | 27,388 (76.1%) | `N` or `Y` (real sample-based flag) | `standard_error` populated; CI bounds populated on ~62% of rows | Survey of workers actually in the occupation (sample sizes: median n=23, p95=40, max=98) |
+| `Occupational Expert` | 8,610 (23.9%) | always `n/a` | always null | Small expert panel — no sampling distribution, hence no SE or CI |
+
+The `recommend_suppress='n/a'` ↔ `Occupational Expert` bijection is exact (8,610 ↔ 8,610). `n` (sample size) is populated on 100% of rows including the Expert rows — treat it as always non-null for DQ purposes even though the spec's Raw schema marks it optional.
+
+**Note on the narrower domain_source enum:** Work Activities and Work Context also carry `Analyst` and `Analyst - Transition` domain_source values; the ETE file does **not**. Only `Incumbent` and `Occupational Expert` appear. DQ rules for ETE should enforce the narrower two-value set; reusing the four-value set from Work Activities would pass but is less tight than it could be.
+
+### Which Scale FutureProof Consumes, and Why
+
+**Primary signal: RW (Related Work Experience).** This is the only scale that flows through to Silver and Gold. The Silver transformer at `src/silver/onet_experience_transformer.py` filters `scale_id = 'RW' AND element_id = '3.A.1'` as the first step; the other three scales are ingested into Bronze but never read downstream.
+
+Why the other three scales are ingested but not surfaced:
+
+- **RL (education)** — redundant with College Scorecard data; FutureProof already has richer program-level education signals via CIP→SOC.
+- **PT (in-plant training)** — low actionability for students; mostly varies with industry, not career path.
+- **OJ (on-the-job training)** — overlaps semantically with RW but measures post-hire learning, not pre-hire requirements. RW is the cleaner signal for career-tree gating.
+
+We keep RL/PT/OJ in Bronze for completeness (zero extra cost once the file is parsed) and for future enrichment opportunities — e.g., a future "this career requires a PhD" warning would consume RL category 12 (Post-Doctoral Training).
+
+### RW Category Semantics (The 11 Duration Buckets)
+
+These eleven categories are defined by O*NET. The **midpoint-years** column is a FutureProof derivation, not O*NET-published — it exists so the distribution can be collapsed to a scalar via weighted median. The "Over 10 years" midpoint of 12 years was human-approved on 2026-04-16.
+
+| Cat | O*NET Definition | Midpoint (yr) | Approved Tier (derived) |
+|----:|-----------------|--------------:|------------------------|
+| 1 | None | 0 | entry |
+| 2 | Up to and including 1 month | 0 | entry |
+| 3 | Over 1 month, up to and including 3 months | 0.17 | entry |
+| 4 | Over 3 months, up to and including 6 months | 0.38 | entry |
+| 5 | Over 6 months, up to and including 1 year | 0.75 | entry |
+| 6 | Over 1 year, up to and including 2 years | 1.5 | early |
+| 7 | Over 2 years, up to and including 4 years | 3 | early |
+| 8 | Over 4 years, up to and including 6 years | 5 | mid |
+| 9 | Over 6 years, up to and including 8 years | 7 | mid |
+| 10 | Over 8 years, up to and including 10 years | 9 | senior |
+| 11 | Over 10 years | 12 | senior |
+
+**Notes for @data-steward:** The category definitions are an external O*NET standard (auto-approve). The midpoint mapping and the tier bucketing are FutureProof project-specific (propose as BT-117 / BT-118 — already captured in the spec's Business Glossary Terms section and explicitly approved by Jeff).
+
+### Weighted-Median Aggregation Method
+
+The Silver transformer collapses each 11-category RW distribution into a single scalar `experience_years_typical`. The algorithm is:
+
+1. Walk categories 1 → 11 in order, accumulating `cumulative_pct += data_value`.
+2. The **weighted median category** is the first category where `cumulative_pct >= 50.0`.
+3. `experience_years_typical = midpoint_years[median_category]` (from the table above).
+4. `experience_tier` is derived from `experience_years_typical` via the approved thresholds:
+
+| `experience_years_typical` range | `experience_tier` |
+|----------------------------------|-------------------|
+| 0 ≤ yr < 1 | entry |
+| 1 ≤ yr < 4 | early |
+| 4 ≤ yr < 8 | mid |
+| 8 ≤ yr | senior |
+
+Note that the threshold table operates on **years**, not on category numbers. This means category 5 (midpoint 0.75 yr) lands in **entry** even though its name ("Over 6 months, up to and including 1 year") sounds borderline. This is the correct behavior — see the Retail Salespersons gotcha below.
+
+**Why collapse a distribution to a scalar at all?** The FutureProof UI (career tree, boss gauntlet) needs a single gate value per occupation: "does this branch need more than 5 years of experience?" Passing the full 11-category vector to the frontend would push visualization complexity into React without giving the user any additional decision leverage. The scalar answer ("yes, 7 years typical") is what actually drives the UX.
+
+**Tradeoff: we keep BOTH.** The Silver schema carries `experience_years_typical` (the scalar, `double`, always populated) AS WELL AS `experience_distribution` (a JSON string of the full `{"1": 5.2, "7": 45.3, ...}` vector). The scalar is the primary signal. The JSON column is a diagnostic escape hatch for any downstream consumer that wants to detect bimodality, compute its own summary statistic, or render a distribution chart. It costs one text column and ~200 bytes per row to keep the option open.
+
+**Tie-break rule (approved).** If cumulative_pct lands exactly on a boundary (50.0 ± floating-point noise), pick the **lower-numbered** category — the more-conservative interpretation. The approved-open-decisions file codifies this; the implementation should use `cumulative >= 50.0` rather than `== 50.0` to avoid float-comparison fragility.
+
+### BLS SOC vs O*NET SOC: The Truncation and Averaging Step
+
+ETE is published at O*NET-SOC detail grain (`XX-XXXX.XX`). FutureProof's Gold table `consumable.career_branches` joins at BLS SOC grain (`XX-XXXX`). The Silver transformer must cross that boundary. This follows the **same pattern already established** in the existing O*NET Silver precedent (see the main O*NET section above and `gold-onet-profiles` spec):
+
+1. **Truncate** `XX-XXXX.XX` to `XX-XXXX` by taking the first 7 characters (6 digits + hyphen).
+2. **Group** by the truncated BLS SOC.
+3. **Aggregate** multiple detail rows into one: take the **unweighted average** of `experience_years_typical` across all O*NET details for a single BLS SOC, then re-derive `experience_tier` from the averaged years.
+4. **Track provenance** via `onet_details_averaged` (count of detail codes collapsed for this BLS row). 702 of 765 BLS SOCs (91.8%) average a single detail; 63 BLS SOCs (8.2%) average 2+ details; the max observed is 8.
+
+Row-count implication — the Silver row count is **765, not 867 or 1,016**:
+- ETE covers 878 O*NET detail codes (not 1,016 — the remaining 138 are a superset of the 93 "All Other" / Military codes plus ~45 recently-added codes where ETE survey data has not been collected yet).
+- After BLS-SOC truncation-and-collapse, 878 details → 765 distinct BLS SOCs.
+- The Silver DQ row-count rule is `720 ≤ count ≤ 810` (approved in spec §Zone 2 after EDA found the real coverage).
+
+Weighting note — the spec and approval file explicitly chose **unweighted** averaging for multi-detail aggregation. Employment-weighting (by BLS workforce counts) would be more accurate but requires a cross-source join that isn't worth the extra dependency for the hackathon. This is the same tradeoff documented in the main O*NET section's "Assumptions" table (#5).
+
+### Tier Thresholds (Human-Approved)
+
+The 0-1 / 1-4 / 4-8 / 8+ year breakpoints → entry / early / mid / senior tiering is a **FutureProof-specific** classifier, not an O*NET concept. Jeff approved it on 2026-04-16 (durable record: `governance/approvals/onet-experience-requirements-open-decisions.md`). The motivation is UX-driven, not statistical:
+
+- **Career-tree gating.** The Stage 3 career tree (`backend/app/services/career_tree.py`) takes a `max_experience_years` filter. A user planning five years out should see branches with `experience_delta_years <= 5` and have senior-tier branches dimmed or hidden. Four tiers give the UI natural grouping without overwhelming it.
+- **Decade bucketing.** "Your 20s / Your 30s / Your 40s" views collapse cleanly onto entry / early / mid / senior — roughly 0-1 / 1-4 / 4-8 / 8+ maps to early-career / late-20s / mid-career / senior-career decades for the median bachelor's-degree graduate.
+- **Unlock progression UX.** "This path unlocks at 8+ years experience" is a frontend pattern defined in spec §Frontend Integration Notes. The tier enum is what the badge reads.
+
+**Why four tiers and not three or five?** Three would collapse "4-8 years" and "8+" into one senior bucket, making the CEO-vs-manager distinction disappear. Five would need a separate bucket between 4-8 and 8+ — but the 10-category midpoint table jumps from 7 (cat 9) to 9 (cat 10) to 12 (cat 11), so there's no clean natural break.
+
+**DQ expectation.** All four tiers must be represented across the 765-row Silver table. Observed from the EDA spot checks: Retail Salespersons (`41-2031`) = entry, Software Developers (`15-1252`) = mid, Chief Executives (`11-1011`) = senior. Senior-tier share is expected to be 5-30% of rows (CEOs, surgeons, senior management, experienced-only occupations).
+
+### Data Collection Provenance
+
+| Field | Values | Meaning for Downstream Agents |
+|-------|--------|-------------------------------|
+| `domain_source` | `Incumbent` / `Occupational Expert` | Indicates the measurement mode. Incumbent rows are survey-based with sample sizes and standard errors; Expert rows are panel-based with neither. For occupations where BOTH sources contribute rows to the same occupation × scale, the percentages still sum to 100 — it's one distribution per (occupation, scale) regardless of how many sources fed it. |
+| `recommend_suppress` | `N` / `Y` / `n/a` | `N` = data is reliable. `Y` = O*NET recommends suppressing this specific (occupation, scale, category) row due to a small sample or unreliable estimate. `n/a` = not applicable (always present on Expert rows, since there's no sample-based reliability judgment to make). 2.4% of rows overall are flagged `Y`; 2.2% on RW specifically. |
+| `n` | integer | Sample size. Always populated (0% null in EDA), even on Expert rows. Median 23, p95 40. |
+| `lower_ci_bound` / `upper_ci_bound` | double | 95% confidence interval on `data_value`. Populated only on a subset of Incumbent rows where CI was computed (17,009 of 35,998 rows; 52.75% null). Paired — both are populated or both are null. |
+| `standard_error` | double | Populated exactly when `domain_source = 'Incumbent'` (1:1 with the Incumbent/Expert split). 23.9% null. |
+
+**`recommend_suppress` propagation into Silver.** The transformer sets `suppress_flag = TRUE` on a Silver row if **any** contributing Bronze row (across all categories for that occupation's RW scale) has `recommend_suppress = 'Y'`. In the real 2026-04 data, **zero occupations have all-RW rows suppressed** (EDA confirms), so `suppress_flag=TRUE` on the Silver table is reserved for chaos-monkey synthesis today. If the real-world `suppress_flag` rate rises above zero in a future O*NET release, the DQ rule that caps `recommend_suppress='Y'` rate at 5% will catch it at Bronze.
+
+### Update Cadence
+
+O*NET publishes numbered releases roughly 2-4 times per year (current: 30.2). Each release is a **complete database replacement**, not an incremental update — there is no cross-release diff mechanism, and old survey data for an occupation is overwritten when O*NET re-surveys it. The `date` field on each ETE row captures when that specific (occupation, scale) was surveyed; values span 06/2008 to 08/2025, with a peak in 08/2021 (3,813 rows) reflecting a post-COVID survey wave.
+
+**What changes between O*NET versions (for ETE specifically):**
+- **Occupation coverage** drifts. New O*NET-SOC detailed codes get added (recently-added occupations initially appear with no ETE data). Old codes get re-surveyed, shifting their category distributions.
+- **Scale category counts do NOT change** across minor releases. RL=12, RW=11, PT=9, OJ=9 has been stable for multiple release cycles. If this ever changes, the category-count DQ rule would catch it immediately.
+- **`date` field distribution** shifts each release as new survey waves complete.
+- **The spec's "~1,016 occupations" figure** refers to O*NET's Occupation Data master table, not the ETE file. ETE covered 878 occupations as of 30.2. Downstream agents should NOT calibrate row-count thresholds against 1,016; use 878 (or the BLS-truncated 765) as the reality.
+
+### Known Gotchas
+
+These are the edge cases that will trip up any downstream agent that doesn't read this section carefully:
+
+| Gotcha | Description | Impact | Notes for downstream agents |
+|--------|-------------|--------|-----------------------------|
+| **Bimodal distributions force conservative tie-breaking** | 754 of 878 occupations (85.9%) have **no single RW category above 50%**. Many have two distinct peaks. `41-2031.00` Retail Salespersons is the canonical example: cat 1 = 39.75% (None) and cat 5 = 32.02% (6 months–1 year). Weighted median walks cumulatively and lands at cat 5 (midpoint 0.75 yr). Tier = entry (because 0.75 yr falls in 0–1 range). | A naive "mode-based" implementation would pick cat 1 and report 0 years; the weighted-median-across-cumulative rule correctly lands at cat 5 instead. Both answers happen to land in "entry" here, but the scalar differs meaningfully (0 yr vs. 0.75 yr). | @dq-rule-writer: the `41-2031 tier = "entry"` spot check is safe. **Do NOT write `41-2031 experience_category_median <= 3`** — that would fail on real data (actual median cat = 5). Assert tiers, not category numbers. |
+| **Suppressed rows in RW are rare and never exhaustive** | Only 2.2% of RW rows (209/9,658) carry `recommend_suppress = 'Y'`. Zero occupations have all eleven RW rows suppressed. Zero RW rows hit `data_value = 100.0` (no single-category-100% case). | The Silver `suppress_flag = TRUE` path has **zero real-world triggers today**. Test coverage for that branch must be synthetic (chaos monkey). | @test-writer / @chaos-monkey: both "all suppressed" and "single-category 100%" cases are synthesized, not drawn from real data. Chaos manifests must include them. |
+| **Partial scale coverage does not exist in ETE** | Unlike Work Context (where 16 occupations have 57-row partial coverage), ETE's 878 occupations each have the **exact** expected category counts for all four scales (RL=12, RW=11, PT=9, OJ=9 for every occupation). No partial-coverage cases. | Simplifies DQ — the per-(occupation × scale) row-count rule is a hard equality, not a range. | @dq-rule-writer: can assert exactness, not tolerance. If a future release introduces partial coverage, the rule will catch it. |
+| **~93 "All Other" / Military occupations missing by design** | Of the 138 O*NET codes not in the ETE file (1,016 – 878), ~93 are the "All Other" residual categories and Military codes documented in the main O*NET section. The remaining ~45 are recently-added O*NET codes where the ETE survey has not yet been conducted. | Expected and structurally identical to Work Activities / Work Context. Silver zone should filter these rather than treating their absence as a DQ failure. | @dq-rule-writer: do NOT enforce "every Occupation Data SOC has an ETE row." The main O*NET section's guidance on the 93-residual count applies identically here. |
+| **Retail salesperson scalar is 0.75 yr, not 0 yr** | The EDA confirms Retail Salespersons' weighted median lands at cat 5 (0.75 yr), driven by the secondary peak. This is correct — it reflects that while 40% of retail roles need zero experience, 32% need up to a year of prior retail exposure. | Don't hand-tune the UI to expect "0 years" for retail. The tier is entry either way, but the scalar matters for `experience_delta_years`. | @mcp-engineer: surface the scalar faithfully. A user asking "how many years of experience do I need to be a retail salesperson?" should see 0.75 years (or ≈9 months), not "no experience." |
+| **One RL row at `data_value = 100.0`** | A single RL-scale row has `data_value = 100.0` — every respondent chose the same education category. Never happens on RW. | Bronze `data_value` range rule should tolerate `≤ 100.0` inclusive. `≤ 100.01` is a defensive widening against float noise. | @dq-rule-writer: exact-100 is valid on RL, impossible on RW in current data. |
+| **`n` is always populated** | Spec Raw schema marks `n` as optional; in practice it's 100% populated. The Optional flag is defensive against future O*NET releases. | Silver can safely compute on `n` without null-guarding. | @dq-rule-writer: can lift the Bronze `n` non-null rule from optional to P0 if desired, or leave at P1 to stay aligned with the spec schema. |
+
+### PII Risk: NONE
+
+Same posture as the main O*NET section — ETE publishes **occupation-level aggregate statistics only**, derived from anonymized Department of Labor surveys. No individual respondent identifiers, no worker-level records, no location data, no financial or health PII. The ETE file is narrower than Work Activities/Context in this respect: it contains ONLY percent-frequency distributions per (occupation × scale × category), plus survey metadata (sample size, SE, CI bounds, date, domain_source). Every single field is an aggregate.
+
+License: Creative Commons Attribution 4.0 International (CC BY 4.0). Attribution required on any downstream product that surfaces ETE-derived values — the existing O*NET attribution in MCP responses covers this.
+
+**Notes for @pii-scanner:** `bs:pii-scanner` is formally skipped under the onet-experience-requirements spec with the justification "governance/domain-context.md O*NET ETE section confirms no personal data — all fields are occupation-level aggregates from anonymized DOL surveys. License CC BY 4.0."
+
+### Canonical Source Paths
+
+| Artifact | Path |
+|----------|------|
+| Ingestor class (8th subclass of `OnetBaseIngestor`) | `src/raw/onet_ingestor.py::OnetExperienceIngestor` |
+| Source file (within ZIP) | `Education, Training, and Experience.txt` |
+| Local cache | `data/raw/onet_cache/Education, Training, and Experience.txt` (file does not yet exist in cache — extracted on first ingest) |
+| ZIP source | `https://www.onetcenter.org/dl_files/database/db_30_2_text.zip` |
+| Bronze parquet (sample) | `data/bronze/iceberg_warehouse/bronze/onet_experience/data/00000-0-f09a19fa-5466-46ed-a39d-58f4db0dac5e.parquet` |
+| Silver table | `base.onet_experience_profiles` (via `src/silver/onet_experience_transformer.py`) |
+| Silver conceptual / logical / physical models | `governance/models/silver-base-onet-experience-{conceptual,logical,physical}.md` |
+| EDA report | `governance/eda/raw-onet-experience-eda.md` |
+| Spec | `docs/specs/onet-experience-requirements.md` |
+| Tier-threshold approval | `governance/approvals/onet-experience-requirements-open-decisions.md` (human-approved 2026-04-16) |
+| Business glossary terms | BT-117 (Related Work Experience), BT-118 (Experience Tier) in `governance/business-glossary.json` |
+
+### Concept Mapping Guidance (ETE-Specific Delta)
+
+The O*NET section above already maps `onet_soc_code` → Occupation Identity, `element_id` → Content Model dimensions, and `scale_id` → Measurement Scale. ETE adds no new entity types but introduces four derived business concepts that feed downstream:
+
+| # | Business Concept | Plain English Name | Source | Category | Priority |
+|---|------------------|--------------------|--------|----------|----------|
+| 1 | experience_years_typical | Typical Years of Prior Experience | weighted median of RW distribution → midpoint lookup → average across O*NET details | Career Gating — Scalar | CORE |
+| 2 | experience_tier | Experience Tier | threshold bucketing of `experience_years_typical` (0-1/1-4/4-8/8+) | Career Gating — Classifier | CORE |
+| 3 | experience_category_median | RW Weighted Median Category (1-11) | intermediate output of the weighted-median walk | Provenance | EXTENDED |
+| 4 | experience_distribution | Full RW Distribution (JSON) | verbatim percent-frequency vector per occupation | Diagnostic / Future Use | OPTIONAL |
+
+**Gold projection:** these concepts surface on `consumable.career_branches` as `related_experience_years` (for the target of a branch), `related_experience_tier`, `source_experience_years` (for the source occupation), and `experience_delta_years = related - source` (NULL-propagating when either side is missing). MCP tool `get_career_branches` exposes all four fields.
+
+### AI-Ready Considerations (ETE-Specific)
+
+| Consideration | Recommendation | Notes for @mcp-engineer |
+|--------------|---------------|------------------------|
+| Primary user questions | "How much experience do I need for [occupation]?" "What jobs can I get with 2 years of experience?" "What careers unlock at 8+ years?" "How much more experience would I need to move from [A] to [B]?" | Map to `related_experience_years` / `related_experience_tier` / `experience_delta_years` fields on `get_career_branches`. Support filter by `max_experience_years` (exists in `backend/app/services/career_tree.py::build_tree` per spec §Zone 5). |
+| Scalar vs. distribution | Return the scalar by default (`experience_years_typical`). Only surface the full distribution JSON if the user asks for a breakdown ("how varied is experience for this role?"). | Keep `experience_distribution` available as an optional detail field on the MCP response but do not render it by default — the scalar is the user-facing number. |
+| Bimodal explanation | When a user sees an unexpected "0.75 years" for retail (where their intuition says "no experience"), explain: "Most retail jobs accept zero experience, but roughly a third prefer up to a year of prior retail work. The typical prior experience across the full labor market is about 9 months." | Add a templated "bimodal explanation" response for occupations with distribution split > 20/20 at two peaks. Category-5-or-1-dominant Retail is the archetypal case. |
+| Tier interpretation | "entry" ≠ "no experience required"; it means "0-1 years typical." Communicate clearly. | MCP response should spell out the tier range: `"experience_tier": "entry", "experience_tier_range": "0-1 years typical"`. |
+| Coverage-gap disclosure | 93 of 832 BLS-SOCs have no ETE data (the "All Other"/Military residuals). A user querying those occupations should be told ETE data is not available, not shown a zero value. | Same guidance as Anthropic coverage-gap handling: do NOT silently substitute zero. Return `"experience_tier": null` and include a `"data_availability": "no_ete_data"` field. |
+
+### Assumptions (All User-Approved)
+
+Unlike most domain-context sections, ETE has **zero user-deferred assumptions**. Every design decision that could have been open is pinned to a human approval:
+
+- **Tier thresholds (0-1/1-4/4-8/8+).** Approved 2026-04-16.
+- **"Over 10 years" midpoint = 12.** Approved 2026-04-16.
+- **Multi-detail aggregation = unweighted average.** Approved 2026-04-16 (matches existing O*NET Silver precedent).
+- **Filter vs. dim branches in the UI.** Deferred to a frontend spec — pipeline-side behavior is filter/hide; visual treatment is a downstream concern.
+
+All four are captured with signatures in `governance/approvals/onet-experience-requirements-open-decisions.md`.
+
+### Confidence Notes (ETE-Specific)
+
+**High confidence:**
+- Scale semantics (RL/RW/PT/OJ), element IDs, and category counts — externally defined by O*NET, verified against 35,998 real rows in EDA.
+- RW is the right scale for career-tree gating (others are ingested for completeness but unused downstream).
+- Weighted-median-across-cumulative algorithm — the only defensible scalar collapse given 85.9% of occupations have no dominant category.
+- BLS-SOC truncation-and-collapse pattern — identical to existing O*NET Silver precedent.
+- PII posture (none, CC BY 4.0) — occupation-level aggregates only.
+- Tier thresholds and "Over 10 years" midpoint — human-approved, pinned in approvals file.
+- Row counts (878 O*NET details → 765 BLS-SOC roots) — measured, not estimated.
+
+**Medium confidence:**
+- Whether unweighted averaging across O*NET details is the right multi-detail strategy for the 63 BLS SOCs with fan-out. Employment-weighted would be better but requires a BLS cross-join not currently in the pipeline. Acceptable for hackathon; revisit post-hackathon.
+- Whether the 8-year senior cutoff is the right UX break. Could plausibly be 7 or 10 years; 8 was chosen to pair cleanly with the decade-bucketing UX narrative ("Your 30s → Your 40s").
+- Stability of the 878-occupation ETE coverage footprint across future O*NET releases. Spec documents 800–900 as the Bronze tolerance; real drift could push out of range.
+
+**Low confidence / Needs post-hackathon revisit:**
+- Whether to surface `experience_distribution` (the JSON vector) in any user-facing UI or keep it purely as a backend diagnostic.
+- Whether the Silver-level `suppress_flag` will ever be TRUE on real data. Zero triggers in O*NET 30.2; chaos-only coverage today.
+- Whether to add PT (in-plant training) or OJ (on-the-job training) as secondary signals in a future spec — both are already ingested into Bronze and would require only a new Silver transformation to surface.

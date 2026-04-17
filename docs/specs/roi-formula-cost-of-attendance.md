@@ -1,10 +1,13 @@
 # Spec: roi-formula-cost-of-attendance
 
-**Status:** DRAFT
-**Zone:** Backend service + frontend display
-**Primary Agent:** @fp-builder
+**Status:** COMPLETE (v2, 2026-04-17) — implementation decoupled ROI from financing
+**Zone:** Gold pipeline + Backend service + Frontend display
+**Primary Agent:** @primary-agent
 **Created:** 2026-04-14
-**Depends On:** `raw-ingest-college-scorecard-institution` (pipeline must be complete first)
+**Completed:** 2026-04-17
+**Depends On:** `raw-ingest-college-scorecard-institution` (✅ COMPLETE)
+**Implementation Plan:** `~/.claude/plans/why-are-we-still-jaunty-curry.md`
+**Completion Report:** `reports/roi-formula-cost-of-attendance-2026-04-17.md`
 
 ---
 
@@ -12,11 +15,32 @@
 
 ROI currently uses `debt_median` (what past graduates borrowed) as the cost input. This is misleading — median debt reflects borrowing behavior, not what school actually costs. A student on a full scholarship sees the same ROI as a student who financed everything, because the loan slider scales against the same `debt_median` value.
 
-With institution-level cost data now available (from the `raw-ingest-college-scorecard-institution` pipeline), ROI should reflect the student's actual financing decision:
+With institution-level cost data now available (from the `raw-ingest-college-scorecard-institution` pipeline), ROI should reflect the real cost of attending the program.
 
-**New formula:** `ROI = earnings / (net_price_annual × 4 × loan_pct)`
+## What Actually Shipped (v2 — decoupled)
 
-**Old formula:** `ROI = earnings / (debt_median × loan_pct)`
+The v1 formula proposed here kept `loan_pct` in the ROI numerator (`net_price × 4 × loan_pct`), which meant a fully-aided student still saw a different ROI than a fully-financed student — just as before, only with different math. When the user tested this, the $9,750 projected debt on Illinois State Special Ed ($43k salary) read as a "massive ROI victory" — obviously wrong since the actual 4-year cost to attend is $75,984. After pushback ("it doesn't matter how something was financed for an ROI, it matters what the cost was against the projected earnings"), v2 shipped with ROI **fully decoupled from `loan_pct`**.
+
+**v2 formulas:**
+
+```
+# ROI (pentagon stat) — loan_pct-independent:
+cost_based_dte = (net_price_annual × 4) / earnings_1yr_median
+                 if net_price_annual is not None else
+                 debt_median / earnings_1yr_median
+stat_roi        = compute_stat_roi(cost_based_dte)
+
+# Student Loans Boss — loan_pct-aware (this is where the slider matters):
+modeled_total_debt = net_price_annual × 4 × loan_pct
+                     (or debt_median × loan_pct on fallback)
+financed_dte       = modeled_total_debt / earnings_1yr_median
+boss_loans_score   = 11 − compute_stat_roi(financed_dte)
+```
+
+Both ROI and the Loans Boss are surfaced in receipts + narrative, but they answer different questions:
+
+- **ROI**: Is this program a good investment? (cost vs. earnings)
+- **Loans Boss**: Is this financing plan manageable? (modeled debt vs. earnings)
 
 The median debt stays visible as a reference point: "The median debt of graduates from this program is $X" — giving the student a reality check against their modeled number.
 
@@ -197,14 +221,60 @@ room_board_on_campus: number | null;
 
 ---
 
-## Kaggle Writeup Impact
+## Kaggle Writeup Impact (updated for v2)
 
 This change strengthens the "students deserve trustworthy data" narrative:
 
 - **Before:** "ROI uses median graduate debt — a proxy for what you might owe."
-- **After:** "ROI uses actual school cost-of-attendance, scaled by your loan coverage. We also show you the median debt of graduates from your specific program, so you can see how your financing decision compares to reality."
+- **After (v2):** "ROI compares the real 4-year cost of attendance against your starting salary — a financing-agnostic measure of program economics. A separate Student Loans Boss models your actual financing choice against that cost. Two students at the same school see the same ROI; only the loans boss difficulty differs with how they pay."
 
-The transparency angle — showing modeled debt alongside median debt — is a differentiator. Most tools show one number. FutureProof shows both and explains the gap.
+The transparency angle — separating program economics (ROI) from financing strategy (Loans Boss) — is the differentiator. Most tools conflate the two.
+
+---
+
+## §Implementation Log (v2 — 2026-04-17)
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/gold/college_scorecard_career_outcomes.py` | DTE formula switched to `COALESCE(net_price_annual × 4, debt_median) / earnings`. Added `roi_cost_basis` column (field 38). CLI gained `--overwrite` flag. Row count 69,947 / schema 38. |
+| `src/gold/futureproof_engine.py` | PCP schema extended 44 → 52 columns. Threads `roi_cost_basis`, `net_price_annual`, `cost_of_attendance_annual`, `institution_control`, `net_price_4yr`, `tuition_in_state`, `tuition_out_of_state`, `room_board_on_campus` (IDs 45-52) through from career_outcomes. |
+| `src/mcp_server/futureproof_server.py` | `roi_cost_basis` added to `CAREER_PATHS_RESPONSE_FIELDS`. |
+| `backend/app/models/career.py` | `RoiCostBasis` Literal added. `CareerOutcome` gains `roi_cost_basis` + `financed_dte` fields. |
+| `backend/app/services/stat_engine.py` | `_compute_roi_with_cost` split into `_derive_roi` (loan_pct-independent) and `_derive_loans_boss` (loan_pct-aware, computes `financed_dte` + `modeled_total_debt`). |
+| `backend/app/services/receipts.py::stats_receipt` | Two ROI receipt paths merged into a single cost-based render. ROI DTE and Financed DTE displayed separately; `roi_cost_basis` labels the numerator explicitly. |
+| `backend/app/services/boss_fights.py` | `stat_explainer` ROI narrative talks cost-vs-earnings only (no loan wording). `_boss_context(career, "loans")` uses `financed_dte` + `modeled_total_debt`. `_BOSS_INSTRUCTIONS["loans"]` clarifies fight is about financing, not ROI. |
+| `frontend/src/data/statExplanations.ts` | ROI blurb rewritten: "Compares the total cost of attending this program (4 years) to your starting salary. Doesn't depend on how you finance it — that's the Student Loans Boss." |
+| `frontend/src/components/CareerDetail.tsx` | `RoiReceipt` collapsed to one path; shows Cost basis + ROI DTE + Financing block + Financed DTE, labeled by `roi_cost_basis`. |
+| `frontend/src/components/school/EffortLoansPanel.tsx` | `LOAN_IMPACT` copy describes Student Loans Boss impact only. |
+| `frontend/src/types/build.ts` | `roi_cost_basis`, `financed_dte` added to `CareerOutcome` TS interface. |
+| Tests | `TestLoanPct` rewritten in `test_stat_engine.py` (asserts ROI independent of loan_pct + loans boss scales with it). `TestStatExplainerRoiNarrative` replaces `TestStatExplainerDebtDisplay` in `test_boss_fights.py`. `TestReceiptCostBreakdown` replaces `TestReceiptIncludesCostBreakdown` in `test_receipts.py`. PCP schema count 40 → 52 in `test_futureproof_engine.py`. career_outcomes schema count 37 → 38 in `test_college_scorecard_career_outcomes.py`. Frontend `CareerDetail.test.tsx` + `EffortLoansPanel.test.tsx` updated for new receipt copy. |
+
+### Data materialization (snapshot at completion)
+
+- `consumable.career_outcomes` — 69,947 rows overwritten. `roi_cost_basis`: `cost_of_attendance` 34.5%, `debt_median` 1.3%, `none` 64.2%.
+- `consumable.program_career_paths` — 626,406 rows overwritten. `roi_cost_basis`: `cost_of_attendance` 40.5%, `debt_median` 1.9%, `none` 57.6%.
+- `consumable.career_branches` — 15,944 rows overwritten.
+
+### Sanity case
+
+Illinois State Special Ed (unitid 145813, cipcode 13.10) with `net_price_annual = $18,996`:
+
+| Before (v1, wrong) | After (v2, correct) |
+|--------------------|---------------------|
+| Projected debt: $9,750 ("ROI victory") | 4-year cost: $75,984 |
+| DTE: 0.225 at 50% loans | ROI DTE: 1.748 (financing-independent) |
+| stat_roi: ~9 (excellent) | **stat_roi: 3** (challenging) |
+| Loans boss: trivial | Financed DTE at 50%: 0.87 → hard loans boss |
+
+### Verification
+
+- Backend pytest: 302/302 ✅
+- Pipeline pytest: 1669/1671 (2 pre-existing `debt_p25` MCP failures unrelated)
+- Frontend vitest: 323/325 (2 pre-existing ProfileScreen failures unrelated)
+- Ruff + TypeScript: clean
+- E2E: verified with the user's complaint case.
 
 ---
 

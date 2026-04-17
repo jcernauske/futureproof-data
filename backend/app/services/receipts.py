@@ -58,27 +58,125 @@ def stats_receipt(
         + (" | ".join(ern_parts) if ern_parts else "insufficient earnings data")
     )
 
-    roi_parts = []
-    if career.debt_to_earnings_annual is not None:
-        raw_dte = career.debt_to_earnings_annual
-        if loan_pct < 1.0:
-            adj_dte = raw_dte * loan_pct
-            roi_parts.append(
-                f"DTE {raw_dte:.2f} × loan_pct {int(loan_pct * 100)}% = {adj_dte:.2f}"
+    # Cost-based ROI receipt (plan: why-are-we-still-jaunty-curry).
+    # ROI reflects program cost vs. earnings and is NOT sensitive to
+    # loan_pct. The Student Loans Boss is where financing enters the
+    # picture — its own modeled_debt + financed_dte are surfaced here
+    # so the student sees both angles in one receipt.
+    cost_lines: list[str] = []
+    school_label = career.institution_name or "Unknown school"
+    if career.institution_control:
+        school_label = f"{school_label} ({career.institution_control})"
+    cost_lines.append(f"School: {school_label}")
+
+    # Cost basis — prefer net price × 4; fall back to debt_median when
+    # the Gold row had no institution-level cost data.
+    basis = career.roi_cost_basis
+    if basis == "cost_of_attendance" and career.net_price_annual is not None:
+        four_year_cost = career.net_price_annual * 4
+        cost_lines.append(
+            f"Net price/yr: {_wage(career.net_price_annual)}"
+        )
+        if career.cost_of_attendance_annual is not None:
+            cost_lines.append(
+                f"COA/yr: {_wage(career.cost_of_attendance_annual)} (sticker)"
             )
-        else:
-            roi_parts.append(f"DTE ratio: {raw_dte:.2f}")
-    if career.debt_median is not None:
-        roi_parts.append(f"median debt: {_wage(career.debt_median)}")
-    lines.append(
-        f"ROI {_stat(stats.roi)}/10 ← "
-        + (" | ".join(roi_parts) if roi_parts else "DTE data unavailable")
-    )
+        cost_lines.append(
+            f"4-year cost of attendance: {_wage(four_year_cost)} "
+            f"(net price × 4)"
+        )
+    elif basis == "debt_median" and career.debt_median is not None:
+        cost_lines.append(
+            f"Cost basis: median graduate debt {_wage(career.debt_median)} "
+            f"(institution-level cost data unavailable — approximation)"
+        )
+    else:
+        cost_lines.append(
+            "Cost basis: unavailable (no net_price_annual or debt_median on row)"
+        )
+
+    if career.earnings_1yr_median is not None:
+        cost_lines.append(
+            f"Earnings 1yr: {_wage(career.earnings_1yr_median)}"
+        )
+    if career.debt_to_earnings_annual is not None:
+        cost_lines.append(
+            f"ROI DTE (cost vs earnings): {career.debt_to_earnings_annual:.2f} "
+            f"→ ROI {_stat(stats.roi)}/10"
+        )
+
+    # Student Loans Boss context — financed portion of the cost.
+    if career.modeled_total_debt is not None:
+        cost_lines.append(
+            f"Loan coverage: {int(loan_pct * 100)}%  |  "
+            f"Modeled debt at {int(loan_pct * 100)}%: "
+            f"{_wage(career.modeled_total_debt)}"
+        )
+    if career.financed_dte is not None:
+        cost_lines.append(
+            f"Financed DTE (loans boss input): {career.financed_dte:.2f}"
+        )
+    if career.debt_median_reference is not None and basis == "cost_of_attendance":
+        cost_lines.append(
+            f"Median debt of program graduates: "
+            f"{_wage(career.debt_median_reference)} (reference)"
+        )
+
+    if basis == "cost_of_attendance":
+        cost_lines.append(
+            "Sources: College Scorecard (Field of Study + Institution Level)"
+        )
+    else:
+        cost_lines.append("Sources: College Scorecard (Field of Study)")
 
     lines.append(
-        f"RES {_stat(stats.res)}/10 ← "
-        f"Karpathy AI exposure + O*NET task analysis (SOC {career.soc_code})"
+        f"ROI {_stat(stats.roi)}/10 ← " + " | ".join(cost_lines)
     )
+
+    # RES provenance. v4 adds the Option B composite — when the MCP row
+    # carries composite_method we prefer that wording so students see
+    # which signals contributed. Pre-v4 rows (composite_method is None)
+    # fall through to the legacy Gemma/Karpathy branches.
+    method = career.composite_method
+    composite_methods = {
+        "three_signal",
+        "two_signal_no_anthropic",
+        "gemma_plus_anthropic",
+        "observed_override",
+    }
+    if method in composite_methods:
+        velocity = career.velocity_label or "unknown"
+        parts = [
+            f"Option B composite ({method}) — Gemma theoretical × Karpathy "
+            f"baseline blended by adoption percentile",
+            f"velocity={velocity}",
+        ]
+        if career.ai_adoption_share is not None:
+            parts.append(f"ai_adoption_share={career.ai_adoption_share:.4f}")
+        parts.append(f"SOC {career.soc_code}")
+        res_src = "; ".join(parts)
+    elif method == "gemma_only":
+        res_src = (
+            f"Gemma task-level AI exposure only — no observed adoption data "
+            f"(SOC {career.soc_code})"
+        )
+    elif method == "karpathy_only":
+        res_src = (
+            f"Karpathy AI exposure baseline — Gemma unavailable "
+            f"(SOC {career.soc_code})"
+        )
+    elif career.scoring_model == "gemma-4":
+        model_tag = career.model_tag or "gemma-4"
+        res_src = (
+            f"Gemma task-level AI exposure ({model_tag}, AI-estimated) "
+            f"on O*NET tasks (SOC {career.soc_code})"
+        )
+    else:
+        res_src = (
+            f"Karpathy AI exposure + O*NET task analysis "
+            f"(SOC {career.soc_code})"
+        )
+    lines.append(f"RES {_stat(stats.res)}/10 ← {res_src}")
 
     grw_source = career.growth_category or "category unavailable"
     lines.append(

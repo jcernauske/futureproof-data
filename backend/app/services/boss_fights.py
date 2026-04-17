@@ -67,53 +67,55 @@ def stat_explainer(career: CareerOutcome) -> str:
 
     # ROI — return on investment
     if s.roi is not None:
+        # ROI narrative is cost-vs-earnings only. Financing (loan_pct +
+        # modeled_total_debt) belongs to the Student Loans Boss context,
+        # not here. Plan: ~/.claude/plans/why-are-we-still-jaunty-curry.md
         roi_ctx = ""
-        if career.debt_median is not None and career.earnings_1yr_median is not None:
-            loan_pct = career.loan_pct
-            pct_label = f"{int(loan_pct * 100)}%"
-            debt = fmt_dollars(career.debt_median)
-            earn = fmt_dollars(career.earnings_1yr_median)
-            # Debt range context
-            debt_range = ""
-            if (career.debt_p25 is not None
-                    and career.debt_p75 is not None):
-                debt_range = (
-                    f" Graduates typically owe "
-                    f"{fmt_dollars(career.debt_p25)} to "
-                    f"{fmt_dollars(career.debt_p75)} "
-                    f"(median {debt})."
-                )
-            if loan_pct >= 1.0:
-                roi_ctx = (
-                    f" The median graduate debt is {debt} vs. "
-                    f"{earn} starting salary."
-                )
-            elif loan_pct <= 0.0:
-                roi_ctx = (
-                    f" No loans — {earn} starting salary "
-                    f"is all yours."
-                )
+        earn = (
+            fmt_dollars(career.earnings_1yr_median)
+            if career.earnings_1yr_median is not None
+            else None
+        )
+
+        basis = career.roi_cost_basis
+        if (
+            basis == "cost_of_attendance"
+            and career.net_price_annual is not None
+            and earn
+        ):
+            four_year_cost = fmt_dollars(career.net_price_annual * 4)
+            roi_ctx = (
+                f" The 4-year cost to attend is about {four_year_cost} "
+                f"vs. {earn} starting salary."
+            )
+        elif basis == "debt_median" and career.debt_median is not None and earn:
+            # Institution-level cost data wasn't available for this
+            # program row — fall back to median graduate debt as an
+            # approximation of total cost.
+            median_debt = fmt_dollars(career.debt_median)
+            roi_ctx = (
+                f" Median graduate debt is {median_debt} vs. {earn} "
+                f"starting salary (program-level estimate — institution "
+                f"cost data was not available)."
+            )
+
+        if roi_ctx and career.debt_to_earnings_annual is not None:
+            dte = career.debt_to_earnings_annual
+            if dte <= 0.5:
+                roi_ctx += " That's a strong return — very manageable."
+            elif dte <= 1.0:
+                roi_ctx += " Cost is roughly one year of earnings."
             else:
-                roi_ctx = (
-                    f" Covering {pct_label} of the median "
-                    f"{debt} debt vs. {earn} starting salary."
+                roi_ctx += (
+                    f" That's {dte:.1f}× annual salary in cost — "
+                    f"challenging return."
                 )
-            if debt_range:
-                roi_ctx += debt_range
-            if career.debt_to_earnings_annual is not None:
-                dte = career.debt_to_earnings_annual
-                if dte <= 0.5:
-                    roi_ctx += " Very manageable."
-                elif dte <= 1.0:
-                    roi_ctx += " About one year of earnings."
-                else:
-                    roi_ctx += (
-                        f" That's {dte:.1f}x annual salary "
-                        f"in debt."
-                    )
+
         lines.append(
-            f"- ROI {s.roi}/10 (Return on Investment): How quickly you can "
-            f"pay off your student loans with what you'll earn.{roi_ctx}"
+            f"- ROI {s.roi}/10 (Return on Investment): How the "
+            f"total cost of your degree stacks up against your starting "
+            f"salary. Doesn't depend on how you finance it — that's the "
+            f"Student Loans Boss.{roi_ctx}"
         )
 
     # RES — AI resilience
@@ -198,9 +200,77 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
             return ""
         return "Earnings context: " + " ".join(parts)
 
+    if boss_id == "ai":
+        # Option B composite provenance (S4 v4). Surfaces real-world
+        # AI adoption context so the Fight AI narrative can distinguish
+        # "wave is here" from "wave is still arriving" instead of
+        # speaking only in theoretical terms.
+        parts = []
+        velocity = career.velocity_label
+        method = career.composite_method
+        if velocity == "saturating":
+            parts.append(
+                "Real-world AI adoption: SATURATING. Claude and similar AI "
+                "are already ubiquitous for the daily tasks of this occupation."
+            )
+        elif velocity == "accelerating":
+            parts.append(
+                "Real-world AI adoption: ACCELERATING. Adoption is moving "
+                "fast across this occupation right now."
+            )
+        elif velocity == "emerging":
+            parts.append(
+                "Real-world AI adoption: EMERGING. Early-adopter signals "
+                "are showing up — the wave is arriving."
+            )
+        elif velocity == "nascent":
+            parts.append(
+                "Real-world AI adoption: NASCENT. Little real-world AI "
+                "usage in this occupation yet — runway still exists."
+            )
+        elif velocity == "unknown":
+            parts.append(
+                "Real-world AI adoption data is not yet available for this "
+                "occupation. The score reflects theoretical capability only."
+            )
+        if method and method != "no_data":
+            parts.append(f"Composite method: {method}.")
+        if career.ai_adoption_share is not None:
+            parts.append(
+                f"Anthropic adoption share: {career.ai_adoption_share:.4f} "
+                "(share of real Claude conversations)."
+            )
+        if not parts:
+            return ""
+        return "AI exposure context: " + " ".join(parts)
+
     if boss_id == "loans":
         parts = []
-        if career.debt_median is not None:
+        # Cost-of-attendance block — only shown when institution-level
+        # net_price_annual is available. Gives Gemma the actual school
+        # cost so the narrative can talk about the student's modeled
+        # debt instead of just citing the median graduate's debt.
+        if career.net_price_annual is not None:
+            parts.append(
+                f"School net price: "
+                f"{fmt_dollars(career.net_price_annual)}/year"
+            )
+            if career.modeled_total_debt is not None:
+                parts.append(
+                    f"Student's modeled 4-year debt: "
+                    f"{fmt_dollars(career.modeled_total_debt)}"
+                )
+            ref_debt = (
+                career.debt_median_reference
+                if career.debt_median_reference is not None
+                else career.debt_median
+            )
+            if ref_debt is not None:
+                parts.append(
+                    f"Median debt of graduates from this program: "
+                    f"{fmt_dollars(ref_debt)}"
+                )
+        elif career.debt_median is not None:
             debt = fmt_dollars(career.debt_median)
             loan_pct = career.loan_pct
             pct_label = f"{int(loan_pct * 100)}%"
@@ -213,22 +283,36 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
                     f"Median graduate debt: {debt} "
                     f"(student covering {pct_label})."
                 )
-            if (career.debt_p25 is not None
-                    and career.debt_p75 is not None):
-                parts.append(
-                    f"Debt range: {fmt_dollars(career.debt_p25)} "
-                    f"to {fmt_dollars(career.debt_p75)}."
-                )
+        if (career.debt_p25 is not None
+                and career.debt_p75 is not None):
+            parts.append(
+                f"Debt range: {fmt_dollars(career.debt_p25)} "
+                f"to {fmt_dollars(career.debt_p75)}."
+            )
         if career.earnings_1yr_median is not None:
             parts.append(
                 f"First-year earnings: {fmt_dollars(career.earnings_1yr_median)}"
             )
-        if career.debt_to_earnings_annual is not None:
+        # Financed DTE (loan_pct-aware) drives the Loans Boss score.
+        # The debt_to_earnings_annual ratio is the cost-vs-earnings
+        # "ROI DTE" — it belongs in the ROI narrative, not here. We
+        # cite only the financed ratio in this boss' context so the
+        # coach doesn't conflate the two.
+        if career.financed_dte is not None:
+            fdte = career.financed_dte
+            pct = fdte * 100
+            parts.append(
+                f"Financed debt-to-earnings ratio (this loan choice): "
+                f"{fdte:.2f} — the modeled debt is {pct:.0f}% of one "
+                f"year's salary."
+            )
+        elif career.debt_to_earnings_annual is not None:
+            # Fallback for rows where the loan pass wasn't computable.
             dte = career.debt_to_earnings_annual
             pct = dte * 100
             parts.append(
-                f"Debt-to-earnings ratio: {dte:.2f} "
-                f"(debt is {pct:.0f}% of one year's salary)"
+                f"Cost-to-earnings ratio (financing unknown): {dte:.2f} "
+                f"({pct:.0f}% of one year's salary)."
             )
         if not parts:
             return ""
@@ -263,17 +347,26 @@ _BOSS_INSTRUCTIONS: dict[str, str] = {
     ),
     "loans": (
         "Write the coach's 3-4 sentence take on this fight. "
-        "Use the actual debt and earnings figures — cite them. "
-        "Explain what the debt-to-earnings ratio means in real terms "
-        "(e.g. 'your debt is about half of one year's salary'). "
-        "If WIN, say how manageable the debt load actually is. "
-        "If LOSE, say what the debt burden looks like month-to-month. "
+        "This fight is specifically about the student's FINANCING "
+        "choice — their modeled debt at the current loan coverage % — "
+        "NOT the overall program ROI. Cite the modeled debt dollar "
+        "figure and the financed debt-to-earnings ratio. "
+        "Explain what that ratio means (e.g. 'modeled debt is about "
+        "half of one year's salary'). "
+        "If WIN, say how manageable THIS financing plan is. "
+        "If LOSE, describe the month-to-month burden and suggest the "
+        "student explore lower loan coverage or scholarships. "
         "Write at a 6th grade reading level. No jargon."
     ),
     "ai": (
         "Write the coach's 3-4 sentence take on this fight. "
         "Explain what AI exposure means for this specific job's daily "
         "tasks — which parts could be automated and which can't. "
+        "If a velocity label is present, lean on it: SATURATING means "
+        "name what's already automated, ACCELERATING means warn the "
+        "gap is closing fast, EMERGING means the wave is arriving, "
+        "NASCENT means there's runway to prepare, UNKNOWN means talk "
+        "about theoretical exposure only. "
         "If LOSE, say what the student can do to stay ahead. "
         "If WIN, say why this job is hard for AI to replace. "
         "Write at a 6th grade reading level. No jargon."
