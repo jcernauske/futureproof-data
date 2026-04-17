@@ -12,15 +12,14 @@ export function GemmaTake({ narrative, delay = 0 }: GemmaTakeProps) {
     <motion.article
       id="region-gemma-take"
       aria-label="Gemma's career analysis"
-      className="relative bg-bp-mid border border-border-subtle rounded-xl p-6"
-      style={{ borderLeft: "3px solid var(--color-accent-insight)" }}
+      className="relative bg-bp-mid border border-border-subtle border-l-[3px] border-l-accent-insight rounded-xl p-6"
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...springs.smooth, delay }}
     >
       <div className="flex items-center gap-2 mb-3">
         <span className="text-body">💡</span>
-        <span className="font-data text-[11px] text-accent-insight tracking-[2px] uppercase">
+        <span className="font-data text-micro text-accent-insight tracking-[2px] uppercase">
           GEMMA'S TAKE
         </span>
       </div>

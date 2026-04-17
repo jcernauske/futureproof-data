@@ -144,6 +144,21 @@ export const stage2Reveal = {
   },
 } as const;
 
+/** Ambient "float" loop for character emojis (reveal screen, loading screen). */
+export const ambient = {
+  /** Character emoji float — slow vertical bob. */
+  emojiFloat: {
+    animate: { y: [0, -6, 0] as number[] },
+    transition: { duration: 4, ease: "easeInOut" as const, repeat: Infinity, delay: 1.5 },
+  },
+
+  /** Loading screen emoji float — slightly faster, no delay. */
+  emojiFloatLoading: {
+    animate: { y: [0, -8, 0] as number[] },
+    transition: { duration: 3, ease: "easeInOut" as const, repeat: Infinity },
+  },
+} as const;
+
 /** Boss fight entrance sequence. */
 export const bossFight = {
   /** Vignette darkening. */

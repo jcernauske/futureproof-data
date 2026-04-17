@@ -13,6 +13,15 @@ interface EffortLoansPanelProps {
   profileName: string;
   onSubmit: () => void;
   submitting: boolean;
+  /**
+   * Institution-level net price per year (after grants/scholarships) sourced from
+   * the College Scorecard institution-level pipeline. When provided, the loan
+   * slider scales modeled debt (net_price × 4 × loan_pct) — this drives the
+   * Student Loans Boss score, but NOT the ROI stat. ROI reflects cost of
+   * attendance vs. earnings and is independent of financing. See plan
+   * ~/.claude/plans/why-are-we-still-jaunty-curry.md.
+   */
+  netPriceAnnual?: number | null;
 }
 
 const EFFORT_STOPS: SliderStop<string>[] = [
@@ -42,12 +51,15 @@ const LOAN_STOPS: SliderStop<number>[] = [
   { value: 100, label: "All loans" },
 ];
 
+// Copy describes the Student Loans Boss impact only — ROI is cost-based
+// and does not change with loan coverage. See plan
+// ~/.claude/plans/why-are-we-still-jaunty-curry.md
 const LOAN_IMPACT: Record<number, string> = {
-  0: "best case — no debt",
-  25: "scales debt-to-earnings to 25%",
-  50: "scales debt-to-earnings to 50%",
-  75: "scales debt-to-earnings to 75%",
-  100: "full published debt load",
+  0: "no debt — Loans Boss auto-win",
+  25: "financing 25% of 4-year cost",
+  50: "financing 50% of 4-year cost",
+  75: "financing 75% of 4-year cost",
+  100: "financing 100% of 4-year cost — Loans Boss at full difficulty",
 };
 
 function ernShiftDisplay(shift: number): string {
@@ -68,6 +80,7 @@ export function EffortLoansPanel({
   profileName,
   onSubmit,
   submitting,
+  netPriceAnnual,
 }: EffortLoansPanelProps) {
   function handleEffortChange(level: string) {
     const mapped = EFFORT_MAP[level] ?? EFFORT_MAP.balanced!;
@@ -142,7 +155,7 @@ export function EffortLoansPanel({
       {/* Loan slider */}
       <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
         <div className="font-display text-[22px] font-semibold text-text-primary text-center mb-8">
-          How much will you cover with loans?
+          How much of your school costs will you cover with loans?
         </div>
         <DiscreteSlider
           stops={LOAN_STOPS}
@@ -156,6 +169,31 @@ export function EffortLoansPanel({
         <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
           {LOAN_IMPACT[loans.percentage]}
         </div>
+
+        {/*
+          Cost-of-attendance context — shown only when the institution-level
+          Scorecard data gave us a net price for this school. The annual line
+          frames what the slider is scaling; the live modeled-debt line lets
+          the student see their financing decision in dollars as they slide.
+        */}
+        {typeof netPriceAnnual === "number" && netPriceAnnual > 0 && (
+          <div
+            className="mt-4 text-center space-y-1"
+            data-testid="loan-slider-cost-context"
+          >
+            <div className="font-data text-data-sm text-text-muted">
+              ${netPriceAnnual.toLocaleString()}/yr × 4 years = $
+              {(netPriceAnnual * 4).toLocaleString()} total
+            </div>
+            <div className="font-data text-data-sm text-text-secondary">
+              At {loans.percentage}%: $
+              {Math.round(
+                netPriceAnnual * 4 * (loans.percentage / 100),
+              ).toLocaleString()}{" "}
+              in loans
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Live stat preview */}

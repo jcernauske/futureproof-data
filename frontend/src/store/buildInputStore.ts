@@ -26,6 +26,7 @@ interface BuildInputState {
   clearSchool: () => void;
   clearMajor: () => void;
   reset: () => void;
+  resetInputs: () => void;
 }
 
 const DEFAULT_EFFORT: EffortSelection = {
@@ -54,6 +55,15 @@ export const useBuildInputStore = create<BuildInputState>((set) => ({
     set({ school: null, programs: [], major: null, phase: "school" }),
   clearMajor: () => set({ major: null, phase: "major" }),
   reset: () =>
+    set({
+      phase: "school",
+      school: null,
+      programs: [],
+      major: null,
+      effort: DEFAULT_EFFORT,
+      loans: DEFAULT_LOANS,
+    }),
+  resetInputs: () =>
     set({
       phase: "school",
       school: null,

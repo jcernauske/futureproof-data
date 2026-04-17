@@ -6,6 +6,8 @@ import { CareerPickScreen } from "@/screens/CareerPickScreen";
 import { RevealScreen } from "@/screens/RevealScreen";
 import { GauntletScreen } from "@/screens/GauntletScreen";
 import { BranchTreeScreen } from "@/screens/BranchTreeScreen";
+import { SaveWrappedScreen } from "@/screens/SaveWrappedScreen";
+import { MenuScreen } from "@/screens/MenuScreen";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
 
@@ -21,6 +23,8 @@ function App() {
         <Route path="/reveal" element={<RevealScreen />} />
         <Route path="/gauntlet" element={<GauntletScreen />} />
         <Route path="/branches" element={<BranchTreeScreen />} />
+        <Route path="/save" element={<SaveWrappedScreen />} />
+        <Route path="/menu" element={<MenuScreen />} />
         <Route
           path="/build"
           element={

@@ -18,7 +18,7 @@ export function StatDetailCard({ statKey, value }: StatDetailCardProps) {
       className="bg-bp-mid border border-border-subtle rounded-xl p-4 flex flex-col items-center gap-2"
     >
       <div className="flex items-center gap-1.5">
-        <span className="font-data font-bold text-data" style={{ color: stat.color }}>
+        <span className={`font-data font-bold text-data ${stat.textClass}`}>
           {stat.abbreviation}
         </span>
         <StatHelpTooltip stat={stat} />
@@ -26,16 +26,13 @@ export function StatDetailCard({ statKey, value }: StatDetailCardProps) {
       <p className="font-body font-semibold text-small text-text-secondary">
         {stat.name}
       </p>
-      <span className="font-data font-bold text-data-lg" style={{ color: stat.color }}>
+      <span className={`font-data font-bold text-data-lg ${stat.textClass}`}>
         {value !== null ? displayValue : "—"}
       </span>
       <div className="w-full h-1 bg-bp-surface rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-slow"
-          style={{
-            width: `${fillPercent}%`,
-            backgroundColor: stat.color,
-          }}
+          className={`h-full rounded-full transition-all duration-slow ${stat.bgClass}`}
+          style={{ width: `${fillPercent}%` }}
         />
       </div>
     </article>

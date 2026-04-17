@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ambient, transitions } from "@/styles/motion";
 
 interface LoadingScreenProps {
   profileName: string;
@@ -39,20 +40,20 @@ export function LoadingScreen({ profileName, emoji, error, onRetry }: LoadingScr
       aria-label="Building your career profile"
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-bp-void"
     >
-      {/* Ambient glow */}
+      {/* Ambient glow — token-sourced via --color-state-success / --color-state-loading. */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(circle at 50% 45%, rgba(125,212,163,0.25) 0%, rgba(184,169,232,0.25) 30%, transparent 60%)",
+            "radial-gradient(circle at 50% 45%, var(--color-state-success) 0%, var(--color-state-loading) 30%, transparent 60%)",
         }}
       />
 
       {/* Floating emoji */}
       <motion.div
         className="text-[80px] mb-8 relative z-10"
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 3, ease: "easeInOut", repeat: Infinity }}
+        animate={ambient.emojiFloatLoading.animate}
+        transition={ambient.emojiFloatLoading.transition}
       >
         {emoji}
       </motion.div>
@@ -66,7 +67,7 @@ export function LoadingScreen({ profileName, emoji, error, onRetry }: LoadingScr
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
+            transition={transitions.fade.transition}
           >
             {message}
           </motion.p>
@@ -79,13 +80,9 @@ export function LoadingScreen({ profileName, emoji, error, onRetry }: LoadingScr
           {Array.from({ length: 6 }).map((_, i) => (
             <motion.div
               key={i}
-              className="w-1.5 h-1.5 rounded-full"
-              style={{
-                backgroundColor:
-                  i <= msgIndex
-                    ? "var(--color-accent-thrive)"
-                    : "var(--color-bg-surface)",
-              }}
+              className={`w-1.5 h-1.5 rounded-full ${
+                i <= msgIndex ? "bg-accent-thrive" : "bg-bp-surface"
+              }`}
               animate={
                 i === msgIndex
                   ? { scale: [1, 1.5, 1], opacity: [0.7, 1, 0.7] }
