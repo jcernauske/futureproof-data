@@ -97,8 +97,7 @@ def _make_build(*, school: str = "IU-B", major: str = "Marketing") -> Build:
 class TestBuildCrud:
     def test_save_and_load_round_trip(self, isolated_builds_dir):
         original = _make_build()
-        path = builds.save_build(original)
-        assert path.exists()
+        builds.save_build(original)
 
         loaded = builds.load_build(original.build_id)
         assert loaded.build_id == original.build_id
