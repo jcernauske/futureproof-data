@@ -1,0 +1,208 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-17T01:20:58.000000Z",
+    "run": {
+      "runId": "c1b3058b-089d-4156-af1e-10b57279a4f0",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-anthropic-economic-index.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze ingest of the Anthropic Economic Index release_2025_03_27 into raw.anthropic_economic_index. Three source CSVs are LEFT JOINed on normalized task text (case-insensitive, trailing period stripped): task_pct_v2.csv (3,365 tasks, column pct is global share in 0-100 percent units summing to 100.0), automation_vs_augmentation_by_task.csv (3,364 rows, 5 interaction-mode fractions + filtered summing to 1.0 per row), and onet_task_statements.csv (19,530 rows acting as the SOC bridge since the 2025-03-27 release does not ship onet_task_mappings.csv). Grain is composite (task_id, soc_code) because task-to-SOC is many-to-many (max 34-way fan-out). For each source task mapping to N distinct SOCs, the ingestor emits N Bronze rows with task_pct = raw_pct / N so SUM(task_pct) across all Bronze rows is preserved at ~100 (global-share invariant). The task_name='none' placeholder is kept with soc_code=NULL and unsplit task_pct (1 row) so downstream can see the uncategorized share; Silver filters it out. Automation collapsed via Anthropic v2 methodology: automation_pct = (directive + feedback_loop) * 100; augmentation_pct = (task_iteration + validation + learning) * 100 (learning counts as augmentation because Claude is assisting the user). When filtered >= 0.999 both fields emit None. Observed output row count: 4,082 (4,081 SOC-matched + 1 placeholder), within the 3,800-4,400 tolerance band."
+        },
+        "brightsmith_runMetrics": {
+          "sourceTaskCount": 3365,
+          "automationRowCount": 3364,
+          "taskStatementRowCount": 19530,
+          "outputRowCount": 4082,
+          "socMatchedRows": 4081,
+          "nullSocPlaceholderRows": 1,
+          "maxFanOut": 34,
+          "tasksWithFanOut": 82,
+          "sourceRelease": "release_2025_03_27",
+          "sourceMethod": "hf_git_clone",
+          "sourceFiles": [
+            "task_pct_v2.csv",
+            "automation_vs_augmentation_by_task.csv",
+            "onet_task_statements.csv"
+          ]
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "ingest:anthropic_economic_index",
+      "facets": {
+        "documentation": {
+          "description": "Bronze ingestor for the Anthropic Economic Index. Reads three release CSVs, joins them on normalized task text, emits one row per (O*NET task, SOC) pair with task_pct split across the fan-out to preserve the global 100% share invariant. Applies Anthropic v2 automation/augmentation collapse rules."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/anthropic_economic_index_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "huggingface.co/datasets/Anthropic/EconomicIndex",
+        "name": "release_2025_03_27/task_pct_v2.csv",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "task_name", "type": "STRING", "description": "Free-text O*NET task statement (join key)"},
+              {"name": "pct", "type": "DOUBLE", "description": "Global share of classified Claude conversations, 0-100 percent units; column sum = 100.0"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "huggingface.co/datasets/Anthropic/EconomicIndex",
+        "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "task_name", "type": "STRING", "description": "Free-text O*NET task statement (join key)"},
+              {"name": "feedback_loop", "type": "DOUBLE", "description": "Fraction of conversations where Claude acts under user feedback"},
+              {"name": "directive", "type": "DOUBLE", "description": "Fraction where Claude acts directly on user instruction"},
+              {"name": "task_iteration", "type": "DOUBLE", "description": "Fraction where Claude iterates on user work"},
+              {"name": "validation", "type": "DOUBLE", "description": "Fraction where Claude validates user work"},
+              {"name": "learning", "type": "DOUBLE", "description": "Fraction where user learns from Claude (augmentation)"},
+              {"name": "filtered", "type": "DOUBLE", "description": "Fraction removed by safety/classifier filters (residual)"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "huggingface.co/datasets/Anthropic/EconomicIndex",
+        "name": "release_2025_03_27/onet_task_statements.csv",
+        "inputDatasetFacets": {
+          "usage": "SOC_BRIDGE",
+          "description": "Used as the task-to-SOC bridge since release_2025_03_27 does not ship onet_task_mappings.csv. Normalized task text is the join key; many-to-many mapping (max 34 distinct SOCs per task)."
+        },
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "O*NET-SOC Code", "type": "STRING", "description": "Detailed O*NET-SOC code XX-XXXX.NN; overlay suffix stripped to get canonical SOC"},
+              {"name": "Task ID", "type": "STRING", "description": "O*NET task identifier"},
+              {"name": "Task", "type": "STRING", "description": "Task statement text (join key)"},
+              {"name": "Title", "type": "STRING", "description": "SOC occupation title"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.anthropic_economic_index",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "task_id", "type": "STRING", "transformation": "DIRECT from onet_task_statements.Task ID; part of composite grain (not unique alone)"},
+              {"name": "task_statement", "type": "STRING", "transformation": "DIRECT from task_pct_v2.task_name (coerced, trimmed)"},
+              {"name": "soc_code", "type": "STRING", "transformation": "DERIVED: onet_task_statements.O*NET-SOC Code normalized to XX-XXXX (overlay .NN suffix stripped); NULL for task_name='none' placeholder"},
+              {"name": "soc_title", "type": "STRING", "transformation": "DIRECT from onet_task_statements.Title"},
+              {"name": "task_pct", "type": "DOUBLE", "transformation": "DERIVED: task_pct_v2.pct / n_soc_per_task (N-way split across fan-out); preserves global 100% invariant"},
+              {"name": "automation_pct", "type": "DOUBLE", "transformation": "DERIVED: (directive + feedback_loop) * 100 from automation_vs_augmentation_by_task; None when filtered >= 0.999"},
+              {"name": "augmentation_pct", "type": "DOUBLE", "transformation": "DERIVED: (task_iteration + validation + learning) * 100 from automation_vs_augmentation_by_task; None when filtered >= 0.999"},
+              {"name": "source_release", "type": "STRING", "transformation": "FRAMEWORK: release directory name, e.g. release_2025_03_27"},
+              {"name": "ingested_at", "type": "TIMESTAMP", "transformation": "FRAMEWORK: UTC timestamp at ingest"},
+              {"name": "source_url", "type": "STRING", "transformation": "FRAMEWORK: HuggingFace dataset URL"},
+              {"name": "source_method", "type": "STRING", "transformation": "FRAMEWORK: hf_git_clone or local_cache"},
+              {"name": "load_date", "type": "DATE", "transformation": "FRAMEWORK: date of load"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "task_id": {
+                "inputFields": [
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/onet_task_statements.csv", "field": "Task ID"}
+                ],
+                "transformationDescription": "Direct from onet_task_statements.Task ID. When a task_pct row has no O*NET bridge match (e.g. task_name='none'), task_id falls back to the normalized task text. Part of composite grain (task_id, soc_code); task_id alone is NOT unique because a task fanning out to N SOCs produces N rows sharing task_id.",
+                "transformationType": "DIRECT"
+              },
+              "task_statement": {
+                "inputFields": [
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/task_pct_v2.csv", "field": "task_name"}
+                ],
+                "transformationDescription": "Direct copy of the task_name text from task_pct_v2 (trimmed, sentinel-coerced). The normalized form (lowercased, trailing period stripped, whitespace collapsed) is used as the join key across the three CSVs but the stored value preserves original casing.",
+                "transformationType": "DIRECT"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/onet_task_statements.csv", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Normalized from the O*NET overlay form XX-XXXX.NN to canonical SOC XX-XXXX (overlay suffix stripped at the dot). Validated against the ^\\d{2}-\\d{4}$ regex. Dash-less 6-digit strings are recovered by inserting a dash after position 2. Malformed SOC values cause the (task, SOC) mapping to be dropped; if ALL of a task's SOC mappings are malformed the task is dropped entirely (NOT emitted as a NULL-SOC row) to avoid inflating the NULL-SOC count beyond the single expected placeholder row. Nullable: the task_name='none' placeholder row emits soc_code=NULL by design.",
+                "transformationType": "DERIVED"
+              },
+              "soc_title": {
+                "inputFields": [
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/onet_task_statements.csv", "field": "Title"}
+                ],
+                "transformationDescription": "Direct from onet_task_statements.Title. First non-null title per (task, SOC) pair wins.",
+                "transformationType": "DIRECT"
+              },
+              "task_pct": {
+                "inputFields": [
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/task_pct_v2.csv", "field": "pct"},
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/onet_task_statements.csv", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "N-way fan-out split: task_pct = raw_pct / n_soc_per_task where n_soc_per_task is the number of distinct SOCs the task maps to in the O*NET bridge. Units: 0-100 percent (global share). The split preserves the P0 invariant SUM(task_pct) across all Bronze rows ~ 100 regardless of fan-out. The task_name='none' placeholder is NOT split (its pct is unchanged) because it has no SOC mapping.",
+                "transformationType": "DERIVED"
+              },
+              "automation_pct": {
+                "inputFields": [
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv", "field": "directive"},
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv", "field": "feedback_loop"},
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv", "field": "filtered"}
+                ],
+                "transformationDescription": "Anthropic v2 methodology: automation_pct = (directive + feedback_loop) * 100. Represents the share of a task's conversations where Claude acts directly (vs. assisting). Emits None when filtered >= 0.999 (entire task excluded by safety filters; no usable signal).",
+                "transformationType": "DERIVED"
+              },
+              "augmentation_pct": {
+                "inputFields": [
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv", "field": "task_iteration"},
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv", "field": "validation"},
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv", "field": "learning"},
+                  {"namespace": "huggingface.co/datasets/Anthropic/EconomicIndex", "name": "release_2025_03_27/automation_vs_augmentation_by_task.csv", "field": "filtered"}
+                ],
+                "transformationDescription": "Anthropic v2 methodology: augmentation_pct = (task_iteration + validation + learning) * 100. The `learning` axis counts as augmentation because it represents user-learns-from-Claude (Claude is assisting, not acting). Emits None when filtered >= 0.999.",
+                "transformationType": "DERIVED"
+              },
+              "source_release": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected release directory name (e.g. release_2025_03_27). Used downstream as the data-vintage pointer for the LICENSE_SOURCES.md citation and for Silver's anthropic_source_release field.",
+                "transformationType": "DERIVED"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected UTC timestamp at ingest time.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: https://huggingface.co/datasets/Anthropic/EconomicIndex.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected: hf_git_clone (live clone) or local_cache (offline fallback).",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected load date.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "rowCountLineage": {
+            "description": "3,365 source tasks in task_pct_v2.csv -> 4,082 Bronze rows. Breakdown: 1 task_name='none' placeholder emits 1 NULL-SOC row. Of the remaining 3,364 tasks, 82 fan out to 2-34 distinct SOCs; summing across the fan-out yields 4,081 SOC-matched (task, SOC) pairs. Net: 4,081 + 1 = 4,082 rows, within the 3,800-4,400 tolerance band."
+          }
+        }
+      }
+    ]
+  }
+]

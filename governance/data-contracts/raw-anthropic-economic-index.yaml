@@ -1,0 +1,314 @@
+---
+# Data Contract: raw.anthropic_economic_index
+# Spec: raw-ingest-anthropic-economic-index
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Documented by: @doc-generator
+# Date: 2026-04-16
+
+table: raw.anthropic_economic_index
+namespace: raw
+zone: bronze
+version: "1.0.0"
+grain:
+  - task_id
+  - soc_code
+status: draft
+owner: "@doc-generator"
+record_count: 4082
+data_vintage: "Anthropic Economic Index release_2025_03_27 — task-level Claude usage snapshot. Later HuggingFace releases (2026_01_15, 2026_03_24) only contain raw conversation snapshots and lack task_pct_v2.csv; this ingestor is pinned to 2025_03_27."
+source: "HuggingFace dataset Anthropic/EconomicIndex. Files used: task_pct_v2.csv (global share per task), automation_vs_augmentation_by_task.csv (interaction-mode fractions), onet_task_statements.csv (SOC bridge). See https://huggingface.co/datasets/Anthropic/EconomicIndex."
+spec_reference: docs/specs/raw-ingest-anthropic-economic-index.md
+sla: "Event-driven. Re-ingest when a future Anthropic release republishes task-level aggregates. Freshness guardrail: load_date within 30 days (RAW-AEI-015)."
+quality_tier: "high — source is an Anthropic-published, peer-reviewed empirical dataset with documented methodology. 99.97% of source tasks (3,364 of 3,365) join to O*NET task statements after text normalization. Zero PII (verified by scan, 31,734 rows / 12 detectors)."
+
+# ------------------------------------------------------------------
+# License (CC-BY 4.0 — required attribution on downstream product surfaces)
+# ------------------------------------------------------------------
+license:
+  type: CC-BY-4.0
+  attribution: "Economic Index Dataset, Anthropic (2026)"
+  url: https://huggingface.co/datasets/Anthropic/EconomicIndex
+  requires_citation: true
+  notes: >
+    Attribution propagates to MCP responses, Fight AI boss detail panel, and
+    any published analysis via the source_release field (pinned to
+    'release_2025_03_27'). See LICENSE_SOURCES.md for the full attribution
+    text and usage map.
+
+columns:
+  - name: task_id
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Part of composite dedup grain [task_id, soc_code] (P0 uniqueness rule).
+      Stable identifier surviving task-text normalization; canonical key for
+      re-deriving provenance back to onet_task_statements.csv if text drifts
+      between O*NET releases. O*NET external standard (5-digit federal task ID).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      O*NET task identifier (5-digit integer, e.g., 20461). Part of composite
+      grain; not unique alone — a task fanning out to N SOCs produces N rows
+      sharing this task_id.
+    dq_rules:
+      - RAW-AEI-001
+      - RAW-AEI-006
+
+  - name: task_statement
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Free-text O*NET task description. Display only at Bronze. Stable key is
+      task_id; text normalization (lowercase, rstrip period) is used only for
+      the Anthropic -> O*NET task-text bridge join. Also used to identify the
+      'none' placeholder row.
+    dq_rules:
+      - RAW-AEI-005
+      - RAW-AEI-017
+
+  - name: soc_code
+    type: string
+    required: false
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Already a governed CDE across this project (consumable.ai_exposure,
+      consumable.occupation_profiles, consumable.career_outcomes, every O*NET
+      contract). Composite dedup grain here [task_id, soc_code]. FK to
+      base.bls_ooh via Silver soc_match. BT-027 (SOC Occupation Code). NULL
+      allowed only for the task_name='none' placeholder row (exactly 1 expected
+      per P1 rule).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Standard Occupational Classification code in XX-XXXX format. Federal
+      taxonomy. Part of composite grain. NULL only for the task_name='none'
+      placeholder row.
+    dq_rules:
+      - RAW-AEI-001
+      - RAW-AEI-007
+      - RAW-AEI-008
+      - RAW-AEI-017
+      - RAW-AEI-019
+    constraints:
+      - "CHECK (soc_code IS NULL OR soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: soc_title
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Occupation title derived via LEFT JOIN on O*NET. Display label only.
+      soc_code is the authoritative identifier.
+    dq_rules: []
+
+  - name: task_pct
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Per-(task, SOC) global share, already split across the task fan-out
+      (raw_pct / n_soc_per_task). Sums globally to ~100 (P0 invariant).
+      Directly aggregated in Silver as observed_exposure_pct =
+      SUM(task_pct) per soc_code. The single highest-criticality
+      business-semantic column in this table — feeds every S4 three-signal
+      composite row for knowledge-work SOCs.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-(task, SOC) share of global Claude conversations, in percent units
+      (0-100). Already split across the task->SOC fan-out: value =
+      raw_source_pct / n_soc_per_task. Global SUM ~100.
+    dq_rules:
+      - RAW-AEI-003
+      - RAW-AEI-004
+      - RAW-AEI-013
+    constraints:
+      - "CHECK (task_pct IS NULL OR (task_pct >= 0 AND task_pct <= 100))"
+
+  - name: automation_pct
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Anthropic v2 automation metric: (directive + feedback_loop) * 100.
+      Excludes 'learning' per v2 methodology (user remains in control ->
+      augmentation, not automation). Propagates through Silver
+      (volume-weighted mean) and Gold to MCP get_ai_exposure() and the
+      Fight AI boss detail panel. Co-equal to augmentation_pct; P1 invariant
+      automation + augmentation + filtered*100 ~ 100.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Automation share for the task/SOC pair, percent units (0-100).
+      (directive + feedback_loop) * 100. NULL when filtered >= 0.999
+      (whole task filtered, not meaningful to report).
+    dq_rules:
+      - RAW-AEI-010
+
+  - name: augmentation_pct
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Anthropic v2 augmentation metric:
+      (task_iteration + validation + learning) * 100. MCP returns the
+      (observed, automation, augmentation) triple together because any one
+      in isolation is misleading. P1 invariant with automation_pct.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Augmentation share for the task/SOC pair, percent units (0-100).
+      (task_iteration + validation + learning) * 100. NULL when
+      filtered >= 0.999.
+    dq_rules:
+      - RAW-AEI-010
+
+  - name: source_release
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Provenance-critical + license-critical. CC-BY 4.0 attribution
+      propagates this field verbatim through Silver and Gold to the MCP
+      attribution footer. Governs reproducibility when Anthropic republishes.
+      P0 non-null 100% (constant 'release_2025_03_27' in current load).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Anthropic release identifier, e.g. 'release_2025_03_27'. Drives
+      CC-BY 4.0 attribution string on downstream product surfaces.
+    dq_rules:
+      - RAW-AEI-011
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Bronze promotion batch timestamp. Identical across rows in a single load."
+    dq_rules:
+      - RAW-AEI-015
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      HuggingFace dataset URL. Public, unauthenticated — no secrets-hygiene
+      concern. Required for CC-BY 4.0 attribution.
+    dq_rules:
+      - RAW-AEI-014
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Literal 'hf_git_clone' on the normal path or 'local_cache' on the
+      offline fallback path. Operational provenance only.
+    dq_rules:
+      - RAW-AEI-016
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Date the Bronze load ran. Operational freshness metadata."
+    dq_rules:
+      - RAW-AEI-015
+
+# Quality thresholds based on DQ rules and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    soc_code_max_null_count: 5
+    task_statement_null_tolerance: 0.0
+    task_id_null_tolerance: 0.0
+    source_release_null_tolerance: 0.0
+  validity:
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    task_pct_range: [0, 100]
+    source_method_values: ["hf_git_clone", "local_cache"]
+  uniqueness:
+    grain_zero_duplicates: true
+  volume:
+    row_count_range: [3800, 4400]
+    expected_row_count: 4082
+  consistency:
+    global_share_invariant: "ABS(SUM(task_pct) - 100.0) <= 0.1"
+    placeholder_row_count: "exactly 1 row where task_statement='none' AND soc_code IS NULL"
+    filtered_fields_null_together: "automation_pct IS NULL iff augmentation_pct IS NULL"
+  freshness_sla: >
+    Event-driven refresh. Re-ingest only when Anthropic republishes
+    task-level aggregates. Freshness guardrail: load_date within 30 days
+    of query execution during active pipeline builds.
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/raw-anthropic-economic-index.json
+  total_rules: 17
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain
+    changed triggers a major version bump (BREAKING). Column added triggers
+    a minor bump (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day
+    deprecation notice before removal.
+
+# Lineage reference.
+lineage:
+  source:
+    - "HuggingFace Anthropic/EconomicIndex release_2025_03_27 (task_pct_v2.csv)"
+    - "HuggingFace Anthropic/EconomicIndex release_2025_03_27 (automation_vs_augmentation_by_task.csv)"
+    - "HuggingFace Anthropic/EconomicIndex release_2025_03_27 (onet_task_statements.csv)"
+  transformation: src/raw/anthropic_economic_index_ingestor.py
+  lineage_file: governance/lineage/raw-anthropic-economic-index-{timestamp}.json
+
+# PII assessment.
+pii:
+  contains_pii: false
+  pii_fields: []
+  assessment_notes: >
+    No PII. PII scan reviewed 12 detectors x all string columns x 6 source
+    files (31,734 rows) and produced 30,712 raw hits, all dispositioned as
+    false positives (decimal fractions matched credit-card regex; 5-digit
+    O*NET task IDs matched ZIP-code regex; occupation titles matched name
+    heuristic). Anthropic's own 'filtered' axis upstream is the mechanism by
+    which any privacy-sensitive conversations were removed before publication.
+    See governance/pii/raw-anthropic-economic-index-pii-scan.md.
+
+# Consumers — downstream tables and processes that depend on this contract.
+consumers:
+  - name: "base.anthropic_observed_exposure"
+    type: table
+    description: >
+      Silver transformer aggregates Bronze rows to SOC grain. Filters the
+      task_name='none' placeholder, sums split task_pct per SOC, computes
+      volume-weighted automation/augmentation means.
+    contact: "@primary-agent"
+    status: active

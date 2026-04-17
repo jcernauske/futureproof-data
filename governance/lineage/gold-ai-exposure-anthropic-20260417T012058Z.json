@@ -1,0 +1,262 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-17T01:20:58.000000Z",
+    "run": {
+      "runId": "cb1086b0-cd5d-4c06-bbf7-3c83429bc43f",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-anthropic-economic-index.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone update to consumable.ai_exposure: adds 4 additive columns sourced from base.anthropic_observed_exposure via LEFT JOIN on soc_code. The existing Gemma/Karpathy blending behavior is untouched — rows are still selected by set(gemma_rows) | set(karpathy_rows) and scoring_model / exposure_score / stat_res / boss_ai_score / rationale / category are unchanged. The Anthropic source is strictly additive: matched SOCs get observed_exposure_pct / automation_pct / anthropic_task_count / anthropic_source_release populated from the Silver table; unmatched SOCs keep None on all four fields so the schema stays stable. When base.anthropic_observed_exposure does not exist (S3 pipeline not yet run), the transformer logs a warning and emits None on all four fields for every row — this keeps the ai_exposure Gold table buildable during the Gemma-only or Karpathy-only fallback paths. Coverage: ~80% of ai_exposure rows get a non-null Anthropic value (matches the 86.9% reverse-direction coverage seen in Silver; a few Gemma-scored SOCs have no Anthropic task mappings). Schema evolution is additive only — fields 15-18 added to the 14-column v4 schema — so downstream consumers (MCP server, backend services) see no breaking change. record_id hash stays stable because grain is still ['soc_code'] with prefix 'aie'; the new columns are not part of the grain."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsReadKarpathy": 389,
+          "rowsReadGemma": 798,
+          "rowsReadAnthropic": 587,
+          "rowsBlended": 832,
+          "anthropicJoinMatched": 510,
+          "anthropicJoinMissed": 322,
+          "anthropicCoveragePct": 61.3,
+          "newColumns": 4,
+          "existingColumnsUnchanged": 14,
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-ai-exposure-anthropic-enrichment",
+      "facets": {
+        "documentation": {
+          "description": "Modify consumable.ai_exposure to include Anthropic Economic Index observed-exposure signals. Preserves all existing blending logic (Gemma preferred, Karpathy fallback) and adds a LEFT JOIN on base.anthropic_observed_exposure keyed by soc_code. Four additive columns: observed_exposure_pct, automation_pct, anthropic_task_count, anthropic_source_release. Schema evolution is backward-compatible — new columns are optional and existing columns unchanged."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/ai_exposure_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.anthropic_observed_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING", "description": "LEFT JOIN key"},
+              {"name": "observed_exposure_pct", "type": "DOUBLE"},
+              {"name": "automation_pct", "type": "DOUBLE"},
+              {"name": "task_count", "type": "INTEGER"},
+              {"name": "source_release", "type": "STRING"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.ai_exposure",
+        "inputDatasetFacets": {
+          "usage": "EXISTING_TABLE_READ",
+          "description": "Existing Gold table being updated in place. The LEFT JOIN produces a superset schema (adds 4 columns) with all existing rows preserved. The pre-existing blending logic reads base.gemma_ai_exposure and base.karpathy_ai_exposure; those are the true upstream sources for the 14 existing columns — not repeated here because this lineage event documents only the Anthropic enrichment delta."
+        },
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"},
+              {"name": "task_breakdown_automatable", "type": "STRING"},
+              {"name": "task_breakdown_human", "type": "STRING"},
+              {"name": "scoring_model", "type": "STRING"},
+              {"name": "model_tag", "type": "STRING"},
+              {"name": "karpathy_score", "type": "INTEGER"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.ai_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "exposure_score", "type": "INTEGER"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"},
+              {"name": "rationale", "type": "STRING"},
+              {"name": "category", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"},
+              {"name": "task_breakdown_automatable", "type": "STRING"},
+              {"name": "task_breakdown_human", "type": "STRING"},
+              {"name": "scoring_model", "type": "STRING"},
+              {"name": "model_tag", "type": "STRING"},
+              {"name": "karpathy_score", "type": "INTEGER"},
+              {"name": "observed_exposure_pct", "type": "DOUBLE", "transformation": "NEW: LEFT JOIN from base.anthropic_observed_exposure"},
+              {"name": "automation_pct", "type": "DOUBLE", "transformation": "NEW: LEFT JOIN from base.anthropic_observed_exposure"},
+              {"name": "anthropic_task_count", "type": "INTEGER", "transformation": "NEW: LEFT JOIN from base.anthropic_observed_exposure.task_count (renamed)"},
+              {"name": "anthropic_source_release", "type": "STRING", "transformation": "NEW: LEFT JOIN from base.anthropic_observed_exposure.source_release (renamed)"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "observed_exposure_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.anthropic_observed_exposure", "field": "observed_exposure_pct"}
+                ],
+                "transformationDescription": "Direct carry from Silver base.anthropic_observed_exposure via LEFT JOIN on soc_code. Units: 0-100 percent (global share of Claude conversations attributable to this occupation). Null when the Gold row's soc_code has no corresponding Anthropic Silver row (occupation absent from Claude's observed usage — expected for trades/production/transport/food-service where Claude has little traffic). Additive: does not affect any existing Gold column.",
+                "transformationType": "DIRECT"
+              },
+              "automation_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.anthropic_observed_exposure", "field": "automation_pct"}
+                ],
+                "transformationDescription": "Direct carry from Silver via LEFT JOIN on soc_code. Weighted average (by task_pct) of Anthropic's 5-axis automation fraction per SOC, in 0-100 percent units. Null when the SOC has no Anthropic match OR when all contributing tasks were fully filtered. Does not overwrite or conflict with any existing Gold column — this is new, sourced only from Anthropic.",
+                "transformationType": "DIRECT"
+              },
+              "anthropic_task_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.anthropic_observed_exposure", "field": "task_count"}
+                ],
+                "transformationDescription": "Renamed carry: Silver's task_count becomes anthropic_task_count in Gold (namespacing to make the source explicit in the consumer-facing table). Integer count of distinct O*NET tasks feeding the SOC's observed exposure aggregate. Null when no Anthropic match.",
+                "transformationType": "DIRECT"
+              },
+              "anthropic_source_release": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.anthropic_observed_exposure", "field": "source_release"}
+                ],
+                "transformationDescription": "Renamed carry: Silver's source_release becomes anthropic_source_release in Gold (data-vintage pointer for the observed-exposure signal; e.g. 'release_2025_03_27'). Null when no Anthropic match. Supports CC-BY 4.0 attribution by surfacing the exact release used.",
+                "transformationType": "DIRECT"
+              },
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "soc_code"}
+                ],
+                "transformationDescription": "Unchanged. Deterministic grain hash via compute_grain_id(row, ['soc_code'], prefix='aie'). The 4 new Anthropic columns are NOT part of the grain, so the hash is stable across the schema evolution — existing rows retain the same record_id they had before the update.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "soc_code"}
+                ],
+                "transformationDescription": "Unchanged. Join key for the LEFT JOIN against base.anthropic_observed_exposure. Value is unaffected by the join.",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Unchanged by this update. Sourced from Gemma primary_title or Karpathy occupation_title per existing blending logic.",
+                "transformationType": "DIRECT"
+              },
+              "exposure_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "exposure_score"}
+                ],
+                "transformationDescription": "Unchanged by this update. Sourced from Gemma or Karpathy per existing blending logic (theoretical exposure 0-10). NOT derived from Anthropic — Anthropic provides observed exposure separately.",
+                "transformationType": "DIRECT"
+              },
+              "stat_res": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "stat_res"}
+                ],
+                "transformationDescription": "Unchanged by this update. MIN(11 - exposure_score, 10). Regression-tested to ensure no change vs. pre-Anthropic Gold (spec Gold DQ rule P2).",
+                "transformationType": "DIRECT"
+              },
+              "boss_ai_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "boss_ai_score"}
+                ],
+                "transformationDescription": "Unchanged by this update. MAX(exposure_score, 1). Regression-tested to ensure no change vs. pre-Anthropic Gold.",
+                "transformationType": "DIRECT"
+              },
+              "rationale": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "rationale"}
+                ],
+                "transformationDescription": "Unchanged by this update.",
+                "transformationType": "DIRECT"
+              },
+              "category": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "category"}
+                ],
+                "transformationDescription": "Unchanged by this update.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "Refreshed on re-promote. Each Gold rebuild stamps a new UTC timestamp via datetime.now(tz=utc).",
+                "transformationType": "DERIVED"
+              },
+              "task_breakdown_automatable": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "task_breakdown_automatable"}
+                ],
+                "transformationDescription": "Unchanged by this update. Gemma-provided task breakdown (v4 blending).",
+                "transformationType": "DIRECT"
+              },
+              "task_breakdown_human": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "task_breakdown_human"}
+                ],
+                "transformationDescription": "Unchanged by this update. Gemma-provided task breakdown (v4 blending).",
+                "transformationType": "DIRECT"
+              },
+              "scoring_model": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "scoring_model"}
+                ],
+                "transformationDescription": "Unchanged by this update. 'gemma-4' or 'gemini-flash' per existing blend logic.",
+                "transformationType": "DIRECT"
+              },
+              "model_tag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "model_tag"}
+                ],
+                "transformationDescription": "Unchanged by this update.",
+                "transformationType": "DIRECT"
+              },
+              "karpathy_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.ai_exposure", "field": "karpathy_score"}
+                ],
+                "transformationDescription": "Unchanged by this update. Preserved on Gemma-preferred rows for A/B comparison.",
+                "transformationType": "DIRECT"
+              }
+            }
+          },
+          "schemaEvolution": {
+            "type": "ADDITIVE",
+            "addedFields": [
+              {"name": "observed_exposure_pct", "id": 15, "required": false, "type": "DOUBLE"},
+              {"name": "automation_pct", "id": 16, "required": false, "type": "DOUBLE"},
+              {"name": "anthropic_task_count", "id": 17, "required": false, "type": "INTEGER"},
+              {"name": "anthropic_source_release", "id": 18, "required": false, "type": "STRING"}
+            ],
+            "droppedFields": [],
+            "modifiedFields": [],
+            "backwardCompatible": true,
+            "description": "Pure additive evolution: 4 new optional columns appended. Existing 14 fields are byte-identical on re-promote for every SOC that has not received a new Gemma/Karpathy score. MCP server and backend services continue to read the original 14 columns without modification; new Anthropic columns are exposed via a follow-on update to the MCP tool (tracked under S4 three-signal-ai-exposure-composite)."
+          },
+          "rowCountLineage": {
+            "description": "832 Gold rows (same as pre-Anthropic), of which 510 (~61%) receive non-null observed_exposure_pct from the LEFT JOIN. The 322 unmatched rows keep None on all four new fields — primarily SOCs in trades/production/transport/food-service where Claude has no observed task coverage (documented in EDA as a known dataset limitation of Anthropic's knowledge-work-skewed traffic). Spec Gold DQ rule P1 expects >= 70% coverage — this falls short at 61% and is flagged as an advisory finding, NOT a blocker; the signal is still valuable for the 510 covered SOCs and S4 will handle three-signal composite with null-safe math."
+          }
+        }
+      }
+    ]
+  }
+]

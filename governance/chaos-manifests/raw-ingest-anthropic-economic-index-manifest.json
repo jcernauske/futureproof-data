@@ -1,0 +1,295 @@
+{
+  "spec": "raw-ingest-anthropic-economic-index",
+  "tables": [
+    "raw.anthropic_economic_index",
+    "base.anthropic_observed_exposure",
+    "consumable.ai_exposure"
+  ],
+  "run_timestamp": "2026-04-17T01:11:23.377586+00:00",
+  "cycles_completed": 2,
+  "consecutive_clean_cycles": 2,
+  "cycles": [
+    {
+      "cycle": 1,
+      "timestamp": "2026-04-17T01:11:22.189422+00:00",
+      "scenarios": [
+        {
+          "scenario_id": "S1-network-failure-no-cache",
+          "expected": "Ingestor raises FileNotFoundError with guidance to run `git clone` when neither the live clone nor the cache contains a release.",
+          "injected": "Empty DATASET_ROOT and CACHE_ROOT (simulate offline with no cache)",
+          "actual": "FileNotFoundError raised with clone+lfs instructions",
+          "verdict": "PASS",
+          "related_dq_rule": "N/A (pre-DQ failure mode; ingest-time guard)"
+        },
+        {
+          "scenario_id": "S2-git-lfs-pointer-stubs",
+          "expected": "When CSVs are LFS pointer text (not real data), ingestor parses them but produces near-zero usable rows; Bronze row count check would fail. Ingestor should NOT crash silently.",
+          "injected": "All three CSVs replaced with LFS pointer-stub text",
+          "actual": "Ingestor errored: ValueError: CSV task_pct_v2.csv is missing required columns: ['pct', 'task_name']. Found columns: ['version https://git-lfs.github.com/spec/v1']. This indicates source schema drift \u2014 inspect the file and update the ingestor if the source format has changed.",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.row_count_in_range (3800-4400)"
+        },
+        {
+          "scenario_id": "S3-malformed-headers",
+          "expected": "Ingestor's fast-fail header check raises ValueError at fetch() with an explicit list of missing required columns. No Bronze rows are emitted (previously: 4082 rows with silent null pct).",
+          "injected": "Renamed `pct` column to `Percentage` in task_pct_v2.csv",
+          "actual": "Fast-fail at fetch() boundary: ValueError: CSV task_pct_v2.csv is missing required columns: ['pct']. Found columns: ['Percentage', 'task_name']. This indicates source schema drift \u2014 inspect t",
+          "verdict": "PASS",
+          "related_dq_rule": "ingestor fast-fail guard + raw.task_pct_global_sum"
+        },
+        {
+          "scenario_id": "S4-missing-required-columns",
+          "expected": "Ingestor's fast-fail header check raises ValueError at fetch() naming the missing `task_name` column. No Bronze rows emitted.",
+          "injected": "Deleted `task_name` column from task_pct_v2.csv",
+          "actual": "Fast-fail at fetch() boundary: ValueError: CSV task_pct_v2.csv is missing required columns: ['task_name']. Found columns: ['pct']. This indicates source schema drift \u2014 inspect the file and up",
+          "verdict": "PASS",
+          "related_dq_rule": "ingestor fast-fail guard + raw.row_count_in_range"
+        },
+        {
+          "scenario_id": "S5-soc-format-variations",
+          "expected": "Bronze _normalize_onet_soc (a) strips O*NET overlay `.NN`, (b) recovers dash-less 6-digit unambiguously, (c) rejects all other malformed shapes. Every emitted row has soc_code matching ^\\d{2}-\\d{4}$ OR NULL.",
+          "injected": "10 SOC format variants in onet_task_statements.csv",
+          "actual": "All 4082 emitted rows have well-formed or null SOC; dash-less '151252' recovered to '15-1252'; overlay '11-1011.99' normalized to '11-1011'; every other malformed variant rejected cleanly.",
+          "verdict": "PASS",
+          "related_dq_rule": "RAW-AEI-019 (P0 SOC regex) + silver.soc_code_format"
+        },
+        {
+          "scenario_id": "S6-empty-task-pct-file",
+          "expected": "Zero Bronze rows, row-count DQ rule fails.",
+          "injected": "task_pct_v2.csv reduced to header only",
+          "actual": "Emitted 0 Bronze rows",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.row_count_in_range"
+        },
+        {
+          "scenario_id": "S7-duplicate-task-names-source",
+          "expected": "When source CSV has the same task_name on multiple rows, the Bronze `seen_grain` set dedupes to one row per (task_id, soc_code); task_pct is NOT summed/doubled.",
+          "injected": "First 20 rows of task_pct_v2.csv duplicated",
+          "actual": "Emitted 4082 rows, 0 duplicate (task_id, soc_code) grains",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.composite_uniqueness (task_id,soc_code)"
+        },
+        {
+          "scenario_id": "S8-release-folder-missing-fallback",
+          "expected": "Ingestor's _select_release_dir() iterates RELEASE_PREFERENCE and uses the first release that contains task_pct_v2.csv, falling back to cache if live clone is absent.",
+          "injected": "Live clone empty; cache contains only release_2025_03_27",
+          "actual": "Fallback to local_cache worked; emitted 4082 Bronze rows",
+          "verdict": "PASS",
+          "related_dq_rule": "N/A (acquisition-time resilience)"
+        },
+        {
+          "scenario_id": "S9-extra-unexpected-columns",
+          "expected": "Ingestor ignores unknown columns; Bronze output unchanged.",
+          "injected": "Added `debug_score` column to task_pct_v2.csv",
+          "actual": "Emitted 4082 rows \u2014 extra column ignored",
+          "verdict": "PASS",
+          "related_dq_rule": "N/A (schema robustness)"
+        },
+        {
+          "scenario_id": "S10-all-filtered-task-null-propagation",
+          "expected": "When filtered>=0.999, _collapse_automation returns (None, None). Row still emitted in Bronze, task_pct preserved (the filter applies to Claude's content classifier, not to the row's existence).",
+          "injected": "5 rows in automation file set to filtered=1.0",
+          "actual": "All 38 Bronze rows for filtered-tasks have null automation/augmentation",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.automation_augmentation_sum (tolerates nulls for filtered)"
+        },
+        {
+          "scenario_id": "S11-stress-fanout-50-soc",
+          "expected": "A single task mapping to 50 SOCs fans out to 50 Bronze rows. task_pct_split = raw_pct/50. Composite uniqueness preserved.",
+          "injected": "Synthetic task with 50-way SOC fan-out",
+          "actual": "50 fan-out rows, each task_pct=0.1, all SOCs distinct",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.composite_uniqueness + raw.task_pct_global_sum"
+        },
+        {
+          "scenario_id": "S12-negative-nan-pct",
+          "expected": "Negative pct values pass through Bronze coercion (range enforced by DQ, not by ingestor). NaN coerces to float('nan') or is parsed as-is; Bronze accepts but SUM invariant breaks.",
+          "injected": "5 negative pct, 5 NaN, 3 garbage-text in task_pct_v2",
+          "actual": "Bronze accepted corruptions as expected: 38 negative rows, 10 NaN rows, 3 null-from-garbage; SUM(task_pct) drift = 7.91",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.task_pct_range (0<=x<=100) + raw.task_pct_global_sum"
+        },
+        {
+          "scenario_id": "S13-unicode-quotes-in-task-name",
+          "expected": "_normalize_task_text lowercases + collapses whitespace + strips trailing ASCII period. Smart quotes (U+201C/201D) and unicode punctuation (ellipsis U+2026) are NOT stripped \u2014 so matches against onet_task_statements may fail, producing more NULL-SOC rows.",
+          "injected": "Smart quotes and unicode ellipsis in task_name",
+          "actual": "Ingestor handled unicode without crashing; 4082 Bronze rows, 3 NULL-SOC rows",
+          "verdict": "PASS",
+          "related_dq_rule": "(implicit) SOC-join coverage \u2014 null-SOC count drifts"
+        },
+        {
+          "scenario_id": "S14-very-large-pct-single-row",
+          "expected": "Bronze preserves the large value; range DQ fails. Silver's _aggregate_observed_exposure clamps SOC total to [0, 100]. Sum-invariant DQ fails (Bronze global sum >> 100).",
+          "injected": "First row's pct = 500.0",
+          "actual": "Bronze SUM(task_pct)=600.00 (should fail invariant); Silver max observed_exposure_pct=100.00 (clamped: True)",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.task_pct_range + silver.observed_exposure_pct_range"
+        },
+        {
+          "scenario_id": "S15-normalized-taskname-collision",
+          "expected": "Two input rows whose normalized task_name collides (e.g. 'Foo.' vs 'foo') still emit independent Bronze rows because the (task_id, soc_code) composite grain differs (source order preserved). DQ composite uniqueness holds.",
+          "injected": "Two normalized-collision rows ('x.' vs 'X') in task_pct_v2",
+          "actual": "Composite grain unique (4048 rows); collision handled",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.composite_uniqueness"
+        },
+        {
+          "scenario_id": "S16-silver-empty-bronze",
+          "expected": "Silver with zero Bronze rows returns [] (no crash).",
+          "injected": "transform_rows(bronze_rows=[], bls_rows=[])",
+          "actual": "Silver returned empty list",
+          "verdict": "PASS",
+          "related_dq_rule": "silver.row_count_in_range (700-900)"
+        }
+      ],
+      "counts": {
+        "total": 16,
+        "pass": 16,
+        "partial": 0,
+        "fail": 0,
+        "error": 0
+      }
+    },
+    {
+      "cycle": 2,
+      "timestamp": "2026-04-17T01:11:23.377571+00:00",
+      "scenarios": [
+        {
+          "scenario_id": "S1-network-failure-no-cache",
+          "expected": "Ingestor raises FileNotFoundError with guidance to run `git clone` when neither the live clone nor the cache contains a release.",
+          "injected": "Empty DATASET_ROOT and CACHE_ROOT (simulate offline with no cache)",
+          "actual": "FileNotFoundError raised with clone+lfs instructions",
+          "verdict": "PASS",
+          "related_dq_rule": "N/A (pre-DQ failure mode; ingest-time guard)"
+        },
+        {
+          "scenario_id": "S2-git-lfs-pointer-stubs",
+          "expected": "When CSVs are LFS pointer text (not real data), ingestor parses them but produces near-zero usable rows; Bronze row count check would fail. Ingestor should NOT crash silently.",
+          "injected": "All three CSVs replaced with LFS pointer-stub text",
+          "actual": "Ingestor errored: ValueError: CSV task_pct_v2.csv is missing required columns: ['pct', 'task_name']. Found columns: ['version https://git-lfs.github.com/spec/v1']. This indicates source schema drift \u2014 inspect the file and update the ingestor if the source format has changed.",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.row_count_in_range (3800-4400)"
+        },
+        {
+          "scenario_id": "S3-malformed-headers",
+          "expected": "Ingestor's fast-fail header check raises ValueError at fetch() with an explicit list of missing required columns. No Bronze rows are emitted (previously: 4082 rows with silent null pct).",
+          "injected": "Renamed `pct` column to `Percentage` in task_pct_v2.csv",
+          "actual": "Fast-fail at fetch() boundary: ValueError: CSV task_pct_v2.csv is missing required columns: ['pct']. Found columns: ['Percentage', 'task_name']. This indicates source schema drift \u2014 inspect t",
+          "verdict": "PASS",
+          "related_dq_rule": "ingestor fast-fail guard + raw.task_pct_global_sum"
+        },
+        {
+          "scenario_id": "S4-missing-required-columns",
+          "expected": "Ingestor's fast-fail header check raises ValueError at fetch() naming the missing `task_name` column. No Bronze rows emitted.",
+          "injected": "Deleted `task_name` column from task_pct_v2.csv",
+          "actual": "Fast-fail at fetch() boundary: ValueError: CSV task_pct_v2.csv is missing required columns: ['task_name']. Found columns: ['pct']. This indicates source schema drift \u2014 inspect the file and up",
+          "verdict": "PASS",
+          "related_dq_rule": "ingestor fast-fail guard + raw.row_count_in_range"
+        },
+        {
+          "scenario_id": "S5-soc-format-variations",
+          "expected": "Bronze _normalize_onet_soc (a) strips O*NET overlay `.NN`, (b) recovers dash-less 6-digit unambiguously, (c) rejects all other malformed shapes. Every emitted row has soc_code matching ^\\d{2}-\\d{4}$ OR NULL.",
+          "injected": "10 SOC format variants in onet_task_statements.csv",
+          "actual": "All 4082 emitted rows have well-formed or null SOC; dash-less '151252' recovered to '15-1252'; overlay '11-1011.99' normalized to '11-1011'; every other malformed variant rejected cleanly.",
+          "verdict": "PASS",
+          "related_dq_rule": "RAW-AEI-019 (P0 SOC regex) + silver.soc_code_format"
+        },
+        {
+          "scenario_id": "S6-empty-task-pct-file",
+          "expected": "Zero Bronze rows, row-count DQ rule fails.",
+          "injected": "task_pct_v2.csv reduced to header only",
+          "actual": "Emitted 0 Bronze rows",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.row_count_in_range"
+        },
+        {
+          "scenario_id": "S7-duplicate-task-names-source",
+          "expected": "When source CSV has the same task_name on multiple rows, the Bronze `seen_grain` set dedupes to one row per (task_id, soc_code); task_pct is NOT summed/doubled.",
+          "injected": "First 20 rows of task_pct_v2.csv duplicated",
+          "actual": "Emitted 4082 rows, 0 duplicate (task_id, soc_code) grains",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.composite_uniqueness (task_id,soc_code)"
+        },
+        {
+          "scenario_id": "S8-release-folder-missing-fallback",
+          "expected": "Ingestor's _select_release_dir() iterates RELEASE_PREFERENCE and uses the first release that contains task_pct_v2.csv, falling back to cache if live clone is absent.",
+          "injected": "Live clone empty; cache contains only release_2025_03_27",
+          "actual": "Fallback to local_cache worked; emitted 4082 Bronze rows",
+          "verdict": "PASS",
+          "related_dq_rule": "N/A (acquisition-time resilience)"
+        },
+        {
+          "scenario_id": "S9-extra-unexpected-columns",
+          "expected": "Ingestor ignores unknown columns; Bronze output unchanged.",
+          "injected": "Added `debug_score` column to task_pct_v2.csv",
+          "actual": "Emitted 4082 rows \u2014 extra column ignored",
+          "verdict": "PASS",
+          "related_dq_rule": "N/A (schema robustness)"
+        },
+        {
+          "scenario_id": "S10-all-filtered-task-null-propagation",
+          "expected": "When filtered>=0.999, _collapse_automation returns (None, None). Row still emitted in Bronze, task_pct preserved (the filter applies to Claude's content classifier, not to the row's existence).",
+          "injected": "5 rows in automation file set to filtered=1.0",
+          "actual": "All 38 Bronze rows for filtered-tasks have null automation/augmentation",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.automation_augmentation_sum (tolerates nulls for filtered)"
+        },
+        {
+          "scenario_id": "S11-stress-fanout-50-soc",
+          "expected": "A single task mapping to 50 SOCs fans out to 50 Bronze rows. task_pct_split = raw_pct/50. Composite uniqueness preserved.",
+          "injected": "Synthetic task with 50-way SOC fan-out",
+          "actual": "50 fan-out rows, each task_pct=0.1, all SOCs distinct",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.composite_uniqueness + raw.task_pct_global_sum"
+        },
+        {
+          "scenario_id": "S12-negative-nan-pct",
+          "expected": "Negative pct values pass through Bronze coercion (range enforced by DQ, not by ingestor). NaN coerces to float('nan') or is parsed as-is; Bronze accepts but SUM invariant breaks.",
+          "injected": "5 negative pct, 5 NaN, 3 garbage-text in task_pct_v2",
+          "actual": "Bronze accepted corruptions as expected: 38 negative rows, 10 NaN rows, 3 null-from-garbage; SUM(task_pct) drift = 7.91",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.task_pct_range (0<=x<=100) + raw.task_pct_global_sum"
+        },
+        {
+          "scenario_id": "S13-unicode-quotes-in-task-name",
+          "expected": "_normalize_task_text lowercases + collapses whitespace + strips trailing ASCII period. Smart quotes (U+201C/201D) and unicode punctuation (ellipsis U+2026) are NOT stripped \u2014 so matches against onet_task_statements may fail, producing more NULL-SOC rows.",
+          "injected": "Smart quotes and unicode ellipsis in task_name",
+          "actual": "Ingestor handled unicode without crashing; 4082 Bronze rows, 3 NULL-SOC rows",
+          "verdict": "PASS",
+          "related_dq_rule": "(implicit) SOC-join coverage \u2014 null-SOC count drifts"
+        },
+        {
+          "scenario_id": "S14-very-large-pct-single-row",
+          "expected": "Bronze preserves the large value; range DQ fails. Silver's _aggregate_observed_exposure clamps SOC total to [0, 100]. Sum-invariant DQ fails (Bronze global sum >> 100).",
+          "injected": "First row's pct = 500.0",
+          "actual": "Bronze SUM(task_pct)=600.00 (should fail invariant); Silver max observed_exposure_pct=100.00 (clamped: True)",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.task_pct_range + silver.observed_exposure_pct_range"
+        },
+        {
+          "scenario_id": "S15-normalized-taskname-collision",
+          "expected": "Two input rows whose normalized task_name collides (e.g. 'Foo.' vs 'foo') still emit independent Bronze rows because the (task_id, soc_code) composite grain differs (source order preserved). DQ composite uniqueness holds.",
+          "injected": "Two normalized-collision rows ('x.' vs 'X') in task_pct_v2",
+          "actual": "Composite grain unique (4048 rows); collision handled",
+          "verdict": "PASS",
+          "related_dq_rule": "raw.composite_uniqueness"
+        },
+        {
+          "scenario_id": "S16-silver-empty-bronze",
+          "expected": "Silver with zero Bronze rows returns [] (no crash).",
+          "injected": "transform_rows(bronze_rows=[], bls_rows=[])",
+          "actual": "Silver returned empty list",
+          "verdict": "PASS",
+          "related_dq_rule": "silver.row_count_in_range (700-900)"
+        }
+      ],
+      "counts": {
+        "total": 16,
+        "pass": 16,
+        "partial": 0,
+        "fail": 0,
+        "error": 0
+      }
+    }
+  ]
+}

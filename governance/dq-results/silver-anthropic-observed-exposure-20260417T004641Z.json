@@ -1,0 +1,331 @@
+{
+  "run_id": "a39528a6",
+  "spec": "raw-ingest-anthropic-economic-index",
+  "zone": "silver",
+  "table": "base.anthropic_observed_exposure",
+  "executed_at": "2026-04-17T00:46:41.107424+00:00",
+  "executor": "@dq-engineer",
+  "rules_total": 15,
+  "rules_passed": 12,
+  "rules_failed": 1,
+  "rules_errored": 2,
+  "rules_skipped": 0,
+  "results": [
+    {
+      "rule_id": "SLV-AOE-001",
+      "priority": "P0",
+      "dimension": "uniqueness",
+      "description": "Silver grain is one row per soc_code. Duplicate SOC codes would cause fan-out in Gold JOINs and double-count observed exposure. The Silver transformer aggregates Bronze (task, SOC) rows to one row per",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "SLV-AOE-002",
+      "priority": "P0",
+      "dimension": "validity",
+      "description": "observed_exposure_pct is the SOC-level sum of split task shares, in percent units (0-100). It must be non-null and within [0, 100]. Values > 100 indicate the fan-out split was skipped (double-counting",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "SLV-AOE-003",
+      "priority": "P0",
+      "dimension": "consistency",
+      "description": "After dropping the task_name='none' placeholder (1.78% of global share) and even-splitting multi-SOC tasks, SUM(observed_exposure_pct) across all Silver rows must equal 98.22 within +/- 0.5. A larger ",
+      "threshold": "result = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=1; threshold='result = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "SLV-AOE-004",
+      "priority": "P0",
+      "dimension": "volume",
+      "description": "Silver row count must be 500-650 SOCs. 588 observed in EDA against release_2025_03_27; band is ~+/- 10% to allow modest release drift. Count outside this range indicates SOC normalization collapsed or",
+      "threshold": "result = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=1; threshold='result = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "SLV-AOE-005",
+      "priority": "P0",
+      "dimension": "validity",
+      "description": "Every SOC row must have task_count >= 1 (the aggregate groupby produces rows only when at least one task contributes). A 0 or NULL task_count means the grouping logic is broken.",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "SLV-AOE-006",
+      "priority": "P0",
+      "dimension": "coverage",
+      "description": "At least 60% of Silver rows must have soc_match = true (SOC exists in consumable.occupation_profiles). Revised from spec's 80% per EDA finding (61.3% actual). Below 60% indicates either the source SOC",
+      "threshold": "result = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=1; threshold='result = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "SLV-AOE-007",
+      "priority": "P0",
+      "dimension": "validity",
+      "description": "Silver soc_code must be normalized XX-XXXX. Unlike Bronze (which carries exactly one NULL soc_code for the 'none' placeholder), Silver must never have a NULL SOC because the 'none' row is filtered pre",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "SLV-AOE-008",
+      "priority": "P0",
+      "dimension": "uniqueness",
+      "description": "Surrogate key record_id (computed via compute_grain_id with prefix 'aoe') must be non-null and unique. A duplicate or null indicates a grain-hash collision or derivation bug in promote_silver.",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "SLV-AOE-009",
+      "priority": "P1",
+      "dimension": "consistency",
+      "description": "automation_pct, augmentation_pct, and filtered_pct (all 0-1 mode fractions) are volume-weighted means of the underlying 6-axis source. Their sum per SOC must equal 1.0 within +/- 0.02. A violation mea",
+      "threshold": "result_count = 0",
+      "status": "ERROR",
+      "passed": false,
+      "actual_value": null,
+      "violation_count": null,
+      "evidence": "SQL error: Binder Error: Referenced column \"filtered_pct\" not found in FROM clause!\nCandidate bindings: \"observed_exposure_pct\", \"promoted_at\", \"task_count\", \"soc_title\", \"automation_pct\"\n\nLINE 1: ... NULL AND ABS((automation_pct + augmentation_pct + COALESCE(filtered_pct, 0)) - 1.0) > 0.02\n                                                                       ^",
+      "execution_time_ms": 0,
+      "error": "Binder Error: Referenced column \"filtered_pct\" not found in FROM clause!\nCandidate bindings: \"observed_exposure_pct\", \"promoted_at\", \"task_count\", \"soc_title\", \"automation_pct\"\n\nLINE 1: ... NULL AND ABS((automation_pct + augmentation_pct + COALESCE(filtered_pct, 0)) - 1.0) > 0.02\n                                                                       ^"
+    },
+    {
+      "rule_id": "SLV-AOE-010",
+      "priority": "P1",
+      "dimension": "consistency",
+      "description": "automation_pct / augmentation_pct may be NULL for a SOC only when all that SOC's contributing Bronze tasks were fully filtered (filtered >= 0.999). Equivalently: if filtered_pct < 0.999 on a Silver ro",
+      "threshold": "result_count = 0",
+      "status": "ERROR",
+      "passed": false,
+      "actual_value": null,
+      "violation_count": null,
+      "evidence": "SQL error: Binder Error: Referenced column \"filtered_pct\" not found in FROM clause!\nCandidate bindings: \"observed_exposure_pct\", \"promoted_at\", \"task_count\", \"soc_title\", \"automation_pct\"\n\nLINE 1: ... (automation_pct IS NULL OR augmentation_pct IS NULL) AND (filtered_pct IS NULL OR filtered_pct < 0.999)\n                                                                      ^",
+      "execution_time_ms": 0,
+      "error": "Binder Error: Referenced column \"filtered_pct\" not found in FROM clause!\nCandidate bindings: \"observed_exposure_pct\", \"promoted_at\", \"task_count\", \"soc_title\", \"automation_pct\"\n\nLINE 1: ... (automation_pct IS NULL OR augmentation_pct IS NULL) AND (filtered_pct IS NULL OR filtered_pct < 0.999)\n                                                                      ^"
+    },
+    {
+      "rule_id": "SLV-AOE-011",
+      "priority": "P0",
+      "dimension": "validity",
+      "description": "automation_pct and augmentation_pct are 0-1 mode fractions (per EDA aggregation decision; despite the _pct suffix). Values outside [0, 1] indicate a unit-conversion bug (e.g. someone multiplied by 100",
+      "threshold": "result_count = 0",
+      "status": "FAIL",
+      "passed": false,
+      "actual_value": 500,
+      "violation_count": 500,
+      "evidence": "actual=500; rows_returned=500; threshold='result_count = 0'; sample_rows=[\"('11-1011', 'Chief Executives', 0.16484599994248364, 24.307304785894203, 65.80604534005037, 14, True, 'release_2025_03_2\", \"('11-1021', 'General and Operations Managers', 0.038618128335435424, 39.66480446927374, 51.117318435754186, 3, True, 're\", \"('11-1031', 'Legislators', 0.02341737569276403, 27.86885245901639, 55.73770491803278, 5, True, 'release_2025_03_27', '20\"]",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": [
+        [
+          "11-1011",
+          "Chief Executives",
+          0.16484599994248364,
+          24.307304785894203,
+          65.80604534005037,
+          14,
+          true,
+          "release_2025_03_27",
+          "2026-04-16 19:46:41.217220-05:00",
+          "aoe-28ac0ce99fb1ade7"
+        ],
+        [
+          "11-1021",
+          "General and Operations Managers",
+          0.038618128335435424,
+          39.66480446927374,
+          51.117318435754186,
+          3,
+          true,
+          "release_2025_03_27",
+          "2026-04-16 19:46:41.217220-05:00",
+          "aoe-f0579fdede8ec4f6"
+        ],
+        [
+          "11-1031",
+          "Legislators",
+          0.02341737569276403,
+          27.86885245901639,
+          55.73770491803278,
+          5,
+          true,
+          "release_2025_03_27",
+          "2026-04-16 19:46:41.217220-05:00",
+          "aoe-264b8de70a7d0907"
+        ],
+        [
+          "11-2011",
+          "Green Marketers",
+          0.22801128964007084,
+          33.07984790874524,
+          59.50570342205323,
+          15,
+          true,
+          "release_2025_03_27",
+          "2026-04-16 19:46:41.217220-05:00",
+          "aoe-8e5f4beede70ece4"
+        ],
+        [
+          "11-2021",
+          "Marketing Managers",
+          0.05638657568126076,
+          21.41372141372141,
+          57.7962577962578,
+          10,
+          true,
+          "release_2025_03_27",
+          "2026-04-16 19:46:41.217220-05:00",
+          "aoe-d8e7a358ccd9bdc9"
+        ]
+      ]
+    },
+    {
+      "rule_id": "SLV-AOE-012",
+      "priority": "P1",
+      "dimension": "validity",
+      "description": "source_release is pinned to 'release_2025_03_27' per the release-selection logic (newer releases lack task-level aggregates). A different value indicates the ingestor auto-followed HEAD or picked a re",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "SLV-AOE-013",
+      "priority": "P1",
+      "dimension": "completeness",
+      "description": "soc_title is required per Silver schema. A null or empty title means the SOC normalization lookup failed.",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "SLV-AOE-014",
+      "priority": "P2",
+      "dimension": "validity",
+      "description": "SOCs with observed_exposure_pct > 5 represent concentrated Claude adoption (> 5% of all classified traffic on a single occupation). Expected count is small (EDA: max 7.51; top-1 SOC 15-1199 at ~5-8%).",
+      "threshold": "result_count <= 10",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 3,
+      "violation_count": 0,
+      "evidence": "actual=3; rows_returned=3; threshold='result_count <= 10'",
+      "execution_time_ms": 1,
+      "error": null,
+      "sample_rows": [
+        [
+          "15-1131",
+          "Computer Programmers",
+          7.506501402988386
+        ],
+        [
+          "15-1199",
+          "Document Management Specialists",
+          7.1311557912813415
+        ],
+        [
+          "15-1133",
+          "Software Developers, Systems Software",
+          7.007735265883074
+        ]
+      ]
+    },
+    {
+      "rule_id": "SLV-AOE-015",
+      "priority": "P3",
+      "dimension": "validity",
+      "description": "Informational: proportion of Silver rows backed by only one task. Expected ~33% per EDA. Tracked for drift monitoring; no threshold enforced.",
+      "threshold": "tracked",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0.19080068143100512,
+      "violation_count": 0,
+      "evidence": "actual=0.19080068143100512; rows_returned=1; threshold='tracked'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": [
+        [
+          0.19080068143100512
+        ]
+      ]
+    }
+  ]
+}

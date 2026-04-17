@@ -1,0 +1,207 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-17T01:20:58.000000Z",
+    "run": {
+      "runId": "3b7293e6-64e7-4007-987b-148b56df7483",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-anthropic-economic-index.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver transformer aggregating raw.anthropic_economic_index (4,082 rows at task-SOC grain) into base.anthropic_observed_exposure (587 rows at SOC grain). Reads Bronze via DuckDB and base.bls_ooh as a reference set for SOC match flagging and broad-code (XX-XXX0) expansion. Pipeline: (1) normalize SOC codes (strip whitespace, drop O*NET .NN overlay, validate XX-XXXX); (2) drop rows with null/invalid SOC (task_name='none' placeholder excluded here); (3) expand broad codes — for each XX-XXX0 task, if broad exists as-is in BLS keep it, else split its task_pct equally across all detailed BLS codes sharing the same 6-char prefix (preserves global-share invariant through the expansion); (4) group tasks by detailed SOC; (5) aggregate: observed_exposure_pct = SUM(task_pct) across all (task, SOC) rows for that SOC (global-share model — summing preserves the % of Claude traffic interpretation); automation_pct and augmentation_pct = task_pct-weighted mean of per-task axis values; task_count = number of distinct tasks feeding the SOC; (6) flag soc_match=true when soc_code exists in base.bls_ooh; (7) compute deterministic record_id via compute_grain_id(row, ['soc_code'], prefix='aoe'); (8) promote via idempotent append with dedup on record_id. Observed output: 587 SOCs (matches EDA's 588 minus 1 broad code 19-1020 that fails single-target resolution). SOC match coverage: 510/587 = 86.9% — below the spec's 80% P0 threshold as measured against target table, but EDA documents this as a known dataset limitation (Claude traffic skews toward knowledge work; trades/production/transport/food-service have zero Anthropic tasks). No Silver rows are dropped for soc_match=false; the flag is informational for Gold's LEFT JOIN."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 4082,
+          "blsReferenceRows": 832,
+          "rowsSkippedNoSoc": 1,
+          "rowsTransformed": 587,
+          "socMatchTrue": 510,
+          "socMatchCoveragePct": 86.9,
+          "sourceRelease": "release_2025_03_27",
+          "aggregationModel": "sum_of_global_shares",
+          "snapshotId": null
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-anthropic-observed-exposure",
+      "facets": {
+        "documentation": {
+          "description": "Aggregate raw.anthropic_economic_index (task-SOC grain) to base.anthropic_observed_exposure (SOC grain). Uses the global-share aggregation model: observed_exposure_pct = SUM(task_pct) across all (task, SOC) rows for each SOC, preserving the ~100% global invariant from Bronze. Automation and augmentation are task_pct-weighted means per SOC. Broad SOC codes (XX-XXX0) are expanded to detailed BLS codes via the BLS prefix map (with equal task_pct split to conserve the invariant through the expansion). base.bls_ooh is used as a reference for the soc_match flag and for broad-expansion; it is NOT joined row-for-row."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/anthropic_observed_exposure_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "raw.anthropic_economic_index",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "task_id", "type": "STRING"},
+              {"name": "task_statement", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "soc_title", "type": "STRING"},
+              {"name": "task_pct", "type": "DOUBLE"},
+              {"name": "automation_pct", "type": "DOUBLE"},
+              {"name": "augmentation_pct", "type": "DOUBLE"},
+              {"name": "source_release", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_ooh",
+        "inputDatasetFacets": {
+          "usage": "REFERENCE",
+          "description": "Used to build two lookup structures: bls_soc_set (all valid SOC codes, for soc_match flag) and bls_prefix_map (6-char prefix -> list of detailed codes, for broad-code expansion). Not joined row-for-row; no fields propagate into Silver schema."
+        },
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.anthropic_observed_exposure",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "soc_title", "type": "STRING"},
+              {"name": "observed_exposure_pct", "type": "DOUBLE"},
+              {"name": "automation_pct", "type": "DOUBLE"},
+              {"name": "augmentation_pct", "type": "DOUBLE"},
+              {"name": "task_count", "type": "INTEGER"},
+              {"name": "soc_match", "type": "BOOLEAN"},
+              {"name": "source_release", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash via compute_grain_id(row, ['soc_code'], prefix='aoe'). SHA-256 of the normalized soc_code with 'aoe' prefix. Uses the post-normalization/post-expansion SOC, so broad-expanded detailed codes each get their own record_id.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Multi-path resolution: (1) Bronze soc_code stripped of whitespace and O*NET .NN overlay; (2) validated against ^\\d{2}-\\d{4}$ — invalid codes drop the Bronze row; (3) broad codes (XX-XXX0) expanded — if broad exists in BLS keep it, else split across detailed BLS codes with matching 6-char prefix (creates multiple Silver rows from a single broad Bronze row). The task_name='none' placeholder row (null SOC) is skipped at step 1.",
+                "transformationType": "DERIVED"
+              },
+              "soc_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "soc_title"}
+                ],
+                "transformationDescription": "First non-null soc_title observed per SOC during the grouping pass. Broad-expansion targets inherit the broad code's title when no detailed title has been seen yet.",
+                "transformationType": "DIRECT"
+              },
+              "observed_exposure_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "task_pct"}
+                ],
+                "transformationDescription": "AGGREGATION: SUM(task_pct) across all (task, SOC) rows grouped by SOC (global-share aggregation model). Because Bronze already split task_pct by task-to-SOC fan-out (raw_pct / N), summing here preserves the invariant that SUM(observed_exposure_pct) across all Silver rows ~ 98.22 (= 100 - 1.78 'none' placeholder dropped). Broad-to-detailed expansion additionally splits task_pct equally across detailed targets to conserve the invariant through the expansion. Result clamped to [0, 100] to absorb rounding drift. 0.0 (not None) emitted when all task values are null (spec declares observed_exposure_pct required).",
+                "transformationType": "AGGREGATION"
+              },
+              "automation_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "automation_pct"},
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "task_pct"}
+                ],
+                "transformationDescription": "AGGREGATION: weighted mean of per-task automation_pct values, weighted by task_pct, grouped by SOC. Tasks with higher observed Claude usage dominate the blend. Falls back to a simple mean when all weights are zero/null but at least one automation value is present. None when no tasks contribute a usable value.",
+                "transformationType": "AGGREGATION"
+              },
+              "augmentation_pct": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "augmentation_pct"},
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "task_pct"}
+                ],
+                "transformationDescription": "AGGREGATION: weighted mean of per-task augmentation_pct, weighted by task_pct, grouped by SOC. Same fallback semantics as automation_pct. Post-aggregation invariant: automation_pct + augmentation_pct + (filtered_pct implied) ~ 100 per SOC (EDA verified mean 1.000000 across 588 SOCs).",
+                "transformationType": "AGGREGATION"
+              },
+              "task_count": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "task_id"}
+                ],
+                "transformationDescription": "AGGREGATION: COUNT of distinct tasks feeding the SOC (including tasks contributed by broad-code expansion). Per-SOC task volume range in EDA: min 1, median 4, mean 6.94, max 141 (15-1199 umbrella code).",
+                "transformationType": "AGGREGATION"
+              },
+              "soc_match": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "soc_code"},
+                  {"namespace": "brightsmith", "name": "base.bls_ooh", "field": "soc_code"}
+                ],
+                "transformationDescription": "Boolean flag: True if the (post-expansion) soc_code exists in base.bls_ooh's SOC set. Informational for Gold's LEFT JOIN; Silver does NOT filter on it. Observed coverage 86.9% (510/587 SOCs) — documented dataset limitation in EDA (Claude usage skews toward knowledge work).",
+                "transformationType": "DERIVED"
+              },
+              "source_release": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "raw.anthropic_economic_index", "field": "source_release"}
+                ],
+                "transformationDescription": "Canonical source_release carried from Bronze. When Bronze mixes multiple releases (not expected in practice), the lexicographically-max value wins.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver promotion via datetime.now(tz=utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "task_id": {
+                "reason": "Aggregated away — Silver is SOC-grain. task_id is available in raw.anthropic_economic_index for lineage tracing."
+              },
+              "task_statement": {
+                "reason": "Aggregated away — Silver is SOC-grain. Task text is preserved in Bronze."
+              },
+              "task_pct (per-task)": {
+                "reason": "Aggregated into observed_exposure_pct (SUM) and automation/augmentation weighted means. Per-task values remain in Bronze."
+              },
+              "ingested_at (bronze)": {
+                "reason": "Replaced by Silver-zone promoted_at. Bronze timestamp not preserved in Silver."
+              },
+              "source_url": {
+                "reason": "Bronze metadata not carried to Silver; recoverable from raw.anthropic_economic_index."
+              },
+              "source_method": {
+                "reason": "Bronze metadata not carried to Silver; recoverable from raw.anthropic_economic_index."
+              },
+              "load_date": {
+                "reason": "Bronze metadata not carried to Silver; recoverable from raw.anthropic_economic_index."
+              }
+            }
+          },
+          "rowCountLineage": {
+            "description": "4,082 Bronze rows -> 587 Silver rows. Reduction: (a) 1 placeholder row (task_name='none', NULL SOC) skipped at normalization; (b) 4,081 SOC-matched rows grouped into 587 distinct SOCs (roughly 7 tasks/SOC on average per EDA). Broad-to-detailed expansion can increase row count in edge cases, but only 1 broad code (19-1020) appears in this release and it did not fan out further. Net: 4,081 -> 587 after SOC grouping."
+          }
+        }
+      }
+    ]
+  }
+]

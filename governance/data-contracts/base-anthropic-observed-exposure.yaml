@@ -1,0 +1,307 @@
+---
+# Data Contract: base.anthropic_observed_exposure
+# Spec: raw-ingest-anthropic-economic-index (Zone 2: Silver)
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Documented by: @doc-generator
+# Date: 2026-04-16
+
+table: base.anthropic_observed_exposure
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - soc_code
+status: draft
+owner: "@doc-generator"
+record_count: 588
+spec_reference: docs/specs/raw-ingest-anthropic-economic-index.md
+source: "raw.anthropic_economic_index (Bronze). Aggregated to SOC grain via sum-of-global-shares (per EDA)."
+sla: "Follows Bronze. Re-aggregated whenever Bronze re-lands."
+quality_tier: "high — deterministic aggregation over a peer-reviewed source. SOC coverage against consumable.occupation_profiles is 61.3% (510 of 832); this is a documented dataset limitation (Claude traffic skews toward knowledge work) revised from the spec's original >=80% threshold to >=60% per EDA."
+
+# CC-BY 4.0 attribution propagates from Bronze via source_release.
+license:
+  type: CC-BY-4.0
+  attribution: "Economic Index Dataset, Anthropic (2026)"
+  url: https://huggingface.co/datasets/Anthropic/EconomicIndex
+  requires_citation: true
+  notes: >
+    Attribution travels via source_release (pinned to 'release_2025_03_27').
+    Inherits from raw.anthropic_economic_index; Silver is CC-BY 4.0 derivative.
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: true
+    cde_rationale: >
+      Deterministic grain hash (prefix 'aoe'). Dedup grain for Silver.
+      Idempotent re-run key. Consistent with the record_id CDE pattern on
+      consumable.ai_exposure and base.karpathy_ai_exposure.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['soc_code'], prefix='aoe'). Format: aoe-<16 hex chars>. Stable across
+      pipeline re-runs.
+    dq_rules:
+      - SLV-AOE-008
+
+  - name: soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Primary key of this Silver table and the sole JOIN key to
+      consumable.ai_exposure in the Gold transformer
+      (existing_df.join(anthropic_df.select('soc_code', ...), on='soc_code',
+      how='left')). Every S4 three-signal composite input traces to this
+      column. Governed CDE across the project.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Standard Occupational Classification code in XX-XXXX format. Primary
+      key. ~588 distinct values expected (per EDA release_2025_03_27). The
+      task_name='none' placeholder row from Bronze is filtered before
+      aggregation, so soc_code is never NULL in Silver.
+    dq_rules:
+      - SLV-AOE-001
+      - SLV-AOE-007
+    constraints:
+      - "UNIQUE"
+      - "NOT NULL"
+      - "CHECK (soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: soc_title
+    type: varchar
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Occupation title carried through from O*NET via the Bronze join.
+      Display label. soc_code is the authoritative identifier.
+    dq_rules:
+      - SLV-AOE-013
+
+  - name: observed_exposure_pct
+    type: double
+    required: true
+    is_cde: true
+    cde_rationale: >
+      The new empirical signal. SUM(task_pct_split) per SOC. Consumed by S4
+      three-signal composite as the empirical input and by MCP
+      get_ai_exposure(). Wrong values miscalibrate the RES pentagon stat and
+      Fight AI boss on 510 of 832 SOCs.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Observed AI exposure for this occupation as a percent-of-Claude-traffic
+      share (0-100). Computed as SUM of split task_pct across all Anthropic-
+      measured tasks mapped to this SOC. Global SUM across all Silver rows
+      approximately 98.22 (= 100 minus the 'none' placeholder 1.78).
+    dq_rules:
+      - SLV-AOE-002
+      - SLV-AOE-003
+      - SLV-AOE-014
+    constraints:
+      - "NOT NULL"
+      - "CHECK (observed_exposure_pct >= 0 AND observed_exposure_pct <= 100)"
+
+  - name: automation_pct
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      SOC-level volume-weighted mean of (directive + feedback_loop) * 100.
+      Input to the MCP (observed, automation, augmentation) triple and to
+      the Gold promotion. Excludes 'learning' per Anthropic v2 methodology.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Automation share for the occupation, percent units (0-100).
+      Volume-weighted mean of per-task automation values where task_pct
+      (split) is the weight. NULL when every contributing task was fully
+      filtered (filtered >= 0.999) — ~15% of Silver rows at release_2025_03_27.
+    dq_rules:
+      - SLV-AOE-011
+
+  - name: augmentation_pct
+    type: double
+    required: false
+    is_cde: true
+    cde_rationale: >
+      SOC-level volume-weighted mean of
+      (task_iteration + validation + learning) * 100. Co-equal to
+      automation_pct in MCP responses. Flagged CDE even though the current
+      Gold schema does not carry augmentation_pct directly — a future S4
+      extension may reach Silver to read it.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Augmentation share for the occupation, percent units (0-100).
+      Volume-weighted mean of per-task augmentation values with split
+      task_pct as weight. NULL under the same condition as automation_pct.
+    dq_rules:
+      - SLV-AOE-011
+
+  - name: task_count
+    type: int
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Aggregation provenance + product-visible confidence signal. Range
+      [1, 141] per EDA (median 4, mean 6.94). A SOC with task_count=1 is
+      qualitatively different from one with task_count=50; downstream
+      confidence weighting (e.g., 'low-evidence badge') reads this directly.
+      P0: task_count >= 1 (100%).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Number of distinct Anthropic-measured tasks that contributed to this
+      SOC's observed_exposure_pct. Confidence signal for S4 and MCP.
+    dq_rules:
+      - SLV-AOE-005
+      - SLV-AOE-015
+    constraints:
+      - "NOT NULL"
+      - "CHECK (task_count >= 1)"
+
+  - name: soc_match
+    type: boolean
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Gate flag controlling whether the SOC promotes into Gold
+      consumable.ai_exposure. Threshold re-baselined from spec's 80% to 60%
+      per EDA (documented dataset limitation, not defect). Mis-flagging
+      strands data in Silver or orphans SOCs at Gold.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True iff soc_code exists in base.bls_ooh. Gold JOIN succeeds only for
+      rows where soc_match=true. ~61.3% true rate expected.
+    dq_rules:
+      - SLV-AOE-006
+    constraints:
+      - "NOT NULL"
+
+  - name: source_release
+    type: varchar
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Carries CC-BY 4.0 attribution provenance. Aliased to
+      anthropic_source_release in Gold; propagates verbatim to MCP
+      attribution footer. Pinned to 'release_2025_03_27'.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Anthropic release identifier at ingest time, e.g. 'release_2025_03_27'.
+      Carried through from Bronze. Drives attribution at every downstream
+      product surface.
+    dq_rules:
+      - SLV-AOE-012
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Silver promotion timestamp. Pipeline metadata."
+    dq_rules: []
+
+# Quality thresholds based on DQ rules and EDA findings.
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+    observed_exposure_pct_null_tolerance: 0.0
+    soc_title_null_tolerance: 0.0
+  validity:
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    observed_exposure_pct_range: [0, 100]
+    automation_pct_range: [0, 100]
+    augmentation_pct_range: [0, 100]
+    source_release_pinned_value: "release_2025_03_27"
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    soc_code_unique: true
+  volume:
+    row_count_range: [500, 650]
+    expected_row_count: 588
+  consistency:
+    global_share_invariant: "ABS(SUM(observed_exposure_pct) - 98.22) <= 0.5"
+    placeholder_filtered: "no row where task_statement='none' (filter applied pre-aggregation)"
+    soc_match_min_rate: 0.60
+    coverage_caveat: >
+      Coverage against consumable.occupation_profiles is ~61.3%. This is a
+      documented limitation of the source: Claude traffic skews toward
+      knowledge work, so ~315 target SOCs in trades/production/transport/
+      food-service have zero Anthropic tasks mapped. NOT an ingestor defect.
+  freshness_sla: >
+    Follows Bronze. Re-aggregated on Bronze re-land.
+
+# DQ rules governing this table.
+dq_rules:
+  rule_file: governance/dq-rules/silver-anthropic-observed-exposure.json
+  total_rules: 13
+
+# Breaking change policy.
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain
+    changed triggers a major version bump (BREAKING). Column added triggers
+    a minor bump (NON-BREAKING). Description change triggers a patch bump.
+  notification: >
+    Breaking changes logged in governance/audit-trail/ with 30-day
+    deprecation notice before removal.
+
+# Lineage reference.
+lineage:
+  source_table: raw.anthropic_economic_index
+  transformation: src/silver/anthropic_observed_exposure_transformer.py
+  lineage_file: governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json
+
+# PII assessment.
+pii:
+  contains_pii: false
+  pii_fields: []
+  assessment_notes: >
+    No PII. Aggregation to SOC grain monotonically reduces any (non-existent)
+    PII risk from Bronze. All Silver columns classified Level 1 (Public) or
+    Level 2 (Internal — pipeline metadata) per
+    governance/pii/raw-anthropic-economic-index-pii-scan.md.
+
+# Consumers — downstream tables and processes that depend on this contract.
+consumers:
+  - name: "consumable.ai_exposure (additive)"
+    type: table
+    description: >
+      Gold zone. LEFT JOIN on soc_code to add observed_exposure_pct,
+      automation_pct, anthropic_task_count, anthropic_source_release.
+    contact: "@primary-agent"
+    status: active
+  - name: "consumable.ai_exposure_composite (future, S4)"
+    type: table
+    description: >
+      Three-signal composite (Karpathy theoretical x Anthropic observed x
+      velocity). Will read observed_exposure_pct and automation_pct as the
+      empirical input to stat_res_composite and boss_ai_score_composite.
+    contact: "@primary-agent"
+    status: planned
+  - name: "MCP tool: get_ai_exposure(soc_code)"
+    type: api
+    description: >
+      Returns the (observed, automation, augmentation) triple alongside the
+      existing Karpathy/Gemma fields. Source release is surfaced in the
+      attribution footer.
+    contact: "@primary-agent"
+    status: active

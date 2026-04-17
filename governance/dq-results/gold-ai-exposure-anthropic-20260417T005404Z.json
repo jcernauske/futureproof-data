@@ -1,0 +1,143 @@
+{
+  "run_id": "af7050ce",
+  "spec": "raw-ingest-anthropic-economic-index",
+  "zone": "gold",
+  "table": "consumable.ai_exposure",
+  "executed_at": "2026-04-17T00:54:04.359602+00:00",
+  "executor": "@dq-engineer",
+  "rules_total": 8,
+  "rules_passed": 7,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "rules_skipped": 1,
+  "results": [
+    {
+      "rule_id": "GLD-AIE-ANT-001",
+      "priority": "P1",
+      "dimension": "coverage",
+      "description": "At least 60% of consumable.ai_exposure rows must have observed_exposure_pct populated after the LEFT JOIN against base.anthropic_observed_exposure. Coverage is bounded by SOC overlap: Anthropic covers",
+      "threshold": "result = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=1; threshold='result = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "GLD-AIE-ANT-002",
+      "priority": "P1",
+      "dimension": "consistency",
+      "description": "Among rows where observed_exposure_pct is populated, at least 85% must also have automation_pct populated. This is NOT 100% because SOCs whose contributing Bronze tasks were all fully filtered (filter",
+      "threshold": "result = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=1; threshold='result = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "GLD-AIE-ANT-003",
+      "priority": "P1",
+      "dimension": "completeness",
+      "description": "If any Anthropic-sourced column (observed_exposure_pct, automation_pct, anthropic_task_count) is populated, anthropic_source_release must also be populated. This enforces provenance integrity: every r",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "GLD-AIE-ANT-004",
+      "priority": "P0",
+      "dimension": "validity",
+      "description": "observed_exposure_pct carries through from Silver in 0-100 percent units. A value outside [0, 100] indicates a Gold transformation corrupted the column or the Silver input was out of range.",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "GLD-AIE-ANT-005",
+      "priority": "P0",
+      "dimension": "validity",
+      "description": "automation_pct carries through from Silver in 0-100 percent units, consistent with observed_exposure_pct and every other _pct field in this project. A value outside [0, 100] indicates a Gold transform",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "GLD-AIE-ANT-006",
+      "priority": "P1",
+      "dimension": "validity",
+      "description": "Where anthropic_task_count is populated, it must be >= 1 (a row with 0 contributing tasks shouldn't exist in Silver, let alone Gold). A zero/negative value indicates the Silver aggregation produced an",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "GLD-AIE-ANT-008",
+      "priority": "P2",
+      "dimension": "validity",
+      "description": "All non-null anthropic_source_release values must equal the pinned release 'release_2025_03_27'. Any other value indicates the pipeline pulled from an unexpected release.",
+      "threshold": "result_count = 0",
+      "status": "PASS",
+      "passed": true,
+      "actual_value": 0,
+      "violation_count": 0,
+      "evidence": "actual=0; rows_returned=0; threshold='result_count = 0'",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "GLD-AIE-ANT-007",
+      "priority": "P2",
+      "dimension": "consistency",
+      "description": "Adding Anthropic columns to consumable.ai_exposure via LEFT JOIN must NOT modify existing stat_res or boss_ai_score values. This regression rule compares current rows to a pre-Anthropic baseline (cons",
+      "threshold": "result_count = 0",
+      "status": "SKIPPED",
+      "passed": null,
+      "actual_value": null,
+      "violation_count": 0,
+      "evidence": "Baseline snapshot table consumable.ai_exposure_baseline_pre_anthropic does not exist in this environment. Rule documented-inapplicable per its own rationale ('archive if baseline unavailable').",
+      "execution_time_ms": 0,
+      "error": null,
+      "sample_rows": []
+    }
+  ]
+}
