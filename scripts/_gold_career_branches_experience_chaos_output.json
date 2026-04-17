@@ -1,0 +1,1409 @@
+{
+  "generated_at": "2026-04-17T03:02:32.196285Z",
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "results": [
+        {
+          "scenario": "1_silver_missing_source",
+          "rate": 0.05,
+          "input_perturbation": "Dropped all Silver rows for source SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "source_experience_years_all_null": true,
+            "experience_delta_years_all_null": true,
+            "related_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when source is missing.",
+          "cycle": 1
+        },
+        {
+          "scenario": "2_silver_missing_related",
+          "rate": 0.05,
+          "input_perturbation": "Dropped all Silver rows for related SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "related_experience_years_all_null": true,
+            "related_experience_tier_all_null": true,
+            "experience_delta_years_all_null": true,
+            "source_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when related is missing.",
+          "cycle": 1
+        },
+        {
+          "scenario": "3_silver_tier_invalid",
+          "rate": 0.05,
+          "input_perturbation": "Set experience_tier='unknown' on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "unknown": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_invalid_tier_verbatim": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Gold design is passthrough per \u00a7Zone 3 and test_tier_flows_through_verbatim. The Silver DQ enum rule (experience_tier IN ('entry','early','mid','senior')) is the authoritative guard. Gold defense-in-depth would be nice-to-have but is not required by spec.",
+          "cycle": 1
+        },
+        {
+          "scenario": "4_silver_years_negative",
+          "rate": 0.05,
+          "input_perturbation": "Set experience_years_typical=-1.0 on Silver row for 15-1252",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 10.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_negative_years": true,
+            "gold_propagated_inflated_delta": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Silver DQ rule 'experience_years_typical 0 <= years <= 15' is P0 and authoritative. Gold passes through per spec. Defense-in-depth at Gold (non-negative guard) would be redundant but not harmful.",
+          "cycle": 1
+        },
+        {
+          "scenario": "5_silver_years_extreme",
+          "rate": 0.05,
+          "input_perturbation": "Set experience_years_typical=12.5 on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "delta_correctly_represents_extreme": true,
+            "computed_delta": 5.5,
+            "expected_delta": 5.5
+          },
+          "disposition": "PASS",
+          "note": "12.5 stays within Silver DQ bound (0..15). Delta of 5.5 is well inside both GLD-CB-EXP-002 (-12..12) and spec -10..15 ranges. Gold correctly represents the extreme value.",
+          "cycle": 1
+        },
+        {
+          "scenario": "6_tier_contradiction",
+          "rate": 0.05,
+          "input_perturbation": "Set years=7.0 and tier='senior' on Silver row for 11-3021 (should be 'mid' per spec tier thresholds)",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 1
+          },
+          "invariants": {
+            "gold_propagated_contradiction": true,
+            "senior_years_rule_should_fire": true
+          },
+          "disposition": "PASS",
+          "note": "Gold spec-listed DQ rule 'tier=senior implies years>=8' catches this contradiction at the Gold layer. This is exactly the cross-zone defense-in-depth the rule was designed for. The propagation itself is spec-correct (passthrough); the catch happens in DQ execution, not in the transformer.",
+          "cycle": 1
+        },
+        {
+          "scenario": "7_empty_silver",
+          "rate": 0.05,
+          "input_perturbation": "base.onet_experience_profiles has zero rows",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "all_experience_columns_null": true,
+            "all_branches_materialize": true,
+            "branch_count": 5
+          },
+          "disposition": "PASS",
+          "note": "Gold gracefully degrades: branches still materialize with non-experience columns intact; all 4 experience columns NULL. Confirms backward-compat contract from tests.",
+          "cycle": 1
+        },
+        {
+          "scenario": "8_duplicate_silver_grain",
+          "rate": 0.05,
+          "input_perturbation": "Appended duplicate Silver row for 11-3021 (years=2.0, tier='early'); original had years=9.0, tier='senior'",
+          "gold_output_summary": {
+            "tiers": {
+              "early": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "deterministic_behavior": "last-one-wins",
+            "resulting_years": 2.0,
+            "resulting_tier": "early"
+          },
+          "disposition": "PASS",
+          "note": "Silver grain-uniqueness rule is authoritative; Gold's dict-comprehension lookup is deterministically last-one-wins. Would not happen in practice because Silver DQ blocks it.",
+          "cycle": 1
+        },
+        {
+          "scenario": "9_sparse_silver_delta_range",
+          "rate": 0.05,
+          "input_perturbation": "Silver pruned to only {11-1011, 41-2031}; all other branches should have NULL deltas",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 4,
+              "entry": 1
+            },
+            "source_experience_years_null_count": 4,
+            "related_experience_years_null_count": 4,
+            "experience_delta_years_null_count": 4,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": -11.25
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "non_null_delta_count": 1,
+            "non_null_delta_values": [
+              -11.25
+            ],
+            "null_delta_count": 4,
+            "user_quoted_rule_holds_nulls_excluded": true,
+            "spec_range_minus10_would_trip_on_minus11_25": true
+          },
+          "disposition": "PASS",
+          "note": "NULL rows are correctly excluded from predicate evaluation. The sole non-null delta (-11.25) passes user-quoted GLD-CB-EXP-002 (-12..12) but would trip the spec-text -10..15 bound. This is NOT a Gold bug \u2014 it surfaces a tension between the spec's stated range and the live rule, worth flagging to the rule writer.",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "results": [
+        {
+          "scenario": "1_silver_missing_source",
+          "rate": 0.06,
+          "input_perturbation": "Dropped all Silver rows for source SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "source_experience_years_all_null": true,
+            "experience_delta_years_all_null": true,
+            "related_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when source is missing.",
+          "cycle": 2
+        },
+        {
+          "scenario": "2_silver_missing_related",
+          "rate": 0.06,
+          "input_perturbation": "Dropped all Silver rows for related SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "related_experience_years_all_null": true,
+            "related_experience_tier_all_null": true,
+            "experience_delta_years_all_null": true,
+            "source_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when related is missing.",
+          "cycle": 2
+        },
+        {
+          "scenario": "3_silver_tier_invalid",
+          "rate": 0.06,
+          "input_perturbation": "Set experience_tier='unknown' on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "unknown": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_invalid_tier_verbatim": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Gold design is passthrough per \u00a7Zone 3 and test_tier_flows_through_verbatim. The Silver DQ enum rule (experience_tier IN ('entry','early','mid','senior')) is the authoritative guard. Gold defense-in-depth would be nice-to-have but is not required by spec.",
+          "cycle": 2
+        },
+        {
+          "scenario": "4_silver_years_negative",
+          "rate": 0.06,
+          "input_perturbation": "Set experience_years_typical=-1.0 on Silver row for 15-1252",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 10.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_negative_years": true,
+            "gold_propagated_inflated_delta": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Silver DQ rule 'experience_years_typical 0 <= years <= 15' is P0 and authoritative. Gold passes through per spec. Defense-in-depth at Gold (non-negative guard) would be redundant but not harmful.",
+          "cycle": 2
+        },
+        {
+          "scenario": "5_silver_years_extreme",
+          "rate": 0.06,
+          "input_perturbation": "Set experience_years_typical=12.5 on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "delta_correctly_represents_extreme": true,
+            "computed_delta": 5.5,
+            "expected_delta": 5.5
+          },
+          "disposition": "PASS",
+          "note": "12.5 stays within Silver DQ bound (0..15). Delta of 5.5 is well inside both GLD-CB-EXP-002 (-12..12) and spec -10..15 ranges. Gold correctly represents the extreme value.",
+          "cycle": 2
+        },
+        {
+          "scenario": "6_tier_contradiction",
+          "rate": 0.06,
+          "input_perturbation": "Set years=7.0 and tier='senior' on Silver row for 11-3021 (should be 'mid' per spec tier thresholds)",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 1
+          },
+          "invariants": {
+            "gold_propagated_contradiction": true,
+            "senior_years_rule_should_fire": true
+          },
+          "disposition": "PASS",
+          "note": "Gold spec-listed DQ rule 'tier=senior implies years>=8' catches this contradiction at the Gold layer. This is exactly the cross-zone defense-in-depth the rule was designed for. The propagation itself is spec-correct (passthrough); the catch happens in DQ execution, not in the transformer.",
+          "cycle": 2
+        },
+        {
+          "scenario": "7_empty_silver",
+          "rate": 0.06,
+          "input_perturbation": "base.onet_experience_profiles has zero rows",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "all_experience_columns_null": true,
+            "all_branches_materialize": true,
+            "branch_count": 5
+          },
+          "disposition": "PASS",
+          "note": "Gold gracefully degrades: branches still materialize with non-experience columns intact; all 4 experience columns NULL. Confirms backward-compat contract from tests.",
+          "cycle": 2
+        },
+        {
+          "scenario": "8_duplicate_silver_grain",
+          "rate": 0.06,
+          "input_perturbation": "Appended duplicate Silver row for 11-3021 (years=2.0, tier='early'); original had years=9.0, tier='senior'",
+          "gold_output_summary": {
+            "tiers": {
+              "early": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "deterministic_behavior": "last-one-wins",
+            "resulting_years": 2.0,
+            "resulting_tier": "early"
+          },
+          "disposition": "PASS",
+          "note": "Silver grain-uniqueness rule is authoritative; Gold's dict-comprehension lookup is deterministically last-one-wins. Would not happen in practice because Silver DQ blocks it.",
+          "cycle": 2
+        },
+        {
+          "scenario": "9_sparse_silver_delta_range",
+          "rate": 0.06,
+          "input_perturbation": "Silver pruned to only {11-1011, 41-2031}; all other branches should have NULL deltas",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 4,
+              "entry": 1
+            },
+            "source_experience_years_null_count": 4,
+            "related_experience_years_null_count": 4,
+            "experience_delta_years_null_count": 4,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": -11.25
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "non_null_delta_count": 1,
+            "non_null_delta_values": [
+              -11.25
+            ],
+            "null_delta_count": 4,
+            "user_quoted_rule_holds_nulls_excluded": true,
+            "spec_range_minus10_would_trip_on_minus11_25": true
+          },
+          "disposition": "PASS",
+          "note": "NULL rows are correctly excluded from predicate evaluation. The sole non-null delta (-11.25) passes user-quoted GLD-CB-EXP-002 (-12..12) but would trip the spec-text -10..15 bound. This is NOT a Gold bug \u2014 it surfaces a tension between the spec's stated range and the live rule, worth flagging to the rule writer.",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "results": [
+        {
+          "scenario": "1_silver_missing_source",
+          "rate": 0.07,
+          "input_perturbation": "Dropped all Silver rows for source SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "source_experience_years_all_null": true,
+            "experience_delta_years_all_null": true,
+            "related_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when source is missing.",
+          "cycle": 3
+        },
+        {
+          "scenario": "2_silver_missing_related",
+          "rate": 0.07,
+          "input_perturbation": "Dropped all Silver rows for related SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "related_experience_years_all_null": true,
+            "related_experience_tier_all_null": true,
+            "experience_delta_years_all_null": true,
+            "source_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when related is missing.",
+          "cycle": 3
+        },
+        {
+          "scenario": "3_silver_tier_invalid",
+          "rate": 0.07,
+          "input_perturbation": "Set experience_tier='unknown' on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "unknown": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_invalid_tier_verbatim": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Gold design is passthrough per \u00a7Zone 3 and test_tier_flows_through_verbatim. The Silver DQ enum rule (experience_tier IN ('entry','early','mid','senior')) is the authoritative guard. Gold defense-in-depth would be nice-to-have but is not required by spec.",
+          "cycle": 3
+        },
+        {
+          "scenario": "4_silver_years_negative",
+          "rate": 0.07,
+          "input_perturbation": "Set experience_years_typical=-1.0 on Silver row for 15-1252",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 10.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_negative_years": true,
+            "gold_propagated_inflated_delta": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Silver DQ rule 'experience_years_typical 0 <= years <= 15' is P0 and authoritative. Gold passes through per spec. Defense-in-depth at Gold (non-negative guard) would be redundant but not harmful.",
+          "cycle": 3
+        },
+        {
+          "scenario": "5_silver_years_extreme",
+          "rate": 0.07,
+          "input_perturbation": "Set experience_years_typical=12.5 on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "delta_correctly_represents_extreme": true,
+            "computed_delta": 5.5,
+            "expected_delta": 5.5
+          },
+          "disposition": "PASS",
+          "note": "12.5 stays within Silver DQ bound (0..15). Delta of 5.5 is well inside both GLD-CB-EXP-002 (-12..12) and spec -10..15 ranges. Gold correctly represents the extreme value.",
+          "cycle": 3
+        },
+        {
+          "scenario": "6_tier_contradiction",
+          "rate": 0.07,
+          "input_perturbation": "Set years=7.0 and tier='senior' on Silver row for 11-3021 (should be 'mid' per spec tier thresholds)",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 1
+          },
+          "invariants": {
+            "gold_propagated_contradiction": true,
+            "senior_years_rule_should_fire": true
+          },
+          "disposition": "PASS",
+          "note": "Gold spec-listed DQ rule 'tier=senior implies years>=8' catches this contradiction at the Gold layer. This is exactly the cross-zone defense-in-depth the rule was designed for. The propagation itself is spec-correct (passthrough); the catch happens in DQ execution, not in the transformer.",
+          "cycle": 3
+        },
+        {
+          "scenario": "7_empty_silver",
+          "rate": 0.07,
+          "input_perturbation": "base.onet_experience_profiles has zero rows",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "all_experience_columns_null": true,
+            "all_branches_materialize": true,
+            "branch_count": 5
+          },
+          "disposition": "PASS",
+          "note": "Gold gracefully degrades: branches still materialize with non-experience columns intact; all 4 experience columns NULL. Confirms backward-compat contract from tests.",
+          "cycle": 3
+        },
+        {
+          "scenario": "8_duplicate_silver_grain",
+          "rate": 0.07,
+          "input_perturbation": "Appended duplicate Silver row for 11-3021 (years=2.0, tier='early'); original had years=9.0, tier='senior'",
+          "gold_output_summary": {
+            "tiers": {
+              "early": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "deterministic_behavior": "last-one-wins",
+            "resulting_years": 2.0,
+            "resulting_tier": "early"
+          },
+          "disposition": "PASS",
+          "note": "Silver grain-uniqueness rule is authoritative; Gold's dict-comprehension lookup is deterministically last-one-wins. Would not happen in practice because Silver DQ blocks it.",
+          "cycle": 3
+        },
+        {
+          "scenario": "9_sparse_silver_delta_range",
+          "rate": 0.07,
+          "input_perturbation": "Silver pruned to only {11-1011, 41-2031}; all other branches should have NULL deltas",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 4,
+              "entry": 1
+            },
+            "source_experience_years_null_count": 4,
+            "related_experience_years_null_count": 4,
+            "experience_delta_years_null_count": 4,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": -11.25
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "non_null_delta_count": 1,
+            "non_null_delta_values": [
+              -11.25
+            ],
+            "null_delta_count": 4,
+            "user_quoted_rule_holds_nulls_excluded": true,
+            "spec_range_minus10_would_trip_on_minus11_25": true
+          },
+          "disposition": "PASS",
+          "note": "NULL rows are correctly excluded from predicate evaluation. The sole non-null delta (-11.25) passes user-quoted GLD-CB-EXP-002 (-12..12) but would trip the spec-text -10..15 bound. This is NOT a Gold bug \u2014 it surfaces a tension between the spec's stated range and the live rule, worth flagging to the rule writer.",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "results": [
+        {
+          "scenario": "1_silver_missing_source",
+          "rate": 0.08,
+          "input_perturbation": "Dropped all Silver rows for source SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "source_experience_years_all_null": true,
+            "experience_delta_years_all_null": true,
+            "related_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when source is missing.",
+          "cycle": 4
+        },
+        {
+          "scenario": "2_silver_missing_related",
+          "rate": 0.08,
+          "input_perturbation": "Dropped all Silver rows for related SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "related_experience_years_all_null": true,
+            "related_experience_tier_all_null": true,
+            "experience_delta_years_all_null": true,
+            "source_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when related is missing.",
+          "cycle": 4
+        },
+        {
+          "scenario": "3_silver_tier_invalid",
+          "rate": 0.08,
+          "input_perturbation": "Set experience_tier='unknown' on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "unknown": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_invalid_tier_verbatim": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Gold design is passthrough per \u00a7Zone 3 and test_tier_flows_through_verbatim. The Silver DQ enum rule (experience_tier IN ('entry','early','mid','senior')) is the authoritative guard. Gold defense-in-depth would be nice-to-have but is not required by spec.",
+          "cycle": 4
+        },
+        {
+          "scenario": "4_silver_years_negative",
+          "rate": 0.08,
+          "input_perturbation": "Set experience_years_typical=-1.0 on Silver row for 15-1252",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 10.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_negative_years": true,
+            "gold_propagated_inflated_delta": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Silver DQ rule 'experience_years_typical 0 <= years <= 15' is P0 and authoritative. Gold passes through per spec. Defense-in-depth at Gold (non-negative guard) would be redundant but not harmful.",
+          "cycle": 4
+        },
+        {
+          "scenario": "5_silver_years_extreme",
+          "rate": 0.08,
+          "input_perturbation": "Set experience_years_typical=12.5 on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "delta_correctly_represents_extreme": true,
+            "computed_delta": 5.5,
+            "expected_delta": 5.5
+          },
+          "disposition": "PASS",
+          "note": "12.5 stays within Silver DQ bound (0..15). Delta of 5.5 is well inside both GLD-CB-EXP-002 (-12..12) and spec -10..15 ranges. Gold correctly represents the extreme value.",
+          "cycle": 4
+        },
+        {
+          "scenario": "6_tier_contradiction",
+          "rate": 0.08,
+          "input_perturbation": "Set years=7.0 and tier='senior' on Silver row for 11-3021 (should be 'mid' per spec tier thresholds)",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 1
+          },
+          "invariants": {
+            "gold_propagated_contradiction": true,
+            "senior_years_rule_should_fire": true
+          },
+          "disposition": "PASS",
+          "note": "Gold spec-listed DQ rule 'tier=senior implies years>=8' catches this contradiction at the Gold layer. This is exactly the cross-zone defense-in-depth the rule was designed for. The propagation itself is spec-correct (passthrough); the catch happens in DQ execution, not in the transformer.",
+          "cycle": 4
+        },
+        {
+          "scenario": "7_empty_silver",
+          "rate": 0.08,
+          "input_perturbation": "base.onet_experience_profiles has zero rows",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "all_experience_columns_null": true,
+            "all_branches_materialize": true,
+            "branch_count": 5
+          },
+          "disposition": "PASS",
+          "note": "Gold gracefully degrades: branches still materialize with non-experience columns intact; all 4 experience columns NULL. Confirms backward-compat contract from tests.",
+          "cycle": 4
+        },
+        {
+          "scenario": "8_duplicate_silver_grain",
+          "rate": 0.08,
+          "input_perturbation": "Appended duplicate Silver row for 11-3021 (years=2.0, tier='early'); original had years=9.0, tier='senior'",
+          "gold_output_summary": {
+            "tiers": {
+              "early": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "deterministic_behavior": "last-one-wins",
+            "resulting_years": 2.0,
+            "resulting_tier": "early"
+          },
+          "disposition": "PASS",
+          "note": "Silver grain-uniqueness rule is authoritative; Gold's dict-comprehension lookup is deterministically last-one-wins. Would not happen in practice because Silver DQ blocks it.",
+          "cycle": 4
+        },
+        {
+          "scenario": "9_sparse_silver_delta_range",
+          "rate": 0.08,
+          "input_perturbation": "Silver pruned to only {11-1011, 41-2031}; all other branches should have NULL deltas",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 4,
+              "entry": 1
+            },
+            "source_experience_years_null_count": 4,
+            "related_experience_years_null_count": 4,
+            "experience_delta_years_null_count": 4,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": -11.25
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "non_null_delta_count": 1,
+            "non_null_delta_values": [
+              -11.25
+            ],
+            "null_delta_count": 4,
+            "user_quoted_rule_holds_nulls_excluded": true,
+            "spec_range_minus10_would_trip_on_minus11_25": true
+          },
+          "disposition": "PASS",
+          "note": "NULL rows are correctly excluded from predicate evaluation. The sole non-null delta (-11.25) passes user-quoted GLD-CB-EXP-002 (-12..12) but would trip the spec-text -10..15 bound. This is NOT a Gold bug \u2014 it surfaces a tension between the spec's stated range and the live rule, worth flagging to the rule writer.",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "results": [
+        {
+          "scenario": "1_silver_missing_source",
+          "rate": 0.1,
+          "input_perturbation": "Dropped all Silver rows for source SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "source_experience_years_all_null": true,
+            "experience_delta_years_all_null": true,
+            "related_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when source is missing.",
+          "cycle": 5
+        },
+        {
+          "scenario": "2_silver_missing_related",
+          "rate": 0.1,
+          "input_perturbation": "Dropped all Silver rows for related SOCs in fixture",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "related_experience_years_all_null": true,
+            "related_experience_tier_all_null": true,
+            "experience_delta_years_all_null": true,
+            "source_experience_years_still_populated_somewhere": true
+          },
+          "disposition": "PASS",
+          "note": "Spec \u00a7Zone 3: NULL-propagating delta when related is missing.",
+          "cycle": 5
+        },
+        {
+          "scenario": "3_silver_tier_invalid",
+          "rate": 0.1,
+          "input_perturbation": "Set experience_tier='unknown' on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "unknown": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_invalid_tier_verbatim": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Gold design is passthrough per \u00a7Zone 3 and test_tier_flows_through_verbatim. The Silver DQ enum rule (experience_tier IN ('entry','early','mid','senior')) is the authoritative guard. Gold defense-in-depth would be nice-to-have but is not required by spec.",
+          "cycle": 5
+        },
+        {
+          "scenario": "4_silver_years_negative",
+          "rate": 0.1,
+          "input_perturbation": "Set experience_years_typical=-1.0 on Silver row for 15-1252",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 10.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "gold_propagated_negative_years": true,
+            "gold_propagated_inflated_delta": true
+          },
+          "disposition": "ACCEPTABLE",
+          "note": "Silver DQ rule 'experience_years_typical 0 <= years <= 15' is P0 and authoritative. Gold passes through per spec. Defense-in-depth at Gold (non-negative guard) would be redundant but not harmful.",
+          "cycle": 5
+        },
+        {
+          "scenario": "5_silver_years_extreme",
+          "rate": 0.1,
+          "input_perturbation": "Set experience_years_typical=12.5 on Silver row for 11-3021",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "delta_correctly_represents_extreme": true,
+            "computed_delta": 5.5,
+            "expected_delta": 5.5
+          },
+          "disposition": "PASS",
+          "note": "12.5 stays within Silver DQ bound (0..15). Delta of 5.5 is well inside both GLD-CB-EXP-002 (-12..12) and spec -10..15 ranges. Gold correctly represents the extreme value.",
+          "cycle": 5
+        },
+        {
+          "scenario": "6_tier_contradiction",
+          "rate": 0.1,
+          "input_perturbation": "Set years=7.0 and tier='senior' on Silver row for 11-3021 (should be 'mid' per spec tier thresholds)",
+          "gold_output_summary": {
+            "tiers": {
+              "senior": 2,
+              "entry": 1,
+              "mid": 2
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 1
+          },
+          "invariants": {
+            "gold_propagated_contradiction": true,
+            "senior_years_rule_should_fire": true
+          },
+          "disposition": "PASS",
+          "note": "Gold spec-listed DQ rule 'tier=senior implies years>=8' catches this contradiction at the Gold layer. This is exactly the cross-zone defense-in-depth the rule was designed for. The propagation itself is spec-correct (passthrough); the catch happens in DQ execution, not in the transformer.",
+          "cycle": 5
+        },
+        {
+          "scenario": "7_empty_silver",
+          "rate": 0.1,
+          "input_perturbation": "base.onet_experience_profiles has zero rows",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 5
+            },
+            "source_experience_years_null_count": 5,
+            "related_experience_years_null_count": 5,
+            "experience_delta_years_null_count": 5,
+            "experience_delta_years_min": null,
+            "experience_delta_years_max": null
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 0,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "all_experience_columns_null": true,
+            "all_branches_materialize": true,
+            "branch_count": 5
+          },
+          "disposition": "PASS",
+          "note": "Gold gracefully degrades: branches still materialize with non-experience columns intact; all 4 experience columns NULL. Confirms backward-compat contract from tests.",
+          "cycle": 5
+        },
+        {
+          "scenario": "8_duplicate_silver_grain",
+          "rate": 0.1,
+          "input_perturbation": "Appended duplicate Silver row for 11-3021 (years=2.0, tier='early'); original had years=9.0, tier='senior'",
+          "gold_output_summary": {
+            "tiers": {
+              "early": 1,
+              "entry": 1,
+              "mid": 2,
+              "senior": 1
+            },
+            "source_experience_years_null_count": 0,
+            "related_experience_years_null_count": 0,
+            "experience_delta_years_null_count": 0,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": 6.0
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "deterministic_behavior": "last-one-wins",
+            "resulting_years": 2.0,
+            "resulting_tier": "early"
+          },
+          "disposition": "PASS",
+          "note": "Silver grain-uniqueness rule is authoritative; Gold's dict-comprehension lookup is deterministically last-one-wins. Would not happen in practice because Silver DQ blocks it.",
+          "cycle": 5
+        },
+        {
+          "scenario": "9_sparse_silver_delta_range",
+          "rate": 0.1,
+          "input_perturbation": "Silver pruned to only {11-1011, 41-2031}; all other branches should have NULL deltas",
+          "gold_output_summary": {
+            "tiers": {
+              "null": 4,
+              "entry": 1
+            },
+            "source_experience_years_null_count": 4,
+            "related_experience_years_null_count": 4,
+            "experience_delta_years_null_count": 4,
+            "experience_delta_years_min": -11.25,
+            "experience_delta_years_max": -11.25
+          },
+          "rule_violations": {
+            "GLD-CB-EXP-delta-bound (user-quoted -12..12)": 0,
+            "GLD-CB-EXP-delta-range (spec -10..15)": 1,
+            "GLD-CB-EXP-senior-years (>=8 when tier=senior)": 0
+          },
+          "invariants": {
+            "non_null_delta_count": 1,
+            "non_null_delta_values": [
+              -11.25
+            ],
+            "null_delta_count": 4,
+            "user_quoted_rule_holds_nulls_excluded": true,
+            "spec_range_minus10_would_trip_on_minus11_25": true
+          },
+          "disposition": "PASS",
+          "note": "NULL rows are correctly excluded from predicate evaluation. The sole non-null delta (-11.25) passes user-quoted GLD-CB-EXP-002 (-12..12) but would trip the spec-text -10..15 bound. This is NOT a Gold bug \u2014 it surfaces a tension between the spec's stated range and the live rule, worth flagging to the rule writer.",
+          "cycle": 5
+        }
+      ]
+    }
+  ],
+  "aggregate": {
+    "PASS": 35,
+    "GAP": 0,
+    "ACCEPTABLE": 10
+  },
+  "per_scenario_dispositions": {
+    "1_silver_missing_source": [
+      "PASS"
+    ],
+    "2_silver_missing_related": [
+      "PASS"
+    ],
+    "3_silver_tier_invalid": [
+      "ACCEPTABLE"
+    ],
+    "4_silver_years_negative": [
+      "ACCEPTABLE"
+    ],
+    "5_silver_years_extreme": [
+      "PASS"
+    ],
+    "6_tier_contradiction": [
+      "PASS"
+    ],
+    "7_empty_silver": [
+      "PASS"
+    ],
+    "8_duplicate_silver_grain": [
+      "PASS"
+    ],
+    "9_sparse_silver_delta_range": [
+      "PASS"
+    ]
+  }
+}
