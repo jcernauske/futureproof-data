@@ -9,16 +9,68 @@
 table: consumable.ai_exposure
 namespace: consumable
 zone: gold
-version: "1.0.0"
+version: "1.1.0"
 grain:
   - soc_code
 status: draft
 owner: "@doc-generator"
 quality_tier: llm_generated
 spec_reference: docs/specs/raw-ingest-karpathy-ai-exposure.md
+spec_references:
+  - docs/specs/raw-ingest-karpathy-ai-exposure.md
+  - docs/specs/gemma-ai-exposure-rescore.md
+  - docs/specs/raw-ingest-anthropic-economic-index.md
 physical_model: governance/models/gold-ai-exposure-physical.md
 data_dictionary: governance/data-dictionary.json
 record_count: 389
+
+# ------------------------------------------------------------------
+# Version history
+# ------------------------------------------------------------------
+# v1.0.0 (2026-04-09) — Karpathy-only load. Initial contract.
+# v1.1.0 (2026-04-16) — Additive. Added 4 Anthropic Economic Index columns
+#   (observed_exposure_pct, automation_pct, anthropic_task_count,
+#   anthropic_source_release) via LEFT JOIN on base.anthropic_observed_exposure.
+#   All 4 additive columns are nullable; no existing fields modified.
+#   Non-breaking minor bump.
+# v1.2.0 (2026-04-16) — S4 three-signal-ai-exposure-composite (Option B).
+#   Renamed observed_exposure_pct → ai_adoption_share (semantic fix: value is
+#   share of Claude conversations, not task-coverage percent). Appended 5
+#   composite fields (composite_exposure, adoption_percentile,
+#   confidence_weight, velocity_label, composite_method). stat_res and
+#   boss_ai_score are now derived from composite_exposure instead of raw
+#   exposure_score when adoption data is available. Rename is backward-
+#   compatible via Iceberg field IDs (field 15 ID preserved). Minor bump
+#   because consumers keying on the old column name must update.
+
+# ------------------------------------------------------------------
+# License
+# ------------------------------------------------------------------
+# Gold consumable.ai_exposure blends multiple sources with distinct licenses:
+#   - Karpathy (MIT) — exposure_score, rationale, category
+#   - Gemma rescore (project-owned) — task_breakdown_* , scoring_model, model_tag
+#   - Anthropic Economic Index (CC-BY 4.0) — observed_exposure_pct,
+#     automation_pct, anthropic_task_count, anthropic_source_release
+# The CC-BY 4.0 attribution applies to any published analysis that surfaces
+# Anthropic-derived values. See LICENSE_SOURCES.md for the authoritative map.
+license:
+  mixed_sources: true
+  components:
+    - source: "Karpathy AI Exposure"
+      type: MIT
+      fields: [exposure_score, rationale, category, stat_res, boss_ai_score, karpathy_score]
+    - source: "Gemma 4 rescore (project-owned)"
+      type: project-owned
+      fields: [task_breakdown_automatable, task_breakdown_human, scoring_model, model_tag]
+    - source: "Anthropic Economic Index"
+      type: CC-BY-4.0
+      attribution: "Economic Index Dataset, Anthropic (2026)"
+      url: https://huggingface.co/datasets/Anthropic/EconomicIndex
+      requires_citation: true
+      fields: [ai_adoption_share, automation_pct, anthropic_task_count, anthropic_source_release]
+    - source: "FutureProof Option B composite"
+      type: project-owned
+      fields: [composite_exposure, adoption_percentile, confidence_weight, velocity_label, composite_method]
 
 columns:
   - name: record_id
@@ -196,35 +248,379 @@ columns:
       Timestamp when the row was promoted to the Gold zone consumable table.
       Generated at promotion time. Replaces Silver's ingested_at.
 
+  # ------------------------------------------------------------------
+  # v4 additive fields (gemma-ai-exposure-rescore-v4)
+  # ------------------------------------------------------------------
+
+  - name: task_breakdown_automatable
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      JSON-encoded list of tasks Gemma flagged as AI-automatable. Powers
+      the "what AI is already eating" frontend narrative. NULL on
+      Karpathy-fallback rows. Decoded to a native array by the MCP
+      server before returning to callers.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON-encoded array of strings. Populated for scoring_model='gemma-4'
+      rows only. Consumed by Fight AI boss detail and receipts.
+
+  - name: task_breakdown_human
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      JSON-encoded list of tasks Gemma flagged as human-essential.
+      Powers the "what still needs humans" frontend narrative. NULL on
+      Karpathy-fallback rows.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      JSON-encoded array of strings. Populated for scoring_model='gemma-4'
+      rows only.
+
+  - name: scoring_model
+    type: varchar
+    required: true
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Provenance label — 'gemma-4' when this row came from our Gemma 4
+      batch, 'gemini-flash' when it fell back to Karpathy. Threads
+      through to frontend disclaimer ('AI-estimated by Gemma') and
+      receipts.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      One of 'gemma-4' | 'gemini-flash'. Always present.
+
+  - name: model_tag
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Exact Ollama model tag (e.g., 'gemma4:26b-a4b'). Row-level
+      reproducibility — auditors can trace each Gemma-scored row to
+      a specific local model version. NULL for Karpathy rows (no
+      model-version tracking in the prior art).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Populated only when scoring_model='gemma-4'.
+
+  - name: karpathy_score
+    type: integer
+    required: false
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Karpathy's pre-Gemma score (0-10) preserved for comparison on
+      Gemma-preferred rows. Equal to exposure_score on
+      scoring_model='gemini-flash' rows. NULL when Karpathy has no
+      row for this SOC.
+
+  # ------------------------------------------------------------------
+  # v1.1.0 additive fields — Anthropic Economic Index
+  # Source: base.anthropic_observed_exposure (LEFT JOIN on soc_code)
+  # License: CC-BY 4.0 (see license block above)
+  # All four fields are nullable — a Gold row lacks Anthropic values when
+  # the SOC has no observed Claude traffic mapped to it (~39% of rows per
+  # EDA, a documented dataset limitation).
+  # ------------------------------------------------------------------
+
+  - name: ai_adoption_share
+    type: double
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Empirical AI adoption signal from the Anthropic Economic Index
+      (CC-BY 4.0). Consumed by the S4 Option B composite as the
+      confidence-prior input that drives adoption_percentile, velocity_label,
+      and the Gemma-vs-Karpathy blend weight. Renamed from
+      observed_exposure_pct in v4 — see spec
+      docs/specs/three-signal-ai-exposure-composite-v3.md §4 for the full
+      rationale. Wrong values silently miscalibrate stat_res and Fight AI
+      boss on the ~510 of 832 SOCs that have Anthropic coverage.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Share of classified Claude conversations (range 0.0015-7.51 across 587
+      Anthropic-covered SOCs) aggregated per SOC. NOT a percent of tasks
+      automated — the value semantically measures adoption share, which is
+      why v4 renamed the column from observed_exposure_pct. Used by the
+      Option B composite as a confidence prior; absolute value is
+      irrelevant, only the percentile rank matters. Populated for ~61% of
+      SOCs; missing SOCs are Claude-doesn't-touch, not errors. Carried from
+      base.anthropic_observed_exposure.observed_exposure_pct (Silver field
+      name stays pre-v4).
+    dq_rules:
+      - GLD-AIE-ANT-001
+      - GLD-AIE-ANT-004
+    constraints:
+      - "CHECK (ai_adoption_share IS NULL OR (ai_adoption_share >= 0 AND ai_adoption_share <= 100))"
+
+  - name: automation_pct
+    type: double
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Automation share from the Anthropic Economic Index v2 methodology
+      (directive + feedback_loop). Paired with observed_exposure_pct in
+      MCP triple responses; drives the "AI is doing the work" narrative in
+      the Fight AI boss detail panel. Excludes 'learning' per v2
+      methodology (user remains in control -> augmentation).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Automation share for this occupation, percent units (0-100).
+      Volume-weighted mean from base.anthropic_observed_exposure.
+      NULL when every contributing Anthropic task was fully filtered
+      (~15% of Anthropic-covered SOCs), even when observed_exposure_pct
+      is populated.
+    dq_rules:
+      - GLD-AIE-ANT-002
+      - GLD-AIE-ANT-005
+    constraints:
+      - "CHECK (automation_pct IS NULL OR (automation_pct >= 0 AND automation_pct <= 100))"
+
+  - name: anthropic_task_count
+    type: integer
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Confidence signal for the S4 three-signal composite and MCP responses.
+      Tells downstream how many Anthropic-measured tasks backed this SOC's
+      observed_exposure_pct. Low-evidence SOCs (task_count < 3) may be
+      down-weighted in composite scoring or flagged with a 'low-evidence'
+      badge on the Fight AI boss detail. Renamed from Silver's task_count
+      to disambiguate future non-Anthropic task-count fields on
+      consumable.ai_exposure.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of distinct Anthropic-measured tasks contributing to this SOC's
+      observed_exposure_pct. Range [1, 141] where populated; median 4.
+      NULL when the SOC has no Anthropic coverage.
+    dq_rules:
+      - GLD-AIE-ANT-006
+    constraints:
+      - "CHECK (anthropic_task_count IS NULL OR anthropic_task_count >= 1)"
+
+  - name: anthropic_source_release
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      CC-BY 4.0 attribution field. Surfaced in MCP attribution footer
+      ('Source: Anthropic Economic Index v2, release 2025-03-27, CC-BY 4.0')
+      on any response carrying Anthropic-derived metrics. Also flows into
+      the S4 composite provenance block. Pinned to 'release_2025_03_27' at
+      v1.1.0 landing.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Anthropic release identifier at the time Anthropic values were
+      ingested, e.g. 'release_2025_03_27'. Aliased from Silver
+      source_release. NULL when the SOC has no Anthropic coverage. Drives
+      the attribution string on downstream product surfaces (MCP, Fight AI
+      boss detail, published analyses).
+    dq_rules:
+      - GLD-AIE-ANT-003
+      - GLD-AIE-ANT-008
+
+  # ------------------------------------------------------------------
+  # S4 v4 Option B composite fields (added in v1.2.0)
+  # ------------------------------------------------------------------
+  # Source: computed in src/gold/ai_exposure_transformer.py::compute_composite
+  # from exposure_score + karpathy_score + ai_adoption_share.
+  # stat_res (field 5) and boss_ai_score (field 6) are recomputed from
+  # composite_exposure at blend time — see transform() second pass.
+  # ------------------------------------------------------------------
+
+  - name: composite_exposure
+    type: integer
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Authoritative 0-10 AI exposure score after Option B blending. Drives
+      stat_res = MIN(11 - composite_exposure, 10) and
+      boss_ai_score = MAX(composite_exposure, 1) for every Gold row that has
+      at least one input signal. Wrong values silently miscalibrate the RES
+      pentagon stat and Fight AI boss across all downstream consumers
+      (receipts, narrative prompts, branch tree).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Option B composite exposure on 0-10 scale. Derived from
+      confidence * theoretical + (1 - confidence) * baseline where
+      confidence = clamp(0.3 + 0.7 * adoption_percentile / 100, 0.3, 1.0)
+      and theoretical/baseline are the Gemma/Karpathy scores respectively.
+      Fallback paths: karpathy_only (no Gemma), gemma_only/gemma_plus_anthropic
+      (no Karpathy), observed_override (theoretical=0 with adoption>0). NULL
+      only when both theoretical and baseline are missing.
+    dq_rules:
+      - GLD-AIE-CMP-001
+      - GLD-AIE-CMP-002
+    constraints:
+      - "CHECK (composite_exposure IS NULL OR (composite_exposure >= 0 AND composite_exposure <= 10))"
+
+  - name: adoption_percentile
+    type: double
+    required: false
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Percent-rank of ai_adoption_share across all Gold rows that have
+      Anthropic coverage (range 0-100). Drives both confidence_weight and
+      velocity_label. NULL when ai_adoption_share is NULL (no Anthropic
+      coverage for this SOC).
+    dq_rules:
+      - GLD-AIE-CMP-003
+    constraints:
+      - "CHECK (adoption_percentile IS NULL OR (adoption_percentile >= 0 AND adoption_percentile <= 100))"
+
+  - name: confidence_weight
+    type: double
+    required: false
+    business_term: ""
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Option B blend weight on the Gemma theoretical signal. Computed as
+      clamp(0.3 + 0.7 * adoption_percentile / 100, 0.3, 1.0) when
+      ai_adoption_share is populated, otherwise 0.5 (neutral fallback).
+      High confidence → trust Gemma; low confidence → lean on Karpathy
+      baseline.
+    dq_rules:
+      - GLD-AIE-CMP-004
+    constraints:
+      - "CHECK (confidence_weight IS NULL OR (confidence_weight >= 0.3 AND confidence_weight <= 1.0))"
+
+  - name: velocity_label
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Coarse adoption-velocity bucket surfaced in the Fight AI boss
+      narrative prompt and RES receipt. Drives the coach-facing framing
+      of "wave is here" vs. "wave is arriving" vs. "wave hasn't hit yet".
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      One of: saturating (percentile >= 90), accelerating (>= 70), emerging
+      (>= 40), nascent (< 40), unknown (no Anthropic data). Derived from
+      adoption_percentile.
+    dq_rules:
+      - GLD-AIE-CMP-005
+    constraints:
+      - "CHECK (velocity_label IS NULL OR velocity_label IN ('saturating', 'accelerating', 'emerging', 'nascent', 'unknown'))"
+
+  - name: composite_method
+    type: varchar
+    required: false
+    business_term: ""
+    is_cde: true
+    cde_rationale: >
+      Provenance field — records which combination of signals produced the
+      composite for this row. Surfaced verbatim in the RES receipt so the
+      student can see the method. Also drives A/B evaluation downstream.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      One of: three_signal (Gemma + Karpathy + Anthropic), gemma_plus_anthropic
+      (Gemma + Anthropic, no Karpathy), two_signal_no_anthropic (Gemma + Karpathy,
+      no Anthropic), gemma_only (Gemma only), karpathy_only (Karpathy fallback),
+      observed_override (Gemma=0 but adoption>0), no_data (both signals None —
+      excluded from Gold).
+    dq_rules:
+      - GLD-AIE-CMP-006
+    constraints:
+      - "CHECK (composite_method IS NULL OR composite_method IN ('three_signal', 'two_signal_no_anthropic', 'gemma_plus_anthropic', 'gemma_only', 'karpathy_only', 'observed_override', 'no_data'))"
+
 # Quality thresholds based on physical model constraints, DQ rules, and EDA findings.
 quality:
   completeness:
     required_fields_null_tolerance: 0.0
+    # v1.1.0 additive fields — nullable by design
+    ai_adoption_share_min_population: 0.60   # >= 60% of rows carry Anthropic values
+    anthropic_source_release_required_when_any_anthropic_field_present: true
+    # v1.2.0 composite fields — populated on every row that has at least one
+    # signal, i.e. the Gemma/Karpathy population (== record_count).
+    composite_exposure_min_population: 0.99
+    composite_method_min_population: 0.99
+    velocity_label_min_population: 0.99
   validity:
     soc_code_format: "^\\d{2}-\\d{4}$"
     exposure_score_range: [0, 10]
     stat_res_range: [1, 10]
     boss_ai_score_range: [1, 10]
     rationale_min_length: 100
+    # v1.1.0 additive fields
+    ai_adoption_share_range: [0, 100]  # physical bound; real data 0.0015-7.51
+    automation_pct_range: [0, 100]
+    anthropic_task_count_min: 1
+    anthropic_source_release_pinned_value: "release_2025_03_27"
+    # v1.2.0 composite fields
+    composite_exposure_range: [0, 10]
+    adoption_percentile_range: [0, 100]
+    confidence_weight_range: [0.3, 1.0]
+    velocity_label_values: [saturating, accelerating, emerging, nascent, unknown]
+    composite_method_values: [three_signal, two_signal_no_anthropic, gemma_plus_anthropic, gemma_only, karpathy_only, observed_override, no_data]
   uniqueness:
     grain_zero_duplicates: true
     record_id_unique: true
     soc_code_unique: true
   volume:
-    row_count_range: [370, 409]
+    # Pre-v4: Karpathy-only 389 rows ±5% (370–409). Post-v4: union of
+    # Gemma (798) and Karpathy-only residual (~42) ≈ 820–860. Both
+    # bands are accepted during the transition period; GLD-AIE-003
+    # gates the Karpathy-only band and GLD-AIE-016 gates the v4 band.
+    row_count_range_karpathy_only: [370, 409]
+    row_count_range_v4_blended: [820, 860]
   consistency:
     stat_res_derivation: "MIN(11 - exposure_score, 10)"
     boss_ai_score_derivation: "MAX(exposure_score, 1)"
     inverse_invariant: "stat_res + boss_ai_score = 11 WHERE exposure_score >= 1"
     cross_table_soc_code_valid: "all soc_codes exist in consumable.occupation_profiles"
+    # v1.1.0 regression guarantee
+    anthropic_additive_non_mutating: >
+      LEFT JOIN of base.anthropic_observed_exposure onto consumable.ai_exposure
+      MUST NOT modify stat_res, boss_ai_score, or any pre-v1.1.0 column value.
+      Enforced by GLD-AIE-ANT-007.
   freshness_sla: >
-    Event-driven refresh. Re-ingest when Karpathy updates scores or when
-    project re-scores with a different model (e.g., Gemma). No fixed cadence.
+    Event-driven refresh. Re-ingest when Karpathy updates scores, when the
+    project re-scores with a different model (e.g., Gemma), or when Anthropic
+    republishes the Economic Index with task-level aggregates. No fixed cadence.
 
 # DQ rules governing this table.
 dq_rules:
   rule_file: governance/dq-rules/gold-ai-exposure.json
   total_rules: 15
+  additive_rule_files:
+    - file: governance/dq-rules/gold-ai-exposure-anthropic.json
+      description: >
+        v1.1.0 Anthropic-specific rules (GLD-AIE-ANT-001..008). Separate file
+        because base gold-ai-exposure.json was signed off pre-Anthropic.
+      total_rules: 8
 
 # Breaking change policy.
 breaking_changes:
@@ -238,9 +634,18 @@ breaking_changes:
 
 # Lineage reference.
 lineage:
-  source_table: base.karpathy_ai_exposure
+  # v1.1.0: Gold now blends THREE Silver sources via left joins on soc_code.
+  # base.anthropic_observed_exposure is additive-only (no conflict with the
+  # prior Karpathy/Gemma blend).
+  source_tables:
+    - base.gemma_ai_exposure              # v4 primary source (Karpathy/Gemma blend)
+    - base.karpathy_ai_exposure           # v4 fallback (Karpathy/Gemma blend)
+    - base.anthropic_observed_exposure    # v1.1.0 additive (Anthropic observed exposure)
+  source_table: base.karpathy_ai_exposure  # legacy name, retained for backward compat
   transformation: src/gold/ai_exposure_transformer.py
   lineage_file: governance/lineage/gold-ai-exposure-20260409T220000Z.json
+  additive_lineage_files:
+    - governance/lineage/gold-ai-exposure-anthropic-{timestamp}.json
 
 # PII assessment.
 pii:
@@ -248,8 +653,12 @@ pii:
   pii_fields: []
   assessment_notes: >
     No PII in this table. All data is occupation-level aggregate information
-    derived from public BLS occupation classifications and LLM-generated scores.
-    No individual-level data, no names, no addresses, no demographic information.
+    derived from public BLS occupation classifications, LLM-generated scores,
+    and the Anthropic Economic Index (SOC-level aggregate over millions of
+    Claude conversations; Anthropic's 'filtered' axis removed any
+    privacy-sensitive conversations before publication). No individual-level
+    data, no names, no addresses, no demographic information. Confirmed at
+    v1.1.0 via governance/pii/raw-anthropic-economic-index-pii-scan.md.
 
 # Consumers -- downstream tables and processes that depend on this contract.
 consumers:
@@ -287,5 +696,25 @@ consumers:
     description: >
       Consumes boss_ai_score for the Fight AI boss fight. Depends on score
       range (1-10) and derivation correctness.
+    contact: "@primary-agent"
+    status: active
+  # v1.1.0 consumers
+  - name: "consumable.ai_exposure_composite (future, S4)"
+    type: table
+    description: >
+      Three-signal AI-exposure composite. Reads observed_exposure_pct +
+      automation_pct (Anthropic) alongside exposure_score/stat_res (Karpathy/
+      Gemma) to produce stat_res_composite and boss_ai_score_composite. This
+      consumer is why the v1.1.0 additive columns exist.
+    contact: "@primary-agent"
+    status: planned
+    blocked_by: docs/specs/three-signal-ai-exposure-composite.md
+  - name: "MCP attribution footer (CC-BY 4.0)"
+    type: policy
+    description: >
+      Any MCP response that surfaces observed_exposure_pct or automation_pct
+      MUST include the CC-BY 4.0 attribution string built from
+      anthropic_source_release, e.g. 'Source: Anthropic Economic Index v2,
+      release 2025-03-27, CC-BY 4.0'. Enforced at the MCP server layer.
     contact: "@primary-agent"
     status: active

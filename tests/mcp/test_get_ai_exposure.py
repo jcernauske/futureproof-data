@@ -32,6 +32,12 @@ SAMPLE_ROW = {
         "data, building models, and generating reports."
     ),
     "category": "business-and-financial",
+    # v4 additive fields surfaced via AI_EXPOSURE_RESPONSE_FIELDS.
+    "task_breakdown_automatable": '["Data aggregation", "Report generation"]',
+    "task_breakdown_human": '["Client relationship management"]',
+    "scoring_model": "gemma-4",
+    "model_tag": "gemma4:26b-a4b",
+    "karpathy_score": 8,
 }
 
 

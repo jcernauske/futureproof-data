@@ -7,11 +7,7 @@ validation, cross-field invariant, and end-to-end derive_gold_rows.
 
 import datetime
 
-import pytest
-
 from gold.ai_exposure_transformer import (
-    GRAIN_FIELDS,
-    GRAIN_PREFIX,
     add_record_ids,
     compute_boss_ai_score,
     compute_stat_res,
@@ -272,28 +268,68 @@ class TestAddRecordIds:
 # ---------------------------------------------------------------------------
 
 class TestGoldSchema:
-    """Tests for the Iceberg schema definition."""
+    """Tests for the Iceberg schema definition.
 
-    def test_schema_has_9_fields(self):
-        """consumable.ai_exposure has exactly 9 columns per physical model."""
+    S3 extends the schema to 18 fields: original 9 + 5 v4 additive
+    (Gemma/Karpathy blending) + 4 S3 additive (Anthropic observed
+    exposure).
+    """
+
+    def test_schema_has_23_fields(self):
+        """S4 v4 schema has 23 columns: 9 original + 5 Gemma + 4 Anthropic + 5 composite."""
         schema = get_gold_schema()
-        assert len(schema.fields) == 9
+        assert len(schema.fields) == 23
 
     def test_schema_field_names(self):
-        """All expected field names are present."""
+        """All expected field names are present in the documented order."""
         schema = get_gold_schema()
         names = [f.name for f in schema.fields]
         expected = [
+            # Original 9 (preserved for backward compatibility)
             "record_id", "soc_code", "occupation_title", "exposure_score",
             "stat_res", "boss_ai_score", "rationale", "category", "promoted_at",
+            # v4 additive (Gemma/Karpathy blending)
+            "task_breakdown_automatable", "task_breakdown_human",
+            "scoring_model", "model_tag", "karpathy_score",
+            # Anthropic Economic Index passthrough (field 15 renamed v4)
+            "ai_adoption_share", "automation_pct",
+            "anthropic_task_count", "anthropic_source_release",
+            # S4 v4 Option B composite fields
+            "composite_exposure", "adoption_percentile", "confidence_weight",
+            "velocity_label", "composite_method",
         ]
         assert names == expected
 
-    def test_all_fields_required(self):
-        """All Gold fields are required (non-nullable) per physical model."""
+    def test_original_fields_required(self):
+        """The original 9 fields remain NOT NULL per physical model."""
         schema = get_gold_schema()
+        required_fields = {
+            "record_id", "soc_code", "occupation_title", "exposure_score",
+            "stat_res", "boss_ai_score", "rationale", "category", "promoted_at",
+        }
         for field in schema.fields:
-            assert field.required, f"Field {field.name} should be required"
+            if field.name in required_fields:
+                assert field.required, f"Original field {field.name} must be required"
+
+    def test_scoring_model_required(self):
+        """scoring_model is required at Gold (always 'gemma-4' or 'gemini-flash')."""
+        schema = get_gold_schema()
+        by_name = {f.name: f for f in schema.fields}
+        assert by_name["scoring_model"].required
+
+    def test_optional_v4_fields(self):
+        """task_breakdown_*, model_tag, karpathy_score are nullable by design."""
+        schema = get_gold_schema()
+        by_name = {f.name: f for f in schema.fields}
+        for fname in (
+            "task_breakdown_automatable",
+            "task_breakdown_human",
+            "model_tag",
+            "karpathy_score",
+        ):
+            assert not by_name[fname].required, (
+                f"v4 additive field {fname} should be nullable"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -331,15 +367,47 @@ class TestEndToEnd:
         assert r2["stat_res"] == 9  # 11 - 2 = 9
         assert r2["boss_ai_score"] == 2
 
-    def test_gold_row_has_no_extra_fields(self):
-        """Gold rows should contain exactly the expected fields after add_record_ids."""
+    def test_gold_row_has_v4_field_set(self):
+        """Karpathy-only path stamps v4 + S3 additive fields with None/flash provenance."""
         silver = [_make_silver_row(exposure_score=5)]
         gold = derive_gold_rows(silver)
         ts = datetime.datetime(2026, 4, 9, 0, 0, 0, tzinfo=datetime.timezone.utc)
         add_record_ids(gold, ts)
 
+        # S4 v4 schema = original 9 + 5 v4 + 4 Anthropic + 5 composite fields.
         expected_keys = {
             "record_id", "soc_code", "occupation_title", "exposure_score",
             "stat_res", "boss_ai_score", "rationale", "category", "promoted_at",
+            "task_breakdown_automatable", "task_breakdown_human",
+            "scoring_model", "model_tag", "karpathy_score",
+            "ai_adoption_share", "automation_pct",
+            "anthropic_task_count", "anthropic_source_release",
+            "composite_exposure", "adoption_percentile", "confidence_weight",
+            "velocity_label", "composite_method",
         }
         assert set(gold[0].keys()) == expected_keys
+
+        # Karpathy-only path stamps gemini-flash provenance.
+        r = gold[0]
+        assert r["scoring_model"] == "gemini-flash"
+        assert r["model_tag"] is None
+        assert r["task_breakdown_automatable"] is None
+        assert r["task_breakdown_human"] is None
+        assert r["karpathy_score"] == 5  # equal to exposure_score
+
+        # Karpathy-only fallback has no Anthropic bridge — all four
+        # Anthropic columns emit None. The full transform() path
+        # injects real values via blend_scores + _index_anthropic.
+        assert r["ai_adoption_share"] is None
+        assert r["automation_pct"] is None
+        assert r["anthropic_task_count"] is None
+        assert r["anthropic_source_release"] is None
+
+        # Composite fields: karpathy-only path stamps karpathy_only method
+        # + unknown velocity + neutral 0.5 confidence; composite_exposure
+        # mirrors the raw Karpathy score.
+        assert r["composite_method"] == "karpathy_only"
+        assert r["velocity_label"] == "unknown"
+        assert r["confidence_weight"] == 0.5
+        assert r["adoption_percentile"] is None
+        assert r["composite_exposure"] == 5

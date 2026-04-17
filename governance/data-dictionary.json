@@ -466,17 +466,18 @@
       }
     },
     "consumable.career_outcomes": {
-      "description": "The core career outcomes data product for FutureProof. Each row represents one academic program at one institution at one credential level, enriched with cross-institution percentile bands, debt-to-earnings ratios, earnings rankings, and data confidence tiers. This table powers the FutureProof query pattern: 'If I study X at school Y, what earnings and debt outcomes can I expect?' All 69,947 Silver base rows are carried forward with flags (not filtered), so downstream consumers can apply their own filtering criteria.",
+      "description": "The core career outcomes data product for FutureProof. Each row represents one academic program at one institution at one credential level, enriched with cross-institution percentile bands, debt-to-earnings ratios, earnings rankings, data confidence tiers, and (as of 2026-04-16) institution-level cost attributes from the Silver institution file. This table powers the FutureProof query pattern: 'If I study X at school Y, what earnings, debt, and cost outcomes can I expect?' All 69,947 Silver base rows are carried forward with flags (not filtered), so downstream consumers can apply their own filtering criteria.",
       "zone": "consumable",
       "grain": [
         "unitid",
         "cipcode",
         "credential_level"
       ],
-      "source": "base.college_scorecard (Silver zone)",
+      "source": "base.college_scorecard (Silver zone) + base.college_scorecard_institution (Silver zone, LEFT JOIN on unitid)",
       "spec_reference": "docs/specs/gold-career-outcomes-college-scorecard.md",
+      "enrichment_spec_reference": "docs/specs/raw-ingest-college-scorecard-institution.md",
       "record_count": 69947,
-      "last_updated": "2026-04-06",
+      "last_updated": "2026-04-16",
       "updated_by": "@doc-generator",
       "columns": {
         "record_id": {
@@ -528,19 +529,24 @@
         },
         "institution_control": {
           "type": "VARCHAR",
-          "description": "The type of governance or ownership of the institution: 'Public', 'Private nonprofit', or 'Private for-profit'. NOTE: Currently 100% null due to a Bronze re-ingestion blocker (the CONTROL field was not included in the original raw parquet). Tracked by DQ rule GLD-CO-039.",
+          "description": "The type of governance or ownership of the institution: 'Public', 'Private nonprofit', or 'Private for-profit'. Used to label the CareerCard and to pick the institution-type bracket; the control-multiplexer that chose NPT4_PUB vs NPT4_PRIV was already consumed at Silver, so at Gold this field is informational (segmentation and receipts) rather than load-bearing. AS OF 2026-04-16: re-sourced from base.college_scorecard_institution via LEFT JOIN on unitid (replaces the prior 100%-null program-file carry-forward). Null for unmatched UNITIDs (observed 2.58% null / 97.42% coverage in EDA).",
           "is_cde": false,
+          "cde_rationale": "Not CDE at Gold. Categorical, segmentation/bracket-selection only. The control-multiplexer that selects npt4_pub vs npt4_priv was already consumed at Silver; at Gold the column is informational (CareerCard label, institution-type filter in MCP). Not a driver of any stat, boss, or ROI calculation. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.",
           "is_pii": false,
-          "nullable": false,
-          "source_column": "base.college_scorecard.institution_control (verbatim)",
-          "business_term": "Pending (Institution Control Type)",
+          "nullable": true,
+          "source_column": "base.college_scorecard_institution.institution_control (LEFT JOIN on unitid, added 2026-04-16)",
+          "business_term": "BT-114 (Institution Control)",
+          "observed_range": "3 values — Private nonprofit 53.2% / Public 42.0% / Private for-profit 2.23% / (null) 2.58%",
+          "observed_null_pct": 2.58,
           "dq_rules": [
+            "GLD-CSI-007",
+            "GLD-CSI-009",
             "GLD-CO-039"
           ],
-          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-20260406T220000Z.json",
-          "last_updated": "2026-04-06",
+          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+          "last_updated": "2026-04-16",
           "updated_by": "@doc-generator",
-          "notes": "Currently null for all rows. Will populate once Bronze zone re-ingests with CONTROL field."
+          "notes": "Populated by institution-cost enrichment on 2026-04-16 via LEFT JOIN to base.college_scorecard_institution on unitid. Supersedes the prior 'pending Bronze re-ingest' note; closes the 2026-04-06 insight-report recommendation to surface institution type. GLD-CO-039 is retained for historical tracking; GLD-CSI-007 is the active completeness rule."
         },
         "cipcode": {
           "type": "VARCHAR",
@@ -956,6 +962,123 @@
           ],
           "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-20260406T220000Z.json",
           "last_updated": "2026-04-06",
+          "updated_by": "@doc-generator"
+        },
+        "net_price_annual": {
+          "type": "DOUBLE",
+          "description": "The average annual cost students actually pay after grants and scholarships are subtracted from the total cost of attendance (the 'after aid' price). This is the per-year amount a student must cover through savings, earnings, or loans. Becomes the ROI-formula denominator in the follow-up spec roi-formula-cost-of-attendance.md (ROI = earnings / (net_price x 4 x loan_pct)), replacing debt_median as the denominator input, and is the authoritative per-year cost exposed to Gemma via the MCP get_school_programs tool. Can legitimately be negative at high-aid institutions when average grant aid exceeds the sticker price. Added 2026-04-16 via LEFT JOIN to base.college_scorecard_institution on unitid.",
+          "is_cde": true,
+          "cde_rationale": "Becomes the ROI-formula driver in the follow-up spec roi-formula-cost-of-attendance.md, replacing debt_median as the denominator input. Directly consumed by MCP get_school_programs as the authoritative per-year-cost-after-aid field exposed to Gemma and the product UI. Every ROI score and Fight Student Loans outcome for a matched-UNITID institution will trace through this single column. Inherits P0 invariant net_price_annual <= cost_of_attendance_annual (GLD-CSI-002). Highest-criticality column among the 7 enrichment fields.",
+          "is_pii": false,
+          "nullable": true,
+          "source_table": "base.college_scorecard_institution",
+          "source_column": "base.college_scorecard_institution.net_price_annual (LEFT JOIN on unitid, added 2026-04-16)",
+          "business_term": "BT-111 (Net Price)",
+          "observed_range": "Silver range: -$1,180 (Skyline College, high-aid) to $77,180; spot-checks Harvard $16,816, MIT $19,813, Princeton $10,555, Stanford $12,136, Yale $27,818",
+          "observed_null_pct": 4.55,
+          "dq_rules": [
+            "GLD-CSI-002",
+            "GLD-CSI-004",
+            "GLD-CSI-005"
+          ],
+          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "cost_of_attendance_annual": {
+          "type": "DOUBLE",
+          "description": "The total annual cost of attending the institution — tuition, fees, books, supplies, room and board, and living expenses — before any financial aid is applied (the 'sticker price per year'). Primary display field for receipts on the CareerCard ('Cost of attendance per year: $22,800 sticker / $14,200 after aid') and the upper-bound invariant partner for net_price_annual (net_price_annual must always be <= cost_of_attendance_annual). Silver derives this as COALESCE(COSTT4_A, COSTT4_P) from the Scorecard institution file. Added 2026-04-16 via LEFT JOIN to base.college_scorecard_institution on unitid.",
+          "is_cde": true,
+          "cde_rationale": "Upper-bound invariant partner for net_price_annual (GLD-CSI-002: net_price_annual <= cost_of_attendance_annual). Invariant partners are operationally CDE — violations mean either net_price_annual is silently inflating costs or cost_of_attendance_annual is silently breaking the sticker-price display. Primary display field for CareerCard receipts. Basis for any future cost_of_attendance_4yr derivation surfaced at Gold.",
+          "is_pii": false,
+          "nullable": true,
+          "source_table": "base.college_scorecard_institution",
+          "source_column": "base.college_scorecard_institution.cost_of_attendance_annual (LEFT JOIN on unitid, added 2026-04-16)",
+          "business_term": "BT-110 (Cost of Attendance)",
+          "observed_range": "Silver range approx $6,362 to $87,804 (median $30,288); spot-checks Harvard $82,842, MIT $79,850, Princeton $80,440, Stanford $82,162, Yale $85,120",
+          "observed_null_pct": 4.55,
+          "dq_rules": [
+            "GLD-CSI-002",
+            "GLD-CSI-006"
+          ],
+          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "net_price_4yr": {
+          "type": "DOUBLE",
+          "description": "The estimated four-year total net cost of completing a bachelor's degree at the institution, pre-materialized as net_price_annual x 4 for query convenience. Assumes a stable annual net price across four enrollment years and does not account for tuition inflation, aid-eligibility changes, or time-to-degree variance. Null-propagating: null whenever net_price_annual is null. Added 2026-04-16 via LEFT JOIN to base.college_scorecard_institution on unitid.",
+          "is_cde": false,
+          "cde_rationale": "Not CDE. Derivable display field — net_price_annual x 4. Pre-materialized for query-performance convenience; all business criticality lives on net_price_annual (CDE). Errors here can be detected and healed from the CDE partner. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.",
+          "is_pii": false,
+          "nullable": true,
+          "source_table": "base.college_scorecard_institution",
+          "source_column": "base.college_scorecard_institution.net_price_4yr (LEFT JOIN on unitid, added 2026-04-16)",
+          "business_term": "BT-113 (Net Price 4-Year Total)",
+          "observed_range": "Silver range -$4,720 (Skyline College) to $308,720 (Galen Health Institutes-Asheville); median $75,960; mean $78,683 across 2,233 non-null institutions",
+          "observed_null_pct": 4.55,
+          "dq_rules": [
+            "GLD-CSI-003"
+          ],
+          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "tuition_in_state": {
+          "type": "DOUBLE",
+          "description": "The published annual tuition and required fees for a full-time undergraduate who is a resident of the state in which the institution is located (applies primarily to public institutions; at most private institutions the in-state and out-of-state rates are equal). Display-only component of cost of attendance, used for receipt transparency. Does not drive any stat, boss, or ROI calculation. Added 2026-04-16 via LEFT JOIN to base.college_scorecard_institution on unitid.",
+          "is_cde": false,
+          "cde_rationale": "Not CDE. Display-only — already rolled into cost_of_attendance_annual (CDE). Surfaced for receipt transparency; does not drive any stat, boss, or ROI calculation. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.",
+          "is_pii": false,
+          "nullable": true,
+          "source_table": "base.college_scorecard_institution",
+          "source_column": "base.college_scorecard_institution.tuition_in_state (LEFT JOIN on unitid, added 2026-04-16)",
+          "business_term": "BT-115 (Tuition and Fees)",
+          "observed_range": "Bronze range approx $600 to $69,330 (in-state and out-of-state combined)",
+          "observed_null_pct": 3.75,
+          "dq_rules": [
+            "GLD-CSI-011"
+          ],
+          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "tuition_out_of_state": {
+          "type": "DOUBLE",
+          "description": "The published annual tuition and required fees for a full-time undergraduate who is NOT a resident of the state in which the institution is located. At most private institutions this equals tuition_in_state. Display-only component of cost of attendance, used for receipt transparency. Does not drive any stat, boss, or ROI calculation. Added 2026-04-16 via LEFT JOIN to base.college_scorecard_institution on unitid.",
+          "is_cde": false,
+          "cde_rationale": "Not CDE. Display-only — same role as tuition_in_state, already rolled into cost_of_attendance_annual. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.",
+          "is_pii": false,
+          "nullable": true,
+          "source_table": "base.college_scorecard_institution",
+          "source_column": "base.college_scorecard_institution.tuition_out_of_state (LEFT JOIN on unitid, added 2026-04-16)",
+          "business_term": "BT-115 (Tuition and Fees)",
+          "observed_range": "Bronze range approx $600 to $69,330 (in-state and out-of-state combined); spot-checks Harvard $59,076, MIT $60,156, Princeton $59,710, Stanford $62,484, Yale $64,700",
+          "observed_null_pct": 3.75,
+          "dq_rules": [
+            "GLD-CSI-011"
+          ],
+          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "room_board_on_campus": {
+          "type": "DOUBLE",
+          "description": "The combined annual charge for on-campus student housing and institution-provided meal-plan expenses. Display-only component of cost of attendance, used for receipt transparency. Legitimately null at institutions without on-campus housing (accounts for most of the ~11% null rate). Does not drive any stat, boss, or ROI calculation. Added 2026-04-16 via LEFT JOIN to base.college_scorecard_institution on unitid.",
+          "is_cde": false,
+          "cde_rationale": "Not CDE. Display-only — already rolled into cost_of_attendance_annual per the Scorecard COA definition (tuition + fees + books + room & board + living expenses). Surfaced for receipts only. Per spec raw-ingest-college-scorecard-institution.md §Zone 3.",
+          "is_pii": false,
+          "nullable": true,
+          "source_table": "base.college_scorecard_institution",
+          "source_column": "base.college_scorecard_institution.room_board_on_campus (LEFT JOIN on unitid, added 2026-04-16)",
+          "business_term": "BT-116 (Room and Board)",
+          "observed_range": "Bronze range approx $1,000 to $29,874; coverage is the weakest of the 7 enrichment fields because institutions without on-campus housing legitimately have no value",
+          "observed_null_pct": 10.98,
+          "dq_rules": [
+            "GLD-CSI-010"
+          ],
+          "lineage": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+          "last_updated": "2026-04-16",
           "updated_by": "@doc-generator"
         },
         "source_load_date": {
@@ -5938,6 +6061,75 @@
           "last_updated": "2026-04-09",
           "updated_by": "@doc-generator"
         },
+        "related_experience_years": {
+          "type": "DOUBLE",
+          "description": "The typical number of years of prior work experience that people in the branch target (related) occupation are expected to have when they enter the role, based on O*NET's Related Work Experience survey (scale RW). Sourced from base.onet_experience_profiles.experience_years_typical via LEFT JOIN on related_soc_code. For example, a branch leading to Chief Executives will show ~12 years; a branch leading to Retail Salespersons will show ~0.75 years. This is the value that powers the career tree's default-view filter (a branch is shown by default only when experience_delta_years <= 5) and the 'Unlocks at N+ years' badges in the Stage 3 branching UI. NULL when the target SOC code has no O*NET Education/Training/Experience coverage (roughly 13% of O*NET-SOC codes, concentrated in 'All Other' residual codes and recently-added occupations).",
+          "is_cde": true,
+          "cde_rationale": "Shown directly to users in the career-tree UI; feeds the default-view filter on the branching career tree; drives what experience level each branch is pitched at. An incorrect value either under-gates (exposes students to unrealistic senior-level branches) or over-gates (hides legitimate career pivots). P0 business-critical per governance/cde-tagging/onet-experience-cde-tags.md and spec §CDE & PII Assessment.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.onet_experience_profiles.experience_years_typical (via LEFT JOIN on related_soc_code = bls_soc_code)",
+          "business_term": "BT-117 (Related Work Experience)",
+          "dq_rules": [
+            "GOLD-CB-EXP-001",
+            "GOLD-CB-EXP-003"
+          ],
+          "lineage": "governance/lineage/onet-experience-gold-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: related_experience_years IS NULL OR (related_experience_years >= 0 AND related_experience_years <= 15). Range anchored to the approved midpoint table (0 for 'None' through 12 for 'Over 10 years'). DQ target: null rate < 5%."
+        },
+        "related_experience_tier": {
+          "type": "VARCHAR",
+          "description": "A simplified four-value experience classification for the branch target (related) occupation: 'entry' (0-1 years), 'early' (1-4 years), 'mid' (4-8 years), or 'senior' (8+ years). Derived in Silver from experience_years_typical using human-approved thresholds (see governance/approvals/onet-experience-requirements-open-decisions.md, approved 2026-04-16). Sourced from base.onet_experience_profiles.experience_tier via LEFT JOIN on related_soc_code. This is the field that drives decade-bucket rendering in the career-tree UI ('Your 20s' / 'Your 30s' / 'Your 40s' views) and the 'Unlocks at 8+ years' badges. A misclassification silently shows unrealistic senior-level transitions on an entry-level student's career view. NULL when the target SOC has no O*NET ETE coverage.",
+          "is_cde": true,
+          "cde_rationale": "Drives UX gating + decade bucketing on the branching career tree. A misclassification silently produces unrealistic career suggestions (senior-level branches on an entry-level student's view). Cross-boundary business-critical. P0 per governance/cde-tagging/onet-experience-cde-tags.md and spec §CDE & PII Assessment.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.onet_experience_profiles.experience_tier (via LEFT JOIN on related_soc_code = bls_soc_code)",
+          "business_term": "BT-118 (Experience Tier)",
+          "derivation_description": "Derived in Silver per spec §Zone 2 step 4: 'entry' if experience_years_typical <= 1, 'early' if 1 < years <= 4, 'mid' if 4 < years <= 8, 'senior' if years > 8. Tier thresholds human-approved 2026-04-16; see governance/approvals/onet-experience-requirements-open-decisions.md.",
+          "dq_rules": [
+            "GOLD-CB-EXP-002"
+          ],
+          "lineage": "governance/lineage/onet-experience-gold-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: related_experience_tier IS NULL OR related_experience_tier IN ('entry', 'early', 'mid', 'senior'). Cross-check DQ rule (P0): where tier = 'senior', related_experience_years >= 8."
+        },
+        "source_experience_years": {
+          "type": "DOUBLE",
+          "description": "The typical number of years of prior work experience that people in the SOURCE occupation (the node the student is branching FROM) are expected to have. Sourced from base.onet_experience_profiles.experience_years_typical via LEFT JOIN on soc_code. This anchors 'where the student is today' when the career tree computes how much additional experience each branch would require. Used only as an input to experience_delta_years — the user-facing metric. NULL when the source SOC code has no O*NET Education/Training/Experience coverage.",
+          "is_cde": true,
+          "cde_rationale": "Required input to the NULL-propagating experience_delta_years derivation; anchors the user's current career stage in the career tree. An incorrect value distorts every delta computed off this source node. P0 business-critical per governance/cde-tagging/onet-experience-cde-tags.md and spec §CDE & PII Assessment.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.onet_experience_profiles.experience_years_typical (via LEFT JOIN on soc_code = bls_soc_code)",
+          "business_term": "BT-117 (Related Work Experience)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-gold-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: source_experience_years IS NULL OR (source_experience_years >= 0 AND source_experience_years <= 15)."
+        },
+        "experience_delta_years": {
+          "type": "DOUBLE",
+          "description": "How many additional years of experience the branch target occupation typically requires compared to the source occupation. Computed as related_experience_years - source_experience_years. Positive values mean the target requires more experience than the source (a 'senior-ward' branch); negative values mean the target requires less (a 'step back' branch). NULL-propagating: the value is NULL whenever either side is NULL, so that an unknown value on the source side cannot be silently treated as zero (which would overstate the gap). This is the single most consequential gate on the career tree's default view — the UI shows branches with experience_delta_years <= 5 by default, and hides or badges those above. For example, a Software Developer (~7 years) branching to a Chief Technology Officer (~12 years) produces a delta of +5 and appears by default; a Software Developer branching to a Chief Executive (~12 years) produces a delta of +5 and also appears by default; but a Retail Salesperson (~0.75 years) branching to a Chief Executive produces a delta of +11.25 and is hidden behind the 'Unlocks at 8+ years' gate.",
+          "is_cde": true,
+          "cde_rationale": "Primary default-view threshold (branch visible iff experience_delta_years <= 5). Single most consequential gate on what a student sees in the branching career tree by default. Incorrect values either flood the default view with unrealistic jumps or suppress legitimate realistic pivots. P0 business-critical per governance/cde-tagging/onet-experience-cde-tags.md and spec §CDE & PII Assessment.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Derived: related_experience_years - source_experience_years (NULL-propagating)",
+          "business_term": "BT-117 (Related Work Experience)",
+          "derivation_description": "Derived per spec §Zone 3 (NULL-propagating): CASE WHEN exp_related.experience_years_typical IS NULL OR exp_source.experience_years_typical IS NULL THEN NULL ELSE exp_related.experience_years_typical - exp_source.experience_years_typical END. The prior COALESCE(..., 0) variant overstated the gap when source had no experience data; NULL propagation makes 'unknown' explicit per governance/approvals/onet-experience-requirements-open-decisions.md.",
+          "dq_rules": [
+            "GOLD-CB-EXP-004"
+          ],
+          "lineage": "governance/lineage/onet-experience-gold-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: experience_delta_years IS NULL OR (experience_delta_years >= -10 AND experience_delta_years <= 15). Range -10 accounts for a 12-year senior branching back to a 2-year early role; 15 accounts for a 0-year entry branching to the 12-year senior midpoint with float headroom."
+        },
         "promoted_at": {
           "type": "TIMESTAMP",
           "description": "Timestamp when the row was promoted to the Gold consumable table. Generated at promotion time.",
@@ -6354,15 +6546,21 @@
       }
     },
     "consumable.ai_exposure": {
-      "description": "Gold consumable table providing AI exposure scores, AI Resilience (RES) pentagon stats, and Fight AI boss scores for BLS occupations. Each row represents one occupation identified by SOC code, with Karpathy's LLM-generated exposure assessment and two derived game-mechanic scores. This table completes the fifth pentagon stat (RES) and the fifth boss fight (Fight AI) in the FutureProof system. Only occupations with confirmed BLS OOH matches are included (389 of 419 Silver rows).",
+      "description": "Gold consumable table providing AI exposure scores, AI Resilience (RES) pentagon stats, Fight AI boss scores, and — as of v1.1.0 — empirical Anthropic Economic Index signals for BLS occupations. Each row represents one occupation identified by SOC code. The pre-v1.1.0 fields carry Karpathy's theoretical LLM-generated exposure assessment plus two derived game-mechanic scores (stat_res, boss_ai_score); the v1.1.0 additive fields (observed_exposure_pct, automation_pct, anthropic_task_count, anthropic_source_release) carry Anthropic's empirical 'what AI is actually doing' measurement. Together these complete the fifth pentagon stat (RES) and fifth boss fight (Fight AI), and feed the forthcoming S4 three-signal composite. Only occupations with confirmed BLS OOH matches are included.",
       "zone": "consumable",
       "grain": [
         "soc_code"
       ],
-      "source": "base.karpathy_ai_exposure (Silver zone)",
+      "source": "base.karpathy_ai_exposure + base.gemma_ai_exposure + base.anthropic_observed_exposure (v1.1.0 additive LEFT JOIN on soc_code)",
       "spec_reference": "docs/specs/raw-ingest-karpathy-ai-exposure.md",
+      "spec_references": [
+        "docs/specs/raw-ingest-karpathy-ai-exposure.md",
+        "docs/specs/gemma-ai-exposure-rescore.md",
+        "docs/specs/raw-ingest-anthropic-economic-index.md"
+      ],
+      "version": "1.1.0",
       "record_count": 389,
-      "last_updated": "2026-04-09",
+      "last_updated": "2026-04-16",
       "updated_by": "@doc-generator",
       "columns": {
         "record_id": {
@@ -6521,6 +6719,76 @@
           "lineage": "governance/lineage/gold-ai-exposure-20260409T220000Z.json",
           "last_updated": "2026-04-09",
           "updated_by": "@doc-generator"
+        },
+        "observed_exposure_pct": {
+          "type": "DOUBLE",
+          "description": "The empirical AI exposure percentage for this occupation, sourced from the Anthropic Economic Index. This value answers the question 'what share of real Claude AI conversations are already being used to do work mapped to this occupation?' — in other words, AI is already doing this work, not just hypothetically could. It is expressed as a percent of all classified Claude conversations (0-100 scale). Values are populated for roughly 510 of the 832 occupations in the FutureProof catalog (~61% coverage); the remaining occupations — mostly trades, production, transport, and food service — have no observable Claude usage mapped to them, which is a documented limitation of the source data rather than a data quality problem. Added in v1.1.0 and consumed by the three-signal AI exposure composite (S4) alongside the existing Karpathy theoretical score.",
+          "is_cde": true,
+          "cde_rationale": "New empirical AI exposure signal. Consumed by the S4 three-signal composite as the observed-input to stat_res_composite and boss_ai_score_composite, by MCP get_ai_exposure(), and by the Fight AI boss detail panel. Wrong values silently miscalibrate AI resilience scores on ~510 SOCs — the exact knowledge-work occupations where students most care about AI exposure.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.anthropic_observed_exposure.observed_exposure_pct (LEFT JOIN on soc_code)",
+          "business_term": "",
+          "dq_rules": [
+            "GLD-AIE-ANT-001",
+            "GLD-AIE-ANT-004"
+          ],
+          "lineage": "governance/lineage/gold-ai-exposure-anthropic-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Licensed under CC-BY 4.0. Attribution propagates via anthropic_source_release. Sourced from release_2025_03_27 of the Anthropic Economic Index."
+        },
+        "automation_pct": {
+          "type": "DOUBLE",
+          "description": "The share of AI-assisted work on this occupation that is automation (the AI is doing the work for the user) rather than augmentation (the AI is helping the user do the work). Expressed as a percent (0-100). Derived from Anthropic's v2 interaction-mode methodology: automation = directive + feedback_loop, excluding 'learning' because learning means the user is still in control. Paired with observed_exposure_pct in MCP responses and the Fight AI boss narrative — a high observed_exposure_pct combined with a high automation_pct suggests the AI is genuinely replacing the task, while a high observed_exposure_pct with low automation_pct suggests the AI is mostly assisting. Can be NULL even when observed_exposure_pct is populated: about 15% of Anthropic-covered occupations have every contributing task fully filtered by Anthropic's safety pipeline, in which case the automation/augmentation split is not meaningful.",
+          "is_cde": true,
+          "cde_rationale": "Drives the 'AI is doing the work' vs 'AI is assisting' narrative surfaced in MCP responses and the Fight AI boss detail panel. Co-equal to observed_exposure_pct for interpretability. Mis-classification would flip the narrative for affected occupations.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.anthropic_observed_exposure.automation_pct (LEFT JOIN on soc_code)",
+          "business_term": "",
+          "dq_rules": [
+            "GLD-AIE-ANT-002",
+            "GLD-AIE-ANT-005"
+          ],
+          "lineage": "governance/lineage/gold-ai-exposure-anthropic-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CC-BY 4.0. Percent units (0-100) — revised 2026-04-17 from the original 0-1 fraction spec to match the as-built ingestor output and the project-wide _pct convention."
+        },
+        "anthropic_task_count": {
+          "type": "INTEGER",
+          "description": "The number of distinct Anthropic-measured tasks that contributed to this occupation's observed_exposure_pct. This is the confidence signal: a value of 1 means the observed AI exposure estimate for this occupation rests on a single Anthropic-measured task (weak evidence), while a value of 50 means it rests on many tasks (strong evidence). Range is [1, 141] where populated; median is 4, mean is ~7. Downstream consumers (the S4 composite, MCP responses, a potential 'low-evidence' badge on the Fight AI boss detail) may down-weight or annotate occupations with fewer than 3 contributing tasks. Renamed from Silver's task_count to disambiguate future non-Anthropic task-count fields on this table. NULL when the occupation has no Anthropic coverage at all.",
+          "is_cde": true,
+          "cde_rationale": "Product-surfaced confidence signal. A SOC with task_count=1 is qualitatively different from one with task_count=50, and downstream surfaces read this directly to decide whether to show a 'low-evidence' caveat to the user.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.anthropic_observed_exposure.task_count renamed via col('task_count').alias('anthropic_task_count')",
+          "business_term": "",
+          "dq_rules": [
+            "GLD-AIE-ANT-006"
+          ],
+          "lineage": "governance/lineage/gold-ai-exposure-anthropic-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "anthropic_source_release": {
+          "type": "VARCHAR",
+          "description": "The specific Anthropic Economic Index release tag that produced this row's observed_exposure_pct, automation_pct, and anthropic_task_count values. In v1.1.0 this is always 'release_2025_03_27' — the only HuggingFace release that contains the task-level aggregates the pipeline needs. This field carries CC-BY 4.0 attribution provenance end-to-end: any MCP response surfacing Anthropic-derived fields reads this value to build the attribution footer ('Source: Anthropic Economic Index v2, release 2025-03-27, CC-BY 4.0'). Any published analysis using this data must cite the release. NULL when the occupation has no Anthropic coverage.",
+          "is_cde": true,
+          "cde_rationale": "License-critical attribution field. CC-BY 4.0 requires per-record provenance to the Anthropic release; this field is what the attribution footer pulls at query time. A mislabeled release silently invalidates the attribution line at the product surface.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.anthropic_observed_exposure.source_release aliased via col('source_release').alias('anthropic_source_release')",
+          "business_term": "",
+          "dq_rules": [
+            "GLD-AIE-ANT-003",
+            "GLD-AIE-ANT-008"
+          ],
+          "lineage": "governance/lineage/gold-ai-exposure-anthropic-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Pinned to 'release_2025_03_27' at v1.1.0 landing. Do not auto-follow HEAD — newer releases (2026_01_15, 2026_03_24) lack task_pct_v2.csv."
         }
       }
     },
@@ -8031,6 +8299,853 @@
           "dq_rules": [],
           "lineage": "governance/lineage/mcp-bea-rpp-20260411.json",
           "last_updated": "2026-04-11",
+          "updated_by": "@doc-generator"
+        }
+      }
+    },
+    "raw.onet_experience": {
+      "description": "Education, Training, and Experience (ETE) percent-frequency distributions per O*NET occupation, sourced from the O*NET 30.2 Education, Training, and Experience.txt file in the bulk ZIP download. Each row is one (occupation, survey-scale, duration-category) cell recording what percent of incumbents or experts reported that duration on that scale. The file covers four scales — Required Level of Education (RL), Related Work Experience (RW), On-Site or In-Plant Training (PT), and On-the-Job Training (OJ) — but the FutureProof Silver zone uses only the RW scale (element 3.A.1) to derive the typical-years-of-experience number that gates the career branching tree. The real ingest on 2026-04-16 produced 35,998 rows covering 878 O*NET-SOC occupations (which map to 765 distinct BLS SOC codes after 6-digit truncation); every occupation has all four scales with the exact published category counts (RL=12, RW=11, PT=9, OJ=9). Suppression is low (2.4% overall, 2.2% on the RW scale). This is the 8th raw O*NET table in the FutureProof pipeline.",
+      "zone": "raw",
+      "grain": [
+        "onet_soc_code",
+        "element_id",
+        "scale_id",
+        "category"
+      ],
+      "source": "O*NET 30.2 Database — Education, Training, and Experience.txt (extracted from db_30_2_text.zip via the existing OnetBaseIngestor ZIP cache)",
+      "spec_reference": "docs/specs/onet-experience-requirements.md",
+      "record_count": 35998,
+      "last_updated": "2026-04-16",
+      "updated_by": "@doc-generator",
+      "columns": {
+        "onet_soc_code": {
+          "type": "string",
+          "description": "The O*NET-SOC code identifying which occupation this experience frequency measurement belongs to, in the standard XX-XXXX.XX format. This is the same identifier used across every O*NET table in the pipeline — the first six characters (XX-XXXX) match the BLS SOC code for the occupation, and the two-digit suffix distinguishes O*NET-specific detailed occupations. For example, 15-1252.00 is Software Developers and 11-1011.00 is Chief Executives. This field is part of the composite grain of the table and serves as the join key that links ETE data to every other O*NET dataset (tasks, work activities, work context, related occupations). 878 distinct codes observed, which is the smallest O*NET footprint in the pipeline — ETE survey data simply has not been collected yet for 138 of the 1,016 O*NET-SOC codes (mostly 'All Other' residual codes, military codes, and recently-added occupations).",
+          "is_cde": true,
+          "cde_rationale": "Grain field and primary join key for the ETE dataset. Foreign key to raw.onet_occupations and the cross-source bridge to BLS SOC via 6-digit truncation. Silver aggregation to base.onet_experience_profiles and the subsequent Gold join onto consumable.career_branches both key on this field. A malformed or missing value orphans an entire occupation from the experience-tier classifier that gates career-tree branching. Identified as a CDE per spec §CDE & PII Assessment and governance/cde-tagging/onet-experience-cde-tags.md.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "O*NET-SOC Code (from Education, Training, and Experience.txt header row)",
+          "business_term": "BT-027 (SOC Code)",
+          "dq_rules": [
+            "RAW-ONET-EXP-001",
+            "RAW-ONET-EXP-007",
+            "RAW-ONET-EXP-008"
+          ],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "878 distinct codes. Format enforced by P0 regex ^\\d{2}-\\d{4}\\.\\d{2}$ — 0 violations observed. Smallest O*NET footprint in the pipeline (vs. 1,016 in Occupation Data, 894 in Work Activities/Context). Silver truncates this to 6-digit XX-XXXX and averages contributing details."
+        },
+        "element_id": {
+          "type": "string",
+          "description": "The O*NET Content Model element identifier for the ETE dimension being measured. Takes exactly four values in this file, each corresponding 1:1 with a scale_id: '2.D.1' (Required Level of Education, paired with RL), '3.A.1' (Related Work Experience, paired with RW — the one FutureProof uses), '3.A.2' (On-Site or In-Plant Training, paired with PT), and '3.A.3' (On-the-Job Training, paired with OJ). Silver transformation filters to element_id = '3.A.1' (equivalently scale_id = 'RW') before running the weighted-median aggregation that produces experience_years_typical. Part of the composite grain.",
+          "is_cde": true,
+          "cde_rationale": "Silver filter key. Transformation selects element_id = '3.A.1' (Related Work Experience) before weighted-median computation. An incorrect or missing value drops the row from the RW filter and deflates occupation coverage in Silver. Identified as a CDE per spec §CDE & PII Assessment and governance/cde-tagging/onet-experience-cde-tags.md.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Element ID (from Education, Training, and Experience.txt)",
+          "business_term": "BT-056 (Content Model Element ID)",
+          "dq_rules": [
+            "RAW-ONET-EXP-011"
+          ],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "4 distinct values, in 1:1 correspondence with scale_id (RL↔2.D.1, RW↔3.A.1, PT↔3.A.2, OJ↔3.A.3). Silver's combined filter scale_id='RW' AND element_id='3.A.1' is redundant-but-safe."
+        },
+        "element_name": {
+          "type": "string",
+          "description": "Human-readable name for the element being measured. Takes exactly four values corresponding 1:1 with element_id: 'Required Level of Education', 'Related Work Experience', 'On-Site or In-Plant Training', and 'On-the-Job Training'. This is a display label for analysts reading the raw data; element_id is the computational key.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Element Name (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "4 distinct values in 1:1 correspondence with element_id."
+        },
+        "scale_id": {
+          "type": "string",
+          "description": "Two-letter scale identifier indicating which of the four ETE dimensions this row measures. Values: 'RL' (Required Level of Education — 12 duration/level categories), 'RW' (Related Work Experience — 11 categories from None to Over 10 years), 'PT' (On-Site or In-Plant Training — 9 categories), 'OJ' (On-the-Job Training — 9 categories). Silver transformation filters to scale_id = 'RW' before the weighted-median aggregation. Part of the composite grain.",
+          "is_cde": true,
+          "cde_rationale": "Silver filter key. Transformation selects scale_id = 'RW' (Related Work Experience) before weighted-median computation. An incorrect or missing value causes the RW filter to silently drop rows or mix scales, corrupting the experience_years_typical derivation that feeds the career-tree gating decision. Controlled vocabulary enforced by DQ rule scale_id IN ('RL','RW','PT','OJ'). Identified as a CDE per spec §CDE & PII Assessment and governance/cde-tagging/onet-experience-cde-tags.md.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Scale ID (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-ONET-EXP-003"
+          ],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "4 distinct values. RL=10,536 rows, RW=9,658, PT=7,902, OJ=7,902. Spec originally claimed 'OJ=11 categories' — EDA confirmed OJ=9 (spec drafting error, corrected)."
+        },
+        "category": {
+          "type": "int",
+          "description": "The category number within the scale that this measurement belongs to. The number-to-meaning mapping depends on scale_id: for RW (the scale FutureProof uses) the 11 categories run from 1 ('None') through 11 ('Over 10 years'), with explicit human-approved midpoints in years (0, 0.17, 0.38, 0.75, 1.5, 3, 5, 7, 9, 12). For RL the 12 categories map to education levels; for PT and OJ the 9 categories map to training durations. Silver uses category together with data_value (weight) as the inputs to the weighted-median aggregation that picks the category where cumulative percent crosses 50. Part of the composite grain.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Category (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-ONET-EXP-004"
+          ],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Range depends on scale. RW: 1-11 (11 categories). RL: 1-12. PT/OJ: 1-9. Every occupation has exactly the full category count for each scale (no partial coverage). Not CDE — CDE-ness flows through element_id/scale_id filters plus data_value weights per governance/cde-tagging/onet-experience-cde-tags.md."
+        },
+        "data_value": {
+          "type": "double",
+          "description": "The percent frequency (0.0 to 100.0) of survey respondents who reported this category for this occupation on this scale. For example, for Chief Executives on the RW scale, the category 11 (Over 10 years) row has data_value = 68.24, meaning 68.24% of Chief Executive incumbents reported having more than 10 years of prior experience. Per (occupation × scale), the data_values sum to approximately 100.0 — observed max deviation across all 3,512 groups in the current load is 0.03. Used as the WEIGHT input to Silver's weighted-median aggregation.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Data Value (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-ONET-EXP-005",
+            "RAW-ONET-EXP-006"
+          ],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Observed range 0.0-100.0 (min 0.0 across all scales; max 100.0 on RL, 95.83 on RW, 90.40 on OJ, 81.22 on PT). Per-(occupation, scale) sum always within 0.03 of 100 across all 3,512 groups. Not CDE per governance/cde-tagging/onet-experience-cde-tags.md — weight input to the Silver aggregate, not a directly published CDE."
+        },
+        "n": {
+          "type": "int",
+          "description": "Number of survey respondents (incumbents or occupational experts) whose responses contributed to this percent frequency. Observed range in the current load: 13 to 98, median 23, mean 25.2. The spec treated this field as optional but EDA confirmed it is populated on 100% of rows in real data (the 'optional' flag is defensive, not reflective of actual data). DQ indicator rather than an analytical input.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "N (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Observed range 13-98; median 23; mean 25.23; p95 40. Populated on 100% of 35,998 rows in the current load. Spec marks optional; real data is always present."
+        },
+        "standard_error": {
+          "type": "double",
+          "description": "Standard error of the percent frequency estimate. Populated only for rows where domain_source = 'Incumbent' (27,388 of 35,998 rows, ~76.1%); null for Occupational Expert rows which have no sampling distribution. Statistical metadata about the aggregate, not an analytical input for any downstream FutureProof computation.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Standard Error (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "23.9% null rate (correlates 1:1 with domain_source='Occupational Expert'). Observed range on non-null rows: 0.0 to 29.73, median 2.68, mean 4.82."
+        },
+        "lower_ci_bound": {
+          "type": "double",
+          "description": "Lower bound of the 95% confidence interval around the percent frequency estimate. Populated only for rows where the CI could be computed — 17,009 of 35,998 rows (47.25%). Statistical metadata; not used by any downstream FutureProof transformation.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Lower CI Bound (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "52.75% null rate. Null set is paired exactly with upper_ci_bound — either both populated or both null, no mixed rows."
+        },
+        "upper_ci_bound": {
+          "type": "double",
+          "description": "Upper bound of the 95% confidence interval around the percent frequency estimate. Paired with lower_ci_bound — both null together, or both populated together. Statistical metadata; not used by any downstream FutureProof transformation.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Upper CI Bound (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "52.75% null rate, paired with lower_ci_bound."
+        },
+        "recommend_suppress": {
+          "type": "string",
+          "description": "O*NET's data-quality flag indicating whether the published value should be treated with caution. Takes three values in the current load: 'N' (73.7% of rows — publishable), 'Y' (2.4% — O*NET recommends suppressing), and 'n/a' (23.9% — which correlates exactly 1:1 with domain_source='Occupational Expert' rows since experts have no sampling basis for a suppression decision). Silver's suppress_flag on base.onet_experience_profiles rolls up the 'Y' flags via logical-OR across contributing Bronze rows.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Recommend Suppress (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-ONET-EXP-009",
+            "RAW-ONET-EXP-012"
+          ],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "3-value enum: 'N' (26,524), 'Y' (864), 'n/a' (8,610). Zero RW occupations have all categories suppressed in real data — 'all-suppressed' case must be synthesized for chaos tests. Per-scale Y rate: RL 2.1%, RW 2.2%, PT 2.9%, OJ 2.6%."
+        },
+        "date": {
+          "type": "string",
+          "description": "The month and year (MM/YYYY format) when this particular occupation's ETE data was collected. Values range from 06/2008 to 08/2025 as O*NET rolls updates through its survey panel each year (August is the typical peak month). This is a publication-wave label at the occupation level, not an individual survey event date — confirmed non-PII per governance/pii-scans/onet-experience-pii-scan.md.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Date (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "14 distinct MM/YYYY values. Peak in August each year (survey cadence). 0% null in current load."
+        },
+        "domain_source": {
+          "type": "string",
+          "description": "Who provided the data for this row. Two values only in the current load: 'Incumbent' (27,388 rows, 76.1% — workers currently in the occupation filled out a survey) and 'Occupational Expert' (8,610 rows, 23.9% — SMEs rated the occupation when incumbent data was unavailable). This is narrower than other O*NET files (Work Activities also carries 'Analyst' and 'Analyst - Transition' rows). Role label, not a person name — confirmed non-PII.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Domain Source (from Education, Training, and Experience.txt)",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-ONET-EXP-010"
+          ],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "2 distinct values. Expert rows have null standard_error and recommend_suppress='n/a' (1:1 bijections)."
+        },
+        "ingested_at": {
+          "type": "timestamp",
+          "description": "The exact date and time when this row was loaded into the pipeline by OnetExperienceIngestor. All rows in a single batch share the same ingested_at. Pipeline metadata, not a property of the source data.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated by ingestor (datetime.now(tz=datetime.timezone.utc))",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "source_url": {
+          "type": "string",
+          "description": "The URL from which the O*NET 30.2 ZIP archive containing Education, Training, and Experience.txt was downloaded. Records provenance — all rows in a batch share the same value. Shared with the 7 other raw.onet_* tables because all 8 come from the same ZIP download.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated by ingestor (download URL, typically https://www.onetcenter.org/dl_files/database/db_30_2_text.zip)",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "source_method": {
+          "type": "string",
+          "description": "Constant label indicating how the data was acquired. For O*NET tables this is always 'bulk_zip_download' — the file was extracted from a ZIP archive downloaded from the O*NET Resource Center by the shared OnetBaseIngestor.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated by ingestor (constant: 'bulk_zip_download')",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "load_date": {
+          "type": "date",
+          "description": "The calendar date when this batch was loaded into the Bronze zone. Pipeline metadata used for freshness monitoring — DQ rules check that load_date is within the acceptable freshness window.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated by ingestor (date.today())",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-raw-20260417-010651.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        }
+      }
+    },
+    "base.onet_experience_profiles": {
+      "description": "The Silver-zone Experience Profile table — one row per BLS SOC code summarizing the typical years of prior work experience required to enter that occupation, derived from the O*NET Related Work Experience (RW) scale. Each BLS row is produced by (1) filtering raw.onet_experience to scale_id='RW' AND element_id='3.A.1', (2) computing a weighted-median category (walking cumulative percent frequency to find where it crosses 50%, with ties broken to the lower-numbered category), (3) mapping that median category to a scalar years value using the human-approved midpoint table (0, 0.17, 0.38, 0.75, 1.5, 3, 5, 7, 9, 12 years), (4) binning the scalar into one of four experience tiers (entry/early/mid/senior), and (5) for multi-detail BLS SOCs where several O*NET detail codes share a 6-digit root (15-1252.00 and 15-1252.01), averaging the years scalar unweighted across details. The full RW distribution is preserved as JSON for downstream consumers who want the shape. Expected row count: ~765 BLS-SOC roots (EDA 2026-04-16 confirmed 765 distinct BLS codes derived from the 878 O*NET codes with ETE coverage; 63 of the 765 — 8.2% — are multi-detail aggregations).",
+      "zone": "base",
+      "grain": [
+        "bls_soc_code"
+      ],
+      "source": "raw.onet_experience (Bronze zone)",
+      "spec_reference": "docs/specs/onet-experience-requirements.md",
+      "record_count": null,
+      "last_updated": "2026-04-16",
+      "updated_by": "@doc-generator",
+      "columns": {
+        "record_id": {
+          "type": "VARCHAR",
+          "description": "A unique identifier for each row, computed automatically from the BLS SOC code. Format: 'exp-' followed by 16 hexadecimal characters. Stable across pipeline re-runs because the input (bls_soc_code) is stable.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived from bls_soc_code via compute_grain_id(prefix='exp')",
+          "business_term": "BT-015 (Record ID)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Format: exp-<16 hex chars>. Technical infrastructure field; not consumed by business processes."
+        },
+        "bls_soc_code": {
+          "type": "VARCHAR",
+          "description": "The 6-digit BLS Standard Occupational Classification code, in XX-XXXX format. Derived from the O*NET-SOC code by truncating the .XX detail suffix (so 15-1252.00 and 15-1252.01 both become 15-1252). This is the grain of the Silver table AND the primary join key to Gold consumable.career_branches, which joins twice on this column — once as the source occupation and once as the related (target) occupation. Every downstream experience-gating UX on the branching career tree depends on this field resolving correctly.",
+          "is_cde": true,
+          "cde_rationale": "Natural key and primary join key. Silver aggregates O*NET-SOC detail rows (XX-XXXX.XX) to BLS SOC (XX-XXXX) on this field; the Gold join onto consumable.career_branches keys on bls_soc_code twice (for source and related occupations). Every downstream consumer of experience data — the career-tree gating logic, the experience_delta_years derivation, the MCP get_career_branches tool — depends on this field to link experience statistics to the correct occupation node. P0 business-critical per governance/cde-tagging/onet-experience-cde-tags.md and spec §CDE & PII Assessment.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived from raw.onet_experience.onet_soc_code (truncated to first 7 chars, XX-XXXX)",
+          "business_term": "BT-027 (SOC Code)",
+          "dq_rules": [
+            "SLV-ONET-EXP-001",
+            "SLV-ONET-EXP-002",
+            "SLV-ONET-EXP-003"
+          ],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Format validated via regex ^\\d{2}-\\d{4}$. ~765 distinct values expected. UNIQUE at grain level."
+        },
+        "experience_category_median": {
+          "type": "INTEGER",
+          "description": "The RW category (1 through 11) where the cumulative percent frequency first crosses 50%. Computed via weighted-median walk: cumulatively add data_value from category 1 upward, and pick the first category where the running sum reaches or exceeds 50.0. For ties at exactly 50%, pick the lower-numbered (more-conservative) category per the approved open decision. For multi-detail BLS SOCs, the median is computed per detail and the resulting years scalar is averaged — this field itself reflects a single representative detail (the weighting is on the subsequent years field). Internal derivation feeding experience_years_typical; not directly consumed by business processes.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived: weighted median of raw.onet_experience.category WHERE scale_id='RW' AND element_id='3.A.1', weighted by data_value",
+          "business_term": "BT-117 (Related Work Experience)",
+          "derivation_description": "Per spec §Zone 2 step 2: 'For each O*NET-SOC code, use percent frequencies (data_value) as weights to find the median category (1-11). The median is the category where cumulative frequency crosses 50%.' Tie-breaking rule per governance/approvals/onet-experience-requirements-open-decisions.md: lower-numbered category wins.",
+          "dq_rules": [
+            "SLV-ONET-EXP-005"
+          ],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: experience_category_median >= 1 AND experience_category_median <= 11. 754 of 878 occupations (85.9%) have no single category above 50% — the weighted-median walk is the correct logic (not mode)."
+        },
+        "experience_years_typical": {
+          "type": "DOUBLE",
+          "description": "The typical number of years of prior work experience required to enter this occupation, derived by mapping the weighted-median RW category to its human-approved midpoint: category 1 ('None') → 0 years, 2 → 0.17, 3 → 0.38, 4 → 0.75, 5 → 0.75 (shared up-to-1-year bucket), 6 → 1.5, 7 → 3, 8 → 5, 9 → 7, 10 → 9, 11 ('Over 10 years') → 12. For multi-detail BLS SOCs (e.g., 15-1252.00 and 15-1252.01), the years value is the unweighted average across contributing O*NET detail codes. Spot checks on real data: Chief Executives (11-1011) = 12 years, Software Developers (15-1252) = 7 years, Retail Salespersons (41-2031) = 0.75 years. This is the scalar that flows through Gold as both related_experience_years (target side) and source_experience_years (source side), and that the MCP tool exposes to consumers.",
+          "is_cde": true,
+          "cde_rationale": "Primary experience metric. Maps the weighted-median RW category to its approved midpoint. This field feeds the Gold columns related_experience_years and source_experience_years, the derived experience_delta_years, the MCP get_career_branches response payload, and the career_tree.py max_experience_years filter. The entire experience-gating UX on the branching career tree depends on the correctness of this value. P0 business-critical per governance/cde-tagging/onet-experience-cde-tags.md and spec §CDE & PII Assessment.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived: midpoint table lookup on experience_category_median, averaged unweighted across O*NET detail codes sharing the same BLS SOC root",
+          "business_term": "BT-117 (Related Work Experience)",
+          "derivation_description": "Per spec §Zone 2 steps 3 and 5 plus governance/approvals/onet-experience-requirements-open-decisions.md (human-approved 2026-04-16). Category-to-midpoint map: {1:0, 2:0, 3:0.17, 4:0.38, 5:0.75, 6:1.5, 7:3, 8:5, 9:7, 10:9, 11:12}. Multi-detail aggregation rule: unweighted average of experience_years_typical across contributing O*NET-SOC detail codes.",
+          "dq_rules": [
+            "SLV-ONET-EXP-004",
+            "SLV-ONET-EXP-007",
+            "SLV-ONET-EXP-008"
+          ],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: experience_years_typical >= 0 AND experience_years_typical <= 15. Real-data spot checks: 11-1011=12, 15-1252=7, 41-2031=0.75. Range observed in RW real data spans the full 0-12 midpoint domain."
+        },
+        "experience_tier": {
+          "type": "VARCHAR",
+          "description": "A simplified four-value experience classification, derived from experience_years_typical using human-approved thresholds: 'entry' (0 ≤ years ≤ 1), 'early' (1 < years ≤ 4), 'mid' (4 < years ≤ 8), 'senior' (years > 8). This is the field that drives UX gating and decade bucketing on the branching career tree — which branches appear in the 'Your 20s' / 'Your 30s' / 'Your 40s' views, which get 'Unlocks at 8+ years' badges, and which are hidden behind the default experience-delta filter. Thresholds were human-approved 2026-04-16; see governance/approvals/onet-experience-requirements-open-decisions.md. Spot-check values: Chief Executives = 'senior', Software Developers = 'mid', Retail Salespersons = 'entry'.",
+          "is_cde": true,
+          "cde_rationale": "Cross-boundary classifier that drives the career-tree gating UX decision. Tier thresholds (0-1 entry / 1-4 early / 4-8 mid / 8+ senior) are human-approved (2026-04-16) and pinned into DQ spot-check rules (11-1011=senior, 41-2031=entry). This field flows into Gold as related_experience_tier and directly controls decade-bucket rendering, 'Unlocks at 8+ years' badges, and the default-view filter on the branching career tree. A misclassification silently shows unrealistic senior-level transitions on an entry-level student's career view. P0 business-critical per governance/cde-tagging/onet-experience-cde-tags.md and spec §CDE & PII Assessment.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived: bucket experience_years_typical into 'entry' | 'early' | 'mid' | 'senior'",
+          "business_term": "BT-118 (Experience Tier)",
+          "derivation_description": "Per spec §Zone 2 step 4 and governance/approvals/onet-experience-requirements-open-decisions.md (human-approved 2026-04-16): 'entry' if experience_years_typical <= 1, 'early' if 1 < years <= 4, 'mid' if 4 < years <= 8, 'senior' if years > 8. Boundaries are closed-on-the-right (<=) to keep the bucket assignment deterministic for exact-threshold values (1.0 → entry, 4.0 → early, 8.0 → mid).",
+          "dq_rules": [
+            "SLV-ONET-EXP-006",
+            "SLV-ONET-EXP-007",
+            "SLV-ONET-EXP-008"
+          ],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: experience_tier IN ('entry', 'early', 'mid', 'senior'). All 4 tiers expected to be represented (P1 DQ rule). Real-data spot checks: 11-1011='senior', 15-1252='mid', 41-2031='entry'."
+        },
+        "experience_category_mode": {
+          "type": "INTEGER",
+          "description": "The RW category with the highest percent frequency for this occupation — i.e., the most common reported experience duration. Different from experience_category_median in bimodal distributions: for Retail Salespersons (41-2031) the mode is category 1 ('None', 39.75%) but the weighted median is category 5 (first where cumulative crosses 50%). Provided as an internal diagnostic alongside the weighted median for distributional QA; not a directly consumed analytical field.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived: argmax over raw.onet_experience.data_value WHERE scale_id='RW' AND element_id='3.A.1', per bls_soc_code",
+          "business_term": "BT-117 (Related Work Experience)",
+          "derivation_description": "Mode of the RW distribution per occupation. Where two categories tie (no single-category-100% in real data, but bimodal ties possible), pick the lower-numbered category per the same tie-breaker rule as experience_category_median.",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: experience_category_mode >= 1 AND experience_category_mode <= 11. Diverges from experience_category_median in bimodal distributions (e.g., 41-2031 mode=1, median=5)."
+        },
+        "experience_distribution": {
+          "type": "VARCHAR",
+          "description": "The full RW percent-frequency distribution for this occupation, serialized as a JSON object keyed by category (1-11) with percent values. Example: {\"1\": 0.0, \"7\": 9.69, \"8\": 5.87, \"9\": 15.09, \"10\": 1.11, \"11\": 68.24} for Chief Executives. Values sum to approximately 100.0 (within ±0.03 tolerance from Bronze). Preserved as an optional downstream diagnostic for consumers who need the full distributional shape (e.g., computing other percentiles, visualizing dispersion). Not used by the default career-tree logic.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived: JSON-encode {category: data_value} pairs from raw.onet_experience WHERE scale_id='RW' AND element_id='3.A.1', per bls_soc_code (averaged across O*NET details)",
+          "business_term": "BT-117 (Related Work Experience)",
+          "derivation_description": "Full RW distribution preserved per spec §Zone 2 step 6.",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Non-null on all rows. Internal provenance — not a CDE."
+        },
+        "onet_details_averaged": {
+          "type": "INTEGER",
+          "description": "The number of O*NET detail codes (XX-XXXX.YY) that contributed to this BLS SOC row via the unweighted-average aggregation. A value of 1 means only one O*NET code maps to this BLS SOC; values of 2 or more mean the experience_years_typical scalar is an unweighted average across multiple O*NET specializations. EDA confirmed distribution: 702 BLS SOCs (91.8%) have 1 detail, 40 (5.2%) have 2, 10 (1.3%) have 3, and a long tail up to 8. Provides transparency for multi-detail aggregation audit.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived: COUNT(DISTINCT onet_soc_code) per bls_soc_code group",
+          "business_term": "BT-063 (Multi-Detail Aggregation)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "CHECK constraint: onet_details_averaged >= 1. Observed range 1-8. 8.2% of BLS SOCs (63 rows) are multi-detail aggregations (value >= 2)."
+        },
+        "suppress_flag": {
+          "type": "BOOLEAN",
+          "description": "True if any contributing Bronze row carried recommend_suppress='Y' — derived as a logical-OR across all RW rows that fed this BLS SOC's aggregate. In the current real-data load, ZERO BLS SOCs have suppress_flag=True because no occupation has all 11 RW categories flagged (only 2.2% of individual RW rows are 'Y'). The flag still exists because (1) future loads could trigger it and (2) chaos monkey synthesizes the all-suppressed case for test coverage. When True, the experience value for this occupation should be treated with caution and excluded from DQ spot-check pass/fail evaluation.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived: logical OR of raw.onet_experience.recommend_suppress='Y' across contributing RW rows per bls_soc_code",
+          "business_term": "BT-064 (Suppress Flag)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "Expected False on 100% of rows in current data. Chaos-monkey-only synthesized True path."
+        },
+        "source_load_date": {
+          "type": "DATE",
+          "description": "The date the source Bronze data was loaded (inherited from raw.onet_experience.load_date). Pipeline metadata used for freshness monitoring.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "raw.onet_experience.load_date",
+          "business_term": "BT-016 (Source Load Date)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "ingested_at": {
+          "type": "TIMESTAMP",
+          "description": "The timestamp when this row was written to the Silver zone base table by the onet_experience_transformer. Generated at transformation time. Pipeline metadata.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated at Silver transformation time",
+          "business_term": "BT-017 (Ingestion Timestamp)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/onet-experience-silver-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        }
+      }
+    },
+    "raw.anthropic_economic_index": {
+      "description": "Bronze raw landing table for the Anthropic Economic Index, a public dataset (CC-BY 4.0) that measures what Anthropic's Claude AI is actually being used for across occupations. Each row represents one (O*NET task, SOC occupation) pair — the Anthropic source is at the task level, and a single task can map to multiple SOCs, so a task fanning out to N occupations produces N rows with task_pct evenly split across them. One placeholder row (task_statement='none', soc_code=NULL) represents Claude conversations that could not be mapped to an O*NET task. Pinned to Anthropic release 2025_03_27, the only HuggingFace release containing task-level aggregates. This table feeds the empirical 'observed AI exposure' signal for the S4 three-signal composite (theoretical x observed x velocity).",
+      "zone": "raw",
+      "grain": [
+        "task_id",
+        "soc_code"
+      ],
+      "source": "HuggingFace dataset Anthropic/EconomicIndex, release_2025_03_27 — task_pct_v2.csv, automation_vs_augmentation_by_task.csv, onet_task_statements.csv",
+      "spec_reference": "docs/specs/raw-ingest-anthropic-economic-index.md",
+      "version": "1.0.0",
+      "record_count": 4082,
+      "license": "CC-BY 4.0 — Economic Index Dataset, Anthropic (2026)",
+      "last_updated": "2026-04-16",
+      "updated_by": "@doc-generator",
+      "columns": {
+        "task_id": {
+          "type": "VARCHAR",
+          "description": "The 5-digit O*NET task identifier (for example, 20461). This is the stable federal identifier for a task statement — the same ID that O*NET uses across releases even when the free-text description is edited. Part of the composite grain (task_id, soc_code) of this table. Note that task_id is NOT unique by itself: a single task can be mapped to multiple SOC occupations, and each of those mappings becomes a separate row here. When provenance must be traced back to the O*NET source file, task_id is the canonical key — more reliable than the free-text task_statement, which can drift.",
+          "is_cde": true,
+          "cde_rationale": "Part of the composite dedup grain. Stable identifier that survives task-text normalization. Canonical key for re-deriving provenance back to onet_task_statements.csv.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "onet_task_statements.csv 'Task ID' column (joined to task_pct_v2.csv via normalized task text)",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-001",
+            "RAW-AEI-006"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "task_statement": {
+          "type": "VARCHAR",
+          "description": "The free-text description of the task, such as 'Analyze data to identify trends and insights.' This is the human-readable description of what the task actually is. It is used as the join key to bridge the Anthropic source (which only carries the text) to the O*NET task catalog (which carries both text and a stable task_id). For the join, text is normalized by lowercasing and stripping a trailing period. Every row carries a non-null task_statement; the placeholder row uses the literal string 'none'.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "task_pct_v2.csv 'task_name' column",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-005",
+            "RAW-AEI-017"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "soc_code": {
+          "type": "VARCHAR",
+          "description": "The Standard Occupational Classification (SOC) code in XX-XXXX format identifying which occupation this task maps to. SOC is the federal occupation taxonomy used by BLS and O*NET. Because a single O*NET task can map to multiple SOC occupations, a source task with N mappings produces N rows here with the same task_id but different soc_codes. This field is part of the composite grain and is NULL only on the single placeholder row (task_statement='none'), which represents Claude traffic that couldn't be mapped to an O*NET task.",
+          "is_cde": true,
+          "cde_rationale": "Already a governed CDE across this project. Composite dedup grain here. Foreign key to base.bls_ooh via the Silver soc_match flag. A mis-coded soc_code orphans every downstream S4 composite row for this task.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "onet_task_statements.csv 'O*NET-SOC Code' with the .NN suffix stripped",
+          "business_term": "BT-027 (SOC Code)",
+          "dq_rules": [
+            "RAW-AEI-001",
+            "RAW-AEI-007",
+            "RAW-AEI-008",
+            "RAW-AEI-017",
+            "RAW-AEI-019"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "NULL allowed only for exactly one row (the 'none' placeholder). RAW-AEI-019 was added in response to a chaos-monkey finding where dashless SOC strings were being accepted."
+        },
+        "soc_title": {
+          "type": "VARCHAR",
+          "description": "The human-readable occupation title for this SOC code, such as 'Data Scientists' or 'Software Developers.' A display label only — soc_code is the authoritative identifier. Carried from the O*NET join for convenience.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "onet_task_statements.csv occupation title (from joined occupation table)",
+          "business_term": "BT-028 (Occupation Title)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "task_pct": {
+          "type": "DOUBLE",
+          "description": "The share of all classified Claude AI conversations that are attributable to this (task, occupation) pair, in percent units (0-100). This is the row-level carrier of the Anthropic signal. The value has already been evenly split across the task's multiple SOC mappings — so if one source task with pct=6.5 mapped to 2 occupations, each row here gets task_pct=3.25. Because of this splitting, the SUM of task_pct across every Bronze row is approximately 100 — this is a project-wide invariant, checked by a P0 DQ rule. Values above 1.0 are rare (about 8 rows) and correspond to software-engineering, IT-support, and technical-writing tasks, consistent with Anthropic's published report that Claude usage skews toward knowledge work.",
+          "is_cde": true,
+          "cde_rationale": "The per-(task, SOC) global share that carries the analytical payload of this row. Silver aggregates this directly: observed_exposure_pct = SUM(task_pct) per soc_code. Every S4 composite output for a knowledge-work SOC traces back through Silver to a sum of task_pct values. The single highest-criticality business-semantic column in this table.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "task_pct_v2.csv 'pct' column, divided by the number of distinct SOCs this task maps to",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-003",
+            "RAW-AEI-004",
+            "RAW-AEI-013"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "automation_pct": {
+          "type": "DOUBLE",
+          "description": "The share of Claude's use on this (task, occupation) pair that looks like automation — the AI doing the work — as opposed to augmentation (AI assisting the user). Computed using Anthropic's v2 methodology as (directive + feedback_loop) * 100, expressed as a percent (0-100). Importantly, 'learning' conversations are NOT counted as automation because the user is still in the driver's seat — they count as augmentation. This field is paired with augmentation_pct: the two must either both be populated or both be NULL (when every conversation on the task was removed by Anthropic's safety filters).",
+          "is_cde": true,
+          "cde_rationale": "Directly drives the 'AI is doing the work' vs 'AI is assisting' narrative surfaced to users via MCP. Propagates through Silver (volume-weighted mean) and Gold to the Fight AI boss detail panel.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "automation_vs_augmentation_by_task.csv: (directive + feedback_loop) * 100",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-010"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator",
+          "notes": "NULL when filtered >= 0.999 (whole task filtered upstream, not meaningful to report)."
+        },
+        "augmentation_pct": {
+          "type": "DOUBLE",
+          "description": "The share of Claude's use on this (task, occupation) pair that looks like augmentation — the AI helping the user do the work — as opposed to automation (AI doing the work). Computed as (task_iteration + validation + learning) * 100, expressed as a percent (0-100). 'Learning' belongs here, not in automation_pct, because the user remains in control. Paired with automation_pct under the invariant automation_pct + augmentation_pct + (filtered * 100) approximately 100 (+/- 1%). Both fields are either populated together or NULL together.",
+          "is_cde": true,
+          "cde_rationale": "MCP returns the (observed, automation, augmentation) triple together; any one in isolation is misleading. Co-equal to automation_pct.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "automation_vs_augmentation_by_task.csv: (task_iteration + validation + learning) * 100",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-010"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "source_release": {
+          "type": "VARCHAR",
+          "description": "The Anthropic release identifier that this row was loaded from — always 'release_2025_03_27' in this version. This is the single most important provenance field in the table: it pins the data to a specific published snapshot of Claude traffic, and it is the exact string surfaced in the CC-BY 4.0 attribution footer on every downstream product surface that shows Anthropic-derived metrics. If a future Anthropic release republishes task-level aggregates, the ingestor will be updated to load that release and this field will take the new value.",
+          "is_cde": true,
+          "cde_rationale": "Provenance-critical + license-critical. CC-BY 4.0 attribution propagates this field verbatim through Silver and Gold to the MCP attribution footer. Governs reproducibility when Anthropic republishes.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Set by ingestor to the pinned release folder name",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-011"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "ingested_at": {
+          "type": "TIMESTAMP",
+          "description": "The date and time the row was written to the Bronze table. This is a batch stamp — every row from a single load shares the same timestamp. Used for pipeline auditing and freshness tracking, not for analysis.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated at Bronze ingest time",
+          "business_term": "BT-017 (Ingestion Timestamp)",
+          "dq_rules": [
+            "RAW-AEI-015"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "source_url": {
+          "type": "VARCHAR",
+          "description": "The HuggingFace dataset URL, always https://huggingface.co/datasets/Anthropic/EconomicIndex/... This is a public, unauthenticated URL — no secrets hygiene concern. Required to be populated and to begin with the Anthropic/EconomicIndex prefix as part of CC-BY 4.0 attribution compliance.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Set by ingestor",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-014"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "source_method": {
+          "type": "VARCHAR",
+          "description": "How the Bronze loader obtained this row — either 'hf_git_clone' (the normal path: git-clone + git-lfs pull from HuggingFace) or 'local_cache' (the offline fallback path when HuggingFace was unreachable). Operational provenance only, not a business-decision input.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Set by ingestor based on fetch path taken",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-016"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "load_date": {
+          "type": "DATE",
+          "description": "The date the Bronze load ran, in YYYY-MM-DD format. Used to enforce the 30-day freshness guardrail: if this date is more than 30 days behind current_date during an active pipeline build, the Bronze table is considered stale and should be refreshed.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Set by ingestor to the date of load",
+          "business_term": "",
+          "dq_rules": [
+            "RAW-AEI-015"
+          ],
+          "lineage": "governance/lineage/raw-anthropic-economic-index-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        }
+      }
+    },
+    "base.anthropic_observed_exposure": {
+      "description": "Silver base table holding Anthropic Economic Index data aggregated from task level to occupation (SOC) level. One row per SOC code. Built by (a) filtering out the task_name='none' placeholder, (b) grouping Bronze rows by soc_code, (c) summing the split task_pct values to produce observed_exposure_pct (the share of all classified Claude traffic attributed to that occupation), and (d) computing volume-weighted means of the automation and augmentation percentages using task_pct as the weight. Expected row count: about 588 SOCs at Anthropic release_2025_03_27. About 61% of these match an occupation in the BLS OOH catalog — this coverage is limited by Anthropic's source distribution (Claude traffic skews toward knowledge work; trades, production, transport, and food-service occupations receive few Anthropic-mapped tasks) and is a documented dataset characteristic rather than a data quality defect. Directly feeds the Gold consumable.ai_exposure table via LEFT JOIN on soc_code.",
+      "zone": "base",
+      "grain": [
+        "soc_code"
+      ],
+      "source": "raw.anthropic_economic_index (Bronze)",
+      "spec_reference": "docs/specs/raw-ingest-anthropic-economic-index.md",
+      "version": "1.0.0",
+      "record_count": 588,
+      "license": "CC-BY 4.0 — Economic Index Dataset, Anthropic (2026) (derivative of raw.anthropic_economic_index)",
+      "last_updated": "2026-04-16",
+      "updated_by": "@doc-generator",
+      "columns": {
+        "record_id": {
+          "type": "VARCHAR",
+          "description": "A unique identifier for each Silver row, computed deterministically from soc_code. Stable across pipeline re-runs. Format: 'aoe-' followed by 16 hexadecimal characters. The 'aoe' prefix stands for 'Anthropic Observed Exposure' and distinguishes this surrogate key from the 'kai' (Karpathy) and 'aie' (Gold AI exposure) keys used elsewhere in this pipeline.",
+          "is_cde": true,
+          "cde_rationale": "Deterministic grain hash. Required for idempotent re-runs and lineage tracing. Consistent with the record_id CDE pattern on consumable.ai_exposure and base.karpathy_ai_exposure.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived via compute_grain_id(row, ['soc_code'], prefix='aoe')",
+          "business_term": "BT-015 (Record ID)",
+          "dq_rules": [
+            "SLV-AOE-008"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "soc_code": {
+          "type": "VARCHAR",
+          "description": "The Standard Occupational Classification code in XX-XXXX format. This is the primary key of this Silver table and the sole join key to the Gold consumable.ai_exposure table. Every downstream use of Anthropic data routes through this column. Unlike Bronze (which carries exactly one NULL soc_code for the placeholder row), Silver never has a NULL SOC because the placeholder is filtered out before aggregation.",
+          "is_cde": true,
+          "cde_rationale": "Primary key plus sole JOIN key to consumable.ai_exposure in the Gold transformer. Every S4 three-signal composite input traces to this column.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "raw.anthropic_economic_index.soc_code (placeholder row filtered; normalized XX-XXXX)",
+          "business_term": "BT-027 (SOC Code)",
+          "dq_rules": [
+            "SLV-AOE-001",
+            "SLV-AOE-007"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "soc_title": {
+          "type": "VARCHAR",
+          "description": "The human-readable occupation title for this SOC code (for example, 'Data Scientists' or 'Registered Nurses'). Display label only — soc_code is the authoritative identifier.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "raw.anthropic_economic_index.soc_title (carried through from O*NET via Bronze)",
+          "business_term": "BT-028 (Occupation Title)",
+          "dq_rules": [
+            "SLV-AOE-013"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "observed_exposure_pct": {
+          "type": "DOUBLE",
+          "description": "The observed AI exposure for this occupation, expressed as a percent of all classified Claude conversations (0-100 scale). Answers 'how much of the total Claude usage in the world is focused on tasks that map to this occupation?' Computed as SUM of the split task_pct values across every Anthropic-measured task mapped to this SOC. The global sum across all Silver rows is approximately 98.22 (equal to 100 minus the 1.78 percent carried by the filtered-out 'none' placeholder). This is the single most consequential value this table produces — it is the empirical input to the S4 three-signal composite.",
+          "is_cde": true,
+          "cde_rationale": "The new empirical signal. SUM(task_pct) per SOC. Consumed by S4 three-signal composite and MCP get_ai_exposure(). Wrong values miscalibrate RES pentagon stat and Fight AI boss on ~510 of 832 SOCs.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "SUM(raw.anthropic_economic_index.task_pct) grouped by soc_code (after filtering 'none' placeholder)",
+          "business_term": "",
+          "dq_rules": [
+            "SLV-AOE-002",
+            "SLV-AOE-003",
+            "SLV-AOE-014"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "automation_pct": {
+          "type": "DOUBLE",
+          "description": "The volume-weighted mean of automation share across all Anthropic-measured tasks for this occupation, expressed as a percent (0-100). Computed using task_pct (the task's split global share) as the weight, so tasks with more Claude traffic count more. Uses Anthropic v2 methodology: automation = directive + feedback_loop. NULL when every contributing task was fully filtered upstream (filtered >= 0.999) — this happens for roughly 15% of the SOCs in this table, and the observed_exposure_pct value is still populated because it comes from sum aggregation.",
+          "is_cde": true,
+          "cde_rationale": "MCP triple input plus Gold promotion. Invariant automation + augmentation + filtered approximately 1.0 per SOC.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Volume-weighted mean of raw.anthropic_economic_index.automation_pct with task_pct as weight, grouped by soc_code",
+          "business_term": "",
+          "dq_rules": [
+            "SLV-AOE-011"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "augmentation_pct": {
+          "type": "DOUBLE",
+          "description": "The volume-weighted mean of augmentation share across all Anthropic-measured tasks for this occupation, expressed as a percent (0-100). Uses Anthropic v2 methodology: augmentation = task_iteration + validation + learning. Co-equal to automation_pct. NULL under the same condition as automation_pct (when every contributing task was fully filtered upstream).",
+          "is_cde": true,
+          "cde_rationale": "Co-equal to automation_pct in MCP responses. Flagged CDE even though current Gold schema does not carry augmentation_pct directly — a future S4 extension may reach Silver for it.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "Volume-weighted mean of raw.anthropic_economic_index.augmentation_pct with task_pct as weight, grouped by soc_code",
+          "business_term": "",
+          "dq_rules": [
+            "SLV-AOE-011"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "task_count": {
+          "type": "INTEGER",
+          "description": "The number of distinct Anthropic-measured tasks that contributed to this occupation's aggregate. Range is [1, 141]; median is 4, mean is about 7. Acts as a confidence signal: occupations with a task_count of 1 or 2 have much weaker empirical backing than ones with a task_count of 50, and downstream consumers (the S4 composite, MCP tools, a potential 'low-evidence' badge) use this value to decide how to weight or caveat the observed_exposure_pct. When promoted to Gold, this column is renamed to anthropic_task_count.",
+          "is_cde": true,
+          "cde_rationale": "Product-visible confidence signal. A SOC with task_count=1 is qualitatively different from one with task_count=50; downstream confidence weighting and any 'low-evidence' badge read this field directly.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "COUNT(DISTINCT task_id) grouped by soc_code",
+          "business_term": "",
+          "dq_rules": [
+            "SLV-AOE-005",
+            "SLV-AOE-015"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "soc_match": {
+          "type": "BOOLEAN",
+          "description": "A gate flag: true when this soc_code exists in base.bls_ooh (the BLS occupation catalog used by the rest of the FutureProof pipeline), false otherwise. The Gold transformer's LEFT JOIN only finds matches when this is true, so this flag effectively determines which occupations receive Anthropic-sourced columns in Gold. The expected true rate is about 61%, revised down from the spec's original 80% target after EDA revealed that Anthropic's source coverage is concentrated in knowledge-work occupations and does not reach the full 832-occupation FutureProof catalog. This is a documented dataset limitation, not an ingestor defect.",
+          "is_cde": true,
+          "cde_rationale": "Gate flag controlling Gold promotion. Threshold re-baselined 80% -> 60% per EDA. Mis-flagging strands data in Silver or orphans SOCs at Gold.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Computed at Silver time: soc_code IN (SELECT soc_code FROM base.bls_ooh)",
+          "business_term": "",
+          "dq_rules": [
+            "SLV-AOE-006"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "source_release": {
+          "type": "VARCHAR",
+          "description": "The Anthropic release identifier this row's values were built from — pinned to 'release_2025_03_27'. This field carries CC-BY 4.0 attribution provenance. When promoted to Gold, it is aliased to anthropic_source_release and powers the attribution footer on every MCP response surfacing Anthropic data.",
+          "is_cde": true,
+          "cde_rationale": "CC-BY attribution plus reproducibility provenance. Aliased to anthropic_source_release in Gold; propagates verbatim to MCP attribution footer.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "raw.anthropic_economic_index.source_release (carried through)",
+          "business_term": "",
+          "dq_rules": [
+            "SLV-AOE-012"
+          ],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        },
+        "promoted_at": {
+          "type": "TIMESTAMP",
+          "description": "The date and time when this Silver row was produced. Pipeline metadata — records when the Silver aggregation ran, not when the source Anthropic data was published.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated at Silver promotion time",
+          "business_term": "BT-026 (Promotion Timestamp)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
+          "last_updated": "2026-04-16",
           "updated_by": "@doc-generator"
         }
       }

@@ -17,11 +17,16 @@ from typing import Any
 
 # Fields in program_career_paths and onet_work_profiles that are
 # persisted as JSON-encoded strings but should be returned to callers
-# as native Python objects.
+# as native Python objects. task_breakdown_* added in v4 of
+# gemma-ai-exposure-rescore — they ship from Iceberg as JSON strings
+# via consumable.ai_exposure; without decoding the consumer receives
+# escaped literal JSON instead of an array.
 _JSON_STRUCT_FIELDS = (
     "top_5_activities",
     "top_human_activities",
     "burnout_drivers",
+    "task_breakdown_automatable",
+    "task_breakdown_human",
 )
 
 
@@ -48,7 +53,11 @@ from mcp_server._state_input import FIPS_TO_STATE_NAME, normalize_state_input
 
 logger = logging.getLogger(__name__)
 
-# Response fields returned by get_ai_exposure (excludes record_id, promoted_at)
+# Response fields returned by get_ai_exposure (excludes record_id, promoted_at).
+# Extended in v4 of gemma-ai-exposure-rescore with task_breakdown_*
+# (the "Gemma shows its work" surface), scoring_model + model_tag (row-
+# level reproducibility), and karpathy_score (preserved for Gemma-
+# preferred rows so the A/B comparison is available at query time).
 AI_EXPOSURE_RESPONSE_FIELDS = [
     "soc_code",
     "occupation_title",
@@ -57,6 +66,11 @@ AI_EXPOSURE_RESPONSE_FIELDS = [
     "boss_ai_score",
     "rationale",
     "category",
+    "task_breakdown_automatable",
+    "task_breakdown_human",
+    "scoring_model",
+    "model_tag",
+    "karpathy_score",
 ]
 
 TABLE_NAME = "consumable.ai_exposure"
@@ -114,6 +128,16 @@ SCHOOL_PROGRAMS_RESPONSE_FIELDS = [
     "has_earnings",
     "has_debt",
     "outcome_completeness",
+    # Institution-level cost fields (raw-ingest-college-scorecard-institution).
+    # Surfaced so callers (CLI receipts, frontend loan-slider context, ROI
+    # formula in stat_engine) can render the actual cost-of-attendance
+    # alongside the legacy median-debt reference.
+    "net_price_annual",
+    "cost_of_attendance_annual",
+    "net_price_4yr",
+    "tuition_in_state",
+    "tuition_out_of_state",
+    "room_board_on_campus",
 ]
 
 # Tier ordering: confidence tiers listed from strictest to loosest.
@@ -170,6 +194,28 @@ CAREER_PATHS_RESPONSE_FIELDS = [
     "stats_available_count",
     "bosses_available_count",
     "overall_confidence",
+    # Institution-level cost fields, threaded through so the stat engine
+    # can switch ROI from "median debt of past graduates" to
+    # "actual school net price × loan_pct × 4 years". See spec
+    # docs/specs/roi-formula-cost-of-attendance.md for the full rationale.
+    "institution_control",
+    "net_price_annual",
+    "cost_of_attendance_annual",
+    "net_price_4yr",
+    "tuition_in_state",
+    "tuition_out_of_state",
+    "room_board_on_campus",
+    # Option B composite provenance (S4 v4 — three-signal-ai-exposure-composite).
+    # Threaded from consumable.ai_exposure via consumable.program_career_paths
+    # so the backend can render the RES receipt and Fight AI narrative prompt
+    # with method / velocity / adoption context.
+    "ai_adoption_share",
+    "velocity_label",
+    "composite_method",
+    "adoption_percentile",
+    # Cost-based ROI provenance. Plan:
+    # ~/.claude/plans/why-are-we-still-jaunty-curry.md
+    "roi_cost_basis",
 ]
 
 # Load cap when scanning program_career_paths for a single unitid+cipcode
@@ -215,6 +261,16 @@ _SUB_CO_FIELDS = [
     "debt_to_earnings_annual",
     "cip_family_earnings_rank",
     "confidence_tier",
+    # Institution-level cost fields propagated into substituted rows
+    # so the new ROI formula can use net_price_annual × loan_pct × 4
+    # rather than median debt × loan_pct.
+    "institution_control",
+    "net_price_annual",
+    "cost_of_attendance_annual",
+    "net_price_4yr",
+    "tuition_in_state",
+    "tuition_out_of_state",
+    "room_board_on_campus",
 ]
 
 # Fields to pull from consumable.occupation_profiles per SOC.
@@ -350,6 +406,13 @@ CAREER_BRANCHES_RESPONSE_FIELDS = [
     "res_delta",
     "ai_boss_delta",
     "branch_has_full_data",
+    # v1.2.0: O*NET experience requirements (onet-experience-requirements spec).
+    # All four fields are nullable — branches where the target or source
+    # occupation lacks O*NET ETE coverage return NULL rather than 0.
+    "related_experience_years",
+    "related_experience_tier",
+    "source_experience_years",
+    "experience_delta_years",
 ]
 
 CAREER_BRANCHES_MAX_ROWS = 20
@@ -381,11 +444,19 @@ class FutureProofMCPServer(BaseMCPServer):
                 name="get_ai_exposure",
                 description=(
                     "Get AI exposure data for an occupation by SOC code. "
-                    "Returns the Karpathy AI exposure score (0-10), the derived "
-                    "AI Resilience stat (stat_res, 1-10), the Fight AI boss "
-                    "strength (boss_ai_score, 1-10), a rationale explaining "
-                    "the score, and the BLS category. Higher exposure_score "
-                    "means more AI-exposed; higher stat_res means more resilient."
+                    "Returns exposure_score (0-10), derived stat_res (1-10, "
+                    "AI Resilience), boss_ai_score (1-10, Fight AI difficulty), "
+                    "a rationale explaining the score, and the BLS category. "
+                    "Scores are blended from Gemma 4 (task-level O*NET scoring, "
+                    "~798 occupations) and Karpathy (fallback, ~342 occupations); "
+                    "scoring_model tells you which source produced this row. "
+                    "For Gemma-scored rows, task_breakdown_automatable and "
+                    "task_breakdown_human surface the specific tasks Gemma "
+                    "flagged as AI-automatable vs human-essential, model_tag "
+                    "records the exact Ollama tag for audit, and karpathy_score "
+                    "preserves the prior-art score for A/B comparison. Higher "
+                    "exposure_score = more AI-exposed; higher stat_res = more "
+                    "resilient."
                 ),
                 input_schema={
                     "type": "object",
@@ -510,7 +581,14 @@ class FutureProofMCPServer(BaseMCPServer):
                     "(e.g. 'University of Michigan' -> Ann Arbor/Dearborn/"
                     "Flint), all matches are returned so the caller can "
                     "disambiguate. Set min_confidence to 'medium' or 'high' "
-                    "to filter out suppressed/low-data programs."
+                    "to filter out suppressed/low-data programs. Each row "
+                    "also carries institution-level cost fields when "
+                    "available: institution_control "
+                    "('Public'/'Private nonprofit'/'Private for-profit'), "
+                    "net_price_annual (after grants/scholarships), "
+                    "cost_of_attendance_annual (sticker), net_price_4yr, "
+                    "tuition_in_state, tuition_out_of_state, and "
+                    "room_board_on_campus."
                 ),
                 input_schema={
                     "type": "object",
@@ -549,13 +627,19 @@ class FutureProofMCPServer(BaseMCPServer):
                     "the five boss-fight scores (Fight AI, Fight Loans, "
                     "Fight Market, Fight Burnout, Fight Ceiling), BLS "
                     "earnings/growth context, and O*NET task summaries. "
-                    "Results are sorted by stats_available_count DESC so "
-                    "best-data careers come first. Zero results means the "
-                    "program lacks CIP-SOC crosswalk coverage. When the "
-                    "school only reports a broad XX.01 CIP, pass "
-                    "student_major to substitute the major-specific SOC "
-                    "set while preserving the school's broad-program "
-                    "earnings for ERN/ROI."
+                    "Each row also carries institution-level cost fields "
+                    "when available (institution_control, net_price_annual, "
+                    "cost_of_attendance_annual, net_price_4yr, "
+                    "tuition_in_state, tuition_out_of_state, "
+                    "room_board_on_campus) — these power the new ROI "
+                    "formula (net_price × loan_pct × 4 years) and the cost "
+                    "breakdown receipt. Results are sorted by "
+                    "stats_available_count DESC so best-data careers come "
+                    "first. Zero results means the program lacks CIP-SOC "
+                    "crosswalk coverage. When the school only reports a "
+                    "broad XX.01 CIP, pass student_major to substitute the "
+                    "major-specific SOC set while preserving the school's "
+                    "broad-program earnings for ERN/ROI."
                 ),
                 input_schema={
                     "type": "object",
@@ -871,7 +955,7 @@ class FutureProofMCPServer(BaseMCPServer):
             )
 
         return self.enrich_response(
-            {"data": rows[0], "row_count": 1},
+            {"data": _decode_json_struct_fields(rows[0]), "row_count": 1},
             TABLE_NAME,
         )
 
@@ -1587,6 +1671,16 @@ class FutureProofMCPServer(BaseMCPServer):
                     "debt_to_earnings_annual"
                 ),
                 "confidence_tier_program": school.get("confidence_tier"),
+                # Institution-level cost fields (mirror school row).
+                "institution_control": school.get("institution_control"),
+                "net_price_annual": school.get("net_price_annual"),
+                "cost_of_attendance_annual": school.get(
+                    "cost_of_attendance_annual"
+                ),
+                "net_price_4yr": school.get("net_price_4yr"),
+                "tuition_in_state": school.get("tuition_in_state"),
+                "tuition_out_of_state": school.get("tuition_out_of_state"),
+                "room_board_on_campus": school.get("room_board_on_campus"),
                 "median_annual_wage": op.get("median_annual_wage"),
                 "growth_category": op.get("growth_category"),
                 "employment_current": op.get("employment_current"),
@@ -1817,6 +1911,18 @@ class FutureProofMCPServer(BaseMCPServer):
                 row["debt_p25"] = school_row.get("debt_p25")
                 row["debt_p75"] = school_row.get("debt_p75")
                 row["debt_to_earnings_annual"] = school_row.get("debt_to_earnings_annual")
+                # Institution-level cost fields propagated through the
+                # Gemma SOC-resolution fallback so callers get the same
+                # ROI inputs whether the path went via crosswalk or AI.
+                row["institution_control"] = school_row.get("institution_control")
+                row["net_price_annual"] = school_row.get("net_price_annual")
+                row["cost_of_attendance_annual"] = school_row.get(
+                    "cost_of_attendance_annual"
+                )
+                row["net_price_4yr"] = school_row.get("net_price_4yr")
+                row["tuition_in_state"] = school_row.get("tuition_in_state")
+                row["tuition_out_of_state"] = school_row.get("tuition_out_of_state")
+                row["room_board_on_campus"] = school_row.get("room_board_on_campus")
                 ern = compute_stat_ern(
                     school_row.get("cip_family_earnings_rank"),
                     op.get("wage_percentile_overall"),
