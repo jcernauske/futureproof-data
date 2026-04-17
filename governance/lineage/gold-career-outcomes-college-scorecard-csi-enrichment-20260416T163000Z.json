@@ -1,0 +1,464 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-16T16:30:00.000000Z",
+    "run": {
+      "runId": "b4a1f8c2-7e36-4d91-a0bf-2c5d3e9a1f48",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/raw-ingest-college-scorecard-institution.md",
+          "specVersion": "1.1",
+          "zoneSection": "Zone 3 (Gold)",
+          "specSha256": "0ec898e7b1f61a59a4ef9dad673e7bf345c0ed3417cdef0e84126877e7b2af28"
+        },
+        "brightsmith_supersedes": {
+          "previousEvent": "governance/lineage/gold-career-outcomes-college-scorecard-20260406T220000Z.json",
+          "previousRunId": "c7e29a14-5b83-4d1f-a6c0-8f2d4e7b3a91",
+          "reason": "CSI enrichment (spec raw-ingest-college-scorecard-institution §Zone 3) adds a second Silver input (base.college_scorecard_institution), 6 net-new Gold columns (field IDs 32-37), and re-sources field ID 4 (institution_control) from the institution file. The 2026-04-06 event is the superseded predecessor; it described the single-input (base.college_scorecard) promotion before CSI enrichment. This event fully supersedes it for the current state of consumable.career_outcomes; historical reference is retained for audit and time-travel."
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@lineage-tracker",
+          "primaryAgentId": "@primary-agent",
+          "reasoning": "Gold zone CSI enrichment re-promote. @primary-agent modified src/gold/college_scorecard_career_outcomes.py to (1) add an `institution` CTE reading from base.college_scorecard_institution, (2) LEFT JOIN on unitid so row count is preserved, (3) project 7 enrichment fields into the final SELECT, and (4) evolve the Iceberg schema additively with field IDs 32-37 plus in-place re-source of field ID 4. Runner scripts/promote_career_outcomes_enriched.py executed in overwrite mode because record_ids are stable across runs and dedup-append would have skipped every row. @lineage-tracker observed and recorded this event; no data transformation performed here."
+        },
+        "brightsmith_runtimeMetrics": {
+          "mode": "overwrite_re_promote",
+          "rowsReadFieldOfStudy": 69947,
+          "rowsReadInstitution": 3039,
+          "rowsTransformed": 69947,
+          "rowsSkippedTransform": 0,
+          "promoted": 69947,
+          "preCount": 69947,
+          "postCount": 69947,
+          "rowCountInvariantHeld": true,
+          "netPriceAnnualCoveragePct": 95.45,
+          "costOfAttendanceAnnualCoveragePct": 95.45,
+          "institutionControlCoveragePct": 97.42,
+          "unmatchedUnitIdCount": 207,
+          "schemaEvolution": "additive: field IDs 32-37 added; field ID 4 re-sourced in place (nullability unchanged)",
+          "approxDurationMs": 42000,
+          "runtimeApproximationReason": "Duration approximated from primary-agent completed_at (2026-04-16T16:16:09Z) and dq-engineer completed_at (2026-04-16T16:22:42Z) bracketing window per governance/pipeline-state/raw-ingest-college-scorecard-institution-pipeline.json; runtime auto-emission not yet wired for Gold overwrite promote path."
+        },
+        "brightsmith_dqEvidence": {
+          "scorecardFile": "governance/dq-scorecards/gold-career-outcomes-college-scorecard-csi-enrichment-scorecard.md",
+          "dqResultsFile": "governance/dq-results/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T162106Z.json",
+          "rulesTotal": 51,
+          "rulesPassed": 51,
+          "p0Gate": "PASS",
+          "gldCsiRulesPassed": 9,
+          "gldCoRegressionPassed": 42
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-career-outcomes",
+      "facets": {
+        "documentation": {
+          "description": "Transform Silver base.college_scorecard into Gold consumable.career_outcomes with institution-level cost enrichment via LEFT JOIN to base.college_scorecard_institution on unitid. Core transformer (unchanged): CIP-family percentile bands via PERCENTILE_CONT window functions, debt-to-earnings ratio + tier, earnings growth rate, CIP-family PERCENT_RANK, program value index (ROI proxy), confidence tier, convenience flags, outcome completeness. CSI enrichment (2026-04-16): adds 6 net-new institution-level cost columns (net_price_annual, cost_of_attendance_annual, net_price_4yr, tuition_in_state, tuition_out_of_state, room_board_on_campus) and re-sources institution_control from the institution file (replaces prior 100%-null carry-forward from the field-of-study file). Row count invariant: 69,947 preserved exactly. Promote mode: overwrite (stable record_ids across runs mean dedup-append would skip every row)."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/college_scorecard_career_outcomes.py",
+          "sourceCodeSha256": "2d4ef12c1bce4f0510f25aa0be58ea1ea57000c1fecfe26c6192675f3740f855"
+        },
+        "brightsmith_runner": {
+          "runnerLocation": "scripts/promote_career_outcomes_enriched.py",
+          "runnerSha256": "6e7631550907218d3ce457c6c4bbb17d4b7d39bce914d8c96b0d398330e177b9",
+          "invocation": "uv run python scripts/promote_career_outcomes_enriched.py",
+          "overwriteMode": true
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.college_scorecard",
+        "facets": {
+          "role": "primary_input_field_of_study",
+          "description": "Silver field-of-study file. Program-grain (unitid x cipcode x credential_level). Unchanged since the 2026-04-06 original promotion; primary driver of the 69,947-row output grain.",
+          "upstreamSilverTransformer": {
+            "sourceCodeLocation": "src/silver/college_scorecard_transformer.py",
+            "sourceCodeSha256": "5470ba33977a19909ef9fef80b30e01a98f66fc54216f2fe72d8a2c7f1b6dcc1"
+          },
+          "expectedRowCount": 69947,
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "institution_control", "type": "STRING"},
+              {"name": "cipcode", "type": "STRING"},
+              {"name": "program_name", "type": "STRING"},
+              {"name": "cip_family", "type": "STRING"},
+              {"name": "cip_family_name", "type": "STRING"},
+              {"name": "credential_level", "type": "INTEGER"},
+              {"name": "credential_description", "type": "STRING"},
+              {"name": "earnings_1yr_median", "type": "DOUBLE"},
+              {"name": "earnings_2yr_median", "type": "DOUBLE"},
+              {"name": "debt_median", "type": "DOUBLE"},
+              {"name": "completions_count_1", "type": "LONG"},
+              {"name": "completions_count_2", "type": "LONG"},
+              {"name": "small_cohort_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.college_scorecard_institution",
+        "facets": {
+          "role": "secondary_input_institution_cost",
+          "description": "Silver institution-grain file (unitid). NEW input as of 2026-04-16 spec raw-ingest-college-scorecard-institution. Supplies 6 net-new cost columns + re-sourced institution_control. LEFT JOIN on unitid preserves all rows from the primary input; unmatched UNITIDs (207 of 4,170, i.e. 4.96%) get NULL for the 7 enrichment columns.",
+          "upstreamSilverLineage": "governance/lineage/silver-base-college-scorecard-institution-20260414T220000Z.json",
+          "upstreamSilverTransformer": {
+            "sourceCodeLocation": "src/silver/college_scorecard_institution_transformer.py",
+            "sourceCodeSha256": "6a40a3654403b68822751ebb05387588cb72e6d465866363b5c1ddecd3a2bd5a"
+          },
+          "expectedRowCount": 3039,
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "state_abbr", "type": "STRING"},
+              {"name": "institution_control", "type": "STRING"},
+              {"name": "cost_of_attendance_annual", "type": "DOUBLE"},
+              {"name": "cost_of_attendance_4yr", "type": "DOUBLE"},
+              {"name": "net_price_annual", "type": "DOUBLE"},
+              {"name": "net_price_4yr", "type": "DOUBLE"},
+              {"name": "net_price_q1", "type": "DOUBLE"},
+              {"name": "net_price_q2", "type": "DOUBLE"},
+              {"name": "net_price_q3", "type": "DOUBLE"},
+              {"name": "net_price_q4", "type": "DOUBLE"},
+              {"name": "net_price_q5", "type": "DOUBLE"},
+              {"name": "tuition_in_state", "type": "DOUBLE"},
+              {"name": "tuition_out_of_state", "type": "DOUBLE"},
+              {"name": "room_board_on_campus", "type": "DOUBLE"},
+              {"name": "room_board_off_campus", "type": "DOUBLE"},
+              {"name": "books_supplies", "type": "DOUBLE"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.career_outcomes",
+        "facets": {
+          "rowCount": 69947,
+          "columnCount": 37,
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "fieldId": 1},
+              {"name": "unitid", "type": "LONG", "fieldId": 2},
+              {"name": "institution_name", "type": "STRING", "fieldId": 3},
+              {"name": "institution_control", "type": "STRING", "fieldId": 4},
+              {"name": "cipcode", "type": "STRING", "fieldId": 5},
+              {"name": "program_name", "type": "STRING", "fieldId": 6},
+              {"name": "cip_family", "type": "STRING", "fieldId": 7},
+              {"name": "cip_family_name", "type": "STRING", "fieldId": 8},
+              {"name": "credential_level", "type": "INTEGER", "fieldId": 9},
+              {"name": "earnings_1yr_median", "type": "DOUBLE", "fieldId": 10},
+              {"name": "earnings_2yr_median", "type": "DOUBLE", "fieldId": 11},
+              {"name": "debt_median", "type": "DOUBLE", "fieldId": 12},
+              {"name": "completions_count", "type": "LONG", "fieldId": 13},
+              {"name": "small_cohort_flag", "type": "BOOLEAN", "fieldId": 14},
+              {"name": "earnings_1yr_p25", "type": "DOUBLE", "fieldId": 15},
+              {"name": "earnings_1yr_p75", "type": "DOUBLE", "fieldId": 16},
+              {"name": "earnings_2yr_p25", "type": "DOUBLE", "fieldId": 17},
+              {"name": "earnings_2yr_p75", "type": "DOUBLE", "fieldId": 18},
+              {"name": "debt_p25", "type": "DOUBLE", "fieldId": 19},
+              {"name": "debt_p75", "type": "DOUBLE", "fieldId": 20},
+              {"name": "debt_to_earnings_annual", "type": "DOUBLE", "fieldId": 21},
+              {"name": "debt_to_earnings_tier", "type": "STRING", "fieldId": 22},
+              {"name": "earnings_growth_rate", "type": "DOUBLE", "fieldId": 23},
+              {"name": "cip_family_earnings_rank", "type": "DOUBLE", "fieldId": 24},
+              {"name": "program_value_index", "type": "DOUBLE", "fieldId": 25},
+              {"name": "confidence_tier", "type": "STRING", "fieldId": 26},
+              {"name": "has_earnings", "type": "BOOLEAN", "fieldId": 27},
+              {"name": "has_debt", "type": "BOOLEAN", "fieldId": 28},
+              {"name": "outcome_completeness", "type": "DOUBLE", "fieldId": 29},
+              {"name": "source_load_date", "type": "DATE", "fieldId": 30},
+              {"name": "promoted_at", "type": "TIMESTAMP", "fieldId": 31},
+              {"name": "net_price_annual", "type": "DOUBLE", "fieldId": 32},
+              {"name": "cost_of_attendance_annual", "type": "DOUBLE", "fieldId": 33},
+              {"name": "net_price_4yr", "type": "DOUBLE", "fieldId": 34},
+              {"name": "tuition_in_state", "type": "DOUBLE", "fieldId": 35},
+              {"name": "tuition_out_of_state", "type": "DOUBLE", "fieldId": 36},
+              {"name": "room_board_on_campus", "type": "DOUBLE", "fieldId": 37}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cipcode"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "credential_level"}
+                ],
+                "transformationDescription": "Deterministic grain hash via compute_grain_id(row, ['unitid', 'cipcode', 'credlev'], prefix='co'). Stable across runs; this is why the re-promote must use overwrite mode.",
+                "transformationType": "DERIVED"
+              },
+              "unitid": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}],
+                "transformationDescription": "Direct copy from field-of-study Silver. Also the LEFT JOIN key to base.college_scorecard_institution.",
+                "transformationType": "DIRECT"
+              },
+              "institution_name": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "institution_name"}],
+                "transformationDescription": "Direct copy from field-of-study Silver (not re-sourced from institution file; field-of-study is the primary grain).",
+                "transformationType": "DIRECT"
+              },
+              "institution_control": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard_institution", "field": "institution_control"}],
+                "transformationDescription": "RE-SOURCED 2026-04-16. Pre-enrichment this field was carried forward from base.college_scorecard but was 100% null there. Now sourced via LEFT JOIN on unitid from base.college_scorecard_institution, where it is derived from the integer CONTROL code mapping (1 -> Public, 2 -> Private nonprofit, 3 -> Private for-profit). Field ID 4 unchanged; nullability unchanged. Post-enrichment coverage: 97.42%.",
+                "transformationType": "DIRECT",
+                "changeNote": "Re-source of existing field ID 4 — superseded from single-input lineage event c7e29a14."
+              },
+              "cipcode": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cipcode"}],
+                "transformationDescription": "Direct copy from Silver. Normalized CIP code in XX.XX format.",
+                "transformationType": "DIRECT"
+              },
+              "program_name": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "program_name"}],
+                "transformationDescription": "Direct copy from Silver.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}],
+                "transformationDescription": "Direct copy from Silver. 2-digit CIP family code.",
+                "transformationType": "DIRECT"
+              },
+              "cip_family_name": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family_name"}],
+                "transformationDescription": "Direct copy from Silver. CIP family taxonomy description.",
+                "transformationType": "DIRECT"
+              },
+              "credential_level": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "credential_level"}],
+                "transformationDescription": "Direct copy from Silver. Integer credential level (3=Bachelor's).",
+                "transformationType": "DIRECT"
+              },
+              "earnings_1yr_median": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"}],
+                "transformationDescription": "Direct copy from Silver. Null values preserved.",
+                "transformationType": "DIRECT"
+              },
+              "earnings_2yr_median": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"}],
+                "transformationDescription": "Direct copy from Silver. Null values preserved.",
+                "transformationType": "DIRECT"
+              },
+              "debt_median": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}],
+                "transformationDescription": "Direct copy from Silver. Remains the active ROI driver for this spec; the migration to net_price_annual happens in the follow-up spec roi-formula-cost-of-attendance.",
+                "transformationType": "DIRECT"
+              },
+              "completions_count": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "completions_count_1"}],
+                "transformationDescription": "Column rename from completions_count_1 to completions_count. completions_count_2 dropped per spec.",
+                "transformationType": "DIRECT"
+              },
+              "small_cohort_flag": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "small_cohort_flag"}],
+                "transformationDescription": "Direct copy from Silver.",
+                "transformationType": "DIRECT"
+              },
+              "earnings_1yr_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.25) of earnings_1yr_median across all institutions within the same cip_family. Minimum sample guard (>=3 non-null values).",
+                "transformationType": "AGGREGATION"
+              },
+              "earnings_1yr_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.75) within cip_family. Minimum sample guard (>=3).",
+                "transformationType": "AGGREGATION"
+              },
+              "earnings_2yr_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.25) of earnings_2yr_median within cip_family. Minimum sample guard (>=3).",
+                "transformationType": "AGGREGATION"
+              },
+              "earnings_2yr_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.75) of earnings_2yr_median within cip_family. Minimum sample guard (>=3).",
+                "transformationType": "AGGREGATION"
+              },
+              "debt_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.25) of debt_median within cip_family. Minimum sample guard (>=3).",
+                "transformationType": "AGGREGATION"
+              },
+              "debt_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENTILE_CONT(0.75) of debt_median within cip_family. Minimum sample guard (>=3).",
+                "transformationType": "AGGREGATION"
+              },
+              "debt_to_earnings_annual": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"}
+                ],
+                "transformationDescription": "debt_median / earnings_1yr_median. Null-safe.",
+                "transformationType": "DERIVED"
+              },
+              "debt_to_earnings_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"}
+                ],
+                "transformationDescription": "Bucketed: Low (<0.75), Moderate (0.75-1.5), High (1.5-2.5), Very High (>=2.5). DoE Gainful Employment thresholds.",
+                "transformationType": "DERIVED"
+              },
+              "earnings_growth_rate": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"}
+                ],
+                "transformationDescription": "(earnings_2yr_median - earnings_1yr_median) / earnings_1yr_median. Null-safe.",
+                "transformationType": "DERIVED"
+              },
+              "cip_family_earnings_rank": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "cip_family"}
+                ],
+                "transformationDescription": "PERCENT_RANK() OVER (PARTITION BY cip_family ORDER BY earnings_1yr_median).",
+                "transformationType": "AGGREGATION"
+              },
+              "program_value_index": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "earnings_1yr_median / debt_median. ROI proxy. Null-safe.",
+                "transformationType": "DERIVED"
+              },
+              "confidence_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "small_cohort_flag"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "Data-quality classification: high / medium / low / insufficient.",
+                "transformationType": "DERIVED"
+              },
+              "has_earnings": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"}
+                ],
+                "transformationDescription": "Boolean: earnings_1yr_median IS NOT NULL OR earnings_2yr_median IS NOT NULL.",
+                "transformationType": "DERIVED"
+              },
+              "has_debt": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}],
+                "transformationDescription": "Boolean: debt_median IS NOT NULL.",
+                "transformationType": "DERIVED"
+              },
+              "outcome_completeness": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_1yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "earnings_2yr_median"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "debt_median"}
+                ],
+                "transformationDescription": "count_non_null / 3.0, snapped to {0.0, 0.33, 0.67, 1.0}.",
+                "transformationType": "DERIVED"
+              },
+              "source_load_date": {
+                "inputFields": [{"namespace": "brightsmith", "name": "base.college_scorecard", "field": "source_load_date"}],
+                "transformationDescription": "Direct copy from Silver.",
+                "transformationType": "DIRECT"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Gold promotion time. Refreshed on every re-promote including this CSI enrichment run — this is a property of the idempotent promote pattern, not data drift.",
+                "transformationType": "DERIVED"
+              },
+              "net_price_annual": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard_institution", "field": "net_price_annual"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "NEW 2026-04-16 (field ID 32). LEFT JOIN from base.college_scorecard_institution on unitid. Silver-side derivation: control-based routing (control=1 -> npt4_pub; control in {2,3} -> npt4_priv). CDE per contract. Coverage 95.45% post-enrichment; NULL for ~207 unmatched UNITIDs. Does NOT drive ROI in this spec; debt_median remains the active driver (migration in roi-formula-cost-of-attendance spec).",
+                "transformationType": "DIRECT"
+              },
+              "cost_of_attendance_annual": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard_institution", "field": "cost_of_attendance_annual"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "NEW 2026-04-16 (field ID 33). LEFT JOIN from base.college_scorecard_institution on unitid. Silver-side derivation: COALESCE(costt4_a, costt4_p). CDE per contract; upper-bound invariant partner for net_price_annual. Coverage 95.45%.",
+                "transformationType": "DIRECT"
+              },
+              "net_price_4yr": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard_institution", "field": "net_price_4yr"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "NEW 2026-04-16 (field ID 34). LEFT JOIN from base.college_scorecard_institution on unitid. Silver-side derivation: net_price_annual * 4 via null-propagating multiply. Invariant GLD-CSI-003 enforces |net_price_4yr - net_price_annual*4| <= $1.",
+                "transformationType": "DIRECT"
+              },
+              "tuition_in_state": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard_institution", "field": "tuition_in_state"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "NEW 2026-04-16 (field ID 35). LEFT JOIN from base.college_scorecard_institution on unitid. Silver-side: direct rename from bronze tuitionfee_in. Display/receipts only.",
+                "transformationType": "DIRECT"
+              },
+              "tuition_out_of_state": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard_institution", "field": "tuition_out_of_state"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "NEW 2026-04-16 (field ID 36). LEFT JOIN from base.college_scorecard_institution on unitid. Silver-side: direct rename from bronze tuitionfee_out. Display/receipts only.",
+                "transformationType": "DIRECT"
+              },
+              "room_board_on_campus": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.college_scorecard_institution", "field": "room_board_on_campus"},
+                  {"namespace": "brightsmith", "name": "base.college_scorecard", "field": "unitid"}
+                ],
+                "transformationDescription": "NEW 2026-04-16 (field ID 37). LEFT JOIN from base.college_scorecard_institution on unitid. Silver-side: direct rename from bronze roomboard_on. Display/receipts only.",
+                "transformationType": "DIRECT"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "completions_count_2": {"reason": "Second-major completions not relevant to career-outcomes query pattern."},
+              "credential_description": {"reason": "Redundant with credential_level in MVP."},
+              "ingested_at": {"reason": "Replaced by promoted_at."}
+            }
+          }
+        }
+      }
+    ]
+  }
+]

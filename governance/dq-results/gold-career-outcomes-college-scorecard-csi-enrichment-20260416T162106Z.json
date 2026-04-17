@@ -1,0 +1,725 @@
+{
+  "run_id": "9dd4463a",
+  "evidence_hash": "1f57cd28e28b296b",
+  "spec": "gold-career-outcomes-college-scorecard",
+  "zone": "gold",
+  "table": "consumable.career_outcomes",
+  "source": "iceberg",
+  "warehouse": "/Users/jcernauske/code/bright/futureproof-data/data/gold/iceberg_warehouse",
+  "executed_at": "2026-04-16T16:21:06.917437+00:00",
+  "schema_columns": [
+    {
+      "name": "record_id",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "unitid",
+      "type": "BIGINT"
+    },
+    {
+      "name": "institution_name",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "institution_control",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "cipcode",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "program_name",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "cip_family",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "cip_family_name",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "credential_level",
+      "type": "BIGINT"
+    },
+    {
+      "name": "earnings_1yr_median",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "earnings_2yr_median",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "debt_median",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "completions_count",
+      "type": "BIGINT"
+    },
+    {
+      "name": "small_cohort_flag",
+      "type": "BOOLEAN"
+    },
+    {
+      "name": "earnings_1yr_p25",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "earnings_1yr_p75",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "earnings_2yr_p25",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "earnings_2yr_p75",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "debt_p25",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "debt_p75",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "debt_to_earnings_annual",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "debt_to_earnings_tier",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "earnings_growth_rate",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "cip_family_earnings_rank",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "program_value_index",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "confidence_tier",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "has_earnings",
+      "type": "BOOLEAN"
+    },
+    {
+      "name": "has_debt",
+      "type": "BOOLEAN"
+    },
+    {
+      "name": "outcome_completeness",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "source_load_date",
+      "type": "DATE"
+    },
+    {
+      "name": "promoted_at",
+      "type": "TIMESTAMP"
+    },
+    {
+      "name": "net_price_annual",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "cost_of_attendance_annual",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "net_price_4yr",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "tuition_in_state",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "tuition_out_of_state",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "room_board_on_campus",
+      "type": "DOUBLE"
+    }
+  ],
+  "rules_total": 51,
+  "rules_passed": 51,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "p0_failures": [],
+  "p1_failures": [],
+  "gld_csi_summary": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "errored": 0,
+    "p0_failed": [],
+    "p1_failed": [],
+    "p2_failed": []
+  },
+  "gld_co_summary": {
+    "total": 42,
+    "passed": 42,
+    "failed": 0,
+    "errored": 0,
+    "p0_failed": [],
+    "p1_failed": [],
+    "p2_failed": []
+  },
+  "results": [
+    {
+      "rule_id": "GLD-CSI-001",
+      "name": "CSI enrichment preserves row count exactly",
+      "priority": "P0",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-002",
+      "name": "Net price cannot exceed cost of attendance",
+      "priority": "P0",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-003",
+      "name": "4-year net price equals annual times 4",
+      "priority": "P0",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-004",
+      "name": "Net price lower bound respects BT-111 legitimate negatives",
+      "priority": "P0",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-005",
+      "name": "net_price_annual completeness >= 90%",
+      "priority": "P1",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-006",
+      "name": "cost_of_attendance_annual completeness >= 90%",
+      "priority": "P1",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-007",
+      "name": "institution_control completeness >= 95%",
+      "priority": "P1",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-008",
+      "name": "Unmatched UNITID count <= 300",
+      "priority": "P1",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CSI-009",
+      "name": "institution_control value set",
+      "priority": "P2",
+      "status_rule": "proposed",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-001",
+      "name": "Grain uniqueness: unitid x cipcode x credential_level",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-002",
+      "name": "Record ID uniqueness",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-003",
+      "name": "Row count within expected range",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-004",
+      "name": "Percentile band ordering: earnings_1yr p25 <= p75",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-005",
+      "name": "Percentile band ordering: earnings_2yr p25 <= p75",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-006",
+      "name": "Percentile band ordering: debt p25 <= p75",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-007",
+      "name": "confidence_tier not null",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-008",
+      "name": "confidence_tier value set",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-009",
+      "name": "has_earnings accuracy",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-010",
+      "name": "has_debt accuracy",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-011",
+      "name": "outcome_completeness value set",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-012",
+      "name": "Null propagation: debt_to_earnings null when input null",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-013",
+      "name": "Null propagation: debt_to_earnings NOT null when inputs present",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-014",
+      "name": "Null propagation: earnings_growth_rate null when input null",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-015",
+      "name": "Null propagation: cip_family_earnings_rank null when earnings null",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-016",
+      "name": "Null propagation: program_value_index null when input null",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-017",
+      "name": "Null propagation: debt_to_earnings_tier null when ratio null",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-018",
+      "name": "debt_to_earnings_tier value set",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-019",
+      "name": "debt_to_earnings_annual range (where non-null)",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-020",
+      "name": "earnings_growth_rate range (where non-null)",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-021",
+      "name": "cip_family_earnings_rank range (where non-null)",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-022",
+      "name": "DTE tier distribution: Low is plurality (of non-null)",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-023",
+      "name": "DTE tier distribution: Low rate within expected range",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-024",
+      "name": "DTE tier distribution: High + Very High rate capped",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-025",
+      "name": "Confidence tier distribution: insufficient rate within range",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-026",
+      "name": "Confidence tier distribution: high rate within range",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-027",
+      "name": "Negative earnings_growth_rate within expected range",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-028",
+      "name": "Percentile band null pattern: 1yr earnings bands null for small CIP families",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-029",
+      "name": "Confidence tier derivation: insufficient iff no outcome data",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-030",
+      "name": "Confidence tier derivation: high requires large cohort + complete data",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-031",
+      "name": "outcome_completeness consistency with underlying fields",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-032",
+      "name": "NOT NULL fields completeness: required identity fields",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-033",
+      "name": "NOT NULL fields completeness: derived quality fields",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-034",
+      "name": "Distinct institution count within expected range",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-035",
+      "name": "Distinct CIP families within expected range",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-036",
+      "name": "credential_level must equal 3",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-037",
+      "name": "program_value_index is mathematical inverse of DTE",
+      "priority": "P1",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-038",
+      "name": "DTE tier boundaries match ratio values",
+      "priority": "P0",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-039",
+      "name": "institution_control completeness tracking",
+      "priority": "P2",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 2.6,
+      "threshold": "result <= 100.0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-040",
+      "name": "CIP families with null 1yr bands count within range",
+      "priority": "P2",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-041",
+      "name": "Mean debt-to-earnings ratio within expected range",
+      "priority": "P2",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    },
+    {
+      "rule_id": "GLD-CO-042",
+      "name": "Mean earnings growth rate within expected range",
+      "priority": "P2",
+      "status_rule": "active",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null
+    }
+  ],
+  "supplementary_stats": {
+    "total_rows": 69947,
+    "distinct_unitids": 2559,
+    "distinct_record_ids": 69947,
+    "net_price_annual_coverage_pct": 95.45,
+    "cost_of_attendance_annual_coverage_pct": 95.45,
+    "net_price_4yr_coverage_pct": 95.45,
+    "institution_control_coverage_pct": 97.42,
+    "unmatched_distinct_unitids": 207,
+    "institution_control_distribution": [
+      {
+        "label": "Private nonprofit",
+        "count": 37211
+      },
+      {
+        "label": "Public",
+        "count": 29374
+      },
+      {
+        "label": "(null)",
+        "count": 1804
+      },
+      {
+        "label": "Private for-profit",
+        "count": 1558
+      }
+    ]
+  }
+}
