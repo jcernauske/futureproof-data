@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FutureProof · Boss Gauntlet</title>
+<style>{{ base_css | safe }}
+
+.frame {
+  justify-content: space-between;
+}
+
+.top-band {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.verdict-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.verdict {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 700;
+  font-size: 88px;
+  color: var(--accent-caution);
+  text-align: center;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.tally-bar {
+  display: flex;
+  gap: 6px;
+  width: 480px;
+  height: 20px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-mid);
+}
+
+.tally-seg-win { background: var(--accent-thrive); }
+.tally-seg-draw { background: var(--accent-caution); }
+.tally-seg-lose { background: var(--accent-alert); }
+
+.tally-text {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--text-secondary);
+  letter-spacing: 4px;
+}
+
+.bosses {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 860px;
+  margin-top: 40px;
+}
+
+.boss-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-radius: 16px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+.boss-row.win {
+  background:
+    linear-gradient(90deg, rgba(125, 212, 163, 0.12), transparent 35%),
+    var(--bg-mid);
+  border-color: rgba(125, 212, 163, 0.3);
+}
+
+.boss-row.lose {
+  background:
+    linear-gradient(90deg, rgba(244, 169, 126, 0.12), transparent 35%),
+    var(--bg-mid);
+  border-color: rgba(244, 169, 126, 0.3);
+}
+
+.boss-row.draw {
+  background:
+    linear-gradient(90deg, rgba(242, 212, 119, 0.10), transparent 35%),
+    var(--bg-mid);
+  border-color: rgba(242, 212, 119, 0.25);
+}
+
+.boss-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.boss-emoji {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.boss-name {
+  font-family: "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  color: var(--text-primary);
+}
+
+.result-pill {
+  font-family: "Nunito", sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: 2px;
+  padding: 10px 22px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.result-pill.win { background: var(--accent-thrive); color: var(--text-inverse); }
+.result-pill.lose { background: var(--accent-alert); color: var(--text-inverse); }
+.result-pill.draw { background: var(--accent-caution); color: var(--text-inverse); }
+.result-pill.unknown { background: var(--bg-surface); color: var(--text-muted); }
+
+.bottom-band {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-bottom: 16px;
+  margin-top: 24px;
+}
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="top-band">
+      <div class="label">Boss Gauntlet</div>
+    </div>
+
+    <div class="verdict-block">
+      <div class="verdict">{{ verdict_text }}</div>
+      <div class="tally-bar">
+        {% for _ in range(wins) %}<div class="tally-seg-win" style="flex: 1"></div>{% endfor %}
+        {% for _ in range(draws) %}<div class="tally-seg-draw" style="flex: 1"></div>{% endfor %}
+        {% for _ in range(losses) %}<div class="tally-seg-lose" style="flex: 1"></div>{% endfor %}
+      </div>
+      <div class="tally-text">{{ wins }}W · {{ draws }}D · {{ losses }}L</div>
+    </div>
+
+    <div class="bosses">
+      {% for fight in fights %}
+      <div class="boss-row {{ fight.result }}">
+        <div class="boss-left">
+          <div class="boss-emoji">{{ fight.emoji }}</div>
+          <div class="boss-name">{{ fight.label }}</div>
+        </div>
+        <div class="result-pill {{ fight.result }}">{{ fight.result_upper }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="bottom-band">
+      <div class="footer-name">{{ profile_name_display }}</div>
+    </div>
+  </div>
+</body>
+</html>

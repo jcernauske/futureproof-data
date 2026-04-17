@@ -1,0 +1,118 @@
+/* Brightpath design tokens — inlined into every Wrapped frame.
+
+   Renderer constraints (from design vision §3):
+   - NO backdrop-filter, NO filter: blur(), NO mix-blend-mode
+   - All glows/halos are solid radial-gradient background-image layers,
+     never box-shadow with large blur radii (Instagram compression
+     destroys large soft shadows).
+   - Fonts via Google Fonts @import — headless Chromium has network
+     access. Base64 embedding is a future hardening step.
+   - Fixed 1080×1920 body. No scrolling, no overflow.
+*/
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap");
+
+:root {
+  /* Backgrounds */
+  --bg-void: #12131F;
+  --bg-deep: #1B1D30;
+  --bg-mid: #232545;
+  --bg-surface: #2D3060;
+  --bg-raised: #3A3D75;
+
+  /* Accents */
+  --accent-thrive: #7DD4A3;
+  --accent-thrive-deep: #5BB085;
+  --accent-alert: #F4A97E;
+  --accent-caution: #F2D477;
+  --accent-insight: #B8A9E8;
+  --accent-info: #7BB8E0;
+  --accent-empathy: #E88BA9;
+
+  /* Stats */
+  --stat-ern: #F2D477;
+  --stat-roi: #7DD4A3;
+  --stat-res: #B8A9E8;
+  --stat-grw: #7BB8E0;
+  --stat-hmn: #E88BA9;
+
+  /* Bosses */
+  --boss-ai: #B8A9E8;
+  --boss-loans: #F4A97E;
+  --boss-market: #7BB8E0;
+  --boss-burnout: #E88BA9;
+  --boss-ceiling: #C4BFB0;
+
+  /* Text */
+  --text-primary: #F5F0E8;
+  --text-secondary: #C4BFB0;
+  --text-muted: #8A8595;
+  --text-inverse: #1B1D30;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 1080px;
+  height: 1920px;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.frame {
+  position: relative;
+  width: 1080px;
+  height: 1920px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 96px 80px;
+  /* Layered background: base color + atmospheric radial accents.
+     All alphas reduced from app-level intensities for Instagram compression. */
+  background:
+    radial-gradient(ellipse 800px 600px at 50% 20%, rgba(125, 212, 163, 0.06), transparent 70%),
+    radial-gradient(ellipse 900px 700px at 50% 90%, rgba(184, 169, 232, 0.05), transparent 70%),
+    var(--bg-deep);
+}
+
+.wordmark {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 6px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* Even though .wordmark has text-transform: uppercase, some Chromium
+   rendering paths apply the transform after font kerning — so the HTML
+   should already be uppercase for maximum fidelity at 1080×1920. */
+
+.label {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 4px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.footer-name {
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-weight: 500;
+  font-size: 28px;
+  color: var(--text-muted);
+}
+
+.h-fredoka { font-family: "Fredoka", sans-serif; }
+.h-space-mono { font-family: "Space Mono", monospace; }

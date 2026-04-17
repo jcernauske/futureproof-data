@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FutureProof · Standout</title>
+<style>{{ base_css | safe }}
+
+.frame {
+  justify-content: space-between;
+}
+
+.top-band {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 32px;
+  width: 100%;
+}
+
+.stat-halo {
+  position: relative;
+  width: 600px;
+  height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, var(--halo-color, rgba(184, 169, 232, 0.35)) 0%, transparent 65%);
+}
+
+.stat-number {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: 300px;
+  line-height: 1;
+  color: var(--stat-color, var(--stat-res));
+  letter-spacing: -8px;
+}
+
+.stat-number-suffix {
+  font-family: "Space Mono", monospace;
+  font-weight: 400;
+  font-size: 80px;
+  color: var(--text-muted);
+  margin-left: 8px;
+  vertical-align: top;
+}
+
+.stat-name {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 700;
+  font-size: 72px;
+  color: var(--stat-color, var(--stat-res));
+  text-align: center;
+  line-height: 1;
+}
+
+.insight-text {
+  font-family: "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 36px;
+  color: var(--text-primary);
+  text-align: center;
+  max-width: 860px;
+  line-height: 1.3;
+}
+
+.context-text {
+  font-family: "Nunito", sans-serif;
+  font-weight: 400;
+  font-size: 26px;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 780px;
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.bottom-band {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-bottom: 16px;
+}
+</style>
+</head>
+<body>
+  <div class="frame" style="--stat-color: {{ stat_color }}; --halo-color: {{ halo_color }};">
+    <div class="top-band">
+      <div class="label">Standout</div>
+    </div>
+
+    <div class="center">
+      <div class="stat-halo">
+        <div>
+          <span class="stat-number">{{ stat_value }}</span><span class="stat-number-suffix">/ 10</span>
+        </div>
+      </div>
+
+      <div class="stat-name">{{ stat_name }}</div>
+
+      <div class="insight-text">{{ insight_headline }}</div>
+      <div class="context-text">{{ insight_context }}</div>
+    </div>
+
+    <div class="bottom-band">
+      <div class="footer-name">{{ profile_name_display }}</div>
+    </div>
+  </div>
+</body>
+</html>

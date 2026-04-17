@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FutureProof · Pentagon</title>
+<style>{{ base_css | safe }}
+
+.frame {
+  justify-content: space-between;
+}
+
+.top-band {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 48px;
+  flex: 1;
+  justify-content: center;
+  width: 100%;
+}
+
+.pentagon-host {
+  width: 780px;
+  height: 780px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, rgba(184, 169, 232, 0.12) 0%, transparent 65%);
+}
+
+.stat-pills {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 920px;
+}
+
+.pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 12px;
+  border-radius: 16px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border-subtle);
+  gap: 6px;
+}
+
+.pill-label {
+  font-family: "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.pill-value {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.pill-ern .pill-label, .pill-ern .pill-value { color: var(--stat-ern); }
+.pill-roi .pill-label, .pill-roi .pill-value { color: var(--stat-roi); }
+.pill-res .pill-label, .pill-res .pill-value { color: var(--stat-res); }
+.pill-grw .pill-label, .pill-grw .pill-value { color: var(--stat-grw); }
+.pill-hmn .pill-label, .pill-hmn .pill-value { color: var(--stat-hmn); }
+
+.spec-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 48px;
+  border-radius: 20px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border-subtle);
+}
+
+.spec-line {
+  font-family: "Nunito", sans-serif;
+  font-weight: 600;
+  font-size: 26px;
+  color: var(--text-secondary);
+}
+
+.spec-line.primary {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.bottom-band {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-bottom: 16px;
+}
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="top-band">
+      <div class="label">My Stats</div>
+    </div>
+
+    <div class="center">
+      <div class="pentagon-host">
+        {{ pentagon_svg | safe }}
+      </div>
+
+      <div class="stat-pills">
+        <div class="pill pill-ern">
+          <div class="pill-label">ERN</div>
+          <div class="pill-value">{{ stat_ern }}</div>
+        </div>
+        <div class="pill pill-roi">
+          <div class="pill-label">ROI</div>
+          <div class="pill-value">{{ stat_roi }}</div>
+        </div>
+        <div class="pill pill-res">
+          <div class="pill-label">RES</div>
+          <div class="pill-value">{{ stat_res }}</div>
+        </div>
+        <div class="pill pill-grw">
+          <div class="pill-label">GRW</div>
+          <div class="pill-value">{{ stat_grw }}</div>
+        </div>
+        <div class="pill pill-hmn">
+          <div class="pill-label">HMN</div>
+          <div class="pill-value">{{ stat_hmn }}</div>
+        </div>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-line">{{ school_name }}</div>
+        <div class="spec-line primary">{{ career_title }}</div>
+        <div class="spec-line">{{ major_text }}</div>
+      </div>
+    </div>
+
+    <div class="bottom-band">
+      <div class="footer-name">{{ profile_name_display }}</div>
+    </div>
+  </div>
+</body>
+</html>

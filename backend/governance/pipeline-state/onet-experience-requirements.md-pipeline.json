@@ -1,0 +1,101 @@
+{
+  "steps": {
+    "governance-reviewer-pre": {
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:32.879021+00:00",
+      "output": "governance/approvals/onet-experience-requirements-pre-review-mcp.md"
+    },
+    "primary-agent": {
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:33.581692+00:00",
+      "output": "src/mcp_server/futureproof_server.py"
+    },
+    "data-analyst": {
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:34.025807+00:00",
+      "output": "governance/eda/raw-onet-experience-eda.md"
+    },
+    "dq-rule-writer": {
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:34.469395+00:00",
+      "output": "governance/dq-rules/gold-career-branches-experience.json"
+    },
+    "dq-engineer": {
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:34.924207+00:00",
+      "output": "governance/dq-results/gold-career-branches-experience-20260417-031243.json"
+    },
+    "lineage-tracker": {
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:35.376365+00:00",
+      "output": "governance/lineage/onet-experience-gold-20260417-031044.json"
+    },
+    "cde-tagger": {
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:35.833686+00:00",
+      "output": "governance/data-contracts/consumable-career-branches.yaml"
+    },
+    "doc-generator": {
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:35:36.299086+00:00",
+      "output": "governance/data-dictionary.json"
+    },
+    "governance-reviewer-post": {
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-17T12:39:39.951931+00:00",
+      "output": "governance/approvals/onet-experience-requirements-post-review-mcp.md"
+    }
+  }
+}
