@@ -1,0 +1,730 @@
+---
+# Data Contract: base.college_scorecard_institution
+# Spec: raw-ingest-college-scorecard-institution (Silver transform)
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger (governance/cde-registry/silver-base-college-scorecard-institution-cdes.md)
+# Documented by: @doc-generator
+# Date: 2026-04-14
+# Parent contract: governance/data-contracts/raw-college-scorecard-institution.yaml (Bronze)
+
+table: base.college_scorecard_institution
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - unitid
+status: draft
+record_count: 3039
+data_vintage: >
+  Silver promotion of raw.college_scorecard_institution (one-time, Bronze→Silver,
+  1:1 row pass-through; no filtering, no aggregation, no cross-source joins). The
+  underlying source is U.S. Department of Education College Scorecard
+  Most-Recent-Cohorts-Institution.csv; Silver inherits Bronze's vintage unchanged.
+  Values represent the most recent cohort data available to the Department of
+  Education at the time of the Bronze ingest.
+source: >
+  raw.college_scorecard_institution (Bronze). Transform: unify public/private COA
+  and net-price columns into single authoritative Silver columns, keyed on
+  institution_control. No concept normalization beyond control-type string
+  mapping (1→'Public', 2→'Private nonprofit', 3→'Private for-profit'). No
+  entity resolution (unitid is already the canonical institution identifier).
+spec_reference: docs/specs/raw-ingest-college-scorecard-institution.md
+parent_spec_reference: docs/specs/raw-ingest-college-scorecard-institution.md
+logical_model_reference: governance/models/silver-base-college-scorecard-institution-logical.md
+physical_model_reference: governance/models/silver-base-college-scorecard-institution-physical.md
+lineage_reference: governance/lineage/silver-base-college-scorecard-institution-20260414T220000Z.json
+cde_registry_reference: governance/cde-registry/silver-base-college-scorecard-institution-cdes.md
+dq_rules_reference: governance/dq-rules/silver-base-college-scorecard-institution.json
+eda_reference: docs/sessions/eda-silver-base-college-scorecard-institution.md
+owner: "@doc-generator"
+sla: >
+  Silver runs immediately after each Bronze promotion of
+  raw.college_scorecard_institution (annual refresh cadence — each fall when the
+  Department of Education publishes the next Most-Recent-Cohorts file). No
+  intra-year freshness guarantee. The transform is idempotent: running Silver
+  against an unchanged Bronze snapshot produces a byte-identical Silver table.
+
+filter_predicate: none  # inherited Bronze filter (PREDDEG=3 OR ICLEVEL=1) already applied upstream
+dedup_policy: "promote-only (Silver is 1:1 with Bronze on unitid; record_id is deterministic)"
+
+quality:
+  row_count_guarantee: 3039
+  row_count_tolerance: 5
+  null_guarantee: >
+    Required columns: record_id, unitid, institution_name, state_abbr,
+    institution_control, source_load_date, ingested_at (7 columns, 0% nulls).
+    All other columns are nullable; the cost/net-price surface is ~73.48%
+    populated in the current snapshot (see known_coverage_gaps).
+  completeness_threshold: 0.70  # P0 floor for net_price_annual and cost_of_attendance_annual
+  validity_threshold: 1.00      # all range and invariant rules are 0-violation
+  uniqueness_guarantee:
+    - "unitid is unique (3,039 distinct values)"
+    - "record_id is unique (3,039 distinct values, 1:1 with unitid)"
+  freshness_sla: >
+    Annual publication cycle. source_load_date inherited from Bronze (no
+    separate Silver freshness gate). ingested_at refreshed on every Silver
+    promotion.
+
+quality_tier: >
+  high — Silver is a 1:1 promotion of Bronze with only deterministic derivations
+  (COALESCE, control-routed SELECT, × 4 multiplication, string mapping). No
+  fuzzy matching, no entity resolution, no imputation. All 17 DQ rules pass on
+  the current snapshot (see dq-rules/silver-base-college-scorecard-institution.json).
+  Known coverage gaps (26.5% of rows lack both COA and net price; for-profit
+  underreports) are source-side IPEDS limitations inherited from Bronze, not
+  Silver-introduced defects.
+
+columns:
+  - name: record_id
+    type: string
+    required: true
+    business_term: BT-001
+    is_cde: true
+    cde_rationale: >
+      Deterministic surrogate grain key for Silver (compute_grain_id with
+      unitid, prefix='csi'). Dedup grain for idempotent promote(). A wrong or
+      collision-prone record_id silently drops rows on re-run.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic SHA-256 grain hash of unitid. Format csi-<16 hex chars>.
+      Stable across pipeline re-runs. 3,039 distinct values, one per
+      institution.
+    dq_rules:
+      - SLV-CSI-002
+      - SLV-CSI-004
+
+  - name: unitid
+    type: long
+    required: true
+    business_term: BT-001
+    is_cde: true
+    cde_rationale: >
+      Sole join key to Bronze lineage, base.college_scorecard (program grain),
+      and the Gold LEFT JOIN into consumable.career_outcomes. IPEDS authoritative
+      identifier — auto-approved per governance/domain-context.md. Aligned with
+      Bronze CDE flag on raw.college_scorecard_institution.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS 6-digit institution identifier. Natural key. UNIQUE +
+      CHECK (unitid > 0). 3,039 distinct values, 0 nulls, 0 duplicates.
+    dq_rules:
+      - SLV-CSI-003
+
+  - name: institution_name
+    type: string
+    required: true
+    business_term: BT-002
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Official institution name (display label). Not unique — 10 names map to
+      multiple UNITIDs (multi-campus systems). UNITID is the authoritative
+      identifier.
+
+  - name: state_abbr
+    type: string
+    required: true
+    business_term: BT-103
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: >
+      Geographic label (2-letter USPS), not a PII field. No individual-level data.
+    description: >
+      2-letter USPS state abbreviation. Display/filter field. Does NOT feed the
+      Gold BEA RPP join — RPP adjustment is keyed on the student-selected
+      destination state, not the institution's home state. Regex CHECK (^[A-Z]{2}$).
+
+  - name: institution_control
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Business-facing multiplexer — 'Public' / 'Private nonprofit' / 'Private
+      for-profit'. Drives Gold receipt labels and any control-type segmentation
+      in the MCP tool response. Also the input to 'for-profit' risk gating in
+      downstream guidance logic. Promoted from Bronze CDE (control). The Silver
+      transform has already consumed this mapping to route net-price and
+      quintile sources; the string column is retained for display and
+      segmentation at Gold.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Derived from raw integer control (1→'Public', 2→'Private nonprofit',
+      3→'Private for-profit'). CHECK-constrained to those three values. 100%
+      populated. Distribution: 867 Public (28.5%), 1,754 Private nonprofit
+      (57.7%), 418 Private for-profit (13.8%).
+    dq_rules:
+      - SLV-CSI-005
+      - SLV-CSI-006
+
+  - name: cost_of_attendance_annual
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: true
+    cde_rationale: >
+      Unified annual COA — COALESCE(costt4_a, costt4_p). Sticker-price receipt
+      line and input to cost_of_attendance_4yr. P0 range $5,000-$100,000. P0
+      invariant net_price_annual <= cost_of_attendance_annual. BT-110.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Unified annual cost of attendance. Null when both source columns are null
+      (26.5% of rows). Observed range $6,362-$87,804, median $30,354. Populated
+      in 2,233 of 3,039 rows (73.48%) — row-identical in nullness with
+      net_price_annual.
+    dq_rules:
+      - SLV-CSI-007
+      - SLV-CSI-011
+      - SLV-CSI-017
+
+  - name: cost_of_attendance_4yr
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: true
+    cde_rationale: >
+      cost_of_attendance_annual × 4. Pre-materialized for Gold query performance.
+      Receipt comparison baseline. BT-110.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      4-year total COA = cost_of_attendance_annual × 4. Null-propagating.
+      IEEE-754 exactness enforced ($0.01 tolerance) by SLV-CSI-009.
+    dq_rules:
+      - SLV-CSI-009
+
+  - name: net_price_annual
+    type: double
+    required: false
+    business_term: BT-111
+    is_cde: true
+    cde_rationale: >
+      CRITICAL CDE — the ROI denominator in the new formula
+      earnings / (net_price × 4 × loan_pct). Derived via control-based routing:
+      npt4_pub when institution_control='Public' else npt4_priv. Every ROI
+      score and Fight Student Loans outcome in the product traces through this
+      column. P1 range $-5,000-$80,000 (negatives legitimate — aid can exceed
+      cost). P0 invariant net_price_annual <= cost_of_attendance_annual.
+      Highest-criticality column in the Silver table. BT-111.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Unified annual net price after aid. ROI denominator input. Can be
+      negative when average grant aid exceeds cost of attendance (3 community
+      colleges observed). Observed range -$1,180 to $77,180, median $18,990.
+      Populated in 73.48% of rows (row-identical with COA nullness). Coverage
+      by control: Public 89.27%, Private nonprofit 70.64%, Private for-profit
+      52.63%.
+    dq_rules:
+      - SLV-CSI-007
+      - SLV-CSI-010
+      - SLV-CSI-012
+      - SLV-CSI-013
+      - SLV-CSI-014
+      - SLV-CSI-016
+
+  - name: net_price_4yr
+    type: double
+    required: false
+    business_term: BT-111
+    is_cde: true
+    cde_rationale: >
+      CRITICAL CDE — net_price_annual × 4, directly consumed by the ROI formula.
+      Pre-materialized to eliminate a runtime × 4 in the hot path of the stat
+      engine. BT-111.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      4-year total net price = net_price_annual × 4. Null-propagating. IEEE-754
+      exactness enforced ($0.01 tolerance) by SLV-CSI-008.
+    dq_rules:
+      - SLV-CSI-008
+
+  - name: net_price_q1
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: >
+      Unified net price, $0-$30K family income band. Drives income-quintile ROI.
+      Part of the aid-monotonicity DQ invariant (q1 <= q5). BT-112.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Unified net price for $0-$30K family income band. Derived:
+      npt41_pub if institution_control='Public' else npt41_priv. Populated in
+      71.90% of rows.
+    dq_rules:
+      - SLV-CSI-015
+
+  - name: net_price_q2
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Unified net price, $30K-$48K family income band. Drives income-quintile ROI. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Unified net price for $30K-$48K family income band. Derived:
+      npt42_pub if institution_control='Public' else npt42_priv. Populated in
+      69.30% of rows. Adjacent-pair monotonicity (q1 <= q2) is NOT enforced
+      (37.9% of private schools legitimately invert due to merit-aid targeting).
+
+  - name: net_price_q3
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Unified net price, $48K-$75K family income band (median bracket). BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Unified net price for $48K-$75K family income band (median family income —
+      most common student profile at public institutions). Derived:
+      npt43_pub if institution_control='Public' else npt43_priv. Populated in
+      68.41% of rows.
+
+  - name: net_price_q4
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Unified net price, $75K-$110K family income band. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Unified net price for $75K-$110K family income band. Derived:
+      npt44_pub if institution_control='Public' else npt44_priv. Populated in
+      65.19% of rows.
+
+  - name: net_price_q5
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: >
+      Unified net price, $110K+ family income band. Part of the aid-monotonicity
+      DQ invariant (q1 <= q5). BT-112.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Unified net price for $110K+ family income band (typically closest to
+      cost_of_attendance_annual since highest-income students receive least aid).
+      Derived: npt45_pub if institution_control='Public' else npt45_priv.
+      Populated in 60.74% of rows (lowest quintile coverage — high-income
+      samples are suppressed more often at the source).
+    dq_rules:
+      - SLV-CSI-015
+
+  - name: tuition_in_state
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      In-state tuition and fees (from Bronze tuitionfee_in). Display/receipt
+      only — already rolled into cost_of_attendance_annual. Not a driver of
+      net_price_annual.
+
+  - name: tuition_out_of_state
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Out-of-state tuition and fees (from Bronze tuitionfee_out). Display/
+      receipt only — already rolled into cost_of_attendance_annual.
+
+  - name: room_board_on_campus
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      On-campus room and board (from Bronze roomboard_on). Display/receipt only
+      — already rolled into COA. Null at ~43% of institutions that lack
+      on-campus housing.
+
+  - name: room_board_off_campus
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Off-campus room and board (from Bronze roomboard_off). Display/receipt
+      only — already rolled into COA.
+
+  - name: books_supplies
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Books and supplies estimate (from Bronze booksupply). Display/receipt
+      only — already rolled into COA. Can be $0 (32 schools include books in
+      tuition or provide them free).
+
+  - name: costt4_a_raw
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: true
+    cde_rationale: >
+      Provenance CDE. Raw academic-year COA pass-through from Bronze costt4_a.
+      Preserves the COALESCE primary input to cost_of_attendance_annual for
+      audit reconstruction. Bronze CDE precedent. BT-110.
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw academic-year cost of attendance, passed through from Bronze costt4_a."
+
+  - name: costt4_p_raw
+    type: double
+    required: false
+    business_term: BT-110
+    is_cde: true
+    cde_rationale: >
+      Provenance CDE. Raw program-year COA pass-through from Bronze costt4_p.
+      Preserves the COALESCE fallback input to cost_of_attendance_annual. BT-110.
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw program-year cost of attendance, passed through from Bronze costt4_p."
+
+  - name: npt4_pub_raw
+    type: double
+    required: false
+    business_term: BT-111
+    is_cde: true
+    cde_rationale: >
+      Provenance CDE. Raw public-population net price pass-through from Bronze
+      npt4_pub. Preserves the public branch of the control-multiplexer into
+      net_price_annual. BT-111.
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw public-population average net price, passed through from Bronze npt4_pub."
+
+  - name: npt4_priv_raw
+    type: double
+    required: false
+    business_term: BT-111
+    is_cde: true
+    cde_rationale: >
+      Provenance CDE. Raw private-population net price pass-through from Bronze
+      npt4_priv. Preserves the private branch of the control-multiplexer into
+      net_price_annual. BT-111.
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw private-population average net price, passed through from Bronze npt4_priv."
+
+  - name: npt41_pub_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw public quintile 1 net price. Bronze CDE npt41_pub. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw public-population quintile 1 net price ($0-$30K)."
+
+  - name: npt42_pub_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw public quintile 2 net price. Bronze CDE npt42_pub. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw public-population quintile 2 net price ($30K-$48K)."
+
+  - name: npt43_pub_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw public quintile 3 net price. Bronze CDE npt43_pub. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw public-population quintile 3 net price ($48K-$75K)."
+
+  - name: npt44_pub_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw public quintile 4 net price. Bronze CDE npt44_pub. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw public-population quintile 4 net price ($75K-$110K)."
+
+  - name: npt45_pub_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw public quintile 5 net price. Bronze CDE npt45_pub. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw public-population quintile 5 net price ($110K+)."
+
+  - name: npt41_priv_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw private quintile 1 net price. Bronze CDE npt41_priv. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw private-population quintile 1 net price ($0-$30K)."
+
+  - name: npt42_priv_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw private quintile 2 net price. Bronze CDE npt42_priv. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw private-population quintile 2 net price ($30K-$48K)."
+
+  - name: npt43_priv_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw private quintile 3 net price. Bronze CDE npt43_priv. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw private-population quintile 3 net price ($48K-$75K)."
+
+  - name: npt44_priv_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw private quintile 4 net price. Bronze CDE npt44_priv. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw private-population quintile 4 net price ($75K-$110K)."
+
+  - name: npt45_priv_raw
+    type: double
+    required: false
+    business_term: BT-112
+    is_cde: true
+    cde_rationale: "Provenance CDE. Raw private quintile 5 net price. Bronze CDE npt45_priv. BT-112."
+    is_pii: false
+    pii_rationale: ""
+    description: "Raw private-population quintile 5 net price ($110K+)."
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date the source data was loaded (carried from Bronze load_date)."
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — Silver write timestamp (datetime.now() at transformation time)."
+
+dq_summary:
+  total_rules: 23
+  p0_rules: 12
+  p1_rules: 9
+  p2_rules: 2
+  rules_reference: governance/dq-rules/silver-base-college-scorecard-institution.json
+  rule_ids:
+    - SLV-CSI-001
+    - SLV-CSI-002
+    - SLV-CSI-003
+    - SLV-CSI-004
+    - SLV-CSI-005
+    - SLV-CSI-006
+    - SLV-CSI-007
+    - SLV-CSI-008
+    - SLV-CSI-009
+    - SLV-CSI-010
+    - SLV-CSI-011
+    - SLV-CSI-012
+    - SLV-CSI-013
+    - SLV-CSI-014
+    - SLV-CSI-015
+    - SLV-CSI-016
+    - SLV-CSI-017
+    - SLV-CSI-018
+    - SLV-CSI-019
+    - SLV-CSI-020
+    - SLV-CSI-021
+    - SLV-CSI-022
+    - SLV-CSI-023
+
+cde_summary:
+  total_columns: 35
+  cde_columns: 26
+  pii_columns: 0
+  sensitivity_classification: public
+  regulatory_frameworks: []
+  cde_reference: governance/cde-registry/silver-base-college-scorecard-institution-cdes.md
+  cde_density_commentary: >
+    74.3% CDE density is higher than the 60.7% density on the parent Bronze
+    contract (17/28). The increase comes from the 9 new unified derived
+    columns introduced at Silver (cost_of_attendance_annual,
+    cost_of_attendance_4yr, net_price_annual, net_price_4yr, net_price_q1-q5),
+    plus retention of the 14 raw pass-through columns as provenance CDEs, plus
+    the surrogate record_id plus institution_control (routing multiplexer).
+    All 9 derived fields are business metrics that directly feed the new ROI
+    formula and downstream receipts. The 14 raw pass-throughs are flagged CDE
+    specifically for audit reconstruction — a
+    regulator asking "show me every CDE value for UNITID 166027" should see
+    both the unified value and its raw input on a single row scan, without
+    federating back to Bronze. Non-CDE residue (12 columns): institution_name,
+    state_abbr, tuition_in_state, tuition_out_of_state, room_board_on_campus,
+    room_board_off_campus, books_supplies (all display/receipt only), plus
+    source_load_date and ingested_at (pipeline metadata). state_abbr was
+    spot-checked per the tagging prompt and confirmed non-CDE — the Gold BEA
+    RPP join is keyed on the student-selected destination state, not the
+    institution's home state. A tripwire is documented for re-evaluation if a
+    future spec introduces a direct institution.state_abbr ⋈ bea_rpp.state_abbr
+    join.
+
+glossary_terms:
+  - BT-001  # Institution (UNITID)
+  - BT-002  # Institution Name
+  - BT-016  # Source Load Date (pipeline metadata)
+  - BT-017  # Ingested At (pipeline metadata)
+  - BT-103  # State Abbreviation
+  - BT-110  # Cost of Attendance (COA)
+  - BT-111  # Net Price
+  - BT-112  # Net Price by Income Quintile
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Breaking changes (column removal, rename, type change,
+    grain change, CDE flag removal, SLA relaxation, threshold relaxation that
+    widens accepted data) require a major version bump and a 30-day deprecation
+    notice logged in governance/audit-trail/. Non-breaking changes (column
+    addition, description update, threshold tightening where existing data
+    passes, new DQ rule) can ship as a minor or patch bump without deprecation.
+  notification: "Logged in governance/audit-trail/"
+  backward_compat:
+    current_version: "1.0.0"
+    previous_version: null
+    notes: >
+      New Silver table (greenfield). No backward-compat obligations. First
+      emission.
+
+downstream_consumers:
+  - consumable.career_outcomes (Gold zone — LEFT JOIN on unitid; pulls net_price_annual, net_price_4yr, cost_of_attendance_annual, institution_control, tuition_in_state, tuition_out_of_state, room_board_on_campus for ROI derivation and receipt display)
+  - consumable.program_career_paths (Gold zone — inherits cost fields via career_outcomes for the core school+major→career query)
+  - ROI formula (earnings / (net_price_annual × 4 × loan_pct))
+  - Fight Student Loans boss (stat engine consumer of ROI)
+  - Reveal screen receipts (full cost breakdown: COA, net price, tuition, room & board, books)
+  - Income-quintile ROI stretch goal (consumes net_price_q1 through net_price_q5)
+  - CareerCard "Public university · $12,800 net price/yr" labels (institution_control + net_price_annual)
+
+known_coverage_gaps:
+  - description: >
+      806 institutions (26.52%) have null net_price_annual AND null
+      cost_of_attendance_annual. The two fields are row-identical in nullness
+      (EDA Key Finding #1) — a school that reports one also reports the other.
+      Concentrated in PREDDEG=0 (unclassified) and PREDDEG=4 (graduate-dominant)
+      schools that entered the scope via ICLEVEL=1.
+    impact: >
+      Both cost fields and both 4yr derivatives will be null on these rows after
+      the Gold LEFT JOIN. Downstream UIs must handle gracefully. Not a DQ
+      failure — SLV-CSI-010 and SLV-CSI-011 set a 70% floor against observed
+      73.48% coverage.
+  - description: >
+      Private for-profit (institution_control='Private for-profit') has only
+      52.63% net_price_annual coverage. Known IPEDS underreporting pattern.
+    impact: >
+      Many for-profit-school programs will have null cost data after Gold LEFT
+      JOIN. SLV-CSI-014 is P2 informational — tracks degradation below 50% but
+      accepts the known ceiling.
+  - description: >
+      Quintile coverage degrades with income: q1 71.90% → q2 69.30% →
+      q3 68.41% → q4 65.19% → q5 60.74%. High-income samples are suppressed
+      more often at the source.
+    impact: >
+      Income-quintile ROI stretch goal must accept per-quintile nulls. The
+      q1/q5 span invariant (SLV-CSI-015) only evaluates rows where both are
+      populated (1,832 rows).
+  - description: >
+      46 institutions (2.51% of 1,832 rows with both quintiles populated) have
+      q1 > q5. Magnitudes: median $1,396, max $18,121. Legitimate — federal
+      aid caps at the lowest-income bracket plus merit-aid concentration at
+      middle quintiles.
+    impact: >
+      SLV-CSI-015 allows up to 50 such violations at P1. Downstream consumers
+      must not assume q1 ≤ q5 at the row level; only the aggregate tendency
+      holds.
+
+transformation_summary:
+  derived_columns:
+    - {column: record_id,                  derivation: "compute_grain_id(row, ['unitid'], prefix='csi')"}
+    - {column: institution_control,        derivation: "{1:'Public', 2:'Private nonprofit', 3:'Private for-profit'}[raw.control]"}
+    - {column: cost_of_attendance_annual,  derivation: "COALESCE(raw.costt4_a, raw.costt4_p)"}
+    - {column: cost_of_attendance_4yr,     derivation: "cost_of_attendance_annual * 4 (null-propagating)"}
+    - {column: net_price_annual,           derivation: "raw.npt4_pub if control=1 else raw.npt4_priv"}
+    - {column: net_price_4yr,              derivation: "net_price_annual * 4 (null-propagating)"}
+    - {column: net_price_q1,               derivation: "raw.npt41_pub if control=1 else raw.npt41_priv"}
+    - {column: net_price_q2,               derivation: "raw.npt42_pub if control=1 else raw.npt42_priv"}
+    - {column: net_price_q3,               derivation: "raw.npt43_pub if control=1 else raw.npt43_priv"}
+    - {column: net_price_q4,               derivation: "raw.npt44_pub if control=1 else raw.npt44_priv"}
+    - {column: net_price_q5,               derivation: "raw.npt45_pub if control=1 else raw.npt45_priv"}
+    - {column: ingested_at,                derivation: "datetime.now() (UTC) at Silver promotion time"}
+  pass_through_columns:
+    - {silver: unitid,                 bronze: unitid}
+    - {silver: institution_name,       bronze: instnm}
+    - {silver: state_abbr,             bronze: stabbr}
+    - {silver: tuition_in_state,       bronze: tuitionfee_in}
+    - {silver: tuition_out_of_state,   bronze: tuitionfee_out}
+    - {silver: room_board_on_campus,   bronze: roomboard_on}
+    - {silver: room_board_off_campus,  bronze: roomboard_off}
+    - {silver: books_supplies,         bronze: booksupply}
+    - {silver: costt4_a_raw,           bronze: costt4_a}
+    - {silver: costt4_p_raw,           bronze: costt4_p}
+    - {silver: npt4_pub_raw,           bronze: npt4_pub}
+    - {silver: npt4_priv_raw,          bronze: npt4_priv}
+    - {silver: npt41_pub_raw,          bronze: npt41_pub}
+    - {silver: npt42_pub_raw,          bronze: npt42_pub}
+    - {silver: npt43_pub_raw,          bronze: npt43_pub}
+    - {silver: npt44_pub_raw,          bronze: npt44_pub}
+    - {silver: npt45_pub_raw,          bronze: npt45_pub}
+    - {silver: npt41_priv_raw,         bronze: npt41_priv}
+    - {silver: npt42_priv_raw,         bronze: npt42_priv}
+    - {silver: npt43_priv_raw,         bronze: npt43_priv}
+    - {silver: npt44_priv_raw,         bronze: npt44_priv}
+    - {silver: npt45_priv_raw,         bronze: npt45_priv}
+    - {silver: source_load_date,       bronze: load_date}

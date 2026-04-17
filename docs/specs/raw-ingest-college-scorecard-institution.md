@@ -1,6 +1,6 @@
 # Spec: raw-ingest-college-scorecard-institution
 
-**Status:** DRAFT
+**Status:** IMPLEMENTATION (Bronze + Silver COMPLETE; Gold in progress)
 **Zone:** Raw → Silver → Gold
 **Primary Agent:** @primary-agent
 **Created:** 2026-04-14
@@ -11,7 +11,7 @@
 
 Ingest the College Scorecard **institution-level** data file to bring in cost-of-attendance, net price, tuition, and room & board fields. FutureProof already has the field-of-study file (earnings, debt by school+major) but lacks the institution-level cost structure. Without this, the loan slider scales against historical median debt — what past grads borrowed — rather than what the school actually costs. That's misleading: a student at a $60K/year school with a $50K scholarship and a student at a $40K/year school with zero aid can both graduate with $80K in debt, but their financial situations are completely different.
 
-This data enables a more honest ROI formula: `earnings / (net_price × 4 × loan_pct)` instead of `earnings / debt_median`. The median debt stays as a reality-check reference: "The median debt of graduates from this program is $X."
+This data **enables** a more honest ROI formula — `earnings / (net_price × 4 × loan_pct)` — which is implemented in a **follow-up spec, `roi-formula-cost-of-attendance.md`** (sequential). The scope of *this* spec is to land `net_price_annual` (and 6 related cost columns) as nullable columns on `consumable.career_outcomes`. The engine transformer (`src/gold/futureproof_engine.py`) and the `compute_stat_roi` signature are **not modified here**. `debt_median` remains the active ROI driver for the duration of this spec; the migration to the net-price formula happens in the follow-up spec after this pipeline completes.
 
 **Joins to existing data on UNITID.** Same source, same provider, same key — different CSV file, different grain (institution-level, not program-level).
 
@@ -59,9 +59,12 @@ This spec adds institution-level cost data that joins to the existing program da
 - [ ] All cost/price fields ingested with PrivacySuppressed → null handling
 - [ ] Filter to PREDDEG=3 (predominantly bachelor's degree-granting) or ICLEVEL=1 (4-year)
 - [ ] Silver base table `base.college_scorecard_institution` produced with unified net price field
-- [ ] Gold update: `consumable.career_outcomes` gains `net_price_annual` column
-- [ ] DQ rules written and passing at each zone
-- [ ] Data contract updated
+- [ ] Gold update: `consumable.career_outcomes` gains 7 nullable columns — `net_price_annual`, `cost_of_attendance_annual`, `net_price_4yr`, `institution_control`, `tuition_in_state`, `tuition_out_of_state`, `room_board_on_campus` — via LEFT JOIN on `unitid`; row count preserved at 69,947
+- [ ] DQ rules written and passing at each zone (Gold minimum: 9 rules — see §Gold DQ Rules)
+- [ ] Data contract updated with CDE flags for new columns (`net_price_annual`, `cost_of_attendance_annual` = CDE; others = non-CDE)
+- [ ] Gold data models (conceptual, logical, physical) for `gold-career-outcomes-college-scorecard` updated with the 7 new columns
+- [ ] Business-glossary terms added for new columns not covered by BT-110/111/112 (institution_control, tuition, room_board, net_price_4yr)
+- [ ] Lineage event updated to reflect two Silver inputs (`base.college_scorecard`, `base.college_scorecard_institution`)
 
 ---
 
@@ -231,36 +234,91 @@ This spec adds institution-level cost data that joins to the existing program da
 
 This spec does NOT create a new standalone Gold table. Instead, it enriches the existing `consumable.career_outcomes` table with a LEFT JOIN to `base.college_scorecard_institution` on `unitid`.
 
+**Scope:** columns land as data. The ROI-formula wiring (use `net_price_annual` instead of `debt_median` in the engine's `compute_stat_roi`) is **out of scope for this spec** and is handled in the follow-up spec `roi-formula-cost-of-attendance.md`. `debt_median` remains the active ROI driver here.
+
 ### Gold Table Update: consumable.career_outcomes
 
-**New columns added via LEFT JOIN on unitid:**
+**New columns added via LEFT JOIN on unitid (all nullable):**
 
-| Field | Type | Source | Notes |
-|-------|------|--------|-------|
-| net_price_annual | double | base.college_scorecard_institution | What students actually pay per year after aid |
-| cost_of_attendance_annual | double | base.college_scorecard_institution | Full sticker price per year |
-| net_price_4yr | double | base.college_scorecard_institution | 4-year total net cost |
-| institution_control | string | base.college_scorecard_institution | Public / Private nonprofit / Private for-profit |
-| tuition_in_state | double | base.college_scorecard_institution | For display/receipts |
-| tuition_out_of_state | double | base.college_scorecard_institution | For display/receipts |
-| room_board_on_campus | double | base.college_scorecard_institution | For display/receipts |
+| Field | Type | Source | CDE? | Notes |
+|-------|------|--------|------|-------|
+| net_price_annual | double | base.college_scorecard_institution | **YES (CDE)** | What students actually pay per year after aid. CDE rationale: becomes the ROI-formula driver in the follow-up spec; directly consumed by MCP `get_school_programs`. |
+| cost_of_attendance_annual | double | base.college_scorecard_institution | **YES (CDE)** | Full sticker price per year. CDE rationale: upper-bound invariant partner for `net_price_annual` (`net_price_annual ≤ cost_of_attendance_annual`) and primary display field for receipts. |
+| net_price_4yr | double | base.college_scorecard_institution | No | 4-year total net cost. Display/comparison field; derivable as `net_price_annual × 4`. |
+| institution_control | string | base.college_scorecard_institution | No | Public / Private nonprofit / Private for-profit. Categorical, used for segmentation and for picking which net-price bracket to show. Closes the 2026-04-06 insight-report recommendation on institution-type segmentation. |
+| tuition_in_state | double | base.college_scorecard_institution | No | Display/receipts only. |
+| tuition_out_of_state | double | base.college_scorecard_institution | No | Display/receipts only. |
+| room_board_on_campus | double | base.college_scorecard_institution | No | Display/receipts only. |
 
-**Existing columns unchanged:** All current fields on `consumable.career_outcomes` are preserved. `debt_median` stays — it becomes a reference/comparison field rather than the ROI driver.
+**Existing columns unchanged:** All current fields on `consumable.career_outcomes` are preserved by name and type. No row is dropped, renamed, or retyped. `debt_median` continues to drive ROI in this spec (semantic demotion to "reference" happens in `roi-formula-cost-of-attendance.md`, not here).
 
-### Gold DQ Rules (Updated)
+### Enrichment Mode
 
-- All existing DQ rules on `consumable.career_outcomes` still pass (P0)
-- net_price_annual non-null: ≥80% of rows (P1 — some institutions may not report)
-- net_price_annual ≤ cost_of_attendance_annual where both non-null (P0)
-- net_price_annual > 0 where non-null (P0)
+This is a **full idempotent re-promote**, not an `ALTER TABLE` with backfill UPDATE. The existing transformer pattern at `src/gold/college_scorecard_career_outcomes.py` runs `derive_gold_rows()` against a DuckDB view of Silver and writes the full 69,947-row result to the Iceberg `consumable.career_outcomes` table each run. Extending it requires:
+
+1. **Transformer file:** `src/gold/college_scorecard_career_outcomes.py`
+2. **Add a new CTE `institution`** after the existing `cip_bands` CTE:
+   ```sql
+   institution AS (
+       SELECT
+           unitid,
+           net_price_annual,
+           cost_of_attendance_annual,
+           net_price_4yr,
+           institution_control,
+           tuition_in_state,
+           tuition_out_of_state,
+           room_board_on_campus
+       FROM base.college_scorecard_institution
+   )
+   ```
+3. **Final SELECT** adds `LEFT JOIN institution i ON i.unitid = b.unitid` after the existing joins, and propagates the 7 new columns through the projection. Join is LEFT so no row is dropped if a UNITID has no institution match; those rows get NULLs for the 7 new fields.
+4. **Row count invariant:** `SELECT COUNT(*) FROM consumable.career_outcomes` must return exactly 69,947 before and after enrichment (or whatever the current production count is — see DQ Rule GLD-CSI-001).
+5. **Unmatched UNITIDs:** 207 UNITIDs in `consumable.career_outcomes` do not exist in `base.college_scorecard_institution` (2,559 distinct career_outcomes UNITIDs − 2,352 matched = 207 unmatched). Pre-EDA the estimate was ~1,131 based on a 4,170 baseline; the EDA at `docs/sessions/eda-gold-career-outcomes-csi-enrichment.md` corrected the baseline — `consumable.career_outcomes` has 2,559 distinct UNITIDs, not 4,170. Those 207 UNITIDs × their cipcode × credlev combinations produce the row-level null pattern. Row-level null rate on `net_price_annual` / `cost_of_attendance_annual` is **4.55%** each; `institution_control` is **2.58%** null.
+6. **`promoted_at` timestamp:** refreshes to the new promotion time on all rows — this is consistent with the idempotent promote pattern and is not data drift.
+7. **Schema evolution:** 7 new Iceberg columns added via Iceberg schema-evolution (additive, nullable). Existing field IDs unchanged.
+
+### Gold DQ Rules
+
+Minimum 9 rules. IDs use the `GLD-CSI-*` prefix (Gold institution enrichment).
+
+| Rule ID | Priority | Dimension | Rule |
+|---------|----------|-----------|------|
+| GLD-CSI-001 | P0 | Accuracy (row count) | `SELECT COUNT(*) FROM consumable.career_outcomes` equals the pre-enrichment count (currently 69,947). LEFT JOIN must not drop rows. |
+| GLD-CSI-002 | P0 | Accuracy (invariant) | `net_price_annual ≤ cost_of_attendance_annual` where both non-null. Net price cannot exceed sticker price. |
+| GLD-CSI-003 | P0 | Accuracy (invariant) | `\|net_price_4yr − (net_price_annual × 4)\| ≤ $1` where both non-null. Preserves the Silver invariant that `net_price_4yr` = 4× annual. |
+| GLD-CSI-004 | P0 | Validity | `net_price_annual > 0` where non-null. Negative values are legitimate at high-aid institutions per BT-111 — **rule relaxed** to `net_price_annual ≥ -10000` (matches Silver's observed min of -$1,180 with headroom). |
+| GLD-CSI-005 | P1 | Completeness | `net_price_annual` non-null: threshold **calibrated during EDA** after first real join. Pre-calibration target `≥ 60%`. Must not be set blindly to 80% — real coverage depends on the UNITID overlap pattern (see §Enrichment Mode note 5). |
+| GLD-CSI-006 | P1 | Completeness | `cost_of_attendance_annual` non-null ≥ 60% (calibrated during EDA). |
+| GLD-CSI-007 | P1 | Completeness | `institution_control` non-null ≥ 60% (calibrated during EDA). **Validates the 2026-04-06 insight-report recommendation that `institution_control` be surfaced** — the pre-enrichment table had this field 100% null. |
+| GLD-CSI-008 | P1 | Validity | Unmatched-UNITID pattern: `SELECT COUNT(DISTINCT unitid) FROM consumable.career_outcomes WHERE net_price_annual IS NULL` ≤ 300 (EDA calibrated to 207 actual; 93-unit drift buffer). If this deviates materially, the LEFT JOIN grain or match logic changed unexpectedly. |
+| GLD-CSI-009 | P2 | Consistency | `institution_control` values are exactly one of {`Public`, `Private nonprofit`, `Private for-profit`} where non-null. Categorical safety check. |
+
+All existing DQ rules on `consumable.career_outcomes` (GLD-CO-*) must still pass (regression gate).
 
 ### Data Contract Update
 
 | Property | Value |
 |----------|-------|
-| Change | Added institution-level cost fields via LEFT JOIN |
-| Backward compatible | Yes — all existing columns unchanged |
-| New nullable columns | net_price_annual, cost_of_attendance_annual, net_price_4yr, institution_control, tuition_in_state, tuition_out_of_state, room_board_on_campus |
+| Change | Added 7 institution-level cost columns via LEFT JOIN; 2 flagged CDE. |
+| Backward compatible | Yes — all existing columns preserved by name and type; row count preserved at 69,947. |
+| New nullable columns | `net_price_annual`, `cost_of_attendance_annual`, `net_price_4yr`, `institution_control`, `tuition_in_state`, `tuition_out_of_state`, `room_board_on_campus` |
+| New CDE flags | `net_price_annual`, `cost_of_attendance_annual` (rationale inline in contract) |
+| Minor version bump | 1.x → 1.(x+1) |
+
+### Governance Artifacts Produced at Gold
+
+The following artifacts are produced or updated during the Gold pipeline for this spec:
+
+- Updated conceptual / logical / physical data models under `governance/models/gold-career-outcomes-college-scorecard-*.md` (additive — 7 new attributes on the `CareerOutcomes` entity; Mermaid `erDiagram` and DDL blocks updated)
+- New/updated business-glossary terms in `governance/business-glossary.json`: `institution_control`, `tuition (in-state/out-of-state)`, `room and board`, `net_price_4yr` (or reuse of BT-110/111/112 where semantically equivalent) — assigned by `@data-steward` at the Gold pipeline's glossary step
+- Updated data contract at `governance/data-contracts/consumable-career-outcomes.yaml` (7 new columns, 2 new CDE flags, minor version bump)
+- Updated data dictionary at `governance/data-dictionary.json` (7 new entries)
+- New DQ rules file / update at `governance/dq-rules/gold-career-outcomes-college-scorecard.json` (9 new `GLD-CSI-*` rules)
+- New DQ scorecard at `governance/dq-scorecards/gold-career-outcomes-college-scorecard-csi-enrichment-scorecard.md`
+- New lineage event at `governance/lineage/gold-career-outcomes-college-scorecard-<timestamp>.json` listing **two** Silver inputs (`base.college_scorecard`, `base.college_scorecard_institution`) — supersedes the prior single-input event
+- Updated CDE registry at `governance/cde-registry/gold-career-outcomes-college-scorecard-cdes.md` (count +2)
+- Chaos-manifest update at `governance/chaos-manifests/gold-career-outcomes-college-scorecard-csi-chaos.md` (at minimum: corrupt a `net_price_annual` value and confirm GLD-CSI-002 detects; corrupt an institution row count and confirm GLD-CSI-001 detects)
 
 ---
 
@@ -307,9 +365,12 @@ Join topology:
 ```
 base.college_scorecard_institution (unitid)
   LEFT JOIN → consumable.career_outcomes (unitid)
-    → ROI formula uses net_price_annual × 4 × loan_pct instead of debt_median
-    → debt_median becomes reference/comparison field
-    → Receipts show full cost breakdown
+    → 7 nullable cost columns land on each row
+    → debt_median continues to drive ROI here; the migration to
+      `earnings / (net_price × 4 × loan_pct)` is handled in the
+      follow-up spec `roi-formula-cost-of-attendance.md`
+    → Receipts / MCP `get_school_programs` gain real values for
+      `institution_control` (previously 100% null)
 ```
 
 ---

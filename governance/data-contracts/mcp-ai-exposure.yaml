@@ -92,7 +92,64 @@ response_fields:
     is_cde: false
     is_pii: false
     description: >
-      Karpathy's BLS category grouping (24 categories). Display grouping only.
+      Karpathy's BLS category grouping where available, else derived from
+      SOC 2018 major group (first 2 digits). Used for display grouping
+      and for category-level bias analysis in the A/B comparison report.
+
+  # ----------------------------------------------------------------
+  # v4 additive response fields (gemma-ai-exposure-rescore-v4)
+  # ----------------------------------------------------------------
+
+  - name: task_breakdown_automatable
+    type: array
+    is_cde: true
+    cde_rationale: >
+      Tasks Gemma flagged as AI-automatable. Consumed by Gemma via
+      the Fight AI narrative prompt. Decoded from a JSON string to a
+      native array by the MCP server's _JSON_STRUCT_FIELDS handler.
+    is_pii: false
+    description: >
+      Array of strings. Populated only for scoring_model='gemma-4' rows.
+      Null/empty on Karpathy fallback rows.
+
+  - name: task_breakdown_human
+    type: array
+    is_cde: true
+    cde_rationale: >
+      Tasks Gemma flagged as human-essential. Counterpart to
+      task_breakdown_automatable. Decoded from JSON string.
+    is_pii: false
+    description: >
+      Array of strings. Populated only for scoring_model='gemma-4' rows.
+
+  - name: scoring_model
+    type: varchar
+    is_cde: true
+    cde_rationale: >
+      Provenance label — 'gemma-4' or 'gemini-flash'. Surfaces to the
+      RES receipt and Fight AI disclaimer so students know whether the
+      score is AI-estimated by our local Gemma or inherited from the
+      Karpathy prior art.
+    is_pii: false
+    description: "One of 'gemma-4' | 'gemini-flash'. Always present."
+
+  - name: model_tag
+    type: varchar
+    is_cde: true
+    cde_rationale: >
+      Exact Ollama model tag for Gemma-scored rows. Enables row-level
+      reproducibility audits.
+    is_pii: false
+    description: "e.g., 'gemma4:26b-a4b'. Null for Karpathy fallback rows."
+
+  - name: karpathy_score
+    type: integer
+    is_cde: false
+    is_pii: false
+    description: >
+      Karpathy's pre-Gemma score preserved on Gemma-preferred rows for
+      A/B comparison. Equal to exposure_score when scoring_model is
+      'gemini-flash'. Null when Karpathy never scored this SOC.
 
 pii:
   contains_pii: false

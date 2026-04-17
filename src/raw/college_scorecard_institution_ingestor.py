@@ -46,6 +46,10 @@ class CollegeScorecardInstitutionIngestor(BaseIngestor):
         "https://ed-public-download.app.cloud.gov/downloads/"
         "Most-Recent-Cohorts-Institution.csv"
     )
+    FALLBACK_URL = (
+        "https://ed-public-download.scorecard.network/downloads/"
+        "Most-Recent-Cohorts-Institution_04172025.zip"
+    )
     USER_AGENT = "FutureProof/0.1 (jeff@hyenastudios.com)"
 
     # Columns to extract from the source CSV (uppercase) mapped to
@@ -121,13 +125,27 @@ class CollegeScorecardInstitutionIngestor(BaseIngestor):
         return {entity_id: rows for entity_id in entities}
 
     def _download_and_read(self) -> list[dict[str, str]]:
-        """Download the CSV from the remote URL and return parsed rows."""
+        """Download the CSV from the remote URL and return parsed rows.
+
+        Attempts the primary URL first. If it returns a non-200 status, falls
+        back to the scorecard.network mirror (ZIP-wrapped).
+        """
         headers = {"User-Agent": self.USER_AGENT}
 
         response = requests.get(
             self.DOWNLOAD_URL, headers=headers, allow_redirects=True, stream=True, timeout=300
         )
-        response.raise_for_status()
+
+        if response.status_code != 200:
+            logger.warning(
+                "Primary URL returned %d, falling back to %s",
+                response.status_code,
+                self.FALLBACK_URL,
+            )
+            response = requests.get(
+                self.FALLBACK_URL, headers=headers, allow_redirects=True, stream=True, timeout=300
+            )
+            response.raise_for_status()
 
         content = response.content
 

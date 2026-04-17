@@ -9,7 +9,7 @@
 table: consumable.career_branches
 namespace: consumable
 zone: gold
-version: "1.1.0"
+version: "1.2.0"
 grain:
   - soc_code
   - related_soc_code
@@ -447,6 +447,100 @@ columns:
       True if related occupation has both BLS and O*NET data. Derived:
       related_grw IS NOT NULL AND related_hmn IS NOT NULL.
 
+  # ---- Experience (added in v1.2.0 per onet-experience-requirements spec) ----
+
+  - name: related_experience_years
+    type: double
+    required: false
+    business_term: BT-117
+    is_cde: true
+    cde_rationale: >
+      Typical years of prior work experience for the target (related) occupation.
+      Shown directly to users in the career-tree UI and feeds the default-view
+      filter (experience_delta_years <= 5). Sourced from
+      base.onet_experience_profiles.experience_years_typical via LEFT JOIN on
+      related_soc_code. An incorrect value either under-gates (exposes students
+      to unrealistic senior-level branches) or over-gates (hides legitimate
+      career pivots). P0 business-critical. Identified as a CDE per spec
+      §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Typical years of prior experience for the target occupation. Source:
+      base.onet_experience_profiles.experience_years_typical via LEFT JOIN on
+      related_soc_code. NULL when target SOC has no ETE coverage.
+    constraints:
+      - "CHECK (related_experience_years IS NULL OR (related_experience_years >= 0 AND related_experience_years <= 15))"
+
+  - name: related_experience_tier
+    type: varchar
+    required: false
+    business_term: BT-118
+    is_cde: true
+    cde_rationale: >
+      Experience tier for the target occupation. Drives UX gating and
+      decade-bucket rendering on the branching career tree ('Your 20s',
+      'Your 30s', 'Your 40s' views; 'Unlocks at 8+ years' badges). Sourced
+      from base.onet_experience_profiles.experience_tier via LEFT JOIN on
+      related_soc_code. Misclassification silently produces unrealistic
+      career suggestions; correctness is therefore a cross-boundary
+      business-critical concern. P0. Identified as a CDE per spec §CDE &
+      PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Experience tier ('entry', 'early', 'mid', 'senior') for the target
+      occupation. Source: base.onet_experience_profiles.experience_tier via
+      LEFT JOIN on related_soc_code. NULL when target SOC has no ETE coverage.
+    constraints:
+      - "CHECK (related_experience_tier IS NULL OR related_experience_tier IN ('entry', 'early', 'mid', 'senior'))"
+
+  - name: source_experience_years
+    type: double
+    required: false
+    business_term: BT-117
+    is_cde: true
+    cde_rationale: >
+      Typical years of prior experience for the source occupation. Required
+      input to the NULL-propagating experience_delta_years derivation and
+      used by the career_tree.py filter to anchor the user's current career
+      stage. Sourced from base.onet_experience_profiles.experience_years_typical
+      via LEFT JOIN on soc_code. An incorrect value distorts every delta
+      computed off this source node. P0 business-critical. Identified as a
+      CDE per spec §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Typical years of prior experience for the source occupation. Source:
+      base.onet_experience_profiles.experience_years_typical via LEFT JOIN on
+      soc_code. NULL when source SOC has no ETE coverage.
+    constraints:
+      - "CHECK (source_experience_years IS NULL OR (source_experience_years >= 0 AND source_experience_years <= 15))"
+
+  - name: experience_delta_years
+    type: double
+    required: false
+    business_term: BT-091
+    is_cde: true
+    cde_rationale: >
+      Primary default-view threshold (branch visible iff
+      experience_delta_years <= 5). NULL-propagating (NULL when either side
+      is NULL) to avoid falsely reporting 'related - 0' when the source has
+      no experience data. This field is the single most consequential gate
+      on what a student sees in the branching career tree by default.
+      Incorrect values either flood the default view with unrealistic jumps
+      or suppress legitimate realistic pivots. P0 business-critical.
+      Identified as a CDE per spec §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      related_experience_years - source_experience_years. Positive = target
+      requires more experience than source. NULL-propagating: NULL if either
+      side is NULL. DQ range [-12, 12] (mathematically exact given the approved
+      midpoint cap of 12 years; see governance/approvals/onet-experience-requirements-open-decisions.md).
+    constraints:
+      - "CHECK (experience_delta_years IS NULL OR (experience_delta_years >= -12 AND experience_delta_years <= 12))"
+
   # ---- Pipeline Metadata ----
 
   - name: promoted_at
@@ -495,4 +589,17 @@ lineage:
     - consumable.occupation_profiles
     - consumable.onet_work_profiles
     - consumable.ai_exposure
+    - base.onet_experience_profiles
   transformation: src/gold/futureproof_engine.py
+
+# Version history
+version_history:
+  - version: "1.2.0"
+    date: 2026-04-16
+    change_type: MINOR (additive)
+    summary: >
+      Added 4 experience columns (related_experience_years,
+      related_experience_tier, source_experience_years, experience_delta_years)
+      sourced from the new base.onet_experience_profiles Silver table. Bumped
+      per onet-experience-requirements spec. All four columns are CDE-tagged
+      and carry no PII. Additive only — no breaking changes.

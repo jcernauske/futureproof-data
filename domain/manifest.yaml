@@ -23,6 +23,10 @@ sources:
   source_config: domain/sources/karpathy_ai_exposure.yaml
   zone: raw
   status: active
+- name: gemma_ai_exposure
+  source_config: domain/sources/gemma_ai_exposure.yaml
+  zone: raw
+  status: active
 - name: bea_rpp
   source_config: domain/sources/bea_rpp.yaml
   zone: raw

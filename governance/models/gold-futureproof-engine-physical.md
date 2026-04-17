@@ -887,3 +887,147 @@ ROW_NUMBER() OVER (
 | 3 | Ceiling boss simplified formula | AWAITING HUMAN | Uses wage_percentile_education_tier directly. Physical model implements simple version. |
 | 4 | RES stat and AI Boss as null placeholders | AWAITING HUMAN | Schema includes columns; CHECK constraints enforce NULL for MVP. |
 | 5 | CIP prefix match breadth | AWAITING HUMAN | Physical model implements 4-digit prefix join. Post-hackathon may refine. |
+
+---
+
+## Addendum: Experience Columns on consumable.career_branches (2026-04-16)
+
+**Spec:** docs/specs/onet-experience-requirements.md
+**Human Approvals:** governance/approvals/onet-experience-requirements-open-decisions.md (tier thresholds, 10+ midpoint, multi-detail aggregation -- approved 2026-04-16 by Jeff Cernauske)
+**Related Silver models:**
+- governance/models/silver-base-onet-experience-conceptual.md
+- governance/models/silver-base-onet-experience-logical.md
+- governance/models/silver-base-onet-experience-physical.md
+**Contract version bump:** `governance/data-contracts/consumable-career-branches.yaml` v1.1.0 -> v1.2.0 (additive only -- no breaking changes)
+**Author:** @semantic-modeler
+**Status:** PROPOSED (pending human approval alongside the three Silver models)
+
+### Scope of Addendum
+
+This addendum documents four additive columns added to the existing `consumable.career_branches` Gold table. The table definition, partitioning, sort order, record_id prefix (`br`), and grain (`[soc_code, related_soc_code]`) are unchanged. Only the column set grows — from 30 columns (24 original + 6 AI-exposure added in a prior addendum) to 34 columns.
+
+Per the additive-only rule in the spec (§Zone 3 / §Data Contract Update), no existing column is modified, renamed, or dropped. The schema change is compatible with existing Silver/Gold consumers.
+
+### New Columns
+
+Appended after the existing "Stat Deltas (Derived Comparisons)" block and before "Pipeline Metadata". The four columns form a coherent group; recommend placing them under a new sub-heading "Experience (Derived Comparisons)" in the live schema documentation.
+
+#### Experience (Derived Comparisons)
+
+| Column | DuckDB Type | Nullable | Default | Constraint | Business Term | Is CDE | Is PII | Description |
+|--------|-------------|----------|---------|------------|---------------|--------|--------|-------------|
+| related_experience_years | DOUBLE | NULLABLE | NULL | CHECK (related_experience_years IS NULL OR (related_experience_years >= 0.0 AND related_experience_years <= 15.0)) | BT-117 | true | false | Typical prior work experience for the **target** (related) occupation, in years. Source: `base.onet_experience_profiles.experience_years_typical` via LEFT JOIN on `related_soc_code = bls_soc_code`. NULL when the target occupation has no RW coverage in O*NET. |
+| related_experience_tier | VARCHAR | NULLABLE | NULL | CHECK (related_experience_tier IS NULL OR related_experience_tier IN ('entry', 'early', 'mid', 'senior')) | BT-118 | true | false | Experience tier for the target occupation: `entry` (0-1y), `early` (1-4y), `mid` (4-8y), `senior` (8+y). Human-approved thresholds. Source: `base.onet_experience_profiles.experience_tier` via LEFT JOIN on `related_soc_code = bls_soc_code`. NULL when no profile exists. |
+| source_experience_years | DOUBLE | NULLABLE | NULL | CHECK (source_experience_years IS NULL OR (source_experience_years >= 0.0 AND source_experience_years <= 15.0)) | BT-117 | true | false | Typical prior work experience for the **source** occupation, in years. Source: `base.onet_experience_profiles.experience_years_typical` via LEFT JOIN on `soc_code = bls_soc_code`. NULL when the source occupation has no RW coverage. Used in `experience_delta_years` arithmetic. |
+| experience_delta_years | DOUBLE | NULLABLE | NULL | CHECK (experience_delta_years IS NULL OR (experience_delta_years >= -12.0 AND experience_delta_years <= 12.0)) | BT-117 | true | false | `related_experience_years - source_experience_years` -- years of additional experience required for the branch target. Positive means the target demands more experience. **NULL-propagating:** NULL when either side is NULL; the frontend and service layer must treat NULL as "unknown," not zero. Range is mathematically bounded by the approved midpoint cap of 12 years. See §Rationale below. |
+
+### Derivation SQL (Join Logic)
+
+From `docs/specs/onet-experience-requirements.md` §Zone 3:
+
+```sql
+-- Join experience for the RELATED (target) occupation
+LEFT JOIN base.onet_experience_profiles exp_related
+    ON career_branches.related_soc_code = exp_related.bls_soc_code
+
+-- Join experience for the SOURCE occupation
+LEFT JOIN base.onet_experience_profiles exp_source
+    ON career_branches.soc_code = exp_source.bls_soc_code
+```
+
+Two LEFT JOINs against the same Silver table. Each produces two columns (`_years` and `_tier`, though the source side only surfaces `_years` in the Gold schema -- there is no `source_experience_tier` column because the service layer filters and buckets on the target occupation only).
+
+### NULL-Propagating Delta (Rationale)
+
+```sql
+experience_delta_years = CASE
+    WHEN exp_related.experience_years_typical IS NULL
+      OR exp_source.experience_years_typical  IS NULL
+    THEN NULL
+    ELSE exp_related.experience_years_typical - exp_source.experience_years_typical
+END
+```
+
+The spec's §Zone 3 documents why the NULL-propagating semantics are correct: an earlier `COALESCE(..., 0)` variant overstated the gap when the source occupation had no experience data (e.g., entry-level occupations with insufficient O*NET coverage), reporting `related - 0`. NULL propagation makes "unknown" explicit and lets downstream consumers (the service layer `max_experience_years` filter, the frontend decade-bucket UI) filter or badge these rows as appropriate. This matches the test-matrix case "Missing source experience (Gold)" in the spec (§Test Matrix).
+
+### CDE / PII Tags
+
+All four columns are flagged `is_cde = true`, `is_pii = false` per §CDE & PII Assessment in the spec. Rationale:
+
+| Column | Why CDE |
+|--------|---------|
+| related_experience_years | Shown to users on the career tree; feeds the default-view filter (`experience_delta_years <= 5`) and frontend bucketing. |
+| related_experience_tier | UX gating (decade bucketing, "Unlocks at 8+ years" badges) and primary filter classifier. |
+| source_experience_years | Delta computation input -- directly affects whether a branch is reachable. |
+| experience_delta_years | Primary default-view threshold (`<= 5` years) in the career tree; the most business-visible of the four. |
+
+`bs:cde-tagger` applies these flags to `governance/data-contracts/consumable-career-branches.yaml` when bumping the contract to v1.2.0.
+
+### Updated Column Summary (consumable.career_branches)
+
+| Count | Category | Change from v1.1.0 |
+|-------|----------|--------------------|
+| 34 | Total columns | +4 (+related_experience_years, +related_experience_tier, +source_experience_years, +experience_delta_years) from 30 prior |
+| 1 | Primary key (record_id) | unchanged |
+| 2 | Natural key components (soc_code, related_soc_code) | unchanged |
+| 6 | CDE columns | +4 (the new experience columns) |
+| 0 | PII columns | unchanged |
+| 18 | Nullable columns | +4 (all four new columns are nullable) |
+| 10 | NOT NULL columns | unchanged |
+| 9 | Derived at this layer | +4 (all four new columns are derived here via LEFT JOINs and arithmetic) |
+| 17 | Carried from upstream | unchanged |
+| 1 | Pipeline metadata (promoted_at) | unchanged |
+
+### DDL Diff (Reference)
+
+Additive columns to append to the existing `CREATE TABLE IF NOT EXISTS consumable.career_branches (...)` statement. Insert before the `PRIMARY KEY` line:
+
+```sql
+    -- Experience (Derived Comparisons) -- added 2026-04-16 per onet-experience-requirements spec
+    related_experience_years    DOUBLE,
+    related_experience_tier     VARCHAR,
+    source_experience_years     DOUBLE,
+    experience_delta_years      DOUBLE,
+```
+
+And the corresponding CHECK constraints:
+
+```sql
+    CHECK (related_experience_years IS NULL OR (related_experience_years >= 0.0 AND related_experience_years <= 15.0)),
+    CHECK (related_experience_tier IS NULL OR related_experience_tier IN ('entry', 'early', 'mid', 'senior')),
+    CHECK (source_experience_years IS NULL OR (source_experience_years >= 0.0 AND source_experience_years <= 15.0)),
+    CHECK (experience_delta_years IS NULL OR (experience_delta_years >= -12.0 AND experience_delta_years <= 12.0)),
+```
+
+### PyIceberg Schema Diff
+
+Append four `NestedField` entries to the existing `CAREER_BRANCHES_SCHEMA` in the Gold transformer module. Assign new IDs at the end of the existing sequence (exact IDs depend on the current schema at implementation time):
+
+```python
+# Append to CAREER_BRANCHES_SCHEMA
+NestedField(N+1, "related_experience_years", DoubleType(), required=False),
+NestedField(N+2, "related_experience_tier", StringType(), required=False),
+NestedField(N+3, "source_experience_years", DoubleType(), required=False),
+NestedField(N+4, "experience_delta_years", DoubleType(), required=False),
+```
+
+All four are `required=False` (nullable) because the Silver source table may have no row for a given `bls_soc_code` if O*NET lacks RW coverage for that occupation.
+
+### DQ Rules (Gold Addendum)
+
+From spec §Zone 3 / §DQ Rules (Gold -- additions). These are authored separately at `governance/dq-rules/gold-career-branches-experience.json` by `bs:dq-rule-writer`:
+
+- `related_experience_years` NULL rate < 15% (P1 — relaxed from draft 5% after EDA showed 5.47% real null rate; see rule rationale)
+- `experience_delta_years` range: -12 ≤ delta ≤ 12 (P1 — mathematically exact per approved midpoint cap of 12 years)
+- Where `related_experience_tier = 'senior'`, `related_experience_years >= 8` (P0)
+
+Note: Both the Gold CHECK constraint AND the DQ rule enforce `-12 ≤ delta ≤ 12`. There is no defensive-envelope / business-check split — they match.
+
+### Contract Version Bump
+
+`governance/data-contracts/consumable-career-branches.yaml` advances from **v1.1.0 to v1.2.0**. This is an additive minor version bump per semantic versioning: no existing field is modified, renamed, or dropped; the four new fields are nullable and optional for consumers. Existing consumers (MCP `get_career_branches`, backend `branch_tree.py`, frontend branch cards) continue to work unchanged until they explicitly opt in to the new fields.
+
+### MCP / Service Layer (Referenced, Not Modeled Here)
+
+The downstream wiring of these four Gold columns into the MCP tool and backend service is documented in the spec (§Zone 4, §Zone 5) and implemented by `bs:primary-agent` in Phase 5 of the agent workflow. The physical model's responsibility ends at the Gold schema; MCP response contracts and backend `CareerBranch` dataclass fields are not modeled here.
+

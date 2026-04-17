@@ -5,11 +5,12 @@
 **Zone:** Gold (Consumable)
 **Domain:** Higher Education Outcomes
 **Spec:** docs/specs/gold-career-outcomes-college-scorecard.md
+**Amended By:** docs/specs/raw-ingest-college-scorecard-institution.md (Zone 3 — 2026-04-16)
 **Conceptual Model:** governance/models/gold-career-outcomes-college-scorecard-conceptual.md
 **Author:** @semantic-modeler
-**Date:** 2026-04-06
+**Date:** 2026-04-06 (original); 2026-04-16 (institution-cost amendment)
 **Approval:** Pending human review (REQUIRE_HUMAN_APPROVAL = true)
-**Source Model:** governance/models/silver-base-college-scorecard-logical.md
+**Source Model:** governance/models/silver-base-college-scorecard-logical.md; governance/models/silver-base-college-scorecard-institution-logical.md (institution-cost enrichment)
 
 ---
 
@@ -48,6 +49,17 @@ erDiagram
         numeric cip_family_earnings_rank
         numeric program_value_index
     }
+    INSTITUTION_COST_PROFILE {
+        identifier record_id PK
+        identifier unitid FK
+        numeric net_price_annual
+        numeric cost_of_attendance_annual
+        numeric net_price_4yr
+        text institution_control_enriched
+        numeric tuition_in_state
+        numeric tuition_out_of_state
+        numeric room_board_on_campus
+    }
     DATA_CONFIDENCE {
         identifier record_id PK
         text confidence_tier
@@ -62,6 +74,7 @@ erDiagram
     }
     CAREER_OUTCOME ||--o| EARNINGS_PERCENTILE_BAND : "contextualized by CIP family bands"
     CAREER_OUTCOME ||--o| FINANCIAL_ASSESSMENT : "evaluated by affordability metrics"
+    CAREER_OUTCOME ||--o| INSTITUTION_COST_PROFILE : "priced by institution cost structure"
     CAREER_OUTCOME ||--|| DATA_CONFIDENCE : "qualified by confidence tier"
     CAREER_OUTCOME ||--|| PIPELINE_METADATA : "tracked by metadata"
 ```
@@ -108,7 +121,7 @@ These attributes are carried forward from Silver `base.college_scorecard` withou
 | record_id | BT-015 | identifier | NOT NULL | false | false | Deterministic surrogate key computed from the natural key (unitid + cipcode + credential_level) using `compute_grain_id()` with prefix 'co'. Note: prefix changes from Silver's 'cs' to Gold's 'co' to distinguish zones. |
 | unitid | BT-001 | identifier | NOT NULL | true | false | IPEDS 6-digit institution identifier. Part of the natural key. Carried from Silver verbatim. |
 | institution_name | BT-002 | text | NOT NULL | false | false | Official institution name as reported to IPEDS. Carried from Silver verbatim. |
-| institution_control | *pending* | text | NOT NULL | false | false | Type of institutional governance: Public, Private nonprofit, or Private for-profit. Carried from Silver verbatim. |
+| institution_control | BT-114 | text | NULLABLE | false | false | Type of institutional governance: "Public" / "Private nonprofit" / "Private for-profit". AS OF 2026-04-16 enrichment: sourced from `base.college_scorecard_institution.institution_control` (replaces prior null-filled carry-forward from `base.college_scorecard`). See Institution Cost Profile group for full semantics. Nullable because unmatched UNITIDs have no institution-file row. |
 | cipcode | BT-003 | identifier | NOT NULL | false | false | CIP code in normalized XX.XXXX format. Part of the natural key. Carried from Silver verbatim. |
 | program_name | BT-004 | text | NOT NULL | false | false | Human-readable program description corresponding to the CIP code. Carried from Silver verbatim. |
 | cip_family | BT-005 | identifier | NOT NULL | false | false | 2-digit CIP family code. Serves dual role: classification context for the program and partition key for percentile band and rank computations. Carried from Silver verbatim. |
@@ -145,6 +158,22 @@ These attributes are computed from the core outcome fields. All are null-safe: n
 | cip_family_earnings_rank | BT-022 | numeric | NULLABLE | false | false | Relative position within CIP family based on 1-year median earnings. Range 0.0 (lowest) to 1.0 (highest). Computed via PERCENT_RANK window function. Null if earnings_1yr_median is null. |
 | program_value_index | BT-023 | numeric | NULLABLE | false | false | ROI proxy: earnings_1yr_median / debt_median. Higher = better value. Mathematical inverse of debt-to-earnings ratio. Null if either input is null. |
 
+### Institution Cost Profile (Enrichment: Institution-Level Cost Structure — added 2026-04-16)
+
+These seven attributes are sourced from `base.college_scorecard_institution` via LEFT JOIN on `unitid`. They describe what the school charges (what past grads of this program actually borrowed remains in `debt_median`). The cluster is populated or absent as a whole: when a UNITID has no match in the institution file (~1,131 unmatched UNITIDs), all seven attributes are null. Within matched UNITIDs, individual attributes may still be null when the source value was `PrivacySuppressed` (BT-013). CDE attributes are `net_price_annual` and `cost_of_attendance_annual` — they anchor the upper-bound cost invariant (`net_price_annual <= cost_of_attendance_annual`) and `net_price_annual` is the future ROI-formula driver (migration handled in follow-up spec `roi-formula-cost-of-attendance.md`, NOT this spec).
+
+Note on `institution_control`: this spec's enrichment OVERWRITES the previously carried-forward `institution_control` column. The prior value came from `base.college_scorecard` (program-level file) and was observed 100% null in `consumable.career_outcomes`. The enrichment-sourced value from `base.college_scorecard_institution` replaces it, keeping the same column name and type domain (text). This is an in-place semantic upgrade: the attribute stays on the Career Outcome (core identity) group in the logical model but its lineage and nullability change. Per the spec (§Zone 3 table row 4), it is now listed among the 7 enriched columns for governance purposes.
+
+| Attribute | Business Term | Type Domain | Nullable | Is CDE | Is PII | Description |
+|-----------|--------------|-------------|----------|--------|--------|-------------|
+| net_price_annual | BT-111 | numeric | NULLABLE | true | false | Average annual cost students actually pay after grants and scholarships (net of aid). Sourced from `base.college_scorecard_institution.net_price_annual` (unified pub/priv field driven by institution control). Null when the UNITID is unmatched or when the source value was privacy-suppressed. Becomes the ROI-formula driver in the follow-up `roi-formula-cost-of-attendance` spec; not wired into ROI in this spec. |
+| cost_of_attendance_annual | BT-110 | numeric | NULLABLE | true | false | Full annual sticker price before aid: tuition + fees + books + room & board + living expenses. Sourced from `base.college_scorecard_institution.cost_of_attendance_annual` (COALESCE of COSTT4_A and COSTT4_P). Upper-bound invariant partner for `net_price_annual`: `net_price_annual <= cost_of_attendance_annual` must hold where both are non-null. |
+| net_price_4yr | BT-113 | numeric | NULLABLE | false | false | Four-year total net cost estimate. Sourced verbatim from `base.college_scorecard_institution.net_price_4yr`, which is computed Silver-side as `net_price_annual * 4`. Display/comparison field only — derivable from `net_price_annual`. Invariant: `|net_price_4yr - (net_price_annual * 4)| <= 1` where both are non-null. |
+| institution_control | BT-114 | text | NULLABLE | false | false | Type of institutional governance: "Public" / "Private nonprofit" / "Private for-profit". Sourced from `base.college_scorecard_institution.institution_control`. OVERWRITES the previously-carried `institution_control` from `base.college_scorecard` (which was 100% null in `consumable.career_outcomes` pre-enrichment). Categorical dimension for segmentation and receipts display. Nullability changes from NOT NULL (per original logical spec) to NULLABLE because unmatched UNITIDs will now produce null. |
+| tuition_in_state | BT-115 | numeric | NULLABLE | false | false | In-state tuition and fees. Sourced verbatim from `base.college_scorecard_institution.tuition_in_state`. Display/receipts field — not part of any derivation. |
+| tuition_out_of_state | BT-115 | numeric | NULLABLE | false | false | Out-of-state tuition and fees. Sourced verbatim from `base.college_scorecard_institution.tuition_out_of_state`. Display/receipts field. |
+| room_board_on_campus | BT-116 | numeric | NULLABLE | false | false | On-campus room and board (housing + meals). Sourced verbatim from `base.college_scorecard_institution.room_board_on_campus`. Display/receipts field. |
+
 ### Data Confidence (Derived: Quality Context)
 
 These attributes classify the trustworthiness and completeness of each row. Unlike other derived groups, confidence_tier is required on every row (no nulls).
@@ -171,17 +200,19 @@ Pipeline infrastructure fields, not analytical dimensions. Carried from Silver (
 
 | Count | Category |
 |-------|----------|
-| 30 | Total attributes |
+| 37 | Total attributes (30 original + 7 institution-cost enrichment, 2026-04-16) |
 | 3 | Natural key components (unitid, cipcode, credential_level) |
 | 1 | Surrogate key (record_id) |
 | 4 | CDE attributes (unitid, earnings_1yr_median, earnings_2yr_median, debt_median) -- carried from Silver |
 | 6 | CDE attributes (earnings percentile bands) -- new in Gold |
 | 1 | CDE attribute (debt_to_earnings_annual) -- new in Gold |
+| 2 | CDE attributes (net_price_annual, cost_of_attendance_annual) -- institution-cost enrichment |
 | 0 | PII attributes |
-| 16 | Nullable attributes |
-| 14 | NOT NULL attributes |
+| 24 | Nullable attributes (16 original + 7 new institution-cost + 1 institution_control now nullable) |
+| 13 | NOT NULL attributes (previously 14; institution_control relaxed to nullable) |
 | 17 | Derived attributes (all percentile bands, financial metrics, confidence fields, record_id, has_earnings, has_debt, outcome_completeness) |
-| 13 | Carried from Silver verbatim |
+| 13 | Carried from Silver `base.college_scorecard` verbatim |
+| 7 | Sourced from Silver `base.college_scorecard_institution` via LEFT JOIN on unitid |
 
 ---
 
@@ -296,6 +327,20 @@ Evaluated top-to-bottom; first matching condition wins.
 |-----------|------|--------|
 | promoted_at | Current timestamp at promotion time | Generated by promote() function |
 
+### Institution Cost Profile (LEFT JOIN enrichment, 2026-04-16)
+
+All seven attributes are carried verbatim from `base.college_scorecard_institution` via `LEFT JOIN institution i ON i.unitid = b.unitid` in the Gold transformer. Null when the UNITID is unmatched (~1,131 UNITIDs, expected 55–80% null rate on `net_price_annual` — calibrated during EDA).
+
+| Attribute | Source | Rule |
+|-----------|--------|------|
+| net_price_annual | base.college_scorecard_institution.net_price_annual | Verbatim (Silver-side unified pub/priv selection) |
+| cost_of_attendance_annual | base.college_scorecard_institution.cost_of_attendance_annual | Verbatim (Silver-side COALESCE(costt4_a, costt4_p)) |
+| net_price_4yr | base.college_scorecard_institution.net_price_4yr | Verbatim (Silver-side net_price_annual * 4) |
+| institution_control | base.college_scorecard_institution.institution_control | Verbatim; OVERWRITES prior carry-forward from base.college_scorecard |
+| tuition_in_state | base.college_scorecard_institution.tuition_in_state | Verbatim |
+| tuition_out_of_state | base.college_scorecard_institution.tuition_out_of_state | Verbatim |
+| room_board_on_campus | base.college_scorecard_institution.room_board_on_campus | Verbatim |
+
 ---
 
 ## Nullability Semantics
@@ -314,8 +359,9 @@ Null values in this model carry specific business meaning related to privacy sup
 | earnings_growth_rate IS NULL | Either 1yr or 2yr earnings is null (privacy suppression or independent suppression) |
 | cip_family_earnings_rank IS NULL | 1yr earnings is null (excluded from rank window) |
 | program_value_index IS NULL | Either 1yr earnings or debt is null (privacy suppression) |
+| net_price_annual / cost_of_attendance_annual / net_price_4yr / institution_control / tuition_in_state / tuition_out_of_state / room_board_on_campus IS NULL | Either the UNITID is unmatched in `base.college_scorecard_institution` (~1,131 UNITIDs -> whole cluster null) OR the source value was privacy-suppressed in the institution file |
 
-**Key invariant:** If confidence_tier = "insufficient", then ALL derived financial and percentile-dependent fields for that row are guaranteed null. The converse is not true -- a "medium" confidence row may still have some null derived fields.
+**Key invariant (unchanged):** If confidence_tier = "insufficient", then ALL derived financial and percentile-dependent fields for that row are guaranteed null. The converse is not true -- a "medium" confidence row may still have some null derived fields. **Note:** Institution Cost Profile nullability is NOT factored into confidence_tier in this spec — cost coverage is signaled at the attribute-null level and may feed a future confidence dimension in the ROI-formula follow-up spec.
 
 ---
 
@@ -339,7 +385,8 @@ Null values in this model carry specific business meaning related to privacy sup
 | CIP Family | Career Outcome (identity) | cip_family, cip_family_name | Carried from Silver. Also serves as partition key for percentile bands and earnings rank. |
 | Earnings Percentile Band | Earnings Percentile Band | earnings_1yr_p25, earnings_1yr_p75, earnings_2yr_p25, earnings_2yr_p75, debt_p25, debt_p75 | 6 attributes derived via window functions. Shared value across all rows in same CIP family. |
 | Financial Assessment | Financial Assessment | debt_to_earnings_annual, debt_to_earnings_tier, earnings_growth_rate, cip_family_earnings_rank, program_value_index | 5 derived metrics. All null-safe. |
-| Data Confidence | Data Confidence | confidence_tier, has_earnings, has_debt, outcome_completeness | 4 attributes. confidence_tier is the only non-null derived field. |
+| Institution Cost Profile | Institution Cost Profile | net_price_annual, cost_of_attendance_annual, net_price_4yr, institution_control, tuition_in_state, tuition_out_of_state, room_board_on_campus | 7 attributes sourced from `base.college_scorecard_institution` via LEFT JOIN on unitid. Cluster-null pattern: all seven null together for unmatched UNITIDs. 2 CDEs (net_price_annual, cost_of_attendance_annual). Added 2026-04-16. |
+| Data Confidence | Data Confidence | confidence_tier, has_earnings, has_debt, outcome_completeness | 4 attributes. confidence_tier is the only non-null derived field. Institution Cost Profile nullability is NOT factored in. |
 | (Pipeline Metadata) | Pipeline Metadata | source_load_date, promoted_at | Not a conceptual entity -- pipeline infrastructure. |
 
 ---
@@ -353,7 +400,7 @@ This logical model builds on `governance/models/silver-base-college-scorecard-lo
 | record_id (prefix 'cs') | Recomputed | record_id (prefix 'co') | Prefix changes to distinguish zones |
 | unitid | Carried | unitid | Verbatim |
 | institution_name | Carried | institution_name | Verbatim |
-| institution_control | Carried | institution_control | Verbatim |
+| institution_control | Re-sourced (2026-04-16) | institution_control | Now sourced from `base.college_scorecard_institution` via LEFT JOIN on unitid; replaces the 100%-null carry-forward from `base.college_scorecard`. Nullability relaxed NOT NULL -> NULLABLE. |
 | cipcode | Carried | cipcode | Verbatim |
 | program_name | Carried | program_name | Verbatim |
 | cip_family | Carried | cip_family | Verbatim |
@@ -369,12 +416,15 @@ This logical model builds on `governance/models/silver-base-college-scorecard-lo
 | source_load_date | Carried | source_load_date | Verbatim |
 | ingested_at | Dropped | promoted_at (new) | Replaced by Gold-zone promotion timestamp |
 
-**New in Gold (17 attributes):**
+**New in Gold (17 attributes, original 2026-04-06):**
 - 6 percentile band attributes (derived via window functions)
 - 5 financial assessment attributes (derived via arithmetic/window)
 - 4 data confidence attributes (derived via conditional logic)
 - 1 pipeline metadata attribute (promoted_at)
 - 1 surrogate key recomputed with new prefix (record_id)
+
+**Added in 2026-04-16 amendment (7 attributes):**
+- 7 institution-cost attributes sourced from `base.college_scorecard_institution` via LEFT JOIN on unitid: net_price_annual (CDE), cost_of_attendance_annual (CDE), net_price_4yr, institution_control (replaces prior carry-forward), tuition_in_state, tuition_out_of_state, room_board_on_campus
 
 ---
 
@@ -392,7 +442,10 @@ This logical model builds on `governance/models/silver-base-college-scorecard-lo
 | has_earnings accuracy | has_earnings = (earnings_1yr_median IS NOT NULL OR earnings_2yr_median IS NOT NULL) | Row-level |
 | has_debt accuracy | has_debt = (debt_median IS NOT NULL) | Row-level |
 | Outcome completeness value set | outcome_completeness IN (0.0, 0.33, 0.67, 1.0) | Row-level |
-| Row count | Row count within +/- 15% of Silver source (69,947 expected) | Table-wide |
+| Row count | Row count within +/- 15% of Silver source (69,947 expected); exact match required post-enrichment LEFT JOIN (GLD-CSI-001) | Table-wide |
+| Net-price upper-bound invariant (2026-04-16) | net_price_annual <= cost_of_attendance_annual where both non-null (GLD-CSI-002) | Row-level |
+| 4-year net-price invariant (2026-04-16) | abs(net_price_4yr - (net_price_annual * 4)) <= 1 where both non-null (GLD-CSI-003) | Row-level |
+| institution_control value set (2026-04-16) | institution_control IN ('Public', 'Private nonprofit', 'Private for-profit') where non-null (GLD-CSI-009) | Row-level |
 
 ### Soft Constraints (DQ P1 -- warn but do not block)
 
@@ -410,15 +463,18 @@ This logical model builds on `governance/models/silver-base-college-scorecard-lo
 
 | # | Issue | Impact | Resolution Path |
 |---|-------|--------|----------------|
-| 1 | `institution_control` still has no business term (BT-XXX) | Cannot assign BT reference. Inherited from Silver logical model open issue #1. | @data-steward should propose a term before physical model. Does not block logical model approval. |
+| 1 | ~~`institution_control` has no business term~~ | RESOLVED 2026-04-16 | Now assigned BT-114 as part of the institution-cost enrichment. |
 | 2 | Percentile band behavior for CIP families with exactly 3 data points | With 3 values, the p25 and p75 are mathematically valid but may not be statistically meaningful. | Accepted risk: minimum sample of 3 is per spec. Future iteration may raise threshold based on EDA findings. |
+| 3 | Institution Cost Profile null rate (2026-04-16) | Expected 55–80% null on `net_price_annual` driven by ~1,131 unmatched UNITIDs in the institution file. | DQ rule GLD-CSI-005 threshold is calibrated during EDA after first real LEFT JOIN. Does not block logical model approval. |
 
 ---
 
 ## Scope and Boundaries
 
 - This logical model covers the `consumable.career_outcomes` table in the Gold zone only
-- Source is the Silver `base.college_scorecard` table (single-source; no cross-source joins)
+- Sources (as of 2026-04-16 amendment): Silver `base.college_scorecard` (program-level) and Silver `base.college_scorecard_institution` (institution-level cost), joined on `unitid` via LEFT JOIN
+- Pre-2026-04-16 the source was single (`base.college_scorecard` only); the LEFT JOIN added 7 nullable columns without changing row count or dropping any existing column
+- The ROI-formula migration from `debt_median` to `net_price_annual * 4 * loan_pct` is OUT OF SCOPE for this spec and handled in the follow-up spec `roi-formula-cost-of-attendance.md`
 - CIP-to-SOC crosswalk integration is a future spec and not modeled here
 - BLS and O*NET data sources are not included
 - The model assumes Bachelor's Degree only (credential_level = 3) per MVP scope, but the grain supports future credential levels
