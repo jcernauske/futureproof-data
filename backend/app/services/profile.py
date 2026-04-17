@@ -6,7 +6,6 @@ as their identity. No PII, no accounts, no passwords.
 
 from __future__ import annotations
 
-import json
 import logging
 import random
 import re
@@ -14,7 +13,7 @@ import threading
 from difflib import get_close_matches
 
 from app.models.career import BuildSummary, ProfileLookupResult, ProfileResult
-from app.services.mcp_client import project_root
+from app.services import builds as builds_service
 
 logger = logging.getLogger(__name__)
 
@@ -149,17 +148,23 @@ def register_profile(profile_name: str) -> None:
 
 
 def _load_existing_profiles() -> None:
-    builds_dir = project_root() / "backend" / "data" / "builds"
-    if not builds_dir.exists():
+    """Seed the in-memory profile set from persisted builds.
+
+    Queries the DuckDB ``builds`` table for distinct profile_name values
+    rather than globbing JSON files. Safe to call on startup even when
+    the DB doesn't exist yet — the builds service creates the schema
+    on first connection.
+    """
+    try:
+        rows = builds_service._conn().execute(
+            "SELECT DISTINCT profile_name FROM builds WHERE profile_name != ''"
+        ).fetchall()
+    except Exception as exc:
+        logger.debug("Could not load existing profiles: %s", exc)
         return
-    for f in builds_dir.glob("*.json"):
-        try:
-            data = json.loads(f.read_text())
-            name = data.get("profile_name", "").strip().lower()
-            if name:
-                _active_profiles.add(name)
-        except (json.JSONDecodeError, KeyError):
-            continue
+    for (name,) in rows:
+        if name:
+            _active_profiles.add(_normalize(name))
 
 
 def _find_emoji(normalized_name: str) -> str:
@@ -177,31 +182,19 @@ def _find_animal_name(normalized_name: str) -> str:
 
 
 def _get_builds_for_profile(normalized_name: str) -> list[BuildSummary]:
-    builds_dir = project_root() / "backend" / "data" / "builds"
-    if not builds_dir.exists():
+    """Return all builds for a normalized profile name.
+
+    Profile names are stored on the Build in their original (display)
+    form. We normalize both sides before comparing so a lookup for
+    "Steady Bold Turtle 🐢" matches a build saved with the emoji in
+    the name.
+    """
+    try:
+        summaries = builds_service.list_builds()
+    except Exception as exc:
+        logger.debug("Could not list builds for profile %r: %s", normalized_name, exc)
         return []
-    results: list[BuildSummary] = []
-    for f in builds_dir.glob("*.json"):
-        try:
-            data = json.loads(f.read_text())
-            pname = _normalize(data.get("profile_name", ""))
-            if pname != normalized_name:
-                continue
-            career = data.get("career", {})
-            results.append(BuildSummary(
-                build_id=data.get("build_id", f.stem),
-                school_name=data.get("school_name", ""),
-                major_text=data.get("major_text", ""),
-                career_title=career.get("occupation_title", ""),
-                created_at=data.get("created_at", ""),
-                ern=career.get("stats", {}).get("ern"),
-                roi=career.get("stats", {}).get("roi"),
-                res=career.get("stats", {}).get("res"),
-                grw=career.get("stats", {}).get("grw"),
-                hmn=career.get("stats", {}).get("hmn"),
-                wins=data.get("gauntlet", {}).get("wins", 0),
-                losses=data.get("gauntlet", {}).get("losses", 0),
-            ))
-        except (json.JSONDecodeError, KeyError):
-            continue
-    return results
+    return [
+        summary for summary in summaries
+        if _normalize(summary.profile_name) == normalized_name
+    ]

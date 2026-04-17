@@ -20,10 +20,17 @@ if str(_BACKEND_ROOT) not in sys.path:
 
 @pytest.fixture
 def isolated_builds_dir(tmp_path, monkeypatch):
-    """Redirect the builds directory to a tmp path for the test."""
+    """Redirect the builds DuckDB to a tmp file for the test.
+
+    Named ``isolated_builds_dir`` for historical compatibility; the
+    backing store is a DuckDB file, not a directory. The connection
+    cache is reset before and after the test so each run gets a fresh
+    schema.
+    """
     from app.services import builds
 
-    target = tmp_path / "builds"
-    monkeypatch.setattr(builds, "_builds_dir", lambda: target)
-    target.mkdir(parents=True, exist_ok=True)
-    return target
+    target = tmp_path / "builds.duckdb"
+    monkeypatch.setattr(builds, "_db_path", lambda: target)
+    builds._conns.clear()
+    yield target
+    builds._conns.clear()

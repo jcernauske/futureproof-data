@@ -40,9 +40,10 @@ def get_build(build_id: str) -> Build | None:
 def update_build(build_id: str, build: Build) -> None:
     _builds[build_id] = build
 
-    # Persist to disk so mutations survive reloads
-    try:
-        from app.services.builds import save_build
-        save_build(build)
-    except Exception as exc:
-        logger.warning("Failed to persist build %s: %s", build_id, exc)
+    # Persist to disk so mutations survive reloads. If save_build
+    # fails (disk full, DB locked, schema mismatch), we let the
+    # exception propagate — silently dropping a mutation leaves the
+    # in-memory state and the DB out of sync, which is worse than a
+    # visible 5xx.
+    from app.services.builds import save_build
+    save_build(build)

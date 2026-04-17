@@ -61,8 +61,12 @@ def _build(soc: str = "27-2011", title: str = "Actors") -> Build:
 def _mock_branches(monkeypatch, branch_map: dict):
     """Patch mcp_client.call to return synthetic branch data.
 
-    ``branch_map`` maps soc_code to a list of tuples:
-    ``(related_soc, related_title, grw, hmn, res)``.
+    ``branch_map`` maps soc_code to a list of tuples. Tuples may be
+    either the legacy 5-ary ``(related_soc, related_title, grw, hmn, res)``
+    form, or the experience-aware 7-ary
+    ``(related_soc, related_title, grw, hmn, res, exp_years, exp_tier)``
+    form. When the shorter form is used, experience fields are omitted
+    from the row dict entirely (simulating pre-v1.2.0 responses).
     """
     from app.services import mcp_client
 
@@ -71,8 +75,9 @@ def _mock_branches(monkeypatch, branch_map: dict):
             return {"data": []}
         soc = args.get("soc_code", "")
         branches = branch_map.get(soc, [])
-        rows = [
-            {
+        rows = []
+        for b in branches:
+            row = {
                 "soc_code": soc,
                 "related_soc_code": b[0],
                 "related_title": b[1],
@@ -85,8 +90,10 @@ def _mock_branches(monkeypatch, branch_map: dict):
                 "related_education_level": "Bachelor's",
                 "best_index": 2.0,
             }
-            for b in branches
-        ]
+            if len(b) >= 7:
+                row["related_experience_years"] = b[5]
+                row["related_experience_tier"] = b[6]
+            rows.append(row)
         return {"data": rows}
 
     monkeypatch.setattr(mcp_client, "call", fake_call)
@@ -191,6 +198,120 @@ class TestBuildTree:
         child = root.children[0]
         assert child.roi == root.roi == 4
         assert child.ern is None
+
+
+class TestExperienceFiltering:
+    """onet-experience-requirements spec §Zone 5: experience-based
+    gating on ``build_tree(max_experience_years=...)``."""
+
+    def test_no_filter_returns_all_branches(self, monkeypatch):
+        """Default behavior (no kwarg) is preserved — every branch with
+        a valid related_soc is expanded regardless of experience."""
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("27-2012", "Producers", 6, 5, 4, 3.0, "early"),
+                ("11-1011", "Chief Executives", 5, 8, 2, 12.0, "senior"),
+                ("11-2011", "Ad Managers", 6, 6, 3, 7.0, "mid"),
+            ],
+        })
+        root, stats = career_tree.build_tree(_build(), max_depth=1)
+        assert len(root.children) == 3
+        assert stats.total_nodes == 4
+
+    def test_filter_excludes_branches_over_threshold(self, monkeypatch):
+        """max_experience_years=5 skips Chief Executives (12y) and
+        Ad Managers (7y); keeps Producers (3y)."""
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("27-2012", "Producers", 6, 5, 4, 3.0, "early"),
+                ("11-1011", "Chief Executives", 5, 8, 2, 12.0, "senior"),
+                ("11-2011", "Ad Managers", 6, 6, 3, 7.0, "mid"),
+            ],
+        })
+        root, _ = career_tree.build_tree(
+            _build(), max_depth=1, max_experience_years=5.0
+        )
+        titles = [c.title for c in root.children]
+        assert titles == ["Producers"]
+
+    def test_null_experience_never_filtered(self, monkeypatch):
+        """NULL related_experience_years is treated as 'unknown' and
+        MUST NOT be filtered out by ``max_experience_years``."""
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("27-2012", "Producers", 6, 5, 4, 3.0, "early"),
+                ("99-9999", "Rare Occupation", 5, 5, 5, None, None),
+                ("11-1011", "Chief Executives", 5, 8, 2, 12.0, "senior"),
+            ],
+        })
+        root, _ = career_tree.build_tree(
+            _build(), max_depth=1, max_experience_years=5.0
+        )
+        titles = sorted(c.title for c in root.children)
+        # Producers (3y) kept; Rare Occupation (NULL) kept; CEO (12y) dropped
+        assert titles == ["Producers", "Rare Occupation"]
+
+    def test_tree_node_has_experience_fields(self, monkeypatch):
+        """TreeNode.experience_years / experience_tier should be
+        populated from the branch row."""
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("27-2012", "Producers", 6, 5, 4, 3.0, "early"),
+            ],
+        })
+        root, _ = career_tree.build_tree(_build(), max_depth=1)
+        child = root.children[0]
+        assert child.experience_years == 3.0
+        assert child.experience_tier == "early"
+
+    def test_tree_node_experience_null_when_row_has_no_experience(
+        self, monkeypatch
+    ):
+        """Legacy rows without the new keys leave TreeNode fields None."""
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("27-2012", "Producers", 6, 5, 4),  # 5-ary: no experience
+            ],
+        })
+        root, _ = career_tree.build_tree(_build(), max_depth=1)
+        child = root.children[0]
+        assert child.experience_years is None
+        assert child.experience_tier is None
+
+    def test_root_node_experience_unset(self, monkeypatch):
+        """Root derives from Build.career, not a branch row, so
+        experience fields stay None at level 0."""
+        _mock_branches(monkeypatch, {})
+        root, _ = career_tree.build_tree(_build(), max_depth=0)
+        assert root.experience_years is None
+        assert root.experience_tier is None
+
+    def test_filter_does_not_filter_at_boundary(self, monkeypatch):
+        """``max_experience_years=5`` keeps branches at exactly 5 years
+        (condition is strictly greater-than, not greater-than-or-equal)."""
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("11-2011", "Ad Managers", 6, 6, 3, 5.0, "mid"),
+            ],
+        })
+        root, _ = career_tree.build_tree(
+            _build(), max_depth=1, max_experience_years=5.0
+        )
+        assert len(root.children) == 1
+
+    def test_zero_max_experience_filters_most_senior(self, monkeypatch):
+        """Extreme filter: only entry-level (0y) branches pass."""
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("41-2031", "Retail Salespersons", 4, 7, 3, 0.75, "entry"),
+                ("11-1011", "Chief Executives", 5, 8, 2, 12.0, "senior"),
+            ],
+        })
+        root, _ = career_tree.build_tree(
+            _build(), max_depth=1, max_experience_years=0.0
+        )
+        # 0.75 > 0 and 12.0 > 0 — both filtered
+        assert len(root.children) == 0
 
 
 class TestRenderTree:

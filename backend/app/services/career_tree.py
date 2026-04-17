@@ -22,6 +22,7 @@ from typing import Any
 
 from app.models.career import Build
 from app.services import boss_fights, mcp_client
+from app.services._coercion import as_float, as_int
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,13 @@ class TreeNode:
     burnout_raw: int | None = None
     ai_boss_raw: int | None = None
     education: str | None = None
+    # O*NET experience requirements
+    # (onet-experience-requirements, Gold contract v1.2.0). Populated
+    # from ``related_experience_years`` / ``related_experience_tier`` on
+    # the Gold ``career_branches`` row. NULL when the target occupation
+    # lacks O*NET ETE coverage — treated as "unknown", never filtered.
+    experience_years: float | None = None
+    experience_tier: str | None = None
     # Boss fight results at this node (computed from absolute stats).
     boss_ai: str | None = None
     boss_loans: str | None = None
@@ -61,16 +69,6 @@ class TreeStats:
     nodes_missing_data: int = 0
     nodes_before_pruning: int = 0
     wall_clock_ms: int = 0
-
-
-def _as_int(value: Any) -> int | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(round(value))
-    return None
 
 
 def _fetch_raw_branches(soc_code: str) -> list[dict[str, Any]]:
@@ -131,10 +129,18 @@ def build_tree(
     build: Build,
     *,
     max_depth: int = 3,
+    max_experience_years: float | None = None,
 ) -> tuple[TreeNode, TreeStats]:
     """Build a multi-level career tree from the primary career.
 
     Returns the root node and a stats summary for spike logging.
+
+    When ``max_experience_years`` is provided, branches whose target
+    occupation requires more than that many years of related work
+    experience (per ``related_experience_years`` on the Gold
+    ``career_branches`` row) are skipped. NULL experience is never
+    filtered — it's treated as "unknown" and kept visible.
+    ``max_experience_years=None`` (the default) disables filtering.
     """
     started = time.perf_counter()
     stats = TreeStats()
@@ -176,29 +182,44 @@ def build_tree(
             if not related_soc or not row.get("related_title"):
                 continue
 
+            # Experience gating (onet-experience-requirements spec §Zone 5).
+            # Only filter rows with a known experience requirement that
+            # exceeds the threshold — NULL means "unknown" and is kept.
+            if max_experience_years is not None:
+                exp_years = as_float(row.get("related_experience_years"))
+                if exp_years is not None and exp_years > max_experience_years:
+                    continue
+
             nodes_before_prune += 1
 
             if related_soc in seen:
                 continue
             seen.add(related_soc)
 
+            related_exp_tier = row.get("related_experience_tier")
             child = TreeNode(
                 soc_code=str(related_soc),
                 title=str(row.get("related_title")),
                 level=node.level + 1,
                 ern=None,
                 roi=root_roi,
-                res=_as_int(row.get("related_res")),
-                grw=_as_int(row.get("related_grw")),
-                hmn=_as_int(row.get("related_hmn")),
+                res=as_int(row.get("related_res")),
+                grw=as_int(row.get("related_grw")),
+                hmn=as_int(row.get("related_hmn")),
                 median_wage=(
                     float(row["related_wage"])
                     if isinstance(row.get("related_wage"), (int, float))
                     else None
                 ),
-                burnout_raw=_as_int(row.get("related_burnout")),
-                ai_boss_raw=_as_int(row.get("related_ai_boss")),
+                burnout_raw=as_int(row.get("related_burnout")),
+                ai_boss_raw=as_int(row.get("related_ai_boss")),
                 education=row.get("related_education_level"),
+                experience_years=as_float(row.get("related_experience_years")),
+                experience_tier=(
+                    str(related_exp_tier)
+                    if related_exp_tier is not None
+                    else None
+                ),
             )
             node.children.append(child)
 

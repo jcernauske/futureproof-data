@@ -15,6 +15,11 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.10.0",
     "duckdb>=1.1.0",
+    # Wrapped frame rendering (screen 9). Requires one-time
+    # `playwright install chromium` after `pip install` — documented
+    # in README. Hard dep per spec §2 (no graceful degradation).
+    "playwright>=1.48.0",
+    "jinja2>=3.1.0",
     # CLI harness (backend/cli.py) dependencies — also present in the
     # root ``pyproject.toml`` so running the CLI from the unified
     # monorepo venv works. Listed here so installing just the backend

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app import state
-from app.models.api import BuildRequest, CompareRequest, OutcomesRequest, TierRequest
+from app.models.api import BuildRequest, OutcomesRequest, TierRequest
 from app.models.career import CareerOutcome
 from app.services import (
     boss_fights,
@@ -89,6 +89,7 @@ async def create_build(request: BuildRequest):
         skill_recs=recs,
         guidance=narrative,
         skill_pool=pool,
+        profile_name=request.profile_name,
     )
     state.store_build(build)
     builds.save_build(build)
@@ -103,8 +104,8 @@ async def save_build(build_id: str):
             build = builds.load_build(build_id)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
-    path = builds.save_build(build)
-    return {"build_id": build.build_id, "path": str(path)}
+    builds.save_build(build)
+    return {"build_id": build.build_id}
 
 
 @router.get("/{build_id}")
@@ -120,9 +121,5 @@ async def get_build(build_id: str):
         raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
 
 
-@router.post("/s/compare")
-async def compare_builds(request: CompareRequest):
-    try:
-        return builds.compare_builds(request.build_ids)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+# Compare endpoint moved to `routers/builds_collection.py` so it lives
+# at the clean `POST /builds/compare` path instead of `POST /build/s/compare`.

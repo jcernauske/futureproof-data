@@ -1849,8 +1849,10 @@ def main() -> int:
             console.print("[dim]Good luck out there.[/dim]")
             return 0
         if action == "1":
-            path = builds.save_build(current_build)
-            console.print(f"[green]Saved →[/green] {path}")
+            builds.save_build(current_build)
+            console.print(
+                f"[green]Saved →[/green] {current_build.build_id}"
+            )
         elif action == "2":
             current_build = None
         elif action == "3":
