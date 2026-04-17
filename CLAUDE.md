@@ -185,33 +185,7 @@ cd backend && python cli.py        # Interactive CLI harness
 
 ## Specs
 
-| Spec | Layer | Status |
-|------|-------|--------|
-| raw-ingest-college-scorecard | Pipeline | COMPLETE |
-| silver-base-college-scorecard | Pipeline | COMPLETE |
-| gold-career-outcomes-college-scorecard | Pipeline | COMPLETE |
-| raw-ingest-bls-ooh | Pipeline | COMPLETE |
-| silver-base-bls-ooh | Pipeline | COMPLETE |
-| gold-occupation-profiles-bls-ooh | Pipeline | COMPLETE |
-| raw-ingest-onet | Pipeline | COMPLETE |
-| silver-base-onet | Pipeline | COMPLETE |
-| gold-onet-profiles | Pipeline | COMPLETE |
-| crosswalk-cip-soc | Pipeline | COMPLETE |
-| gold-futureproof-engine | Pipeline | COMPLETE |
-| raw-ingest-karpathy-ai-exposure | Pipeline | COMPLETE |
-| mcp-futureproof-core | Pipeline | COMPLETE |
-| cip-intent-substitution | MCP | COMPLETE |
-| spike-gemma-intent-resolution | Spike | COMPLETE (100%, Ollama E4B) |
-| spike-gemma-intent-openrouter | Spike | COMPLETE (100%, OpenRouter 26B MoE) |
-| cloud-gemma-deployment | Infra | READY |
-| fastapi-router-wiring | App | COMPLETE |
-| profile-service | App | COMPLETE |
-| cli-harness | App | READY |
-| feature-onboarding-screens | App | DRAFT |
-| screen-career-pick-reveal (F3) | App | IMPLEMENTATION |
-| unmock-f3-api (F3.1) | App | IMPLEMENTATION |
-| career-path-fallback (F3.2) | MCP | COMPLETE |
-| feature-project-scaffolding | App | COMPLETE |
+Each spec's status is tracked in the spec file itself. Completed specs move to `docs/specs/completed/`. Do not maintain a status list here — it drifts.
 
 ---
 

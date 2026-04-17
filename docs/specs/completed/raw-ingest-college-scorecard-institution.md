@@ -1,6 +1,6 @@
 # Spec: raw-ingest-college-scorecard-institution
 
-**Status:** IMPLEMENTATION (Bronze + Silver COMPLETE; Gold in progress)
+**Status:** COMPLETE
 **Zone:** Raw → Silver → Gold
 **Primary Agent:** @primary-agent
 **Created:** 2026-04-14

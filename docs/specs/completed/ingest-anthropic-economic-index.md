@@ -1,6 +1,6 @@
 # Spec: ingest-anthropic-economic-index
 
-**Status:** DRAFT
+**Status:** COMPLETE
 **Zone:** Raw → Silver → Gold
 **Primary Agent:** @fp-data-reviewer
 **Created:** 2026-04-16

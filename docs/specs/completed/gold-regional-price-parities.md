@@ -1,6 +1,6 @@
 # Spec: gold-regional-price-parities
 
-**Status:** READY
+**Status:** COMPLETE
 **Zone:** Gold (Consumable)
 **Primary Agent:** @primary-agent
 **Created:** 2026-04-11

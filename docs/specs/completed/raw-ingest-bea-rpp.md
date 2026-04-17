@@ -1,6 +1,6 @@
 # Spec: raw-ingest-bea-rpp
 
-**Status:** READY
+**Status:** COMPLETE
 **Zone:** Raw → Silver → Gold → MCP
 **Primary Agent:** @primary-agent
 **Created:** 2026-04-09

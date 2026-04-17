@@ -2,7 +2,7 @@
 
 *Vet the entire product loop in the terminal before touching React*
 
-**Status:** IMPLEMENTATION COMPLETE — pending live kid testing + threshold tuning
+**Status:** DEPRECATED — CLI harness no longer needed; product loop vetted in-app
 **Owner:** Jeff
 **Priority:** P0 — blocks frontend work
 **Created:** 2026-04-11

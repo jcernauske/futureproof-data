@@ -2,7 +2,7 @@
 
 *Make Gemma earn its keep*
 
-**Status:** READY
+**Status:** DEPRECATED — CLI harness no longer needed; product loop vetted in-app
 **Owner:** Jeff
 **Priority:** P0 — iterate on existing CLI
 **Created:** 2026-04-11

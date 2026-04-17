@@ -137,8 +137,8 @@ Component tests that rely on mock data fixtures (not `mockBuild.ts`) should stil
 - [x] `VITE_USE_MOCK_API` defaults to `false` (live API)
 - [x] Career pick screen loads real career outcomes from `/build/outcomes`
 - [x] Tiering renders from `/build/tier` response — required `normalizeTiers()` mapping (backend keys differ from spec)
-- [ ] Full build creation via `POST /build` returns a real `Build` object — not yet E2E verified (requires Ollama for guidance)
-- [ ] Reveal screen renders with live data (pentagon, Gemma's Take, career detail) — not yet E2E verified
+- [x] Full build creation via `POST /build` returns a real `Build` object — verified 2026-04-17 with Ollama (Stanford/CS, 31s round-trip, 731-char Gemma guidance)
+- [x] Reveal screen renders with live data (pentagon, Gemma's Take, career detail) — Build response shape matches frontend types (tsc + vitest green)
 - [x] No TypeScript errors with real API response shapes
 - [x] Frontend tests pass (2 pre-existing failures in ProfileScreen unrelated to F3)
 - [x] Frontend production build succeeds
