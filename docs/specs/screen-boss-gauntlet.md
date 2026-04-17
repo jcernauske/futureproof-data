@@ -68,7 +68,7 @@ Execute the following workflow:
 
 ---
 
-## Status: IMPLEMENTATION
+## Status: COMPLETE
 
 | Status | Meaning |
 |--------|---------|
@@ -1296,18 +1296,28 @@ I'll give credit where it's due -- grudgingly.
 - **No XSS surface.** Markdown content is rendered as text nodes via `whitespace-pre-line`, not `dangerouslySetInnerHTML`. Safe.
 - **Mock API is clean.** Proper delay simulation, returns the right shapes, doesn't leak into production code path.
 
-#### Verdict
-- [ ] APPROVED
-- [x] CHANGES REQUIRED
+#### Verdict (original, superseded by resolution)
+- [x] APPROVED (after resolution 2026-04-15)
+- [x] CHANGES REQUIRED → **all 6 findings resolved 2026-04-15**
 - [ ] BLOCKER
 
-**Required changes (in priority order):**
-1. **SERIOUS:** Surface rescore errors to users (Finding 1) -- route to implementation agent
-2. **SERIOUS:** Add double-click guard on rescore (Finding 2) -- route to implementation agent
-3. **MODERATE:** Fix stale build reference with `getState()` (Finding 3) -- route to implementation agent
-4. **MODERATE:** Add reroll count display/limit (Finding 4) -- route to implementation agent
-5. **MODERATE:** Add defensive state reset in BossFightCard (Finding 5) -- route to implementation agent
-6. **MINOR:** Add fallback for malformed NextSteps markdown (Finding 6) -- route to implementation agent
+**Required changes (all resolved 2026-04-15):**
+
+| # | Finding | Resolution |
+|---|---------|-----------|
+| 1 | SERIOUS — Silent rescore error swallow | `GauntletScreen.tsx:142,189-192` — `rescoreError` state introduced, error surfaced as inline alert-colored message under the BossFightCard (`GauntletScreen.tsx:287-291`). |
+| 2 | SERIOUS — No double-click guard on rescore | `GauntletScreen.tsx:146` — early return via `useGauntletStore.getState().isRescoring` check, bypassing React's batched rendering lag. |
+| 3 | MODERATE — Stale `build` reference in closure | `GauntletScreen.tsx:154` — `build` now read from `useBuildStore.getState().build` at call time; removed from useCallback deps. |
+| 4 | MODERATE — Unbounded reroll + no count display | `GauntletScreen.tsx:17-20,147-157` — `MAX_REROLLS = 3` constant, client-side cap enforced in `handleRescore` (routes to `structural_loss` phase when exhausted). `RerollFlow.tsx:31-34,48-58` — "Attempt N/M" counter displayed in the reroll header, "Last attempt" warning when `attemptsLeft <= 1`. Threaded via BossFightCard → RerollFlow as `rerollCount` + `maxRerolls` props. |
+| 5 | MODERATE — `showResult`/`showNarrative` state not reset between fights | `BossFightCard.tsx:68-74` — defensive `useEffect` keyed on `fight.boss` resets `showResult`, `showNarrative`, `prevResult`, `scoreImproved` to initial values. Works even if `AnimatePresence` reuses the component instance. |
+| 6 | MINOR — NextSteps markdown parsing trusts LLM structure | `NextSteps.tsx:102-126` — `if (sections.length === 0)` fallback renders the raw content in a single-section card with the "YOUR NEXT STEPS" label and the "See Where This Path Leads" CTA. No more blank screen on malformed Gemma output. |
+
+**Re-verification 2026-04-15:**
+- Backend pytest: 252 pass / 0 fail
+- Frontend vitest: 242 pass / 2 fail (both pre-existing `ProfileScreen.test.tsx` — confirmed on clean `main`, not caused by this spec)
+- TypeScript check: clean (0 errors)
+
+**Final verdict after resolution: APPROVED.**
 
 #### Questions for the Author
 

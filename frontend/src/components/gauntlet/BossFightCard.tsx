@@ -16,6 +16,8 @@ interface BossFightCardProps {
   selectedSkillIds: Set<string>;
   isRescoring: boolean;
   isLastFight: boolean;
+  rerollCount?: number;
+  maxRerolls?: number;
   onPhaseChange: (phase: FightPhase) => void;
   onToggleSkill: (skillId: string) => void;
   onRescore: () => void;
@@ -52,6 +54,8 @@ export function BossFightCard({
   selectedSkillIds,
   isRescoring,
   isLastFight,
+  rerollCount = 0,
+  maxRerolls = 3,
   onPhaseChange,
   onToggleSkill,
   onRescore,
@@ -304,6 +308,8 @@ export function BossFightCard({
                 availableSkills={availableSkills}
                 selectedSkillIds={selectedSkillIds}
                 isRescoring={isRescoring}
+                rerollCount={rerollCount}
+                maxRerolls={maxRerolls}
                 onToggleSkill={onToggleSkill}
                 onRescore={onRescore}
                 onAccept={onAccept}

@@ -14,6 +14,11 @@ import { NextSteps } from "@/components/gauntlet/NextSteps";
 import type { Build, BossFightResult, BossId, AppliedSkill } from "@/types/build";
 import type { FightPhase } from "@/store/gauntletStore";
 
+// Defense-in-depth client-side cap. Backend should also enforce.
+// A student who rerolls this many times and still isn't winning has a
+// structural gap, not a tactical one — the gauntlet surfaces that.
+const MAX_REROLLS = 3;
+
 function deriveVerdict(
   wins: number,
   losses: number,
@@ -146,13 +151,24 @@ export function GauntletScreen() {
     if (useGauntletStore.getState().isRescoring) return;
     if (!currentBossId) return;
 
+    // Read build from store at call time, not from render closure
+    const currentBuild = useBuildStore.getState().build;
+    if (!currentBuild) return;
+
+    // Cap rerolls per-fight — after MAX_REROLLS failed attempts the gap
+    // is structural, not tactical. Route to the structural_loss screen.
+    const existingFight = currentBuild.gauntlet.fights.find(
+      (f) => f.boss === currentBossId,
+    );
+    if ((existingFight?.reroll_count ?? 0) >= MAX_REROLLS) {
+      setFightPhase("structural_loss");
+      return;
+    }
+
     setRescoreError(null);
     setIsRescoring(true);
     try {
       const skillIds = Array.from(useGauntletStore.getState().selectedSkillIds);
-      // Read build from store at call time, not from render closure
-      const currentBuild = useBuildStore.getState().build;
-      if (!currentBuild) return;
 
       const newFight = await rerollFight(
         currentBuild.build_id,
@@ -278,6 +294,8 @@ export function GauntletScreen() {
                 selectedSkillIds={selectedSkillIds}
                 isRescoring={isRescoring}
                 isLastFight={currentFightIndex === 4}
+                rerollCount={currentFight.reroll_count}
+                maxRerolls={MAX_REROLLS}
                 onPhaseChange={handlePhaseChange}
                 onToggleSkill={toggleSkill}
                 onRescore={handleRescore}
