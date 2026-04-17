@@ -1,0 +1,155 @@
+---
+# Data Contract: raw.gemma_ai_exposure
+# Spec: gemma-ai-exposure-rescore-v4 (Zone 1 — Bronze)
+# Zone: Bronze (Raw)
+# Status: DRAFT
+
+table: raw.gemma_ai_exposure
+namespace: raw
+zone: bronze
+version: "1.0.0"
+grain:
+  - bls_soc_code
+status: draft
+owner: "@primary-agent"
+quality_tier: llm_generated
+spec_reference: docs/specs/gemma-ai-exposure-rescore-v4.md
+record_count: 798
+data_vintage: "Gemma 4 single scoring run — gemma4:26b-a4b via local Ollama. Deterministic config (temperature=0, seed=42)."
+source: "governance/fixtures/gemma-ai-exposure-scores.json"
+
+columns:
+  - name: bls_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field and primary cross-source join key. Links Gemma
+      scores to O*NET work profiles and downstream BLS/career data.
+    is_pii: false
+    description: "SOC occupation code in XX-XXXX format. Grain of the raw table."
+
+  - name: primary_title
+    type: string
+    required: false
+    is_cde: false
+    is_pii: false
+    description: "Occupation title carried from consumable.onet_work_profiles."
+
+  - name: exposure_score
+    type: integer
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Gemma 4 AI exposure score (0-10). Source metric for stat_res,
+      boss_ai_score, and task-level narrative. Nullable in Bronze so
+      error rows can still be promoted for audit.
+    is_pii: false
+    description: "Gemma 4 score. NULL when error is populated (scorer failed after 3 retries)."
+
+  - name: rationale
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Gemma's 2-3 sentence explanation citing specific tasks. The
+      single highest-value free-text field for downstream narrative.
+    is_pii: false
+    description: "2-3 sentence LLM-generated explanation. NULL on error rows."
+
+  - name: task_breakdown_automatable
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: >
+      JSON-encoded list of tasks Gemma flagged as AI-automatable.
+      Powers the 'what AI is eating' frontend surface.
+    is_pii: false
+    description: "JSON array of strings. NULL on error rows."
+
+  - name: task_breakdown_human
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: >
+      JSON-encoded list of tasks Gemma flagged as human-essential.
+      Powers the 'what still needs humans' frontend surface.
+    is_pii: false
+    description: "JSON array of strings. NULL on error rows."
+
+  - name: scoring_model
+    type: string
+    required: true
+    is_cde: false
+    is_pii: false
+    description: "Always 'gemma-4' in this table. Distinguishes Gemma rows from Karpathy rows at Gold."
+
+  - name: model_tag
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: >
+      Exact Ollama model tag. Row-level reproducibility: auditors can
+      trace each score to a specific local model version. Absent on
+      pre-v4 archival rows.
+    is_pii: false
+    description: "e.g., 'gemma4:26b-a4b'."
+
+  - name: scored_at
+    type: timestamp
+    required: false
+    is_cde: false
+    is_pii: false
+    description: "Timestamp when the scorer produced this row."
+
+  - name: error
+    type: string
+    required: false
+    is_cde: false
+    is_pii: false
+    description: "Non-null indicates the scorer failed after 3 retries. raw_response captured for debugging."
+
+  - name: raw_response
+    type: string
+    required: false
+    is_cde: false
+    is_pii: false
+    description: "First 500 chars of Gemma's last-seen raw output when parsing failed."
+
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    exposure_score_range: [0, 10]
+  uniqueness:
+    grain_zero_duplicates: true
+  volume:
+    row_count_minimum: 780
+
+dq_rules:
+  rule_file: governance/dq-rules/raw-gemma-ai-exposure.json
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, or type changed =
+    major version bump. Adding a column = minor. Description change =
+    patch.
+
+lineage:
+  source_path: governance/fixtures/gemma-ai-exposure-scores.json
+  producer: scripts/gemma_ai_exposure_scorer.py
+  ingestor: src/raw/gemma_ai_exposure_ingestor.py
+
+pii:
+  contains_pii: false
+  pii_fields: []
+  assessment_notes: >
+    No PII. Occupation-level aggregate data; LLM-generated scores/text.
+
+consumers:
+  - name: base.gemma_ai_exposure
+    type: table
+    description: Silver transformer reads Bronze and normalizes SOC, drops error rows.
+    contact: "@primary-agent"
+    status: active

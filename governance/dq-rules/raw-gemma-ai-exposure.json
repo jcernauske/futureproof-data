@@ -1,0 +1,81 @@
+{
+  "spec": "raw-gemma-ai-exposure",
+  "zone": "bronze",
+  "table": "raw.gemma_ai_exposure",
+  "created_at": "2026-04-16T15:30:00Z",
+  "created_by": "@primary-agent",
+  "evidence_source": "docs/specs/gemma-ai-exposure-rescore-v4.md",
+  "notes": "Bronze DQ rules for Gemma 4 AI exposure scores. Grain = bls_soc_code. Expected ~798 rows matching O*NET coverage. Error rows allowed up to 3% of population (per v4 §4 Silver DQ rules — coverage + error rate).",
+  "rules": [
+    {
+      "rule_id": "RAW-GAE-001",
+      "name": "Row count >= 780",
+      "dimension": "Volume",
+      "priority": "P0",
+      "table": "raw.gemma_ai_exposure",
+      "sql": "SELECT CASE WHEN COUNT(*) >= 780 THEN 0 ELSE 1 END AS violation FROM raw_gemma_ai_exposure",
+      "threshold": "result = 0",
+      "description": "Gemma should score ~798 O*NET occupations. >=780 allows up to 18 transient failures (~2.3% loss tolerance).",
+      "rationale": "v4 spec §4 Silver DQ: 'row_count >= 780 (allow <=18 scoring failures / 2.3%)'. Bronze captures both successful and error rows, so count check runs here before Silver drops error rows.",
+      "status": "active",
+      "proposed_by": "@primary-agent",
+      "proposed_at": "2026-04-16T15:30:00Z"
+    },
+    {
+      "rule_id": "RAW-GAE-002",
+      "name": "Error rate <= 3%",
+      "dimension": "Validity",
+      "priority": "P0",
+      "table": "raw.gemma_ai_exposure",
+      "sql": "SELECT CASE WHEN SUM(CASE WHEN error IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) <= 3.0 THEN 0 ELSE 1 END AS violation FROM raw_gemma_ai_exposure",
+      "threshold": "result = 0",
+      "description": "Scorer retries 3x before marking a row errored. >3% error rate suggests systematic prompt or model failure.",
+      "rationale": "v4 spec §4 Silver DQ: 'error non-null <= 3%'. Catches broken scorer config early (wrong model tag, Ollama down).",
+      "status": "active",
+      "proposed_by": "@primary-agent",
+      "proposed_at": "2026-04-16T15:30:00Z"
+    },
+    {
+      "rule_id": "RAW-GAE-003",
+      "name": "Single model_tag per batch",
+      "dimension": "Consistency",
+      "priority": "P0",
+      "table": "raw.gemma_ai_exposure",
+      "sql": "SELECT CASE WHEN COUNT(DISTINCT model_tag) <= 1 THEN 0 ELSE 1 END AS violation FROM raw_gemma_ai_exposure WHERE error IS NULL",
+      "threshold": "result = 0",
+      "description": "All successful scores in a batch must share one model_tag. Mixed tags mean the scorer changed models mid-batch, breaking reproducibility.",
+      "rationale": "v4 §4 DQ 'single-model-tag-per-batch' + audit-reviewer requirement to trace scores to a specific Ollama tag.",
+      "status": "active",
+      "proposed_by": "@primary-agent",
+      "proposed_at": "2026-04-16T15:30:00Z"
+    },
+    {
+      "rule_id": "RAW-GAE-004",
+      "name": "No duplicate SOC codes",
+      "dimension": "Uniqueness",
+      "priority": "P0",
+      "table": "raw.gemma_ai_exposure",
+      "sql": "SELECT bls_soc_code, COUNT(*) AS cnt FROM raw_gemma_ai_exposure GROUP BY bls_soc_code HAVING cnt > 1",
+      "threshold": "result_count = 0",
+      "description": "Scorer produces one row per occupation. Duplicates indicate a checkpoint-resume bug that re-scored an already-completed SOC.",
+      "rationale": "Grain uniqueness — Bronze is append-only but the scorer is checkpoint-aware. If the checkpoint and output file disagree, we could see duplicates.",
+      "status": "active",
+      "proposed_by": "@primary-agent",
+      "proposed_at": "2026-04-16T15:30:00Z"
+    },
+    {
+      "rule_id": "RAW-GAE-005",
+      "name": "Rationale length 50-800 chars on successful rows",
+      "dimension": "Validity",
+      "priority": "P1",
+      "table": "raw.gemma_ai_exposure",
+      "sql": "SELECT * FROM raw_gemma_ai_exposure WHERE error IS NULL AND (LENGTH(rationale) < 50 OR LENGTH(rationale) > 800)",
+      "threshold": "result_count = 0",
+      "description": "Rationale must be 2-3 sentences. <50 chars = truncated, >800 = Gemma ignored the prompt's length guidance.",
+      "rationale": "v4 spec §4 Silver DQ: 'rationale length 50-800 chars'. Quality signal for downstream Fight AI narrative.",
+      "status": "active",
+      "proposed_by": "@primary-agent",
+      "proposed_at": "2026-04-16T15:30:00Z"
+    }
+  ]
+}

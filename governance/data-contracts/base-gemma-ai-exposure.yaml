@@ -1,0 +1,160 @@
+---
+# Data Contract: base.gemma_ai_exposure
+# Spec: gemma-ai-exposure-rescore-v4 (Zone 2 — Silver)
+# Zone: Silver (Base)
+# Status: DRAFT
+
+table: base.gemma_ai_exposure
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - soc_code_normalized
+status: draft
+owner: "@primary-agent"
+quality_tier: llm_generated
+spec_reference: docs/specs/gemma-ai-exposure-rescore-v4.md
+record_count_estimate: 780  # ~798 minus error rows
+upstream: raw.gemma_ai_exposure
+
+columns:
+  - name: record_id
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Deterministic grain hash via compute_grain_id with prefix 'gae'.
+      Required for idempotent pipeline re-runs.
+    is_pii: false
+    description: "Format: gae-<16 hex chars>."
+
+  - name: soc_code
+    type: string
+    required: true
+    is_cde: false
+    is_pii: false
+    description: "Raw SOC code as ingested (pre-normalization)."
+
+  - name: soc_code_normalized
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Normalized XX-XXXX SOC code used as grain and as the primary
+      join key into consumable.onet_work_profiles and the Gold blender.
+    is_pii: false
+    description: "Normalized SOC in XX-XXXX format."
+
+  - name: primary_title
+    type: string
+    required: false
+    is_cde: false
+    is_pii: false
+    description: "Occupation title carried from O*NET."
+
+  - name: exposure_score
+    type: integer
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Gemma's 0-10 AI exposure score. Required at Silver — error rows
+      from Bronze are dropped before promote.
+    is_pii: false
+    description: "0-10 integer."
+
+  - name: rationale
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Gemma's 2-3 sentence rationale. Required display field for the
+      Fight AI narrative.
+    is_pii: false
+    description: "2-3 sentence explanation."
+
+  - name: task_breakdown_automatable
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: "JSON array of automatable tasks. Powers frontend narrative."
+    is_pii: false
+    description: "JSON-encoded list of strings."
+
+  - name: task_breakdown_human
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: "JSON array of human-essential tasks. Powers frontend narrative."
+    is_pii: false
+    description: "JSON-encoded list of strings."
+
+  - name: scoring_model
+    type: string
+    required: true
+    is_cde: false
+    is_pii: false
+    description: "Always 'gemma-4' at Silver."
+
+  - name: model_tag
+    type: string
+    required: false
+    is_cde: true
+    cde_rationale: "Ollama model tag for row-level audit reproducibility."
+    is_pii: false
+    description: "e.g., 'gemma4:26b-a4b'."
+
+  - name: scored_at
+    type: timestamp
+    required: false
+    is_cde: false
+    is_pii: false
+    description: "When the scorer produced this row."
+
+  - name: join_valid
+    type: boolean
+    required: true
+    is_cde: false
+    is_pii: false
+    description: "True iff soc_code_normalized exists in consumable.onet_work_profiles."
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    is_pii: false
+    description: "Framework-stamped ingestion timestamp."
+
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    soc_code_normalized_format: "^\\d{2}-\\d{4}$"
+    exposure_score_range: [0, 10]
+    rationale_min_length: 50
+  uniqueness:
+    grain_zero_duplicates: true
+  distribution:
+    max_mode_concentration_pct: 40
+    min_stddev: 1.5
+    min_bucket_coverage_pct: 10
+
+dq_rules:
+  rule_file: governance/dq-rules/silver-base-gemma-ai-exposure.json
+
+breaking_changes:
+  policy: Semantic versioning. Removing/renaming/typing columns = major.
+
+lineage:
+  source_table: raw.gemma_ai_exposure
+  transformation: src/silver/gemma_ai_exposure_transformer.py
+
+pii:
+  contains_pii: false
+  pii_fields: []
+
+consumers:
+  - name: "consumable.ai_exposure (blender)"
+    type: table
+    description: Gold blender prefers Gemma, falls back to Karpathy.
+    contact: "@primary-agent"
+    status: active

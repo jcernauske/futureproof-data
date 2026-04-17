@@ -1,0 +1,27 @@
+# Gemma 4 AI Exposure Scores
+# Locally-generated AI exposure scores from running Gemma 4 over O*NET
+# task-level data. Produced by scripts/gemma_ai_exposure_scorer.py and
+# committed to governance/fixtures/gemma-ai-exposure-scores.json.
+
+name: gemma_ai_exposure
+namespace: bronze
+table: raw_gemma_ai_exposure
+
+fetch:
+  fixture_file:
+    fixture_path: governance/fixtures/gemma-ai-exposure-scores.json
+    format: json
+    size_estimate: "~1-2 MB"
+
+# Single logical entity representing the full Gemma scoring run.
+entities:
+  gemma_ai_exposure: "Gemma 4 AI Exposure Scores — All O*NET Occupations"
+
+# Dedup grain — one row per SOC code. Rerunning the scorer with new
+# scores for the same SOCs is a no-op at Bronze; updates are caught by
+# the Silver transformer's first-seen-wins dedup combined with the
+# row-level model_tag for audit.
+dedup_grain:
+  - bls_soc_code
+
+cache_dir: governance/fixtures
