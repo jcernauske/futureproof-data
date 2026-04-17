@@ -22,9 +22,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-09T21:06:44.867559+00:00",
+      "completed_at": "2026-04-16T14:40:23.024157+00:00",
       "output": "governance/business-glossary.json",
-      "output_hash": "sha256:53bc6b6a5ef3493c800cc1d90499965d1050f5d6a977958c14148522422984fa"
+      "output_hash": "sha256:40997865930700e7b4c724b7d6c6df23fad267a25f468f54dca83dcae59c9d2a"
     },
     "semantic-modeler-conceptual": {
       "status": "COMPLETED",
@@ -201,9 +201,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-09T20:49:40.242500+00:00",
+      "completed_at": "2026-04-16T14:40:29.639977+00:00",
       "output": "governance/data-dictionary.json",
-      "output_hash": "sha256:7d9344753e6de407121045b82d07144671fbb902acfde0aabdefccf681bb5d1f"
+      "output_hash": "sha256:e53b1f341dc6ddc60b41bae8fcfe96c4716f2309f2f3340925e816503138d1f4"
     },
     "adversarial-auditor": {
       "status": "COMPLETED",
@@ -241,6 +241,30 @@
       "completed_at": "2026-04-09T21:06:36.873990+00:00",
       "output": "governance/approvals/silver-base-karpathy-ai-exposure-staff-review.md",
       "output_hash": "sha256:5e832bbb65c4ef668aca32df7c8e67366c95a70e6e82d3c22eab7a02beeceb51"
+    },
+    "principal-data-architect": {
+      "agent": "@principal-data-architect",
+      "requires": [
+        "staff-engineer"
+      ],
+      "blocking": true,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-16T15:01:58.484863+00:00",
+      "output": "governance/reviews/silver-base-karpathy-ai-exposure-architecture-review.md",
+      "output_hash": "sha256:d3499ea7a22803295458d050b025994e34d13c1f658e0b13fdc149136b05e87c"
+    },
+    "insight-manager": {
+      "agent": "@insight-manager",
+      "requires": [
+        "principal-data-architect"
+      ],
+      "blocking": false,
+      "skippable": true,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-16T15:02:03.487495+00:00",
+      "output": "governance/reviews/silver-base-karpathy-ai-exposure-insight-manager-report.md",
+      "output_hash": "sha256:35f433234d5969a002b64d44526b881c7c3603067ff2f50c5a76848f2d173ce5"
     }
   },
   "skipped_steps": {

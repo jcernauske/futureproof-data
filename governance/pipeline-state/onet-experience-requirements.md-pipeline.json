@@ -1,0 +1,98 @@
+{
+  "spec": "onet-experience-requirements.md",
+  "zone": "mcp",
+  "mode": "greenfield",
+  "started": "2026-04-17T03:19:07.106540+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "NOT_STARTED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false
+    },
+    "primary-agent": {
+      "status": "NOT_STARTED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "data-analyst": {
+      "status": "NOT_STARTED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "dq-rule-writer": {
+      "status": "NOT_STARTED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "dq-engineer": {
+      "status": "NOT_STARTED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "lineage-tracker": {
+      "status": "NOT_STARTED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "cde-tagger": {
+      "status": "NOT_STARTED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "doc-generator": {
+      "status": "NOT_STARTED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "governance-reviewer-post": {
+      "status": "NOT_STARTED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "staff-engineer": {
+      "status": "NOT_STARTED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

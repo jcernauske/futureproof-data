@@ -10,8 +10,9 @@
       "requires": [],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-08T23:47:26.265773+00:00",
-      "output": "governance/reviews/silver-base-onet-governance-pre.md"
+      "completed_at": "2026-04-16T14:40:51.791223+00:00",
+      "output": "governance/reviews/silver-base-onet-pre-review.md",
+      "output_hash": "sha256:bdbf38f620138f86f1c8d3e35b56ee40692f252b20541e09f973b76d40d2d3fa"
     },
     "data-steward": {
       "status": "COMPLETED",
@@ -21,9 +22,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-08T23:50:02.083715+00:00",
+      "completed_at": "2026-04-16T14:40:24.664928+00:00",
       "output": "governance/business-glossary.json",
-      "output_hash": "sha256:ed2aee451a8ff3630fe2f77db30d75af5a059510f3d24ee998036de201d322d2"
+      "output_hash": "sha256:40997865930700e7b4c724b7d6c6df23fad267a25f468f54dca83dcae59c9d2a"
     },
     "semantic-modeler-conceptual": {
       "status": "COMPLETED",
@@ -140,8 +141,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-09T00:59:12.444100+00:00",
-      "output": "governance/reviews/silver-base-onet-entity-resolver.md"
+      "completed_at": "2026-04-16T14:46:54.351603+00:00",
+      "output": "governance/reviews/silver-base-onet-entity-resolver.md",
+      "output_hash": "sha256:7aa0a44ad9dbeaaf57b678bee8f8ff10617b8feba14665a6231538eb856da928"
     },
     "pii-scanner": {
       "status": "COMPLETED",
@@ -199,9 +201,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-09T01:16:56.792277+00:00",
+      "completed_at": "2026-04-16T14:40:31.304078+00:00",
       "output": "governance/data-dictionary.json",
-      "output_hash": "sha256:0043227e203bf919f3c93d809df6b411a92fd4c951fadc982402c5edaf3a1f47"
+      "output_hash": "sha256:e53b1f341dc6ddc60b41bae8fcfe96c4716f2309f2f3340925e816503138d1f4"
     },
     "adversarial-auditor": {
       "status": "COMPLETED",
@@ -211,8 +213,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-09T01:07:19.452419+00:00",
-      "output": "governance/reviews/silver-base-onet-adversarial-audit.md"
+      "completed_at": "2026-04-16T14:46:56.045695+00:00",
+      "output": "governance/reviews/silver-base-onet-adversarial-audit.md",
+      "output_hash": "sha256:1b6597ba7c5fce3ab6644e89e269f294e488fb50eb41b61866f072f5e1bd2049"
     },
     "governance-reviewer-post": {
       "status": "COMPLETED",
@@ -236,6 +239,30 @@
       "skippable": false,
       "completed_at": "2026-04-08T14:30:00.000000+00:00",
       "output": "governance/reviews/silver-base-onet-staff-review.md"
+    },
+    "principal-data-architect": {
+      "agent": "@principal-data-architect",
+      "requires": [
+        "staff-engineer"
+      ],
+      "blocking": true,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-16T15:02:00.147527+00:00",
+      "output": "governance/reviews/silver-base-onet-architecture-review.md",
+      "output_hash": "sha256:7b1f70a6b07ef369fd8da7b879f8b1b0bf2f4ff25591e9ad03bfa94631ddfcf5"
+    },
+    "insight-manager": {
+      "agent": "@insight-manager",
+      "requires": [
+        "principal-data-architect"
+      ],
+      "blocking": false,
+      "skippable": true,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-16T15:02:05.159848+00:00",
+      "output": "governance/reviews/silver-base-onet-insight-manager-report.md",
+      "output_hash": "sha256:2cd8d668d12d5a66a072b82606894edd70bf3ec57ef75037a215f9b4b6f4ee30"
     }
   },
   "skipped_steps": {

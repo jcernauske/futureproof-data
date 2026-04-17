@@ -1,8 +1,8 @@
 {
   "spec": "raw-ingest-college-scorecard-institution",
-  "zone": "bronze",
+  "zone": "gold",
   "mode": "greenfield",
-  "started": "2026-04-15T03:39:02.603685+00:00",
+  "started": "2026-04-16T14:30:23.169496+00:00",
   "steps": {
     "governance-reviewer-pre": {
       "status": "COMPLETED",
@@ -10,44 +10,57 @@
       "requires": [],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-15T03:41:14.612205+00:00",
-      "output": "governance review: partial approval, bronze cleared, silver/gold blocked pending data models"
+      "completed_at": "2026-04-16T15:49:52.043241+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-institution-gold-pre-review.md",
+      "output_hash": "sha256:c9014f9b2f3b348c0c103141e729b4eadc2e5f1425d01e30034983cb86b996cd"
     },
-    "primary-agent": {
+    "data-steward": {
       "status": "COMPLETED",
-      "agent": "@primary-agent",
+      "agent": "@data-steward",
       "requires": [
         "governance-reviewer-pre"
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-15T03:46:06.372981+00:00",
-      "output": "src/raw/college_scorecard_institution_ingestor.py",
-      "output_hash": "sha256:3040e1a1297122d06b668506f050444afca0f9fc62e6d9348006dc507554cf1a"
+      "completed_at": "2026-04-16T15:51:47.976069+00:00",
+      "output": "governance/business-glossary.json",
+      "output_hash": "sha256:45fe057140a93cc589ce50acead7e81658bb613685bd347408794519c4d4ebfc"
+    },
+    "semantic-modeler-conceptual": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T15:54:09.135171+00:00",
+      "output": "governance/models/gold-career-outcomes-college-scorecard-conceptual.md",
+      "output_hash": "sha256:60081c4b9f1be7c7121ad0e3f9b9cc689b78dcfe1675d778a7e4b1d67313e7ec"
+    },
+    "semantic-modeler-logical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T16:03:05.940780+00:00",
+      "output": "governance/models/gold-career-outcomes-college-scorecard-logical.md",
+      "output_hash": "sha256:9789d8835c33818f907cd882ede2f4968196c7df9437d41312587f84d662441a"
     },
     "data-analyst": {
       "status": "COMPLETED",
       "agent": "@data-analyst",
       "requires": [
-        "primary-agent"
+        "semantic-modeler-logical"
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:25:48.270349+00:00",
-      "output": "docs/sessions/eda-college-scorecard-institution.md",
-      "output_hash": "sha256:487a0a6e8c61e4b7c2ab6c204af1e278305ee077c345383e0502c9c4c3a50107"
-    },
-    "domain-context": {
-      "status": "COMPLETED",
-      "agent": "@domain-context",
-      "requires": [
-        "data-analyst"
-      ],
-      "blocking": false,
-      "skippable": false,
-      "completed_at": "2026-04-16T02:29:10.680821+00:00",
-      "output": "domain/raw-ingest-college-scorecard-institution-context.md",
-      "output_hash": "sha256:231ed0df65ee64f5ff988db5d3ec0b0ef7006698bf741baaec4e17c50053874a"
+      "completed_at": "2026-04-16T16:07:08.109451+00:00",
+      "output": "docs/sessions/eda-gold-career-outcomes-csi-enrichment.md",
+      "output_hash": "sha256:c8407faec465b47a556b0b0c78d1785d17eca1c708f18c5dcfc73abf9350448c"
     },
     "dq-rule-writer": {
       "status": "COMPLETED",
@@ -57,21 +70,59 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:33:05.814559+00:00",
-      "output": "governance/dq-rules/raw-ingest-college-scorecard-institution.json",
-      "output_hash": "sha256:0dd53e72a6bd36111c26957fc688fe716f80c60bae1da58a30ee66415a2d374c"
+      "completed_at": "2026-04-16T16:52:46.929313+00:00",
+      "output": "governance/dq-rules/gold-career-outcomes-college-scorecard.json",
+      "output_hash": "sha256:7247f3730ead2840bce49779b444daf0299c8e09247dee2dd9b9330fb982d090"
+    },
+    "semantic-modeler-physical": {
+      "status": "COMPLETED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T16:03:08.649137+00:00",
+      "output": "governance/models/gold-career-outcomes-college-scorecard-physical.md",
+      "output_hash": "sha256:bb9a2211f2d4dd30174663bbc202bc445c4418d9db1c5bcdb6eb275fdccf653a"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T16:16:09.142898+00:00",
+      "output": "src/gold/college_scorecard_career_outcomes.py",
+      "output_hash": "sha256:2d4ef12c1bce4f0510f25aa0be58ea1ea57000c1fecfe26c6192675f3740f855"
+    },
+    "cab-review": {
+      "status": "COMPLETED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true,
+      "completed_at": "2026-04-16T16:19:16.414736+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-institution-gold-cab-review.md",
+      "output_hash": "sha256:4eac8b5b7f0555f9774564d4e538d4659fc0617b4bd7128582efb9f479a94629"
     },
     "dq-engineer": {
       "status": "COMPLETED",
       "agent": "@dq-engineer",
       "requires": [
-        "dq-rule-writer"
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:37:30.853442+00:00",
-      "output": "governance/dq-scorecards/raw-ingest-college-scorecard-institution-scorecard.md",
-      "output_hash": "sha256:ef7a3c1c95fa1832ab4ea78f6db12551fe6b12f770b12271229ba39e7727248d"
+      "completed_at": "2026-04-16T16:22:42.662358+00:00",
+      "output": "governance/dq-scorecards/gold-career-outcomes-college-scorecard-csi-enrichment-scorecard.md",
+      "output_hash": "sha256:f643287b6d2bfbb6fabf13e633d595de11de87d95ddda5723dc9b71825b3f3fb"
     },
     "chaos-monkey": {
       "status": "COMPLETED",
@@ -81,9 +132,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:44:12.880788+00:00",
-      "output": "governance/chaos-manifests/raw-ingest-college-scorecard-institution-chaos.md",
-      "output_hash": "sha256:21f6b7b5c10117648ce0402023256ae6ebdd5f161aaa867d2d8bc9b4904a6180"
+      "completed_at": "2026-04-16T16:28:39.117225+00:00",
+      "output": "governance/chaos-manifests/gold-career-outcomes-college-scorecard-csi-chaos.md",
+      "output_hash": "sha256:f6531d6ea3ae06df0fafdf5e14db3bf535a292eff887221e3021900e9108937a"
     },
     "entity-resolver": {
       "status": "COMPLETED",
@@ -93,9 +144,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:46:11.952511+00:00",
-      "output": "governance/entity-resolution/raw-ingest-college-scorecard-institution.md",
-      "output_hash": "sha256:36c7204f213efde281b8444878f130837a0679d6d208493cea206874504ccb33"
+      "completed_at": "2026-04-16T16:28:40.894835+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-institution-gold-entity-resolver.md",
+      "output_hash": "sha256:a23122d07d53c3d41f95b2a4987e3536723f88ed51b3dd5fd036779394466b92"
     },
     "pii-scanner": {
       "status": "COMPLETED",
@@ -105,9 +156,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:46:14.201717+00:00",
-      "output": "governance/pii-scans/raw-ingest-college-scorecard-institution-pii-scan.md",
-      "output_hash": "sha256:2aca34ad669bd2f0961b509bdb93f64d3877a272f205ac046d39611c63b94a71"
+      "completed_at": "2026-04-16T16:28:42.619476+00:00",
+      "output": "governance/pii-scans/raw-ingest-college-scorecard-institution-gold-pii-scan.md",
+      "output_hash": "sha256:e7fbe8b46f4154c69d5c1580ab54ea83608f4a475dc839b45bfc74adeed647f9"
     },
     "temporal-modeler": {
       "status": "COMPLETED",
@@ -117,9 +168,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:46:15.986626+00:00",
-      "output": "governance/temporal-models/raw-ingest-college-scorecard-institution-temporal.md",
-      "output_hash": "sha256:756593ff42d8a017f0fcfe0079532ac696a1170828b3b2078563eb29dc65d103"
+      "completed_at": "2026-04-16T16:28:44.361538+00:00",
+      "output": "governance/temporal-models/raw-ingest-college-scorecard-institution-gold-temporal.md",
+      "output_hash": "sha256:3df2c1513866596b6787bf589d6275ef6b9426054a47f25b2d457fda484e2ec2"
     },
     "lineage-tracker": {
       "status": "COMPLETED",
@@ -129,9 +180,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:54:56.213210+00:00",
-      "output": "governance/lineage/raw-ingest-college-scorecard-institution-20260414T213000Z.json",
-      "output_hash": "sha256:2ed9bc1b34d5daa552447b1681ad54f688bb22f51e575ee6c6c6f2b91594e7ea"
+      "completed_at": "2026-04-16T16:28:46.102655+00:00",
+      "output": "governance/lineage/gold-career-outcomes-college-scorecard-csi-enrichment-20260416T163000Z.json",
+      "output_hash": "sha256:5438ed10e373e3447f6c64e3adb6539eb7aa145ae5c27aa7363b2d7c91def4f1"
     },
     "cde-tagger": {
       "status": "COMPLETED",
@@ -141,18 +192,21 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:59:48.765466+00:00",
-      "output": "governance/cde-registry/raw-ingest-college-scorecard-institution-cdes.md",
-      "output_hash": "sha256:942f970a486c8c2d4a77382e0f49d26a3e141e6d5fa55a5d2b7e5e0aa9aae1bf"
+      "completed_at": "2026-04-16T16:28:47.840135+00:00",
+      "output": "governance/cde-registry/gold-career-outcomes-college-scorecard-cdes.md",
+      "output_hash": "sha256:5ec5006e7d97d3217a868e0f122ae696739d12a8f63e3036153f8e010912ab1c"
     },
     "doc-generator": {
-      "status": "NOT_STARTED",
+      "status": "COMPLETED",
       "agent": "@doc-generator",
       "requires": [
         "cde-tagger"
       ],
       "blocking": false,
-      "skippable": false
+      "skippable": false,
+      "completed_at": "2026-04-16T16:35:59.671895+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:4becd6cc449733d5f4910c80e9ebad7c88075ee09d25d6ce52847ecdb4b8742f"
     },
     "adversarial-auditor": {
       "status": "COMPLETED",
@@ -162,29 +216,44 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-16T02:52:31.848807+00:00",
-      "output": "governance/audits/raw-ingest-college-scorecard-institution-adversarial-audit.md",
-      "output_hash": "sha256:c3869d27efb1e88a8935729f89a9b57f2d5ca0674d882020ba32ecc211fc5d0c"
+      "completed_at": "2026-04-16T16:36:01.437754+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-institution-gold-adversarial-audit.md",
+      "output_hash": "sha256:77b8568d7c5e4315344170bc24f03c8d031069565671ff9ab231f1a4d3f25d5c"
     },
     "governance-reviewer-post": {
-      "status": "NOT_STARTED",
+      "status": "COMPLETED",
       "agent": "@governance-reviewer",
       "requires": [
-        "doc-generator"
+        "doc-generator",
+        "cab-review"
       ],
       "blocking": false,
-      "skippable": false
+      "skippable": false,
+      "completed_at": "2026-04-16T16:43:31.435950+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-institution-gold-post-review.md",
+      "output_hash": "sha256:e1670f58fcdd57471a4cfcb0ab6200ef8f7b996546ee9ad5ce88eac8be7e4c27"
     },
     "staff-engineer": {
-      "status": "NOT_STARTED",
+      "status": "COMPLETED",
       "agent": "@staff-engineer",
       "requires": [
         "governance-reviewer-post"
       ],
       "blocking": false,
-      "skippable": false
+      "skippable": false,
+      "completed_at": "2026-04-16T16:52:35.016019+00:00",
+      "output": "governance/reviews/raw-ingest-college-scorecard-institution-gold-staff-review.md",
+      "output_hash": "sha256:85afe9edb77a42a435298d55017ace876d9af86463274326043a71d351f72753"
     }
   },
   "skipped_steps": {},
-  "approvals": {}
+  "approvals": {
+    "cab-review": {
+      "status": "APPROVED",
+      "decided_by": "bs:cab-agent",
+      "decided_at": "2026-04-16T16:19:14.701200+00:00",
+      "document": "governance/reviews/raw-ingest-college-scorecard-institution-gold-cab-review.md",
+      "notes": "MINOR severity \u2014 additive + nullability relaxation on already-null column. Conditions: contract v1.1.0, CDE registry +2, dual-source lineage."
+    }
+  }
 }

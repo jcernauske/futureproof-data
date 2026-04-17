@@ -22,9 +22,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-04-10T23:41:28.903601+00:00",
+      "completed_at": "2026-04-16T14:40:19.737904+00:00",
       "output": "governance/business-glossary.json",
-      "output_hash": "sha256:1fec78c8e83942dd8ad66d9fe2f8b35feb7d417193ef41a9b0851fd14f261a5a"
+      "output_hash": "sha256:40997865930700e7b4c724b7d6c6df23fad267a25f468f54dca83dcae59c9d2a"
     },
     "semantic-modeler-conceptual": {
       "status": "COMPLETED",
@@ -241,6 +241,30 @@
       "completed_at": "2026-04-11T01:40:34.556268+00:00",
       "output": "governance/approvals/silver-base-bea-rpp-staff-review.md",
       "output_hash": "sha256:d5ba8bd609718f908799c0243a0e2803f23ef4114f17e87989031101b48acd7f"
+    },
+    "principal-data-architect": {
+      "agent": "@principal-data-architect",
+      "requires": [
+        "staff-engineer"
+      ],
+      "blocking": true,
+      "skippable": false,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-16T15:01:56.813329+00:00",
+      "output": "governance/reviews/silver-base-bea-rpp-architecture-review.md",
+      "output_hash": "sha256:a7fd1f95848416c8d58095267e5abd21e59e2f00885a7b571dcf55a9c7ad0784"
+    },
+    "insight-manager": {
+      "agent": "@insight-manager",
+      "requires": [
+        "principal-data-architect"
+      ],
+      "blocking": false,
+      "skippable": true,
+      "status": "COMPLETED",
+      "completed_at": "2026-04-16T15:02:01.819219+00:00",
+      "output": "governance/reviews/silver-base-bea-rpp-insight-manager-report.md",
+      "output_hash": "sha256:01aa9ec53ec86e7ae8a0d4898ee7ffebe411a01e7a4629363909c5d551b30918"
     }
   },
   "skipped_steps": {

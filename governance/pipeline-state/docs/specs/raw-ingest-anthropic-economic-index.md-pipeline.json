@@ -1,0 +1,200 @@
+{
+  "spec": "docs/specs/raw-ingest-anthropic-economic-index.md",
+  "zone": "bronze",
+  "mode": "greenfield",
+  "started": "2026-04-16T23:57:44.834531+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-16T23:59:54.864491+00:00",
+      "output": "governance/reviews/raw-anthropic-economic-index-governance-pre.md",
+      "output_hash": "sha256:e002858eb628257b9010c20b0828876f1b10b084cb48d7ac28e01d07e774b472"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T02:02:55.100392+00:00",
+      "output": "src/raw/anthropic_economic_index_ingestor.py",
+      "output_hash": "sha256:021efcf54a22343831f352014442adf6ea65ee9c9a2c4eb79a0fb68c47872359"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T00:31:12.127384+00:00",
+      "output": "governance/eda/raw-anthropic-economic-index-eda.md",
+      "output_hash": "sha256:eff2067625b8fbb522cf9e5bbd1748593a3a2ee0882cc44f48ab4e7023b5e968"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T02:02:57.001737+00:00",
+      "output": "governance/domain-context.md",
+      "output_hash": "sha256:6a9a7b61f81fda8bfd15e673dcde2a40aa94fe0074996ca78b38670dd2e97386"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T02:02:58.928989+00:00",
+      "output": "governance/dq-rules/raw-anthropic-economic-index.json",
+      "output_hash": "sha256:7f4c75fc871d3a8ce856ba0f70ebb5ecd5b460a7e84d9beb32bcca1c2ba418ea"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T02:03:00.843492+00:00",
+      "output": "governance/dq-scorecards/raw-anthropic-economic-index-scorecard.md",
+      "output_hash": "sha256:abfe0d2c11ede07a2441807557031c4f71ec1aa6ce223a72f0b3ae35c044a655"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:13:12.268997+00:00",
+      "output": "governance/chaos-manifests/raw-anthropic-economic-index-chaos.md",
+      "output_hash": "sha256:7f1038b78f0dbaee6d49527aa30e74fe19d25fda3742ab67b20aa459d17d89a4"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:20:10.798149+00:00",
+      "output": "governance/entity-resolution/raw-anthropic-economic-index-entity-resolution.md",
+      "output_hash": "sha256:266316ffbb26ecac9c133da4f0b8530e9d095bb20d4704d6ad4b4e0fa0f9017a"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:20:12.729535+00:00",
+      "output": "governance/pii/raw-anthropic-economic-index-pii-scan.md",
+      "output_hash": "sha256:275cbe98acbd335205a5a8503e2e406384b905360dc292c6eb85b114cd3da7bd"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:20:14.635040+00:00",
+      "output": "governance/temporal/raw-anthropic-economic-index-temporal.md",
+      "output_hash": "sha256:5b769855fdc46f2e35e5e9e65545df1c9034c5be2e289138c6173133e37eaae2"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:24:46.403279+00:00",
+      "output": "governance/lineage/raw-anthropic-economic-index-20260417T012058Z.json",
+      "output_hash": "sha256:bf2e4929304e30a59292b2e869e4035735a4e4cba38809a7cd4665ee6534a463"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:31:51.947874+00:00",
+      "output": "governance/cde-tagging/raw-anthropic-economic-index.md",
+      "output_hash": "sha256:d6778e70eab2c461d1b7304bb68d5758023c56f1f747c137063da75d87ad5676"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:42:50.507295+00:00",
+      "output": "governance/data-contracts/raw-anthropic-economic-index.yaml",
+      "output_hash": "sha256:b9573f8d00bfe83dcbb74337363402adc7eb17d058057054ebca24ec274a1bce"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:20:16.581937+00:00",
+      "output": "governance/audits/raw-anthropic-economic-index-adversarial-audit.md",
+      "output_hash": "sha256:808164dc92f4dde9c92435a2a92f377ac8c0fd41c356cbe3911369492a2de533"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T01:53:38.678220+00:00",
+      "output": "governance/reviews/raw-anthropic-economic-index-governance-post.md",
+      "output_hash": "sha256:5c9b6c3689b5be3ec4a5304d7c22e93a98d9cbe276076ad0f50be2fae9bba1cf"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-04-17T02:02:44.618892+00:00",
+      "output": "governance/reviews/raw-anthropic-economic-index-staff-review.md",
+      "output_hash": "sha256:76914d683e6438474a7dc7643ff976109b1a9ff208e6b6ec20caf4d26a834af8"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}
