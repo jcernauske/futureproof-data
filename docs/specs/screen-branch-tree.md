@@ -752,8 +752,9 @@ function runIllumination() {
 ## §5 Architecture Review
 
 ### @fp-architect Review
-**Status:** CHANGES REQUESTED
-**Reviewed:** 2026-04-14
+**Status:** APPROVED (2026-04-15, after re-review — both conditions addressed during implementation)
+**Original Review:** 2026-04-14 (CHANGES REQUESTED)
+**Re-Reviewed:** 2026-04-15
 
 #### System Context
 
@@ -819,13 +820,25 @@ One API call, one layout computation, pure rendering after that. No mutations, n
 
 None.
 
-#### Verdict
+#### Verdict (2026-04-14)
 - [x] CHANGES REQUESTED
 
 #### Conditions
 
 1. **Resolve boss result value contract mismatch.** The backend `career_tree.py` `_score_boss()` returns `"W"/"L"/"D"/"?"` but the spec's TypeScript interface expects `"win"/"lose"/"draw"/null`. Preferred fix: update `_score_boss()` to return the full words matching the existing `BossOutcome` type (`"win"`, `"lose"`, `"draw"`, `"unknown"`). This is a one-line backend change (`career_tree.py` line 86). Update `_node_to_dict` to serialize `None` instead of `"?"` for truly missing boss data. If the backend fix is out of scope for this spec, the TypeScript interface and rendering logic must be updated to handle the abbreviated values.
 2. **Add setTimeout cleanup note.** The animation controller section should specify that timeout IDs are stored in a `useRef<NodeJS.Timeout[]>` and cleared in the `useEffect` cleanup to prevent state updates on unmounted components.
+
+#### Re-Review Resolution (2026-04-15)
+
+Both conditions addressed during implementation (see §6 Files Modified + Deviations from Spec):
+
+- **Condition 1 (boss result contract) — ADDRESSED.** `backend/app/services/career_tree.py` `_score_boss()` updated to return `"win"/"lose"/"draw"/"unknown"` matching the frontend `BossOutcome` type. Tree endpoint now aligns with gauntlet endpoint contract.
+- **Condition 2 (setTimeout cleanup) — ADDRESSED.** Animation controller uses `window.setTimeout` with ref-based cleanup (listed explicitly in §6 "Deviations from Spec" as an architect recommendation followed during implementation).
+
+#### Verdict (Re-Review, 2026-04-15)
+- [x] APPROVED
+- [ ] CHANGES REQUESTED
+- [ ] REJECTED
 
 ### @fp-data-reviewer Review
 **Status:** SKIPPED (no pipeline changes — frontend consuming existing API contracts)
@@ -899,7 +912,7 @@ None.
 
 ## §8 Reviews
 
-**Status:** PENDING
+**Status:** COMPLETE (Design Audit + Code Review both complete as of 2026-04-14; top-level status retroactively flipped 2026-04-15)
 
 ### Design Audit (@fp-design-auditor)
 **Status:** COMPLETE (2026-04-14)

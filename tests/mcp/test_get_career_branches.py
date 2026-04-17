@@ -47,6 +47,11 @@ def _make_row(
         "res_delta": 1,
         "ai_boss_delta": -1,
         "branch_has_full_data": True,
+        # v1.2.0 (onet-experience-requirements): O*NET ETE fields
+        "related_experience_years": 7.0,
+        "related_experience_tier": "mid",
+        "source_experience_years": 3.0,
+        "experience_delta_years": 4.0,
     }
     row.update(overrides)
     return row
@@ -179,6 +184,55 @@ class TestNullCases:
         with patch.object(server, "query_iceberg_simple", return_value=err):
             result = server._handle_get_career_branches({"soc_code": "13-2051"})
         assert result["data"] is None
+
+
+class TestExperienceFields:
+    """onet-experience-requirements spec §Zone 4: the 4 new experience
+    fields are projected in CAREER_BRANCHES_RESPONSE_FIELDS and flow
+    through to the MCP tool response."""
+
+    EXPERIENCE_FIELDS = (
+        "related_experience_years",
+        "related_experience_tier",
+        "source_experience_years",
+        "experience_delta_years",
+    )
+
+    def test_experience_fields_registered_in_response_fields(self):
+        for field in self.EXPERIENCE_FIELDS:
+            assert field in CAREER_BRANCHES_RESPONSE_FIELDS
+
+    def test_experience_fields_surfaced_in_tool_output(self):
+        server = _make_server()
+        with patch.object(server, "query_iceberg_simple", return_value=PRIMARY_ROWS):
+            result = server._handle_get_career_branches({"soc_code": "13-2051"})
+        first = result["data"][0]
+        for field in self.EXPERIENCE_FIELDS:
+            assert field in first, f"Missing field: {field}"
+        assert first["related_experience_years"] == 7.0
+        assert first["related_experience_tier"] == "mid"
+        assert first["source_experience_years"] == 3.0
+        assert first["experience_delta_years"] == 4.0
+
+    def test_null_experience_fields_pass_through(self):
+        """When Gold has NULL experience (no O*NET ETE coverage), the
+        MCP tool surfaces None — never coerced to 0."""
+        server = _make_server()
+        null_row = _make_row(
+            "15-2051",
+            0.8,
+            related_experience_years=None,
+            related_experience_tier=None,
+            source_experience_years=None,
+            experience_delta_years=None,
+        )
+        with patch.object(server, "query_iceberg_simple", return_value=[null_row]):
+            result = server._handle_get_career_branches({"soc_code": "13-2051"})
+        first = result["data"][0]
+        assert first["related_experience_years"] is None
+        assert first["related_experience_tier"] is None
+        assert first["source_experience_years"] is None
+        assert first["experience_delta_years"] is None
 
 
 class TestGovernance:

@@ -12,18 +12,9 @@ from typing import Any
 
 from app.models.career import CareerBranch
 from app.services import mcp_client
+from app.services._coercion import as_float, as_int
 
 logger = logging.getLogger(__name__)
-
-
-def _as_int(value: Any) -> int | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(round(value))
-    return None
 
 
 def _derive_ern_delta(row: dict[str, Any]) -> int | None:
@@ -97,11 +88,18 @@ def get_branches(
                 to_title=str(related_title),
                 delta_ern=_derive_ern_delta(row),
                 delta_roi=_derive_roi_delta(row),
-                delta_res=_as_int(row.get("res_delta")),
-                delta_grw=_as_int(row.get("grw_delta")),
-                delta_hmn=_as_int(row.get("hmn_delta")),
+                delta_res=as_int(row.get("res_delta")),
+                delta_grw=as_int(row.get("grw_delta")),
+                delta_hmn=as_int(row.get("hmn_delta")),
                 unlock=_format_unlock(row),
                 relatedness=row.get("best_index"),
+                experience_years=as_float(row.get("related_experience_years")),
+                experience_tier=(
+                    str(row["related_experience_tier"])
+                    if row.get("related_experience_tier") is not None
+                    else None
+                ),
+                experience_delta=as_float(row.get("experience_delta_years")),
             )
         )
 
