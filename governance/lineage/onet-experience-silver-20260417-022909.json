@@ -1,0 +1,254 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-17T02:29:09.000000Z",
+    "run": {
+      "runId": "49d51dfe-6573-4583-a787-83217d8745d5",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/onet-experience-requirements.md",
+          "specVersion": "1.0",
+          "zone": "Zone 2: Silver (Normalize + Model)"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of O*NET Related Work Experience (RW scale, element_id='3.A.1') from bronze.onet_experience into base.onet_experience_profiles. Filters Bronze to RW rows, computes a weighted-median category per O*NET-SOC using data_value as the weight, maps the median category to a years midpoint per spec §Zone 2 table (Category 1=0.0, 2=0.25, 3=0.75, 4=1.5, 5=3.0, 6=5.0, 7=7.0, 8=9.0, 9=10.0, 10=11.0, 11=12.0 for 'Over 10 years' — midpoints approved 2026-04-16, see governance/approvals/onet-experience-requirements-open-decisions.md), derives tier via approved thresholds (0–1=entry, 1–4=early, 4–8=mid, 8+=senior), truncates O*NET-SOC (XX-XXXX.XX) to BLS SOC (XX-XXXX), and averages experience_years_typical across any multi-detail codes with onet_details_averaged exposing the fan-in count for provenance. LEFT JOIN to base.onet_occupations is informational (currently empty) — all 765 rows originate from bronze.onet_experience. experience_distribution preserves full per-category frequencies as JSON. suppress_flag is OR-aggregated across contributing Bronze rows. record_id computed via compute_grain_id(row, ['bls_soc_code'], prefix='exp')."
+        },
+        "brightsmith_runtimeMetrics": {
+          "outputRowCount": 765,
+          "distinctBlsSocCount": 765,
+          "snapshotId": 5745163851101673330,
+          "bronzeInputRowCount": 35998,
+          "bronzeInputRowsAfterRwFilter": "filtered to scale_id='RW' AND element_id='3.A.1'",
+          "warehouseLocation": "data/silver/iceberg_warehouse/base/onet_experience_profiles/"
+        },
+        "nominalTime": {
+          "_producer": "https://github.com/jcernauske/brightsmith",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/NominalTimeRunFacet.json",
+          "nominalStartTime": "2026-04-17T00:00:00.000000Z"
+        }
+      }
+    },
+    "job": {
+      "namespace": "futureproof-data.base",
+      "name": "onet_experience_transform",
+      "facets": {
+        "documentation": {
+          "description": "Normalize and model O*NET Related Work Experience data into base.onet_experience_profiles at bls_soc_code grain. Step 1: filter Bronze to scale_id='RW' (element_id='3.A.1'). Step 2: per O*NET-SOC, compute weighted median category by accumulating data_value (percent frequency) until cumulative >= 50%; ties broken by preferring the lower category. Step 3: map median category to experience_years_typical via spec §Zone 2 midpoint table (Category 1=0.0, 2=0.25, 3=0.75, 4=1.5, 5=3.0, 6=5.0, 7=7.0, 8=9.0, 9=10.0, 10=11.0, 11=12.0 — 'Over 10 years' midpoint approved at 12, not 15). Step 4: derive experience_tier from years (0–1 entry, 1–4 early, 4–8 mid, 8+ senior — thresholds approved 2026-04-16). Step 5: truncate O*NET-SOC XX-XXXX.XX to BLS SOC XX-XXXX; for multi-detail SOC codes, take unweighted mean of experience_years_typical across details; onet_details_averaged records the count. Step 6: preserve full per-category frequency distribution as JSON in experience_distribution; OR-aggregate recommend_suppress='Y' into suppress_flag; compute record_id via compute_grain_id(row, ['bls_soc_code'], prefix='exp')."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/onet_experience_transformer.py::transform",
+          "sourceCodeFunction": "transform",
+          "sourceCodeModule": "src.silver.onet_experience_transformer"
+        },
+        "nominalTime": {
+          "_producer": "https://github.com/jcernauske/brightsmith",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/NominalTimeRunFacet.json",
+          "nominalStartTime": "2026-04-17T00:00:00.000000Z"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "futureproof-data.raw",
+        "name": "bronze.onet_experience",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/bronze/iceberg_warehouse",
+            "tablePath": "data/bronze/iceberg_warehouse/bronze/onet_experience/",
+            "upstreamSnapshotId": 4889440551433125673
+          },
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "category", "type": "INTEGER"},
+              {"name": "data_value", "type": "DOUBLE"},
+              {"name": "n", "type": "INTEGER"},
+              {"name": "standard_error", "type": "DOUBLE"},
+              {"name": "lower_ci_bound", "type": "DOUBLE"},
+              {"name": "upper_ci_bound", "type": "DOUBLE"},
+              {"name": "recommend_suppress", "type": "STRING"},
+              {"name": "date", "type": "STRING"},
+              {"name": "domain_source", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "inputFilter": {
+            "predicate": "scale_id = 'RW' AND element_id = '3.A.1'",
+            "description": "Silver consumes only Related Work Experience rows; other ETE scales (RL, PT, OJ) remain in Bronze but are not materialized in base."
+          }
+        }
+      },
+      {
+        "namespace": "futureproof-data.base",
+        "name": "base.onet_occupations",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/silver/iceberg_warehouse",
+            "tablePath": "data/silver/iceberg_warehouse/base/onet_occupations/"
+          },
+          "joinRole": {
+            "type": "LEFT JOIN",
+            "joinKey": "onet_soc_code",
+            "description": "Informational LEFT JOIN for occupation metadata enrichment. Table may be empty at transform time — the LEFT JOIN guarantees all bronze.onet_experience rows are preserved regardless of occupation lookup coverage. All 765 output rows derive from bronze.onet_experience; base.onet_occupations contributes no field values in the current run."
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "futureproof-data.base",
+        "name": "base.onet_experience_profiles",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/silver/iceberg_warehouse",
+            "tablePath": "data/silver/iceberg_warehouse/base/onet_experience_profiles/",
+            "snapshotId": 5745163851101673330
+          },
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "experience_category_median", "type": "INTEGER"},
+              {"name": "experience_years_typical", "type": "DOUBLE"},
+              {"name": "experience_tier", "type": "STRING"},
+              {"name": "experience_category_mode", "type": "INTEGER"},
+              {"name": "experience_distribution", "type": "STRING"},
+              {"name": "onet_details_averaged", "type": "INTEGER"},
+              {"name": "suppress_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "dataQualityAssertions": {
+            "_producer": "https://github.com/jcernauske/brightsmith",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DataQualityAssertionsDatasetFacet.json",
+            "assertions": [
+              {
+                "assertion": "rowCount",
+                "success": true,
+                "metric": "outputRowCount",
+                "value": 765,
+                "description": "Rows written to base.onet_experience_profiles Iceberg table. Matches expected P0 range 720 ≤ count ≤ 810 (~765 per EDA 2026-04-16)."
+              },
+              {
+                "assertion": "grainUniqueness",
+                "columns": ["bls_soc_code"],
+                "success": true,
+                "metric": "distinctBlsSocCount",
+                "value": 765,
+                "description": "distinct_bls_soc = 765 = row count — grain uniqueness upheld (one row per BLS-level SOC)."
+              },
+              {
+                "assertion": "snapshotCommitted",
+                "success": true,
+                "metric": "snapshotId",
+                "value": 5745163851101673330,
+                "description": "Iceberg snapshot committed for this transform run."
+              }
+            ]
+          },
+          "transformationDescription": {
+            "_producer": "https://github.com/jcernauske/brightsmith",
+            "description": "Weighted-median aggregation with midpoint mapping and tier derivation per spec §Zone 2 and governance/approvals/onet-experience-requirements-open-decisions.md. For each O*NET-SOC code in the RW-filtered Bronze slice, accumulate percent-frequency weights (data_value) over ordered categories 1..11 until cumulative >= 50% — that category is the weighted median. Map median category to years via approved midpoint table (Cat 1=0.0, 2=0.25, 3=0.75, 4=1.5, 5=3.0, 6=5.0, 7=7.0, 8=9.0, 9=10.0, 10=11.0, 11=12.0 — 'Over 10 years' pinned at 12 per A5 approval). Derive experience_tier from years via approved thresholds 0–1=entry, 1–4=early, 4–8=mid, 8+=senior (A4 approval). Truncate O*NET-SOC XX-XXXX.XX → BLS SOC XX-XXXX; for SOC codes with multiple O*NET details (e.g., 15-1252.00 + 15-1252.01), take unweighted mean of experience_years_typical and surface detail count in onet_details_averaged (A6 approval). Preserve per-category frequencies as JSON in experience_distribution to allow downstream weighted-median recomputation. OR-aggregate recommend_suppress='Y' across contributing Bronze rows into suppress_flag."
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash computed via compute_grain_id(row, ['bls_soc_code'], prefix='exp'). Input is the truncated BLS SOC (derived from Bronze onet_soc_code).",
+                "transformationType": "DERIVED"
+              },
+              "bls_soc_code": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Truncate O*NET-SOC XX-XXXX.XX to BLS-level SOC XX-XXXX by dropping the detail suffix. Multi-detail O*NET codes collapse to a single BLS row (see onet_details_averaged).",
+                "transformationType": "DERIVED"
+              },
+              "experience_category_median": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "category"},
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "data_value"},
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "scale_id"},
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "element_id"}
+                ],
+                "transformationDescription": "Weighted median category (1-11). For each O*NET-SOC code filtered to scale_id='RW' AND element_id='3.A.1', accumulate data_value as a weight across ordered categories 1..11 until cumulative frequency crosses 50%. Ties broken by preferring the lower category. Spec §Test Matrix enumerates edge cases (all-zero frequency, single-category 100%, tie at 50%).",
+                "transformationType": "AGGREGATION"
+              },
+              "experience_years_typical": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "category"},
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "data_value"}
+                ],
+                "transformationDescription": "Midpoint years for the weighted median category per spec §Zone 2 midpoint table (Cat 1=0.0, 2=0.25, 3=0.75, 4=1.5, 5=3.0, 6=5.0, 7=7.0, 8=9.0, 9=10.0, 10=11.0, 11=12.0). 'Over 10 years' midpoint approved at 12 (not 15) — governance/approvals/onet-experience-requirements-open-decisions.md A5. For BLS SOCs with multiple O*NET details, take unweighted mean of per-detail years.",
+                "transformationType": "DERIVED"
+              },
+              "experience_tier": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "category"},
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "data_value"}
+                ],
+                "transformationDescription": "Derived from experience_years_typical via approved thresholds (governance/approvals/onet-experience-requirements-open-decisions.md A4): 0 ≤ years < 1 → 'entry'; 1 ≤ years < 4 → 'early'; 4 ≤ years < 8 → 'mid'; years ≥ 8 → 'senior'. Spot-checked: 11-1011 (Chief Executives) → 'senior' (cat 11, years 12); 15-1252 (Software Developers) → 'mid' (cat 9, years 7); 41-2031 (Retail Salespersons) → 'entry' (cat 5, years 0.75 — bimodal RW distribution).",
+                "transformationType": "DERIVED"
+              },
+              "experience_category_mode": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "category"},
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "data_value"}
+                ],
+                "transformationDescription": "Most common category per O*NET-SOC — argmax over data_value across categories 1..11 in the RW-filtered rows. Unlike the median, this is computed on each O*NET-SOC before BLS collapse; for multi-detail BLS codes, the mode is carried from the first detail (informational only, not a grain key).",
+                "transformationType": "AGGREGATION"
+              },
+              "experience_distribution": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "category"},
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "data_value"}
+                ],
+                "transformationDescription": "JSON-serialized object preserving full per-category frequencies (e.g., '{\"1\": 5.2, \"7\": 45.3, ...}') from every contributing O*NET detail so downstream analysts can recompute weighted median with alternative midpoints if ever needed (governance/approvals/onet-experience-requirements-open-decisions.md A6 rationale).",
+                "transformationType": "AGGREGATION"
+              },
+              "onet_details_averaged": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "onet_soc_code"}
+                ],
+                "transformationDescription": "Count of distinct O*NET-SOC detail codes (XX-XXXX.XX) aggregated into this single BLS-SOC row. 1 for simple codes; >1 for multi-detail collapses (e.g., 15-1252.00 + 15-1252.01 → onet_details_averaged=2). Provenance for the unweighted-mean step on experience_years_typical.",
+                "transformationType": "AGGREGATION"
+              },
+              "suppress_flag": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "recommend_suppress"}
+                ],
+                "transformationDescription": "Boolean OR-aggregation: True if recommend_suppress = 'Y' in ANY contributing Bronze row for this BLS-SOC (across categories and across O*NET details within the SOC). Downstream consumers may filter suppress_flag=TRUE rows for higher-confidence slices.",
+                "transformationType": "AGGREGATION"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.raw", "name": "bronze.onet_experience", "field": "load_date"}
+                ],
+                "transformationDescription": "Carried forward from Bronze load_date (UTC date of the Bronze ingest run). Preserves provenance across the Silver transform.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of Silver promotion. Added by the transformer, not from source data.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

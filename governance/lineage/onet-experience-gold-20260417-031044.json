@@ -1,0 +1,348 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-17T03:10:44.000000Z",
+    "run": {
+      "runId": "4f427267-8a28-4516-bae5-a940a791fa5c",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/onet-experience-requirements.md",
+          "specVersion": "1.0",
+          "zone": "Zone 3: Gold (Consumable — additive enrichment)"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone additive enrichment of consumable.career_branches with four experience columns sourced from base.onet_experience_profiles. The join is a LEFT JOIN on bls_soc_code (Silver grain) keyed off each branch's source and related SOC codes — source_experience_years from src_exp, related_experience_years and related_experience_tier from rel_exp, and experience_delta_years computed as (related - source) with strict NULL propagation per governance/approvals/onet-experience-requirements-open-decisions.md (no coalesce-to-zero). Grain remains (soc_code, related_soc_code, is_primary); rows stay at 15,944 and columns grow from 30 to 34. Write mode is overwrite on the existing Iceberg table (data/bronze/iceberg_warehouse/consumable/career_branches/) because this is an additive backfill — grain unchanged, values updated. The other four inputs (career_transitions, occupation_profiles, onet_work_profiles, ai_exposure) are unchanged from the prior Gold run; base.onet_experience_profiles is the NEW fifth input introduced by this spec."
+        },
+        "brightsmith_runtimeMetrics": {
+          "outputRowCount": 15944,
+          "outputColumnCount": 34,
+          "priorColumnCount": 30,
+          "addedColumnCount": 4,
+          "writeMode": "overwrite",
+          "warehouseLocation": "data/bronze/iceberg_warehouse/consumable/career_branches/",
+          "experienceJoinCoverage": {
+            "related_experience_years_null_rate_pct": 5.47,
+            "source_experience_years_null_rate_pct": 3.88,
+            "experience_delta_years_null_rate_pct": 9.09,
+            "related_experience_tier_null_rate_pct": 5.47,
+            "deltaNullPropagationPolicy": "NULL-propagating — experience_delta_years is NULL whenever either side is NULL; never coalesced to zero"
+          }
+        },
+        "nominalTime": {
+          "_producer": "https://github.com/jcernauske/brightsmith",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/NominalTimeRunFacet.json",
+          "nominalStartTime": "2026-04-17T00:00:00.000000Z"
+        }
+      }
+    },
+    "job": {
+      "namespace": "futureproof-data.consumable",
+      "name": "futureproof_engine_career_branches_transform",
+      "facets": {
+        "documentation": {
+          "description": "Gold zone transform materializing consumable.career_branches by enriching career transitions with source/target stats from BLS occupation profiles, O*NET work profiles, AI exposure, and — new in this spec — O*NET experience profiles. For each transition row, look up source and related SOC codes in each enrichment table via LEFT-JOIN-style dict access. The experience enrichment adds four additive columns (related_experience_years, related_experience_tier, source_experience_years, experience_delta_years) with strict NULL propagation on the delta per governance/approvals/onet-experience-requirements-open-decisions.md. Grain and row count are unchanged; the Iceberg table is overwritten in place to apply the additive columns."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/futureproof_engine.py",
+          "sourceCodeFunction": "derive_br_rows",
+          "sourceCodeEntrypoint": "transform",
+          "sourceCodeModule": "src.gold.futureproof_engine",
+          "modifiedLineRange": "506-661"
+        },
+        "nominalTime": {
+          "_producer": "https://github.com/jcernauske/brightsmith",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/NominalTimeRunFacet.json",
+          "nominalStartTime": "2026-04-17T00:00:00.000000Z"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "futureproof-data.consumable",
+        "name": "consumable.career_transitions",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/bronze/iceberg_warehouse",
+            "tablePath": "data/bronze/iceberg_warehouse/consumable/career_transitions/"
+          },
+          "joinRole": {
+            "type": "DRIVING",
+            "joinKey": "(bls_soc_code, related_bls_soc_code)",
+            "description": "Driving input — provides the 15,944 transition grain rows. Every output row corresponds 1:1 to a row here."
+          },
+          "schema": {
+            "fields": [
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "source_title", "type": "STRING"},
+              {"name": "related_bls_soc_code", "type": "STRING"},
+              {"name": "related_title", "type": "STRING"},
+              {"name": "best_index", "type": "DOUBLE"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "futureproof-data.consumable",
+        "name": "consumable.occupation_profiles",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/bronze/iceberg_warehouse",
+            "tablePath": "data/bronze/iceberg_warehouse/consumable/occupation_profiles/"
+          },
+          "joinRole": {
+            "type": "LEFT JOIN",
+            "joinKey": "soc_code",
+            "description": "BLS enrichment — provides grw_score_rounded, median_annual_wage, growth_category, education_level_name for source and related SOCs."
+          },
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "grw_score_rounded", "type": "INTEGER"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "education_level_name", "type": "STRING"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "futureproof-data.consumable",
+        "name": "consumable.onet_work_profiles",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/bronze/iceberg_warehouse",
+            "tablePath": "data/bronze/iceberg_warehouse/consumable/onet_work_profiles/"
+          },
+          "joinRole": {
+            "type": "LEFT JOIN",
+            "joinKey": "bls_soc_code",
+            "description": "O*NET enrichment — provides hmn_score_rounded and burnout_score_rounded for source and related SOCs."
+          },
+          "schema": {
+            "fields": [
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "hmn_score_rounded", "type": "INTEGER"},
+              {"name": "burnout_score_rounded", "type": "INTEGER"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "futureproof-data.consumable",
+        "name": "consumable.ai_exposure",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/bronze/iceberg_warehouse",
+            "tablePath": "data/bronze/iceberg_warehouse/consumable/ai_exposure/"
+          },
+          "joinRole": {
+            "type": "LEFT JOIN",
+            "joinKey": "soc_code",
+            "description": "AI exposure enrichment — provides stat_res and boss_ai_score for source and related SOCs; contributes res_delta and ai_boss_delta."
+          },
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "stat_res", "type": "INTEGER"},
+              {"name": "boss_ai_score", "type": "INTEGER"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "futureproof-data.base",
+        "name": "base.onet_experience_profiles",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/silver/iceberg_warehouse",
+            "tablePath": "data/silver/iceberg_warehouse/base/onet_experience_profiles/",
+            "upstreamSnapshotId": 5745163851101673330
+          },
+          "joinRole": {
+            "type": "LEFT JOIN",
+            "joinKey": "bls_soc_code",
+            "description": "NEW input introduced by docs/specs/onet-experience-requirements.md. Silver table (~765 rows) providing experience_years_typical and experience_tier at BLS-SOC grain. Looked up twice per transition row — once on source soc_code and once on related_bls_soc_code — to populate the four additive Gold columns. Missing lookups yield all-None values and NULL-propagate into experience_delta_years."
+          },
+          "isNewInputForThisSpec": true,
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "bls_soc_code", "type": "STRING"},
+              {"name": "experience_category_median", "type": "INTEGER"},
+              {"name": "experience_years_typical", "type": "DOUBLE"},
+              {"name": "experience_tier", "type": "STRING"},
+              {"name": "experience_category_mode", "type": "INTEGER"},
+              {"name": "experience_distribution", "type": "STRING"},
+              {"name": "onet_details_averaged", "type": "INTEGER"},
+              {"name": "suppress_flag", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "futureproof-data.consumable",
+        "name": "consumable.career_branches",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/bronze/iceberg_warehouse",
+            "tablePath": "data/bronze/iceberg_warehouse/consumable/career_branches/",
+            "writeMode": "overwrite"
+          },
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "source_title", "type": "STRING"},
+              {"name": "related_soc_code", "type": "STRING"},
+              {"name": "related_title", "type": "STRING"},
+              {"name": "best_index", "type": "DOUBLE"},
+              {"name": "relatedness_tier", "type": "STRING"},
+              {"name": "is_primary", "type": "BOOLEAN"},
+              {"name": "source_grw", "type": "INTEGER"},
+              {"name": "source_hmn", "type": "INTEGER"},
+              {"name": "source_burnout", "type": "INTEGER"},
+              {"name": "source_wage", "type": "DOUBLE"},
+              {"name": "related_grw", "type": "INTEGER"},
+              {"name": "related_hmn", "type": "INTEGER"},
+              {"name": "related_burnout", "type": "INTEGER"},
+              {"name": "related_wage", "type": "DOUBLE"},
+              {"name": "related_growth_category", "type": "STRING"},
+              {"name": "related_education_level", "type": "STRING"},
+              {"name": "grw_delta", "type": "INTEGER"},
+              {"name": "hmn_delta", "type": "INTEGER"},
+              {"name": "burnout_delta", "type": "INTEGER"},
+              {"name": "wage_delta", "type": "DOUBLE"},
+              {"name": "branch_has_full_data", "type": "BOOLEAN"},
+              {"name": "source_res", "type": "INTEGER"},
+              {"name": "source_ai_boss", "type": "INTEGER"},
+              {"name": "related_res", "type": "INTEGER"},
+              {"name": "related_ai_boss", "type": "INTEGER"},
+              {"name": "res_delta", "type": "INTEGER"},
+              {"name": "ai_boss_delta", "type": "INTEGER"},
+              {"name": "related_experience_years", "type": "DOUBLE"},
+              {"name": "related_experience_tier", "type": "STRING"},
+              {"name": "source_experience_years", "type": "DOUBLE"},
+              {"name": "experience_delta_years", "type": "DOUBLE"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "dataQualityAssertions": {
+            "_producer": "https://github.com/jcernauske/brightsmith",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DataQualityAssertionsDatasetFacet.json",
+            "assertions": [
+              {
+                "assertion": "rowCount",
+                "success": true,
+                "metric": "outputRowCount",
+                "value": 15944,
+                "description": "Row count unchanged from prior Gold run — this is an additive backfill. Grain (soc_code, related_soc_code, is_primary) is preserved."
+              },
+              {
+                "assertion": "columnCountGrowth",
+                "success": true,
+                "metric": "addedColumnCount",
+                "value": 4,
+                "description": "Schema grew from 30 to 34 columns. Four additive experience columns added: related_experience_years, related_experience_tier, source_experience_years, experience_delta_years."
+              },
+              {
+                "assertion": "nullRate",
+                "column": "related_experience_years",
+                "success": true,
+                "metric": "nullRatePct",
+                "value": 5.47,
+                "description": "Inline DQ check — related SOC missing from base.onet_experience_profiles in 5.47% of branches. Consistent with Silver coverage of ~765 BLS SOCs relative to the BLS universe."
+              },
+              {
+                "assertion": "nullRate",
+                "column": "source_experience_years",
+                "success": true,
+                "metric": "nullRatePct",
+                "value": 3.88,
+                "description": "Inline DQ check — source SOC missing from base.onet_experience_profiles in 3.88% of branches. Lower than related-side null rate because source SOCs skew toward BLS 'hub' occupations with richer O*NET coverage."
+              },
+              {
+                "assertion": "nullRate",
+                "column": "experience_delta_years",
+                "success": true,
+                "metric": "nullRatePct",
+                "value": 9.09,
+                "description": "NULL-propagating delta — NULL whenever either source or related experience_years is NULL. Observed 9.09% matches union of source-null and related-null populations. Policy per governance/approvals/onet-experience-requirements-open-decisions.md: never coalesce to zero."
+              },
+              {
+                "assertion": "nullRate",
+                "column": "related_experience_tier",
+                "success": true,
+                "metric": "nullRatePct",
+                "value": 5.47,
+                "description": "Matches related_experience_years null rate exactly because the tier is derived from the years value on the Silver side — same coverage."
+              },
+              {
+                "assertion": "additiveBackfillIntegrity",
+                "success": true,
+                "description": "Overwrite mode on the existing Iceberg table. Grain unchanged; all 30 pre-existing columns retain their values (verified by grain-stable key matching); only the 4 new experience columns add new data."
+              }
+            ]
+          },
+          "transformationDescription": {
+            "_producer": "https://github.com/jcernauske/brightsmith",
+            "description": "Additive experience enrichment via LEFT JOIN to base.onet_experience_profiles on bls_soc_code; NULL-propagating experience_delta_years per spec §Zone 3 and governance/approvals/onet-experience-requirements-open-decisions.md"
+          },
+          "columnLineage": {
+            "fields": {
+              "related_experience_years": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "experience_years_typical"},
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "bls_soc_code"},
+                  {"namespace": "futureproof-data.consumable", "name": "consumable.career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "LEFT JOIN lookup: exp_by_soc.get(related_bls_soc_code, {}).get('experience_years_typical'). Direct carry-through of the Silver weighted-median years value when the related SOC is present in base.onet_experience_profiles; None otherwise (5.47% null rate observed).",
+                "transformationType": "DIRECT"
+              },
+              "related_experience_tier": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "experience_tier"},
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "bls_soc_code"},
+                  {"namespace": "futureproof-data.consumable", "name": "consumable.career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "LEFT JOIN lookup: exp_by_soc.get(related_bls_soc_code, {}).get('experience_tier'). Direct carry-through of the Silver-derived tier ('entry' | 'early' | 'mid' | 'senior') for the related SOC; None otherwise (5.47% null rate — matches related_experience_years because they share the same join outcome).",
+                "transformationType": "DIRECT"
+              },
+              "source_experience_years": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "experience_years_typical"},
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "bls_soc_code"},
+                  {"namespace": "futureproof-data.consumable", "name": "consumable.career_transitions", "field": "bls_soc_code"}
+                ],
+                "transformationDescription": "LEFT JOIN lookup: exp_by_soc.get(bls_soc_code, {}).get('experience_years_typical'). Direct carry-through of the Silver weighted-median years value for the SOURCE SOC of the branch; None otherwise (3.88% null rate — lower than related-side because source SOCs skew toward well-covered 'hub' occupations).",
+                "transformationType": "DIRECT"
+              },
+              "experience_delta_years": {
+                "inputFields": [
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "experience_years_typical"},
+                  {"namespace": "futureproof-data.base", "name": "base.onet_experience_profiles", "field": "bls_soc_code"},
+                  {"namespace": "futureproof-data.consumable", "name": "consumable.career_transitions", "field": "bls_soc_code"},
+                  {"namespace": "futureproof-data.consumable", "name": "consumable.career_transitions", "field": "related_bls_soc_code"}
+                ],
+                "transformationDescription": "Derived as (related_experience_years - source_experience_years) IFF both sides are non-null; otherwise NULL. Explicit NULL-propagation policy — never coalesce to zero — per governance/approvals/onet-experience-requirements-open-decisions.md and spec §Zone 3. Observed 9.09% null rate equals the union of source-null (3.88%) and related-null (5.47%) populations.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

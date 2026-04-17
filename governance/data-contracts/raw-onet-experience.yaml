@@ -1,0 +1,212 @@
+---
+# Data Contract: raw.onet_experience
+# Spec: onet-experience-requirements
+# Zone: Bronze (Raw)
+# Status: DRAFT
+# Tagged by: bs:cde-tagger
+# Date: 2026-04-16
+
+table: raw.onet_experience
+namespace: raw
+zone: bronze
+grain:
+  - onet_soc_code
+  - element_id
+  - scale_id
+  - category
+status: ACTIVE
+record_count: 35881
+data_vintage: "O*NET 30.2 (2026)"
+source: "O*NET Resource Center bulk download (onetcenter.org) — Education, Training, and Experience.txt"
+
+columns:
+  - name: onet_soc_code
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Grain field and foreign key to raw.onet_occupations. Primary join key for the
+      entire O*NET pipeline and the cross-source bridge to BLS SOC via 6-digit
+      truncation. Downstream Silver aggregation to base.onet_experience_profiles
+      and the subsequent Gold join onto consumable.career_branches both key on
+      this field. A malformed or missing value orphans an entire occupation from
+      the experience-tier classifier that gates career-tree branching.
+    is_pii: false
+    pii_rationale: ""
+    description: "O*NET-SOC occupation code (XX-XXXX.XX format). 878 occupations in ETE coverage."
+
+  - name: element_id
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Content Model element identifier. Silver transformation filters to
+      element_id = '3.A.1' (Related Work Experience) to compute the weighted
+      median category used for experience_years_typical and experience_tier.
+      An incorrect or missing element_id drops the row from the RW filter and
+      falsely deflates occupation coverage in Silver. Identified as a CDE per
+      spec §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: "Content Model element ID (e.g., '3.A.1' for Related Work Experience)."
+
+  - name: element_name
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Human-readable element label (controlled vocabulary: 'Required Level of
+      Education', 'Related Work Experience', 'On-Site or In-Plant Training',
+      'On-the-Job Training'). Display label; element_id is the computational key.
+
+  - name: scale_id
+    type: string
+    required: true
+    is_cde: true
+    cde_rationale: >
+      Two-letter scale identifier ({RL, RW, PT, OJ}). Silver transformation
+      filters to scale_id = 'RW' (Related Work Experience) before computing
+      the weighted median category. An incorrect or missing scale_id causes
+      the RW filter to silently drop rows or mix scales, corrupting the
+      experience_years_typical derivation that feeds the career-tree gating
+      decision. Identified as a CDE per spec §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: "Scale identifier. 4-value enum: RL, RW, PT, OJ. Silver uses only RW."
+
+  - name: category
+    type: int
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Dimensional input to the weighted-median calculation. Category value
+      (1-11 for RW; ranges vary by scale). Silver maps the median RW category
+      to midpoint years using the approved mapping table. Structural dimension,
+      not independently critical — CDE-ness flows through element_id/scale_id
+      filters plus data_value weights.
+
+  - name: data_value
+    type: double
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Percent frequency (0.0-100.0) for this occupation × scale × category. Acts
+      as the weight input to the weighted-median derivation in Silver. Structural
+      input, not a directly published CDE — the CDE contribution is mediated
+      through the Silver aggregate experience_years_typical.
+
+  - name: n
+    type: int
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Survey sample size (count of incumbent or expert respondents contributing
+      to the aggregate). Data quality indicator, not an analytical input.
+
+  - name: standard_error
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Standard error of the percent frequency estimate. Statistical metadata."
+
+  - name: lower_ci_bound
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Lower bound of 95% confidence interval on the percent frequency."
+
+  - name: upper_ci_bound
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Upper bound of 95% confidence interval on the percent frequency."
+
+  - name: recommend_suppress
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      O*NET data quality flag ('Y' or 'N'). Silver preserves this as suppress_flag
+      for DQ provenance. Not a CDE — a DQ/provenance marker, not an analytical input.
+
+  - name: date
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Data collection month (MM/YYYY). Publication-wave label at the occupation
+      level, not an individual event date (confirmed non-PII per onet-experience-pii-scan.md).
+
+  - name: domain_source
+    type: string
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Respondent role label (controlled vocabulary: 'Incumbent' or 'Occupational
+      Expert'). Provenance classifier, not an analytical input.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — timestamp when row was ingested."
+
+  - name: source_url
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — URL from which O*NET ZIP was downloaded."
+
+  - name: source_method
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — ingestion method (bulk_zip_download)."
+
+  - name: load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Pipeline metadata — date of load (YYYY-MM-DD)."

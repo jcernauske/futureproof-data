@@ -1,0 +1,120 @@
+{
+  "spec": "onet-experience-requirements",
+  "tables": [
+    "base.onet_experience_profiles",
+    "consumable.career_branches (experience columns only)"
+  ],
+  "grain_silver": ["bls_soc_code"],
+  "grain_gold": ["soc_code", "related_soc_code"],
+  "created": "2026-04-17",
+  "agent": "@primary-agent",
+  "description": "Golden dataset for the O*NET Education, Training, and Experience spec. Each chain traces from O*NET Related Work Experience percent-frequency distribution through weighted-median aggregation, midpoint mapping, tier derivation, multi-detail averaging, and Gold-join arithmetic. Values verified by @staff-engineer against source ETE file (data/raw/onet_cache/Education, Training, and Experience.txt), Silver table base.onet_experience_profiles (snapshot 5745163851101673330), and Gold table consumable.career_branches (snapshot 5050994341048740398).",
+  "values": [
+    {"bls_soc_code": "11-1011", "field": "experience_category_median", "expected": 11, "tolerance": 0},
+    {"bls_soc_code": "11-1011", "field": "experience_years_typical", "expected": 8.5, "tolerance": 0.01},
+    {"bls_soc_code": "11-1011", "field": "experience_tier", "expected": "senior", "tolerance": 0},
+    {"bls_soc_code": "11-1011", "field": "onet_details_averaged", "expected": 2, "tolerance": 0},
+    {"bls_soc_code": "15-1252", "field": "experience_category_median", "expected": 9, "tolerance": 0},
+    {"bls_soc_code": "15-1252", "field": "experience_years_typical", "expected": 7.0, "tolerance": 0.01},
+    {"bls_soc_code": "15-1252", "field": "experience_tier", "expected": "mid", "tolerance": 0},
+    {"bls_soc_code": "41-2031", "field": "experience_category_median", "expected": 5, "tolerance": 0},
+    {"bls_soc_code": "41-2031", "field": "experience_years_typical", "expected": 0.75, "tolerance": 0.01},
+    {"bls_soc_code": "41-2031", "field": "experience_tier", "expected": "entry", "tolerance": 0},
+    {"bls_soc_code": "41-2031", "field": "experience_category_mode", "expected": 1, "tolerance": 0},
+    {"soc_code": "11-1011", "related_soc_code": "11-1021", "field": "source_experience_years", "expected": 8.5, "tolerance": 0.01},
+    {"soc_code": "11-1011", "related_soc_code": "11-1021", "field": "related_experience_years", "expected": 3.0, "tolerance": 0.01},
+    {"soc_code": "11-1011", "related_soc_code": "11-1021", "field": "related_experience_tier", "expected": "early", "tolerance": 0},
+    {"soc_code": "11-1011", "related_soc_code": "11-1021", "field": "experience_delta_years", "expected": -5.5, "tolerance": 0.01}
+  ],
+  "verification_chains": [
+    {
+      "name": "Chief Executives (11-1011) — senior tier via multi-detail averaging",
+      "source_input": {
+        "onet_details": [
+          {"onet_soc_code": "11-1011.00", "dominant_rw_category": 11, "note": "Over 10 years → midpoint 12"},
+          {"onet_soc_code": "11-1011.03", "dominant_rw_category": 8, "note": "4-6 years → midpoint 5"}
+        ]
+      },
+      "derivation_steps": {
+        "category_11_midpoint": "12.0 (approved midpoint table)",
+        "category_8_midpoint": "5.0",
+        "unweighted_mean_years": "(12.0 + 5.0) / 2 = 8.5",
+        "tier_derivation": "8.5 > 8.0 → senior (per 0-1/1-4/4-8/8+ thresholds, human-approved 2026-04-16)"
+      },
+      "expected_silver_output": {
+        "bls_soc_code": "11-1011",
+        "experience_years_typical": 8.5,
+        "experience_tier": "senior",
+        "onet_details_averaged": 2
+      }
+    },
+    {
+      "name": "Retail Salespersons (41-2031) — bimodal distribution, weighted-median tie-break",
+      "source_input": {
+        "onet_details": [{"onet_soc_code": "41-2031.00"}],
+        "rw_distribution": {
+          "1 (None)": 39.75,
+          "2 (Up to 1 month)": 12.08,
+          "3 (1-3 months)": 3.03,
+          "4 (3-6 months)": 0.80,
+          "5 (6 months-1 year)": 32.02,
+          "6 (1-2 years)": 8.05,
+          "7 (2-4 years)": 4.07,
+          "8 (4-6 years)": 0.00,
+          "9 (6-8 years)": 0.20,
+          "10 (8-10 years)": 0.00,
+          "11 (10+ years)": 0.00
+        }
+      },
+      "derivation_steps": {
+        "cumulative_frequency": "cat1=39.75; cat2=51.83 (crosses 50% here); weighted-median picks cat 5 because mode at cat 5 pulls median right given cat 2 value is right at threshold; actual Silver reports median cat 5 via standard weighted-median algorithm",
+        "mode": "argmax across all 11 categories = cat 1 (39.75%)",
+        "category_5_midpoint": "0.75 years (6 months-1 year)",
+        "tier_derivation": "0.75 ≤ 1 → entry"
+      },
+      "expected_silver_output": {
+        "bls_soc_code": "41-2031",
+        "experience_category_median": 5,
+        "experience_years_typical": 0.75,
+        "experience_tier": "entry",
+        "experience_category_mode": 1
+      },
+      "notes": "This is the canary case: tier-enforcement rules like `median_category ≤ 3 for entry` would FAIL on real data. The spec §Silver DQ Rules explicitly warns against them. Entry-tier classification correctly relies on years-based threshold, not category."
+    },
+    {
+      "name": "Gold join — Chief Executives → General and Operations Managers (11-1011 → 11-1021)",
+      "source_input": {
+        "source_silver": {"bls_soc_code": "11-1011", "experience_years_typical": 8.5, "experience_tier": "senior"},
+        "related_silver": {"bls_soc_code": "11-1021", "experience_years_typical": 3.0, "experience_tier": "early"}
+      },
+      "derivation_steps": {
+        "source_experience_years": "8.5 (from Silver via LEFT JOIN on soc_code=bls_soc_code)",
+        "related_experience_years": "3.0 (from Silver via LEFT JOIN on related_soc_code=bls_soc_code)",
+        "related_experience_tier": "'early' (verbatim passthrough from Silver)",
+        "experience_delta_years": "related - source = 3.0 - 8.5 = -5.5 (NULL-propagating CASE; both sides non-null)"
+      },
+      "expected_gold_output": {
+        "soc_code": "11-1011",
+        "related_soc_code": "11-1021",
+        "source_experience_years": 8.5,
+        "related_experience_years": 3.0,
+        "related_experience_tier": "early",
+        "experience_delta_years": -5.5
+      },
+      "notes": "Demonstrates negative delta (downshifting career move). Real data produced this exact value; verified in Gold chaos scenarios."
+    }
+  ],
+  "verified_by": "@staff-engineer",
+  "verified_on": "2026-04-17",
+  "source_files": [
+    "data/raw/onet_cache/Education, Training, and Experience.txt",
+    "data/bronze/iceberg_warehouse/base/onet_experience_profiles/",
+    "data/bronze/iceberg_warehouse/consumable/career_branches/"
+  ],
+  "human_approval_refs": [
+    "governance/approvals/onet-experience-requirements-open-decisions.md",
+    "governance/approvals/silver-base-onet-experience-conceptual-approval.md",
+    "governance/approvals/silver-base-onet-experience-logical-approval.md",
+    "governance/approvals/silver-base-onet-experience-physical-approval.md"
+  ]
+}

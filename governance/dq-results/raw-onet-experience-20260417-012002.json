@@ -1,0 +1,190 @@
+{
+  "run_id": "650f134b",
+  "spec": "onet-experience-requirements",
+  "zone": "bronze",
+  "table": "bronze.onet_experience",
+  "source": "iceberg_parquet",
+  "source_path": "/Users/jcernauske/code/bright/futureproof-data/data/bronze/iceberg_warehouse/bronze/onet_experience/data/*.parquet",
+  "executed_at": "2026-04-17T01:20:02.675102+00:00",
+  "rules_total": 10,
+  "rules_passed": 10,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "p0_failures": [],
+  "results": [
+    {
+      "rule_id": "RAW-ONET-EXP-001",
+      "name": "onet_experience: row count 30,000-45,000",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-002",
+      "name": "onet_experience: onet_soc_code format XX-XXXX.XX",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-003",
+      "name": "onet_experience: scale_id in ('RL','RW','PT','OJ')",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-004",
+      "name": "onet_experience: data_value range 0.0-100.0",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-005",
+      "name": "onet_experience: per (onet_soc_code, scale_id) sum equals 100 within tolerance 0.1",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-006",
+      "name": "onet_experience: element_id NOT NULL",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-007",
+      "name": "onet_experience: grain uniqueness (onet_soc_code, element_id, scale_id, category)",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-008",
+      "name": "onet_experience: RW scale row count 9,000-12,500",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-009",
+      "name": "onet_experience: occupation coverage 800-1,100 distinct onet_soc_codes",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "RAW-ONET-EXP-010",
+      "name": "onet_experience: per-scale distinct category counts RL=12, RW=11, PT=9, OJ=9",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    }
+  ],
+  "supplementary_stats": {
+    "total_rows": 35998,
+    "distinct_onet_soc_codes": 878,
+    "scale_distribution": [
+      {
+        "scale_id": "OJ",
+        "rows": 7902
+      },
+      {
+        "scale_id": "PT",
+        "rows": 7902
+      },
+      {
+        "scale_id": "RL",
+        "rows": 10536
+      },
+      {
+        "scale_id": "RW",
+        "rows": 9658
+      }
+    ],
+    "category_counts_per_scale": [
+      {
+        "scale_id": "OJ",
+        "distinct_categories": 9
+      },
+      {
+        "scale_id": "PT",
+        "distinct_categories": 9
+      },
+      {
+        "scale_id": "RL",
+        "distinct_categories": 12
+      },
+      {
+        "scale_id": "RW",
+        "distinct_categories": 11
+      }
+    ],
+    "element_id_values": [
+      {
+        "element_id": "2.D.1",
+        "rows": 10536
+      },
+      {
+        "element_id": "3.A.1",
+        "rows": 9658
+      },
+      {
+        "element_id": "3.A.2",
+        "rows": 7902
+      },
+      {
+        "element_id": "3.A.3",
+        "rows": 7902
+      }
+    ],
+    "data_value_range": {
+      "min": 0.0,
+      "max": 100.0
+    },
+    "per_group_sum_stats": {
+      "group_count": 3512,
+      "max_abs_deviation_from_100": 0.030000000000015348
+    },
+    "null_counts": {
+      "onet_soc_code": 0,
+      "element_id": 0,
+      "scale_id": 0,
+      "category": 0,
+      "data_value": 0
+    }
+  }
+}

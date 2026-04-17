@@ -1,0 +1,241 @@
+---
+# Data Contract: base.onet_experience_profiles
+# Spec: onet-experience-requirements
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: bs:cde-tagger
+# Date: 2026-04-16
+
+table: base.onet_experience_profiles
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - bls_soc_code
+status: draft
+owner: "bs:doc-generator"
+spec_reference: docs/specs/onet-experience-requirements.md
+physical_model: governance/models/silver-base-onet-experience-physical.md
+data_dictionary: governance/data-dictionary.json
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    business_term: BT-015
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key: compute_grain_id(row, ['bls_soc_code'],
+      prefix='exp'). Format: exp-<16 hex chars>. Technical infrastructure field,
+      not consumed by business processes.
+
+  - name: bls_soc_code
+    type: varchar
+    required: true
+    business_term: BT-027
+    is_cde: true
+    cde_rationale: >
+      Natural key and primary join key. Silver aggregates O*NET-SOC detail rows
+      (XX-XXXX.XX) to BLS SOC (XX-XXXX) on this field; the Gold join onto
+      consumable.career_branches keys on bls_soc_code twice (for source and
+      related occupations). Every downstream consumer of experience data — the
+      career-tree gating logic, the experience_delta_years derivation, the MCP
+      get_career_branches tool — depends on this field to link experience
+      statistics to the correct occupation node. P0 business-critical.
+      Identified as a CDE per spec §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      6-digit BLS SOC code (XX-XXXX). Natural key. Primary join key to Gold
+      career_branches. ~765 unique values expected.
+    constraints:
+      - "UNIQUE"
+      - "CHECK (bls_soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: experience_category_median
+    type: integer
+    required: true
+    business_term: BT-117
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Weighted median of the 11 RW categories (1-11), using data_value percent
+      frequencies as weights. Internal derivation feeding experience_years_typical;
+      not a directly consumed analytical field.
+    constraints:
+      - "CHECK (experience_category_median >= 1 AND experience_category_median <= 11)"
+
+  - name: experience_years_typical
+    type: double
+    required: true
+    business_term: BT-117
+    is_cde: true
+    cde_rationale: >
+      Primary experience metric. Maps the weighted-median RW category to its
+      approved midpoint (0, 0.17, 0.38, 0.75, 1.5, 3, 5, 7, 9, 12 years). This
+      field feeds the Gold columns related_experience_years and
+      source_experience_years, the derived experience_delta_years, the MCP
+      get_career_branches response payload, and the career_tree.py
+      max_experience_years filter. The entire experience-gating UX on the
+      branching career tree depends on the correctness of this value. P0
+      business-critical. Identified as a CDE per spec §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Midpoint years for the weighted-median RW category. Range 0-15. Feeds the
+      Gold experience columns and the career-tree experience filter.
+    constraints:
+      - "CHECK (experience_years_typical >= 0 AND experience_years_typical <= 15)"
+
+  - name: experience_tier
+    type: varchar
+    required: true
+    business_term: BT-118
+    is_cde: true
+    cde_rationale: >
+      Cross-boundary classifier that drives the career-tree gating UX decision.
+      Tier thresholds (0-1 entry / 1-4 early / 4-8 mid / 8+ senior) are
+      human-approved (2026-04-16) and pinned into DQ spot-check rules
+      (11-1011=senior, 41-2031=entry). This field flows into Gold as
+      related_experience_tier and directly controls decade-bucket rendering,
+      'Unlocks at 8+ years' badges, and the default-view filter on the
+      branching career tree. A misclassification silently shows unrealistic
+      senior-level transitions on an entry-level student's career view. P0
+      business-critical. Identified as a CDE per spec §CDE & PII Assessment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Experience tier enum: 'entry' (0-1 yrs), 'early' (1-4 yrs), 'mid' (4-8 yrs),
+      'senior' (8+ yrs). Drives career-tree gating and decade bucketing.
+    constraints:
+      - "CHECK (experience_tier IN ('entry', 'early', 'mid', 'senior'))"
+
+  - name: experience_category_mode
+    type: integer
+    required: true
+    business_term: BT-117
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Most common (highest-percent) RW category. Internal diagnostic used
+      alongside the weighted median for distributional QA. Not a directly
+      consumed analytical field.
+    constraints:
+      - "CHECK (experience_category_mode >= 1 AND experience_category_mode <= 11)"
+
+  - name: experience_distribution
+    type: varchar
+    required: true
+    business_term: BT-117
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Full RW category distribution as JSON ({"1": 5.2, "7": 45.3, ...}).
+      Optional downstream diagnostic preserved for consumers that need the
+      full shape. Not a CDE — internal provenance.
+
+  - name: onet_details_averaged
+    type: integer
+    required: true
+    business_term: BT-063
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Count of O*NET detail codes aggregated into this BLS-SOC row (unweighted
+      average of experience_years_typical across details, per approved open
+      decision). Provenance count for auditability.
+
+  - name: suppress_flag
+    type: boolean
+    required: true
+    business_term: BT-064
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      True if any contributing Bronze row carried recommend_suppress='Y'. DQ
+      provenance flag; excluded from DQ spot-check pass/fail evaluation.
+      Not a CDE — quality marker.
+
+  - name: source_load_date
+    type: date
+    required: true
+    business_term: BT-016
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Date the source data was loaded into the Bronze zone. Pipeline metadata.
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    business_term: BT-017
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Timestamp when the row was written to Silver. Generated at transformation
+      time. Pipeline metadata.
+
+quality:
+  completeness:
+    required_fields_null_tolerance: 0.0
+  validity:
+    bls_soc_code_format: "^\\d{2}-\\d{4}$"
+    experience_tier_values: ["entry", "early", "mid", "senior"]
+    experience_category_median_range: [1, 11]
+    experience_years_typical_range: [0, 15]
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    bls_soc_code_unique: true
+  volume:
+    row_count_range: [720, 810]
+  freshness_sla: >
+    Full table replace on each pipeline run. No incremental loads. Freshness
+    depends on O*NET release schedule (annual, version 30.2 current).
+
+lineage:
+  source_table: raw.onet_experience
+  transformation: src/silver/onet_experience_transformer.py
+  physical_model: governance/models/silver-base-onet-experience-physical.md
+
+consumers:
+  - name: "consumable.career_branches"
+    type: table
+    description: >
+      Gold zone joins base.onet_experience_profiles twice on bls_soc_code (once
+      for source occupation, once for related/target occupation) to produce the
+      4 additive experience columns on career_branches.
+    contact: "bs:primary-agent"
+    status: planned
+  - name: "get_career_branches MCP tool"
+    type: tool
+    description: >
+      MCP tool surfaces related_experience_years, related_experience_tier,
+      source_experience_years, and experience_delta_years via
+      CAREER_BRANCHES_RESPONSE_FIELDS passthrough.
+    contact: "bs:primary-agent"
+    status: planned
+  - name: "backend/app/services/career_tree.py"
+    type: service
+    description: >
+      Service layer consumes experience fields via the MCP tool to implement
+      max_experience_years filtering on the branching career tree.
+    contact: "bs:primary-agent"
+    status: planned

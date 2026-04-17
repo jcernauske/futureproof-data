@@ -1,0 +1,176 @@
+{
+  "run_id": "0c24bea4",
+  "spec": "onet-experience-requirements",
+  "zone": "silver",
+  "table": "base.onet_experience_profiles",
+  "iceberg_snapshot_id": "5745163851101673330",
+  "source": "iceberg_parquet",
+  "source_path": "/Users/jcernauske/code/bright/futureproof-data/data/silver/iceberg_warehouse/base/onet_experience_profiles/data/*.parquet",
+  "executed_at": "2026-04-17T02:30:11.770710+00:00",
+  "rules_file": "governance/dq-rules/silver-onet-experience.json",
+  "rules_total": 10,
+  "rules_passed": 10,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "p0_failures": [],
+  "results": [
+    {
+      "rule_id": "SLV-ONET-EXP-001",
+      "name": "onet_experience_profiles: row count 720-810",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-002",
+      "name": "onet_experience_profiles: bls_soc_code format XX-XXXX",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-003",
+      "name": "onet_experience_profiles: bls_soc_code uniqueness (grain integrity)",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-004",
+      "name": "onet_experience_profiles: experience_years_typical range 0-15",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-005",
+      "name": "onet_experience_profiles: experience_tier in ('entry','early','mid','senior')",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-006",
+      "name": "onet_experience_profiles: experience_category_median range 1-11",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-007",
+      "name": "onet_experience_profiles: all 4 tiers represented",
+      "priority": "P1",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-008",
+      "name": "onet_experience_profiles: spot check 11-1011 tier = 'senior'",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-009",
+      "name": "onet_experience_profiles: spot check 15-1252 tier = 'mid'",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    },
+    {
+      "rule_id": "SLV-ONET-EXP-010",
+      "name": "onet_experience_profiles: spot check 41-2031 tier = 'entry'",
+      "priority": "P0",
+      "status": "PASS",
+      "actual_value": 0,
+      "threshold": "result_count = 0",
+      "details": null,
+      "sample_violations": null
+    }
+  ],
+  "supplementary_stats": {
+    "total_rows": 765,
+    "distinct_bls_soc_codes": 765,
+    "tier_distribution": [
+      {
+        "tier": "early",
+        "rows": 404
+      },
+      {
+        "tier": "entry",
+        "rows": 304
+      },
+      {
+        "tier": "mid",
+        "rows": 56
+      },
+      {
+        "tier": "senior",
+        "rows": 1
+      }
+    ],
+    "experience_years_typical": {
+      "min": 0.0,
+      "max": 8.5,
+      "avg": 1.7094728104575216
+    },
+    "experience_category_median": {
+      "min": 1,
+      "max": 9
+    },
+    "spot_checks": [
+      {
+        "bls_soc_code": "11-1011",
+        "experience_tier": "senior",
+        "experience_category_median": 9,
+        "experience_years_typical": 8.5
+      },
+      {
+        "bls_soc_code": "15-1252",
+        "experience_tier": "mid",
+        "experience_category_median": 9,
+        "experience_years_typical": 7.0
+      },
+      {
+        "bls_soc_code": "41-2031",
+        "experience_tier": "entry",
+        "experience_category_median": 5,
+        "experience_years_typical": 0.75
+      }
+    ],
+    "null_counts": {
+      "bls_soc_code": 0,
+      "experience_category_median": 0,
+      "experience_years_typical": 0,
+      "experience_tier": 0
+    }
+  }
+}

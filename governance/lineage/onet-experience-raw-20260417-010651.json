@@ -1,0 +1,270 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-17T01:06:51.000000Z",
+    "run": {
+      "runId": "291acd33-540b-4380-93c3-ef7da1fc481a",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/onet-experience-requirements.md",
+          "specVersion": "1.0",
+          "zone": "Zone 1: Bronze (Raw Ingest)"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze zone ingest of O*NET Education, Training, and Experience data (Related Work Experience and related scales). Extracts 'Education, Training, and Experience.txt' from the shared O*NET 30.2 ZIP archive already cached by sibling subclasses. Parses tab-delimited rows at grain (onet_soc_code, element_id, scale_id, category). All four scales (RL, RW, PT, OJ) ingested at Bronze; Silver will filter to RW scale only. Rows with null grain fields are skipped (1,127 such rows observed). Added as the 6th concrete subclass in src/raw/onet_ingestor.py (not a new file)."
+        },
+        "brightsmith_runtimeMetrics": {
+          "outputRowCount": 35998,
+          "skippedRows": 1127,
+          "snapshotId": 4889440551433125673,
+          "sourceFile": "Education, Training, and Experience.txt",
+          "sourceArchive": "db_30_2_text.zip",
+          "sourceUrl": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+          "warehouseLocation": "data/bronze/iceberg_warehouse/bronze/onet_experience/"
+        },
+        "nominalTime": {
+          "_producer": "https://github.com/jcernauske/brightsmith",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/NominalTimeRunFacet.json",
+          "nominalStartTime": "2026-04-16T00:00:00.000000Z"
+        }
+      }
+    },
+    "job": {
+      "namespace": "futureproof-data.raw",
+      "name": "onet_experience_ingest",
+      "facets": {
+        "documentation": {
+          "description": "Ingest O*NET Education, Training, and Experience data into raw.onet_experience. Downloads the shared O*NET 30.2 ZIP archive via bulk_zip_download, extracts 'Education, Training, and Experience.txt', and parses tab-delimited rows at grain (onet_soc_code, element_id, scale_id, category). Coerces SOC codes via _coerce_onet_soc, numeric fields via _coerce_int/_coerce_double, and metadata flags via _coerce_string. Preserves recommend_suppress for downstream DQ filtering. Appends to Iceberg table with dedup on grain. All four scales (RL, RW, PT, OJ) retained; Silver filters to RW (element_id=3.A.1) only."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/onet_ingestor.py",
+          "sourceCodeClass": "OnetExperienceIngestor",
+          "sourceCodeBaseClass": "OnetBaseIngestor"
+        },
+        "nominalTime": {
+          "_producer": "https://github.com/jcernauske/brightsmith",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/NominalTimeRunFacet.json",
+          "nominalStartTime": "2026-04-16T00:00:00.000000Z"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "onetcenter.org",
+        "name": "onet-database-30.2.zip",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+            "format": "ZIP archive containing tab-delimited text files",
+            "fetchMethod": "bulk_zip_download"
+          }
+        }
+      },
+      {
+        "namespace": "onetcenter.org",
+        "name": "onet-database-30.2.education-training-experience",
+        "facets": {
+          "dataSource": {
+            "uri": "https://www.onetcenter.org/dl_files/database/db_30_2_text.zip",
+            "sourceFile": "Education, Training, and Experience.txt",
+            "format": "tab-delimited text with headers"
+          },
+          "schema": {
+            "fields": [
+              {"name": "O*NET-SOC Code", "type": "STRING"},
+              {"name": "Element ID", "type": "STRING"},
+              {"name": "Element Name", "type": "STRING"},
+              {"name": "Scale ID", "type": "STRING"},
+              {"name": "Category", "type": "STRING"},
+              {"name": "Data Value", "type": "STRING"},
+              {"name": "N", "type": "STRING"},
+              {"name": "Standard Error", "type": "STRING"},
+              {"name": "Lower CI Bound", "type": "STRING"},
+              {"name": "Upper CI Bound", "type": "STRING"},
+              {"name": "Recommend Suppress", "type": "STRING"},
+              {"name": "Date", "type": "STRING"},
+              {"name": "Domain Source", "type": "STRING"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "futureproof-data.raw",
+        "name": "raw.onet_experience",
+        "facets": {
+          "storage": {
+            "storageLayer": "iceberg",
+            "warehouse": "data/bronze/iceberg_warehouse",
+            "tablePath": "data/bronze/iceberg_warehouse/bronze/onet_experience/",
+            "snapshotId": 4889440551433125673
+          },
+          "schema": {
+            "fields": [
+              {"name": "onet_soc_code", "type": "STRING"},
+              {"name": "element_id", "type": "STRING"},
+              {"name": "element_name", "type": "STRING"},
+              {"name": "scale_id", "type": "STRING"},
+              {"name": "category", "type": "INTEGER"},
+              {"name": "data_value", "type": "DOUBLE"},
+              {"name": "n", "type": "INTEGER"},
+              {"name": "standard_error", "type": "DOUBLE"},
+              {"name": "lower_ci_bound", "type": "DOUBLE"},
+              {"name": "upper_ci_bound", "type": "DOUBLE"},
+              {"name": "recommend_suppress", "type": "STRING"},
+              {"name": "date", "type": "STRING"},
+              {"name": "domain_source", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          },
+          "dataQualityAssertions": {
+            "_producer": "https://github.com/jcernauske/brightsmith",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DataQualityAssertionsDatasetFacet.json",
+            "assertions": [
+              {
+                "assertion": "rowCount",
+                "success": true,
+                "metric": "outputRowCount",
+                "value": 35998,
+                "description": "Rows written to raw.onet_experience Iceberg table. Within expected 30,000-45,000 P0 range."
+              },
+              {
+                "assertion": "skippedRowCount",
+                "success": true,
+                "metric": "skippedRows",
+                "value": 1127,
+                "description": "Rows skipped due to null grain fields (onet_soc_code, element_id, scale_id, or category). Logged but not written."
+              },
+              {
+                "assertion": "grainUniqueness",
+                "columns": ["onet_soc_code", "element_id", "scale_id", "category"],
+                "success": true,
+                "description": "Dedup grain enforced at ingest time — no duplicate rows at (onet_soc_code, element_id, scale_id, category)."
+              }
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "onet_soc_code": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "O*NET-SOC Code"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_onet_soc(). Preserves O*NET-SOC XX-XXXX.XX format. Stripped of whitespace. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "element_id": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Element ID"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Content Model element ID (e.g., '3.A.1' for Related Work Experience, '3.A.2' for On-the-Job Training). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "element_name": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Element Name"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Element name (e.g., 'Related Work Experience'). Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "scale_id": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Scale ID"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Values are 'RL' (Required Level of Education), 'RW' (Related Work Experience), 'PT' (Prior Training), 'OJ' (On-the-Job Training). All four scales ingested at Bronze; Silver filters to RW only.",
+                "transformationType": "DIRECT"
+              },
+              "category": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Category"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to integer via _coerce_int() (int(float(value))). Category ordinal within scale (1-11 for RW scale, 1-12 for RL, varies by scale). Part of grain — rows with null category are skipped.",
+                "transformationType": "DIRECT"
+              },
+              "data_value": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Data Value"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double() (float(value)). Percent frequency for this category (0.0-100.0). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "n": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "N"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to integer via _coerce_int(). Sample size. Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "standard_error": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Standard Error"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "lower_ci_bound": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Lower CI Bound"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "upper_ci_bound": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Upper CI Bound"}
+                ],
+                "transformationDescription": "Parsed from TSV string, coerced to double via _coerce_double(). Null if empty or 'n/a'.",
+                "transformationType": "DIRECT"
+              },
+              "recommend_suppress": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Recommend Suppress"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). O*NET data quality flag. Values are 'Y' or 'N'. Preserved as-is for Silver zone filtering (suppress_flag aggregation).",
+                "transformationType": "DIRECT"
+              },
+              "date": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Date"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Data collection date. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "domain_source": {
+                "inputFields": [
+                  {"namespace": "onetcenter.org", "name": "onet-database-30.2.education-training-experience", "field": "Domain Source"}
+                ],
+                "transformationDescription": "Direct string copy via _coerce_string(). Values are 'Incumbent' or 'Occupational Expert'. Null if empty.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated UTC timestamp at time of ingest. Added by BaseIngestor.ingest(), not from source data.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the ZIP download URL used for this ingest run.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated field recording the fetch method name ('bulk_zip_download').",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-generated date (UTC) of the ingest run. Derived from ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

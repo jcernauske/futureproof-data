@@ -1,0 +1,913 @@
+{
+  "row_count": 35998,
+  "field_count": 17,
+  "columns": [
+    "onet_soc_code",
+    "element_id",
+    "element_name",
+    "scale_id",
+    "category",
+    "data_value",
+    "n",
+    "standard_error",
+    "lower_ci_bound",
+    "upper_ci_bound",
+    "recommend_suppress",
+    "date",
+    "domain_source",
+    "ingested_at",
+    "source_url",
+    "source_method",
+    "load_date"
+  ],
+  "scale_distribution": [
+    {
+      "scale_id": "RL",
+      "rows": 10536
+    },
+    {
+      "scale_id": "RW",
+      "rows": 9658
+    },
+    {
+      "scale_id": "OJ",
+      "rows": 7902
+    },
+    {
+      "scale_id": "PT",
+      "rows": 7902
+    }
+  ],
+  "distinct_onet_soc_codes": 878,
+  "distinct_bls_soc_codes": 765,
+  "distinct_occupations_per_scale": [
+    {
+      "scale_id": "OJ",
+      "occupations": 878
+    },
+    {
+      "scale_id": "PT",
+      "occupations": 878
+    },
+    {
+      "scale_id": "RL",
+      "occupations": 878
+    },
+    {
+      "scale_id": "RW",
+      "occupations": 878
+    }
+  ],
+  "occupations_by_scale_count": [
+    {
+      "scale_count": 4,
+      "occupations": 878
+    }
+  ],
+  "distinct_categories_per_scale": [
+    {
+      "scale_id": "OJ",
+      "category_count": 9,
+      "min_cat": 1,
+      "max_cat": 9
+    },
+    {
+      "scale_id": "PT",
+      "category_count": 9,
+      "min_cat": 1,
+      "max_cat": 9
+    },
+    {
+      "scale_id": "RL",
+      "category_count": 12,
+      "min_cat": 1,
+      "max_cat": 12
+    },
+    {
+      "scale_id": "RW",
+      "category_count": 11,
+      "min_cat": 1,
+      "max_cat": 11
+    }
+  ],
+  "category_count_distribution_per_scale": [
+    {
+      "scale_id": "OJ",
+      "category_count": 9,
+      "occupations": 878
+    },
+    {
+      "scale_id": "PT",
+      "category_count": 9,
+      "occupations": 878
+    },
+    {
+      "scale_id": "RL",
+      "category_count": 12,
+      "occupations": 878
+    },
+    {
+      "scale_id": "RW",
+      "category_count": 11,
+      "occupations": 878
+    }
+  ],
+  "element_per_scale": [
+    {
+      "scale_id": "OJ",
+      "element_id": "3.A.3",
+      "element_name": "On-the-Job Training",
+      "rows": 7902
+    },
+    {
+      "scale_id": "PT",
+      "element_id": "3.A.2",
+      "element_name": "On-Site or In-Plant Training",
+      "rows": 7902
+    },
+    {
+      "scale_id": "RL",
+      "element_id": "2.D.1",
+      "element_name": "Required Level of Education",
+      "rows": 10536
+    },
+    {
+      "scale_id": "RW",
+      "element_id": "3.A.1",
+      "element_name": "Related Work Experience",
+      "rows": 9658
+    }
+  ],
+  "data_value_overall": [
+    0.0,
+    100.0,
+    9.756131729540499
+  ],
+  "data_value_out_of_range": 0,
+  "data_value_per_scale": [
+    {
+      "scale_id": "OJ",
+      "min": 0.0,
+      "max": 90.4,
+      "avg": 11.111126297139958,
+      "stddev": 12.629687227538373
+    },
+    {
+      "scale_id": "PT",
+      "min": 0.0,
+      "max": 81.22,
+      "avg": 11.111174386231319,
+      "stddev": 12.47881260262214
+    },
+    {
+      "scale_id": "RL",
+      "min": 0.0,
+      "max": 100.0,
+      "avg": 8.333351366742587,
+      "stddev": 17.176430178012545
+    },
+    {
+      "scale_id": "RW",
+      "min": 0.0,
+      "max": 95.83,
+      "avg": 9.090952578173555,
+      "stddev": 12.31228469894175
+    }
+  ],
+  "sum_per_occ_scale": [
+    {
+      "scale_id": "OJ",
+      "groups": 878,
+      "mean_sum": 100.00013667425968,
+      "std_sum": 0.007484501761373222,
+      "min_sum": 99.97999999999998,
+      "max_sum": 100.02000000000001,
+      "p05": 99.99,
+      "median": 100.0,
+      "p95": 100.01
+    },
+    {
+      "scale_id": "PT",
+      "groups": 878,
+      "mean_sum": 100.00056947608199,
+      "std_sum": 0.007937344474756162,
+      "min_sum": 99.97999999999998,
+      "max_sum": 100.02000000000001,
+      "p05": 99.99,
+      "median": 100.0,
+      "p95": 100.01
+    },
+    {
+      "scale_id": "RL",
+      "groups": 878,
+      "mean_sum": 100.00021640091117,
+      "std_sum": 0.006618370566836941,
+      "min_sum": 99.96999999999998,
+      "max_sum": 100.02000000000001,
+      "p05": 99.99,
+      "median": 100.0,
+      "p95": 100.01
+    },
+    {
+      "scale_id": "RW",
+      "groups": 878,
+      "mean_sum": 100.00047835990888,
+      "std_sum": 0.008071370764109593,
+      "min_sum": 99.97999999999999,
+      "max_sum": 100.03,
+      "p05": 99.99,
+      "median": 100.0,
+      "p95": 100.01000000000002
+    }
+  ],
+  "sum_outlier_counts": [
+    {
+      "scale_id": "OJ",
+      "off_by_gt_1": 0,
+      "off_by_gt_5": 0,
+      "off_by_gt_10": 0,
+      "zero_sum": 0
+    },
+    {
+      "scale_id": "PT",
+      "off_by_gt_1": 0,
+      "off_by_gt_5": 0,
+      "off_by_gt_10": 0,
+      "zero_sum": 0
+    },
+    {
+      "scale_id": "RL",
+      "off_by_gt_1": 0,
+      "off_by_gt_5": 0,
+      "off_by_gt_10": 0,
+      "zero_sum": 0
+    },
+    {
+      "scale_id": "RW",
+      "off_by_gt_1": 0,
+      "off_by_gt_5": 0,
+      "off_by_gt_10": 0,
+      "zero_sum": 0
+    }
+  ],
+  "recommend_suppress_distribution_overall": [
+    {
+      "value": "N",
+      "rows": 26524
+    },
+    {
+      "value": "n/a",
+      "rows": 8610
+    },
+    {
+      "value": "Y",
+      "rows": 864
+    }
+  ],
+  "recommend_suppress_per_scale": [
+    {
+      "scale_id": "OJ",
+      "value": "N",
+      "rows": 5808
+    },
+    {
+      "scale_id": "OJ",
+      "value": "n/a",
+      "rows": 1890
+    },
+    {
+      "scale_id": "OJ",
+      "value": "Y",
+      "rows": 204
+    },
+    {
+      "scale_id": "PT",
+      "value": "N",
+      "rows": 5784
+    },
+    {
+      "scale_id": "PT",
+      "value": "n/a",
+      "rows": 1890
+    },
+    {
+      "scale_id": "PT",
+      "value": "Y",
+      "rows": 228
+    },
+    {
+      "scale_id": "RL",
+      "value": "N",
+      "rows": 7793
+    },
+    {
+      "scale_id": "RL",
+      "value": "n/a",
+      "rows": 2520
+    },
+    {
+      "scale_id": "RL",
+      "value": "Y",
+      "rows": 223
+    },
+    {
+      "scale_id": "RW",
+      "value": "N",
+      "rows": 7139
+    },
+    {
+      "scale_id": "RW",
+      "value": "n/a",
+      "rows": 2310
+    },
+    {
+      "scale_id": "RW",
+      "value": "Y",
+      "rows": 209
+    }
+  ],
+  "spot_check_11_1011_00_rw": [
+    {
+      "category": 1,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 2,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 3,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 4,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 5,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 6,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 7,
+      "data_value": 9.69,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 8,
+      "data_value": 5.87,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 9,
+      "data_value": 15.09,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 10,
+      "data_value": 1.11,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 11,
+      "data_value": 68.24,
+      "recommend_suppress": "N"
+    }
+  ],
+  "spot_check_41_2031_00_rw": [
+    {
+      "category": 1,
+      "data_value": 39.75,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 2,
+      "data_value": 0.65,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 3,
+      "data_value": 2.97,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 4,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 5,
+      "data_value": 32.02,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 6,
+      "data_value": 7.29,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 7,
+      "data_value": 6.87,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 8,
+      "data_value": 0.65,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 9,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 10,
+      "data_value": 9.79,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 11,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    }
+  ],
+  "spot_check_15_1252_00_rw": [
+    {
+      "category": 1,
+      "data_value": 4.42,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 2,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 3,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 4,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 5,
+      "data_value": 0.0,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 6,
+      "data_value": 11.13,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 7,
+      "data_value": 7.13,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 8,
+      "data_value": 15.04,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 9,
+      "data_value": 43.91,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 10,
+      "data_value": 7.82,
+      "recommend_suppress": "N"
+    },
+    {
+      "category": 11,
+      "data_value": 10.55,
+      "recommend_suppress": "N"
+    }
+  ],
+  "spot_check_mode_categories": [
+    {
+      "onet_soc_code": "11-1011.00",
+      "mode_category": 11,
+      "mode_data_value": 68.24
+    },
+    {
+      "onet_soc_code": "15-1252.00",
+      "mode_category": 9,
+      "mode_data_value": 43.91
+    },
+    {
+      "onet_soc_code": "41-2031.00",
+      "mode_category": 1,
+      "mode_data_value": 39.75
+    }
+  ],
+  "rw_multi_detail_distribution": [
+    {
+      "onet_details_averaged": 1,
+      "bls_socs": 702
+    },
+    {
+      "onet_details_averaged": 2,
+      "bls_socs": 40
+    },
+    {
+      "onet_details_averaged": 3,
+      "bls_socs": 10
+    },
+    {
+      "onet_details_averaged": 4,
+      "bls_socs": 6
+    },
+    {
+      "onet_details_averaged": 5,
+      "bls_socs": 2
+    },
+    {
+      "onet_details_averaged": 6,
+      "bls_socs": 4
+    },
+    {
+      "onet_details_averaged": 8,
+      "bls_socs": 1
+    }
+  ],
+  "rw_distinct_bls_socs": 765,
+  "null_rates": {
+    "onet_soc_code": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "element_id": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "element_name": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "scale_id": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "category": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "data_value": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "n": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "standard_error": {
+      "nulls": 8610,
+      "total": 35998,
+      "null_pct": 23.917995444191344
+    },
+    "lower_ci_bound": {
+      "nulls": 18989,
+      "total": 35998,
+      "null_pct": 52.7501527862659
+    },
+    "upper_ci_bound": {
+      "nulls": 18989,
+      "total": 35998,
+      "null_pct": 52.7501527862659
+    },
+    "recommend_suppress": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "date": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "domain_source": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "ingested_at": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "source_url": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "source_method": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    },
+    "load_date": {
+      "nulls": 0,
+      "total": 35998,
+      "null_pct": 0.0
+    }
+  },
+  "n_stats": [
+    35998,
+    13,
+    98,
+    25.22712372909606,
+    23.0,
+    16.0,
+    40.0
+  ],
+  "standard_error_stats": [
+    27388,
+    0.0,
+    29.7345,
+    4.8206759055060475,
+    2.6831500000000004
+  ],
+  "lower_upper_ci_null_rates": {
+    "lower_ci_null": 18989,
+    "upper_ci_null": 18989,
+    "both_populated": 17009
+  },
+  "rw_all_suppressed_occupations": 0,
+  "rw_all_suppressed_sample": [],
+  "rw_category_coverage": [
+    {
+      "category_count": 11,
+      "occupations": 878
+    }
+  ],
+  "rw_single_category_100pct_sample": [],
+  "rw_single_category_100pct_count": 0,
+  "rw_no_single_category_above_50pct": 754,
+  "domain_source_distribution": [
+    {
+      "source": "Incumbent",
+      "rows": 27388
+    },
+    {
+      "source": "Occupational Expert",
+      "rows": 8610
+    }
+  ],
+  "date_distribution_top15": [
+    {
+      "date": "08/2021",
+      "rows": 3813
+    },
+    {
+      "date": "08/2023",
+      "rows": 3690
+    },
+    {
+      "date": "08/2020",
+      "rows": 3321
+    },
+    {
+      "date": "08/2024",
+      "rows": 3280
+    },
+    {
+      "date": "08/2019",
+      "rows": 3239
+    },
+    {
+      "date": "08/2025",
+      "rows": 3198
+    },
+    {
+      "date": "08/2022",
+      "rows": 3157
+    },
+    {
+      "date": "07/2015",
+      "rows": 2378
+    },
+    {
+      "date": "07/2017",
+      "rows": 2255
+    },
+    {
+      "date": "08/2018",
+      "rows": 2214
+    },
+    {
+      "date": "07/2016",
+      "rows": 2091
+    },
+    {
+      "date": "07/2014",
+      "rows": 1148
+    },
+    {
+      "date": "07/2013",
+      "rows": 697
+    },
+    {
+      "date": "07/2012",
+      "rows": 533
+    },
+    {
+      "date": "06/2008",
+      "rows": 369
+    }
+  ],
+  "onet_soc_format_violations": 0,
+  "scale_id_values": [
+    "OJ",
+    "PT",
+    "RL",
+    "RW"
+  ],
+  "rw_rows": 9658,
+  "rw_distinct_occupations": 878,
+  "rw_element_ids": [
+    {
+      "element_id": "3.A.1",
+      "element_name": "Related Work Experience",
+      "rows": 9658
+    }
+  ],
+  "spot_check_weighted_medians": [
+    {
+      "onet_soc_code": "11-1011.00",
+      "rows": 11,
+      "sum": 100.0,
+      "weighted_median_category": 11,
+      "distribution": [
+        {
+          "category": 1,
+          "data_value": 0.0
+        },
+        {
+          "category": 2,
+          "data_value": 0.0
+        },
+        {
+          "category": 3,
+          "data_value": 0.0
+        },
+        {
+          "category": 4,
+          "data_value": 0.0
+        },
+        {
+          "category": 5,
+          "data_value": 0.0
+        },
+        {
+          "category": 6,
+          "data_value": 0.0
+        },
+        {
+          "category": 7,
+          "data_value": 9.69
+        },
+        {
+          "category": 8,
+          "data_value": 5.87
+        },
+        {
+          "category": 9,
+          "data_value": 15.09
+        },
+        {
+          "category": 10,
+          "data_value": 1.11
+        },
+        {
+          "category": 11,
+          "data_value": 68.24
+        }
+      ]
+    },
+    {
+      "onet_soc_code": "41-2031.00",
+      "rows": 11,
+      "sum": 99.99,
+      "weighted_median_category": 5,
+      "distribution": [
+        {
+          "category": 1,
+          "data_value": 39.75
+        },
+        {
+          "category": 2,
+          "data_value": 0.65
+        },
+        {
+          "category": 3,
+          "data_value": 2.97
+        },
+        {
+          "category": 4,
+          "data_value": 0.0
+        },
+        {
+          "category": 5,
+          "data_value": 32.02
+        },
+        {
+          "category": 6,
+          "data_value": 7.29
+        },
+        {
+          "category": 7,
+          "data_value": 6.87
+        },
+        {
+          "category": 8,
+          "data_value": 0.65
+        },
+        {
+          "category": 9,
+          "data_value": 0.0
+        },
+        {
+          "category": 10,
+          "data_value": 9.79
+        },
+        {
+          "category": 11,
+          "data_value": 0.0
+        }
+      ]
+    },
+    {
+      "onet_soc_code": "15-1252.00",
+      "rows": 11,
+      "sum": 100.0,
+      "weighted_median_category": 9,
+      "distribution": [
+        {
+          "category": 1,
+          "data_value": 4.42
+        },
+        {
+          "category": 2,
+          "data_value": 0.0
+        },
+        {
+          "category": 3,
+          "data_value": 0.0
+        },
+        {
+          "category": 4,
+          "data_value": 0.0
+        },
+        {
+          "category": 5,
+          "data_value": 0.0
+        },
+        {
+          "category": 6,
+          "data_value": 11.13
+        },
+        {
+          "category": 7,
+          "data_value": 7.13
+        },
+        {
+          "category": 8,
+          "data_value": 15.04
+        },
+        {
+          "category": 9,
+          "data_value": 43.91
+        },
+        {
+          "category": 10,
+          "data_value": 7.82
+        },
+        {
+          "category": 11,
+          "data_value": 10.55
+        }
+      ]
+    }
+  ]
+}
