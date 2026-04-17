@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import type { CareerOutcome } from "@/types/build";
-import type { StatKey } from "@/data/statExplanations";
+import { STAT_MAP, type StatKey } from "@/data/statExplanations";
+import { socEmoji } from "@/data/socEmoji";
 
 interface CareerCardProps {
   career: CareerOutcome;
@@ -9,13 +10,7 @@ interface CareerCardProps {
   onSelect: () => void;
 }
 
-const STAT_KEYS: { key: StatKey; color: string }[] = [
-  { key: "ern", color: "var(--color-stat-ern)" },
-  { key: "roi", color: "var(--color-stat-roi)" },
-  { key: "res", color: "var(--color-stat-res)" },
-  { key: "grw", color: "var(--color-stat-grw)" },
-  { key: "hmn", color: "var(--color-stat-hmn)" },
-];
+const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 
 export function CareerCard({ career, selected, onSelect }: CareerCardProps) {
   const wage = career.median_annual_wage;
@@ -36,27 +31,35 @@ export function CareerCard({ career, selected, onSelect }: CareerCardProps) {
       animate={selected ? { scale: [1, 1.02, 1] } : {}}
       transition={springs.snappy}
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="font-body font-bold text-body-lg text-text-primary">
-          {career.occupation_title}
-        </h3>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="text-[32px] leading-none select-none flex-shrink-0"
+        >
+          {socEmoji(career.soc_code)}
+        </span>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-body font-bold text-body-lg text-text-primary">
+            {career.occupation_title}
+          </h3>
+          {wage !== null && (
+            <p className="font-data text-data text-stat-ern mt-1">
+              ${wage.toLocaleString()}/yr median
+            </p>
+          )}
+        </div>
       </div>
 
-      {wage !== null && (
-        <p className="font-data text-data text-stat-ern mt-1">
-          ${wage.toLocaleString()}/yr median
-        </p>
-      )}
-
       <div className="flex flex-wrap gap-1.5 mt-3">
-        {STAT_KEYS.map(({ key, color }) => {
+        {STAT_ORDER.map((key) => {
           const val = career.stats[key];
+          const stat = STAT_MAP[key];
           return (
             <span
               key={key}
               className="inline-flex items-center gap-1 bg-bp-surface rounded-sm px-2 py-0.5"
             >
-              <span className="font-data text-micro uppercase" style={{ color }}>
+              <span className={`font-data text-micro uppercase ${stat.textClass}`}>
                 {key.toUpperCase()}
               </span>
               <span className="font-data text-micro text-text-secondary">

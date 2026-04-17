@@ -11,7 +11,11 @@ export interface StatExplanation {
   abbreviation: string;
   explanation: string;
   source: string;
+  // Raw CSS var — only for SVG `fill`/`stroke` where Tailwind classes can't reach.
   color: string;
+  // Tailwind utility classes — use these in `className` for anything HTML/CSS.
+  textClass: string;
+  bgClass: string;
 }
 
 export const STAT_EXPLANATIONS: StatExplanation[] = [
@@ -23,15 +27,19 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
       "Based on what graduates of this program at this school actually earn.",
     source: "College Scorecard + BLS",
     color: "var(--color-stat-ern)",
+    textClass: "text-stat-ern",
+    bgClass: "bg-stat-ern",
   },
   {
     key: "roi",
     name: "Return on Investment",
     abbreviation: "ROI",
     explanation:
-      "Compares your expected earnings to your student debt. Your loan percentage drives this.",
+      "Compares the total cost of attending this program (4 years) to your starting salary. Doesn't depend on how you finance it — that's the Student Loans Boss.",
     source: "College Scorecard",
     color: "var(--color-stat-roi)",
+    textClass: "text-stat-roi",
+    bgClass: "bg-stat-roi",
   },
   {
     key: "res",
@@ -41,6 +49,8 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
       "How exposed is this career to AI automation? Higher means the work needs humans.",
     source: "Karpathy AI Exposure + O*NET",
     color: "var(--color-stat-res)",
+    textClass: "text-stat-res",
+    bgClass: "bg-stat-res",
   },
   {
     key: "grw",
@@ -50,6 +60,8 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
       "Is this field growing or shrinking? Based on 10-year job projections.",
     source: "BLS Occupational Outlook",
     color: "var(--color-stat-grw)",
+    textClass: "text-stat-grw",
+    bgClass: "bg-stat-grw",
   },
   {
     key: "hmn",
@@ -59,6 +71,8 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
       "How much does this job depend on uniquely human skills?",
     source: "O*NET Work Activities",
     color: "var(--color-stat-hmn)",
+    textClass: "text-stat-hmn",
+    bgClass: "bg-stat-hmn",
   },
 ];
 

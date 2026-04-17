@@ -41,7 +41,7 @@ export function StatHelpTooltip({ stat }: StatHelpTooltipProps) {
             exit={{ opacity: 0, y: 8 }}
             transition={springs.smooth}
           >
-            <p className="font-display font-semibold text-heading" style={{ color: stat.color }}>
+            <p className={`font-display font-semibold text-heading ${stat.textClass}`}>
               {stat.name}
             </p>
             <p className="font-data text-data-sm text-text-muted mt-0.5">({stat.abbreviation})</p>

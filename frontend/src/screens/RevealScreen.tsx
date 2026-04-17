@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { springs, stage2Reveal } from "@/styles/motion";
+import { ambient, springs, stage2Reveal } from "@/styles/motion";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
@@ -34,9 +34,26 @@ export function RevealScreen() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [revealReady, setRevealReady] = useState(false);
 
-  // Navigation guard
+  const cancelledRef = useRef(false);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+      if (revealTimerRef.current !== null) {
+        clearTimeout(revealTimerRef.current);
+        revealTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Navigation guard — build state is session-scoped and not persisted,
+  // so refresh on /reveal kicks back to /career-pick. Hint so it can surface
+  // a "session expired" banner once it forwards to /school.
   useEffect(() => {
     if (!selectedCareer || !school || !major) {
+      sessionStorage.setItem("fp-nav-hint", "session-expired");
       navigate("/career-pick", { replace: true });
     }
   }, [selectedCareer, school, major, navigate]);
@@ -66,11 +83,15 @@ export function RevealScreen() {
         ),
         minDisplayTime,
       ]);
+      if (cancelledRef.current) return;
       setBuild(result);
       setIsBuilding(false);
-      // Brief pause before reveal starts
-      setTimeout(() => setRevealReady(true), 400);
+      revealTimerRef.current = setTimeout(() => {
+        if (!cancelledRef.current) setRevealReady(true);
+        revealTimerRef.current = null;
+      }, 400);
     } catch (err) {
+      if (cancelledRef.current) return;
       setError(err instanceof Error ? err.message : "Build failed");
       setIsBuilding(false);
     }
@@ -148,8 +169,8 @@ export function RevealScreen() {
           >
             <motion.div
               className="text-[120px] inline-block"
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 4, ease: "easeInOut", repeat: Infinity, delay: 1.5 }}
+              animate={ambient.emojiFloat.animate}
+              transition={ambient.emojiFloat.transition}
             >
               {animalEmoji ?? "🐻"}
             </motion.div>
@@ -239,11 +260,11 @@ export function RevealScreen() {
               id="btn-fight-bosses"
               aria-label="Fight the Bosses"
               onClick={() => navigate("/gauntlet")}
-              className="font-display font-semibold text-cta px-8 py-3.5 rounded-lg bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive transition-all duration-normal"
+              className="font-display font-semibold text-cta h-12 px-7 rounded-lg bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive transition-all duration-normal"
             >
               Fight the Bosses →
             </button>
-            <p className="font-body text-[13px] text-text-muted mt-3">
+            <p className="font-body text-small text-text-muted mt-3">
               5 bosses stand between you and your future.
             </p>
           </motion.div>

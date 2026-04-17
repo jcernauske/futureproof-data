@@ -72,7 +72,7 @@ export function PentagonChart({
           </linearGradient>
         </defs>
 
-        {/* Grid rings */}
+        {/* Grid rings — uniform 0.15 per DESIGN.md Pentagon spec */}
         {[1, 0.75, 0.5, 0.25].map((scale, i) => (
           <polygon
             key={`grid-${i}`}
@@ -80,7 +80,7 @@ export function PentagonChart({
             fill="none"
             stroke="var(--color-text-muted)"
             strokeWidth="0.5"
-            opacity={0.12 - i * 0.02}
+            opacity={0.15}
           />
         ))}
 
@@ -96,7 +96,7 @@ export function PentagonChart({
               y2={y}
               stroke="var(--color-text-muted)"
               strokeWidth="0.5"
-              opacity="0.15"
+              opacity="0.20"
             />
           );
         })}
@@ -105,7 +105,7 @@ export function PentagonChart({
         <motion.polygon
           points={dataPolygon(stats)}
           fill="url(#data-grad)"
-          stroke="rgba(255,255,255,0.2)"
+          stroke="var(--color-border-strong)"
           strokeWidth="1.5"
           initial={animated ? { opacity: 0 } : undefined}
           animate={{ opacity: 0.85 }}

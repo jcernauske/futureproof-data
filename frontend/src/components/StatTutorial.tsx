@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { springs } from "@/styles/motion";
+import { springs, transitions } from "@/styles/motion";
 import { STAT_EXPLANATIONS, type StatKey } from "@/data/statExplanations";
 import type { PentagonStats } from "@/types/build";
 import { PentagonChart } from "@/components/PentagonChart";
@@ -32,16 +32,10 @@ export function StatTutorial({ stats, onComplete }: StatTutorialProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={transitions.fade.transition}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundColor: "rgba(18, 19, 31, 0.85)",
-          backdropFilter: "blur(8px)",
-        }}
-      />
+      {/* Backdrop — token-referenced bg-void at 85% with 8px blur. */}
+      <div className="absolute inset-0 bg-bp-void/85 backdrop-blur-md" />
 
       {/* Skip */}
       <button
@@ -75,10 +69,7 @@ export function StatTutorial({ stats, onComplete }: StatTutorialProps) {
             exit={{ opacity: 0, y: -12 }}
             transition={springs.smooth}
           >
-            <p
-              className="font-display font-semibold text-heading"
-              style={{ color: current.color }}
-            >
+            <p className={`font-display font-semibold text-heading ${current.textClass}`}>
               {current.name}
             </p>
             <p className="font-data text-data-sm text-text-muted mt-0.5">
@@ -95,16 +86,12 @@ export function StatTutorial({ stats, onComplete }: StatTutorialProps) {
             <div className="flex items-center justify-between mt-4">
               {/* Step dots */}
               <div className="flex gap-1.5">
-                {STAT_EXPLANATIONS.map((_, i) => (
+                {STAT_EXPLANATIONS.map((s, i) => (
                   <div
                     key={i}
-                    className="w-1.5 h-1.5 rounded-full transition-colors duration-normal"
-                    style={{
-                      backgroundColor:
-                        i === step
-                          ? current.color
-                          : "var(--color-bg-surface)",
-                    }}
+                    className={`w-1.5 h-1.5 rounded-full transition-colors duration-normal ${
+                      i === step ? s.bgClass : "bg-bp-surface"
+                    }`}
                   />
                 ))}
               </div>

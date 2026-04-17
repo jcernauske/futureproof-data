@@ -6,7 +6,7 @@ interface BuildState {
   // Screen 5 — Career Pick
   tieredCareers: TieredCareers | null;
   selectedCareer: CareerOutcome | null;
-  setTieredCareers: (tiers: TieredCareers) => void;
+  setTieredCareers: (tiers: TieredCareers | null) => void;
   setSelectedCareer: (career: CareerOutcome | null) => void;
 
   // Loading

@@ -37,6 +37,33 @@ export interface CareerOutcome {
   education_level_name: string | null;
   growth_category: string | null;
 
+  // Cost-of-attendance fields (from raw-ingest-college-scorecard-institution).
+  // Nullable for institutions where the Scorecard didn't publish institution-level
+  // cost data. Used by two separate computations after the cost-based-ROI
+  // rewrite:
+  //   - ROI stat → cost_based_dte = (net_price × 4) / earnings, loan_pct-independent.
+  //   - Loans Boss → modeled_total_debt = net_price × 4 × loan_pct.
+  // Plan: ~/.claude/plans/why-are-we-still-jaunty-curry.md
+  net_price_annual: number | null;
+  cost_of_attendance_annual: number | null;
+  modeled_total_debt: number | null;
+  debt_median_reference: number | null;
+  institution_control: string | null;
+  tuition_in_state: number | null;
+  tuition_out_of_state: number | null;
+  room_board_on_campus: number | null;
+
+  // Cost-based ROI provenance.
+  //   roi_cost_basis = "cost_of_attendance" when net_price × 4 drove the ROI,
+  //                    "debt_median" when the fallback fired,
+  //                    "none" when neither was available.
+  //   financed_dte   = (modeled_total_debt / earnings_1yr_median), the
+  //                    loan_pct-aware ratio used to score the Student Loans
+  //                    Boss. Distinct from debt_to_earnings_annual which is
+  //                    the loan_pct-independent cost-vs-earnings ratio.
+  roi_cost_basis?: "cost_of_attendance" | "debt_median" | "none" | null;
+  financed_dte?: number | null;
+
   stats: PentagonStats;
   bosses: BossScores;
 
@@ -139,4 +166,5 @@ export interface Build {
   skills_crafted: AppliedSkill[];
   skill_pool: AppliedSkill[];
   next_steps: string;
+  profile_name?: string;
 }
