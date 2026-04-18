@@ -68,7 +68,7 @@ Execute the following workflow:
 
 ---
 
-## Status: IMPLEMENTATION
+## Status: TESTING
 
 | Status | Meaning |
 |--------|---------|
@@ -1174,18 +1174,26 @@ These tests must NOT break. If any fail during implementation, STOP and escalate
 
 ## §7 Test Coverage
 
-**Status:** PENDING
+**Status:** COMPLETE — 74 new tests landed by @test-writer, all passing.
 
 ### Tests Added
 
-| Test File | Test Name | What It Tests |
-|-----------|-----------|---------------|
+| Test File | Count | Coverage |
+|-----------|-------|----------|
+| `backend/tests/services/test_career_pick_qna.py` | 22 | `build_chip_list` elevation heuristic (pre-med + pre-law + pre-vet + pre-dental variants, case-insensitive word boundary, `premedication` / `premeditation` / `premeditated` correctly rejected), base-catalog ordering, `ask` happy path + empty fallback + exception fallback, unknown chip_id → ValueError, `call_site="career_pick.ask"` JSONL record written with chip_id + soc_codes. |
+| `backend/tests/routers/test_career_pick_router.py` | 7 | Elevated chip for pre-med, base catalog for generic major, ask happy path, ask fallback on empty, unknown chip_id → 422, malformed body → 422 (Pydantic). Local autouse fixtures for `_reset_gemma_client` + `_disable_gemma_jsonl` since `tests/routers/conftest.py` didn't cover the new call site. |
+| `frontend/src/components/CareerLineageSheet.test.tsx` | 23 | Empty state when soc=null, fetch lifecycle + stale cancellation, branch ordering preservation, error state + retry, chevron up/down + edge no-ops, ArrowUp/ArrowDown keyboard equivalence, exported `resolveDetent` pure helper coverage for all drag math cases, aria-label per detent + aria-valuenow / valuetext, aria-live title announces on SOC change, reduced-motion preserves functional state changes, chip-click auto-promotion at compact (no-op at medium/large), chip click fires `askCareerPickChip` with full context, response replacement on chip swap. |
+| `frontend/src/components/BranchChip.test.tsx` | 6 | Non-zero stat deltas render (zeros + nulls suppressed), glyph magnitude cap at `+++`, rationale renders when present / omitted when null, heading renders branch title. |
+| `frontend/src/components/AskGemmaChipRow.test.tsx` | 9 | API-order preservation, elevated vs non-elevated styling signatures, Enter/Space/click activation, elevated chip `aria-describedby` passthrough, active-state data attribute, empty list → null, accessible group role. |
+| `frontend/src/components/AskGemmaResponseCard.test.tsx` | 7 | Loading → `GemmaThinking`, answer body renders, Regenerate + Close callbacks, `role="region"` + `aria-live="polite"` + `aria-label="Gemma answer"`, Regenerate disabled while loading. |
 
 ### Test Results
 | Suite | Pass | Fail | Skip | Total |
 |-------|------|------|------|-------|
-| pytest (backend) | | | | |
-| vitest (frontend) | | | | |
+| pytest (backend) | 349 | 0 | 0 | 349 |
+| vitest (frontend) | 430 | 2 (pre-existing, `ProfileScreen.test.tsx` seeded-naming) | 1 | 433 |
+
+Pre-existing `ProfileScreen.test.tsx` failures verified against `main` via `git stash` on `main`; unrelated to this spec.
 
 ---
 
