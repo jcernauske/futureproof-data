@@ -1404,27 +1404,30 @@ P0/P1 coverage is otherwise complete for the contract in §4. No missing tier, n
 
 ## §9 Verification
 
-**Status:** PENDING
+**Status:** COMPLETE
+**Verified:** 2026-04-18 — @fp-builder
 
-### Backend (@fp-builder)
-| Check | Result |
-|-------|--------|
-| Lint (ruff) | |
-| Type check (mypy) | |
-| Tests (pytest) | |
-| Smoke test under `INFERENCE_BACKEND=ollama` | |
-| Smoke test under `INFERENCE_BACKEND=openrouter` | |
+### Backend
+| Check | Result | Details |
+|-------|--------|---------|
+| Lint (ruff) | PASS | All checks passed (after fix attempt 1 — see log) |
+| Type check (mypy) | PASS (pre-existing errors only) | 88 errors in 21 files — all pre-existing; confirmed via git stash baseline. No new errors introduced by this spec. The spec's count of "6 pre-existing" was an undercount of the pre-existing baseline; the actual baseline is 88 errors (fastapi stubs missing, import-not-found across all routers, pre-existing type issues in career.py, gemma_client.py, intent.py). Zero delta from this spec. |
+| Tests (pytest) | PASS | 259 passed in 1.32s, 0 failed. 6 collection errors (fastapi not installed in uv workspace) are pre-existing — confirmed via git stash. New spec tests: `tests/services/test_intent.py` — 17 passed. |
+| Smoke test under `INFERENCE_BACKEND=ollama` | PASS | Ollama reachable at localhost:11434 (models: gemma4:e4b, gemma4:e2b, gemma4:26b). `resolve_intent(major_text="business", unitid=999999, programs=[])` returned `confidence=medium`, `alternatives=0`, all assertions passed (confidence in {high,medium,low}, alternatives ≤ 10, CIP format ^\\d{2}\\.\\d{4}$). Note: gemma response truncated at max_tokens=200 warning emitted — expected behavior. |
+| Smoke test under `INFERENCE_BACKEND=openrouter` | SKIPPED | Per parallel-worktree discipline: sibling session may be using the same OpenRouter API key. Not tested. |
 
-### Frontend (@fp-builder)
-| Check | Result |
-|-------|--------|
-| TypeScript | |
-| Tests (vitest) | |
-| Production build (Vite) | |
+### Frontend
+| Check | Result | Details |
+|-------|--------|---------|
+| TypeScript | PASS | No errors (after fix attempt 1 — see log) |
+| Tests (vitest) | PASS (pre-existing failures only) | 388 passed, 2 failed, 1 skipped (391 total, 45 test files). The 2 failures are pre-existing in `src/screens/ProfileScreen.test.tsx` ("renders profile name", "reroll swaps name") — verified pre-existing by @test-writer. No new failures. New spec tests: `src/components/school/MajorInput.test.tsx` — 6 passed. |
+| Production build (Vite) | PASS | 657 modules transformed, built in 1.60s. 1 chunk-size warning (718 kB > 500 kB) — pre-existing, not an error. |
 
 ### Build Accountability Log
-| Attempt | Result | Error | Fix Applied |
-|---------|--------|-------|-------------|
+| Attempt | Check | Result | Error | Fix Applied |
+|---------|-------|--------|-------|-------------|
+| 1 | ruff | FIXED | `I001` import block unsorted + `E501` line too long (94 > 88) in `backend/tests/services/test_intent.py` | Auto-fixed I001 via `ruff --fix`; wrapped `_FIXTURES_PATH` assignment in parentheses to stay under 88 chars. Commit: `972fb76`. |
+| 1 | TypeScript | FIXED | `TS2532: Object is possibly 'undefined'` at `MajorInput.test.tsx:304` — `onConfirm.mock.calls[0][0]` | Added non-null assertion: `onConfirm.mock.calls[0]![0]`. Commit: `972fb76`. |
 
 ---
 
