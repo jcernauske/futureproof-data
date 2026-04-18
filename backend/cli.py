@@ -663,11 +663,18 @@ them separately):
 
 Respond in JSON only, no preamble, no markdown. Keep "reasoning" to at \
 most two sentences.
+
+"matched_cip" MUST be the full 6-digit leaf format XX.XXXX (e.g. \
+13.1001, 51.2308, 52.0201). NEVER put a 4-digit umbrella like XX.XX \
+there — if the student's input maps to a whole family rather than one \
+specific program, pick the single most representative leaf from the \
+programs listed above and put the 4-digit family code in "parent_cip".
+
 {{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
 "confidence": "high|medium|low", \
 "reasoning": "Up to two sentences explaining why this is the best match.", \
-"parent_cip": "XX.XX (the school-reported CIP that covers this program, \
-if different from matched_cip)", \
+"parent_cip": "XX.XX (4-digit family code, may equal matched_cip[:5] \
+when matched_cip is already a leaf in this family)", \
 "alternatives": []}}\
 """
 

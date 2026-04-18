@@ -20,6 +20,48 @@ logger = logging.getLogger(__name__)
 _intent_cache: dict[tuple[str, int], dict[str, Any]] = {}
 
 _CIP_PATTERN = re.compile(r"^\d{2}\.\d{4}$")
+_CIP_FAMILY_PATTERN = re.compile(r"^\d{2}\.\d{2}$")
+
+
+def _promote_to_leaf_cip(
+    matched_cip: str,
+    parent_cip: str,
+    school_cips: list[dict[str, str]],
+) -> str:
+    """Coerce ``matched_cip`` into a 6-digit leaf when Gemma handed back a
+    4-digit umbrella.
+
+    Gemma occasionally emits ``"13.10"`` (family) instead of ``"13.1001"``
+    (leaf) for umbrella-ish inputs like "deaf ed". We defend the primary
+    CIP contract here so the frontend doesn't fall through to the clarify
+    picker every time Gemma skimps on precision.
+
+    Resolution order:
+    1. If ``matched_cip`` is already a 6-digit leaf, return it unchanged.
+    2. If ``matched_cip`` is a 4-digit family AND ``parent_cip`` is a
+       6-digit leaf, Gemma swapped the two — promote ``parent_cip``.
+    3. If ``matched_cip`` is a 4-digit family, scan the school's reported
+       CIPs for a leaf whose family prefix matches; pick the
+       lexicographically first one (deterministic + usually the primary
+       program in that family).
+    4. Otherwise return the original value so the caller's downstream
+       validation can raise.
+    """
+    if _CIP_PATTERN.match(matched_cip):
+        return matched_cip
+    if _CIP_FAMILY_PATTERN.match(matched_cip):
+        if _CIP_PATTERN.match(parent_cip):
+            return parent_cip
+        family_prefix = matched_cip[:5]  # "13.10"
+        descendants = sorted(
+            c["cipcode"]
+            for c in school_cips
+            if c.get("cipcode", "").startswith(family_prefix)
+            and _CIP_PATTERN.match(c["cipcode"])
+        )
+        if descendants:
+            return descendants[0]
+    return matched_cip
 
 # DUPLICATE: this prompt is mirrored in backend/cli.py:_INTENT_SYSTEM_PROMPT.
 # Edits here MUST be applied to the CLI copy (consolidation tracked as
@@ -79,11 +121,18 @@ them separately):
 
 Respond in JSON only, no preamble, no markdown. Keep "reasoning" to at \
 most two sentences.
+
+"matched_cip" MUST be the full 6-digit leaf format XX.XXXX (e.g. \
+13.1001, 51.2308, 52.0201). NEVER put a 4-digit umbrella like XX.XX \
+there — if the student's input maps to a whole family rather than one \
+specific program, pick the single most representative leaf from the \
+programs listed above and put the 4-digit family code in "parent_cip".
+
 {{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
 "confidence": "high|medium|low", \
 "reasoning": "Up to two sentences explaining why this is the best match.", \
-"parent_cip": "XX.XX (the school-reported CIP that covers this program, \
-if different from matched_cip)", \
+"parent_cip": "XX.XX (4-digit family code, may equal matched_cip[:5] \
+when matched_cip is already a leaf in this family)", \
 "alternatives": []}}\
 """
 
@@ -350,6 +399,12 @@ def resolve_intent(
         )
 
     matched_cip = str(parsed.get("matched_cip", "")).strip()
+    parent_cip = str(parsed.get("parent_cip", "")).strip()
+    # Gemma occasionally hands back a 4-digit umbrella (e.g. "13.10") in
+    # matched_cip instead of a 6-digit leaf (e.g. "13.1001"). Salvage
+    # before the strict regex gate below — the alternative is a spurious
+    # "Gemma couldn't match that" fallback for legitimate picks.
+    matched_cip = _promote_to_leaf_cip(matched_cip, parent_cip, school_cips)
     if not _CIP_PATTERN.match(matched_cip):
         # Gemma is the source of `matched_cip`; we regex-filter every
         # alternative but must also guard the primary or a malformed CIP
@@ -363,7 +418,6 @@ def resolve_intent(
     confidence = str(parsed.get("confidence", "unknown"))
     reasoning = str(parsed.get("reasoning", ""))
     alternatives = _sanitize_alternatives(parsed.get("alternatives"), matched_cip)
-    parent_cip = str(parsed.get("parent_cip", ""))
 
     career_titles = _get_career_titles_for_cip(matched_cip)
 
