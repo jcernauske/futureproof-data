@@ -1,30 +1,15 @@
-import { motion, useReducedMotion } from "framer-motion";
-
 /**
  * Section I — Footer
- * Wordmark + primary nav (Live app only, pre-launch) + disclaimer + data-line.
+ * Wordmark + Live app link + disclaimer + data-line echo.
  *
- * **Scope reduction per @faang-staff-engineer Finding 1 (2026-04-17):** the
- * Kaggle, GitHub, Video, Brightsmith, Voice-guide, and Disclaimers links were
- * removed because their destinations 404 or have no in-page anchors. See §6
- * Deviations + §11 Follow-ups — they come back when the destinations exist.
- * See spec §3.12.
+ * Motion wrappers removed 2026-04-18 — see ProblemSection for context.
+ * Other nav items return as §11 follow-up once destinations exist.
  */
 export function LandingFooter() {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
-    <motion.footer
+    <footer
       id="landing-footer"
       className="bg-bp-deep border-t border-border-subtle py-16 px-6 tablet:px-10"
-      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={
-        prefersReducedMotion
-          ? { duration: 0 }
-          : { duration: 0.3, ease: "easeOut" }
-      }
     >
       <div className="mx-auto max-w-[1280px] space-y-8">
         <div className="flex flex-col tablet:flex-row tablet:items-start tablet:justify-between gap-6">
@@ -51,6 +36,6 @@ export function LandingFooter() {
           receipt.
         </p>
       </div>
-    </motion.footer>
+    </footer>
   );
 }

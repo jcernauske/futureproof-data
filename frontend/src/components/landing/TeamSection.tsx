@@ -1,24 +1,11 @@
-import { motion, useReducedMotion } from "framer-motion";
-import { springs } from "@/styles/motion";
-
 /**
  * Section H — Team / About
  * Centered single paragraph. No headshot. Restraint is the register.
  * See spec §3.11.
+ *
+ * Motion wrappers removed 2026-04-18 — see ProblemSection for context.
  */
 export function TeamSection() {
-  const prefersReducedMotion = useReducedMotion();
-
-  const reveal = (delay = 0) =>
-    prefersReducedMotion
-      ? { initial: false, animate: { opacity: 1, y: 0 } }
-      : {
-          initial: { opacity: 0, y: 24 },
-          whileInView: { opacity: 1, y: 0 },
-          viewport: { once: true, margin: "-80px" },
-          transition: { ...springs.smooth, delay },
-        };
-
   return (
     <section
       id="landing-section-team"
@@ -29,16 +16,10 @@ export function TeamSection() {
         className="absolute left-1/2 top-0 h-[80px] w-px -translate-x-1/2 bg-gradient-to-b from-border-subtle to-transparent"
       />
       <div className="mx-auto max-w-[640px] text-center">
-        <motion.h2
-          className="font-display font-bold text-heading text-text-primary"
-          {...reveal(0)}
-        >
+        <h2 className="font-display font-bold text-heading text-text-primary">
           Who built this.
-        </motion.h2>
-        <motion.p
-          className="mt-6 font-body text-body tablet:text-body-lg text-text-secondary leading-relaxed max-w-[62ch] mx-auto"
-          {...reveal(0.1)}
-        >
+        </h2>
+        <p className="mt-6 font-body text-body tablet:text-body-lg text-text-secondary leading-relaxed max-w-[62ch] mx-auto">
           FutureProof was built for the Gemma 4 Good hackathon by a one-person
           team. The data pipeline runs on{" "}
           <a
@@ -52,7 +33,7 @@ export function TeamSection() {
           </a>
           , an open-source framework for governed data products. The code is
           MIT-licensed and the public data is public.
-        </motion.p>
+        </p>
       </div>
     </section>
   );

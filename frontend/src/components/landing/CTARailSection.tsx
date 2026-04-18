@@ -1,18 +1,9 @@
-import { motion, useReducedMotion } from "framer-motion";
-import { springs } from "@/styles/motion";
-
 /**
  * Section F — Live Demo / CTA Rail
+ * Mirrors hero CTA DNA + earns its own visual reward: ghost pentagon echo,
+ * stat-color dot rule, differentiated button label. Spec §3.9 + critique §3.17.
  *
- * Mirrors hero CTA DNA (same bg, radius, type scale) but earns its own
- * visual reward per visual critique §3 item 17:
- *  - Ghost pentagon constellation offset 20% right behind the copy —
- *    second encounter with the signature visual.
- *  - Stat-color dot rule above the headline — a pentagon-flattened-to-a-line.
- *  - Differentiated button label ("Start your build ✦") so the conversion
- *    moment reads as "the second invitation, not the first."
- *
- * See spec §3.9 + critique §3.17.
+ * Motion wrappers removed 2026-04-18 — see ProblemSection for context.
  */
 
 const STAT_DOTS = [
@@ -23,7 +14,6 @@ const STAT_DOTS = [
   "text-stat-hmn",
 ] as const;
 
-/** Decorative static pentagon — no drift, no breathe, pure echo. */
 function GhostPentagon() {
   return (
     <svg
@@ -53,33 +43,11 @@ function GhostPentagon() {
 }
 
 export function CTARailSection() {
-  const prefersReducedMotion = useReducedMotion();
-
-  const reveal = (delay = 0) =>
-    prefersReducedMotion
-      ? { initial: false, animate: { opacity: 1, y: 0 } }
-      : {
-          initial: { opacity: 0, y: 24 },
-          whileInView: { opacity: 1, y: 0 },
-          viewport: { once: true, margin: "-80px" },
-          transition: { ...springs.smooth, delay },
-        };
-
-  const ctaReveal = prefersReducedMotion
-    ? { initial: false, animate: { opacity: 1, scale: 1 } }
-    : {
-        initial: { opacity: 0, scale: 0.92 },
-        whileInView: { opacity: 1, scale: 1 },
-        viewport: { once: true, margin: "-80px" },
-        transition: { ...springs.smooth, delay: 0.25 },
-      };
-
   return (
     <section
       id="landing-section-cta-rail"
       className="relative px-6 tablet:px-10 py-24 tablet:py-32 desktop:py-40 overflow-hidden"
     >
-      {/* Ghost pentagon — offset right, behind content, no motion. */}
       <div
         aria-hidden
         className="pointer-events-none absolute top-1/2 left-1/2 -translate-y-1/2 translate-x-[20%] tablet:translate-x-[25%] desktop:translate-x-[28%]"
@@ -88,10 +56,7 @@ export function CTARailSection() {
       </div>
 
       <div className="relative mx-auto max-w-[640px] text-center">
-        <motion.div
-          className="flex justify-center items-center gap-4 mb-6"
-          {...reveal(0)}
-        >
+        <div className="flex justify-center items-center gap-4 mb-6">
           {STAT_DOTS.map((cls, i) => (
             <span
               key={i}
@@ -99,22 +64,16 @@ export function CTARailSection() {
               aria-hidden
             />
           ))}
-        </motion.div>
+        </div>
 
-        <motion.h2
-          className="font-display font-bold text-heading tablet:text-title text-text-primary"
-          {...reveal(0.1)}
-        >
+        <h2 className="font-display font-bold text-heading tablet:text-title text-text-primary">
           Spec your first build.
-        </motion.h2>
-        <motion.p
-          className="mt-6 font-body text-body tablet:text-body-lg text-text-secondary leading-normal"
-          {...reveal(0.2)}
-        >
+        </h2>
+        <p className="mt-6 font-body text-body tablet:text-body-lg text-text-secondary leading-normal">
           Takes about two minutes. No signup, no email. You'll get a
           three-word name and emoji — that's your identity.
-        </motion.p>
-        <motion.div className="mt-10 flex justify-center" {...ctaReveal}>
+        </p>
+        <div className="mt-10 flex justify-center">
           <a
             id="landing-cta-rail"
             href="/app"
@@ -123,7 +82,7 @@ export function CTARailSection() {
           >
             Start your build <span className="opacity-70">✦</span>
           </a>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

@@ -1,23 +1,20 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { springs } from "@/styles/motion";
 import { PentagonGlow } from "./PentagonGlow";
 
 /**
  * Section A — Above the Fold (Hero)
- * Planetarium-before-the-show. Dark indigo, PentagonGlow at 320px with a 7s
- * vertical drift, one headline, one subhead, one CTA + secondary demo link,
- * data footer at the bottom. See spec §3.4.
+ *
+ * Planetarium-before-the-show. Pentagon + headline + subhead + CTA +
+ * demo-link placeholder + data footer + scroll cue. See spec §3.4.
+ *
+ * Motion wrappers on critical content were removed 2026-04-18 —
+ * `useReducedMotion()` returns `null` on first paint, and Framer Motion
+ * leaves elements pinned at their `initial` state after the media query
+ * resolves (headless browsers + users with OS-level reduced motion would
+ * see an invisible hero). Only the decorative scroll cue stays motion.
  */
 export function HeroSection() {
   const prefersReducedMotion = useReducedMotion();
-
-  const fadeInUp = (delay: number) => ({
-    initial: { opacity: 0, y: 24 },
-    animate: { opacity: 1, y: 0 },
-    transition: prefersReducedMotion
-      ? { duration: 0 }
-      : { ...springs.smooth, delay },
-  });
 
   return (
     <section
@@ -33,27 +30,30 @@ export function HeroSection() {
         <PentagonGlow size={440} />
       </div>
 
-      <motion.h1
-        className="font-display font-bold text-title tablet:text-marketing-section desktop:text-[80px] text-text-primary text-center max-w-[1040px] leading-[1.05] tracking-[-0.025em]"
-        {...fadeInUp(0.2)}
-      >
+      {/*
+        Critical hero content is intentionally NOT wrapped in `motion.*`.
+        Framer Motion's `useReducedMotion()` hook pins animated elements
+        at their `initial` state when the OS (or headless browsers) report
+        `prefers-reduced-motion: reduce`. We tried the `initial={false}`
+        collapse but Framer's global reduce mode still suppressed the
+        final paint for headless + some user machines, so the hero copy
+        disappeared entirely. Keeping these as plain tags guarantees the
+        headline, subhead, CTA, and data footer ALWAYS render — the
+        decorative scroll cue below stays motion because missing it is
+        harmless.
+      */}
+      <h1 className="font-display font-bold text-title tablet:text-marketing-section desktop:text-[80px] text-text-primary text-center max-w-[1040px] leading-[1.05] tracking-[-0.025em]">
         A college degree isn't a destination.
         <br />
         It's a starting position.
-      </motion.h1>
+      </h1>
 
-      <motion.p
-        className="mt-6 font-body text-body tablet:text-body-lg text-text-secondary text-center max-w-[560px] leading-normal"
-        {...fadeInUp(0.35)}
-      >
+      <p className="mt-6 font-body text-body tablet:text-body-lg text-text-secondary text-center max-w-[560px] leading-normal">
         See where your degree actually leads. 700K rows of public data, zero
         admissions brochure.
-      </motion.p>
+      </p>
 
-      <motion.div
-        className="mt-10 flex flex-col tablet:flex-row items-center justify-center gap-6"
-        {...fadeInUp(0.5)}
-      >
+      <div className="mt-10 flex flex-col tablet:flex-row items-center justify-center gap-6">
         <a
           id="landing-hero-cta"
           href="/app"
@@ -71,24 +71,23 @@ export function HeroSection() {
         >
           Watch the 3-min demo →
         </span>
-      </motion.div>
+      </div>
 
-      <motion.p
-        className="absolute bottom-16 font-data text-micro text-text-muted text-center tracking-widest opacity-45 leading-relaxed px-4"
-        {...fadeInUp(0.7)}
-      >
+      <p className="absolute bottom-16 font-data text-micro text-text-muted text-center tracking-widest opacity-45 leading-relaxed px-4">
         700K rows · 280 DQ rules · 7 public datasets
         <br />
         Every number has a receipt.
-      </motion.p>
+      </p>
 
       <motion.div
         className="absolute bottom-6 w-px h-8 bg-gradient-to-b from-border-subtle to-transparent"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: prefersReducedMotion ? 0.3 : [0.15, 0.3, 0.15] as number[] }}
+        initial={prefersReducedMotion ? false : { opacity: 0 }}
+        animate={{
+          opacity: prefersReducedMotion ? 0.3 : ([0.15, 0.3, 0.15] as number[]),
+        }}
         transition={
           prefersReducedMotion
-            ? { duration: 0 }
+            ? undefined
             : { duration: 2, delay: 1.5, ease: "easeInOut", repeat: Infinity }
         }
         aria-hidden
