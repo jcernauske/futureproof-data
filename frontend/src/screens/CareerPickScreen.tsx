@@ -123,15 +123,26 @@ export function CareerPickScreen() {
     };
   }, [major, tieredCareers, socCodes]);
 
-  function handleSelect(career: CareerOutcome) {
-    setSelectedCareer(career);
-  }
-
+  // Proposal A redesign: the card is a pure "explore" gesture — click
+  // populates the lineage sheet. The student commits (and then moves
+  // forward) from inside the sheet's primary CTA. Previous behavior had
+  // a separate pill inside the card that few real users discovered.
   function handleExplore(career: CareerOutcome) {
     setLineageCareer(career);
   }
 
-  function handleBuild() {
+  // Commit the lineage-displayed career as the pick. Sheet auto-promotes
+  // to medium so the "See my build" state is visible above the fold.
+  function handlePick(career: CareerOutcome) {
+    setSelectedCareer(career);
+  }
+
+  // Clear the pick (used by the persistent "You picked" chip's × glyph).
+  function handleUnpick() {
+    setSelectedCareer(null);
+  }
+
+  function handleGo() {
     if (!selectedCareer) return;
     navigate("/reveal");
   }
@@ -171,6 +182,48 @@ export function CareerPickScreen() {
             Gemma analyzed your program and grouped career paths by how common
             they are for graduates like you.
           </motion.p>
+          {/* Persistent "You picked" chip — visible from anywhere on the page
+              so the student never loses sight of their current commitment.
+              Positioned in document flow (not global chrome) to keep the
+              app header pattern intact per DESIGN.md §Application Header. */}
+          {selectedCareer ? (
+            <motion.div
+              className="mt-4 flex items-center"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springs.smooth, delay: 0.05 }}
+            >
+              <div className="inline-flex items-center gap-2 bg-accent-thrive/15 border border-accent-thrive/40 rounded-full pl-3 pr-1 py-1">
+                <span className="font-data text-micro font-bold uppercase tracking-[2px] text-accent-thrive">
+                  Picked
+                </span>
+                <span className="font-body text-small font-semibold text-text-primary">
+                  {selectedCareer.occupation_title}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Clear pick"
+                  onClick={handleUnpick}
+                  className="ml-1 w-6 h-6 rounded-full inline-flex items-center justify-center text-accent-thrive hover:bg-accent-thrive/20 cursor-pointer transition-colors duration-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-focus-ring)]"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            </motion.div>
+          ) : null}
         </div>
 
         {/* Loading state */}
@@ -211,8 +264,7 @@ export function CareerPickScreen() {
                 label="Common"
                 description={TIER_DESCRIPTIONS.common}
                 careers={tieredCareers.common}
-                selectedSoc={selectedCareer?.soc_code ?? null}
-                onSelect={handleSelect}
+                pickedSoc={selectedCareer?.soc_code ?? null}
                 onExplore={handleExplore}
               />
             </motion.div>
@@ -222,8 +274,7 @@ export function CareerPickScreen() {
                 label="Less Common"
                 description={TIER_DESCRIPTIONS.less_common}
                 careers={tieredCareers.less_common}
-                selectedSoc={selectedCareer?.soc_code ?? null}
-                onSelect={handleSelect}
+                pickedSoc={selectedCareer?.soc_code ?? null}
                 onExplore={handleExplore}
               />
             </motion.div>
@@ -233,42 +284,20 @@ export function CareerPickScreen() {
                 label="Stretch"
                 description={TIER_DESCRIPTIONS.stretch}
                 careers={tieredCareers.stretch}
-                selectedSoc={selectedCareer?.soc_code ?? null}
-                onSelect={handleSelect}
+                pickedSoc={selectedCareer?.soc_code ?? null}
                 onExplore={handleExplore}
               />
             </motion.div>
           </motion.div>
         )}
-
-        {/* CTA — always inline below the tiers; never fixed. */}
-        {tieredCareers && (
-          <div className="col-span-12 text-center mt-10">
-            <motion.button
-              id="btn-build-career"
-              aria-label="Build your career path"
-              disabled={!selectedCareer}
-              onClick={handleBuild}
-              className={`font-display font-semibold text-cta h-12 px-7 rounded-lg transition-all duration-normal ${
-                selectedCareer
-                  ? "bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive"
-                  : "bg-bp-surface text-text-muted cursor-not-allowed opacity-60"
-              }`}
-              whileTap={selectedCareer ? { scale: 0.97 } : undefined}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springs.smooth, delay: 0.5 }}
-            >
-              See my build ✦
-            </motion.button>
-            <p className="font-body text-small text-text-muted mt-2">
-              You can always come back and pick a different path.
-            </p>
-          </div>
-        )}
       </PageContainer>
 
-      {/* Bottom lineage sheet — always mounted after tiers resolve */}
+      {/* Bottom lineage sheet — always mounted after tiers resolve.
+          Proposal A: the sheet now owns the commit + forward-nav CTAs
+          (Pick this path → / See my build ✦). The document-bottom
+          "See my build" CTA was removed because it was discoverable
+          below the fold behind the sheet — see design visionary's
+          diagnosis. */}
       {tieredCareers && (
         <CareerLineageSheet
           soc={lineageCareer?.soc_code ?? null}
@@ -281,6 +310,9 @@ export function CareerPickScreen() {
             majorText: major.rawText,
             socCodes,
           }}
+          pickedSoc={selectedCareer?.soc_code ?? null}
+          onPick={handlePick}
+          onGo={handleGo}
         />
       )}
     </div>

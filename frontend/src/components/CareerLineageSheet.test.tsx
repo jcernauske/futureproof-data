@@ -150,9 +150,13 @@ function renderSheet(overrides: {
   onDetentChange?: (d: SheetDetent) => void;
   chips?: CareerPickChip[];
   askContext?: { cipcode: string; majorText: string; socCodes: string[] };
+  pickedSoc?: string | null;
+  onPick?: (c: CareerOutcome) => void;
+  onGo?: () => void;
 } = {}) {
-  const onDetentChange =
-    overrides.onDetentChange ?? vi.fn<(d: SheetDetent) => void>();
+  const onDetentChange = overrides.onDetentChange ?? vi.fn();
+  const onPick = overrides.onPick ?? vi.fn();
+  const onGo = overrides.onGo ?? vi.fn();
   const utils = render(
     <CareerLineageSheet
       soc={overrides.soc ?? null}
@@ -167,9 +171,12 @@ function renderSheet(overrides: {
           socCodes: ["19-1029", "13-1071"],
         }
       }
+      pickedSoc={overrides.pickedSoc ?? null}
+      onPick={onPick}
+      onGo={onGo}
     />,
   );
-  return { ...utils, onDetentChange };
+  return { ...utils, onDetentChange, onPick, onGo };
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +279,9 @@ describe("CareerLineageSheet — empty / fetch lifecycle", () => {
           majorText: "CS",
           socCodes: ["15-1252"],
         }}
+        pickedSoc={null}
+        onPick={vi.fn()}
+        onGo={vi.fn()}
       />,
     );
 
@@ -611,6 +621,9 @@ describe("CareerLineageSheet — reduced motion + aria", () => {
           majorText: "CS",
           socCodes: ["15-1252"],
         }}
+        pickedSoc={null}
+        onPick={vi.fn()}
+        onGo={vi.fn()}
       />,
     );
 
@@ -784,5 +797,120 @@ describe("CareerLineageSheet — Ask-Gemma chip integration", () => {
       (call) => call[0].chipId,
     );
     expect(chipIdsCalled).toEqual(["why_no_doctor", "what_does_this_do"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: primary commit CTA (Proposal A redesign)
+// ---------------------------------------------------------------------------
+
+describe("CareerLineageSheet — primary commit CTA", () => {
+  beforeEach(() => {
+    // Every mounting of the sheet with a non-null soc fetches branches;
+    // provide a default empty resolver so CTA-focused tests don't race
+    // on an unmocked branch-fetch promise.
+    mockGetBranchesForSoc.mockResolvedValue([]);
+  });
+
+  it("no CTA when career is null (empty state)", () => {
+    renderSheet({ soc: null, career: null });
+    expect(screen.queryByRole("button", { name: /Pick .* as your path/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /See my build/ })).toBeNull();
+  });
+
+  it("shows 'Pick this path' when displayed career != picked career", () => {
+    const career = makeCareer("13-2051", "Financial Analysts");
+    renderSheet({
+      soc: "13-2051",
+      career,
+      pickedSoc: null,
+    });
+    expect(
+      screen.getByRole("button", {
+        name: /Pick Financial Analysts as your path/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /See my build/ })).toBeNull();
+  });
+
+  it("shows 'See my build' when displayed career IS the picked career", () => {
+    const career = makeCareer("13-2051", "Financial Analysts");
+    renderSheet({
+      soc: "13-2051",
+      career,
+      pickedSoc: "13-2051",
+    });
+    expect(
+      screen.getByRole("button", { name: /See my build/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Pick Financial Analysts as your path/,
+      }),
+    ).toBeNull();
+  });
+
+  it("clicking 'Pick this path' fires onPick with the displayed career", () => {
+    const career = makeCareer("13-2051", "Financial Analysts");
+    const { onPick, onGo } = renderSheet({
+      soc: "13-2051",
+      career,
+      pickedSoc: null,
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Pick Financial Analysts as your path/,
+      }),
+    );
+    expect(onPick).toHaveBeenCalledWith(career);
+    expect(onGo).not.toHaveBeenCalled();
+  });
+
+  it("clicking 'See my build' fires onGo", () => {
+    const career = makeCareer("13-2051", "Financial Analysts");
+    const { onPick, onGo } = renderSheet({
+      soc: "13-2051",
+      career,
+      pickedSoc: "13-2051",
+    });
+    fireEvent.click(screen.getByRole("button", { name: /See my build/ }));
+    expect(onGo).toHaveBeenCalledTimes(1);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("'Pick this path' from compact detent auto-promotes to medium", () => {
+    const career = makeCareer("13-2051", "Financial Analysts");
+    const { onDetentChange } = renderSheet({
+      soc: "13-2051",
+      career,
+      pickedSoc: null,
+      detent: "compact",
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Pick Financial Analysts as your path/,
+      }),
+    );
+    expect(onDetentChange).toHaveBeenCalledWith("medium");
+  });
+
+  it("'Pick this path' from medium detent does NOT change detent", () => {
+    const career = makeCareer("13-2051", "Financial Analysts");
+    const onDetentChange = vi.fn();
+    renderSheet({
+      soc: "13-2051",
+      career,
+      pickedSoc: null,
+      detent: "medium",
+      onDetentChange,
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Pick Financial Analysts as your path/,
+      }),
+    );
+    // onDetentChange may only have been called for other reasons (none here).
+    const detentCalls = onDetentChange.mock.calls.map((c) => c[0]);
+    expect(detentCalls).not.toContain("compact");
   });
 });

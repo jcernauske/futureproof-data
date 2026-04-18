@@ -50,6 +50,16 @@ interface CareerLineageSheetProps {
   chips: CareerPickChip[];
   /** Context fields forwarded to POST /career-pick/ask on chip click. */
   askContext: { cipcode: string; majorText: string; socCodes: string[] };
+  /**
+   * SOC of the student's currently-committed pick. When this matches
+   * ``career.soc_code`` the sheet's primary CTA becomes the forward-nav
+   * "See my build ✦"; otherwise it's "Pick this path →".
+   */
+  pickedSoc: string | null;
+  /** Commit the currently-displayed career as the student's pick. */
+  onPick: (career: CareerOutcome) => void;
+  /** Forward-nav to /reveal. Only fired when the displayed career is the pick. */
+  onGo: () => void;
 }
 
 const DETENT_ORDER: SheetDetent[] = ["compact", "medium", "large"];
@@ -212,6 +222,9 @@ export function CareerLineageSheet({
   onDetentChange,
   chips,
   askContext,
+  pickedSoc,
+  onPick,
+  onGo,
 }: CareerLineageSheetProps) {
   const reducedMotion = useReducedMotion() ?? false;
   const vh = useViewportHeight();
@@ -372,6 +385,24 @@ export function CareerLineageSheet({
     handleChipClick(chip);
   }, [activeChipId, chips, handleChipClick]);
 
+  // Primary commit CTA — the action that moves the student forward.
+  // Two states:
+  //   - Display career is NOT the picked one → "Pick this path" (thrive).
+  //   - Display career IS the picked one    → "See my build" (thrive, go).
+  // Auto-promotes compact → medium on first pick so the newly-committed
+  // state is visible above the sheet edge.
+  const isThisTheirPick =
+    career !== null && pickedSoc !== null && pickedSoc === career.soc_code;
+  const handlePickOrGo = useCallback(() => {
+    if (!career) return;
+    if (isThisTheirPick) {
+      onGo();
+      return;
+    }
+    onPick(career);
+    if (detent === "compact") onDetentChange("medium");
+  }, [career, isThisTheirPick, onGo, onPick, detent, onDetentChange]);
+
   const detentLabel = DETENT_LABEL[detent];
   const detentIndex = DETENT_INDEX[detent];
   const upDisabled = detentIndex === 2;
@@ -485,22 +516,47 @@ export function CareerLineageSheet({
         </div>
       </div>
 
-      {/* Zone 2: Title row */}
+      {/* Zone 2: Title row + primary commit CTA */}
       <div className="px-6 tablet:px-8 py-2">
         <p className="font-data text-micro font-bold uppercase tracking-[2px] text-accent-info mb-1">
           Where this career leads
         </p>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h2
-            id={titleId}
-            aria-live="polite"
-            aria-atomic="true"
-            className="font-body text-subheading font-bold text-text-primary"
-          >
-            {career?.occupation_title ?? "—"}
-          </h2>
-          {branchesLoading && soc !== null ? (
-            <GemmaThinking message="Gemma is loading branches…" size={20} />
+        <div className="flex items-center gap-3 flex-wrap justify-between">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <h2
+              id={titleId}
+              aria-live="polite"
+              aria-atomic="true"
+              className="font-body text-subheading font-bold text-text-primary"
+            >
+              {career?.occupation_title ?? "—"}
+            </h2>
+            {branchesLoading && soc !== null ? (
+              <GemmaThinking message="Gemma is loading branches…" size={20} />
+            ) : null}
+          </div>
+          {career !== null ? (
+            <motion.button
+              type="button"
+              id="btn-sheet-commit"
+              aria-label={
+                isThisTheirPick
+                  ? "See my build — open the full reveal"
+                  : `Pick ${career.occupation_title} as your path`
+              }
+              onClick={handlePickOrGo}
+              whileTap={reducedMotion ? undefined : { scale: 0.97 }}
+              initial={false}
+              animate={{ opacity: 1 }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.15 }}
+              className={`shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-lg font-display font-semibold text-cta cursor-pointer transition-colors duration-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-focus-ring)] ${
+                isThisTheirPick
+                  ? "bg-accent-thrive text-text-inverse hover:brightness-110 shadow-glow-thrive"
+                  : "bg-accent-thrive text-text-inverse hover:brightness-110 shadow-glow-thrive"
+              }`}
+            >
+              {isThisTheirPick ? "See my build ✦" : "Pick this path →"}
+            </motion.button>
           ) : null}
         </div>
       </div>
