@@ -1041,18 +1041,82 @@ Alternative-confirm handoff drops `careers_preview` (the preview was derived fro
 
 ## §7 Test Coverage
 
-**Status:** PENDING
+**Status:** COMPLETE
+**Author:** @test-writer
+**Completed:** 2026-04-18
 
 ### Tests Added
 
-| Test File | Test Name | What It Tests |
-|-----------|-----------|---------------|
+| Test File | Test Name | Priority | What It Tests |
+|-----------|-----------|----------|---------------|
+| `backend/tests/services/test_intent.py` | `test_resolve_intent_high_confidence_returns_empty_alternatives` | P0 | High-tier response round-trips: `confidence="high"`, `alternatives=[]`, `needs_clarification=False`. |
+| `backend/tests/services/test_intent.py` | `test_resolve_intent_medium_confidence_returns_2_to_4_alternatives` | P0 | Medium-tier: `2 <= len(alternatives) <= 4`, every alt has well-formed cip/title, no echo of primary. |
+| `backend/tests/services/test_intent.py` | `test_resolve_intent_low_confidence_sets_needs_clarification` | P0 | Low-tier: `needs_clarification=True`; ≤10 alternatives; fixture's 5 distinct alts survive sanitizer. |
+| `backend/tests/services/test_intent.py` | `test_resolve_intent_clamps_excess_alternatives_to_10` | P0 | Injects 15 well-formed alts; asserts sanitizer clamps to exactly the first 10 in input order. |
+| `backend/tests/services/test_intent.py` | `test_resolve_intent_handles_null_alternatives` | P0 | Gemma returns `"alternatives": null`; service returns `alternatives=None` (not `[]`), no crash. |
+| `backend/tests/services/test_intent.py` | `test_resolve_intent_preserves_audit_flag_across_tiers` | P1 | `playful_warning` on medium and `hard_reject` on high both propagate through `IntentResult.audit_flag` / `audit_message`. |
+| `backend/tests/services/test_intent.py` | `test_sanitize_drops_malformed_cip_codes` | Bonus | Direct sanitizer: mix of valid `XX.XXXX` and malformed (`52.999`, `abc`, `52.02`, empty); only well-formed survive. |
+| `backend/tests/services/test_intent.py` | `test_sanitize_drops_primary_cip_echoed_in_alternatives` | Bonus | Direct sanitizer: Gemma echoes primary CIP as first alt; echo is stripped, genuine alts keep input order. |
+| `frontend/src/components/school/MajorInput.test.tsx` | `renders high-tier card with no alternatives list` | P0 | High tier: "That's right" CTA, no `aria-label="Other close matches"` region, no "best guess" pill. |
+| `frontend/src/components/school/MajorInput.test.tsx` | `renders medium-tier card with alternatives list` | P0 | Medium tier: "Close enough" CTA + pill + alternatives list with 3 buttons using `aria-label="Select {title}"`. |
+| `frontend/src/components/school/MajorInput.test.tsx` | `clicking an alternative triggers onConfirm with that CIP` | P0 | Click "Finance" alt on a Business-primary medium card → `onConfirm` receives `cipCode=52.0801`, `cipTitle="Finance"`, `careersPreview=[]`, `substitutionApplied=false` after the 320ms flash. |
+| `frontend/src/components/school/MajorInput.test.tsx` | `low-tier result renders clarify picker, not match card` | P0 | `needs_clarification=true` → ClarifyContent header + filter input render; no match-card CTAs, no alternatives list. |
+| `frontend/src/components/school/MajorInput.test.tsx` | `medium-tier card with zero alternatives still renders primary` | P1 | Degenerate medium data (§3 D7): caution styling + "Close enough" + "best guess" still render, alternatives region omitted. |
+| `frontend/src/components/school/MajorInput.test.tsx` | `confirm flash fires on alternative click same as primary` | P1 | Click an alt → all other alt buttons + primary CTA + "Not quite" flip to `disabled` during the 320ms flash window. |
+
+### Edge Cases Covered
+
+- [x] Gemma returns 15 alternatives for low tier (over the 10-ceiling contract).
+- [x] Gemma returns `"alternatives": null` instead of an empty list.
+- [x] Gemma hallucinates CIP codes (3-digit suffix, bare string, 2-digit suffix, empty string) — sanitizer filters each.
+- [x] Gemma echoes the primary CIP inside the alternatives array (dedup against primary).
+- [x] Medium tier with empty alternatives array — card renders without blowing up or downgrading to high styling.
+- [x] Audit `playful_warning` on medium tier threads through.
+- [x] Audit `hard_reject` on high tier threads through without mutating `confidence`.
+- [x] Alternative click fires the 320ms flash before `onConfirm` — clicking does NOT synchronously confirm.
+- [x] Alternative confirm drops `careers_preview` + `substitutionApplied` so the student doesn't see the wrong career list.
+- [x] All interactive elements disable during the confirm flash (no double-fire).
 
 ### Test Results
-| Suite | Pass | Fail | Skip | Total |
-|-------|------|------|------|-------|
-| pytest | | | | |
-| vitest | | | | |
+
+| Suite | Pass | Fail | Skip | Total | Notes |
+|-------|------|------|------|-------|-------|
+| pytest (new: `test_intent.py`) | 8 | 0 | 0 | 8 | All P0 + P1 + 2 bonus sanitizer tests passing. |
+| pytest (full backend suite) | 328 | 0 | 0 | 328 | No regressions. |
+| vitest (new: `MajorInput.test.tsx`) | 6 | 0 | 0 | 6 | All P0 + P1 tests passing; no `act()` warnings. |
+| vitest (full frontend suite) | 388 | 2 | 1 | 391 | 2 pre-existing failures in `src/screens/ProfileScreen.test.tsx` — reproducible without this spec's changes (verified by running the suite with `MajorInput.test.tsx` temporarily removed; same 2 failures). Not in this spec's scope. |
+
+### Gaps Identified
+
+- **No integration test for the `/intent/` router end-to-end.** The service-level tests mock `gemma_client.generate` and `mcp_client.get_server`, so the FastAPI router path (`backend/app/routers/intent.py`) is unexercised by these tests. Acceptable for this spec (router was already covered by the live CLI + the existing manual smoke flow), but noted for future hardening.
+- **No test for `_call_gemma_intent`'s trailing-prose stripping.** The new behavior at `intent.py:230–232` (cutting text after the final `}`) is invoked by every test via the sanitizer path, but there is no test that asserts it directly (e.g., Gemma returns `'{"a":1} trailing garbage'`). Low risk — the existing parser tests in `test_gemma_client.py` cover similar territory, and any regression would surface as a `parse_error` in our mocked tests. Flag as P2 follow-up.
+- **No browser/visual test for the 320ms thrive flash motion.** vitest in jsdom cannot observe Framer Motion's `animate={{ boxShadow: ... }}` applying, only the `disabled` flag that rides alongside it. The motion spec (§3 D6) is covered by the design audit (§8) and manual QA, not by automated tests.
+- **Audit mapping is mocked, not round-tripped.** The P1 audit_flag test stubs the audit JSON directly; if `_audit_intent_mapping`'s prompt template drifts, these tests won't catch it. Acceptable — this spec explicitly scopes out audit prompt changes, and the prompt is covered separately by the existing playful_warning CLI smoke.
+
+### Existing Tests Status
+
+§4 "Existing Tests at Risk" classified the following as **Low risk**. All confirmed still passing:
+
+- `frontend/src/screens/SchoolMajorScreen.test.tsx` — 3/3 pass.
+- `frontend/src/components/school/EffortLoansPanel.test.tsx` — 5/5 pass.
+- `backend/tests/services/test_school_lookup.py` — 16/16 pass.
+- All other `backend/tests/services/test_*.py` — pass (see 328/328 above).
+
+### Running the Tests
+
+```bash
+# Just the new backend tests
+cd backend && uv run pytest tests/services/test_intent.py -v
+
+# Full backend suite
+cd backend && uv run pytest
+
+# Just the new frontend tests
+cd frontend && npx vitest run src/components/school/MajorInput.test.tsx
+
+# Full frontend suite (expect 2 pre-existing ProfileScreen failures, unrelated)
+cd frontend && npx vitest run
+```
 
 ---
 
