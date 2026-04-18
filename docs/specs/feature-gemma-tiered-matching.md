@@ -63,6 +63,7 @@ Execute the following workflow:
    - Check off all Success Criteria in §1
    - Update §6, §7, §8
    - Generate report to reports/feature-gemma-tiered-matching-YYYY-MM-DD.md
+   - **Parallel-worktree discipline:** commit all work to the CURRENT branch only. This spec may run concurrently with `docs/specs/screen-career-pick-lineage-sheet.md` in a sibling worktree (per the `Parallel With` metadata row). Do NOT merge to `main`, do NOT `git push`, do NOT create a PR. The orchestrating session integrates branches to `main` after both parallel specs complete.
 ```
 
 ---
@@ -79,6 +80,7 @@ Execute the following workflow:
 | Last Updated | 2026-04-18 |
 | Blocked By | — |
 | Related Specs | `docs/specs/completed/cip-intent-substitution.md`, `docs/specs/completed/spike-gemma-intent-resolution.md`, `docs/specs/completed/spike-gemma-intent-openrouter.md` |
+| Parallel With | `docs/specs/screen-career-pick-lineage-sheet.md` — safe to run concurrently in a sibling git worktree per §0. Expect additive-only merge conflicts on `DESIGN.md` + `docs/mockups/brightpath-design-system-v3.html` at integration time. |
 
 ---
 

@@ -63,6 +63,7 @@ Execute the following workflow:
    - Update §6 Implementation Log, §7 Test Coverage, §8 Reviews.
    - Generate report to reports/screen-career-pick-lineage-sheet-YYYY-MM-DD.md.
    - Move this file to docs/specs/completed/.
+   - **Parallel-worktree discipline:** commit all work to the CURRENT branch only. This spec may run concurrently with `docs/specs/feature-gemma-tiered-matching.md` in a sibling worktree (per the `Parallel With` metadata row). Do NOT merge to `main`, do NOT `git push`, do NOT create a PR. The orchestrating session integrates branches to `main` after both parallel specs complete.
 ```
 
 ---
@@ -91,6 +92,7 @@ Execute the following workflow:
 | Last Updated | 2026-04-18 |
 | Blocked By | — |
 | Related Specs | `docs/specs/completed/screen-career-pick-reveal.md`, `docs/specs/completed/feature-stage3-branch-tree.md` (if present — the Gold-zone spec that created `consumable.career_branches` / `consumable.career_transitions`) |
+| Parallel With | `docs/specs/feature-gemma-tiered-matching.md` — safe to run concurrently in a sibling git worktree per §0. Expect additive-only merge conflicts on `DESIGN.md` + `docs/mockups/brightpath-design-system-v3.html` at integration time. |
 
 ---
 
