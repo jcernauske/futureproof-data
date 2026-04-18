@@ -8,7 +8,7 @@ export function PlaceholderScreen({ label }: { label: string }) {
         <div className="min-h-[calc(100vh-56px)] flex flex-col items-center justify-center gap-6">
           <p className="font-body text-heading text-text-secondary">{label}</p>
           <Link
-            to="/"
+            to="/app"
             className="font-body text-body text-accent-thrive underline underline-offset-4"
           >
             Back to start

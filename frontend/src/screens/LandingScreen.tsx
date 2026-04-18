@@ -61,8 +61,8 @@ export function LandingScreen() {
           <PentagonGlow />
         </motion.div>
 
-        <motion.div className="text-center max-w-[600px] mb-3" variants={staggerItem}>
-          <h1 className="font-display text-heading tablet:text-title font-bold text-text-primary leading-snug">
+        <motion.div className="text-center max-w-[720px] mb-3" variants={staggerItem}>
+          <h1 className="font-display text-hero tablet:text-hero-tablet desktop:text-hero-desktop font-bold text-text-primary leading-[1.1]">
             A college degree isn't a destination.
             <br />
             It's a <span className="gradient-tagline">starting position.</span>
@@ -101,7 +101,7 @@ export function LandingScreen() {
           style={{ opacity: 0.4 }}
           variants={staggerItem}
         >
-          700K+ data points · 280+ quality rules · 6 public datasets
+          700K rows · 280 DQ rules · 7 public datasets
           <br />
           Every number has a receipt.
         </motion.p>

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Landing } from "@/pages/Landing";
 import { LandingScreen } from "@/screens/LandingScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SchoolMajorScreen } from "@/screens/SchoolMajorScreen";
@@ -12,13 +13,14 @@ import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { GlobalChrome } from "@/components/ui/GlobalChrome";
 
-function App() {
+export function AppRoutes() {
   return (
-    <BrowserRouter>
+    <>
       <GlobalChrome />
       <AppHeader />
       <Routes>
-        <Route path="/" element={<LandingScreen />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/app" element={<LandingScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/school" element={<SchoolMajorScreen />} />
         <Route path="/career-pick" element={<CareerPickScreen />} />
@@ -34,6 +36,14 @@ function App() {
           }
         />
       </Routes>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

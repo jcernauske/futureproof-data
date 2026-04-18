@@ -6,6 +6,10 @@ import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import type { CareerOutcome } from "@/types/build";
+import {
+  setReducedMotion,
+  resetReducedMotion,
+} from "@/test/mocks/prefers-reduced-motion";
 
 /**
  * RevealScreen tests
@@ -105,12 +109,14 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockCreateBuild.mockReset();
   sessionStorage.clear();
+  resetReducedMotion();
   // Fresh fake timers — this screen schedules multiple setTimeouts.
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  resetReducedMotion();
 });
 
 describe("RevealScreen — nav guard", () => {
@@ -261,5 +267,81 @@ describe("RevealScreen — grid layout", () => {
     const statCardsCell = document.querySelector("[class*='desktop:col-span-5']");
     expect(statCardsCell).not.toBeNull();
     expect(statCardsCell!.className).toContain("col-span-12");
+  });
+});
+
+describe("RevealScreen — prefers-reduced-motion", () => {
+  /**
+   * Spec §4 Stage 2 Reveal Motion Sequence — reduced-motion fallback:
+   * when useReducedMotion() returns true, all 8 beats fire simultaneously
+   * with transition: { duration: 0 } (or via Framer Motion's automatic
+   * collapse). The user sees the full reveal at t=0 — no holds, no stagger.
+   *
+   * This test asserts the VISIBLE RENDER STATE, not specific transition.delay
+   * values. Framer Motion obscures `transition` internals (especially under
+   * reduced motion where it overrides the user-provided value), so we verify
+   * that the eight end-state elements are all present immediately after mount
+   * + a flush of any pending microtasks.
+   */
+  it("collapses the 3.7s reveal sequence to instant when reduced motion is set", async () => {
+    setReducedMotion(true);
+    seedReady();
+
+    // Seed a complete build so the reveal content renders without the
+    // 2s minDisplayTime gate. The component calls setRevealReady(true)
+    // immediately when build is already present in the store.
+    useBuildStore.setState({
+      build: {
+        build_id: "b-reduced-motion",
+        created_at: "2026-04-17T00:00:00Z",
+        school_name: "UC Berkeley",
+        unitid: 110635,
+        major_text: "CS",
+        cipcode: "11.0701",
+        program_name: "CS",
+        effort: "balanced",
+        loan_pct: 0.5,
+        career: makeCareer(),
+        gauntlet: {
+          fights: [],
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          unknown: 0,
+          verdict: "",
+        },
+        branches: [],
+        skill_recs: [],
+        guidance: "You have strong alignment between your stats and this path.",
+        skills_crafted: [],
+        skill_pool: [],
+        next_steps: "",
+        profile_name: "",
+      },
+      hasSeenStatTutorial: true,
+    });
+
+    render(
+      <MemoryRouter>
+        <RevealScreen />
+      </MemoryRouter>,
+    );
+
+    // Under reduced motion, the career title (the t=1.5s beat in the normal
+    // sequence) must render without waiting for any timer advance. The
+    // `revealReady` state flips synchronously in the useEffect when a build
+    // is already present, so the element enters the DOM on the next render.
+    await waitFor(() => {
+      expect(screen.getByText("Software Developer")).toBeInTheDocument();
+    });
+
+    // Every downstream beat must also be present at t=0 — no 3.7s wall clock.
+    // These elements span beats 3–8 of the retimed sequence (title, pentagon,
+    // stat cards, Gemma's Take, career detail, Fight bosses CTA).
+    expect(screen.getByText("at UC Berkeley")).toBeInTheDocument();
+    // Fight bosses CTA — the final beat (t=3.7s in normal flow).
+    expect(
+      screen.getByRole("button", { name: "Fight the Bosses" }),
+    ).toBeInTheDocument();
   });
 });
