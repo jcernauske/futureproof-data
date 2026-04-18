@@ -75,14 +75,17 @@ The data pipeline is built on [Brightsmith](https://github.com/jcernauske/bright
 
 ## Data Sources
 
-| Source | Status | Taxonomy |
-|--------|--------|----------|
-| College Scorecard (Field of Study) | COMPLETE | CIP codes |
-| BLS Occupational Outlook Handbook | COMPLETE | SOC codes |
-| O*NET Task-Level Data | COMPLETE | SOC codes |
-| CIP-SOC Crosswalk | COMPLETE | CIP ↔ SOC |
-| Karpathy AI Exposure Scores | COMPLETE | SOC codes |
-| BEA Regional Price Parities | In Progress | FIPS codes |
+| Source | Taxonomy |
+|--------|----------|
+| College Scorecard (Field of Study + Institution) | CIP codes, IPEDS |
+| BLS Occupational Outlook Handbook | SOC codes |
+| O*NET Task & Work Context | SOC codes |
+| CIP-SOC Crosswalk | CIP ↔ SOC |
+| Karpathy AI Exposure Scores | SOC codes |
+| Anthropic Economic Index | SOC codes |
+| BEA Regional Price Parities | FIPS codes |
+
+Source-level spec status lives in `docs/specs/completed/` (completed) and `docs/specs/` (active). Do not track status here.
 
 ## Gold Zone Tables
 
@@ -93,17 +96,18 @@ import duckdb
 con = duckdb.connect("data/futureproof.duckdb", read_only=True)
 ```
 
-| Table | Rows | Powers |
-|-------|------|--------|
-| `consumable.career_outcomes` | 69,947 | ERN, ROI, effort slider |
-| `consumable.occupation_profiles` | 832 | GRW, Ceiling boss, Market boss |
-| `consumable.onet_work_profiles` | 798 | HMN, Burnout boss |
-| `consumable.career_transitions` | 15,944 | Stage 3 branching graph |
-| `consumable.program_career_paths` | 626,406 | THE CORE TABLE — school+major→career with all stats/bosses |
-| `consumable.career_branches` | 15,944 | Stage 3 branches with stat deltas |
-| `consumable.ai_exposure` | 342 | RES stat, Fight AI boss |
+| Table | Powers |
+|-------|--------|
+| `consumable.career_outcomes` | ERN, ROI, effort slider |
+| `consumable.occupation_profiles` | GRW, Ceiling boss, Market boss |
+| `consumable.onet_work_profiles` | HMN, Burnout boss |
+| `consumable.career_transitions` | Stage 3 branching graph |
+| `consumable.program_career_paths` | THE CORE TABLE — school+major→career with all stats/bosses |
+| `consumable.career_branches` | Stage 3 branches with stat deltas |
+| `consumable.ai_exposure` | RES stat, Fight AI boss |
+| `consumable.regional_price_parities` | Cost-of-living adjustment by state |
 
-Pipeline stats: 700K+ rows, 280+ DQ rules, 500+ tests, 7 data contracts, 80+ business terms, chaos monkey hardened.
+Row counts, DQ-rule counts, and test counts are not tracked in this file — query the DuckDB directly or read the corresponding spec in `docs/specs/completed/`. Marketing-facing scale claims live in `docs/reference/voice-guide.md`.
 
 ## MCP Server
 

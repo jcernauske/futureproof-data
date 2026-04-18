@@ -22,9 +22,9 @@ Summary reminder (full rules live in the voice guide):
 
 1. **Read `docs/reference/voice-guide.md`** — voice, vocabulary, anti-patterns
 2. **Read `docs/futureproof_hackathon_prd_v8.md`** — "Ships / Ships If Time Permits / Does Not Ship" is the ground truth for what we can claim
-3. **Read `CLAUDE.md`** for tech stack, data sources, and Gold Zone table status
+3. **Read `CLAUDE.md`** for tech stack, data sources, and the list of Gold Zone tables
 4. **Check `docs/specs/` and `docs/specs/completed/`** for actual implementation status of features you're about to describe
-5. **Verify dataset numbers** against CLAUDE.md Gold Zone tables (69,947 career outcomes, 626,406 program career paths, etc.)
+5. **Verify dataset numbers against live data** — `data/futureproof.duckdb` is authoritative. Query `SELECT COUNT(*) FROM consumable.<table>` directly, or read the authoritative count from the Gold-zone spec in `docs/specs/completed/` that produced the table. Never cite row counts from CLAUDE.md — it doesn't track them.
 6. **Never trust memory on feature status** — open the relevant spec and confirm
 
 If a claim can't survive contact with the codebase, it doesn't ship.
@@ -78,7 +78,7 @@ The three narrative spines (equity, Ollama, receipts) are defined in the voice g
 ### When reviewing copy:
 Go section by section. For each claim, cross-reference:
 - Feature claim → spec + implementation
-- Data claim → CLAUDE.md Gold Zone table counts
+- Data claim → live count from `data/futureproof.duckdb` or the authoritative Gold-zone spec in `docs/specs/completed/`
 - Performance claim → actual measured numbers, never estimated
 - Track fit → does this belong in this audience's context?
 
