@@ -22,8 +22,12 @@ export function TeamSection() {
   return (
     <section
       id="landing-section-team"
-      className="border-t border-border-subtle px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-32"
+      className="relative px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-24"
     >
+      <div
+        aria-hidden
+        className="absolute left-1/2 top-0 h-[80px] w-px -translate-x-1/2 bg-gradient-to-b from-border-subtle to-transparent"
+      />
       <div className="mx-auto max-w-[640px] text-center">
         <motion.h2
           className="font-display font-bold text-heading text-text-primary"

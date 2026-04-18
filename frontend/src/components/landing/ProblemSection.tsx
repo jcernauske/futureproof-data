@@ -23,8 +23,18 @@ export function ProblemSection() {
   return (
     <section
       id="landing-section-problem"
-      className="border-t border-border-subtle px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-32"
+      className="relative border-t border-border-subtle px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-32"
     >
+      {/* Tier-2 top-center atmospheric glow — typography-only section keeps
+          the glow neutral (white-thin) per visual critique §3 item 22. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[120px]"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 100% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 65%)",
+        }}
+      />
       <div className="mx-auto max-w-[960px] text-center">
         <motion.h2
           className="font-display font-bold text-heading tablet:text-title desktop:text-marketing-section text-text-primary leading-[1.15] tracking-tight"

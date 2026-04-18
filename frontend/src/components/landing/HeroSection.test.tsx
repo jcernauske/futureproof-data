@@ -42,10 +42,13 @@ describe("HeroSection", () => {
     expect(cta).not.toBeNull();
     expect(cta?.textContent?.replace(/\s+/g, " ").trim()).toBe("Start ✦");
 
-    // Secondary demo link — removed per staff-engineer Finding 1 until the
-    // video destination exists (see §11 Follow-ups). The spec's
-    // `landing-hero-demo-link` identifier returns in week 3 with the video.
-    expect(document.getElementById("landing-hero-demo-link")).toBeNull();
+    // Secondary demo link re-introduced per visual critique §3 item 3 as a
+    // disabled placeholder until the week-3 video ships. Must render but
+    // carry aria-disabled so assistive tech reports it correctly.
+    const demoLink = document.getElementById("landing-hero-demo-link");
+    expect(demoLink).not.toBeNull();
+    expect(demoLink?.getAttribute("aria-disabled")).toBe("true");
+    expect(demoLink?.textContent).toContain("Watch the 3-min demo");
 
     // Data footer — the 7 public datasets claim is load-bearing.
     expect(
@@ -66,12 +69,18 @@ describe("HeroSection", () => {
     );
   });
 
-  it("does not render the secondary demo link while video URL is pending (§11 follow-up)", () => {
+  it("secondary demo link renders as disabled placeholder with aria-label", () => {
     render(<HeroSection />);
-    // Staff-engineer Finding 1 remediation: the link was removed because
-    // `#video` was a dead in-page anchor. Re-add when the ship-plan
-    // week-3 video spec lands a real destination.
-    expect(document.getElementById("landing-hero-demo-link")).toBeNull();
+    // Per visual critique §3 item 3: the single-button hero read as MVP
+    // placeholder. Re-introduced as aria-disabled span until the week-3
+    // video lands a real destination.
+    const demoLink = document.getElementById("landing-hero-demo-link");
+    expect(demoLink).not.toBeNull();
+    expect(demoLink?.tagName).toBe("SPAN");
+    expect(demoLink?.getAttribute("aria-disabled")).toBe("true");
+    expect(demoLink?.getAttribute("aria-label")).toBe(
+      "Watch the 3-minute demo — coming soon",
+    );
   });
 
   it("respects prefers-reduced-motion — pentagon drift and scroll cue bob are suspended", () => {

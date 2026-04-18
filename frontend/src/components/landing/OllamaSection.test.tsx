@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { OllamaSection } from "./OllamaSection";
 import { resetReducedMotion } from "@/test/mocks/prefers-reduced-motion";
@@ -97,62 +97,29 @@ describe("OllamaSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("laptop illustration renders with spec identifier when asset is available", () => {
+  it("plush-laptop illustration slot is not rendered (replaced by spec callout)", () => {
     render(<OllamaSection />);
-    // By default laptopAvailable starts true, so the laptop column renders
-    // immediately. The async `new Image()` probe may or may not flip it to
-    // false in jsdom depending on how Image is stubbed — but at initial
-    // render the element must be present.
-    const laptop = document.getElementById("landing-ollama-laptop");
-    expect(laptop).not.toBeNull();
-    expect(laptop?.getAttribute("alt")).toBe(
-      "Laptop displaying FutureProof's pentagon constellation.",
-    );
+    // Per visual critique §3 item 15 option (b): rather than ship an empty
+    // third column waiting for an illustration that didn't land this cycle,
+    // the slot now carries a receipt-styled hardware-spec callout. The
+    // `landing-ollama-laptop` id returns if/when the SVG ships (spec §11
+    // follow-up tracks the re-add).
+    expect(document.getElementById("landing-ollama-laptop")).toBeNull();
   });
 
-  it("falls back gracefully when plush-laptop asset fires onerror", async () => {
-    // Stub global Image so the probe in useEffect synchronously fires onerror.
-    // jsdom's Image does not load real assets, so we hijack the setter chain.
-    class FailingImage {
-      public onerror: (() => void) | null = null;
-      public onload: (() => void) | null = null;
-      private _src = "";
-      set src(value: string) {
-        this._src = value;
-        // Schedule onerror in the next microtask so the component has time
-        // to attach its handler.
-        queueMicrotask(() => {
-          this.onerror?.();
-        });
-      }
-      get src() {
-        return this._src;
-      }
-    }
-
-    const originalImage = globalThis.Image;
-    // @ts-expect-error — test stub, narrower than Image's real API.
-    globalThis.Image = FailingImage;
-
-    try {
-      await act(async () => {
-        render(<OllamaSection />);
-      });
-
-      // After the onerror fires, the laptop column collapses — the img
-      // element with spec identifier must unmount.
-      await waitFor(() => {
-        expect(
-          document.getElementById("landing-ollama-laptop"),
-        ).toBeNull();
-      });
-
-      // Terminal and body copy remain — the section degrades cleanly,
-      // not catastrophically.
-      expect(document.getElementById("landing-ollama-terminal")).not.toBeNull();
-      expect(screen.getByText(/ollama pull gemma4:e4b/)).toBeInTheDocument();
-    } finally {
-      globalThis.Image = originalImage;
-    }
+  it("hardware-spec callout renders in place of the laptop slot", () => {
+    render(<OllamaSection />);
+    const specs = document.getElementById("landing-ollama-specs");
+    expect(specs).not.toBeNull();
+    expect(specs?.tagName).toBe("ASIDE");
+    // Confirm the key hardware-claim data points render — these are the
+    // receipts that carry the credibility the illustration would have.
+    expect(screen.getByText(/Runs locally on/i)).toBeInTheDocument();
+    expect(screen.getByText("Apple Silicon")).toBeInTheDocument();
+    expect(screen.getByText(/M1 · M2 · M3 · M4/)).toBeInTheDocument();
+    expect(screen.getByText(/8.*GB minimum/)).toBeInTheDocument();
+    // "gemma4:e4b" appears in both the terminal and the callout — scope
+    // to the callout to avoid multi-match.
+    expect(specs?.textContent).toContain("gemma4:e4b");
   });
 });

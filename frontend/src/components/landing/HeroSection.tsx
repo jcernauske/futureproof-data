@@ -24,24 +24,17 @@ export function HeroSection() {
       id="landing-section-hero"
       className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-32"
     >
-      <motion.div
-        className="mb-10 tablet:mb-12"
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : { y: [0, -10, 0] as number[] }
-        }
-        transition={
-          prefersReducedMotion
-            ? undefined
-            : { duration: 7, ease: "easeInOut", repeat: Infinity }
-        }
-      >
-        <PentagonGlow size={320} />
-      </motion.div>
+      {/* PentagonGlow owns its own drift + breathe internally — do NOT
+          wrap in a second motion.div or the two animations compound.
+          Responsive scale (0.68/0.82/1.0) lets the component ship at its
+          max 440px SVG viewbox on desktop and scale down cleanly on
+          smaller viewports. Per visual critique §3 item 1. */}
+      <div className="mb-10 tablet:mb-12 scale-[0.68] tablet:scale-[0.82] desktop:scale-100 origin-center">
+        <PentagonGlow size={440} />
+      </div>
 
       <motion.h1
-        className="font-display font-bold text-hero tablet:text-marketing-section desktop:text-marketing-hero text-text-primary text-center max-w-[900px] leading-[1.05] tracking-tight"
+        className="font-display font-bold text-title tablet:text-marketing-section desktop:text-[80px] text-text-primary text-center max-w-[1040px] leading-[1.05] tracking-[-0.025em]"
         {...fadeInUp(0.2)}
       >
         A college degree isn't a destination.
@@ -58,7 +51,7 @@ export function HeroSection() {
       </motion.p>
 
       <motion.div
-        className="mt-10 flex justify-center"
+        className="mt-10 flex flex-col tablet:flex-row items-center justify-center gap-6"
         {...fadeInUp(0.5)}
       >
         <a
@@ -69,6 +62,15 @@ export function HeroSection() {
         >
           Start <span className="opacity-70">✦</span>
         </a>
+        <span
+          id="landing-hero-demo-link"
+          aria-label="Watch the 3-minute demo — coming soon"
+          aria-disabled="true"
+          className="font-body text-body text-text-muted opacity-60 cursor-not-allowed select-none"
+          title="Demo video ships week 3 — see §11 Follow-ups"
+        >
+          Watch the 3-min demo →
+        </span>
       </motion.div>
 
       <motion.p
