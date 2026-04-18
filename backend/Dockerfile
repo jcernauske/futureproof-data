@@ -17,9 +17,17 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
+# Brightsmith is a private repo. Railway passes the GITHUB_TOKEN service
+# variable as a build arg whenever the Dockerfile declares a matching ARG.
+# We rewrite https://github.com URLs to embed the token via git config so
+# both the explicit pip install below AND the later `pip install -e ./backend`
+# (which re-resolves the brightsmith dep from pyproject.toml) authenticate.
+ARG GITHUB_TOKEN
+
 # Install backend deps first for cache reuse
 COPY backend/pyproject.toml backend/pyproject.toml
-RUN pip install --upgrade pip \
+RUN git config --global "url.https://${GITHUB_TOKEN}@github.com/.insteadOf" "https://github.com/" \
+    && pip install --upgrade pip \
     && pip install fastapi 'uvicorn[standard]' pydantic duckdb playwright jinja2 \
        openai python-dotenv rich pyyaml \
        'brightsmith @ git+https://github.com/jcernauske/brightsmith.git'
