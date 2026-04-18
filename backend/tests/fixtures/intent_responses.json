@@ -1,0 +1,68 @@
+{
+  "high": {
+    "matched_cip": "51.2308",
+    "matched_title": "Physical Therapy/Therapist",
+    "confidence": "high",
+    "reasoning": "The input 'pre-PT' is the universally-understood colloquial shorthand for a Physical Therapy preparatory track, which resolves unambiguously to 51.2308.",
+    "parent_cip": "",
+    "alternatives": []
+  },
+  "medium": {
+    "matched_cip": "52.0201",
+    "matched_title": "Business Administration and Management, General",
+    "confidence": "medium",
+    "reasoning": "'business' is a well-known umbrella term that commonly points at Business Administration but frequently means Finance, Marketing, or Entrepreneurship depending on the student's actual interest.",
+    "parent_cip": "52.02",
+    "alternatives": [
+      {
+        "cip": "52.0801",
+        "title": "Finance, General",
+        "why": "core markets and capital allocation"
+      },
+      {
+        "cip": "52.1401",
+        "title": "Marketing/Marketing Management, General",
+        "why": "how you grow a customer base"
+      },
+      {
+        "cip": "52.0701",
+        "title": "Entrepreneurship/Entrepreneurial Studies",
+        "why": "starting and running your own venture"
+      }
+    ]
+  },
+  "low": {
+    "matched_cip": "19.0101",
+    "matched_title": "Family and Consumer Sciences/Human Sciences, General",
+    "confidence": "low",
+    "reasoning": "'helping people' is too broad to stake a confident primary match — it could map to nursing, social work, psychology, or education.",
+    "parent_cip": "",
+    "alternatives": [
+      {
+        "cip": "51.3801",
+        "title": "Registered Nursing/Registered Nurse",
+        "why": "direct clinical care"
+      },
+      {
+        "cip": "44.0701",
+        "title": "Social Work",
+        "why": "community-level support"
+      },
+      {
+        "cip": "42.0101",
+        "title": "Psychology, General",
+        "why": "understanding how minds work"
+      },
+      {
+        "cip": "13.0101",
+        "title": "Education, General",
+        "why": "teaching and mentoring"
+      },
+      {
+        "cip": "51.0000",
+        "title": "Health Professions and Related Clinical Sciences",
+        "why": "broad allied-health track"
+      }
+    ]
+  }
+}

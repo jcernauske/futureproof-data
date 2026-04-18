@@ -76,23 +76,30 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
     resolveIntent(text);
   }
 
-  function handleConfirm() {
+  function handleConfirm(
+    override?: { matched_cip: string; matched_title: string },
+  ) {
     if (!intentResult) return;
+
+    const cipCode = override?.matched_cip ?? intentResult.matched_cip;
+    const cipTitle = override?.matched_title ?? intentResult.matched_title;
 
     apiPost("/intent/confirm", {
       school_name: school.name,
       unitid: school.unitid,
       major_text: rawText.trim(),
-      matched_cip: intentResult.matched_cip,
-      matched_title: intentResult.matched_title,
+      matched_cip: cipCode,
+      matched_title: cipTitle,
     }).catch(() => {});
 
     onConfirm({
-      cipCode: intentResult.matched_cip,
-      cipTitle: intentResult.matched_title,
+      cipCode,
+      cipTitle,
       rawText: rawText.trim(),
-      careersPreview: intentResult.careers_preview,
-      substitutionApplied: intentResult.parent_cip !== "",
+      // Career preview was derived from the primary match; when the student
+      // picks an alternative we drop it rather than show the wrong list.
+      careersPreview: override ? [] : intentResult.careers_preview,
+      substitutionApplied: override ? false : intentResult.parent_cip !== "",
     });
   }
 
@@ -192,7 +199,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
             className={`mt-4 bg-bp-mid rounded-xl p-6 border border-[rgba(255,255,255,0.5)] border-l-[3px] ${
               phase === "clarify"
                 ? "border-l-accent-info animate-[card-breathe-info_4s_ease-in-out_infinite]"
-                : intentResult.confidence === "low"
+                : intentResult.confidence !== "high"
                   ? "border-l-accent-caution animate-[card-breathe-caution_4s_ease-in-out_infinite]"
                   : "border-l-accent-insight animate-[card-breathe_4s_ease-in-out_infinite]"
             }`}
@@ -294,11 +301,16 @@ function MatchContent({
 }: {
   intentResult: IntentResult;
   rawText: string;
-  onConfirm: () => void;
+  onConfirm: (override?: { matched_cip: string; matched_title: string }) => void;
   onNotQuite: () => void;
 }) {
-  const isLowConfidence = intentResult.confidence === "low";
+  // Frontend tier split: "high" is confident; everything else wears the caution
+  // palette and — when alternatives exist — renders them inline. The backend's
+  // routing gate still uses `confidence === "low"` (see intent.py
+  // resolve_intent); this flag is purely cosmetic on the medium/high branch.
+  const isUncertain = intentResult.confidence !== "high";
   const [confirming, setConfirming] = useState(false);
+  const [confirmingAltCip, setConfirmingAltCip] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -308,19 +320,40 @@ function MatchContent({
   }, []);
 
   function handleConfirmClick() {
-    if (confirming) return;
+    if (confirming || confirmingAltCip) return;
     setConfirming(true);
     // Brief reward flash (title + CTA glow thrive) before handing off.
     confirmTimerRef.current = window.setTimeout(() => onConfirm(), 320);
   }
 
-  // Gemma matches wear their voice in color: insight by default, caution when
-  // confidence is low, thrive briefly on confirm (the "you chose well" moment).
+  function handleAlternativePick(alt: {
+    cip: string;
+    title: string;
+    why: string;
+  }) {
+    if (confirming || confirmingAltCip) return;
+    setConfirmingAltCip(alt.cip);
+    confirmTimerRef.current = window.setTimeout(
+      () => onConfirm({ matched_cip: alt.cip, matched_title: alt.title }),
+      320,
+    );
+  }
+
+  const ctaDisabled = confirming || confirmingAltCip !== null;
+
+  // Gemma matches wear their voice in color: insight when confident, caution
+  // when uncertain, thrive briefly on confirm (the "you chose well" moment).
   const titleColor = confirming
     ? "var(--color-accent-thrive)"
-    : isLowConfidence
+    : isUncertain
       ? "var(--color-accent-caution)"
       : "var(--color-accent-insight)";
+
+  const hasAlternatives =
+    isUncertain &&
+    intentResult.alternatives !== null &&
+    intentResult.alternatives !== undefined &&
+    intentResult.alternatives.length > 0;
 
   return (
     <motion.div
@@ -335,7 +368,7 @@ function MatchContent({
         <span className="text-small text-text-muted">
           Gemma matched "<span
             className={`font-semibold ${
-              isLowConfidence ? "text-accent-caution" : "text-accent-insight"
+              isUncertain ? "text-accent-caution" : "text-accent-insight"
             }`}
           >{rawText}</span>"
         </span>
@@ -359,7 +392,7 @@ function MatchContent({
           <span className="font-data text-data-sm text-text-muted">
             CIP {intentResult.matched_cip}
           </span>
-          {isLowConfidence && (
+          {isUncertain && (
             <span className="inline-flex items-center bg-[rgba(242,212,119,0.15)] text-accent-caution rounded-full px-3 py-0.5 text-micro font-semibold">
               best guess
             </span>
@@ -402,6 +435,15 @@ function MatchContent({
         </motion.div>
       )}
 
+      {/* Alternatives — medium tier with at least one alt */}
+      {hasAlternatives && (
+        <AlternativesList
+          alternatives={intentResult.alternatives!}
+          onPick={handleAlternativePick}
+          confirmingAltCip={confirmingAltCip}
+        />
+      )}
+
       {/* Playful warning */}
       {intentResult.audit_flag === "playful_warning" &&
         intentResult.audit_message && (
@@ -421,28 +463,138 @@ function MatchContent({
       >
         <motion.button
           onClick={handleConfirmClick}
-          disabled={confirming}
+          disabled={ctaDisabled}
           className="flex-1 bg-accent-thrive text-text-inverse font-body text-cta font-bold h-12 px-[28px] rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:cursor-default"
           animate={confirming ? { boxShadow: "0 0 24px rgba(125, 212, 163, 0.45)" } : { boxShadow: "0 0 0px rgba(125, 212, 163, 0)" }}
+          style={{ opacity: confirmingAltCip !== null ? 0.45 : 1 }}
           whileTap={{ scale: 0.97 }}
           transition={springs.snappy}
         >
-          {isLowConfidence ? "Close enough" : "That's right"}
+          {isUncertain ? "Close enough" : "That's right"}
         </motion.button>
         <motion.button
           onClick={onNotQuite}
-          disabled={confirming}
+          disabled={ctaDisabled}
           className={`mobile:flex-none font-body text-cta font-bold h-12 px-6 rounded-lg cursor-pointer transition-all duration-normal disabled:cursor-default ${
-            isLowConfidence
+            isUncertain
               ? "text-text-primary hover:bg-[rgba(255,255,255,0.05)]"
               : "text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)]"
           }`}
+          style={{ opacity: confirmingAltCip !== null ? 0.45 : 1 }}
           whileTap={{ scale: 0.97 }}
           transition={springs.snappy}
         >
           Not quite
         </motion.button>
       </motion.div>
+    </motion.div>
+  );
+}
+
+/* ================================================================
+   Alternatives List — medium-tier inline "or — one of these?" rows
+   ================================================================ */
+
+function AlternativesList({
+  alternatives,
+  onPick,
+  confirmingAltCip,
+}: {
+  alternatives: Array<{ cip: string; title: string; why: string }>;
+  onPick: (alt: { cip: string; title: string; why: string }) => void;
+  confirmingAltCip: string | null;
+}) {
+  return (
+    <motion.div
+      className="mt-[18px] pt-4 border-t border-border-subtle"
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: {},
+        visible: {
+          transition: { staggerChildren: 0.05, delayChildren: 0.55 },
+        },
+      }}
+    >
+      <motion.span
+        className="font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info mb-2.5 block"
+        variants={{
+          hidden: { opacity: 0, y: 8 },
+          visible: { opacity: 1, y: 0, transition: springs.smooth },
+        }}
+      >
+        OR — ONE OF THESE?
+      </motion.span>
+      <ul
+        role="list"
+        aria-label="Other close matches"
+        className="flex flex-col"
+      >
+        {alternatives.map((alt, idx) => {
+          const isConfirming = confirmingAltCip === alt.cip;
+          const isDimmed = confirmingAltCip !== null && !isConfirming;
+          return (
+            <motion.li
+              key={alt.cip}
+              variants={{
+                hidden: { opacity: 0, y: 12 },
+                visible: { opacity: 1, y: 0, transition: springs.smooth },
+              }}
+              className={idx === 0 ? "" : "border-t border-border-subtle"}
+            >
+              <motion.button
+                type="button"
+                disabled={confirmingAltCip !== null}
+                onClick={() => onPick(alt)}
+                aria-label={`Select ${alt.title}`}
+                className="w-full flex flex-col mobile:flex-row mobile:items-center gap-1 mobile:gap-3 py-3 mobile:py-2 px-3 rounded-md text-left hover:bg-bp-surface transition-colors duration-fast group disabled:cursor-default"
+                animate={
+                  isConfirming
+                    ? {
+                        boxShadow: "0 0 24px rgba(125, 212, 163, 0.45)",
+                        backgroundColor: "var(--color-bg-surface)",
+                      }
+                    : { boxShadow: "0 0 0px rgba(125, 212, 163, 0)" }
+                }
+                transition={springs.snappy}
+              >
+                <span className="flex items-center gap-2 flex-1 min-w-0">
+                  <motion.span
+                    className="text-[10px] text-accent-info/60 group-hover:text-accent-info transition-colors duration-fast"
+                    animate={
+                      isConfirming
+                        ? { color: "var(--color-accent-thrive)" }
+                        : {}
+                    }
+                  >
+                    ▸
+                  </motion.span>
+                  <motion.span
+                    className="font-body text-body-sm font-semibold text-accent-info group-hover:text-text-primary transition-colors duration-fast truncate"
+                    animate={
+                      isConfirming
+                        ? { color: "var(--color-accent-thrive)" }
+                        : {}
+                    }
+                    transition={{ duration: 0.2 }}
+                    style={{ opacity: isDimmed ? 0.45 : 1 }}
+                  >
+                    {alt.title}
+                  </motion.span>
+                </span>
+                {alt.why && (
+                  <span
+                    className="font-body text-small text-text-muted truncate mobile:max-w-[280px] mobile:text-right"
+                    style={{ opacity: isDimmed ? 0.45 : 1 }}
+                  >
+                    {alt.why}
+                  </span>
+                )}
+              </motion.button>
+            </motion.li>
+          );
+        })}
+      </ul>
     </motion.div>
   );
 }
