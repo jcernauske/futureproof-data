@@ -68,7 +68,7 @@ Execute the following workflow:
 
 ---
 
-## Status: DRAFT
+## Status: DESIGN VISION
 
 | Status | Meaning |
 |--------|---------|
@@ -176,7 +176,524 @@ Separately, the current Common / Less Common / Stretch 3-column layout makes eac
 
 ## §3 UI/UX Design
 
-**Status:** PENDING — @fp-design-visionary fills this section before implementation.
+**Status:** APPROVED — see content below.
+
+### Emotional Target
+
+Two feelings, layered:
+
+1. **Orientation, not overwhelm.** The student just landed on a screen with eight-plus career paths and no map. The tier layout gives them a calm ladder — Common feels within reach, Stretch feels aspirational, Less Common fills the middle. Stacking tiers vertically (instead of three side-by-side columns) says "take your time, there's no race."
+2. **A telescope, not a glossary.** The lineage sheet gives them a second instrument. They tap a card, and the sheet quietly lights up a five-year arc from that job. They don't have to commit to see. The horizontal flow — chip → connector → chip → chip → chip — reads like the first frame of the branch tree they'll eventually meet on `/reveal`. This screen becomes the place where students first *discover that lineage exists at all.*
+
+When the elevated chip pulses at the top of the sheet ("Why don't I see 'doctor'?"), Gemma isn't answering a question — Gemma is anticipating one. That tiny pulse is the screen reading the student's mind. That's the demo moment.
+
+### 3.1 Page Layout
+
+The header region, `PageContainer`, profile chip, eyebrow ("CHOOSE YOUR PATH"), H1, and subhead are **unchanged**. Only the tier region and CTA chrome change. The sheet is a new layer anchored to the bottom of the viewport.
+
+**Viewport math.** The sheet is positioned `fixed` to the viewport bottom with its height driven by detent vh constants (§3.4). Because the sheet is fixed, the document scroll continues to own the tier cards above it — a student can scroll tier content independently of the sheet. Critically, the tier region must reserve bottom padding equal to the **compact** detent height plus a one-gutter breathing margin, so the last tier is never hidden beneath the sheet at rest. Reservation values go on `CareerPickScreen` as `pb-[calc(33vh+var(--space-6))]` at desktop and `pb-[calc(45vh+var(--space-6))]` at mobile (see §3.5).
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  [Header: profile chip · eyebrow · H1 · subhead]                 │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ ▾ Common  (5 paths)              — description row       │   │
+│  │  ┌─────────────────────────┐  ┌─────────────────────────┐│   │
+│  │  │ Financial Analyst       │  │ Budget Analyst          ││   │
+│  │  │ $76k · ERN+++ · GRW+    │  │ $82k · ERN++ · GRW+     ││   │
+│  │  └─────────────────────────┘  └─────────────────────────┘│   │
+│  │  ┌─────────────────────────┐  ┌─────────────────────────┐│   │
+│  │  │ Credit Analyst          │  │ Market Research Analyst ││   │
+│  │  └─────────────────────────┘  └─────────────────────────┘│   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ ▾ Less Common  (3 paths)                                 │   │
+│  │   … 2-col grid …                                         │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ ▸ Stretch  (2 paths) — collapsed                         │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│       [ See my build ✦ ]  (primary CTA, centered)                │
+│                                                                  │
+├══════════════════════════════════════════════════════════════════┤  ← sheet
+│   ═══  (drag handle)                                        ˄ ˅  │
+│   WHERE THIS CAREER LEADS  · Financial Analyst · (Gemma idle)    │
+│  ┌──────────────┐  →  ┌──────────────┐  ┌─────────────┐  …        │
+│  │ Financial    │     │ Portfolio    │  │ CFO         │          │
+│  │ Analyst      │     │ Manager      │  │ ERN +++     │          │
+│  │ (you are     │     │ ERN++ GRW+   │  │ "10+ yrs"   │          │
+│  │  here)       │     └──────────────┘  └─────────────┘          │
+│  └──────────────┘                                                │
+│  Not sure about something? Ask Gemma.                            │
+│  [◎ Why don't I see 'doctor'?]  [What does this do?]  [ROI?]  …  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Grid + spans (12-col Brightpath grid, per DESIGN.md §Grid System).**
+
+| Region | Mobile (<768) | Tablet (768–1199) | Desktop (≥1200) |
+|--------|---------------|-------------------|-----------------|
+| Header block | `col-span-12` | `col-span-12` | `col-span-12` |
+| Tier sections (outer wrapper) | `col-span-12`, 1 section per row | `col-span-12`, 1 section per row | `col-span-12`, 1 section per row — **not** 3-up |
+| Each tier's inner card grid | `grid-cols-1` | `grid-cols-2` | `grid-cols-2` |
+| Sheet | `fixed inset-x-0 bottom-0`, full-bleed (ignores grid) | same | same |
+| "See my build" CTA | inline below tiers, inside `PageContainer` | inline below tiers | inline below tiers |
+
+Note the divergence from today's code: the existing screen puts the three tiers in a `desktop:grid-cols-3` row and uses a mobile-only fixed-bottom CTA. In the new layout the tiers are **always stacked** (outer container is `grid-cols-1` at every breakpoint) and the CTA is always **inline** below the tier region — never fixed. The fixed layer belongs to the sheet.
+
+**"See my build" CTA visibility across detents.**
+
+| Detent | CTA behavior |
+|--------|--------------|
+| compact (≈33vh desktop) | CTA is visible. The tier region reserves a compact-height-plus-gutter bottom pad; the CTA sits at the bottom of the document content and is always above the sheet's top edge. |
+| medium (≈50vh desktop) | CTA may be covered as the sheet rises. This is acceptable — at medium the student is studying lineage, not committing. We do **not** shift the CTA. |
+| large (≈85vh desktop) | CTA is definitionally hidden. Also acceptable — large detent means the student is deep in lineage and not yet committing (spec success criteria). When the sheet collapses back to medium or compact, the CTA re-appears. |
+
+**Z-index stack.**
+
+| Layer | z-index | Notes |
+|-------|---------|-------|
+| Page body / tier cards | 0 | Default document flow. |
+| "See my build" CTA | 10 | Lifts it above the ambient glow layer. |
+| Application Header | 100 | Existing chrome, unchanged. |
+| `CareerLineageSheet` root | 40 | Above document body, below app header. Header stays visible and tappable at every detent. |
+| Sheet's drag handle + chevrons | 41 | Relative to the sheet itself — not a separate global layer. Kept above the sheet's own inner-scroll content so it's never occluded. |
+
+**Sheet shell tokens.**
+
+- Position: `fixed inset-x-0 bottom-0`
+- Background: `bg-bp-mid` (`#232545`) — same elevation family as a card
+- Top border: `1px solid border-default` (`rgba(255,255,255,0.1)`). No left/right/bottom border — the sheet meets the viewport edges
+- Border radius: `rounded-t-[20px]` (Brightpath `radius-xl`), zero bottom radius
+- Shadow: `shadow-lg` (`0 8px 32px rgba(27, 29, 48, 0.7)`) cast **upward** via negative y. Implementation: `shadow-[0_-8px_32px_rgba(27,29,48,0.7)]`
+- Ambient insight wash: layered `box-shadow: inset 0 40px 80px -40px rgba(184, 169, 232, 0.12)` to echo Gemma's color family and distinguish the sheet visually from a plain card
+
+### 3.2 CareerLineageSheet — Structure
+
+The sheet is a single `motion.div` with five vertically-stacked zones:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Zone 1 — Handle row          (h: 40px, centered drag pill)    │
+│             ┌───────┐                                   ˄ ˅    │
+│             └───────┘                                          │
+├────────────────────────────────────────────────────────────────┤
+│  Zone 2 — Title row           (py-3, eyebrow + title)          │
+│  WHERE THIS CAREER LEADS                                       │
+│  Financial Analyst       ⟡ Gemma is loading branches…           │
+├────────────────────────────────────────────────────────────────┤
+│  Zone 3 — Lineage flow        (h: fills, horizontal scroll)    │
+│  [career ▸] → [branch 1] [branch 2] [branch 3] …                │
+├────────────────────────────────────────────────────────────────┤
+│  Zone 4 — Ask-Gemma chip row  (always visible at every detent) │
+│  Not sure about something? Ask Gemma.                          │
+│  [● Why don't I see 'doctor'?]  [What does this do?]  [ROI?]    │
+├────────────────────────────────────────────────────────────────┤
+│  Zone 5 — Ask-Gemma response card  (appears medium+ only)      │
+│  ⟡ Gemma: Biology is the standard pre-med path…                 │
+│                                      [↻ Regenerate]  [✕ Close] │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Outer sheet container specs.**
+
+| Property | Value |
+|----------|-------|
+| Padding | `px-6 tablet:px-8` horizontal; `pb-6` bottom. Top padding is driven by the handle zone's own 40px height. |
+| Overflow | `overflow-y-hidden` on the sheet root. Inner zones manage their own scroll. |
+| Inner column | A single flex column with `gap-3 tablet:gap-4` between zones. |
+| Width | Full viewport width at every breakpoint. |
+
+**Zone 1 — Drag handle row (h: 40px).**
+
+The handle is a **horizontal pill** centered top:
+
+| Property | Value |
+|----------|-------|
+| Size | `w-10 h-1` (40px × 4px) |
+| Color (idle) | `bg-text-muted` at 40% opacity (`rgba(138, 133, 149, 0.4)`) |
+| Color (hover) | `bg-text-secondary` at 60% opacity |
+| Color (focus-visible) | Adds a 3px `box-shadow` ring using `--color-focus-ring` (`rgba(123, 184, 224, 0.4)`) and brightens the pill to `bg-text-secondary` 80% |
+| Color (dragging) | `bg-accent-thrive` at 80% opacity — the "engaged" tell |
+| Radius | `rounded-full` |
+| Hit target | Parent `<div role="slider">` is `w-full h-10` (40px tall) — the pill is visual, the whole bar is clickable/draggable/focusable. This preserves the iOS affordance while giving us a 40px minimum hit area for touch + keyboard users. |
+| Keyboard focus | `tabIndex={0}`; focus ring on the **bar**, not on the pill |
+| Optional ambient pulse | See `handlePulse` preset in §3.4. Disabled when `prefers-reduced-motion: reduce`. Optional — implementer may ship v1 without and add later. If included, it's a 2.2s opacity breathe on the pill only, never on the focus ring. |
+
+**Chevron buttons (top-right of Zone 1, vertically centered to handle row).**
+
+| Property | Value |
+|----------|-------|
+| Layout | Stacked pair, 4px gap, positioned `absolute right-4 top-1/2 -translate-y-1/2` relative to Zone 1 |
+| Size each | 32px × 32px — circular (`rounded-full`) |
+| Background | `bg-bp-surface` (`#2D3060`) |
+| Hover background | `bg-bp-raised` (`#3A3D75`) |
+| Icon | 16px chevron, `text-text-secondary` (idle) → `text-text-primary` (hover). Lucide `ChevronUp` / `ChevronDown`, 2px stroke |
+| Disabled | When at limit detent: icon `text-text-muted`, background `bg-bp-surface/50`, `cursor-not-allowed`, no hover. `aria-disabled="true"`. Still keyboard-focusable so screen readers announce the limit. |
+| Press | `whileTap={{ scale: 0.92 }}` + `springs.snappy` |
+| Aria | Up chevron: `aria-label="Raise lineage panel"`. Down chevron: `aria-label="Lower lineage panel"`. |
+
+**Zone 2 — Title row.**
+
+Two lines:
+
+| Element | Typography | Color |
+|---------|-----------|-------|
+| Eyebrow | `font-data text-micro font-bold uppercase tracking-[2px]` — matches DESIGN.md "Section Labels" | `accent-info` (`#7BB8E0`) |
+| Career title | `font-body text-subheading font-bold` (22px/1.375rem, weight 700) | `text-text-primary`. While branches are loading, the title keeps full opacity — only the inline GemmaThinking mark signals in-flight. |
+| Inline loader | Reuse `GemmaThinking` component from `components/ui/GemmaThinking.tsx`. Flex-aligned to the right of the title with `gap-3`. Only rendered while the branch fetch is in flight. On resolve, fades out per the spec's 250ms `duration: 0.25, ease: "easeIn"` exit pattern. |
+
+Title row carries `aria-live="polite"` on the title `<h2>`. When `soc` prop changes and the new title resolves, the screen reader announces "Where this career leads — Financial Analyst."
+
+**Zone 3 — Lineage flow area.**
+
+Horizontal row of three element types, left-to-right, rendered in a flex row inside a horizontally-scrolling container:
+
+```
+[selected career chip] [connector ▸] [BranchChip 1] [BranchChip 2] [BranchChip 3] ...
+```
+
+| Property | Value |
+|----------|-------|
+| Container | `flex items-stretch gap-4 overflow-x-auto overflow-y-hidden py-2 snap-x snap-mandatory scroll-pl-6 scroll-pr-6` |
+| Scrollbar | Custom: `scrollbar-thin` with `scrollbar-thumb: var(--color-bg-raised)`, `scrollbar-track: transparent`. On WebKit: `::-webkit-scrollbar { height: 6px }`. |
+| Scroll snap | Each chip is `snap-start`. When the student scrolls horizontally, chips settle into view cleanly. |
+| Left inset | `pl-6 tablet:pl-8` so the "you are here" chip doesn't crowd the sheet edge. |
+| Right inset | `pr-6 tablet:pr-8` with a 24px fade-out mask via a `mask-image: linear-gradient(to right, black 92%, transparent)` so overflow is visually suggested, not cut hard. |
+| Empty state | When `soc` is null, replace the row with a centered empty panel: `font-body text-body text-text-muted italic` reading "Pick a career path above to see where it leads." Panel is `py-8 px-6`, no border, just centered text. |
+
+**Selected-career chip ("you are here").**
+
+This is a distinct visual element from a `BranchChip` — it's the anchor, styled so the student's eye knows "this is the root":
+
+| Property | Value |
+|----------|-------|
+| Size | `min-w-[180px] max-w-[220px] h-auto` — intrinsic height. |
+| Background | `bg-bp-surface` with inset accent-thrive gradient: `linear-gradient(135deg, rgba(125,212,163,0.10) 0%, transparent 60%)` |
+| Border | `1px solid rgba(125, 212, 163, 0.35)` — thrive at 35%. Left edge adds a 3px thrive accent stripe (`border-l-[3px] border-l-accent-thrive`) — same "this is yours" pattern used on the Gemma Match Card. |
+| Radius | `rounded-xl` (20px) |
+| Padding | `p-4` |
+| Content | eyebrow "YOU ARE HERE" (`font-data text-micro font-bold uppercase tracking-[2px] text-accent-thrive`) + career title (`font-body text-body font-bold text-text-primary`, 2-line clamp) + salary (`font-data text-data-sm text-text-secondary`) |
+| Shadow | `shadow-glow-thrive` at 15% — a persistent quiet halo |
+
+**Connector glyph.**
+
+A minimal arrow between the anchor and the first branch:
+
+- 24px wide, vertically centered on the row
+- Rendered as an inline SVG: a 16px `ChevronRight` icon (Lucide, 2px stroke) tinted `text-text-muted`, with a 1px horizontal rule extending 6px on either side at `rgba(255,255,255,0.08)`. Aria: decorative, `aria-hidden="true"`.
+- Between branch chips (not between the anchor and branch chip 1), no connector — branches sit in a flex-gap row. The connector only appears once, after the anchor.
+
+**BranchChip (one branch card).**
+
+Rendered per `CareerBranch`:
+
+| Property | Value |
+|----------|-------|
+| Size | `min-w-[220px] max-w-[260px]` — wider than anchor so deltas can breathe. Height driven by content. |
+| Background | `bg-bp-mid` (`#232545`) |
+| Border | `1px solid border-subtle` (`rgba(255,255,255,0.06)`) |
+| Hover border | `border-default` (`rgba(255,255,255,0.1)`) |
+| Radius | `rounded-xl` |
+| Padding | `p-4` |
+| Shadow | `shadow-md` default; hover adds `shadow-lg` |
+| Hover transform | `translateY(-2px)` — matches DESIGN.md card hover |
+
+Content stack (vertical):
+
+1. **Title.** `font-body text-body font-bold text-text-primary`, 2-line clamp. (e.g. "Portfolio Manager")
+2. **Stat delta pills row.** `flex flex-wrap gap-1.5 mt-2`. One pill per non-zero `delta_*` field (zeros suppressed — BranchChip test P2). Each pill uses the stat's own color as background at 15% opacity and the stat color for text, following DESIGN.md Pills pattern. Content format: `ERN +++`, `GRW ++`, `RES -` — the `+` / `-` count encodes magnitude per 1-unit-per-symbol, capped at `+++` / `---`. Typography: `font-data text-data-sm font-bold`.
+3. **Rationale.** When present, `font-body text-small text-text-secondary italic mt-2`. Two-line clamp. When absent, omit entirely (BranchChip test P2).
+
+**Chip entrance.** When the branches resolve, BranchChips enter with `staggerContainer(0, stagger.fast)` + `staggerItem` — 50ms apart, fade-up from y:12. The anchor chip is present immediately (no stagger) so the "you are here" feels grounded and the new branches light up after it.
+
+**Horizontal scroll behavior.** When branches exceed viewport width, the row scrolls horizontally. Scroll is ambient — no visual affordance beyond the right-edge fade-mask. Touch: native horizontal swipe. Pointer: trackpad horizontal or shift+scroll; mouse-wheel vertical is captured by the page, not the row, so vertical scrolling doesn't hijack the page while the student's pointer hovers the sheet. Keyboard: row container is `tabIndex={-1}`; individual BranchChips are focusable (`tabIndex={0}`, `role="article"`), and focus cycling advances through chips, auto-scrolling the focused chip into view via `scrollIntoView({ behavior: "smooth", inline: "nearest" })`.
+
+**Empty / loading / error states.**
+
+| State | Treatment |
+|-------|-----------|
+| Empty (`soc === null`) | Zone 3 renders only the centered "Pick a career path above to see where it leads." copy. Zone 2 renders the eyebrow; title is "—" in `text-text-muted`. Zones 4 + 5 still render (the chip row is always present; clicking a chip pre-selection is allowed — the chip's context just omits `selected_soc`). |
+| Loading | Zone 3 keeps the anchor chip visible (if we already know which SOC was clicked) and replaces the branch row with a single centered `GemmaThinking` message "Gemma is loading branches…". Zone 2's inline `GemmaThinking` mark is also visible. |
+| Error | Zone 3 renders an inline error panel: an `accent-alert`-tinted card (background `var(--color-state-error)`, border `rgba(244,169,126,0.35)`, radius `radius-lg`, padding `p-4`). Copy: "Couldn't load the lineage. Try again?" (`font-body text-body text-text-primary`). Right-aligned "Try again" button follows the **Secondary** button spec (`accent-info` text, transparent background, 44px height). Retry button fires the same `getBranchesForSoc(soc)` call. |
+
+### 3.3 Ask-Gemma Chip Row + Response Card
+
+**Placement at each detent.**
+
+The chip row (Zone 4) is **always rendered** regardless of detent. The response card (Zone 5) is rendered only when (a) the sheet is at medium or large detent AND (b) a chip is active.
+
+| Detent | Zone 4 visible? | Zone 5 visible? | Notes |
+|--------|-----------------|-----------------|-------|
+| compact (≈33vh) | Yes | No | Zone 3 (lineage) + Zone 4 (chips) compete for vertical space. Zone 3 shrinks to ~120px (enough for one row of chips + anchor vertically clipped). Zone 4 stays fixed at ~72px. Clicking a chip at compact **auto-promotes** the sheet to medium via `onDetentChange("medium")` so the response card has room (CareerLineageSheet test P0 "chip click auto-promotes compact detent to medium"). |
+| medium (≈50vh) | Yes | Yes when active | Zone 3 gets the majority of the added room; Zone 5 renders below Zone 4 with a max-height of `~160px` and internal scroll. |
+| large (≈85vh) | Yes | Yes when active, with generous room | Zone 5 expands to fill up to `~360px`; Zone 3 + Zone 5 coexist comfortably. |
+
+**Hint line (above chip row).**
+
+Before any chip has been clicked: `font-body text-small text-text-muted italic pl-6`, copy: "Not sure about something? Ask Gemma." Once any chip has been clicked during the session, this line is replaced with a thinner affordance: a 14px `GemmaStar` + `font-small text-text-muted` reading "Ask another question." (`pl-6`, `flex items-center gap-2`). The tonal shift signals the student has engaged and now the experience is hinting at repeat use.
+
+**Chip pill style (base, non-elevated).**
+
+Leverages the existing Brightpath pill spec (DESIGN.md §Pills / Badges) as the base recipe — the Ask-Gemma chip is a larger, interactive variant:
+
+| Property | Value |
+|----------|-------|
+| Display | `inline-flex items-center gap-2` |
+| Padding | `px-4 py-2` (larger than standard pill — these are tappable) |
+| Font | `font-body text-small font-semibold` (14px weight 600) |
+| Color (idle) | Background `rgba(123, 184, 224, 0.10)` (accent-info at 10%), text `accent-info`, 1px border `rgba(123,184,224,0.22)` |
+| Radius | `rounded-full` |
+| Hover | Background `rgba(123,184,224,0.18)`, border `rgba(123,184,224,0.35)`, cursor pointer |
+| Active (chip is the current response target) | Background `rgba(123,184,224,0.22)`, text `text-text-primary`, border `rgba(123,184,224,0.6)`, adds `shadow-glow-info` at reduced intensity (`0 0 14px rgba(123,184,224,0.25)`). The active chip *glows gently* to tell the student "this is the answer you're reading." |
+| Press | `whileTap={{ scale: 0.96 }}` + `springs.snappy` |
+| Focus-visible | 3px ring using `--color-focus-ring` (info at 40%) |
+| Keyboard | `role="button"`, `tabIndex={0}`, Enter/Space activate (test P0) |
+
+Icon prefix (optional, per chip): when the chip carries a `terminal_title` or otherwise represents a "missing thing" question, render a 14px Lucide `HelpCircle` icon at the left, `text-accent-info`. For generic chips (no terminal_title), no icon — keeps the row visually calm.
+
+**Elevated chip treatment ("Why don't I see 'doctor'?").**
+
+Same shape and size as a base chip, but the palette swaps entirely to `accent-alert`:
+
+| Property | Value |
+|----------|-------|
+| Background (idle) | `rgba(244, 169, 126, 0.15)` |
+| Border | `1px solid rgba(244, 169, 126, 0.45)` |
+| Text | `accent-alert` (`#F4A97E`) |
+| Icon prefix | Filled 14px dot (`●`, render as a `<span>` with background `accent-alert`, `w-2 h-2 rounded-full`) — the "this is elevated" tell. Not a HelpCircle; the dot is a *status* signal. |
+| Glow | `shadow-glow-alert` at 30% (`0 0 16px rgba(244,169,126,0.22)`) even when idle — it's always lit |
+| Pulse | `elevatedChipPulse` preset (§3.4) — the glow breathes on a 2.4s cycle. Opacity of the shadow ramps 0.22 → 0.38 → 0.22. Disabled under reduced-motion. |
+| Order | Always first in DOM order. Comes with a left margin on the following sibling (`gap-3`) so it visually separates from the base chip cluster. |
+
+The elevated chip carries `aria-describedby={elevationHintId}` pointing to a visually-hidden `<span>` inside the sheet: `"Gemma thinks this question might be relevant based on what you searched for."` (`sr-only` Tailwind class). Screen-reader users hear that hint the moment they focus the chip.
+
+**Chip-active visual state.**
+
+At most one chip is active at a time. When a student clicks a chip, it locks into the Active style described above. Previously-active chip (if any) reverts to idle. The response card beneath re-fetches and replaces in place (CareerLineageSheet test P0 "switching chips replaces the response card"). There is **no** animation between chip-active swaps on the chips themselves — the glow simply moves. The response card, however, cross-fades: 180ms fade-out → 220ms expand-in (`chipResponseExpand` preset, §3.4).
+
+**Response card (Zone 5) layout.**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ✦ Gemma                                                     │  ← attribution row
+│  Biology is the standard pre-med path — Gemma matched your   │  ← body copy
+│  "pre-med" to Biology and it IS the right major if you want │
+│  to apply to medical school later. Physician doesn't show    │
+│  up here because our data tracks your first job out of       │
+│  college, and to become a physician you typically need four  │
+│  more years of medical school after your bachelor's.         │
+│                                                              │
+│                              [ ↻ Regenerate ]  [ ✕ Close ]   │  ← action row
+└──────────────────────────────────────────────────────────────┘
+```
+
+| Property | Value |
+|----------|-------|
+| Container | `bg-bp-surface` (`#2D3060`), `rounded-xl`, `p-5 tablet:p-6`, `border-l-[3px] border-l-accent-insight` — echoes the Gemma Match Card pattern (left-edge insight stripe). |
+| Position | Directly below the chip row with `mt-3`. Width fills sheet horizontal content area. |
+| Max height | `max-h-40` at medium, `max-h-[360px]` at large. `overflow-y-auto` for scroll when Gemma's answer runs long. |
+| Attribution row | `flex items-center gap-2 mb-3`. `GemmaStar` (14px) + "Gemma" in `font-body text-small text-text-secondary font-semibold`. |
+| Body copy | `font-body text-body text-text-primary`, `leading-relaxed` (1.6). Rendered as plain text (Gemma system prompt forbids markdown). |
+| Action row | `flex justify-end gap-2 mt-4`. |
+| Regenerate button | Ghost variant (DESIGN.md §Buttons) — `h-10 px-4 rounded-lg`, `font-body font-bold text-small`, `text-accent-info`, transparent background. Prefix with 14px `RotateCcw` Lucide icon. Label: "Regenerate". Hover brightens to `text-text-primary` + background `rgba(255,255,255,0.05)`. |
+| Close button | Icon-only. `w-8 h-8 rounded-full bg-bp-surface text-text-secondary`. 14px `X` icon. Hover: `bg-bp-raised`, text `text-text-primary`. Aria: `aria-label="Close answer"`. |
+| Loading state | Body region replaced by `<GemmaThinking message="Gemma is answering…" />` centered. Regenerate + Close remain visible but `disabled` (opacity 50%). |
+| Entrance | `chipResponseExpand` preset — height animates from 0 to auto alongside opacity 0 → 1. Uses `AnimatePresence` + Framer's height animation. 220ms with `springs.smooth`. |
+| Exit (close or chip-swap) | 180ms fade + shrink: `{ opacity: 0, height: 0, transition: { duration: 0.18, ease: "easeIn" } }`. |
+| Aria | `role="region" aria-live="polite" aria-label="Gemma answer"`. Announces the full answer text when it lands. |
+
+**Response-replaces-on-new-chip rule.** When the student clicks a different chip while a response is rendered, the existing response card does **not** unmount → remount. It stays mounted and its inner content transitions: body fades out (180ms), `GemmaThinking` replaces it, new answer fades in (220ms). This keeps the card from jumping in size and preserves scroll position / focus. Tested explicitly (CareerLineageSheet test P0 "switching chips replaces the response card").
+
+### 3.4 Motion Specifications
+
+All values below are **named presets to be added to `frontend/src/styles/motion.ts`** during implementation. Each entry lists the exact config + the reduced-motion degradation. The implementer lands these verbatim.
+
+**New presets to author in `motion.ts`:**
+
+```ts
+// ============================================================
+// SHEET DETENTS (CareerLineageSheet)
+// ============================================================
+
+/**
+ * Detent heights as fractions of the viewport.
+ * Desktop + tablet use the standard values; mobile uses larger compacts
+ * so the chip row + title row stay legible on small viewports.
+ */
+export const sheetDetent = {
+  compact: { desktop: 0.33, tablet: 0.33, mobile: 0.45 },
+  medium:  { desktop: 0.50, tablet: 0.50, mobile: 0.60 },
+  large:   { desktop: 0.85, tablet: 0.85, mobile: 0.88 },
+} as const;
+
+/**
+ * Snap spring used by CareerLineageSheet when dragging ends and the
+ * sheet resolves to a detent. Tuned for "confident thunk" — fast enough
+ * to feel deliberate, damped enough to not overshoot an iOS-style sheet.
+ */
+export const sheetSnap = {
+  type: "spring" as const,
+  stiffness: 420,
+  damping: 42,
+  mass: 0.9,
+  restDelta: 0.5,
+} as const;
+
+/**
+ * Drag elasticity — resistance past the compact/large limits.
+ * 0.12 means the sheet follows the finger at 12% of the overshoot.
+ * Below 0.1 feels walled-off; above 0.2 feels loose.
+ */
+export const sheetDragElastic = 0.12;
+
+/**
+ * Velocity threshold that promotes a drag-end to the "next" detent
+ * even if the student didn't cross the midpoint.
+ * Units: px/s (Framer Motion pan velocity). ±600 ≈ a moderate flick.
+ */
+export const sheetFlingVelocity = 600;
+
+// ============================================================
+// CHIP ROW + RESPONSE CARD (CareerLineageSheet)
+// ============================================================
+
+/**
+ * Response card expand/collapse. Uses a custom spring so the height
+ * animation doesn't feel like a CSS transition — it has real physics.
+ */
+export const chipResponseExpand = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: "auto" },
+  exit:    { opacity: 0, height: 0 },
+  transition: {
+    opacity: { duration: 0.22, ease: "easeOut" as const },
+    height:  { type: "spring" as const, stiffness: 260, damping: 30 },
+  },
+} as const;
+
+/**
+ * Elevated-chip ambient pulse. The chip's shadow opacity breathes.
+ * Stateful: applied via an `animate` array on the motion component.
+ * Period = 2.4s, peak at t=1.2s.
+ */
+export const elevatedChipPulse = {
+  animate: {
+    boxShadow: [
+      "0 0 14px rgba(244, 169, 126, 0.22)",
+      "0 0 22px rgba(244, 169, 126, 0.38)",
+      "0 0 14px rgba(244, 169, 126, 0.22)",
+    ] as string[],
+  },
+  transition: {
+    duration: 2.4,
+    ease: "easeInOut" as const,
+    repeat: Infinity,
+  },
+} as const;
+
+/**
+ * Optional idle ambient pulse on the drag handle pill.
+ * OPTIONAL — implementer may ship v1 without. If included, 2.2s cycle.
+ */
+export const handlePulse = {
+  animate: { opacity: [0.4, 0.65, 0.4] as number[] },
+  transition: {
+    duration: 2.2,
+    ease: "easeInOut" as const,
+    repeat: Infinity,
+  },
+} as const;
+```
+
+**Reduced-motion degradations** (per preset; gate at consumer, not inside `motion.ts`):
+
+| Preset | Under `prefers-reduced-motion: reduce` |
+|--------|----------------------------------------|
+| `sheetSnap` | Replace with `{ duration: 0, ease: "linear" }` so the detent change is instant but state still updates (CareerLineageSheet test P1 "reduced-motion user gets instant detent change"). |
+| `sheetDragElastic` | Set to `0` — drag doesn't rubber-band past limits. |
+| `sheetFlingVelocity` | Unchanged — resolution logic still respects fling, it just lands instantly. |
+| `chipResponseExpand` | Replace spring with `{ duration: 0.12, ease: "linear" }`; height animation still occurs (instant collapse feels broken), opacity fades on the attenuated timing. |
+| `elevatedChipPulse` | Skip the `animate` prop entirely — chip gets the static high-state glow `0 0 16px rgba(244,169,126,0.30)` instead of the breathe cycle. |
+| `handlePulse` | Skip the `animate` prop entirely — handle stays at idle opacity 0.4. |
+| Branch chip entrance stagger (reuse existing `stagger.fast` + `staggerItem`) | No change — `staggerItem` uses `springs.smooth`, which Framer Motion already honors when `useReducedMotion()` returns true (springs shortcut to a 0-duration tween). Consumer does not need to special-case. |
+
+**Stagger reuse.** The horizontal row of BranchChips uses `staggerContainer(0, stagger.fast)` + `staggerItem` already in `motion.ts`. No new stagger preset needed.
+
+### 3.5 Responsive Behavior
+
+| Breakpoint | Tier grid | Sheet detents | Chevron visibility | Hit targets |
+|------------|-----------|---------------|--------------------|-------------|
+| Mobile <768 | 1-col card grid inside each tier | compact 45vh / medium 60vh / large 88vh | Chevrons render full-size (32px). Drag is primary; chevrons are the a11y fallback. | All interactive elements ≥44px per touch guidelines. Drag handle bar remains 40px but with a 4px vertical `padding` to reach 44px effective hit. |
+| Tablet 768–1199 | 2-col card grid | compact 33vh / medium 50vh / large 85vh | Chevrons full size | Default |
+| Desktop ≥1200 | 2-col card grid | compact 33vh / medium 50vh / large 85vh | Chevrons full size | Default |
+
+**Mobile specific notes:**
+
+- Tier region bottom padding: `pb-[calc(45vh+var(--space-6))]` so the last tier card clears the taller compact detent.
+- Chip row stays horizontal-scroll if it overflows (same behavior as desktop — don't wrap).
+- Response card `max-height` tightens to `max-h-[220px]` at medium (vs. 160px desktop — mobile has less vertical budget and a longer read is helpful) and `max-h-[440px]` at large.
+- The inline `GemmaThinking` mark in Zone 2 stacks below the title on mobile (title + mark in a `flex-col` instead of `flex-row`) so the title doesn't truncate.
+
+**No new breakpoints.** Everything uses the existing Brightpath `mobile:`/`tablet:`/`desktop:` prefixes (DESIGN.md §Breakpoints).
+
+### 3.6 Accessibility
+
+**Sheet container** (`<div>` wrapping the full sheet):
+
+- `role="dialog"` + `aria-modal="false"` — persistent peek, not blocking.
+- `aria-label` updates with detent: `"Lineage panel — compact"`, `"Lineage panel — medium"`, `"Lineage panel — expanded"` (copy: "compact" / "medium" / "expanded" — "expanded" reads more naturally than "full" or "large" for screen readers).
+- `aria-describedby` points to the title `<h2>` so screen readers hear the current career when they enter the dialog.
+
+**Drag handle bar** (the focusable `<div>` that wraps the visual pill):
+
+- `role="slider"`, `aria-orientation="vertical"`, `aria-valuemin={0}`, `aria-valuemax={2}`, `aria-valuenow={0|1|2}` (compact=0, medium=1, large=2).
+- `aria-valuetext="compact"` / `"medium"` / `"expanded"` — human-readable, read by screen readers in place of the numeric valuenow.
+- `aria-label="Lineage panel height — drag or use arrow keys to resize"`.
+- `tabIndex={0}`, focus-visible ring per DESIGN.md focus token.
+- Keyboard handlers: `ArrowUp` / `ArrowDown` cycle through detents (CareerLineageSheet test P0 "ArrowUp / ArrowDown on handle cycles detents"). `Home` → compact. `End` → large. `PageUp` / `PageDown` behave same as arrow keys.
+
+**Chevron buttons**:
+
+- `aria-label="Raise lineage panel"` / `aria-label="Lower lineage panel"`.
+- `aria-disabled="true"` when at limit detent — still focusable so screen-reader users hear the disabled state.
+
+**Title region** (`<h2>` in Zone 2):
+
+- `aria-live="polite"` + `aria-atomic="true"`.
+- Updates when `soc` prop changes (CareerLineageSheet test P1 "aria-live title announces on SOC change").
+
+**Chip row**:
+
+- Row container: `role="group" aria-label="Ask Gemma about this screen"`.
+- Each chip: `role="button"`, `tabIndex={0}`, Enter/Space activation.
+- Elevated chip: `aria-describedby={elevationHintId}`; a visually-hidden `<span id={elevationHintId} className="sr-only">Gemma thinks this question might be relevant to you based on what you searched for.</span>` lives adjacent to the row.
+- Focus order: elevated chip first (it's first in DOM), then base chips in order returned by the API.
+
+**Response card**:
+
+- `role="region"`, `aria-live="polite"`, `aria-label="Gemma answer"`.
+- When the answer text lands, screen readers announce it (CareerLineageSheet test P1 "aria-live title announces…" — paired behavior on the response card).
+- Regenerate button: `aria-label="Regenerate answer"`. Close button: `aria-label="Close answer"`.
+
+**Reduced motion**:
+
+- Consumer components call `useReducedMotion()` from Framer Motion and gate the presets per §3.4 table.
+- Functional state changes (detent resolution, chip activation, response-card mount/unmount) still happen — only the animation is attenuated.
+
+**Focus management on sheet**:
+
+- The sheet is non-modal. Focus is NOT trapped inside the sheet.
+- Tab order: drag handle → up chevron → down chevron → anchor chip (if focusable) → branch chips in row order → elevated chip → base chips in row order → active response card (Regenerate → Close if open).
+- Escape key on any chip closes the response card (if open). No other escape behavior — the sheet itself can't be closed (by spec — compact is the minimum).
+
+### 3.7 Vision Verdict
+
+APPROVED. All Brightpath tokens referenced exist in `DESIGN.md`. All motion values are either existing presets in `motion.ts` or authored above with exact config values ready to drop into `frontend/src/styles/motion.ts` verbatim. No §2 Decisions have been contested; no §10 routing needed.
+
+---
 
 ### Scope for @fp-design-visionary
 
@@ -650,7 +1167,7 @@ _None yet._
 **Status:** PENDING
 
 ### Design Vision (@fp-design-visionary)
-**Status:** PENDING — §3 UI/UX Design must be filled in before implementation starts.
+**Status:** APPROVED — §3 UI/UX Design filled in 2026-04-18. Net-new motion presets authored in §3.4 ready to land in `frontend/src/styles/motion.ts` verbatim: `sheetDetent`, `sheetSnap`, `sheetDragElastic`, `sheetFlingVelocity`, `chipResponseExpand`, `elevatedChipPulse`, `handlePulse` (optional). No DESIGN.md edits required — all color, typography, pill, card, and shadow tokens already exist.
 
 ### Design Audit (@fp-design-auditor)
 **Status:** PENDING — runs post-implementation against §3 + `DESIGN.md`.
