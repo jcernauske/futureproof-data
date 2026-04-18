@@ -438,3 +438,109 @@ def test_sanitize_drops_primary_cip_echoed_in_alternatives() -> None:
     # input order with the echo filtered out rather than shifting
     # positions.
     assert [a["cip"] for a in cleaned] == ["52.0801", "52.1401"]
+
+
+def test_sanitize_drops_non_string_title_and_cip() -> None:
+    """Non-string title/cip values are dropped before str() coercion.
+
+    Gemma very rarely returns nested dicts or numeric literals where a
+    string is expected. Without the isinstance guard, str() would turn
+    those into Python reprs like "{'primary': 'Finance'}" that render
+    verbatim in the match card — a UX defect disguised as data. The
+    sanitizer drops these entries before the coercion step.
+    """
+    raw = [
+        # Valid control — survives.
+        {"cip": "52.0801", "title": "Finance", "why": "ok"},
+        # Dict-valued title: previously became "{'primary': 'Finance'}".
+        {"cip": "52.1401", "title": {"primary": "Marketing"}, "why": "no"},
+        # Int CIP: coerced to "52" which would fail the regex anyway, but
+        # the isinstance guard short-circuits before we touch it.
+        {"cip": 52, "title": "Integer CIP", "why": "no"},
+        # None title: would have become "None".
+        {"cip": "52.0701", "title": None, "why": "no"},
+    ]
+
+    cleaned = intent._sanitize_alternatives(raw, primary_cip="52.0201")
+
+    assert cleaned is not None
+    assert [a["cip"] for a in cleaned] == ["52.0801"]
+
+
+# ---------------------------------------------------------------------------
+# Primary-CIP validation (S1 from §8 Code Review)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_cip",
+    [
+        "52",         # missing dot + last four
+        "52.02",      # only two digits after dot
+        "52.0201X",   # trailing junk
+        "",           # empty
+        "abc.defg",   # non-numeric
+        "052.0201",   # three-digit family (regex anchors at ^\d{2}\.)
+        "52.02011",   # five-digit subcode
+    ],
+)
+def test_resolve_intent_rejects_malformed_primary_cip(
+    bad_cip: str,
+    monkeypatch: pytest.MonkeyPatch,
+    stub_server: _StubServer,
+    stub_gemma_config: None,
+) -> None:
+    """Malformed Gemma primary CIP → ValueError (→ frontend fallback phase).
+
+    The sanitizer regex-gates every alternative but the primary
+    ``matched_cip`` is what gets persisted to ``_intent_cache`` and
+    shipped to downstream MCP queries. A malformed primary must never
+    reach either. The router translates the raised ``ValueError`` into
+    the phase="fallback" path on the frontend.
+    """
+    payload = {
+        "matched_cip": bad_cip,
+        "matched_title": "Whatever",
+        "confidence": "high",
+        "reasoning": "n/a",
+        "parent_cip": "",
+        "alternatives": [],
+    }
+    fake_generate = _make_generate_mock(payload)
+    monkeypatch.setattr(intent.gemma_client, "generate", fake_generate)
+
+    with pytest.raises(ValueError, match="malformed primary CIP"):
+        intent.resolve_intent(
+            major_text="something",
+            school_name="Anywhere State",
+            unitid=42,
+            programs=_programs_arg(),
+        )
+
+
+def test_resolve_intent_rejects_null_primary_cip(
+    monkeypatch: pytest.MonkeyPatch,
+    stub_server: _StubServer,
+    stub_gemma_config: None,
+) -> None:
+    """Null/missing primary CIP → ValueError. Covered separately from the
+    parametrized test because JSON ``null`` arrives as Python ``None``
+    after parsing, which would make the parametrize list awkward."""
+    payload = {
+        "matched_cip": None,
+        "matched_title": "Whatever",
+        "confidence": "high",
+        "reasoning": "n/a",
+        "parent_cip": "",
+        "alternatives": [],
+    }
+    fake_generate = _make_generate_mock(payload)
+    monkeypatch.setattr(intent.gemma_client, "generate", fake_generate)
+
+    with pytest.raises(ValueError, match="malformed primary CIP"):
+        intent.resolve_intent(
+            major_text="something",
+            school_name="Anywhere State",
+            unitid=42,
+            programs=_programs_arg(),
+        )

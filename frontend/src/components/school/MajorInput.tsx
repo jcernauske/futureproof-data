@@ -523,7 +523,7 @@ function AlternativesList({
           visible: { opacity: 1, y: 0, transition: springs.smooth },
         }}
       >
-        Or — one of these?
+        OR — ONE OF THESE?
       </motion.span>
       <ul
         role="list"
