@@ -10,10 +10,12 @@ import { SaveWrappedScreen } from "@/screens/SaveWrappedScreen";
 import { MenuScreen } from "@/screens/MenuScreen";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { GlobalChrome } from "@/components/ui/GlobalChrome";
 
 function App() {
   return (
     <BrowserRouter>
+      <GlobalChrome />
       <AppHeader />
       <Routes>
         <Route path="/" element={<LandingScreen />} />

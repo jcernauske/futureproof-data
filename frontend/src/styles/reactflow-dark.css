@@ -1,28 +1,28 @@
 /* React Flow dark theme overrides for Brightpath */
 
 .react-flow__background {
-  background-color: #0f1129 !important;
+  background-color: var(--color-bg-void) !important;
 }
 
 .react-flow__controls button {
-  background: #2D3060;
-  color: #F5F0E8;
-  border-color: rgba(255, 255, 255, 0.1);
-  fill: #F5F0E8;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+  fill: var(--color-text-primary);
 }
 
 .react-flow__controls button:hover {
-  background: #3a3d75;
+  background: var(--color-bg-raised);
 }
 
 .react-flow__minimap {
-  background: #1a1c3a !important;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-deep) !important;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 8px;
 }
 
 .react-flow__minimap-mask {
-  fill: rgba(15, 17, 41, 0.85);
+  fill: rgba(18, 19, 31, 0.85);
 }
 
 .react-flow__attribution {
