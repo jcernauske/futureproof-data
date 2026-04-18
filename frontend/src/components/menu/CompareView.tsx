@@ -82,7 +82,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           Couldn't load the comparison.
         </p>
         <p className="font-body text-body text-text-secondary">
-          {error ?? "Something went wrong."}
+          {error ?? "The comparison didn't load. Try again, or head back to your builds."}
         </p>
         <Button variant="ghost" onClick={onBack} data-testid="btn-back-builds">
           ← Back to builds

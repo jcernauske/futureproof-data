@@ -13,7 +13,7 @@ interface FinalBossProps {
 
 const RESULT_PILL: Record<BossOutcome, { label: string; cls: string }> = {
   win: { label: "WIN", cls: "bg-accent-thrive/20 text-accent-thrive" },
-  lose: { label: "LOSS", cls: "bg-accent-alert/20 text-accent-alert" },
+  lose: { label: "LOSE", cls: "bg-accent-alert/20 text-accent-alert" },
   draw: { label: "DRAW", cls: "bg-accent-caution/20 text-accent-caution" },
   unknown: { label: "N/A", cls: "bg-accent-info/20 text-accent-info" },
 };

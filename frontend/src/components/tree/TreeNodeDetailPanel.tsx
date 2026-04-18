@@ -1,6 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { springs } from "@/styles/motion";
+import { BOSS_METADATA, BOSS_ORDER } from "@/data/bossMetadata";
 import type { PositionedNode } from "@/data/treeLayout";
+import type { BossId } from "@/types/build";
 
 interface TreeNodeDetailPanelProps {
   node: PositionedNode | null;
@@ -21,14 +23,6 @@ const STAT_LABELS: Record<string, { label: string; color: string }> = {
   res: { label: "RES", color: "#B8A9E8" },
   grw: { label: "GRW", color: "#7BB8E0" },
   hmn: { label: "HMN", color: "#E88BA9" },
-};
-
-const BOSS_META: Record<string, { label: string; emoji: string }> = {
-  ai: { label: "Fight AI", emoji: "\uD83E\uDD16" },
-  loans: { label: "Student Loans", emoji: "\uD83D\uDCB8" },
-  market: { label: "The Market", emoji: "\uD83C\uDF0A" },
-  burnout: { label: "Burnout", emoji: "\uD83D\uDD25" },
-  ceiling: { label: "The Ceiling", emoji: "\uD83E\uDDE1" },
 };
 
 function resultPill(result: string | null) {
@@ -162,7 +156,8 @@ export function TreeNodeDetailPanel({
             Boss fight projection
           </p>
           <div className="flex flex-col gap-1">
-            {Object.entries(BOSS_META).map(([key, meta]) => {
+            {BOSS_ORDER.map((key: BossId) => {
+              const meta = BOSS_METADATA[key];
               const result = node.bosses[key as keyof typeof node.bosses];
               if (!result || result === "unknown") return null;
               return (

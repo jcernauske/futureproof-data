@@ -55,13 +55,13 @@ const LOAN_STOPS: SliderStop<number>[] = [
 // and does not change with loan coverage. See plan
 // ~/.claude/plans/why-are-we-still-jaunty-curry.md
 function loanImpactText(pct: number, netPriceAnnual?: number | null): string {
-  if (pct === 0) return "no debt — Loans Boss auto-win";
+  if (pct === 0) return "no debt — Fight Student Loans auto-win";
   const hasCost = typeof netPriceAnnual === "number" && netPriceAnnual > 0;
   const total = hasCost
     ? `$${(netPriceAnnual! * 4).toLocaleString()}`
     : "4-year cost";
   if (pct === 100) {
-    return `financing 100% of ${total} — Loans Boss at full difficulty`;
+    return `financing 100% of ${total} — Fight Student Loans at full difficulty`;
   }
   return `financing ${pct}% of ${total}`;
 }

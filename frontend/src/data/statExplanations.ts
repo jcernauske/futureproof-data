@@ -35,7 +35,7 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
     name: "Return on Investment",
     abbreviation: "ROI",
     explanation:
-      "Compares the total cost of attending this program (4 years) to your starting salary. Doesn't depend on how you finance it — that's the Student Loans Boss.",
+      "Compares the total cost of attending this program (4 years) to your starting salary. Doesn't depend on how you finance it — that's Fight Student Loans.",
     source: "College Scorecard",
     color: "var(--color-stat-roi)",
     textClass: "text-stat-roi",
@@ -54,7 +54,7 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
   },
   {
     key: "grw",
-    name: "Growth Potential",
+    name: "Growth Outlook",
     abbreviation: "GRW",
     explanation:
       "Is this field growing or shrinking? Based on 10-year job projections.",
