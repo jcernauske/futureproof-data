@@ -18,6 +18,7 @@ import { askCareerPickChip } from "@/api/careerPick";
 import { AskGemmaChipRow } from "@/components/AskGemmaChipRow";
 import { AskGemmaResponseCard } from "@/components/AskGemmaResponseCard";
 import { BranchChip } from "@/components/BranchChip";
+import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaThinking } from "@/components/ui/GemmaThinking";
 import {
   sheetDragElastic,
@@ -399,7 +400,7 @@ export function CareerLineageSheet({
         fixed inset-x-0 bottom-0 z-40
         bg-bp-mid border-t border-border
         rounded-t-[20px]
-        shadow-[0_-8px_32px_rgba(27,29,48,0.7)]
+        shadow-[0_-8px_32px_rgba(27,29,48,0.7),inset_0_40px_80px_-40px_rgba(184,169,232,0.12)]
         overflow-hidden
       "
       style={{ height, y }}
@@ -544,8 +545,9 @@ export function CareerLineageSheet({
           <motion.div
             className="
               flex items-stretch gap-4 overflow-x-auto overflow-y-hidden
-              snap-x scroll-pl-6 scroll-pr-6
+              snap-x snap-mandatory scroll-pl-6 scroll-pr-6
               pl-6 pr-6 tablet:pl-8 tablet:pr-8 py-2
+              [mask-image:linear-gradient(to_right,black_92%,transparent)]
             "
             variants={staggerContainer(0, stagger.fast)}
             initial="hidden"
@@ -608,7 +610,8 @@ export function CareerLineageSheet({
           <p
             className="flex items-center gap-2 font-body text-small text-text-muted pl-6 tablet:pl-8 mb-1"
           >
-            Ask another question.
+            <GemmaStar size={14} />
+            <span>Ask another question.</span>
           </p>
         )}
         <AskGemmaChipRow
@@ -633,6 +636,7 @@ export function CareerLineageSheet({
               answer={answer}
               onRegenerate={handleRegenerate}
               onClose={handleCloseResponse}
+              detent={detent === "large" ? "large" : "medium"}
             />
           ) : null}
         </AnimatePresence>

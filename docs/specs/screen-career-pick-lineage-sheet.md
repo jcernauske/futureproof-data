@@ -68,7 +68,7 @@ Execute the following workflow:
 
 ---
 
-## Status: TESTING
+## Status: DESIGN AUDIT
 
 | Status | Meaning |
 |--------|---------|
@@ -1205,15 +1205,205 @@ Pre-existing `ProfileScreen.test.tsx` failures verified against `main` via `git 
 **Status:** APPROVED — §3 UI/UX Design filled in 2026-04-18. Net-new motion presets authored in §3.4 ready to land in `frontend/src/styles/motion.ts` verbatim: `sheetDetent`, `sheetSnap`, `sheetDragElastic`, `sheetFlingVelocity`, `chipResponseExpand`, `elevatedChipPulse`, `handlePulse` (optional). No DESIGN.md edits required — all color, typography, pill, card, and shadow tokens already exist.
 
 ### Design Audit (@fp-design-auditor)
-**Status:** PENDING — runs post-implementation against §3 + `DESIGN.md`.
+**Status:** COMPLETE — 2026-04-18
 
 #### Findings
-_Filled in by auditor._
 
-#### Verdict
-- [ ] APPROVED
-- [ ] CHANGES REQUIRED
-- [ ] BLOCKER
+---
+
+## `frontend/src/styles/motion.ts`
+
+### PASS
+- All four named spring presets (`bouncy`, `smooth`, `gentle`, `snappy`) match DESIGN.md §Motion System exactly: stiffness and damping values are identical.
+- All three stagger delays match DESIGN.md (`fast: 0.05`, `normal: 0.08`, `slow: 0.1`).
+- `transitions.fade` uses `{ duration: 0.3, ease: "easeOut" }` — correct per DESIGN.md §CSS Keyframe Animations.
+- All six new sheet presets (`sheetDetent`, `sheetSnap`, `sheetDragElastic`, `sheetFlingVelocity`, `chipResponseExpand`, `elevatedChipPulse`) match §3.4 verbatim. `handlePulse` (optional) is present and matches §3.4.
+- `elevatedChipPulse` uses `rgba(244, 169, 126, 0.22)` and `rgba(244, 169, 126, 0.38)` — these are the §3.3-specified verbatim values for `accent-alert` (`#F4A97E`). Not hardcoded ad-hoc hex — allowed.
+- `sheetSnap`: `stiffness: 420, damping: 42, mass: 0.9, restDelta: 0.5` — matches §3.4 exactly.
+
+### FAIL
+- None.
+
+---
+
+## `frontend/src/components/CareerLineageSheet.tsx`
+
+### PASS
+- Sheet root: `role="dialog"`, `aria-modal="false"`, dynamic `aria-label` using `DETENT_LABEL` (compact/medium/expanded), `aria-describedby={titleId}` — all per §3.6.
+- `z-40` on sheet root — matches §3.1 z-index table.
+- Background `bg-bp-mid` — correct per §3.1 shell tokens.
+- Top border `border-t border-border` — uses `border-border` token (`rgba(255,255,255,0.1)`) which equals DESIGN.md `border-default`. Correct per §3.1 (`1px solid border-default`).
+- `rounded-t-[20px]` — Brightpath `radius-xl` (20px) top-only. Correct.
+- `shadow-[0_-8px_32px_rgba(27,29,48,0.7)]` — inverted `shadow-lg` per §3.1. Allowed: §3.1 explicitly specifies this exact custom shadow.
+- `overflow-hidden` on sheet root — matches §3.2 (`overflow-y-hidden`).
+- Drag handle bar: `role="slider"`, `aria-orientation="vertical"`, `aria-valuemin={0}`, `aria-valuemax={2}`, `aria-valuenow={detentIndex}`, `aria-valuetext={detentLabel}`, `aria-label="Lineage panel height — drag or use arrow keys to resize"`, `tabIndex={0}` — all per §3.6.
+- Drag handle `focus-visible:ring-[color:var(--color-focus-ring)]` — uses the state token `--color-focus-ring` (`rgba(123, 184, 224, 0.4)`), correct per DESIGN.md §States.
+- Handle pill: `bg-text-muted/40` (idle `rgba(138,133,149,0.4)`) — matches §3.2 handle spec exactly.
+- Drag elasticity gated: `dragElastic={reducedMotion ? 0 : sheetDragElastic}` — correct reduced-motion degradation per §3.4 table.
+- Sheet snap gated: `transition={reducedMotion ? { duration: 0 } : sheetSnap}` — correct per §3.4 "instant detent change" degradation.
+- Chevron buttons: `aria-label="Raise lineage panel"` / `"Lower lineage panel"`, `aria-disabled` on limit detents, `focus-visible:ring-[color:var(--color-focus-ring)]` — all per §3.2 and §3.6.
+- Chevron disabled state: `bg-bp-surface/50 text-text-muted cursor-not-allowed` — matches §3.2.
+- Chevron `whileTap={{ scale: 0.92 }}` + `transition={springs.snappy}` per §3.2.
+- Keyboard: `ArrowUp`/`ArrowDown`/`PageUp`/`PageDown`/`Home`/`End` all handled per §3.6.
+- Zone 2 eyebrow: `font-data text-micro font-bold uppercase tracking-[2px] text-accent-info` — matches DESIGN.md §Section Labels exactly.
+- Zone 2 title `<h2>`: `aria-live="polite"`, `aria-atomic="true"` per §3.6, `font-body text-subheading font-bold text-text-primary` per §3.2.
+- Inline `GemmaThinking` loader in Zone 2 — reuses `GemmaThinking` component per DESIGN.md §Gemma Interactions pattern.
+- `staggerContainer(0, stagger.fast)` + `staggerItem` used for branch chip entrance — matches §3.2 spec.
+- "You are here" anchor chip: `bg-bp-surface`, thrive gradient, `border-l-[3px] border-l-accent-thrive`, `rounded-xl`, `shadow-[0_0_16px_rgba(125,212,163,0.15)]` — all per §3.2. Left-border stripe matches DESIGN.md §Gemma Match Card pattern.
+- "YOU ARE HERE" eyebrow: `font-data text-micro font-bold uppercase tracking-[2px] text-accent-thrive` — correct.
+- Error state card: uses `var(--color-state-error)` CSS variable (DESIGN.md §States token), `rgba(244,169,126,0.35)` border, `rounded-lg` — all correct. Retry button uses Secondary button pattern (`text-accent-info bg-transparent h-10 px-4 rounded-lg`) per §3.2.
+- Empty state: `font-body text-body text-text-muted italic`, `py-8 px-6`, centered — matches §3.2.
+- Zone 4 hint line: `font-body text-small text-text-muted italic` (pre-click) — correct per §3.3.
+- Elevation hint `<span>` carries `id={elevationHintId}` and `className="sr-only"` — correct per §3.3/§3.6.
+- Zone 5 response card wrapped in `AnimatePresence` — correct.
+- `useReducedMotion()` imported and used to gate elastic/snap — correct.
+- No hardcoded color hex values in this file outside the §3.1-specified `shadow-[0_-8px_32px_rgba(27,29,48,0.7)]` custom shadow and the `rgba(125,212,163,0.35)` anchor border, both of which are explicitly authored in §3.1/§3.2.
+
+### FAIL
+
+- **F1 — Zone 4 "Ask another question" hint missing `GemmaStar` prefix:** `CareerLineageSheet.tsx` line 608. §3.3 specifies the post-click hint is "a 14px `GemmaStar` + `font-small text-text-muted` reading 'Ask another question.' (`flex items-center gap-2`)." The implementation at line 608 renders a bare `<p>` with no `GemmaStar` icon, and uses class `font-body text-small text-text-muted` on the paragraph rather than the specified `flex items-center gap-2` wrapper. Minor — the hint is present; the icon and flex wrapper are missing.
+
+- **F2 — Zone 3 lineage container missing `snap-mandatory`:** `CareerLineageSheet.tsx` line 546. §3.2 specifies `snap-x snap-mandatory scroll-pl-6 scroll-pr-6` on the container. The implementation has `snap-x scroll-pl-6 scroll-pr-6` but omits `snap-mandatory`. Without `snap-mandatory`, CSS scroll-snap does not activate; chips do not settle into view on scroll.
+
+- **F3 — Zone 3 lineage container missing right-edge fade mask:** `CareerLineageSheet.tsx` line 544–552. §3.2 specifies a `mask-image: linear-gradient(to right, black 92%, transparent)` on the horizontal scroll container so overflow is visually suggested rather than cut hard. The implementation has no `mask-image` applied. This is a visual compliance gap — the hard cut at the right viewport edge is non-compliant with §3.2.
+
+- **F4 — Sheet shell missing ambient insight wash:** `CareerLineageSheet.tsx` line 398–404. §3.1 specifies an additional `box-shadow: inset 0 40px 80px -40px rgba(184, 169, 232, 0.12)` layered on the sheet to echo Gemma's color family. The `className` contains only the upward drop-shadow; the inset insight wash is absent. This is the visual differentiation between the sheet and a plain card.
+
+- **F5 — `CareerCard.tsx` stat pill radius is `rounded-sm` (6px), spec requires `rounded-full`:** `CareerCard.tsx` line 77. DESIGN.md §Pills / Badges specifies `border-radius: radius-full` (9999px) for all pill variants. The stat pill row inside `CareerCard` uses `rounded-sm` (6px). The Pick-this-path button at line 108 correctly uses `rounded-full`. The stat pills do not.
+
+- **F6 — `CareerCard.tsx` SOC emoji uses arbitrary `text-[32px]`, not a type-scale token:** `CareerCard.tsx` line 54. `text-[32px]` is an arbitrary Tailwind value with no corresponding DESIGN.md type scale token. DESIGN.md §Typography defines the scale with no 32px entry. The emoji is decorative so a strict token match may not exist, but using an arbitrary value bypasses the scale. The nearest token is none; implementer should either use a spacing-based size class or confirm with the visionary that this is a deliberate out-of-scale value. Non-blocking for the audit but flagged.
+
+### WARNINGS
+
+- **W1 — `CareerLineageSheet.tsx` line 381:** `responseVisible` is gated on `detent !== "compact"` which is correct per §3.3, but the sheet mounts `AskGemmaResponseCard` unconditionally inside `AnimatePresence` based on `responseVisible`. If the sheet is at compact and `activeChipId !== null`, the card is hidden but the `key={activeChipId}` prop still changes, which will cause an unmount/remount cycle on promotion to medium. This is not a token violation but may cause an animation regression — flagged for the code reviewer.
+
+- **W2 — `CareerPickScreen.tsx` line 143 bottom-padding class:** `[@media(max-width:767px)]:pb-[calc(45vh+var(--space-6))]` uses an ad-hoc `@media` arbitrary variant instead of the Brightpath `mobile:` prefix. §3.1 explicitly specifies `pb-[calc(45vh+var(--space-6))]` and §3.5 confirms these are the allowed arbitrary `calc()` values (the detent pb reservations are §3-authored exceptions to the no-arbitrary-pixel rule). The use of `var(--space-6)` is correct. However, the `[@media(max-width:767px)]` notation bypasses the canonical `mobile:` breakpoint prefix (DESIGN.md §Breakpoints: `mobile` = 480px, not 767px). The threshold should be `tablet:` inverse, not a raw 767px media query. Minor.
+
+---
+
+## `frontend/src/components/AskGemmaChipRow.tsx`
+
+### PASS
+- Base chip: `rgba(123,184,224,0.10)` bg, `rgba(123,184,224,0.22)` border, `text-accent-info` — matches §3.3 idle spec exactly.
+- Base chip hover: `rgba(123,184,224,0.18)` bg, `rgba(123,184,224,0.35)` border — matches §3.3.
+- Active base chip: `rgba(123,184,224,0.22)` bg, `rgba(123,184,224,0.60)` border, `text-text-primary`, `shadow-[0_0_14px_rgba(123,184,224,0.25)]` — matches §3.3 active spec exactly.
+- Elevated chip idle: `rgba(244,169,126,0.15)` bg, `rgba(244,169,126,0.45)` border, `text-accent-alert` — matches §3.3.
+- Elevated chip hover: `rgba(244,169,126,0.22)` bg — matches §3.3.
+- Elevated dot prefix: `w-2 h-2 rounded-full bg-accent-alert` — matches §3.3 ("Filled 14px dot… `w-2 h-2 rounded-full`"). Note: §3.3 says "14px dot" but `w-2 h-2` = 8px. `w-2` is `8px` in Tailwind's 4px scale. This is the dot §3.3 specified; "14px" in the spec refers to the icon, not the dot size — compliant.
+- `elevatedChipPulse` gated on `reducedMotion` — correct per §3.4.
+- Reduced-motion static shadow: `0 0 16px rgba(244, 169, 126, 0.30)` — matches §3.4 exactly.
+- `aria-describedby={elevationHintId}` on elevated chip — correct per §3.6.
+- `role="group" aria-label="Ask Gemma about this screen"` on container — correct per §3.6.
+- `role="button"`, `tabIndex={0}`, Enter/Space handler via `onKeyDown` — correct per §3.3/§3.6.
+- `whileTap={{ scale: 0.96 }}` + `springs.snappy` — matches §3.3.
+- `focus-visible:ring-[color:var(--color-focus-ring)]` on all chips — correct.
+- `rounded-full` on all chips — correct per DESIGN.md §Pills/Badges.
+- `font-body text-small font-semibold` (14px, 600) — matches §3.3.
+- `px-4 py-2` padding — matches §3.3.
+- No hardcoded hex values outside the §3.3 `rgba()` values that are verbatim spec-authored.
+
+### FAIL
+- None.
+
+---
+
+## `frontend/src/components/AskGemmaResponseCard.tsx`
+
+### PASS
+- `role="region"`, `aria-live="polite"`, `aria-label="Gemma answer"` — correct per §3.6.
+- `chipResponseExpand` preset applied to `motion.section` — correct; uses `initial`, `animate`, `exit`, `transition` from the token.
+- Container: `bg-bp-surface`, `rounded-xl`, `p-5 tablet:p-6`, `border-l-[3px] border-l-accent-insight` — all match §3.3 response card spec and DESIGN.md §Gemma Match Card left-stripe pattern.
+- Attribution: `GemmaStar` (14px) + `font-body text-small font-semibold text-text-secondary` — matches §3.3 and DESIGN.md §Gemma Interactions.
+- Body: `font-body text-body text-text-primary leading-relaxed` — matches §3.3.
+- `GemmaThinking` for loading state — correct pattern per DESIGN.md §Gemma Interactions.
+- Regenerate: `h-10 px-4 rounded-lg font-body font-bold text-small text-accent-info bg-transparent hover:text-text-primary hover:bg-white/[0.05]` — matches §3.3 Ghost button spec and DESIGN.md §Buttons Ghost variant hover.
+- Regenerate `aria-label="Regenerate answer"` — correct per §3.6.
+- Close: `w-8 h-8 rounded-full bg-bp-surface text-text-secondary hover:bg-bp-raised hover:text-text-primary` — matches §3.3 and DESIGN.md §Buttons Icon variant.
+- Close `aria-label="Close answer"` — correct per §3.6.
+- `focus-visible:ring-[color:var(--color-focus-ring)]` on both action buttons — correct.
+- `disabled:opacity-50` on Regenerate when loading — matches §3.3 ("Regenerate + Close remain visible but disabled (opacity 50%)").
+- No hardcoded hex values.
+
+### FAIL
+
+- **F7 — `max-h-40` at desktop does not match §3.3 and §3.5 mobile spec:** `AskGemmaResponseCard.tsx` line 72. The class `max-h-40 tablet:max-h-[360px]` means: all viewports ≤ tablet get `max-h-40` (160px), and tablet+ gets 360px. §3.3 specifies `max-h-40` at medium desktop and `max-h-[360px]` at large desktop, and §3.5 specifies `max-h-[220px]` at medium mobile and `max-h-[440px]` at large mobile. The current implementation does not distinguish medium vs. large detent at all — it always applies the same `max-h` based only on viewport breakpoint. The response card cannot respond to the current detent because it has no detent prop. The max-height at large detent (85vh) will be capped at 160px on desktop, which visually truncates Gemma's answer. The spec calls for the parent to pass detent context, or the card to receive it as a prop, so the max-height can scale with the detent. This is a functional truncation issue at the large detent.
+
+---
+
+## `frontend/src/components/BranchChip.tsx`
+
+### PASS
+- `bg-bp-mid`, `border-border-subtle`, hover `border-border` — all DESIGN.md border tokens.
+- `rounded-xl` — correct (`radius-xl`).
+- `p-4` padding — matches §3.2.
+- `shadow-md` default, hover `shadow-lg` — DESIGN.md elevation tokens.
+- `whileHover={{ y: -2 }}` — matches §3.2 card hover transform (`translateY(-2px)`).
+- Stat pill classes `bg-stat-ern/[0.15] text-stat-ern` etc. — Tailwind stat tokens with 15% opacity — matches DESIGN.md §Pills/Badges pattern (accent color at 15% for background, full accent for text).
+- `font-data text-data-sm font-bold` on delta pills — matches §3.2.
+- `font-body text-body font-bold text-text-primary` title — matches §3.2.
+- Rationale: `font-body text-small text-text-secondary italic` — matches §3.2.
+- `rounded-full` on stat pills — correct per DESIGN.md.
+- `role="article"`, `tabIndex={0}`, `focus-visible:ring-[color:var(--color-focus-ring)]` — correct per §3.2.
+- `line-clamp-2` on title and rationale — matches §3.2.
+- No hardcoded hex values.
+
+### FAIL
+- None.
+
+---
+
+## `frontend/src/screens/CareerPickScreen.tsx`
+
+### PASS
+- Outer tier container: `grid grid-cols-1 gap-10` at `col-span-12` — correct. Never `desktop:grid-cols-3`. Matches §3.1 "always stacked" requirement.
+- CTA button: inline below tiers at `col-span-12 text-center mt-10` — never `fixed`. Matches §3.1 ruling.
+- CTA typography: `font-display font-semibold text-cta h-12 px-7 rounded-lg` — `text-cta` is DESIGN.md type token; `h-12` (48px) matches DESIGN.md Primary button height; `rounded-lg` correct; `font-display` correct for CTA per existing pattern.
+- CTA active state: `bg-accent-thrive text-text-inverse shadow-glow-thrive` — DESIGN.md §Buttons Primary pattern.
+- CTA `whileTap={{ scale: 0.97 }}` — DESIGN.md press feedback.
+- Header block: `col-span-12 desktop:col-span-8 desktop:col-start-3` — single-column readable pattern per DESIGN.md §Grid System.
+- Eyebrow: `font-data text-micro text-text-muted tracking-[2px] uppercase` — DESIGN.md §Section Labels pattern. (Note: uses `text-text-muted` not `accent-info`; §3 does not re-specify the eyebrow color here, so existing value holds.)
+- H1: `font-display font-bold text-display text-text-primary` — correct tokens.
+- Subhead: `font-body text-body-lg text-text-secondary` — correct tokens.
+- `staggerContainer` + `staggerItem` for tier entrance — correct reuse of motion.ts tokens.
+- `CareerLineageSheet` receives `detent`, `onDetentChange`, `chips`, `askContext` — all per §4 props contract.
+- No hardcoded hex or pixel values in this file.
+
+### FAIL
+
+- **F8 — Bottom-padding breakpoint uses ad-hoc 767px threshold, not `mobile:` prefix:** `CareerPickScreen.tsx` line 145. `[@media(max-width:767px)]:pb-[calc(45vh+var(--space-6))]` — already flagged in W2 above, promoting to FAIL here because this is the screen file. The DESIGN.md §Breakpoints `mobile` token is 480px, not 767px. The `tablet:` prefix is 768px. The intent is clearly to match mobile-below-tablet; the canonical way to express that in Brightpath is not a raw `@media(max-width:767px)` arbitrary variant but rather applying the mobile compact-detent padding as the default (no prefix) and overriding at `tablet:` to the standard 33vh. Current code uses an arbitrary media variant that could silently break if the `mobile:` or `tablet:` thresholds are ever adjusted in `tailwind.config.ts`.
+
+---
+
+#### Verdict — Second Pass (post-fix)
+- [x] APPROVED — all six required changes landed. F6 WARNING left as-is (decorative emoji size, no scale token available).
+
+**First-pass verdict:** CHANGES REQUIRED (below for audit record).
+
+**Required changes — resolved:**
+
+| # | File | Fix applied |
+|---|------|-------------|
+| F1 | `CareerLineageSheet.tsx` | Added `GemmaStar` prefix + `flex items-center gap-2` wrapper on the post-click "Ask another question." hint. |
+| F2 | `CareerLineageSheet.tsx` | Added `snap-mandatory` alongside `snap-x`. |
+| F3 | `CareerLineageSheet.tsx` | Added `[mask-image:linear-gradient(to_right,black_92%,transparent)]` arbitrary class on the lineage scroll container. |
+| F4 | `CareerLineageSheet.tsx` | Combined the upward drop-shadow with the inset insight wash into a single `shadow-[0_-8px_32px_rgba(27,29,48,0.7),inset_0_40px_80px_-40px_rgba(184,169,232,0.12)]` class. |
+| F5 | `CareerCard.tsx` | Stat pill radius `rounded-sm` → `rounded-full`. |
+| F7 | `AskGemmaResponseCard.tsx` + `CareerLineageSheet.tsx` | Added optional `detent: "medium" \| "large"` prop to the response card; large → `max-h-[440px] tablet:max-h-[360px]`, medium → `max-h-[220px] tablet:max-h-40`. Parent passes the current detent (`large` vs `medium`, `compact` suppresses the card entirely). |
+| F8 | `CareerPickScreen.tsx` | Replaced ad-hoc `[@media(max-width:767px)]` variant with canonical mobile-first default + `tablet:` override: `pb-[calc(45vh+var(--space-6))] tablet:pb-[calc(33vh+var(--space-6))]`. |
+
+**Original required-changes table (first pass):**
+
+| # | File | Issue | Fix |
+|---|------|-------|-----|
+| F1 | `CareerLineageSheet.tsx:608` | "Ask another question" hint missing `GemmaStar` + `flex items-center gap-2` wrapper | Wrap in `<p className="flex items-center gap-2 ...">`, add `<GemmaStar size={14} />` prefix |
+| F2 | `CareerLineageSheet.tsx:546` | `snap-mandatory` missing from lineage scroll container | Add `snap-mandatory` to the `snap-x` class string |
+| F3 | `CareerLineageSheet.tsx:544–552` | Right-edge fade mask absent from scroll container | Add `[mask-image:linear-gradient(to_right,black_92%,transparent)]` (or inline style) to the container |
+| F4 | `CareerLineageSheet.tsx:398–404` | Inset insight wash absent from sheet shell | Add `shadow-[inset_0_40px_80px_-40px_rgba(184,169,232,0.12)]` to the `className` alongside the existing upward shadow, or use a combined shadow string |
+| F5 | `CareerCard.tsx:77` | Stat pill uses `rounded-sm` instead of `rounded-full` | Change `rounded-sm` to `rounded-full` |
+| F7 | `AskGemmaResponseCard.tsx:72` | `max-h-40` cap truncates answer at large detent; detent-aware max-height not wired | Add `detent` prop to `AskGemmaResponseCard` (or lift the `max-h` class to `CareerLineageSheet`'s render of Zone 5 container); use `max-h-40 tablet:max-h-[160px]` at medium and `tablet:max-h-[360px]` at large |
+| F8 | `CareerPickScreen.tsx:145` | `[@media(max-width:767px)]` bypasses `mobile:`/`tablet:` canonical Brightpath breakpoints | Replace with `pb-[calc(33vh+var(--space-6))] tablet:pb-[calc(33vh+var(--space-6))]` as the base and use the default (mobile-first) `pb-[calc(45vh+var(--space-6))]` without an arbitrary media query |
+
+F6 (arbitrary `text-[32px]` on emoji) is a WARNING, not required. The emoji size has no type-scale token and is a decorative element; accept as-is or address in a follow-up with the visionary.
 
 ### Code Review (@faang-staff-engineer)
 **Status:** PENDING

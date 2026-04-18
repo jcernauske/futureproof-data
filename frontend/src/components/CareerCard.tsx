@@ -74,7 +74,7 @@ export function CareerCard({
           return (
             <span
               key={key}
-              className="inline-flex items-center gap-1 bg-bp-surface rounded-sm px-2 py-0.5"
+              className="inline-flex items-center gap-1 bg-bp-surface rounded-full px-2 py-0.5"
             >
               <span className={`font-data text-micro uppercase ${stat.textClass}`}>
                 {key.toUpperCase()}
