@@ -30,11 +30,11 @@ const RESULT_CONFIG: Record<
   { label: string; pillClass: string }
 > = {
   win: {
-    label: "WIN \u2726",
+    label: "WIN",
     pillClass: "bg-accent-thrive/20 text-accent-thrive border-accent-thrive/30",
   },
   lose: {
-    label: "LOSS",
+    label: "LOSE",
     pillClass: "bg-accent-alert/20 text-accent-alert border-accent-alert/30",
   },
   draw: {

@@ -242,13 +242,13 @@ describe("TreeNodeDetailPanel", () => {
     );
 
     // ai and burnout are "unknown", market is null — all should be hidden
-    expect(screen.queryByText("Fight AI")).not.toBeInTheDocument();
-    expect(screen.queryByText("Burnout")).not.toBeInTheDocument();
-    expect(screen.queryByText("The Market")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fight AI/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fight Burnout/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fight the Market/)).not.toBeInTheDocument();
 
-    // loans and ceiling should render
-    expect(screen.getByText(/Student Loans/)).toBeInTheDocument();
-    expect(screen.getByText(/The Ceiling/)).toBeInTheDocument();
+    // loans and ceiling should render (canonical "Fight [X]" labels from BOSS_METADATA)
+    expect(screen.getByText(/Fight Student Loans/)).toBeInTheDocument();
+    expect(screen.getByText(/Fight the Ceiling/)).toBeInTheDocument();
   });
 
   it("hides boss rows with null result", () => {
