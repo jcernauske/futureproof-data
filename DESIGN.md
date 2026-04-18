@@ -541,6 +541,56 @@ transition: background 150ms
 **Hover:** `background: bg-surface`
 **Highlighted / Selected:** `background: rgba(125, 212, 163, 0.1)`, `border-left: 3px solid accent-thrive`
 
+### Gemma Interactions
+
+A family of primitives that give every Gemma touchpoint the same visual grammar — same icon, same gradient, same attribution font. Whenever Gemma is called, compose from this family rather than styling ad hoc.
+
+**Shared tokens:**
+- Attribution color ramp: `accent-info` → `accent-insight` linear gradient (info→insight). Used on every Gemma mark.
+- Attribution typography: `font-body` Nunito, `text-small` (14px), `text-secondary`. Never Fredoka — Fredoka is for headlines.
+- Surface tint for glows and washes: `rgba(184, 169, 232, x)` (insight at low alpha).
+
+**Primitives:**
+
+| Primitive | File | Usage |
+|-----------|------|-------|
+| `GemmaStar` | `components/ui/GemmaStar.tsx` | Static four-pointed star, 14px default. Attribution prefix on any line that names Gemma ("Gemma matched…", "Let's find the right one"). |
+| `GemmaSpinner` | `components/ui/GemmaSpinner.tsx` | Animated star inside a rotating ring + crosshair with a breathing insight glow. 28–40px. The universal "Gemma is working" mark. |
+| `GemmaThinking` | `components/ui/GemmaThinking.tsx` | Composed inline status: `GemmaSpinner` + attribution text ("Gemma is …ing …"). `gap-3`, `font-body text-small text-text-secondary`. The canonical in-flight indicator — reuse for every inline Gemma call (see `/school` major input). |
+
+**Usage pattern — thinking state:**
+```tsx
+<AnimatePresence>
+  {phase === "thinking" && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.4 }}  // collapse into resulting card
+      transition={{ duration: 0.25, ease: "easeIn" }}
+    >
+      <GemmaThinking message="Gemma is matching your input..." />
+    </motion.div>
+  )}
+</AnimatePresence>
+```
+
+The scale-0.4 exit is the signature "energy transfer" — the spinner collapses and the match card bounces in from its position. Keep this pattern whenever a Gemma call resolves into a card.
+
+**Usage pattern — attribution line:**
+```tsx
+<div className="flex items-center gap-2">
+  <GemmaStar size={14} />
+  <span className="text-small text-text-muted">
+    Gemma matched "<span className="font-semibold text-text-secondary">{input}</span>"
+  </span>
+</div>
+```
+
+**Message conventions:**
+- In-flight: third-person present continuous — "Gemma is matching your input…", "Gemma is writing your action plan…", "Gemma is analyzing your build…"
+- Resolved: past tense — "Gemma matched …", "Gemma found …"
+- Errors: capability-framed, never blame — "Gemma couldn't match that" (not "Bad input")
+
 ### Gemma Match Card
 
 The confirmation card that appears after Gemma resolves free-text input to a CIP program. Shows the matched program, a preview of career outcomes, and confirm/reject actions.
@@ -558,15 +608,28 @@ glow: breathing animation — box-shadow pulses between
 
 **Entrance animation:** `springs.bouncy`, scale 0.85 -> 1, opacity 0 -> 1, y 12 -> 0. Spinner collapses (scale 0.4) on exit to transfer energy into the card.
 
+**Color semantics — Gemma matches wear their voice in color:**
+
+| State | Title color | Why |
+|-------|-------------|-----|
+| Default (high/med confidence) | `accent-insight` | Insight = Gemma's color (same as spinner, glow, RES stat). A Gemma-chosen title looks different from a user-chosen title. |
+| Low confidence | `accent-caution` | Matches the caution breathing glow and "best guess" pill. |
+| Confirming (320ms flash) | `accent-thrive` | Reward moment. Title flashes green + CTA adds a thrive glow (`0 0 24px rgba(125,212,163,0.45)`) right before handoff. |
+
+This is the pattern for content-level accent use: when a color means something semantically (Gemma, growth, warning), content itself carries it — not just chrome.
+
+**Container edge:** 3px left border in the title's accent color (`accent-insight` default, `accent-caution` low-confidence, `accent-thrive` confirming). Same pattern as `GemmaTake` — a visible "this is Gemma's" stripe on every card Gemma produces.
+
 **Zones:**
-- **Attribution:** Static GemmaStar icon (14px, info-to-insight gradient) + "Gemma matched `"{input}"`" in `text-small text-text-muted`, raw text in `font-semibold text-text-secondary`
-- **Title:** `font-display text-subheading font-semibold`. Slides in from x:-8 and brightens from `text-muted` to `text-primary` over 400ms. CIP code below in `font-data text-data-sm text-text-muted`.
-- **Career preview:** Section label pattern ("WHERE THIS LEADS"). Career rows: `font-body text-body-sm font-semibold text-text-secondary`, info-colored arrow prefix. Hover: `bg-surface`, text brightens. Stagger at `stagger.fast` (50ms).
+- **Attribution:** Static GemmaStar icon (14px, info-to-insight gradient) + "Gemma matched `"{input}"`" in `text-small text-text-muted`, raw user text in `font-semibold text-accent-insight` (or `text-accent-caution` low-confidence). The quoted input echoes the match color — Gemma's voice in the user's own words.
+- **Title:** `font-display text-subheading font-semibold`. Slides in from x:-8 and brightens from `text-muted` to the title color above (see table). 400ms transition on entrance, 200ms on confirm flash. CIP code below in `font-data text-data-sm text-text-muted`.
+- **Career preview:** Section label pattern ("WHERE THIS LEADS"). Career rows: `font-body text-body-sm font-semibold text-accent-info` by default (tinted, readable) — brighten to `text-primary` on hover. Info-colored arrow prefix. Stagger at `stagger.fast` (50ms).
 - **Warning (conditional):** `border-t border-border-subtle`, `text-small text-accent-caution italic`
-- **Actions:** Primary button ("That's right") + Ghost button ("Not quite") per Button spec. Delayed entrance at 700ms.
+- **Actions:** Primary button ("That's right") + Ghost button ("Not quite") per Button spec. Delayed entrance at 700ms. On confirm: disable both buttons, set 320ms timer, flash title+CTA to thrive, then hand off.
 
 **Low confidence variant:**
 - Glow shifts to caution: pulses between `0 0 24px rgba(242, 212, 119, 0.10)` and `0 0 36px rgba(242, 212, 119, 0.22)`
+- Title color: `accent-caution` (see table above)
 - Caution pill badge ("best guess") on metadata row next to CIP code
 - Confirm button label changes to "Close enough"
 - "Not quite" button text brightens to `text-primary`
