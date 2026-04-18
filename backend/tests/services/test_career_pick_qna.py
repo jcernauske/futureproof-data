@@ -300,22 +300,19 @@ async def test_ask_unknown_chip_id_raises_value_error(
 @pytest.mark.asyncio
 async def test_ask_writes_call_site_to_gemma_jsonl(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
 ) -> None:
-    """The ``ask`` path appends one supplemental record to gemma.jsonl with
-    ``call_site="career_pick.ask"`` + the chip_id + fallback flag.
+    """The ``ask`` path stamps ``call_site="career_pick.ask"`` and
+    chip-correlation fields onto the single gemma.jsonl record via
+    ``generate_async``'s ``extra`` kwarg (post-code-review refactor —
+    was previously a supplemental second record, now merged).
 
-    We explicitly unset GEMMA_LOG_DISABLED (in case a prior test left it set)
-    and redirect ``gemma_client._log_path`` to a tmp file so this test doesn't
-    touch the real logs directory.
+    We capture the ``extra`` payload passed to the mocked ``generate_async``
+    and assert the required correlation fields are present.
     """
-    # Ensure logging is enabled for this test only.
-    monkeypatch.delenv("GEMMA_LOG_DISABLED", raising=False)
+    captured: dict[str, object] = {}
 
-    log_path = tmp_path / "gemma.jsonl"
-    monkeypatch.setattr(gemma_client, "_log_path", lambda: log_path)
-
-    async def _fake_generate_async(**_kwargs: object) -> str:
+    async def _fake_generate_async(**kwargs: object) -> str:
+        captured.update(kwargs)
         return "hello"
 
     monkeypatch.setattr(gemma_client, "generate_async", _fake_generate_async)
@@ -329,27 +326,13 @@ async def test_ask_writes_call_site_to_gemma_jsonl(
         ),
     )
 
-    assert log_path.exists(), "expected gemma.jsonl to be created"
-    lines = [
-        line
-        for line in log_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    # Find the career_pick.ask record — generate_async itself does NOT write
-    # a record here (we stubbed it out entirely), so there should be exactly
-    # one line: the supplemental record from career_pick_qna._log_record.
-    career_pick_records = [
-        json.loads(line)
-        for line in lines
-        if "career_pick" in line
-    ]
-    assert len(career_pick_records) == 1, (
-        f"expected exactly one career_pick.ask jsonl record, got {len(career_pick_records)}"
+    extra = captured.get("extra")
+    assert isinstance(extra, dict), (
+        "expected ask() to pass extra kwarg to generate_async"
     )
-    record = career_pick_records[0]
-    assert record["call_site"] == "career_pick.ask"
-    assert record["chip_id"] == "what_does_this_do"
-    assert record["fallback_fired"] is False
-    assert record["selected_soc"] == "15-1252"
-    assert record["soc_codes"] == ["15-1252", "15-2051"]
-    assert record["answer"] == "hello"
+    assert extra["call_site"] == "career_pick.ask"
+    assert extra["chip_id"] == "what_does_this_do"
+    assert extra["selected_soc"] == "15-1252"
+    assert extra["soc_codes"] == ["15-1252", "15-2051"]
+    assert extra["cipcode"] == "26.0101"
+    assert extra["major_text"] == "pre-med"

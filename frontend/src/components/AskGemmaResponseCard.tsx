@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaThinking } from "@/components/ui/GemmaThinking";
 import { chipResponseExpand } from "@/styles/motion";
@@ -60,6 +60,7 @@ export function AskGemmaResponseCard({
   onClose,
   detent = "medium",
 }: AskGemmaResponseCardProps) {
+  const reducedMotion = useReducedMotion() ?? false;
   // §3.3 + §3.5: detent-aware max-height. Mobile-first defaults; tablet+
   // applies the desktop/tablet cap per §3.5.
   const heightCap =
@@ -67,15 +68,26 @@ export function AskGemmaResponseCard({
       ? "max-h-[440px] tablet:max-h-[360px]"
       : "max-h-[220px] tablet:max-h-40";
 
+  // Reduced-motion degradation: skip the height spring, keep a minimal
+  // opacity fade so the card still mounts/unmounts visibly.
+  const sectionMotion = reducedMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.12, ease: "linear" as const },
+      }
+    : chipResponseExpand;
+
   return (
     <motion.section
       role="region"
       aria-live="polite"
       aria-label="Gemma answer"
-      initial={chipResponseExpand.initial}
-      animate={chipResponseExpand.animate}
-      exit={chipResponseExpand.exit}
-      transition={chipResponseExpand.transition}
+      initial={sectionMotion.initial}
+      animate={sectionMotion.animate}
+      exit={sectionMotion.exit}
+      transition={sectionMotion.transition}
       className="overflow-hidden"
     >
       <div className={`

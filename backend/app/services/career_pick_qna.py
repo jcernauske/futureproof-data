@@ -13,15 +13,10 @@ Concurrency + thread-safe logging come free from the shared
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import re
-import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
 
 from app.models.career_pick import (
     AskCareerPickRequest,
@@ -387,50 +382,6 @@ def _build_user_prompt(
     )
 
 
-def _log_record(
-    *,
-    chip_id: str,
-    request: AskCareerPickRequest,
-    system: str,
-    user: str,
-    response: str,
-    fallback_fired: bool,
-    duration_ms: int,
-    error: str | None = None,
-) -> None:
-    """Append a career-pick.ask record to gemma.jsonl.
-
-    Supplemental to the client-side log emitted by ``generate_async`` —
-    this record carries the ``call_site`` tag, the chip id, and whether
-    the fallback fired, which the generate log doesn't know about.
-    """
-    if os.environ.get("GEMMA_LOG_DISABLED"):
-        return
-    record: dict[str, Any] = {
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "call_site": "career_pick.ask",
-        "chip_id": chip_id,
-        "cipcode": request.cipcode,
-        "major_text": request.major_text,
-        "selected_soc": request.selected_soc,
-        "soc_codes": list(request.soc_codes),
-        "system": system,
-        "user": user,
-        "answer": response,
-        "fallback_fired": fallback_fired,
-        "duration_ms": duration_ms,
-    }
-    if error is not None:
-        record["error"] = error
-    try:
-        path = gemma_client._log_path()  # noqa: SLF001 — shared log file
-        line = json.dumps(record, ensure_ascii=False, default=str)
-        with gemma_client._log_lock, path.open("a", encoding="utf-8") as fh:  # noqa: SLF001
-            fh.write(line + "\n")
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.debug("career_pick.ask jsonl log write failed: %s", exc)
-
-
 async def ask(
     *,
     request: AskCareerPickRequest,
@@ -442,42 +393,48 @@ async def ask(
     Exceptions raised by the Gemma transport are caught and treated
     identically to an empty response — callers see a 200 with the
     fallback string, never a 5xx.
+
+    Emits exactly one ``gemma.jsonl`` record per call via
+    ``gemma_client.generate_async``'s ``extra`` kwarg. The record carries
+    ``call_site="career_pick.ask"`` plus chip-correlation fields so the
+    audit trail is inspectable without the prompt payload duplicating
+    between two records.
     """
     question = _question_by_id(request.chip_id)
     system = GEMMA_SYSTEM_PROMPT
     user = _build_user_prompt(question, request)
 
-    started = time.perf_counter()
+    extra: dict[str, object] = {
+        "call_site": "career_pick.ask",
+        "chip_id": request.chip_id,
+        "cipcode": request.cipcode,
+        "major_text": request.major_text,
+        "selected_soc": request.selected_soc,
+        "soc_codes": list(request.soc_codes),
+    }
+
     fallback_fired = False
-    error: str | None = None
     try:
         raw = await gemma_client.generate_async(
             system=system,
             user=user,
             max_tokens=360,
             temperature=0.7,
+            extra=extra,
         )
     except Exception as exc:
-        error = f"{type(exc).__name__}: {exc}"
-        logger.warning("career_pick.ask gemma call failed: %s", error)
+        # ``generate_async`` already swallows transport exceptions into
+        # ``""`` with a log entry; anything raised here is a bug in OUR
+        # code (template resolution, semaphore issue, etc.). Degrade
+        # gracefully per spec §4 ``test_ask_falls_back_when_gemma_raises``
+        # but log loudly so on-call doesn't blame Gemma for our bug.
+        logger.exception("career_pick.ask failed inside our code path: %s", exc)
         raw = ""
 
     answer = (raw or "").strip()
     if not answer:
         answer = question.fallback_template
         fallback_fired = True
-
-    duration_ms = int((time.perf_counter() - started) * 1000)
-    _log_record(
-        chip_id=request.chip_id,
-        request=request,
-        system=system,
-        user=user,
-        response=answer,
-        fallback_fired=fallback_fired,
-        duration_ms=duration_ms,
-        error=error,
-    )
 
     return AskCareerPickResponse(
         chip_id=request.chip_id,

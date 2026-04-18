@@ -21,6 +21,7 @@ import { BranchChip } from "@/components/BranchChip";
 import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaThinking } from "@/components/ui/GemmaThinking";
 import {
+  sheetDetent,
   sheetDragElastic,
   sheetFlingVelocity,
   sheetSnap,
@@ -63,12 +64,6 @@ const DETENT_LABEL: Record<SheetDetent, string> = {
   large: "expanded",
 };
 
-const DETENT_VH: Record<SheetDetent, { desktop: number; mobile: number }> = {
-  compact: { desktop: 0.33, mobile: 0.45 },
-  medium: { desktop: 0.5, mobile: 0.6 },
-  large: { desktop: 0.85, mobile: 0.88 },
-};
-
 function useViewportHeight(): number {
   const [vh, setVh] = useState(() =>
     typeof window === "undefined" ? 800 : window.innerHeight,
@@ -100,9 +95,11 @@ function detentHeight(
   vh: number,
   mobile: boolean,
 ): number {
-  const fraction = mobile
-    ? DETENT_VH[detent].mobile
-    : DETENT_VH[detent].desktop;
+  // Source of truth for detent fractions is `motion.ts` — this function
+  // just applies the viewport-class selection (mobile vs tablet/desktop).
+  // Tablet + desktop share the same fraction per §3.5.
+  const fractions = sheetDetent[detent];
+  const fraction = mobile ? fractions.mobile : fractions.desktop;
   return Math.round(vh * fraction);
 }
 
@@ -382,13 +379,18 @@ export function CareerLineageSheet({
   const responseVisible = detent !== "compact" && activeChipId !== null;
   const emptyState = soc === null;
 
-  const dragConstraints = useMemo(
-    () => ({
-      top: -(detentHeight("large", vh, mobile) - height),
-      bottom: detentHeight("large", vh, mobile) - height,
-    }),
-    [vh, mobile, height],
-  );
+  const dragConstraints = useMemo(() => {
+    const largeHeight = detentHeight("large", vh, mobile);
+    const compactHeight = detentHeight("compact", vh, mobile);
+    // top: allow dragging up only to `large` (sheet can't grow past large).
+    // bottom: allow dragging down only to `compact` (sheet can't visibly
+    // shrink smaller than compact, so the top edge stays on-screen even
+    // during an over-flick — reviewer F3).
+    return {
+      top: -(largeHeight - height),
+      bottom: height - compactHeight,
+    };
+  }, [vh, mobile, height]);
 
   return (
     <motion.div
