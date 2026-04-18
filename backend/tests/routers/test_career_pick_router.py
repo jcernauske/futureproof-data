@@ -24,7 +24,6 @@ from fastapi.testclient import TestClient
 
 from app.services import gemma_client
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

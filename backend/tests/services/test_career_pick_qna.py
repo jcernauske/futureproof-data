@@ -12,13 +12,10 @@ between tests, so no per-test teardown is required here.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from app.models.career_pick import AskCareerPickRequest
 from app.services import career_pick_qna, gemma_client
-
 
 # ---------------------------------------------------------------------------
 # Helpers
