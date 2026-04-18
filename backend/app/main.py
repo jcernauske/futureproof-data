@@ -50,8 +50,37 @@ def create_app() -> FastAPI:
 
     @application.on_event("startup")
     async def startup():
+        import logging
+
+        from app.services.mcp_client import get_server
         from app.services.profile import _load_existing_profiles
+
+        log = logging.getLogger("startup")
         _load_existing_profiles()
+
+        # Warm the Iceberg catalog so the first /build/outcomes request
+        # doesn't pay metadata-load latency that can exceed Railway's
+        # liveness window. Each load_table() reads only metadata.json,
+        # not data files — cheap.
+        warm_tables = [
+            "consumable.program_career_paths",
+            "consumable.career_outcomes",
+            "consumable.occupation_profiles",
+            "consumable.onet_work_profiles",
+            "consumable.ai_exposure",
+            "consumable.career_branches",
+            "consumable.regional_price_parities",
+        ]
+        try:
+            server = get_server()
+            for table_name in warm_tables:
+                try:
+                    server.catalog.load_table(table_name)
+                    log.info("warmed iceberg metadata: %s", table_name)
+                except Exception as exc:
+                    log.warning("warmup skipped %s: %s", table_name, exc)
+        except Exception as exc:
+            log.warning("MCP server warmup failed: %s", exc)
 
     return application
 
