@@ -22,13 +22,14 @@ import pytest
 
 from app.services import intent
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 
-_FIXTURES_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "intent_responses.json"
+_FIXTURES_PATH = (
+    Path(__file__).resolve().parent.parent / "fixtures" / "intent_responses.json"
+)
 
 
 @pytest.fixture
