@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 
 _intent_cache: dict[tuple[str, int], dict[str, Any]] = {}
 
+_CIP_PATTERN = re.compile(r"^\d{2}\.\d{4}$")
+
+# DUPLICATE: this prompt is mirrored in backend/cli.py:_INTENT_SYSTEM_PROMPT.
+# Edits here MUST be applied to the CLI copy (consolidation tracked as
+# follow-up in docs/specs/feature-gemma-tiered-matching.md §11).
 _INTENT_SYSTEM_PROMPT = """\
 You are a college program advisor who understands how students, parents, \
 counselors, and registrars all describe academic programs differently.
@@ -33,6 +38,34 @@ Consider how different people describe the same program:
 - Counselors say: "Special Ed", "STEM", "Allied Health"
 - Registrars say: "CIP 51.2308 Physical Therapy/Therapist"
 
+Confidence tiers drive how many alternatives you return.
+
+- "high": The input resolves to exactly one CIP — no ambiguity, even if \
+the phrasing is colloquial. Output exactly "alternatives": [].
+  Tiebreaker: if the school's reported program list contains a single \
+entry whose title is a near-direct match to the student input, use high \
+even if the phrase sounds like an umbrella term.
+  Example: "pre-PT" -> 51.2308 Physical Therapy/Therapist.
+
+- "medium": The input is a well-known shorthand or umbrella term that \
+maps to a primary CIP but reasonable students mean different things. \
+Return 2-4 alternatives, ordered by how likely you'd pick each if the \
+student had phrased it differently. Alternatives must be genuinely \
+distinct programs and may span CIP families when a cross-family reading \
+is plausible.
+  Example: "business" (primary: 52.0201 Business Administration; \
+alternatives: 52.0801 Finance, 52.1401 Marketing, 52.0701 \
+Entrepreneurship, 42.2804 Industrial-Organizational Psychology).
+
+- "low": The input is too vague, ambiguous, or non-program-like for you \
+to stake a primary match confidently. Still return your best primary, \
+but include up to 10 alternatives spanning the plausible CIP \
+neighborhoods. The frontend will show a picker rather than your primary.
+  Examples: "helping people", "something with computers but not coding".
+
+Never pad. If you are high-confident, "alternatives" MUST be []. \
+Never exceed 10.
+
 The student typed: "{student_input}"
 School: {school_name}
 
@@ -44,14 +77,14 @@ crosswalk — these have career path data even if the school doesn't report \
 them separately):
 {crosswalk_cip_list}
 
-Respond in JSON only, no preamble, no markdown:
+Respond in JSON only, no preamble, no markdown. Keep "reasoning" to at \
+most two sentences.
 {{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
 "confidence": "high|medium|low", \
-"reasoning": "2-3 sentences explaining why this is the best match", \
+"reasoning": "Up to two sentences explaining why this is the best match.", \
 "parent_cip": "XX.XX (the school-reported CIP that covers this program, \
 if different from matched_cip)", \
-"alternatives": [{{"cip": "XX.XXXX", "title": "Title", \
-"why": "one sentence"}}]}}\
+"alternatives": []}}\
 """
 
 _AUDIT_SYSTEM_PROMPT = """\
@@ -173,7 +206,7 @@ def _call_gemma_intent(
     raw_response = gemma_client.generate(
         system=system,
         user=f'Match this student input to a CIP code: "{prompt_input}"',
-        max_tokens=500,
+        max_tokens=700,
         temperature=0.1,
     )
     latency = time.perf_counter() - start
@@ -192,7 +225,11 @@ def _call_gemma_intent(
     cleaned = raw_response.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = re.sub(r"\s*```\s*$", "", cleaned)
+    # Drop any trailing prose Gemma appends after the top-level JSON body.
+    last_brace = cleaned.rfind("}")
+    if last_brace != -1:
+        cleaned = cleaned[: last_brace + 1]
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
@@ -200,6 +237,41 @@ def _call_gemma_intent(
         return None, latency, stats
 
     return parsed, latency, stats
+
+
+def _sanitize_alternatives(
+    raw: Any, primary_cip: str
+) -> list[dict[str, str]] | None:
+    """Drop malformed/duplicate alternatives and clamp to 10.
+
+    Gemma occasionally hallucinates CIP codes, echoes the primary CIP in
+    the alternatives list, or returns a non-list value entirely. We defend
+    the frontend contract here rather than raising.
+    """
+    if not isinstance(raw, list):
+        return None
+    seen: set[str] = {primary_cip}
+    cleaned: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        cip = str(item.get("cip", "")).strip()
+        title = str(item.get("title", "")).strip()
+        if not cip or not title:
+            continue
+        if not _CIP_PATTERN.match(cip):
+            continue
+        if cip in seen:
+            continue
+        seen.add(cip)
+        cleaned.append({
+            "cip": cip,
+            "title": title,
+            "why": str(item.get("why", "")).strip(),
+        })
+        if len(cleaned) == 10:
+            break
+    return cleaned
 
 
 def _audit_intent_mapping(
@@ -275,7 +347,7 @@ def resolve_intent(
     matched_title = str(parsed.get("matched_title", ""))
     confidence = str(parsed.get("confidence", "unknown"))
     reasoning = str(parsed.get("reasoning", ""))
-    alternatives = parsed.get("alternatives")
+    alternatives = _sanitize_alternatives(parsed.get("alternatives"), matched_cip)
     parent_cip = str(parsed.get("parent_cip", ""))
 
     career_titles = _get_career_titles_for_cip(matched_cip)
@@ -296,6 +368,10 @@ def resolve_intent(
             audit_flag = "playful_warning"
             audit_message = message
 
+    # Routing contract: low -> clarify picker on the frontend; medium and high
+    # both render the match card (the frontend uses `confidence !== "high"` to
+    # light up the caution styling + alternatives list — see MajorInput.tsx
+    # `isUncertain`). Changing this predicate requires a paired frontend edit.
     return IntentResult(
         matched_cip=matched_cip,
         matched_title=matched_title,
