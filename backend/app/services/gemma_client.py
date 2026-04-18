@@ -186,12 +186,17 @@ def generate(
     max_tokens: int = 500,
     temperature: float = 0.7,
     model: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> str:
     """Run a single chat completion and return the assistant text.
 
     Returns an empty string on failure — narratives are best-effort and
     must never crash the CLI. Callers log the error and fall back to a
     static placeholder.
+
+    ``extra`` is merged into the JSONL log record — use it to stamp
+    ``call_site`` and any other call-specific correlation fields so
+    each call lands exactly one JSONL record tagged for audit.
     """
     return generate_chat(
         system=system,
@@ -199,6 +204,7 @@ def generate(
         max_tokens=max_tokens,
         temperature=temperature,
         model=model,
+        extra=extra,
     )
 
 
@@ -209,12 +215,15 @@ def generate_chat(
     max_tokens: int = 500,
     temperature: float = 0.7,
     model: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> str:
     """Multi-turn variant for conversational flows.
 
     ``messages`` is an OpenAI-format list of ``{"role", "content"}`` dicts
     (without the system message — that's passed separately). Returns an
     empty string on failure, same failure contract as ``generate()``.
+
+    ``extra`` is merged into the JSONL log record.
     """
     client, config = _cached_client()
     resolved_model = model or config.model
@@ -227,6 +236,11 @@ def generate_chat(
         "temperature": temperature,
         "messages": full_messages,
     }
+    if extra:
+        # Extra fields first so our standard fields take precedence on any
+        # collision (a caller passing ``response`` wouldn't override the
+        # real Gemma output).
+        record = {**extra, **record}
     started = time.perf_counter()
 
     try:
@@ -285,6 +299,7 @@ async def generate_async(
     max_tokens: int = 500,
     temperature: float = 0.7,
     model: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> str:
     """Async variant of :func:`generate`.
 
@@ -292,6 +307,8 @@ async def generate_async(
     a worker thread via :func:`asyncio.to_thread`. Preserves the
     empty-string-on-failure contract so callers never see exceptions
     from the transport layer.
+
+    ``extra`` is merged into the JSONL log record.
     """
     sem = _get_semaphore()
     async with sem:
@@ -302,6 +319,7 @@ async def generate_async(
             max_tokens=max_tokens,
             temperature=temperature,
             model=model,
+            extra=extra,
         )
 
 

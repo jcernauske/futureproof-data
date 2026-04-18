@@ -65,6 +65,7 @@ describe("CareerTierSection", () => {
         careers={careers}
         selectedSoc={null}
         onSelect={vi.fn()}
+        onExplore={vi.fn()}
       />,
     );
     const toggle = screen.getByRole("button", { expanded: true });
@@ -82,6 +83,7 @@ describe("CareerTierSection", () => {
         careers={careers}
         selectedSoc={null}
         onSelect={vi.fn()}
+        onExplore={vi.fn()}
       />,
     );
     const toggle = screen.getByRole("button", { expanded: true });
@@ -103,6 +105,7 @@ describe("CareerTierSection", () => {
         careers={[]}
         selectedSoc={null}
         onSelect={vi.fn()}
+        onExplore={vi.fn()}
       />,
     );
     // Guard against rendering a header + "0 paths" badge for an empty tier.

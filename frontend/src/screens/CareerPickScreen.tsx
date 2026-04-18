@@ -1,14 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { springs, staggerContainer, staggerItem, stagger } from "@/styles/motion";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { getOutcomes, getTieredCareers } from "@/api/build";
+import { getCareerPickChips } from "@/api/careerPick";
+import {
+  CareerLineageSheet,
+  type SheetDetent,
+} from "@/components/CareerLineageSheet";
 import { CareerTierSection } from "@/components/CareerTierSection";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { GemmaThinking } from "@/components/ui/GemmaThinking";
 import type { CareerOutcome } from "@/types/build";
+import type { CareerPickChip } from "@/types/careerPick";
 
 const TIER_DESCRIPTIONS = {
   common: "Where most graduates from this program end up.",
@@ -23,13 +29,15 @@ export function CareerPickScreen() {
     useBuildStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Bumping this triggers the fetch effect to re-run even when tieredCareers is
-  // already null (the Try-Again case after a failed tier call).
   const [retryKey, setRetryKey] = useState(0);
 
-  // Navigation guard — school/major are session-scoped and not persisted,
-  // so refresh on /career-pick will kick back to /school. Hint the destination
-  // so it can surface a "session expired" banner.
+  // Sheet-local UI state: which SOC populates the sheet + current detent +
+  // the chip set fetched on mount.
+  const [lineageCareer, setLineageCareer] = useState<CareerOutcome | null>(null);
+  const [detent, setDetent] = useState<SheetDetent>("compact");
+  const [chips, setChips] = useState<CareerPickChip[]>([]);
+
+  // Navigation guard — school/major are session-scoped and not persisted.
   useEffect(() => {
     if (!school || !major) {
       sessionStorage.setItem("fp-nav-hint", "session-expired");
@@ -37,7 +45,7 @@ export function CareerPickScreen() {
     }
   }, [school, major, navigate]);
 
-  // Fetch tiered careers on mount
+  // Fetch tiered careers on mount.
   useEffect(() => {
     if (tieredCareers || !school || !major) return;
 
@@ -82,8 +90,45 @@ export function CareerPickScreen() {
     };
   }, [school, major, effort, loans, tieredCareers, setTieredCareers, retryKey]);
 
+  const socCodes = useMemo(() => {
+    if (!tieredCareers) return [];
+    return [
+      ...tieredCareers.common,
+      ...tieredCareers.less_common,
+      ...tieredCareers.stretch,
+    ].map((c) => c.soc_code);
+  }, [tieredCareers]);
+
+  // Prefetch the chip set once the tier response lands, so the chips are
+  // ready by the time the student clicks a card.
+  useEffect(() => {
+    if (!major || !tieredCareers || socCodes.length === 0) return;
+    let cancelled = false;
+    getCareerPickChips({
+      cipcode: major.cipCode,
+      majorText: major.rawText,
+      socCodes,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setChips(result);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Chips are non-critical — fall back to empty row.
+        setChips([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [major, tieredCareers, socCodes]);
+
   function handleSelect(career: CareerOutcome) {
     setSelectedCareer(career);
+  }
+
+  function handleExplore(career: CareerOutcome) {
+    setLineageCareer(career);
   }
 
   function handleBuild() {
@@ -95,7 +140,10 @@ export function CareerPickScreen() {
 
   return (
     <div className="min-h-screen pt-14">
-      <PageContainer variant="grid" className="py-10 pb-32">
+      <PageContainer
+        variant="grid"
+        className="py-10 pb-[calc(45vh+var(--space-6))] tablet:pb-[calc(33vh+var(--space-6))]"
+      >
         {/* Header block — spans full grid width */}
         <div className="col-span-12 desktop:col-span-8 desktop:col-start-3 mb-10">
           <motion.p
@@ -149,10 +197,10 @@ export function CareerPickScreen() {
           </div>
         )}
 
-        {/* Tier sections — stack on mobile/tablet, 3-up on desktop */}
+        {/* Tier sections — always stacked vertically (outer grid-cols-1) */}
         {tieredCareers && (
           <motion.div
-            className="col-span-12 grid grid-cols-1 desktop:grid-cols-3 gap-10"
+            className="col-span-12 grid grid-cols-1 gap-10"
             variants={staggerContainer(0.3, stagger.normal)}
             initial="hidden"
             animate="visible"
@@ -165,6 +213,7 @@ export function CareerPickScreen() {
                 careers={tieredCareers.common}
                 selectedSoc={selectedCareer?.soc_code ?? null}
                 onSelect={handleSelect}
+                onExplore={handleExplore}
               />
             </motion.div>
             <motion.div variants={staggerItem}>
@@ -175,6 +224,7 @@ export function CareerPickScreen() {
                 careers={tieredCareers.less_common}
                 selectedSoc={selectedCareer?.soc_code ?? null}
                 onSelect={handleSelect}
+                onExplore={handleExplore}
               />
             </motion.div>
             <motion.div variants={staggerItem}>
@@ -185,40 +235,53 @@ export function CareerPickScreen() {
                 careers={tieredCareers.stretch}
                 selectedSoc={selectedCareer?.soc_code ?? null}
                 onSelect={handleSelect}
+                onExplore={handleExplore}
               />
             </motion.div>
           </motion.div>
         )}
+
+        {/* CTA — always inline below the tiers; never fixed. */}
+        {tieredCareers && (
+          <div className="col-span-12 text-center mt-10">
+            <motion.button
+              id="btn-build-career"
+              aria-label="Build your career path"
+              disabled={!selectedCareer}
+              onClick={handleBuild}
+              className={`font-display font-semibold text-cta h-12 px-7 rounded-lg transition-all duration-normal ${
+                selectedCareer
+                  ? "bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive"
+                  : "bg-bp-surface text-text-muted cursor-not-allowed opacity-60"
+              }`}
+              whileTap={selectedCareer ? { scale: 0.97 } : undefined}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springs.smooth, delay: 0.5 }}
+            >
+              See my build ✦
+            </motion.button>
+            <p className="font-body text-small text-text-muted mt-2">
+              You can always come back and pick a different path.
+            </p>
+          </div>
+        )}
       </PageContainer>
 
-      {/* CTA — sticky on mobile, inline on desktop */}
+      {/* Bottom lineage sheet — always mounted after tiers resolve */}
       {tieredCareers && (
-        <div className="fixed bottom-0 left-0 right-0 bg-bp-deep/90 backdrop-blur-sm border-t border-border-subtle p-4 desktop:static desktop:border-0 desktop:bg-transparent desktop:p-0">
-          <PageContainer variant="centered">
-            <div className="text-center">
-              <motion.button
-                id="btn-build-career"
-                aria-label="Build your career path"
-                disabled={!selectedCareer}
-                onClick={handleBuild}
-                className={`w-full desktop:w-auto font-display font-semibold text-cta h-12 px-7 rounded-lg transition-all duration-normal ${
-                  selectedCareer
-                    ? "bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive"
-                    : "bg-bp-surface text-text-muted cursor-not-allowed opacity-60"
-                }`}
-                whileTap={selectedCareer ? { scale: 0.97 } : undefined}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...springs.smooth, delay: 0.5 }}
-              >
-                See my build ✦
-              </motion.button>
-              <p className="font-body text-small text-text-muted mt-2">
-                You can always come back and pick a different path.
-              </p>
-            </div>
-          </PageContainer>
-        </div>
+        <CareerLineageSheet
+          soc={lineageCareer?.soc_code ?? null}
+          career={lineageCareer}
+          detent={detent}
+          onDetentChange={setDetent}
+          chips={chips}
+          askContext={{
+            cipcode: major.cipCode,
+            majorText: major.rawText,
+            socCodes,
+          }}
+        />
       )}
     </div>
   );
