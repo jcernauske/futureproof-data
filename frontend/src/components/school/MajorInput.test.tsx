@@ -301,7 +301,7 @@ describe("MajorInput — tiered rendering (P0)", () => {
     await vi.advanceTimersByTimeAsync(320);
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    const payload = onConfirm.mock.calls[0][0];
+    const payload = onConfirm.mock.calls[0]![0];
     // Critical — the primary's values must NOT leak through.
     expect(payload.cipCode).toBe("52.0801");
     expect(payload.cipTitle).toBe("Finance");
