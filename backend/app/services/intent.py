@@ -255,8 +255,12 @@ def _sanitize_alternatives(
     for item in raw:
         if not isinstance(item, dict):
             continue
-        cip = str(item.get("cip", "")).strip()
-        title = str(item.get("title", "")).strip()
+        raw_cip = item.get("cip")
+        raw_title = item.get("title")
+        if not isinstance(raw_cip, str) or not isinstance(raw_title, str):
+            continue
+        cip = raw_cip.strip()
+        title = raw_title.strip()
         if not cip or not title:
             continue
         if not _CIP_PATTERN.match(cip):
@@ -264,10 +268,12 @@ def _sanitize_alternatives(
         if cip in seen:
             continue
         seen.add(cip)
+        raw_why = item.get("why", "")
+        why = raw_why.strip() if isinstance(raw_why, str) else ""
         cleaned.append({
             "cip": cip,
             "title": title,
-            "why": str(item.get("why", "")).strip(),
+            "why": why,
         })
         if len(cleaned) == 10:
             break
@@ -343,7 +349,16 @@ def resolve_intent(
             stats.get("parse_error", f"Gemma could not resolve '{major_text}'")
         )
 
-    matched_cip = str(parsed.get("matched_cip", ""))
+    matched_cip = str(parsed.get("matched_cip", "")).strip()
+    if not _CIP_PATTERN.match(matched_cip):
+        # Gemma is the source of `matched_cip`; we regex-filter every
+        # alternative but must also guard the primary or a malformed CIP
+        # gets persisted to `_intent_cache` via /intent/confirm and leaks
+        # into downstream MCP queries. Fall through to phase="fallback".
+        raise ValueError(
+            f"Gemma returned a malformed primary CIP "
+            f"({matched_cip!r}) for {major_text!r}"
+        )
     matched_title = str(parsed.get("matched_title", ""))
     confidence = str(parsed.get("confidence", "unknown"))
     reasoning = str(parsed.get("reasoning", ""))

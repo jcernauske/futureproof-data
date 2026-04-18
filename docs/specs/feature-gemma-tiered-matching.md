@@ -1122,20 +1122,283 @@ cd frontend && npx vitest run
 
 ## §8 Reviews
 
-**Status:** PENDING
+**Status:** APPROVED (S1 + M2 fix committed; section-label copy FAIL corrected; M1/M3/M4/N1 tracked in §11)
 
 ### Design Audit (@fp-design-auditor)
-**Status:** PENDING
-[Token compliance, Gemma Interactions family adherence, no raw rgba/hex introduced]
+**Status:** COMPLETE
+
+---
+
+## `frontend/src/components/school/MajorInput.tsx`
+
+### PASS
+
+- **Caution palette parity (lines 199–204):** Parent container border class logic correctly keys on `intentResult.confidence !== "high"`. When `confidence` is not `"high"`, the card gets `border-l-accent-caution` and `animate-[card-breathe-caution_4s_ease-in-out_infinite]`; when it is `"high"`, it gets `border-l-accent-insight` and `animate-[card-breathe_4s_ease-in-out_infinite]`. Matches spec §3 token table.
+- **Title color semantics (lines 346–351):** `titleColor` resolves to `var(--color-accent-thrive)` on confirm, `var(--color-accent-caution)` when `isUncertain`, and `var(--color-accent-insight)` on high confidence. Matches DESIGN.md §Gemma Match Card color-semantics table exactly.
+- **"best guess" pill (line 396):** `bg-[rgba(242,212,119,0.15)] text-accent-caution rounded-full`. This rgba literal is pre-existing in the file and matches DESIGN.md §Pills pill-caution background value (`rgba(242, 212, 119, 0.15)`). Not a new introduction.
+- **Alternative row text default (line 573):** `text-accent-info` — PASS per §3 token table.
+- **Alternative row text hover (line 573):** `group-hover:text-text-primary` — PASS per §3 token table.
+- **Alternative row hover bg (line 550):** `hover:bg-bp-surface` — PASS per §3 token table.
+- **Row dividers (line 543):** `border-t border-border-subtle` applied to every row where `idx !== 0`. First row has no top border. PASS per §3 spec ("first row has no rule").
+- **Section label (lines 519–527):** `font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info`. Matches §3 token table and DESIGN.md §Section Labels spec exactly. PASS.
+- **`why` text (line 587):** `font-body text-small text-text-muted`. Not italic. PASS per §3 D2 ("Italics: no").
+- **Confirm flash box-shadow (lines 468, 554):** `"0 0 24px rgba(125, 212, 163, 0.45)"` — used on primary CTA (line 468) and on the confirming alternative row (line 554). This is the same value at both sites. The DESIGN.md §Gemma Match Card documents this as the primary CTA glow value ("thrive glow `0 0 24px rgba(125,212,163,0.45)`"). The §3 spec explicitly notes this is a "literal reuse of primary CTA glow value — no new token." Documented, not a violation.
+- **Motion tokens — springs (lines 523, 541, 559):** All new `AlternativesList` transitions use `springs.smooth` or `springs.snappy` imported from `@/styles/motion`. No ad-hoc spring configs introduced.
+- **Stagger/delay (lines 513–517):** `staggerChildren: 0.05, delayChildren: 0.55`. Matches spec §3 D5 step 5 contract exactly.
+- **Section label entrance (lines 519–524):** Section label animated with `variants` entry `{ opacity: 0, y: 8 → opacity: 1, y: 0, transition: springs.smooth }`. Matches §3 D5 step 4.
+- **`<ul role="list" aria-label="Other close matches">` (lines 529–531):** Present. PASS.
+- **Row `<button type="button" aria-label="Select {title}">` (line 549):** `type="button"` and `aria-label` with title interpolation present on every row. PASS.
+- **Disabled state during confirm flash (line 547):** `disabled={confirmingAltCip !== null}` — uses the real HTML `disabled` attribute, not styling only. PASS.
+- **AlternativesList container margin/padding (line 509):** `mt-[18px] pt-4 border-t border-border-subtle`. `mt-[18px]` = 18px top margin, `pt-4` = 16px padding-top. Matches DESIGN.md §Tiered Match Card ("18px margin-top + 16px padding-top"). PASS.
+- **Font tokens throughout:** All new text nodes use `font-display`, `font-body`, or `font-data` Tailwind tokens, not raw `font-family` declarations. PASS.
+
+### FAIL
+
+- **Section label copy case (line 526):** Implementation renders `"Or — one of these?"` (sentence case). DESIGN.md §Tiered Match Card specifies `"OR — ONE OF THESE?"` (all-caps). The label uses `uppercase` in its CSS class (`font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info`), so the visual output is all-caps regardless of the source string — but the source string is mixed-case. This is a consistency defect: the sibling `"Where this leads"` label at line 413 also relies on `uppercase` for rendering. Both are functionally all-caps on screen, but the source strings should be uppercase to match the existing `WHERE THIS LEADS` convention and DESIGN.md copy. **Low severity** — visually correct but technically non-conforming with DESIGN.md copy spec at §Tiered Match Card ("OR — ONE OF THESE?").
+
+### WARNINGS
+
+- **`hover:bg-[rgba(255,255,255,0.05)]` on "Not quite" button (lines 480–481):** This raw rgba literal is pre-existing in the file (unchanged from before this spec). It is not a new introduction by this spec's changes. Flagged for future cleanup: DESIGN.md §Buttons Ghost hover documents this as `rgba(255, 255, 255, 0.05)` background but does not expose it as a named CSS variable/token. No token exists for this value today. Not a blocking issue for this audit.
+- **`hover:bg-[#6bc494]` on submit button (line 171) and primary CTA (line 467):** Pre-existing hardcoded hex. DESIGN.md §Buttons Primary hover documents this as `darken to #6bc494`. No Tailwind token exists for this hover state. Both instances are pre-existing and unchanged by this spec. Not a blocking issue for this audit.
+
+---
+
+## `DESIGN.md` — Tiered Match Card (Three-Confidence Extension) subsection
+
+### PASS
+
+- **Additive discipline:** The new `### Tiered Match Card (Three-Confidence Extension)` subsection is placed at line 637, directly after the existing `### Gemma Match Card` section closes, and before `### The Pentagon (Radar Chart)`. No existing Match Card prose was rewritten or removed. The existing low-confidence variant block inside `### Gemma Match Card` was not modified; the new subsection references it by name and extends it. PASS.
+- **Token documentation:** The subsection documents `font-data`, `font-body`, `text-accent-info`, `text-text-primary`, `text-text-muted`, `bg-bp-surface`, `border-border-subtle`, `text-accent-thrive` — all valid tokens from DESIGN.md. No new tokens are introduced. PASS.
+- **rgba values documented:** The two rgba literals referenced in the subsection (`rgba(125, 212, 163, 0.45)` for confirm flash glow, `rgba(242, 212, 119, 0.15)` for best-guess pill) are both documented as reuse of existing values, not new tokens. PASS.
+- **Degenerate state documented:** Zero-alternatives medium-tier behavior is specified (caution card, primary alone, no alternatives section). PASS.
+- **Accessibility documented:** `<ul role="list" aria-label>`, `<button type="button" aria-label>`, and `disabled` state are all specified. PASS.
+- **Copy documented:** Section label copy `"OR — ONE OF THESE?"` is specified in all-caps. PASS.
+
+---
+
+## `docs/mockups/brightpath-design-system-v3.html` — Medium-tier · with alternatives variant
+
+### PASS
+
+- **Additive discipline — variant position:** The new "Medium-tier · with alternatives" block (lines 2334–2463) was appended after the existing three-variant confirming block and its variant labels, and before the "Tone Exploration" `<h3>` at line 2466. PASS.
+- **Additive discipline — CSS position:** The new `.gemma-alternatives-*` CSS block (lines 1676–1763) was appended directly after the last existing Match Card CSS rule (`.gemma-match-actions`, line 1671–1674) and before the closing `</style>` tag at line 1764. It was not interleaved with existing Match Card CSS. PASS.
+- **Font token parity — `.gemma-alternatives-label` (line 1686):** `font-family: 'Space Mono', monospace` — matches DESIGN.md `font-data` token definition (`Space Mono`). PASS.
+- **Font token parity — `.gemma-alternative-title` (line 1729):** `font-family: 'Nunito', sans-serif` — matches DESIGN.md `font-body` token (`Nunito`). PASS.
+- **Font token parity — `.gemma-alternative-why` (line 1744):** `font-family: 'Nunito', sans-serif` — matches DESIGN.md `font-body` token. PASS.
+- **Token compliance — label color (line 1691):** `color: var(--accent-info)` — PASS.
+- **Token compliance — row hover bg (line 1718):** `background: var(--bg-surface)` — PASS.
+- **Token compliance — title default (line 1732):** `color: var(--accent-info)` — PASS.
+- **Token compliance — title hover (line 1741):** `color: var(--text-primary)` — PASS.
+- **Token compliance — `why` color (line 1746):** `color: var(--text-muted)` — PASS.
+- **Token compliance — dividers (line 1702–1703):** `.gemma-alternatives-list > li + li { border-top: 1px solid var(--border-subtle); }` — PASS.
+- **Token compliance — confirm flash bg (line 1754):** `background: var(--bg-surface)` — PASS.
+- **Token compliance — confirm flash box-shadow (line 1755):** `box-shadow: 0 0 24px rgba(125, 212, 163, 0.45)` — reuse of existing value, documented in spec. PASS.
+- **Token compliance — confirm flash color (lines 1758–1759):** `color: var(--accent-thrive)` — PASS.
+- **Accessibility in HTML sample:** `<ul class="gemma-alternatives-list" role="list" aria-label="Other close matches">` present on both medium-tier cards (lines 2371, 2428). Each row is `<button type="button" class="gemma-alternative-row" aria-label="Select {Title}">`. Disabled rows in the confirming state have the `disabled` attribute (lines 2429, 2434, 2439, 2444). PASS.
+- **`why` italic check:** `.gemma-alternative-why` has no `font-style: italic` declaration. PASS.
+- **Section label copy in HTML (lines 2370, 2427):** Rendered as `Or &mdash; one of these?` (mixed case in source). Same issue as the component — the `text-transform: uppercase` in `.gemma-alternatives-label` makes this visually all-caps, but the source copy does not match the DESIGN.md-specified `"OR — ONE OF THESE?"`.
+
+### FAIL
+
+- **Section label source copy (lines 2370, 2427):** HTML source reads `Or &mdash; one of these?` (sentence case). DESIGN.md §Tiered Match Card specifies `"OR — ONE OF THESE?"`. Because `.gemma-alternatives-label` applies `text-transform: uppercase`, the rendered output is all-caps and visually correct — but the source copy is inconsistent with the spec and with the `.gemma-match-preview-label` sibling whose source reads `Where this leads` (also sentence case, also rendered all-caps by CSS). This is the same low-severity defect as in the component. Both files are internally consistent with each other but both differ from DESIGN.md copy spec.
+
+### WARNINGS
+
+- **`.gemma-alternative-title` font-size (line 1730):** `font-size: 15px`. DESIGN.md `text-body-sm` is 15px (`0.9375rem`). The component uses `text-body-sm` on the title (line 573). The HTML and component agree on rendered size, but the HTML hardcodes `15px` while the component uses the token. Minor raw-value usage in the mockup only — mockups are not implementation files. Non-blocking.
+- **`.gemma-alternative-row` glyph color (line 1721):** `color: rgba(123, 184, 224, 0.6)` — this matches the pre-existing `.gemma-match-preview-arrow` rule at line 1664 (same value, same pattern). Not newly introduced by this spec. Non-blocking.
+
+---
+
+### Verdict
+
+- [x] APPROVED with minor findings
+- [ ] CHANGES REQUESTED
+- [ ] REJECTED
+
+**Summary:** All token choices, semantic roles, motion configs, stagger values, accessibility attributes, and additive-discipline rules are compliant. One low-severity defect appears in both `MajorInput.tsx` and the v3 HTML: the section label source string is mixed-case (`"Or — one of these?"`) rather than all-caps (`"OR — ONE OF THESE?"`). Visual output is correct in both cases because `uppercase` is applied via CSS, but the source copy does not match DESIGN.md. This does not affect rendered output and does not require a blocking fix — correct at implementer's discretion. No new raw hex or rgba values were introduced by this spec's changes beyond the documented reuse of two pre-existing values.
 
 ### Code Review (@faang-staff-engineer)
-**Status:** PENDING
-#### Findings
-[Filled in by reviewer]
+**Status:** COMPLETE
+**Reviewed:** 2026-04-18
+**Reviewer:** Staff Engineer (15 YOE)
+
+#### Summary
+
+Solid work. The implementation is tight, the sanitizer is defensive in the places that actually matter (CIP regex, dedup against primary, clamp to 10), error paths degrade to the existing fallback, and the two prompt sites are currently byte-identical. Tests cover the contract. Look, I love Claude, BUT — I went through this with my usual paranoia and found nothing that justifies a blocker. A handful of moderate and minor items worth landing either with this spec or as a tracked follow-up. Ready for prod behind the existing human-confirm gate once S1 and M2 are addressed.
+
+#### Blockers
+
+None.
+
+#### Significant (🟠)
+
+##### S1. `matched_cip` is trusted unvalidated while alternatives are format-checked — asymmetric defense
+
+**Impact:** The sanitizer enforces `^\d{2}\.\d{4}$` on every alternative but NOT on `matched_cip`. If Gemma emits a malformed primary (e.g. `"52.02"`, `"52"`, `""`, or a hallucinated `"52.0999X"`), that raw string is:
+
+1. Used verbatim in `IntentResult.matched_cip` — the frontend renders "CIP 52.02" next to the hero title.
+2. Used as the `primary_cip` seed for `seen`. String-equality dedup still works for exact-match alts, but an alternative that is a "proper-format version" of the same program (primary `"52.02"`, alt `"52.0201"`) isn't recognized as a dupe and shows up as an alternative to itself.
+3. Threaded to `/intent/confirm` → seeded into `_intent_cache`. Next session's `cache_key` hit returns an `IntentResult` with a malformed `matched_cip`, which is passed unchanged to downstream MCP query paths (`get_career_paths` and friends). At best the SOC crosswalk join misses and the student lands on a broken careers screen; at worst we've persisted the bad value across cache lifetime.
+
+**Location:** `backend/app/services/intent.py:346-350`
+```python
+matched_cip = str(parsed.get("matched_cip", ""))
+matched_title = str(parsed.get("matched_title", ""))
+confidence = str(parsed.get("confidence", "unknown"))
+reasoning = str(parsed.get("reasoning", ""))
+alternatives = _sanitize_alternatives(parsed.get("alternatives"), matched_cip)
+```
+
+**The Problem:** The genai-architect finding #10 called out CIP hallucination as the cross-backend divergence risk and the team addressed it for alternatives. The same risk applies to `matched_cip` — more severely, because the primary is what's persisted to the cache and sent to downstream services.
+
+**The Fix:** Same regex, applied to the primary. On mismatch, raise the existing `ValueError` so the router returns 422 and the frontend drops into `phase="fallback"` — the clarify picker is the correct graceful-degradation path for a malformed primary, and that path is already wired.
+
+```python
+matched_cip = str(parsed.get("matched_cip", "")).strip()
+if not _CIP_PATTERN.match(matched_cip):
+    raise ValueError(
+        f"Gemma returned a malformed primary CIP ({matched_cip!r}) for '{major_text}'"
+    )
+```
+
+Routes back to Claude Code (general) for the fix and @test-writer for the parametrized test.
+
+#### Moderate (🟡)
+
+##### M1. No length cap on `title` / `why` / `major_text`
+
+**Impact:** The sanitizer's `.strip()` + `str(...)` coercion accepts arbitrary-length strings. Normal case is fine — Gemma's `why` runs 20–60 chars. But:
+- A prompt-injected `major_text` (e.g. a student pasting 8KB of text) could cause Gemma to echo a long narrative into `title` or `why`.
+- The raw value flows back in the `IntentResult` payload and, on confirm, is shipped to `/intent/confirm` → `_intent_cache`. Attacker-weight payload is now cached.
+- `major_text` isn't length-capped anywhere in `IntentRequest` either.
+
+**The Fix:** Either add a `max_length` to `IntentRequest.major_text` (200 chars is generous) at the Pydantic layer, or cap each sanitized field at ~120 chars. Prefer the request-level cap — defends everyone, not just the alternatives path.
+
+**Severity:** 🟡 Moderate. No crash, no injection I can construct (these strings aren't used in any downstream SQL or shell context), but it's a latent denial-of-cache-quality vector.
+
+##### M2. Type confusion on `title` / `cip` renders ugly-but-non-crashing strings
+
+**Impact:** If Gemma returns `{"cip": "52.0801", "title": {"primary": "Finance"}, "why": ["a", "b"]}`, `str({"primary": "Finance"}).strip()` = `"{'primary': 'Finance'}"` — passes the truthy check and renders literally as the alt title. The student sees Python repr in the UI.
+
+**Location:** `backend/app/services/intent.py:258-271`
+
+**The Problem:** The sanitizer guards against None and missing keys but not against non-string types. The regex check on `cip` catches most of this incidentally (because `str({...})` won't match the regex), but `title` has no format gate.
+
+**The Fix:** One isinstance guard before the coercion:
+```python
+if not isinstance(item.get("title"), str) or not isinstance(item.get("cip"), str):
+    continue
+```
+`why` can stay tolerant since empty is the degenerate case we already handle.
+
+**Severity:** 🟡 Moderate. Not a security issue — "Gemma misbehaves → ugly UI". The automated tests will never catch it because every fixture uses strings. Worth the two lines before merge.
+
+##### M3. `confidence` accepts any string Gemma emits; no allow-list gate
+
+**Impact:** `confidence = str(parsed.get("confidence", "unknown"))` is stored verbatim. If Gemma emits `"extremely high"`, `"moderate"`, or `"🎯"`, we propagate unchanged:
+- Backend: `needs_clarification = confidence == "low"` → False for anything non-low.
+- Frontend: `isUncertain = confidence !== "high"` → True for anything non-high.
+- Combined: any weird string lands on the medium-tier rendering (caution + "best guess" + alternatives if non-empty).
+
+Graceful degradation to the caution card is defensible, but this is a silent drift vector. genai-architect #13 and fp-architect #13 both flagged `Literal["high","medium","low"]` as a cheap win and parked it. Noting here that the actual predicate (`!= "high"`) is *more* lenient than either reviewer's "unknown → fallback" suggestion.
+
+**The Fix:** Either coerce unknowns to `"medium"` explicitly (same behavior as today but explicit), or promote to `Literal["high","medium","low"]` in Pydantic (would require a graceful fallback path since router currently 422s on ValueError).
+
+Not blocking. Pin as a named follow-up in §11.
+
+##### M4. `confirmTimerRef.current` isn't nulled after firing
+
+**Impact:** In `MatchContent` (MajorInput.tsx:316-320), the unmount cleanup calls `clearTimeout(confirmTimerRef.current)` if truthy. The timer IDs are positive integers and never reset to `null` after fire. On unmount, we always call `clearTimeout` with a stale ID. `clearTimeout(staleId)` is a documented no-op, so no bug — but the intent of "only clear if a timer is live" is not what the code expresses.
+
+**The Fix:** Null in the `setTimeout` callback:
+```typescript
+confirmTimerRef.current = window.setTimeout(() => {
+  confirmTimerRef.current = null;
+  onConfirm();
+}, 320);
+```
+Same for the alternative handler. Zero behavior change; tightens the invariant so future contributors don't misread it.
+
+**Severity:** 🟡 Moderate (borderline minor — promoted only because the 3am test for "what happens if the user spams clicks during unmount" should have a clean answer).
+
+#### Minor (🔵)
+
+##### N1. `max_tokens` bump to 700 is acceptable, but unmonitored
+
+The genai-architect's math (~350–420 tokens typical, +60–80 for 3-sentence reasoning) is sound, and the 2-sentence cap in the prompt is the right mitigation. §4 notes "Acceptable at demo concurrency; no rate-limit change." Fine for May 18, but there's no log-level signal for "we truncated" — a runaway generation (rare but not impossible on low-tier inputs) falls through to `raise ValueError` and lands in the picker. Silent, but the fallback is the right UX. File under "if the demo flakes, here's one place to look." A one-line `logger.warning("intent fallback: %s", stats['parse_error'])` in the `parsed is None` branch would make it observable in `logs/gemma.jsonl`.
+
+##### N2. CLI's line-925 `parsed.get("alternatives") or []` is tolerant-by-design
+
+Explicitly called out in §6 as an intentional choice — the CLI is a dev harness and doesn't need to match the service's defensive posture. Agree. If the CLI ever graduates into a non-dev path, this should adopt `_sanitize_alternatives`. Noted, not a bug.
+
+##### N3. Drift-warning comments are sufficient for this spec's lifetime
+
+Verified byte equivalence between `backend/app/services/intent.py:27-88` and `backend/cli.py:611-672` via `diff` — identical. The drift comments at intent.py:24-26 and cli.py:607-610 name the mirror relationship and point at §11. Grade: sufficient for hackathon lifetime. The follow-up consolidation (parked in §11) remains correct — pointing a single constant at both sites eliminates the class of bug. Ship this, track the follow-up.
+
+##### N4. Double-state in `MatchContent` (`confirming` vs `confirmingAltCip`) is correctly guarded
+
+I tried to construct a double-fire: primary click → state flips, alt click within the same tick → guard returns early. Alt click → alt state set, primary click → guard returns early. Rapid same-alt clicks → same guard. Two-state representation drives two different visual targets (primary CTA glow vs. alt row glow) — not redundant, just separate concerns. Fine as-is.
+
+##### N5. Alternative-confirm dropping `careers_preview` and `substitutionApplied` is the correct call
+
+§3 D6 locked this behavior and the implementation honors it: `careersPreview: override ? [] : intentResult.careers_preview, substitutionApplied: override ? false : …`. The alternative has its own CIP and its own career outcomes — the primary's preview would be actively wrong. Empty is honest. The next screen (`/build`) does its own lookup. I spent a minute considering an inline pre-fetch for the alt's preview; not worth a second MCP round-trip to save ~800ms of "preview lag" on a path already gated behind a 320ms confirm flash.
+
+##### N6. `/intent/confirm` doesn't care that the CIP came from an alternative
+
+`backend/app/routers/intent.py:22-30` and `IntentConfirmRequest` (`api.py:18-23`) take `matched_cip` and `matched_title` as loose strings; they don't cross-check against the originally-resolved primary. `confirm_intent()` writes them straight into `_intent_cache` keyed on the student's normalized input. Semantics: "this input, at this school, was confirmed to be this CIP" — fully correct when the student picks an alt. Next time they type the same thing → cache hit for the alternative. Right behavior.
+
+##### N7. `_intent_cache` is process-local and unbounded (pre-existing)
+
+Out of scope — pre-existing — but the "what happens at 3am" note: plain dict, lives for process lifetime, no eviction. At demo scale fine. In prod: (a) multi-worker deployments don't share the cache so the same student hitting different pods gets different behavior, (b) unbounded growth over weeks. Tech debt orthogonal to this spec.
+
+##### N8. `handleProgramPick` (clarify path) doesn't fire `/intent/confirm`
+
+Also pre-existing, also out of scope: primary + alternative confirm paths hit `/intent/confirm`; picking from the clarify picker (MajorInput.tsx:110) doesn't. A student who lands on low-tier, picks from the picker, and comes back later types the same thing and re-runs Gemma + the picker. Small cost, preserves "Gemma uncertainty ⇒ don't cache". Defensible. Noting for the record.
+
+#### Test Coverage Assessment
+
+The test suite covers the contract correctly. Gaps already flagged in §7 are:
+1. **No direct test for `_call_gemma_intent`'s trailing-prose stripping.** The code path at intent.py:229-232 is invoked implicitly by every fixture-backed test, but there's no test that asserts `'{"a":1} trailing garbage here'` → `cleaned == '{"a":1}'`. §7 called it P2; I'd land it before next prompt tweak.
+2. **No test for the S1 finding** (primary CIP format validation). If S1 is addressed, a one-line parametrized test covers it: `["52", "52.02", "52.0201X", "", None]` → `ValueError` for each.
+
+P0/P1 coverage is otherwise complete for the contract in §4. No missing tier, no missing happy path. The 2 pre-existing `ProfileScreen.test.tsx` failures are correctly documented and unrelated.
+
+#### What's Actually Good
+
+- **The sanitizer is the star of the show.** Right defensive choices in the right order: list check → per-item dict check → empty/missing fields → regex gate → dedup (seeded with primary) → clamp. Dedup survives even if primary is malformed because `"52.02" in seen` still works on string equality. Preserves input order (tests assert it). Ten clean lines of real defense.
+- **Error paths degrade correctly.** Every failure mode I walked (None response, unparseable JSON, missing `matched_cip` key, garbage `confidence`, string `alternatives`, oversized alternative list) either (a) raises ValueError → 422 → frontend fallback picker, or (b) returns a valid-but-empty `IntentResult.alternatives` → frontend renders caution card without the list. No silent corruption, no crash.
+- **Prompt mirroring is correct.** Byte-identical between the two sites. The comments at both call sites name the mirror relationship and point at §11. Right amount of work for hackathon time.
+- **The frontend state machine is clean.** `confirming` and `confirmingAltCip` look redundant but correctly separate (they drive different visual targets). Guards prevent double-fire. `useEffect` cleanup is correct for unmount-during-flash. `isUncertain` rename is the semantically right abstraction for a future fourth tier.
+- **Tests pin the contract, not the implementation.** Frontend tests assert `aria-label="Select {title}"` and CTA labels — the contract a future refactor should honor. Backend tests assert `len(alternatives) <= 10` and dedup behavior, not the sanitizer's internal `seen` set. Good taste.
+
+#### Recommendations (Prioritized)
+
+1. **Land S1 (primary CIP format validation) before merge.** One regex check, one ValueError, one parametrized test. Closes the asymmetric defense gap.
+2. **Land M2 (isinstance check on `title`/`cip` in the sanitizer) before merge.** Two lines. Defends against Gemma emitting non-string types without making the code harder to read.
+3. **Track M1 (length caps on `major_text` / alternative strings) as a named follow-up in §11.** Prefer request-level: `IntentRequest.major_text: str = Field(max_length=200)`.
+4. **Track M3 (Literal typing for `confidence`) as a named follow-up in §11.** Already flagged by both architect reviews; bring the reference forward so it doesn't get lost.
+5. **Optionally land M4 and N1** (null timer ref after fire; warn log on fallback). Both are 1–2 line cleanups worth bundling if S1/M2 are being touched anyway.
+
+#### Questions for the Author
+
+- **Any monitoring on the `raise ValueError` fallback rate?** At the demo, if 10% of inputs start falling through to the picker because Gemma is truncating at 700 tokens, we'd want to know. N1's logger.warning is a one-line fix.
+- **Is the `_intent_cache` expected to survive a process restart?** In-memory now. If the demo mid-flight gets a pod restart, every previously-confirmed student re-runs Gemma. Probably fine for the hackathon; worth knowing for sure.
+- **Rollback plan if the tier rubric regresses accuracy under OpenRouter?** Revert the prompt to pre-spec version; frontend's `isUncertain = confidence !== "high"` keeps working because medium responses still render the caution path (just without the richer alternatives). Architecturally clean; confirming the rollback surface is "one prompt string."
+
 #### Verdict
-- [ ] APPROVED
+- [x] APPROVED (post-remediation 2026-04-18)
 - [ ] CHANGES REQUIRED
 - [ ] BLOCKER
+
+**Rationale:** S1 (primary CIP unchecked) and M2 (non-string `title` passthrough) have been addressed in commit following this review. The initial verdict was CHANGES REQUIRED; after the two fixes landed, the verdict flips to APPROVED per the reviewer's own "once those two are in, this is a clean approve" language.
+
+**Post-review remediation (2026-04-18):**
+
+- **S1 fixed** in `backend/app/services/intent.py` — `matched_cip` now strip()'d and regex-validated against `_CIP_PATTERN`; mismatch raises `ValueError` which the router translates to HTTP 422 and the frontend routes to `phase="fallback"` (the existing graceful degradation path).
+- **M2 fixed** in `backend/app/services/intent.py:_sanitize_alternatives` — explicit `isinstance(..., str)` guards on `cip` and `title` reads before the `.strip()` coercion. `why` stays tolerant and defaults to `""` when non-string (degenerate case already handled downstream).
+- **Test coverage added** — `backend/tests/services/test_intent.py` gained a parametrized `test_resolve_intent_rejects_malformed_primary_cip` covering `["52", "52.02", "52.0201X", "", "abc.defg", "052.0201", "52.02011"]` + a separate `test_resolve_intent_rejects_null_primary_cip` for the JSON `null` path, plus `test_sanitize_drops_non_string_title_and_cip` for M2.
+- **Design Audit FAIL fixed** — section label source copy updated to all-caps (`"OR — ONE OF THESE?"`) in both `frontend/src/components/school/MajorInput.tsx` and `docs/mockups/brightpath-design-system-v3.html`. DESIGN.md spec now matches source in both files.
+- **Follow-ups tracked** — M1 (length caps on `major_text` / alternatives), M3 (Literal typing for `confidence`), M4 (null timer ref after fire), N1 (logger.warning on fallback) pinned as named items in §11.
 
 ---
 
@@ -1168,8 +1431,47 @@ cd frontend && npx vitest run
 ## §10 Discussion
 
 ```
-[YYYY-MM-DD HH:MM] @source-agent → @target-agent
-Message content.
+[2026-04-18 —] @faang-staff-engineer → Claude Code (general) + @test-writer
+Code Review §8 → CHANGES REQUIRED. Two fixes blocking merge; ~20 min total.
+
+S1 (🟠 Significant): Add primary-CIP format validation in
+backend/app/services/intent.py:346. The sanitizer checks every alternative
+against _CIP_PATTERN but matched_cip itself is trusted verbatim — so a
+malformed Gemma primary (e.g. "52.02", "52.0999X") gets persisted to
+_intent_cache via /intent/confirm and re-served to downstream MCP query
+paths. Fix:
+
+    matched_cip = str(parsed.get("matched_cip", "")).strip()
+    if not _CIP_PATTERN.match(matched_cip):
+        raise ValueError(
+            f"Gemma returned a malformed primary CIP "
+            f"({matched_cip!r}) for '{major_text}'"
+        )
+
+The existing ValueError → 422 → phase="fallback" path handles it cleanly.
+
+M2 (🟡 Moderate): Add isinstance guards in _sanitize_alternatives
+(backend/app/services/intent.py:258) so non-string title/cip values are
+dropped before the str() coercion:
+
+    if not isinstance(item.get("title"), str) or not isinstance(item.get("cip"), str):
+        continue
+
+Prevents "{'primary': 'Finance'}" from rendering as an alt title.
+
+@test-writer: please add a parametrized test for S1 covering
+["52", "52.02", "52.0201X", "", None, "abc.defg"] → each raises ValueError
+through resolve_intent. Use the existing stub_server + stub_gemma_config
+fixtures in backend/tests/services/test_intent.py; mock _make_generate_mock
+with each malformed primary payload.
+
+Non-blocking follow-ups (please add as named items in §11): M1 length caps,
+M3 Literal typing for confidence, M4 null timer ref after fire, N1
+logger.warning on fallback. Full rationale + 5 additional minor findings
+documented in §8 Code Review.
+
+Once S1 + M2 land and the new test passes, verdict flips to APPROVED and
+spec proceeds to §9 Verification (@fp-builder).
 ```
 
 ---
@@ -1178,4 +1480,22 @@ Message content.
 
 **Human Review:** PENDING
 
-[Final thoughts, lessons learned, follow-up items. Note whether prompt consolidation between `intent.py` and `cli.py` should be the next refactor spec.]
+### Tracked Follow-ups
+
+These are non-blocking items that surfaced during this spec and should each be picked up as a small standalone spec (or bundled together as a "intent-hardening" spec). None block shipping this tiered-matching feature.
+
+| # | Origin | Item | Suggested scope |
+|---|--------|------|-----------------|
+| F1 | §2 Decision #5, @fp-architect #10, @faang-staff N3 | **Prompt consolidation.** `_INTENT_SYSTEM_PROMPT` is duplicated at `backend/app/services/intent.py:27` and `backend/cli.py:611`. Drift-warning comments were added, but a shared module (e.g. `backend/app/services/intent_prompt.py`) eliminates the drift class entirely. | New spec. ~1 hour. Extract prompt + CIP pattern into a shared module; import from both sites. |
+| F2 | @fp-architect #7, @genai-architect #13, @faang-staff M3 | **Tighten `confidence` typing.** Currently `confidence: str` accepts any Gemma emission verbatim. Promote to `Literal["high","medium","low"]` with a graceful fallback path (coerce unknown → "medium", or route to `phase="fallback"`). | Small spec. ~30 min. Pydantic `field_validator` + one frontend type narrowing + two tests. |
+| F3 | @fp-architect #7, @faang-staff M1 | **Length caps on intent strings.** `IntentRequest.major_text` has no max length. Gemma-emitted `title` / `why` have no cap either. Cache-quality DoS vector (not a crash). | Small spec. ~15 min. `Field(max_length=200)` on request + 120-char cap in sanitizer + test. |
+| F4 | @faang-staff M4 | **Null `confirmTimerRef.current` after fire** in `MatchContent` (MajorInput.tsx). Zero behavior change; tightens the "only clear live timers" invariant. | Trivial. ~5 min. Inline fix during any future MatchContent edit. |
+| F5 | @faang-staff N1 | **Observable fallback rate.** Add `logger.warning("intent fallback: %s", stats["parse_error"])` in the `parsed is None` branch of `resolve_intent`. Makes silent truncation/parse-failure visible in `logs/gemma.jsonl`. | Trivial. ~5 min. One line + verification that `logs/gemma.jsonl` captures it. |
+| F6 | §7 gap, @faang-staff test-coverage | **Direct test for trailing-prose JSON stripping.** Currently exercised implicitly by every tier test but never asserted in isolation. | Trivial. ~10 min. One unit test on `_call_gemma_intent` with a Gemma response of `'{"a":1} some trailing prose'`. |
+
+### Lessons Learned
+
+- **Schema shipped > schema rendered.** This spec existed because the `IntentResult.alternatives` and `confidence` fields were wired end-to-end but only partially rendered. The caution styling in `MatchContent` was unreachable for months. Worth a linter or audit pass that flags fields typed through to the frontend but never read. Candidate future spec.
+- **Parallel reviews caught different failure modes.** @fp-architect focused on contract/routing; @genai-architect focused on prompt calibration + parser fragility; @faang-staff-engineer focused on asymmetric defense + state machine. All three were necessary — any single reviewer would have missed at least two of the required fixes.
+- **"Never pad" is a weak negative constraint.** The genai-architect's finding #2 (template schema undercuts "Never pad") generalizes: explicit schema examples dominate instruction-level directives in low-temperature Gemma responses. Default to showing the high-confidence shape in templates, not the medium/low shape.
+- **Drift comments are sufficient for hackathon lifetime.** Byte-identical diff verified between the two prompt sites after commit. The follow-up consolidation (F1) eliminates the class of bug but does not block the feature.
