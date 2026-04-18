@@ -1011,18 +1011,31 @@ All 6 required items and all 3 non-blocking prompt improvements from @genai-arch
 
 ## §6 Implementation Log
 
-**Status:** PENDING
+**Status:** COMPLETE
+**Implemented:** 2026-04-18
 
 ### Files Modified
 | File | Change Summary |
 |------|---------------|
+| `backend/app/services/intent.py` | Rewrote `_INTENT_SYSTEM_PROMPT` with tier rubric before school data block; `"alternatives": []` in template; lexical-match tiebreaker; colloquial high example; cross-family medium example; "Keep reasoning to 2 sentences" directive. Raised `max_tokens` 500→700. Hardened JSON parsing to strip trailing prose after final `}`. Added `_CIP_PATTERN` + `_sanitize_alternatives()` that drops non-dicts, bad CIPs, the primary CIP, and duplicates; clamps to 10. Added tier-split drift comment above `IntentResult` construction. |
+| `backend/cli.py` | Mirrored the new `_INTENT_SYSTEM_PROMPT` verbatim. Bumped `max_tokens` and applied the trailing-prose JSON strip. Added duplicate-prompt drift-warning comment pointing at the service copy. (CLI alternatives consumer at line 925 kept as-is — CLI is a dev harness; its lax `or []` coercion is acceptable.) |
+| `frontend/src/components/school/MajorInput.tsx` | Renamed `isLowConfidence` → `isUncertain = confidence !== "high"` throughout `MatchContent`. Parent card border-l logic now lights caution on `confidence !== "high"` (was `=== "low"`, unreachable post-routing). Added `confirmingAltCip` state + `handleAlternativePick`. Added `AlternativesList` subcomponent per §3 visionary spec (section label, ▸ glyph, accent-info title with text-primary hover, right-aligned muted `why`, confirm flash at literal parity with primary CTA glow, siblings dim to 0.45). Parent `handleConfirm` accepts optional `{matched_cip, matched_title}` override; careers preview and `substitutionApplied` are suppressed on alternative confirms. |
+| `DESIGN.md` | Appended "Tiered Match Card (Three-Confidence Extension)" subsection documenting the medium-tier alternatives pattern, tokens, motion, a11y, degenerate-state policy, and copy rationale. Existing Match Card docs untouched. |
+| `docs/mockups/brightpath-design-system-v3.html` | Appended "Medium-tier · with alternatives" variant — two cards (default + confirming-alternative) plus scoped `.gemma-alternatives-*` CSS. Additive only; existing Gemma section cards and Tone Exploration untouched. |
 
 ### Deviations from Spec
-[Any divergence from §3/§4 and why]
+
+None material. Two minor judgment calls:
+
+1. **Parent `handleConfirm` signature** — §3 showed the visionary's conceptual pattern `onConfirm({matched_cip, matched_title})`; the implementation kept the MatchContent `onConfirm` prop as `(override?: {...}) => void` so the primary-confirm call site stays `onConfirm()` (zero-arg, unchanged) and only alternative picks pass the override. Semantically identical.
+2. **CSS variable reference in the confirm-flash animation** — §3 referenced `var(--color-bp-surface)` but the project's actual CSS custom property is `--color-bg-surface` (Tailwind token `bp.surface` maps to it). Used the correct variable; no token change.
+
+Alternative-confirm handoff drops `careers_preview` (the preview was derived from the primary CIP) and `substitutionApplied` (no substitution context for an alternative). Documented inline in `handleConfirm`.
 
 ### Build Accountability Log
 | Attempt | Result | Error | Fix Applied |
 |---------|--------|-------|-------------|
+| 1 | Pass | ruff all green; mypy surface errors all pre-existing (confirmed via `git stash` diff — same 6 errors before changes); TypeScript clean after fixing `--color-bp-surface` → `--color-bg-surface`. | CSS variable reference corrected before commit. |
 
 ---
 
