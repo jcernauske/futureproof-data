@@ -1130,18 +1130,45 @@ These tests must NOT break. If any fail during implementation, STOP and escalate
 
 ## §6 Implementation Log
 
-**Status:** PENDING
+**Status:** COMPLETE (pending test-writer + audit + review)
 
 ### Files Modified
 | File | Change Summary |
 |------|---------------|
+| `backend/app/models/career_pick.py` | Created — `CareerPickChip`, `AskCareerPickRequest`, `AskCareerPickResponse`. CIPCODE kept as `str` per project rule. |
+| `backend/app/services/career_pick_qna.py` | Created — seven `CannedQuestion` entries (pre-med → "Why don't I see 'doctor'?", pre-law → "Why don't I see 'lawyer'?", pre-vet, pre-dental, plus three base-catalog questions: what-does-this-do / right-school-for-this / why-these-tiers). Owns `build_chip_list` (auto-elevation via word-boundary regex + terminal-SOC absence) and `ask` (prompt builder → `gemma_client.generate_async` → deterministic fallback on empty, supplemental JSONL record tagged `call_site="career_pick.ask"`). |
+| `backend/app/routers/career_pick.py` | Created — `GET /career-pick/chips` (async) and `POST /career-pick/ask` (async). Unknown chip_id is translated to 422 via `ValueError` → `HTTPException`. |
+| `backend/app/main.py` | Added `career_pick` to the import list + registered the router. |
+| `frontend/src/styles/motion.ts` | Added the seven §3.4 presets verbatim: `sheetDetent` (vh fractions), `sheetSnap` (spring), `sheetDragElastic`, `sheetFlingVelocity`, `chipResponseExpand` (hybrid opacity tween + height spring), `elevatedChipPulse` (2.4s boxShadow breathe), `handlePulse` (2.2s opacity breathe, optional). |
+| `frontend/src/types/careerPick.ts` | Created — mirrors the three Pydantic models. |
+| `frontend/src/api/careerPick.ts` | Created — `getCareerPickChips` + `askCareerPickChip`. Honors `VITE_USE_MOCK_API`. |
+| `frontend/src/api/mockCareerPick.ts` | Created — fixture chip set with pre-med elevation flag applied when `majorText` matches; canned answers keyed by chip_id. |
+| `frontend/src/api/mockBranches.ts` | Created — deterministic branch fixture keyed by SOC. |
+| `frontend/src/api/tree.ts` | Added `getBranchesForSoc(soc)` alongside existing `getTree(buildId)`. Mock-aware via the same `VITE_USE_MOCK_API` switch. |
+| `frontend/src/components/BranchChip.tsx` | Created — renders branch title, non-zero stat delta pills (0 suppressed, magnitude 1-3 as `+`/`-` glyphs), optional rationale, keyboard-focusable with the Brightpath focus ring. |
+| `frontend/src/components/AskGemmaChipRow.tsx` | Created — renders the chip set in the order delivered by the backend. Elevated chip carries `accent-alert` palette + filled dot + `aria-describedby` pointing at the elevation hint + ambient pulse (gated on `useReducedMotion`). Non-elevated chips use accent-info palette; active state adds the glow. Enter/Space fires `onChipClick`. |
+| `frontend/src/components/AskGemmaResponseCard.tsx` | Created — Gemma attribution row + body copy (with `whitespace-pre-line` so the plain-prose answer renders naturally) + Regenerate + Close buttons. `role="region"` + `aria-live="polite"` so screen readers announce the answer. Enter/exit via the `chipResponseExpand` preset. |
+| `frontend/src/components/CareerLineageSheet.tsx` | Created — the centerpiece. `motion.div` with `drag="y"` + elastic `dragConstraints` + `sheetSnap` animation. Five zones (handle + chevrons, title, lineage flow, chip row, response card). Exposes a pure `resolveDetent` helper for P0/P1 drag-end tests without driving a live pointer. Generation-token fetch guard for branch lifecycle (cancels stale responses on SOC change). Chip click auto-promotes `compact` → `medium`. `prefers-reduced-motion` swaps the snap animation for a zero-duration tween and zeroes the drag elasticity. |
+| `frontend/src/components/CareerCard.tsx` | Split click-gesture: the card body fires `onExplore` (populates the sheet), a dedicated inline "Pick this path" button fires `onSelect` (commits to `buildStore`). The pick button carries `role="radio"` so the existing radiogroup semantics inside `CareerTierSection` remain intact and keyboard-accessible. |
+| `frontend/src/components/CareerTierSection.tsx` | Added a required `onExplore` prop that forwards to `CareerCard`. No other behavior change — disclosure + grid layout untouched per §2 Decision #7. |
+| `frontend/src/screens/CareerPickScreen.tsx` | Outer layout: tiers are always `grid-cols-1` (never 3-up). CTA is inline below the tiers, never fixed. Reserves bottom padding for the compact detent (`pb-[calc(33vh+var(--space-6))]` at desktop/tablet, `calc(45vh+var(--space-6))` at mobile). New `useState`s for `lineageCareer`, `detent`, `chips`. Prefetches chips via `getCareerPickChips` once `tieredCareers` lands. Mounts `CareerLineageSheet` at the bottom of the viewport once tiers resolve. |
+| `frontend/src/components/CareerTierSection.test.tsx` | Added `onExplore={vi.fn()}` to each render call — required-prop addition, not a behavior change. |
+| `frontend/src/screens/CareerPickScreen.test.tsx` | Updated: (a) outer grid assertion checks `grid-cols-1` and absence of `desktop:grid-cols-3`, (b) new explore-vs-select separation test, (c) card-body click triggers `getBranchesForSoc` without mutating `selectedCareer`, (d) chip prefetch firing on mount. All prior selection-flow assertions preserved via the inline pick button. |
 
 ### Deviations from Spec
-_None yet._
+
+- **Decision #5 resolution.** §2 Decision #5 required "a separate action from populating the sheet" but §3 Design Vision didn't spec the exact gesture split. Implemented as: card-body click → `onExplore`; inline "Pick this path" pill inside each card → `onSelect`. The pill carries `role="radio"` to preserve the radiogroup semantics already wired through `CareerTierSection`. This preserves every existing CareerPickScreen test's intent and keeps keyboard + screen-reader parity for the commit gesture.
+- **Frontend status.** `CareerBranch` was verified to already carry every field `BranchChip` reads (`to_title`, `delta_*`). `unlock` is rendered in place of `rationale` since `unlock` is the already-populated human-readable descriptor from the Gold data (`branch_tree.py` formats `related_education_level` + `relatedness_tier` into `unlock`). When the follow-up `rationale` field lands on the backend, `BranchChip` swaps the prop name — one-line change.
+- **Backend mypy.** `backend/app/main.py:54 async def startup():` has a pre-existing missing-return-type error unrelated to this spec's changes. Confirmed pre-existing via `git blame` (commit ead552dd, 2026-04-12). Not fixed under this spec.
+- **Frontend vitest.** `src/screens/ProfileScreen.test.tsx` has 2 pre-existing failing tests (seeded-profile deterministic naming). Confirmed pre-existing on `main` via `git stash` + rerun. Not caused by this spec.
 
 ### Build Accountability Log
 | Attempt | Result | Error | Fix Applied |
 |---------|--------|-------|-------------|
+| 1 (backend) | pass | ruff clean; new files pytest green; mypy pre-existing startup annotation | none (not this spec's scope) |
+| 1 (frontend tsc) | 6 errors | `SheetDetent \| undefined` from array indexing; `HTMLElement \| undefined` from `getAllByRole(...)[0]` under `noUncheckedIndexedAccess` | explicit `as SheetDetent` casts on the bounds-checked array reads; `!` non-null assertions on test selectors |
+| 2 (frontend tsc) | pass | — | — |
+| 1 (vitest) | 11/11 affected tests pass; only pre-existing ProfileScreen tests fail | — | — |
 
 ---
 

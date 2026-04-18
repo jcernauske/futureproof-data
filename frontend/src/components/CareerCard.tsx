@@ -7,21 +7,38 @@ import { socEmoji } from "@/data/socEmoji";
 interface CareerCardProps {
   career: CareerOutcome;
   selected: boolean;
+  /** Primary card click — opens lineage in the bottom sheet. */
+  onExplore: () => void;
+  /** Inline "Pick this path" action — commits this career to buildStore. */
   onSelect: () => void;
 }
 
 const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 
-export function CareerCard({ career, selected, onSelect }: CareerCardProps) {
+export function CareerCard({
+  career,
+  selected,
+  onExplore,
+  onSelect,
+}: CareerCardProps) {
   const wage = career.median_annual_wage;
+
+  function handleCardClick(event: React.MouseEvent<HTMLButtonElement>) {
+    // Ignore clicks bubbling from the inner "Pick this path" button — it
+    // fires onSelect directly and must NOT also populate the sheet.
+    const target = event.target as HTMLElement | null;
+    if (target?.closest?.("[data-pick-button]")) return;
+    onExplore();
+  }
 
   return (
     <motion.button
       id={`career-${career.soc_code}`}
-      role="radio"
-      aria-checked={selected}
-      aria-label={career.occupation_title}
-      onClick={onSelect}
+      type="button"
+      role="button"
+      aria-label={`Explore lineage for ${career.occupation_title}`}
+      aria-pressed={selected}
+      onClick={handleCardClick}
       className={`w-full text-left rounded-xl p-6 border cursor-pointer transition-colors duration-normal ${
         selected
           ? "bg-bp-surface border-accent-thrive shadow-glow-thrive"
@@ -70,6 +87,33 @@ export function CareerCard({ career, selected, onSelect }: CareerCardProps) {
         })}
       </div>
 
+      <div className="mt-4 flex items-center justify-end">
+        <span
+          data-pick-button
+          role="radio"
+          aria-checked={selected}
+          aria-label={career.occupation_title}
+          tabIndex={0}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              onSelect();
+            }
+          }}
+          className={`inline-flex items-center gap-2 h-9 px-3 rounded-full border font-body text-small font-semibold cursor-pointer transition-colors duration-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-focus-ring)] ${
+            selected
+              ? "bg-accent-thrive/20 border-accent-thrive text-accent-thrive"
+              : "bg-transparent border-border-default text-text-secondary hover:text-text-primary hover:border-border-strong"
+          }`}
+        >
+          {selected ? "Picked ✓" : "Pick this path"}
+        </span>
+      </div>
     </motion.button>
   );
 }

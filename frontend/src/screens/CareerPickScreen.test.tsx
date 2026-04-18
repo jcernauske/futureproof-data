@@ -9,9 +9,9 @@ import type { CareerOutcome, TieredCareers } from "@/types/build";
 /**
  * CareerPickScreen tests
  *
- * The API layer (api/build.ts) is mocked at the module boundary so we can
- * verify the screen's logic in isolation — loading, error + retry, selection
- * state → store, CTA gating, and navigation.
+ * The API layer is mocked at the module boundary so we can verify the
+ * screen's logic in isolation — loading, error + retry, explore-vs-select
+ * separation, CTA gating, navigation, and chip prefetch on mount.
  */
 
 const mockNavigate = vi.fn();
@@ -25,6 +25,18 @@ const mockGetTieredCareers = vi.fn();
 vi.mock("@/api/build", () => ({
   getOutcomes: (...args: unknown[]) => mockGetOutcomes(...args),
   getTieredCareers: (...args: unknown[]) => mockGetTieredCareers(...args),
+}));
+
+const mockGetCareerPickChips = vi.fn();
+vi.mock("@/api/careerPick", () => ({
+  getCareerPickChips: (...args: unknown[]) => mockGetCareerPickChips(...args),
+  askCareerPickChip: vi.fn(),
+}));
+
+const mockGetBranchesForSoc = vi.fn();
+vi.mock("@/api/tree", () => ({
+  getTree: vi.fn(),
+  getBranchesForSoc: (...args: unknown[]) => mockGetBranchesForSoc(...args),
 }));
 
 function makeCareer(soc: string, title: string, wage = 100000): CareerOutcome {
@@ -80,10 +92,17 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockGetOutcomes.mockReset();
   mockGetTieredCareers.mockReset();
-  // Seed required upstream state so the nav guard doesn't redirect.
+  mockGetCareerPickChips.mockReset().mockResolvedValue([]);
+  mockGetBranchesForSoc.mockReset().mockResolvedValue([]);
   useBuildInputStore.setState({
     phase: "sliders",
-    school: { unitid: 110635, name: "UC Berkeley", institutionControl: "Public", netPriceAnnual: null, costOfAttendanceAnnual: null },
+    school: {
+      unitid: 110635,
+      name: "UC Berkeley",
+      institutionControl: "Public",
+      netPriceAnnual: null,
+      costOfAttendanceAnnual: null,
+    },
     programs: [],
     major: {
       cipCode: "11.0701",
@@ -126,13 +145,100 @@ describe("CareerPickScreen", () => {
     expect(screen.getByText("Computer Systems Analysts")).toBeInTheDocument();
     expect(screen.getByText("Data Scientists")).toBeInTheDocument();
     expect(screen.getByText("Computer Research Scientists")).toBeInTheDocument();
-    // Exact-match aria-labels — "Common" is a substring of "Less Common".
-    expect(screen.getByRole("region", { name: "Common career paths" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Less Common career paths" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Stretch career paths" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Common career paths" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Less Common career paths" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Stretch career paths" }),
+    ).toBeInTheDocument();
   });
 
-  it("CTA is disabled until a career is selected, enabled after", async () => {
+  it("tiers render stacked vertically, each individually collapsible", async () => {
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText("Software Developers")).toBeInTheDocument();
+    });
+
+    // Outer container is always single-column (no desktop:grid-cols-3).
+    const common = screen.getByRole("region", { name: "Common career paths" });
+    const outer = common.closest("[class*='grid-cols-1']");
+    expect(outer).not.toBeNull();
+    expect(outer!.className).not.toContain("desktop:grid-cols-3");
+
+    // Each tier disclosure toggles independently.
+    const stretchToggle = screen.getByRole("button", {
+      name: /Stretch/,
+      expanded: true,
+    });
+    fireEvent.click(stretchToggle);
+    expect(stretchToggle).toHaveAttribute("aria-expanded", "false");
+
+    // Clicking inside Common doesn't change Stretch's state.
+    const commonSelectBtn = screen.getAllByRole("radio", {
+      name: "Software Developers",
+    })[0]!;
+    fireEvent.click(commonSelectBtn);
+    expect(stretchToggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("clicking a card populates the lineage sheet with that card's SOC", async () => {
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText("Software Developers")).toBeInTheDocument();
+    });
+
+    // Click the card body (not the inner pick button). The "Explore lineage
+    // for {title}" button is the card root — onExplore fires on that click.
+    const exploreBtn = screen.getByRole("button", {
+      name: "Explore lineage for Software Developers",
+    });
+    fireEvent.click(exploreBtn);
+
+    // Sheet fetches branches for the clicked SOC.
+    await waitFor(() => {
+      expect(mockGetBranchesForSoc).toHaveBeenCalledWith("15-1252");
+    });
+
+    // But onExplore must NOT commit the pick to the store.
+    expect(useBuildStore.getState().selectedCareer).toBeNull();
+  });
+
+  it("explore and select are distinct gestures (spec §2 Decision #5)", async () => {
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText("Software Developers")).toBeInTheDocument();
+    });
+
+    const pickBtn = screen.getAllByRole("radio", {
+      name: "Software Developers",
+    })[0]!;
+    fireEvent.click(pickBtn);
+
+    await waitFor(() => {
+      expect(useBuildStore.getState().selectedCareer?.soc_code).toBe(
+        "15-1252",
+      );
+    });
+    // Clicking the pick button must NOT populate the sheet.
+    expect(mockGetBranchesForSoc).not.toHaveBeenCalled();
+  });
+
+  it("CTA is disabled until a career is selected, enabled after; commits → /reveal", async () => {
     mockGetOutcomes.mockResolvedValueOnce([]);
     mockGetTieredCareers.mockResolvedValueOnce(TIERS);
 
@@ -145,10 +251,14 @@ describe("CareerPickScreen", () => {
     const cta = screen.getByRole("button", { name: "Build your career path" });
     expect(cta).toBeDisabled();
 
-    // Clicking a career updates the store and un-disables the CTA.
-    fireEvent.click(screen.getByRole("radio", { name: "Software Developers" }));
+    const pickBtn = screen.getAllByRole("radio", {
+      name: "Software Developers",
+    })[0]!;
+    fireEvent.click(pickBtn);
     await waitFor(() => {
-      expect(useBuildStore.getState().selectedCareer?.soc_code).toBe("15-1252");
+      expect(useBuildStore.getState().selectedCareer?.soc_code).toBe(
+        "15-1252",
+      );
     });
     expect(cta).not.toBeDisabled();
 
@@ -157,8 +267,6 @@ describe("CareerPickScreen", () => {
   });
 
   it("error state renders Try Again; clicking it clears the error banner", async () => {
-    // Fail the first fetch. The error's source is the outcomes call here —
-    // the exact call doesn't matter for the observable contract.
     mockGetOutcomes.mockRejectedValueOnce(new Error("Network down"));
 
     renderScreen();
@@ -167,23 +275,14 @@ describe("CareerPickScreen", () => {
       expect(screen.getByText("Network down")).toBeInTheDocument();
     });
     const retryBtn = screen.getByRole("button", { name: "Try Again" });
-    expect(retryBtn).toBeInTheDocument();
-
     fireEvent.click(retryBtn);
 
-    // Error banner must clear (proves setError(null) fires).
     await waitFor(() => {
       expect(screen.queryByText("Network down")).not.toBeInTheDocument();
     });
-
-    // Note: if the fetch is triggered by a dep change (tieredCareers null →
-    // null is a no-op), the useEffect may not re-run. This is a known issue
-    // separate from the nullability contract. The test here validates the
-    // minimum observable contract: error banner clears.
   });
 
   it("redirects to /school and sets session-expired hint when school/major missing", async () => {
-    // Blow away upstream state as if user refreshed on /career-pick.
     useBuildInputStore.setState({
       phase: "school",
       school: null,
@@ -200,13 +299,20 @@ describe("CareerPickScreen", () => {
       expect(mockNavigate).toHaveBeenCalledWith("/school", { replace: true });
     });
     expect(sessionStorage.getItem("fp-nav-hint")).toBe("session-expired");
-    // No API call should fire — guard runs before fetch.
     expect(mockGetOutcomes).not.toHaveBeenCalled();
   });
 
-  it("tiers lay out 3-up on desktop (grid-cols-1 desktop:grid-cols-3)", async () => {
+  it("prefetches chips on mount once tiered careers resolve", async () => {
     mockGetOutcomes.mockResolvedValueOnce([]);
     mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+    mockGetCareerPickChips.mockResolvedValueOnce([
+      {
+        id: "what_does_this_do",
+        label: "What does this career actually do?",
+        elevated: false,
+        terminal_title: null,
+      },
+    ]);
 
     renderScreen();
 
@@ -214,13 +320,12 @@ describe("CareerPickScreen", () => {
       expect(screen.getByText("Software Developers")).toBeInTheDocument();
     });
 
-    // Shared parent of the three tier regions carries the responsive grid classes.
-    const tierParent = screen
-      .getByRole("region", { name: "Common career paths" })
-      .closest("[class*='desktop:grid-cols-3']");
-    expect(tierParent).not.toBeNull();
-    expect(tierParent!.className).toContain("grid-cols-1");
-    expect(tierParent!.className).toContain("desktop:grid-cols-3");
+    await waitFor(() => {
+      expect(mockGetCareerPickChips).toHaveBeenCalledWith({
+        cipcode: "11.0701",
+        majorText: "Computer Science",
+        socCodes: ["15-1252", "15-1211", "15-2051", "15-1221"],
+      });
+    });
   });
-
 });
