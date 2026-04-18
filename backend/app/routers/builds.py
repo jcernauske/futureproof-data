@@ -1,10 +1,12 @@
 import asyncio
+import logging
+from typing import cast
 
 from fastapi import APIRouter, HTTPException
 
 from app import state
 from app.models.api import BuildRequest, OutcomesRequest, TierRequest
-from app.models.career import CareerOutcome
+from app.models.career import AppliedSkill, CareerOutcome, EffortLevel, SkillRec
 from app.services import (
     boss_fights,
     branch_tree,
@@ -15,6 +17,8 @@ from app.services import (
     skill_recs,
     stat_engine,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -55,32 +59,85 @@ async def tier_outcomes(request: TierRequest):
 
 @router.post("")
 async def create_build(request: BuildRequest):
+    # Pull the selected career first. PyIceberg metadata + scan is sync
+    # and can block the event loop for seconds on a cold call — offload
+    # to a thread so /health stays responsive.
     try:
-        outcomes = stat_engine.compute_pentagon(
+        career = await asyncio.to_thread(
+            stat_engine.compute_one,
             unitid=request.unitid,
             cipcode=request.cipcode,
+            soc_code=request.selected_soc,
             student_major=request.student_major,
-            effort=request.effort,
+            effort=cast(EffortLevel, request.effort),
             loan_pct=request.loan_pct,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
-    career = next(
-        (o for o in outcomes if o.soc_code == request.selected_soc),
-        None,
+    # Scoring is deterministic and cheap — stays on the event loop.
+    gauntlet = boss_fights.score_gauntlet(career)
+    branches = await asyncio.to_thread(branch_tree.get_branches, career.soc_code)
+
+    # Fan out the eight Gemma-bound calls in a single gather. Each
+    # coroutine owns its own semaphore acquisition via
+    # ``gemma_client.generate_async``; ``return_exceptions=True`` keeps
+    # one backend hiccup from taking down the whole build response.
+    narrative_tasks = [
+        boss_fights.narrate_one(career, fight) for fight in gauntlet.fights
+    ]
+    recs_task = skill_recs.generate_recs_async(career, gauntlet)
+    pool_task = skill_pool.generate_pool_async(career, gauntlet)
+    guidance_task = guidance.generate_guidance_async(
+        career, gauntlet, branches
     )
-    if career is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"SOC {request.selected_soc} not found in outcomes",
-        )
 
-    gauntlet = boss_fights.run_gauntlet(career)
-    branches = branch_tree.get_branches(career.soc_code)
-    recs = skill_recs.generate_recs(career, gauntlet)
-    pool = skill_pool.generate_pool(career, gauntlet)
-    narrative = guidance.generate_guidance(career, gauntlet, branches)
+    results = await asyncio.gather(
+        *narrative_tasks,
+        recs_task,
+        pool_task,
+        guidance_task,
+        return_exceptions=True,
+    )
+
+    fight_count = len(gauntlet.fights)
+    narrative_results = results[:fight_count]
+    recs_result, pool_result, guidance_result = results[fight_count:]
+
+    for fight, narrative_text in zip(gauntlet.fights, narrative_results):
+        if isinstance(narrative_text, BaseException):
+            logger.warning(
+                "narrate_one raised for boss=%s: %s",
+                fight.boss,
+                narrative_text,
+            )
+            fight.narrative = boss_fights._fallback_narrative(fight)
+        else:
+            text = cast(str, narrative_text)
+            fight.narrative = text or boss_fights._fallback_narrative(fight)
+
+    recs: list[SkillRec]
+    if isinstance(recs_result, BaseException):
+        logger.warning("skill_recs raised: %s", recs_result)
+        recs = skill_recs._fallback_recs(career)
+    else:
+        recs = cast("list[SkillRec]", recs_result)
+
+    pool: list[AppliedSkill]
+    if isinstance(pool_result, BaseException):
+        logger.warning("skill_pool raised: %s", pool_result)
+        pool = []
+    else:
+        pool = cast("list[AppliedSkill]", pool_result)
+
+    narrative: str
+    if isinstance(guidance_result, BaseException):
+        logger.warning("guidance raised: %s", guidance_result)
+        narrative = guidance._fallback_narrative(career, gauntlet)
+    else:
+        narrative = cast(str, guidance_result)
 
     build = builds.build_from_parts(
         school_name=request.school_name,

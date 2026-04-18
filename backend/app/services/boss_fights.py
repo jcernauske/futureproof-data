@@ -635,12 +635,13 @@ def _fallback_narrative(fight: BossFightResult) -> str:
 # ---------------------------------------------------------------------------
 
 
-def run_gauntlet(
-    career: CareerOutcome,
-    *,
-    with_narratives: bool = True,
-) -> GauntletResult:
-    """Run all 5 boss fights + compute the Final Boss verdict."""
+def score_gauntlet(career: CareerOutcome) -> GauntletResult:
+    """Run the pure-Python scoring half of the gauntlet.
+
+    Returns a ``GauntletResult`` with every ``BossFightResult.narrative``
+    left as an empty string. Callers that need narratives either call
+    :func:`run_gauntlet` (sync) or :func:`narrate_one` per fight (async).
+    """
     fights: list[BossFightResult] = []
 
     for boss_id, spec in BOSS_SPECS.items():
@@ -658,8 +659,61 @@ def run_gauntlet(
             )
         )
 
+    wins = sum(1 for f in fights if f.result == "win")
+    losses = sum(1 for f in fights if f.result == "lose")
+    draws = sum(1 for f in fights if f.result == "draw")
+    unknown = sum(1 for f in fights if f.result == "unknown")
+    verdict = _final_verdict(wins, losses, draws, unknown)
+
+    return GauntletResult(
+        fights=fights,
+        wins=wins,
+        losses=losses,
+        draws=draws,
+        unknown=unknown,
+        verdict=verdict,
+    )
+
+
+async def narrate_one(
+    career: CareerOutcome, fight: BossFightResult
+) -> str:
+    """Generate a single boss narrative via Gemma, async.
+
+    Transport-layer failures (network, 5xx, timeouts) are swallowed
+    inside ``gemma_client.generate_async``, which returns ``""`` — we
+    translate that to the deterministic fallback here. Unexpected
+    exceptions (attribute errors, type errors, anything that indicates
+    a real bug) are NOT caught here — the router's
+    ``asyncio.gather(..., return_exceptions=True)`` is the single
+    fallback gate, so the router can log them distinctly and this
+    layer doesn't silently mask them.
+    """
+    narrative = await gemma_client.generate_async(
+        system=_NARRATIVE_SYSTEM,
+        user=_narrative_prompt(career, fight),
+        max_tokens=800,
+        temperature=0.7,
+    )
+    return narrative or _fallback_narrative(fight)
+
+
+def run_gauntlet(
+    career: CareerOutcome,
+    *,
+    with_narratives: bool = True,
+) -> GauntletResult:
+    """Run all 5 boss fights + compute the Final Boss verdict.
+
+    Sync facade preserved for the CLI harness, scripts/, and tests. The
+    router's async path calls :func:`score_gauntlet` + :func:`narrate_one`
+    directly so the Gemma narratives fan out in parallel with the other
+    build-time Gemma calls.
+    """
+    gauntlet = score_gauntlet(career)
+
     if with_narratives:
-        for fight in fights:
+        for fight in gauntlet.fights:
             try:
                 narrative = gemma_client.generate(
                     system=_NARRATIVE_SYSTEM,
@@ -676,21 +730,7 @@ def run_gauntlet(
                 narrative = ""
             fight.narrative = narrative or _fallback_narrative(fight)
 
-    wins = sum(1 for f in fights if f.result == "win")
-    losses = sum(1 for f in fights if f.result == "lose")
-    draws = sum(1 for f in fights if f.result == "draw")
-    unknown = sum(1 for f in fights if f.result == "unknown")
-
-    verdict = _final_verdict(wins, losses, draws, unknown)
-
-    return GauntletResult(
-        fights=fights,
-        wins=wins,
-        losses=losses,
-        draws=draws,
-        unknown=unknown,
-        verdict=verdict,
-    )
+    return gauntlet
 
 
 def rescore_fight(

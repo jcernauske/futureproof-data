@@ -270,6 +270,145 @@ describe("RevealScreen — grid layout", () => {
   });
 });
 
+describe("RevealScreen — relaxed pacing floor", () => {
+  /**
+   * Spec: docs/specs/perf-reveal-loading-screen.md §3 / §6 — the
+   * minDisplayTime floor dropped from 2000ms to 1000ms so fast backend
+   * responses surface faster on screens 6→7. This test locks the new
+   * floor in.
+   *
+   * Setup: createBuild resolves in 200ms. The LoadingScreen must stay
+   * mounted past the 1000ms floor (still showing at t=1001) but must
+   * give way to the reveal before t=1500 — i.e. the floor is 1000ms,
+   * not the old 2000ms.
+   */
+  it("holds LoadingScreen for at least 1000ms then reveals by 1500ms", async () => {
+    seedReady();
+
+    mockCreateBuild.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          // Use the real setTimeout so fake-timer advances drive it.
+          setTimeout(() => {
+            resolve({
+              build_id: "fast-build",
+              created_at: "2026-04-18T00:00:00Z",
+              school_name: "UC Berkeley",
+              unitid: 110635,
+              major_text: "Computer Science",
+              cipcode: "11.0701",
+              program_name: "CS",
+              effort: "balanced",
+              loan_pct: 0.5,
+              career: makeCareer(),
+              gauntlet: {
+                fights: [],
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                unknown: 0,
+                verdict: "",
+              },
+              branches: [],
+              skill_recs: [],
+              guidance: "You have strong alignment.",
+              skills_crafted: [],
+              skill_pool: [],
+              next_steps: "",
+              profile_name: "",
+            });
+          }, 200);
+        }),
+    );
+
+    render(
+      <MemoryRouter>
+        <RevealScreen />
+      </MemoryRouter>,
+    );
+
+    // Wait for the fetch to have kicked off so we know the component
+    // mounted and hit its initial useEffect.
+    await waitFor(() => {
+      expect(mockCreateBuild).toHaveBeenCalledTimes(1);
+    });
+
+    // At t=500 (well past the 200ms build resolve but well before the
+    // 1000ms floor) the LoadingScreen must still be mounted. Promise.all
+    // is gated on the slower minDisplayTime promise, so setBuild hasn't
+    // run yet and the reveal content is withheld.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(screen.queryByRole("status")).not.toBeNull();
+    expect(screen.queryByText("Software Developer")).toBeNull();
+
+    // Advance past the 1000ms floor. minDisplayTime resolves, Promise.all
+    // completes, setBuild fires, then a 400ms revealTimer flips
+    // revealReady so the career title enters the DOM.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000); // now at t=1500 total
+    });
+
+    // Reveal is showing by t=1500 at the latest — the hard upper
+    // bound the spec sets after the floor relaxation.
+    expect(screen.getByText("Software Developer")).toBeInTheDocument();
+    // And the loading overlay is gone.
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does NOT reveal before the 1000ms floor even when build resolves instantly", async () => {
+    seedReady();
+
+    // createBuild resolves on microtask queue — immediately available.
+    mockCreateBuild.mockResolvedValue({
+      build_id: "instant-build",
+      created_at: "2026-04-18T00:00:00Z",
+      school_name: "UC Berkeley",
+      unitid: 110635,
+      major_text: "Computer Science",
+      cipcode: "11.0701",
+      program_name: "CS",
+      effort: "balanced",
+      loan_pct: 0.5,
+      career: makeCareer(),
+      gauntlet: {
+        fights: [],
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        unknown: 0,
+        verdict: "",
+      },
+      branches: [],
+      skill_recs: [],
+      guidance: "",
+      skills_crafted: [],
+      skill_pool: [],
+      next_steps: "",
+      profile_name: "",
+    });
+
+    render(
+      <MemoryRouter>
+        <RevealScreen />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(mockCreateBuild).toHaveBeenCalledTimes(1);
+    });
+
+    // At t=500 (halfway through the floor), reveal content is still
+    // withheld.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(screen.queryByText("Software Developer")).toBeNull();
+    expect(screen.queryByRole("status")).not.toBeNull();
+  });
+});
+
 describe("RevealScreen — prefers-reduced-motion", () => {
   /**
    * Spec §4 Stage 2 Reveal Motion Sequence — reduced-motion fallback:

@@ -358,6 +358,106 @@ class TestEffortShift:
         assert shifted.roi == 5
 
 
+class TestComputeOne:
+    """compute_one is the /build router's single-row helper.
+
+    It reuses compute_pentagon under the hood and filters to the SOC the
+    student selected in career-pick. The router depends on three
+    behaviors we lock in here:
+
+    1. It returns EXACTLY the row matching ``soc_code``, not the first or
+       most-complete one.
+    2. It raises ``LookupError`` when the SOC isn't in the MCP result so
+       the router can map it to HTTP 404.
+    3. It propagates ``ValueError`` from compute_pentagon (empty MCP
+       result) unchanged so the router can map it to HTTP 422.
+    """
+
+    def test_compute_one_returns_selected_soc(self, monkeypatch):
+        other_row = {
+            **_RAW_ROW,
+            "soc_code": "11-2021",  # Marketing Manager — NOT the one we pick
+            "occupation_title": "Marketing Managers",
+            "stats_available_count": 5,
+        }
+        wanted_row = {
+            **_RAW_ROW,
+            "soc_code": "13-1131",  # Fundraisers — what we're picking
+            "occupation_title": "Fundraisers",
+            "stats_available_count": 3,  # less complete on purpose
+        }
+        _patch_mcp(
+            monkeypatch,
+            {
+                "data": [other_row, wanted_row],
+                "substitution_applied": False,
+            },
+        )
+        outcome = stat_engine.compute_one(
+            unitid=151351,
+            cipcode="52.14",
+            soc_code="13-1131",
+            student_major=None,
+        )
+        # Must return the SOC the caller asked for, even when a different
+        # SOC has a higher stats_available_count.
+        assert outcome.soc_code == "13-1131"
+        assert outcome.occupation_title == "Fundraisers"
+
+    def test_compute_one_raises_on_missing_soc(self, monkeypatch):
+        _patch_mcp(
+            monkeypatch,
+            {
+                "data": [{**_RAW_ROW, "soc_code": "11-2021"}],
+                "substitution_applied": False,
+            },
+        )
+        with pytest.raises(LookupError, match="SOC 99-9999 not found"):
+            stat_engine.compute_one(
+                unitid=151351,
+                cipcode="52.14",
+                soc_code="99-9999",
+                student_major=None,
+            )
+
+    def test_compute_one_propagates_value_error_on_empty_mcp(self, monkeypatch):
+        """Empty MCP response must surface as ValueError so the router
+        can translate to HTTP 422 (same contract as compute_pentagon)."""
+        _patch_mcp(
+            monkeypatch,
+            {"data": [], "message": "No career paths found."},
+        )
+        with pytest.raises(ValueError, match="No career paths"):
+            stat_engine.compute_one(
+                unitid=151351,
+                cipcode="52.14",
+                soc_code="13-1131",
+                student_major=None,
+            )
+
+    def test_compute_one_honors_effort_and_loan_pct(self, monkeypatch):
+        """Delegation to compute_pentagon isn't enough — the selected
+        outcome has to carry the effort/loan_pct adjustments through."""
+        _patch_mcp(
+            monkeypatch,
+            {"data": [_RAW_ROW], "substitution_applied": False},
+        )
+        outcome = stat_engine.compute_one(
+            unitid=151351,
+            cipcode="52.14",
+            soc_code="13-1131",
+            effort="all_in",
+            loan_pct=0.0,
+            student_major=None,
+        )
+        # all_in bumps ERN by +2 (8 + 2 = 10).
+        assert outcome.stats.ern == 10
+        # loan_pct=0 → auto-win loans boss + zero modeled debt.
+        assert outcome.loan_pct == 0.0
+        assert outcome.bosses.loans == 1
+        assert outcome.modeled_total_debt == 0.0
+
+
 class TestRoiWithCostOfAttendance:
     """ROI and Loans Boss under the cost-based-ROI rewrite.
 

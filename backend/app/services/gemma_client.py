@@ -22,9 +22,11 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -105,9 +107,34 @@ def current_config() -> InferenceConfig:
 def reset_cache() -> None:
     """Clear the cached client. Used by tests that patch env vars."""
     _cached_client.cache_clear()
-    global _ENV_LOADED, _LOG_PATH_CACHED
+    global _ENV_LOADED, _LOG_PATH_CACHED, _semaphore
     _ENV_LOADED = False
     _LOG_PATH_CACHED = None
+    _semaphore = None
+
+
+# ---------------------------------------------------------------------------
+# Concurrency guard
+# ---------------------------------------------------------------------------
+#
+# The /build router fans out up to eight Gemma calls via asyncio.gather.
+# OpenRouter enforces per-key RPM limits and a spike of eight simultaneous
+# 26B-MoE calls from one demo machine can trip them. A module-level
+# semaphore guarantees every async call site shares the budget and the
+# guard cannot be forgotten at a new call site.
+#
+# The semaphore is lazy-constructed so GEMMA_MAX_CONCURRENCY can be set
+# in tests before the first acquire, and so reset_cache() can rebuild it.
+
+_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _semaphore
+    if _semaphore is None:
+        max_concurrency = int(os.environ.get("GEMMA_MAX_CONCURRENCY", "8"))
+        _semaphore = asyncio.Semaphore(max_concurrency)
+    return _semaphore
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +147,14 @@ def reset_cache() -> None:
 # skip logging (tests, CI).
 
 _LOG_PATH_CACHED: Path | None = None
+
+# POSIX write atomicity only holds up to PIPE_BUF (512 bytes on macOS).
+# A full Gemma record with system + user prompt + response can reach 10-20 KB,
+# so two threads writing at once under the /build fan-out will interleave
+# bytes and corrupt the JSONL. Serializing the append behind a lock costs
+# nothing (8-wide worst case, network-dominated) and makes every line safe
+# to parse downstream.
+_log_lock = threading.Lock()
 
 
 def _log_path() -> Path:
@@ -138,7 +173,7 @@ def _log_exchange(record: dict[str, Any]) -> None:
     try:
         path = _log_path()
         line = json.dumps(record, ensure_ascii=False, default=str)
-        with path.open("a", encoding="utf-8") as fh:
+        with _log_lock, path.open("a", encoding="utf-8") as fh:
             fh.write(line + "\n")
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("gemma jsonl log write failed: %s", exc)
@@ -241,6 +276,54 @@ def generate_chat(
         }
     _log_exchange(record)
     return content
+
+
+async def generate_async(
+    *,
+    system: str,
+    user: str,
+    max_tokens: int = 500,
+    temperature: float = 0.7,
+    model: str | None = None,
+) -> str:
+    """Async variant of :func:`generate`.
+
+    Acquires the module semaphore, then runs the sync ``generate`` inside
+    a worker thread via :func:`asyncio.to_thread`. Preserves the
+    empty-string-on-failure contract so callers never see exceptions
+    from the transport layer.
+    """
+    sem = _get_semaphore()
+    async with sem:
+        return await asyncio.to_thread(
+            generate,
+            system=system,
+            user=user,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model=model,
+        )
+
+
+async def generate_chat_async(
+    *,
+    system: str,
+    messages: list[dict],
+    max_tokens: int = 500,
+    temperature: float = 0.7,
+    model: str | None = None,
+) -> str:
+    """Async variant of :func:`generate_chat` — same semaphore discipline."""
+    sem = _get_semaphore()
+    async with sem:
+        return await asyncio.to_thread(
+            generate_chat,
+            system=system,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model=model,
+        )
 
 
 def _trim_to_last_sentence(text: str) -> str:

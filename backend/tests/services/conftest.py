@@ -18,6 +18,24 @@ if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
 
+@pytest.fixture(autouse=True)
+def _reset_gemma_client_state():
+    """Null the module-level Gemma client + semaphore before every test.
+
+    The /build fan-out introduced a lazy module-level
+    ``_semaphore`` sized from ``GEMMA_MAX_CONCURRENCY``. If a prior test
+    fails after monkeypatching that env var but before its trailing
+    ``reset_cache()``, later tests would inherit a size-2 (or whatever)
+    semaphore and silently run under a different concurrency budget.
+    This autouse fixture makes the budget deterministic test-to-test.
+    """
+    from app.services import gemma_client
+
+    gemma_client.reset_cache()
+    yield
+    gemma_client.reset_cache()
+
+
 @pytest.fixture
 def isolated_builds_dir(tmp_path, monkeypatch):
     """Redirect the builds DuckDB to a tmp file for the test.
