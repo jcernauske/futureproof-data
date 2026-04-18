@@ -180,11 +180,12 @@ describe("CareerPickScreen", () => {
     fireEvent.click(stretchToggle);
     expect(stretchToggle).toHaveAttribute("aria-expanded", "false");
 
-    // Clicking inside Common doesn't change Stretch's state.
-    const commonSelectBtn = screen.getAllByRole("radio", {
-      name: "Software Developers",
-    })[0]!;
-    fireEvent.click(commonSelectBtn);
+    // Clicking a card in Common (explore gesture) must NOT change Stretch's
+    // collapsed state — they're independent.
+    const commonCardBtn = screen.getByRole("button", {
+      name: "Explore lineage for Software Developers",
+    });
+    fireEvent.click(commonCardBtn);
     expect(stretchToggle).toHaveAttribute("aria-expanded", "false");
   });
 
@@ -214,7 +215,13 @@ describe("CareerPickScreen", () => {
     expect(useBuildStore.getState().selectedCareer).toBeNull();
   });
 
-  it("explore and select are distinct gestures (spec §2 Decision #5)", async () => {
+  it("no document-level commit CTA — commit lives inside the lineage sheet", async () => {
+    // Proposal A redesign: the old "Build your career path" / "See my
+    // build ✦" CTA at the bottom of the document was removed. The
+    // commit action now lives inside the sheet's title-row primary
+    // button ("Pick this path →" / "See my build ✦"). This test
+    // guards the deletion so a future refactor doesn't silently
+    // reintroduce a discoverability-hostile bottom CTA.
     mockGetOutcomes.mockResolvedValueOnce([]);
     mockGetTieredCareers.mockResolvedValueOnce(TIERS);
 
@@ -224,21 +231,15 @@ describe("CareerPickScreen", () => {
       expect(screen.getByText("Software Developers")).toBeInTheDocument();
     });
 
-    const pickBtn = screen.getAllByRole("radio", {
-      name: "Software Developers",
-    })[0]!;
-    fireEvent.click(pickBtn);
-
-    await waitFor(() => {
-      expect(useBuildStore.getState().selectedCareer?.soc_code).toBe(
-        "15-1252",
-      );
-    });
-    // Clicking the pick button must NOT populate the sheet.
-    expect(mockGetBranchesForSoc).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Build your career path" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /See my build/i }),
+    ).toBeNull();
   });
 
-  it("CTA is disabled until a career is selected, enabled after; commits → /reveal", async () => {
+  it("renders the persistent You Picked chip when a career is committed", async () => {
     mockGetOutcomes.mockResolvedValueOnce([]);
     mockGetTieredCareers.mockResolvedValueOnce(TIERS);
 
@@ -248,22 +249,27 @@ describe("CareerPickScreen", () => {
       expect(screen.getByText("Software Developers")).toBeInTheDocument();
     });
 
-    const cta = screen.getByRole("button", { name: "Build your career path" });
-    expect(cta).toBeDisabled();
+    // No pick → no chip.
+    expect(screen.queryByRole("button", { name: "Clear pick" })).toBeNull();
 
-    const pickBtn = screen.getAllByRole("radio", {
-      name: "Software Developers",
-    })[0]!;
-    fireEvent.click(pickBtn);
+    // Simulate the sheet having committed a pick (the sheet's CTA calls
+    // onPick which sets selectedCareer in the store).
+    useBuildStore.setState({ selectedCareer: TIERS.common[0]! });
+
     await waitFor(() => {
-      expect(useBuildStore.getState().selectedCareer?.soc_code).toBe(
-        "15-1252",
-      );
+      expect(
+        screen.getByRole("button", { name: "Clear pick" }),
+      ).toBeInTheDocument();
     });
-    expect(cta).not.toBeDisabled();
+    expect(
+      screen.getAllByText("Software Developers").length,
+    ).toBeGreaterThanOrEqual(2); // once in the card, once in the chip
 
-    fireEvent.click(cta);
-    expect(mockNavigate).toHaveBeenCalledWith("/reveal");
+    // × button clears the pick.
+    fireEvent.click(screen.getByRole("button", { name: "Clear pick" }));
+    await waitFor(() => {
+      expect(useBuildStore.getState().selectedCareer).toBeNull();
+    });
   });
 
   it("error state renders Try Again; clicking it clears the error banner", async () => {

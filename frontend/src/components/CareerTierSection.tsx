@@ -9,12 +9,12 @@ interface CareerTierSectionProps {
   label: string;
   description: string;
   careers: CareerOutcome[];
-  selectedSoc: string | null;
-  onSelect: (career: CareerOutcome) => void;
   /**
-   * Primary card click — populate the lineage sheet with this career.
-   * Distinct from ``onSelect`` which commits the pick to buildStore.
+   * The SOC currently committed as the student's pick (from
+   * buildStore.selectedCareer). Styled via CareerCard's "picked" state.
    */
+  pickedSoc: string | null;
+  /** Card click — populate the bottom lineage sheet with this career. */
   onExplore: (career: CareerOutcome) => void;
   /** All tiers expanded by default; student can collapse. */
   defaultExpanded?: boolean;
@@ -25,8 +25,7 @@ export function CareerTierSection({
   label,
   description,
   careers,
-  selectedSoc,
-  onSelect,
+  pickedSoc,
   onExplore,
   defaultExpanded = true,
 }: CareerTierSectionProps) {
@@ -78,8 +77,6 @@ export function CareerTierSection({
           >
             <motion.div
               className="grid grid-cols-1 tablet:grid-cols-2 gap-3 pt-2"
-              role="radiogroup"
-              aria-label="Career path options"
               variants={{
                 hidden: { opacity: 0 },
                 visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
@@ -91,8 +88,7 @@ export function CareerTierSection({
                 <motion.div key={career.soc_code} variants={staggerItem}>
                   <CareerCard
                     career={career}
-                    selected={selectedSoc === career.soc_code}
-                    onSelect={() => onSelect(career)}
+                    picked={pickedSoc === career.soc_code}
                     onExplore={() => onExplore(career)}
                   />
                 </motion.div>

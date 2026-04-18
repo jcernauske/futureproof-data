@@ -63,8 +63,7 @@ describe("CareerTierSection", () => {
         label="Common"
         description="Most common paths"
         careers={careers}
-        selectedSoc={null}
-        onSelect={vi.fn()}
+        pickedSoc={null}
         onExplore={vi.fn()}
       />,
     );
@@ -81,8 +80,7 @@ describe("CareerTierSection", () => {
         label="Common"
         description="Most common paths"
         careers={careers}
-        selectedSoc={null}
-        onSelect={vi.fn()}
+        pickedSoc={null}
         onExplore={vi.fn()}
       />,
     );
@@ -103,8 +101,7 @@ describe("CareerTierSection", () => {
         label="Common"
         description="Most common paths"
         careers={[]}
-        selectedSoc={null}
-        onSelect={vi.fn()}
+        pickedSoc={null}
         onExplore={vi.fn()}
       />,
     );
