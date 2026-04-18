@@ -545,3 +545,143 @@ def test_resolve_intent_rejects_null_primary_cip(
             unitid=42,
             programs=_programs_arg(),
         )
+
+
+# ---------------------------------------------------------------------------
+# Regression: 4-digit umbrella CIPs promoted to leaf before strict regex.
+# Bug was: Gemma returning "13.10" (umbrella) tripped _CIP_PATTERN and the
+# frontend saw "Gemma couldn't match that" for "deaf ed" at Illinois State.
+# ---------------------------------------------------------------------------
+
+
+class _SchoolCatalogStubServer:
+    """Stub that returns a realistic school CIP catalog for the first query
+    (``_get_school_cips``) and empty for the rest. Lets us exercise the
+    salvage path that reads from the school's reported CIPs.
+    """
+
+    def __init__(self, school_cips: list[dict[str, str]]) -> None:
+        self._school_cips = school_cips
+        self.sql_log: list[str] = []
+
+    def query_iceberg(self, sql: str) -> list[dict[str, Any]]:
+        self.sql_log.append(sql)
+        if "consumable_career_outcomes" in sql:
+            return list(self._school_cips)
+        return []
+
+
+def _install_school_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+    school_cips: list[dict[str, str]],
+) -> _SchoolCatalogStubServer:
+    server = _SchoolCatalogStubServer(school_cips)
+    monkeypatch.setattr(intent.mcp_client, "get_server", lambda: server)
+    return server
+
+
+def test_resolve_intent_promotes_parent_cip_when_primary_is_4_digit(
+    monkeypatch: pytest.MonkeyPatch,
+    stub_gemma_config: None,
+) -> None:
+    """Gemma swaps the fields → salvage by promoting parent_cip to primary."""
+    payload = {
+        "matched_cip": "13.10",             # umbrella, invalid as primary
+        "matched_title": "Special Education and Teaching",
+        "confidence": "medium",
+        "reasoning": "Deaf ed is a subset of special education.",
+        "parent_cip": "13.1001",            # the real 6-digit leaf
+        "alternatives": [],
+    }
+    fake_generate = _make_generate_mock(payload)
+    monkeypatch.setattr(intent.gemma_client, "generate", fake_generate)
+    _install_school_catalog(monkeypatch, school_cips=[])
+
+    result = intent.resolve_intent(
+        major_text="deaf ed",
+        school_name="Illinois State University",
+        unitid=149772,
+        programs=_programs_arg(),
+    )
+    assert result.matched_cip == "13.1001"
+    assert result.matched_title == "Special Education and Teaching"
+
+
+def test_resolve_intent_falls_back_to_school_catalog_descendant(
+    monkeypatch: pytest.MonkeyPatch,
+    stub_gemma_config: None,
+) -> None:
+    """Gemma returns a 4-digit family with no usable parent_cip → pick the
+    lexicographically first descendant from the school's reported CIPs."""
+    payload = {
+        "matched_cip": "13.10",
+        "matched_title": "Special Education and Teaching",
+        "confidence": "medium",
+        "reasoning": "Umbrella match.",
+        "parent_cip": "13.10",              # also 4-digit — no help
+        "alternatives": [],
+    }
+    fake_generate = _make_generate_mock(payload)
+    monkeypatch.setattr(intent.gemma_client, "generate", fake_generate)
+    _install_school_catalog(
+        monkeypatch,
+        school_cips=[
+            {"cipcode": "13.1001", "program_name": "Education, General"},
+            {"cipcode": "13.1011", "program_name": "Special Ed Admin"},
+            {"cipcode": "13.1099", "program_name": "Special Ed, Other"},
+            {"cipcode": "52.0201", "program_name": "Business Admin"},
+        ],
+    )
+
+    result = intent.resolve_intent(
+        major_text="special ed",
+        school_name="Illinois State University",
+        unitid=149772,
+        programs=_programs_arg(),
+    )
+    # 13.1001 is lexicographically first among the 13.10 family; chosen
+    # deterministically over the other two valid candidates.
+    assert result.matched_cip == "13.1001"
+
+
+def test_resolve_intent_raises_when_4_digit_has_no_parent_and_no_school_match(
+    monkeypatch: pytest.MonkeyPatch,
+    stub_gemma_config: None,
+) -> None:
+    """Last-resort fallback — no parent_cip, no school descendants → raise.
+
+    This is the original behavior for malformed primaries; the salvage
+    path only kicks in when we can produce a valid 6-digit leaf.
+    """
+    payload = {
+        "matched_cip": "99.99",             # fictional umbrella
+        "matched_title": "Made-Up Umbrella",
+        "confidence": "medium",
+        "reasoning": "n/a",
+        "parent_cip": "99.99",
+        "alternatives": [],
+    }
+    fake_generate = _make_generate_mock(payload)
+    monkeypatch.setattr(intent.gemma_client, "generate", fake_generate)
+    _install_school_catalog(
+        monkeypatch,
+        school_cips=[
+            {"cipcode": "13.1001", "program_name": "Education, General"},
+        ],
+    )
+
+    with pytest.raises(ValueError, match="malformed primary CIP"):
+        intent.resolve_intent(
+            major_text="nonsense",
+            school_name="Anywhere State",
+            unitid=42,
+            programs=_programs_arg(),
+        )
+
+
+def test_promote_to_leaf_cip_is_identity_on_valid_6_digit() -> None:
+    """Sanity: the salvage helper never perturbs an already-valid CIP."""
+    assert (
+        intent._promote_to_leaf_cip("13.1001", "13.10", school_cips=[])
+        == "13.1001"
+    )
