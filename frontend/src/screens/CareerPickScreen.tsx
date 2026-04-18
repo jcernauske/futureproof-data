@@ -7,6 +7,7 @@ import { useBuildStore } from "@/store/buildStore";
 import { getOutcomes, getTieredCareers } from "@/api/build";
 import { CareerTierSection } from "@/components/CareerTierSection";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { GemmaThinking } from "@/components/ui/GemmaThinking";
 import type { CareerOutcome } from "@/types/build";
 
 const TIER_DESCRIPTIONS = {
@@ -127,9 +128,7 @@ export function CareerPickScreen() {
         {/* Loading state */}
         {loading && (
           <div className="col-span-12 flex items-center justify-center py-20">
-            <div className="font-body text-body text-text-muted animate-pulse">
-              Analyzing career paths...
-            </div>
+            <GemmaThinking message="Gemma is analyzing career paths..." />
           </div>
         )}
 
