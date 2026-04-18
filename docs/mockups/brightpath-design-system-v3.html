@@ -1390,6 +1390,288 @@
       margin-top: 4px;
       max-width: 120px;
     }
+
+    /* ============================================================
+       GEMMA INTERACTIONS — DESIGN.md §Gemma Interactions
+       Shared visual grammar for every moment Gemma is called.
+       Attribution gradient: info → insight.
+       Attribution typography: Nunito text-small text-secondary.
+       ============================================================ */
+    .gemma-demo-row {
+      display: flex;
+      gap: 40px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 24px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+    }
+    .gemma-demo-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .gemma-demo-cell-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Static star — attribution mark */
+    .gemma-star {
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    /* Animated spinner */
+    .gemma-spinner {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .gemma-spinner-glow {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-full);
+      background: radial-gradient(circle, rgba(184, 169, 232, 0.15) 0%, transparent 70%);
+      animation: gemmaSpinnerGlow 2s ease-in-out infinite;
+    }
+    .gemma-spinner-svg {
+      animation: gemmaSpinnerRotate 4s linear infinite;
+    }
+    .gemma-spinner-star-outer {
+      transform-origin: 50% 50%;
+      animation: gemmaSpinnerPulseOuter 2s ease-in-out infinite;
+    }
+    .gemma-spinner-star-inner {
+      transform-origin: 50% 50%;
+      animation: gemmaSpinnerPulseInner 2s ease-in-out infinite;
+    }
+    .gemma-spinner-ring {
+      animation: gemmaSpinnerRingFade 2s ease-in-out infinite;
+    }
+    @keyframes gemmaSpinnerRotate {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes gemmaSpinnerGlow {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 0.8; transform: scale(1.1); }
+    }
+    @keyframes gemmaSpinnerPulseOuter {
+      0%, 100% { transform: scale(0.95); }
+      50% { transform: scale(1.05); }
+    }
+    @keyframes gemmaSpinnerPulseInner {
+      0%, 100% { transform: scale(1.05); opacity: 0.6; }
+      50% { transform: scale(0.95); opacity: 1; }
+    }
+    @keyframes gemmaSpinnerRingFade {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Inline thinking indicator — canonical composition */
+    .gemma-thinking {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .gemma-thinking-text {
+      font-family: 'Nunito', sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    /* Attribution line — GemmaStar + "Gemma matched …" */
+    .gemma-attribution {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .gemma-attribution-text {
+      font-family: 'Nunito', sans-serif;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .gemma-attribution-text strong {
+      color: var(--accent-insight);
+      font-weight: 600;
+    }
+    .gemma-match-card--caution .gemma-attribution-text strong {
+      color: var(--accent-caution);
+    }
+
+    /* Match card preview — condensed version of Gemma Match Card */
+    .gemma-match-card {
+      background: var(--bg-mid);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-left: 3px solid var(--accent-insight);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      max-width: 520px;
+      animation: gemmaMatchBreathe 4s ease-in-out infinite;
+    }
+    .gemma-match-card--caution {
+      border-left-color: var(--accent-caution);
+      animation: gemmaMatchBreatheCaution 4s ease-in-out infinite;
+    }
+    .gemma-match-card--confirming {
+      border-left-color: var(--accent-thrive);
+    }
+
+    /* Tone-exploration variant — drives all accents from a single --tone var.
+       Compact footprint so six cards fit on a desktop viewport for A/B judgment. */
+    .gemma-match-card--tone {
+      max-width: none;
+      padding: 20px;
+      border-left-color: var(--tone);
+      animation: none;
+      box-shadow: 0 0 24px color-mix(in srgb, var(--tone) 18%, transparent);
+    }
+    .gemma-match-card--tone .gemma-match-title {
+      color: var(--tone);
+      font-size: 20px;
+    }
+    .gemma-match-card--tone .gemma-attribution-text strong {
+      color: var(--tone);
+    }
+    .gemma-match-card--tone .gemma-match-preview-label {
+      color: var(--tone);
+    }
+    .gemma-match-card--tone .gemma-match-preview-item {
+      color: var(--text-secondary);
+      font-size: 14px;
+      padding: 6px 10px;
+    }
+    .gemma-match-card--tone .gemma-match-preview-arrow {
+      color: color-mix(in srgb, var(--tone) 60%, transparent);
+    }
+    .gemma-match-card--tone .gemma-match-preview-item:hover {
+      color: var(--text-primary);
+    }
+    .gemma-match-card--tone .gemma-match-preview-item:hover .gemma-match-preview-arrow {
+      color: var(--tone);
+    }
+    .gemma-match-card--tone .gemma-match-cip {
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .gemma-tone-gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .gemma-tone-gallery > figure {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .gemma-tone-caption {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--tone);
+    }
+    .gemma-tone-caption-meta {
+      font-family: 'Nunito', sans-serif;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+      margin-left: 8px;
+    }
+    @media (max-width: 1100px) {
+      .gemma-tone-gallery { grid-template-columns: repeat(2, 1fr); }
+    }
+    @keyframes gemmaMatchBreathe {
+      0%, 100% { box-shadow: 0 0 24px rgba(184, 169, 232, 0.12); }
+      50% { box-shadow: 0 0 36px rgba(184, 169, 232, 0.25); }
+    }
+    @keyframes gemmaMatchBreatheCaution {
+      0%, 100% { box-shadow: 0 0 24px rgba(242, 212, 119, 0.10); }
+      50% { box-shadow: 0 0 36px rgba(242, 212, 119, 0.22); }
+    }
+    /* Gemma matches wear their voice in color: insight by default, caution for
+       low-confidence matches, thrive briefly on confirm. */
+    .gemma-match-title {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--accent-insight);
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+    .gemma-match-card--caution .gemma-match-title {
+      color: var(--accent-caution);
+    }
+    .gemma-match-card--confirming .gemma-match-title {
+      color: var(--accent-thrive);
+    }
+    .gemma-match-card--confirming .btn-primary {
+      box-shadow: 0 0 24px rgba(125, 212, 163, 0.45);
+    }
+    .gemma-match-cip {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .gemma-match-preview-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent-info);
+      margin-bottom: 10px;
+      display: block;
+    }
+    .gemma-match-preview-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 20px;
+    }
+    .gemma-match-preview-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent-info);
+      transition: background 150ms ease-out, color 150ms ease-out;
+    }
+    .gemma-match-preview-item:hover {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+    .gemma-match-preview-arrow {
+      color: rgba(123, 184, 224, 0.6);
+      font-size: 10px;
+      transition: color 150ms ease-out;
+    }
+    .gemma-match-preview-item:hover .gemma-match-preview-arrow {
+      color: var(--accent-info);
+    }
+    .gemma-match-actions {
+      display: flex;
+      gap: 12px;
+    }
   </style>
 </head>
 <body>
@@ -1403,6 +1685,7 @@
     <a href="#elevation">Elevation</a>
     <a href="#radii">Radii</a>
     <a href="#components">Components</a>
+    <a href="#gemma">Gemma</a>
     <a href="#header">Header</a>
     <a href="#pentagon">Stats</a>
     <a href="#slider">Slider</a>
@@ -1650,6 +1933,446 @@
         <div class="card-title">Fight the AI</div>
         <div class="card-desc">Your RES stat of 65 held strong. AI augments this role, it doesn't replace it.</div>
         <div style="margin-top: 16px;"><span class="pill pill-thrive">Win</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== GEMMA INTERACTIONS ===== -->
+  <section id="gemma" class="animate-in">
+    <div class="section-label">AI</div>
+    <h2>Gemma Interactions</h2>
+    <p class="subtitle">Every moment Gemma is called wears the same clothes — same star, same info→insight gradient, same Nunito attribution line. Compose from this family instead of styling ad hoc.</p>
+
+    <!-- DESIGN.md: GemmaStar — static four-pointed star with info→insight gradient -->
+    <!-- DESIGN.md: GemmaSpinner — animated star inside rotating ring + crosshair -->
+    <h3 style="margin-top: 32px; margin-bottom: 16px;">Primitives</h3>
+    <div class="gemma-demo-row">
+      <!-- GemmaStar sizes -->
+      <div class="gemma-demo-cell">
+        <span class="gemma-demo-cell-label">GemmaStar · 14px</span>
+        <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true">
+          <defs>
+            <linearGradient id="gemmaStarGrad14" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--accent-info)" />
+              <stop offset="100%" stop-color="var(--accent-insight)" />
+            </linearGradient>
+          </defs>
+          <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGrad14)" opacity="0.8" />
+          <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGrad14)" />
+        </svg>
+      </div>
+
+      <div class="gemma-demo-cell">
+        <span class="gemma-demo-cell-label">GemmaStar · 24px</span>
+        <svg class="gemma-star" viewBox="0 0 40 40" width="24" height="24" aria-hidden="true">
+          <defs>
+            <linearGradient id="gemmaStarGrad24" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--accent-info)" />
+              <stop offset="100%" stop-color="var(--accent-insight)" />
+            </linearGradient>
+          </defs>
+          <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGrad24)" opacity="0.8" />
+          <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGrad24)" />
+        </svg>
+      </div>
+
+      <!-- GemmaSpinner sizes -->
+      <div class="gemma-demo-cell">
+        <span class="gemma-demo-cell-label">GemmaSpinner · 28px</span>
+        <div class="gemma-spinner" style="width: 28px; height: 28px;">
+          <div class="gemma-spinner-glow"></div>
+          <svg class="gemma-spinner-svg" viewBox="0 0 40 40" width="28" height="28">
+            <circle class="gemma-spinner-ring" cx="20" cy="20" r="14" fill="none" stroke="var(--accent-insight)" stroke-width="0.8" opacity="0.3" />
+            <g stroke="var(--accent-insight)" stroke-width="0.6" opacity="0.25">
+              <line x1="20" y1="2" x2="20" y2="38" />
+              <line x1="2" y1="20" x2="38" y2="20" />
+            </g>
+            <path class="gemma-spinner-star-outer" d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaSpinnerGrad28)" />
+            <path class="gemma-spinner-star-inner" d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaSpinnerGradInner28)" />
+            <defs>
+              <linearGradient id="gemmaSpinnerGrad28" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+                <stop offset="50%" stop-color="var(--accent-insight)" stop-opacity="0.4" />
+                <stop offset="100%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+              </linearGradient>
+              <linearGradient id="gemmaSpinnerGradInner28" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+
+      <div class="gemma-demo-cell">
+        <span class="gemma-demo-cell-label">GemmaSpinner · 40px</span>
+        <div class="gemma-spinner" style="width: 40px; height: 40px;">
+          <div class="gemma-spinner-glow"></div>
+          <svg class="gemma-spinner-svg" viewBox="0 0 40 40" width="40" height="40">
+            <circle class="gemma-spinner-ring" cx="20" cy="20" r="14" fill="none" stroke="var(--accent-insight)" stroke-width="0.8" opacity="0.3" />
+            <g stroke="var(--accent-insight)" stroke-width="0.6" opacity="0.25">
+              <line x1="20" y1="2" x2="20" y2="38" />
+              <line x1="2" y1="20" x2="38" y2="20" />
+            </g>
+            <path class="gemma-spinner-star-outer" d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaSpinnerGrad40)" />
+            <path class="gemma-spinner-star-inner" d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaSpinnerGradInner40)" />
+            <defs>
+              <linearGradient id="gemmaSpinnerGrad40" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+                <stop offset="50%" stop-color="var(--accent-insight)" stop-opacity="0.4" />
+                <stop offset="100%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+              </linearGradient>
+              <linearGradient id="gemmaSpinnerGradInner40" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESIGN.md: GemmaThinking — the canonical inline status. Font: Nunito text-small text-secondary. -->
+    <h3 style="margin-top: 40px; margin-bottom: 8px;">GemmaThinking</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 16px;">The canonical inline status. Spinner + attribution text with <code style="font-family: var(--font-data); color: var(--accent-thrive);">gap-3</code>. Text is <code style="font-family: 'Space Mono', monospace; color: var(--accent-thrive);">font-body text-small text-text-secondary</code>. Convention: third-person present continuous — "Gemma is &hellip;ing &hellip;".</p>
+    <div class="gemma-demo-row" style="gap: 48px;">
+      <div class="gemma-thinking">
+        <div class="gemma-spinner" style="width: 28px; height: 28px;">
+          <div class="gemma-spinner-glow"></div>
+          <svg class="gemma-spinner-svg" viewBox="0 0 40 40" width="28" height="28">
+            <circle class="gemma-spinner-ring" cx="20" cy="20" r="14" fill="none" stroke="var(--accent-insight)" stroke-width="0.8" opacity="0.3" />
+            <g stroke="var(--accent-insight)" stroke-width="0.6" opacity="0.25">
+              <line x1="20" y1="2" x2="20" y2="38" />
+              <line x1="2" y1="20" x2="38" y2="20" />
+            </g>
+            <path class="gemma-spinner-star-outer" d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaSpinnerGradTh)" />
+            <path class="gemma-spinner-star-inner" d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaSpinnerGradInnerTh)" />
+            <defs>
+              <linearGradient id="gemmaSpinnerGradTh" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+                <stop offset="50%" stop-color="var(--accent-insight)" stop-opacity="0.4" />
+                <stop offset="100%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+              </linearGradient>
+              <linearGradient id="gemmaSpinnerGradInnerTh" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="gemma-thinking-text">Gemma is matching your input&hellip;</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+      <div class="gemma-demo-row" style="background: var(--bg-deep);">
+        <div class="gemma-thinking">
+          <div class="gemma-spinner" style="width: 28px; height: 28px;">
+            <div class="gemma-spinner-glow"></div>
+            <svg class="gemma-spinner-svg" viewBox="0 0 40 40" width="28" height="28">
+              <circle class="gemma-spinner-ring" cx="20" cy="20" r="14" fill="none" stroke="var(--accent-insight)" stroke-width="0.8" opacity="0.3" />
+              <g stroke="var(--accent-insight)" stroke-width="0.6" opacity="0.25">
+                <line x1="20" y1="2" x2="20" y2="38" />
+                <line x1="2" y1="20" x2="38" y2="20" />
+              </g>
+              <path class="gemma-spinner-star-outer" d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaSpinnerGradA)" />
+              <path class="gemma-spinner-star-inner" d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaSpinnerGradInnerA)" />
+              <defs>
+                <linearGradient id="gemmaSpinnerGradA" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+                  <stop offset="50%" stop-color="var(--accent-insight)" stop-opacity="0.4" />
+                  <stop offset="100%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+                </linearGradient>
+                <linearGradient id="gemmaSpinnerGradInnerA" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--accent-info)" />
+                  <stop offset="100%" stop-color="var(--accent-insight)" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <span class="gemma-thinking-text">Gemma is writing your action plan&hellip;</span>
+        </div>
+      </div>
+      <div class="gemma-demo-row" style="background: var(--bg-deep);">
+        <div class="gemma-thinking">
+          <div class="gemma-spinner" style="width: 28px; height: 28px;">
+            <div class="gemma-spinner-glow"></div>
+            <svg class="gemma-spinner-svg" viewBox="0 0 40 40" width="28" height="28">
+              <circle class="gemma-spinner-ring" cx="20" cy="20" r="14" fill="none" stroke="var(--accent-insight)" stroke-width="0.8" opacity="0.3" />
+              <g stroke="var(--accent-insight)" stroke-width="0.6" opacity="0.25">
+                <line x1="20" y1="2" x2="20" y2="38" />
+                <line x1="2" y1="20" x2="38" y2="20" />
+              </g>
+              <path class="gemma-spinner-star-outer" d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaSpinnerGradB)" />
+              <path class="gemma-spinner-star-inner" d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaSpinnerGradInnerB)" />
+              <defs>
+                <linearGradient id="gemmaSpinnerGradB" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+                  <stop offset="50%" stop-color="var(--accent-insight)" stop-opacity="0.4" />
+                  <stop offset="100%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+                </linearGradient>
+                <linearGradient id="gemmaSpinnerGradInnerB" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--accent-info)" />
+                  <stop offset="100%" stop-color="var(--accent-insight)" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <span class="gemma-thinking-text">Gemma is analyzing your build&hellip;</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESIGN.md: Attribution line — GemmaStar + muted label, raw-text in text-secondary font-semibold. -->
+    <h3 style="margin-top: 40px; margin-bottom: 8px;">Attribution Line</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 16px;">Appears at the top of any Gemma-produced card. Static star, muted label, raw user input bold in <code style="font-family: 'Space Mono', monospace; color: var(--accent-thrive);">text-secondary font-semibold</code>. Past tense — "Gemma matched&hellip;", "Gemma found&hellip;".</p>
+    <div class="gemma-demo-row">
+      <div class="gemma-attribution">
+        <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true">
+          <defs>
+            <linearGradient id="gemmaStarGradAttr" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--accent-info)" />
+              <stop offset="100%" stop-color="var(--accent-insight)" />
+            </linearGradient>
+          </defs>
+          <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGradAttr)" opacity="0.8" />
+          <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGradAttr)" />
+        </svg>
+        <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+      </div>
+    </div>
+
+    <!-- DESIGN.md: Gemma Match Card — title + careers wear their voice in color. -->
+    <h3 style="margin-top: 40px; margin-bottom: 8px;">Match Card</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 16px;">The resolved-match container. Match title is <code style="font-family: 'Space Mono', monospace; color: var(--accent-insight);">text-accent-insight</code> — Gemma's voice, audible in content. Career preview items render in <code style="font-family: 'Space Mono', monospace; color: var(--accent-info);">text-accent-info</code> and brighten to <code style="font-family: 'Space Mono', monospace; color: var(--accent-thrive);">text-primary</code> on hover. Low-confidence → caution. On confirm → brief thrive flash (320ms) before handoff.</p>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+      <div class="gemma-match-card">
+        <div class="gemma-attribution" style="margin-bottom: 12px;">
+          <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true">
+            <defs>
+              <linearGradient id="gemmaStarGradMatch1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+            <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGradMatch1)" opacity="0.8" />
+            <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGradMatch1)" />
+          </svg>
+          <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+        </div>
+        <div class="gemma-match-title">Biological Sciences, General</div>
+        <div class="gemma-match-cip">CIP 26.0101</div>
+        <span class="gemma-match-preview-label">Where this leads</span>
+        <ul class="gemma-match-preview-list">
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Physician</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Biomedical Researcher</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Genetic Counselor</li>
+        </ul>
+        <div class="gemma-match-actions">
+          <button class="btn btn-primary" style="flex: 1;">That&rsquo;s right</button>
+          <button class="btn btn-ghost">Not quite</button>
+        </div>
+      </div>
+
+      <div class="gemma-match-card gemma-match-card--caution">
+        <div class="gemma-attribution" style="margin-bottom: 12px;">
+          <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true">
+            <defs>
+              <linearGradient id="gemmaStarGradMatch2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+            <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGradMatch2)" opacity="0.8" />
+            <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGradMatch2)" />
+          </svg>
+          <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>something with helping</strong>&rdquo;</span>
+        </div>
+        <div class="gemma-match-title">Social Work</div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+          <span class="gemma-match-cip" style="margin-bottom: 0;">CIP 44.0701</span>
+          <span class="pill pill-caution" style="font-size: 12px;">best guess</span>
+        </div>
+        <span class="gemma-match-preview-label">Where this leads</span>
+        <ul class="gemma-match-preview-list">
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Clinical Social Worker</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Community Organizer</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Child Welfare Specialist</li>
+        </ul>
+        <div class="gemma-match-actions">
+          <button class="btn btn-primary" style="flex: 1;">Close enough</button>
+          <button class="btn btn-ghost">Not quite</button>
+        </div>
+      </div>
+
+      <!-- Confirming variant: thrive flash 320ms before handoff -->
+      <div class="gemma-match-card gemma-match-card--confirming">
+        <div class="gemma-attribution" style="margin-bottom: 12px;">
+          <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true">
+            <defs>
+              <linearGradient id="gemmaStarGradMatch3" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+            <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGradMatch3)" opacity="0.8" />
+            <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGradMatch3)" />
+          </svg>
+          <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>computer science</strong>&rdquo;</span>
+        </div>
+        <div class="gemma-match-title">Computer Science</div>
+        <div class="gemma-match-cip">CIP 11.0701</div>
+        <span class="gemma-match-preview-label">Where this leads</span>
+        <ul class="gemma-match-preview-list">
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Software Engineer</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Data Scientist</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>ML Researcher</li>
+        </ul>
+        <div class="gemma-match-actions">
+          <button class="btn btn-primary" style="flex: 1;">That&rsquo;s right</button>
+          <button class="btn btn-ghost">Not quite</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variant labels -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 12px; max-width: calc(520px * 3 + 48px);">
+      <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-insight);">Default · title in insight</div>
+      <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-caution);">Low confidence · title in caution</div>
+      <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-thrive);">Confirming · 320ms thrive flash</div>
+    </div>
+
+    <!-- Tone exploration: same card in every accent to A/B which reads best. -->
+    <h3 style="margin-top: 40px; margin-bottom: 8px;">Tone Exploration</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">Same card, six accents. Title, attribution input, left stripe, and section label all inherit a single <code style="font-family: 'Space Mono', monospace; color: var(--accent-thrive);">--tone</code> variable. Careers stay neutral so the comparison isolates the tone-carrying elements. Breathing glow swapped for a static tinted shadow — judge color, not motion.</p>
+
+    <div class="gemma-tone-gallery">
+      <!-- THRIVE -->
+      <figure>
+        <div class="gemma-match-card gemma-match-card--tone" style="--tone: var(--accent-thrive);">
+          <div class="gemma-attribution" style="margin-bottom: 10px;">
+            <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true"><defs><linearGradient id="tgThrive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--accent-info)"/><stop offset="100%" stop-color="var(--accent-insight)"/></linearGradient></defs><path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#tgThrive)" opacity="0.8"/><path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#tgThrive)"/></svg>
+            <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+          </div>
+          <div class="gemma-match-title">Biological Sciences</div>
+          <div class="gemma-match-cip">CIP 26.0101</div>
+          <span class="gemma-match-preview-label">Where this leads</span>
+          <ul class="gemma-match-preview-list" style="margin-bottom: 12px;">
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Physician</li>
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Biomedical Researcher</li>
+          </ul>
+        </div>
+        <figcaption class="gemma-tone-caption" style="--tone: var(--accent-thrive);">thrive · #7DD4A3<span class="gemma-tone-caption-meta">reserved: wins, CTAs, growth</span></figcaption>
+      </figure>
+
+      <!-- CAUTION (yellow) — user's guess -->
+      <figure>
+        <div class="gemma-match-card gemma-match-card--tone" style="--tone: var(--accent-caution);">
+          <div class="gemma-attribution" style="margin-bottom: 10px;">
+            <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true"><defs><linearGradient id="tgCaution" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--accent-info)"/><stop offset="100%" stop-color="var(--accent-insight)"/></linearGradient></defs><path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#tgCaution)" opacity="0.8"/><path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#tgCaution)"/></svg>
+            <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+          </div>
+          <div class="gemma-match-title">Biological Sciences</div>
+          <div class="gemma-match-cip">CIP 26.0101</div>
+          <span class="gemma-match-preview-label">Where this leads</span>
+          <ul class="gemma-match-preview-list" style="margin-bottom: 12px;">
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Physician</li>
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Biomedical Researcher</li>
+          </ul>
+        </div>
+        <figcaption class="gemma-tone-caption" style="--tone: var(--accent-caution);">caution · #F2D477<span class="gemma-tone-caption-meta">yellow — highest luminance pop</span></figcaption>
+      </figure>
+
+      <!-- EMPATHY (magenta) — user's guess -->
+      <figure>
+        <div class="gemma-match-card gemma-match-card--tone" style="--tone: var(--accent-empathy);">
+          <div class="gemma-attribution" style="margin-bottom: 10px;">
+            <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true"><defs><linearGradient id="tgEmpathy" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--accent-info)"/><stop offset="100%" stop-color="var(--accent-insight)"/></linearGradient></defs><path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#tgEmpathy)" opacity="0.8"/><path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#tgEmpathy)"/></svg>
+            <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+          </div>
+          <div class="gemma-match-title">Biological Sciences</div>
+          <div class="gemma-match-cip">CIP 26.0101</div>
+          <span class="gemma-match-preview-label">Where this leads</span>
+          <ul class="gemma-match-preview-list" style="margin-bottom: 12px;">
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Physician</li>
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Biomedical Researcher</li>
+          </ul>
+        </div>
+        <figcaption class="gemma-tone-caption" style="--tone: var(--accent-empathy);">empathy · #E88BA9<span class="gemma-tone-caption-meta">magenta — warm, human, memorable</span></figcaption>
+      </figure>
+
+      <!-- INSIGHT (current default) -->
+      <figure>
+        <div class="gemma-match-card gemma-match-card--tone" style="--tone: var(--accent-insight);">
+          <div class="gemma-attribution" style="margin-bottom: 10px;">
+            <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true"><defs><linearGradient id="tgInsight" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--accent-info)"/><stop offset="100%" stop-color="var(--accent-insight)"/></linearGradient></defs><path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#tgInsight)" opacity="0.8"/><path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#tgInsight)"/></svg>
+            <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+          </div>
+          <div class="gemma-match-title">Biological Sciences</div>
+          <div class="gemma-match-cip">CIP 26.0101</div>
+          <span class="gemma-match-preview-label">Where this leads</span>
+          <ul class="gemma-match-preview-list" style="margin-bottom: 12px;">
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Physician</li>
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Biomedical Researcher</li>
+          </ul>
+        </div>
+        <figcaption class="gemma-tone-caption" style="--tone: var(--accent-insight);">insight · #B8A9E8<span class="gemma-tone-caption-meta">current default — "Gemma's color"</span></figcaption>
+      </figure>
+
+      <!-- INFO (blue) -->
+      <figure>
+        <div class="gemma-match-card gemma-match-card--tone" style="--tone: var(--accent-info);">
+          <div class="gemma-attribution" style="margin-bottom: 10px;">
+            <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true"><defs><linearGradient id="tgInfo" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--accent-info)"/><stop offset="100%" stop-color="var(--accent-insight)"/></linearGradient></defs><path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#tgInfo)" opacity="0.8"/><path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#tgInfo)"/></svg>
+            <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+          </div>
+          <div class="gemma-match-title">Biological Sciences</div>
+          <div class="gemma-match-cip">CIP 26.0101</div>
+          <span class="gemma-match-preview-label">Where this leads</span>
+          <ul class="gemma-match-preview-list" style="margin-bottom: 12px;">
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Physician</li>
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Biomedical Researcher</li>
+          </ul>
+        </div>
+        <figcaption class="gemma-tone-caption" style="--tone: var(--accent-info);">info · #7BB8E0<span class="gemma-tone-caption-meta">cool — blends into backgrounds</span></figcaption>
+      </figure>
+
+      <!-- ALERT (orange) — semantically conflicted -->
+      <figure>
+        <div class="gemma-match-card gemma-match-card--tone" style="--tone: var(--accent-alert);">
+          <div class="gemma-attribution" style="margin-bottom: 10px;">
+            <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true"><defs><linearGradient id="tgAlert" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--accent-info)"/><stop offset="100%" stop-color="var(--accent-insight)"/></linearGradient></defs><path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#tgAlert)" opacity="0.8"/><path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#tgAlert)"/></svg>
+            <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>pre-med</strong>&rdquo;</span>
+          </div>
+          <div class="gemma-match-title">Biological Sciences</div>
+          <div class="gemma-match-cip">CIP 26.0101</div>
+          <span class="gemma-match-preview-label">Where this leads</span>
+          <ul class="gemma-match-preview-list" style="margin-bottom: 12px;">
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Physician</li>
+            <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Biomedical Researcher</li>
+          </ul>
+        </div>
+        <figcaption class="gemma-tone-caption" style="--tone: var(--accent-alert);">alert · #F4A97E<span class="gemma-tone-caption-meta">reserved: errors, losses, debt</span></figcaption>
+      </figure>
+    </div>
+
+    <!-- Message conventions cheat-sheet -->
+    <h3 style="margin-top: 40px; margin-bottom: 16px;">Message Conventions</h3>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+      <div style="padding: 16px; background: var(--bg-mid); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
+        <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-insight); margin-bottom: 8px;">In-flight</div>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Third-person present continuous.</p>
+        <p style="font-family: 'Nunito', sans-serif; font-size: 13px; color: var(--text-primary);">&ldquo;Gemma is matching&hellip;&rdquo;<br>&ldquo;Gemma is writing&hellip;&rdquo;<br>&ldquo;Gemma is analyzing&hellip;&rdquo;</p>
+      </div>
+      <div style="padding: 16px; background: var(--bg-mid); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
+        <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-thrive); margin-bottom: 8px;">Resolved</div>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Past tense.</p>
+        <p style="font-family: 'Nunito', sans-serif; font-size: 13px; color: var(--text-primary);">&ldquo;Gemma matched &hellip;&rdquo;<br>&ldquo;Gemma found &hellip;&rdquo;</p>
+      </div>
+      <div style="padding: 16px; background: var(--bg-mid); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
+        <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-alert); margin-bottom: 8px;">Errors</div>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Capability-framed, never blame.</p>
+        <p style="font-family: 'Nunito', sans-serif; font-size: 13px; color: var(--text-primary);">&ldquo;Gemma couldn&rsquo;t match that&rdquo;<br>(never: &ldquo;Bad input&rdquo;)</p>
       </div>
     </div>
   </section>
@@ -2670,6 +3393,10 @@ const treeObserver = new IntersectionObserver((entries) => {
 }, { threshold: 0.3 });
 treeObserver.observe(document.getElementById('treeContainer'));
 </script>
+
+<div style="padding:48px 24px;display:flex;justify-content:center;">
+  <img src="https://cdn.midjourney.com/1a41a777-55f7-4eaf-b780-64bd7dda9a45/0_2.png" alt="reference" style="max-width:100%;height:auto;border-radius:12px;" />
+</div>
 
 </body>
 </html>

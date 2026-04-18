@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiPost } from "@/api/client";
-import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { GemmaStar } from "@/components/ui/GemmaStar";
+import { GemmaThinking } from "@/components/ui/GemmaThinking";
 import type {
   IntentResult,
   MajorSelection,
@@ -174,16 +174,13 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       <AnimatePresence>
         {phase === "thinking" && (
           <motion.div
-            className="mt-4 flex items-center gap-3"
+            className="mt-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 0.4 }}
             transition={{ duration: 0.25, ease: "easeIn" }}
           >
-            <GemmaSpinner size={28} />
-            <span className="text-small text-text-secondary">
-              Gemma is matching your input...
-            </span>
+            <GemmaThinking message="Gemma is matching your input..." />
           </motion.div>
         )}
       </AnimatePresence>
@@ -192,12 +189,12 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       <AnimatePresence>
         {(phase === "match" || phase === "clarify") && intentResult && (
           <motion.div
-            className={`mt-4 bg-bp-mid rounded-xl p-6 border border-[rgba(255,255,255,0.5)] ${
+            className={`mt-4 bg-bp-mid rounded-xl p-6 border border-[rgba(255,255,255,0.5)] border-l-[3px] ${
               phase === "clarify"
-                ? "animate-[card-breathe-info_4s_ease-in-out_infinite]"
+                ? "border-l-accent-info animate-[card-breathe-info_4s_ease-in-out_infinite]"
                 : intentResult.confidence === "low"
-                  ? "animate-[card-breathe-caution_4s_ease-in-out_infinite]"
-                  : "animate-[card-breathe_4s_ease-in-out_infinite]"
+                  ? "border-l-accent-caution animate-[card-breathe-caution_4s_ease-in-out_infinite]"
+                  : "border-l-accent-insight animate-[card-breathe_4s_ease-in-out_infinite]"
             }`}
             initial={{ opacity: 0, scale: 0.85, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -301,6 +298,29 @@ function MatchContent({
   onNotQuite: () => void;
 }) {
   const isLowConfidence = intentResult.confidence === "low";
+  const [confirming, setConfirming] = useState(false);
+  const confirmTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current) window.clearTimeout(confirmTimerRef.current);
+    };
+  }, []);
+
+  function handleConfirmClick() {
+    if (confirming) return;
+    setConfirming(true);
+    // Brief reward flash (title + CTA glow thrive) before handing off.
+    confirmTimerRef.current = window.setTimeout(() => onConfirm(), 320);
+  }
+
+  // Gemma matches wear their voice in color: insight by default, caution when
+  // confidence is low, thrive briefly on confirm (the "you chose well" moment).
+  const titleColor = confirming
+    ? "var(--color-accent-thrive)"
+    : isLowConfidence
+      ? "var(--color-accent-caution)"
+      : "var(--color-accent-insight)";
 
   return (
     <motion.div
@@ -309,11 +329,15 @@ function MatchContent({
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Attribution */}
+      {/* Attribution — raw input echoes the match color so Gemma's voice reads in content. */}
       <div className="flex items-center gap-2 mb-3">
         <GemmaStar size={14} />
         <span className="text-small text-text-muted">
-          Gemma matched "<span className="font-semibold text-text-secondary">{rawText}</span>"
+          Gemma matched "<span
+            className={`font-semibold ${
+              isLowConfidence ? "text-accent-caution" : "text-accent-insight"
+            }`}
+          >{rawText}</span>"
         </span>
       </div>
 
@@ -326,8 +350,8 @@ function MatchContent({
         <motion.h3
           className="font-display text-subheading font-semibold mb-1"
           initial={{ color: "var(--color-text-muted)" }}
-          animate={{ color: "var(--color-text-primary)" }}
-          transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
+          animate={{ color: titleColor }}
+          transition={{ duration: confirming ? 0.2 : 0.4, delay: confirming ? 0 : 0.3, ease: "easeOut" }}
         >
           {intentResult.matched_title}
         </motion.h3>
@@ -366,10 +390,10 @@ function MatchContent({
                   visible: { opacity: 1, y: 0, transition: springs.smooth },
                 }}
               >
-                <span className="text-accent-info/50 text-[10px] group-hover:text-accent-info transition-colors duration-fast">
+                <span className="text-accent-info/60 text-[10px] group-hover:text-accent-info transition-colors duration-fast">
                   ▸
                 </span>
-                <span className="font-body text-body-sm font-semibold text-text-secondary group-hover:text-text-primary transition-colors duration-fast">
+                <span className="font-body text-body-sm font-semibold text-accent-info group-hover:text-text-primary transition-colors duration-fast">
                   {career}
                 </span>
               </motion.div>
@@ -396,8 +420,10 @@ function MatchContent({
         transition={{ ...springs.smooth, delay: 0.7 }}
       >
         <motion.button
-          onClick={onConfirm}
-          className="flex-1 bg-accent-thrive text-text-inverse font-body text-cta font-bold h-12 px-[28px] rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal"
+          onClick={handleConfirmClick}
+          disabled={confirming}
+          className="flex-1 bg-accent-thrive text-text-inverse font-body text-cta font-bold h-12 px-[28px] rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:cursor-default"
+          animate={confirming ? { boxShadow: "0 0 24px rgba(125, 212, 163, 0.45)" } : { boxShadow: "0 0 0px rgba(125, 212, 163, 0)" }}
           whileTap={{ scale: 0.97 }}
           transition={springs.snappy}
         >
@@ -405,7 +431,8 @@ function MatchContent({
         </motion.button>
         <motion.button
           onClick={onNotQuite}
-          className={`mobile:flex-none font-body text-cta font-bold h-12 px-6 rounded-lg cursor-pointer transition-all duration-normal ${
+          disabled={confirming}
+          className={`mobile:flex-none font-body text-cta font-bold h-12 px-6 rounded-lg cursor-pointer transition-all duration-normal disabled:cursor-default ${
             isLowConfidence
               ? "text-text-primary hover:bg-[rgba(255,255,255,0.05)]"
               : "text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)]"
