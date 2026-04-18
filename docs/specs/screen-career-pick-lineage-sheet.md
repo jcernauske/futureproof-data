@@ -68,7 +68,7 @@ Execute the following workflow:
 
 ---
 
-## Status: DESIGN AUDIT
+## Status: CODE REVIEW
 
 | Status | Meaning |
 |--------|---------|
@@ -1406,15 +1406,324 @@ Pre-existing `ProfileScreen.test.tsx` failures verified against `main` via `git 
 F6 (arbitrary `text-[32px]` on emoji) is a WARNING, not required. The emoji size has no type-scale token and is a decorative element; accept as-is or address in a follow-up with the visionary.
 
 ### Code Review (@faang-staff-engineer)
-**Status:** PENDING
+**Status:** CHANGES REQUIRED — 2026-04-18
+*Reviewer: Staff Engineer (15 YOE, production incident survivor)*
+
+#### Summary
+
+Solid work overall — the drag math in `resolveDetent` is clean and pure-function-testable, the fetch generational token is correct, and the backend canned-question catalog is well-organized. But there are four real problems that will bite us: invalid-HTML nested interactive elements in `CareerCard`, a duplicate `gemma.jsonl` write path that doubles log volume, a sheet-drag constraint that lets the sheet slide off-screen, and an exception-swallowing `ask()` that makes our own code bugs indistinguishable from transport failure in telemetry. None of these are 3am-pages individually, but #1 and #3 are visible-in-demo quality issues and #2/#4 poison the audit trail that the Gemma-4-Good judges are going to scrutinize. Changes required before merge.
 
 #### Findings
-_Filled in by reviewer._
 
-#### Verdict
-- [ ] APPROVED
-- [ ] CHANGES REQUIRED
-- [ ] BLOCKER
+##### Finding 1: Nested interactive elements inside `CareerCard` 🔴
+
+**Impact:** HTML-invalid markup (W3C: "A button element's content model is phrasing content, but there must be no interactive content descendant"). The outer `<motion.button>` contains a `<span role="radio" tabIndex={0} onClick onKeyDown>` — which is interactive content. Cross-browser consequences:
+- Firefox sometimes refuses to dispatch inner click events correctly inside `<button>`.
+- Screen readers (VoiceOver, NVDA) announce a confused "button, radio" tree — users hear two interactive roles for what looks like one element.
+- Tabbing lands on the outer button AND the inner span (two tab stops per card × 10 cards = 20 tab stops to reach the CTA).
+- The `event.stopPropagation()` + `data-pick-button` bubble filter in `CareerCard.handleCardClick` is papering over the invalid nesting; it does NOT fix the a11y tree.
+
+**Location:** `frontend/src/components/CareerCard.tsx:35-117` — outer `<motion.button>` at line 35; inner `<span role="radio" tabIndex={0}>` at line 91.
+
+**The Problem:** Decision #5 in §2 (split explore vs. pick) is correct product-level, but the chosen implementation puts two interactive roles on the same parent. This is the kind of thing that passes every vitest test (because JSDOM is forgiving) and explodes the first time a screen-reader user tries to navigate.
+
+**The Fix:** Make the card a `<div role="group">` with TWO explicit children: a primary "Explore" button covering the card body, and a separate "Pick this path" button. Either (a) use a CSS grid/flex to make the Explore button fill the card area with the Pick button on top of it via `z-index`, or (b) wrap card content in a `<div onClick={onExplore}>` with `role="button"` + `tabIndex=0` + `onKeyDown` (still two tab stops, but legal). Option (a) is cleaner.
+
+```tsx
+// Sketch:
+<div role="group" aria-label={career.occupation_title} className="relative ...">
+  <button
+    type="button"
+    onClick={onExplore}
+    aria-label={`Explore lineage for ${career.occupation_title}`}
+    aria-pressed={selected}
+    className="absolute inset-0 w-full h-full text-left rounded-xl ..."
+  />
+  <div className="relative pointer-events-none ..."> {/* content */} </div>
+  <button
+    type="button"
+    role="radio"
+    aria-checked={selected}
+    onClick={onSelect}
+    className="relative pointer-events-auto ..."
+  >
+    {selected ? "Picked ✓" : "Pick this path"}
+  </button>
+</div>
+```
+
+---
+
+##### Finding 2: Duplicate `gemma.jsonl` records per chip click 🟠
+
+**Impact:** `career_pick_qna.ask()` writes TWO records per call — one emitted by `gemma_client.generate_chat` via `_log_exchange` (lines 242/251/277 in `gemma_client.py`), and a second emitted by `career_pick_qna._log_record` (lines 390–431). Consequences:
+- Log volume doubles on this call site.
+- The two records are not linked by a correlation id — downstream audit code can't tell which pair belongs together.
+- The client-side record has the full `messages` array (system+user) and token usage; the supplemental record duplicates system+user under a different key (`system`, `user` — the client uses `messages`). Inconsistent schema across records with the same `gemma.jsonl` file.
+- A log-parsing script counting "distinct Gemma calls" by line will over-count by 2× for this call site.
+
+**Location:** `backend/app/services/career_pick_qna.py:390-431` (`_log_record`) + `backend/app/services/career_pick_qna.py:471-480` (`ask` call site).
+
+**The Problem:** The spec §4 Gemma-Touching Discipline says "Add the field to the `_log_exchange` record from the call site; no changes to `gemma_client` itself." The implementation misread this — instead of adding a field THROUGH `generate_async`, it wrote a whole second record. The right answer is one of:
+
+**The Fix — Option A (preferred):** Add an optional `extra: dict | None = None` kwarg to `generate_async` / `generate_chat` / `generate_chat_async` that gets merged into the existing record before `_log_exchange`. Then `career_pick_qna.ask` passes `extra={"call_site": "career_pick.ask", "chip_id": request.chip_id, "fallback_fired": ..., ...}`. One record per call, all fields together, no second file handle.
+
+**The Fix — Option B (scoped to this spec):** Keep the supplemental record but DELETE the duplicated `system`/`user`/`response` fields from `_log_record`. Just write `{ts, call_site, chip_id, cipcode, major_text, selected_soc, soc_codes, fallback_fired, duration_ms, error}` and rely on the `ts` + `messages` in the sibling client record for correlation. Still two records per call, but at least no 2× payload duplication. This is inferior to A but ships fast.
+
+```python
+# Option A sketch in gemma_client.py:
+async def generate_async(..., extra: dict[str, Any] | None = None) -> str:
+    # ... inside generate_chat's record construction ...
+    if extra:
+        record.update(extra)
+```
+
+---
+
+##### Finding 3: Sheet drag constraint allows off-screen overshoot 🟠
+
+**Impact:** At the compact detent (height≈33vh), the `bottom` drag constraint is `detentHeight("large") - height` = ~52vh. That means a user can drag the sheet handle DOWN by 52vh before hitting the elastic limit. Since the sheet is `fixed bottom-0` with a known height, applying `y = +52vh` translates the sheet almost entirely off-screen — the student sees the sheet sliding downward into oblivion during the drag, then springing back on release. §2 Decision #3 ("no fully-closed state") is about the resolved detent set; the user-facing motion should match. iOS sheets bound the finger at the smallest detent, not 52vh below it.
+
+**Location:** `frontend/src/components/CareerLineageSheet.tsx:385-391` (`dragConstraints`).
+
+**The Problem:** The constraints are symmetric (drag up == drag down), but the semantic is asymmetric — we want to allow drag-up to `large` and drag-down only to the current `compact` (plus the `sheetDragElastic` overshoot).
+
+**The Fix:**
+
+```tsx
+const dragConstraints = useMemo(() => {
+  const currentH = height;
+  const maxH = detentHeight("large", vh, mobile);
+  const minH = detentHeight("compact", vh, mobile);
+  return {
+    // Drag up (negative y) allowed up to the large detent.
+    top: -(maxH - currentH),
+    // Drag down (positive y) bounded so the sheet never shrinks below compact.
+    // 0 when already at compact; (currentH - minH) when at medium/large.
+    bottom: currentH - minH,
+  };
+}, [vh, mobile, height]);
+```
+
+Pair with `dragElastic={reducedMotion ? 0 : sheetDragElastic}` (already correct) so the finger still gets 12% overshoot feedback past the bound — preserves the iOS-sheet feel without letting the sheet visually detach.
+
+---
+
+##### Finding 4: `ask()` swallows exceptions into a fallback string — hides our own bugs 🟠
+
+**Impact:** `ask()` at `career_pick_qna.py:453-463` catches `Exception` from `generate_async` and treats any failure identically to "Gemma returned empty string." But Gemma transport failures already return `""` from `generate_async` (per its contract, line 294 in `gemma_client.py`: "Preserves the empty-string-on-failure contract so callers never see exceptions from the transport layer"). So the `try/except` in `ask()` can only catch:
+- `KeyError`/`IndexError` from a malformed prompt template
+- `AttributeError` from a None field in `request`
+- `TypeError` from a future schema mismatch
+- Any real bug we introduce
+
+All of which are our code being broken, and all of which now silently render the fallback string to the student with `fallback_fired=True`. Telemetry cannot distinguish "Gemma was overloaded" from "our ask() code threw an AttributeError." When the on-call person sees a spike in `fallback_fired=True` in production, they will assume Gemma is flaky and not look at our code.
+
+**Location:** `backend/app/services/career_pick_qna.py:453-463`.
+
+**The Problem:** Per the review notes in the review prompt — "a bug in our code getting swallowed into 'fallback fired' is a telemetry trap." Confirmed.
+
+**The Fix:** Either narrow the except clause to the specific known-recoverable exceptions, OR add a distinguishing flag so the fallback-fired-from-bug case is recognizable downstream:
+
+```python
+try:
+    raw = await gemma_client.generate_async(...)
+except Exception as exc:
+    # generate_async never raises on transport failure (returns "").
+    # Anything caught here is our bug — don't pretend it's a Gemma fallback.
+    logger.exception("career_pick.ask internal error: %s", exc)
+    error = f"{type(exc).__name__}: {exc}"
+    # Log + tag separately so dashboards can split transport-empty from internal-error.
+    raw = ""
+    # Let a dedicated flag show up in the log record:
+    internal_error = True
+else:
+    internal_error = False
+```
+
+Then the record can carry `internal_error` and the frontend can still render the fallback without exposing stack traces. Keep the student-facing UX identical — just stop lying to ourselves about the cause.
+
+Alternatively, since `generate_async` already catches everything and returns `""`, **drop the try/except entirely from `ask()`.** It's pure defensive code against an already-defensive API. Any exception still raised from the body of `ask()` after that simplification truly is an unexpected internal bug and SHOULD produce a 500 — which the router can wrap in a generic fallback response if we want 200-always from the caller's perspective, but at least the error is visible in the router layer, not silently written to a log record the frontend never reads.
+
+---
+
+##### Finding 5: Motion animations not gated on reduced-motion 🟡
+
+**Impact:** `prefers-reduced-motion: reduce` users will still see:
+- `AskGemmaResponseCard`'s `chipResponseExpand` spring on `height` (full bounce).
+- `BranchChip`'s `whileHover={{ y: -2 }}` transform on every hover.
+- `CareerCard`'s `whileTap={{ scale: 0.98 }}` + `animate={selected ? {scale: [1,1.02,1]}}` on selection.
+
+Framer Motion's `useReducedMotion` hook is opt-in — the library does NOT automatically honor the OS preference for spring/keyframe animations on layout properties. The `motion.div` in `CareerLineageSheet` correctly gates `sheetSnap` on `reducedMotion`, but the peer components do not.
+
+**Location:** `frontend/src/components/AskGemmaResponseCard.tsx:1-142` (no `useReducedMotion`); `frontend/src/components/BranchChip.tsx:1-96`; `frontend/src/components/CareerCard.tsx:1-119`.
+
+**The Problem:** The design audit verified the CareerLineageSheet itself; the peer components were not audited against motion gating. Vestibular-disorder users still get spring bounces on the response card expand, the card scale-on-select pulse, and the chip hover-rise.
+
+**The Fix:** Add `const reducedMotion = useReducedMotion() ?? false;` in each component and swap the animation props:
+
+```tsx
+// AskGemmaResponseCard
+<motion.section
+  initial={reducedMotion ? { opacity: 0 } : chipResponseExpand.initial}
+  animate={reducedMotion ? { opacity: 1 } : chipResponseExpand.animate}
+  exit={reducedMotion ? { opacity: 0 } : chipResponseExpand.exit}
+  transition={reducedMotion ? { duration: 0.15 } : chipResponseExpand.transition}
+/>
+
+// BranchChip — drop whileHover entirely under reducedMotion
+<motion.article whileHover={reducedMotion ? undefined : { y: -2 }} ... />
+
+// CareerCard — skip the selection pulse
+animate={selected && !reducedMotion ? { scale: [1, 1.02, 1] } : {}}
+```
+
+---
+
+##### Finding 6: Underscored `gemma_client` coupling + duplicated `GEMMA_LOG_DISABLED` check 🟡
+
+**Impact:** `career_pick_qna._log_record` imports `gemma_client._log_path` and `gemma_client._log_lock` directly (lines 426-428). Both are module-private by convention (leading underscore). If the log-file path caching strategy or the lock implementation changes — e.g., `gemma_client` moves to `asyncio.Lock`, or caches per-backend — this code breaks silently because there's no public contract.
+
+The `GEMMA_LOG_DISABLED` env check is also duplicated (one in `gemma_client._log_exchange`, one in `career_pick_qna._log_record`). Two places to update when we add a second env flag.
+
+**Location:** `backend/app/services/career_pick_qna.py:407-431`.
+
+**The Problem:** Both findings go away if Finding #2 is resolved via Option A (add `extra` kwarg to `generate_async`). Option B (keep supplemental, trim payload) keeps the coupling but at least trims the duplicate fields. Either way: calling into underscored module internals across module boundaries is a refactor trap. If @fp-architect had reviewed this (§5 was skipped per spec-decision), they would have flagged it.
+
+**The Fix:** Expose a public helper in `gemma_client`:
+
+```python
+# gemma_client.py
+def log_supplemental(record: dict[str, Any]) -> None:
+    """Public wrapper for supplemental call-site records."""
+    _log_exchange(record)
+```
+
+Then `career_pick_qna._log_record` calls `gemma_client.log_supplemental(record)` and the underscored reach-ins go away. Combined with Finding #2 fix, this finding may be moot.
+
+---
+
+##### Finding 7: `DETENT_VH` duplicated in component, not sourced from `motion.ts` 🟡
+
+**Impact:** `CareerLineageSheet.tsx:66-70` defines `DETENT_VH` with values `{desktop: 0.33, mobile: 0.45}`, etc. But `motion.ts:200-204` defines `sheetDetent` with `{desktop, tablet, mobile}` (three-way). The component imports `sheetSnap`, `sheetDragElastic`, `sheetFlingVelocity` from `motion.ts` — but reinvents the height table locally. Two places to update. The motion.ts value includes a `tablet` key the component ignores, collapsing tablet into desktop (which is what §3 specifies, but shouldn't be silently baked-in here).
+
+Additionally, `useIsMobile()` uses `< 768` as the threshold, but DESIGN.md `mobile:` breakpoint is 480px. This same 768 inconsistency was flagged by the design audit (W2/F8) and fixed at the padding level, but the sheet component still hardcodes 768 in `useIsMobile`.
+
+**Location:** `frontend/src/components/CareerLineageSheet.tsx:66-70` (`DETENT_VH`) + `frontend/src/components/CareerLineageSheet.tsx:85-96` (`useIsMobile`).
+
+**The Problem:** Source-of-truth drift. Motion tokens are supposed to live in `motion.ts`; the component duplicates them.
+
+**The Fix:** Import and use `sheetDetent` from `motion.ts`:
+
+```tsx
+import { sheetDetent, sheetSnap, ... } from "@/styles/motion";
+
+function detentHeight(detent: SheetDetent, vh: number, mobile: boolean, tablet: boolean): number {
+  const fractions = sheetDetent[detent];
+  const fraction = mobile ? fractions.mobile : tablet ? fractions.tablet : fractions.desktop;
+  return Math.round(vh * fraction);
+}
+```
+
+And if the `mobile:` threshold really should be 480 per DESIGN.md, either update DESIGN.md to acknowledge 768 as the mobile-ish threshold for sheet sizing OR change `useIsMobile` to `< 480` and verify §3.5 still holds at the 480-767 range.
+
+---
+
+##### Finding 8: `askCareerPickChip` AbortController not wired to fetch 🔵
+
+**Impact:** `CareerLineageSheet.handleChipClick` creates an `AbortController`, stashes it in `lastAskCtrl.current`, and uses its `signal.aborted` flag as a stale-response marker. The pattern works for "don't `setState` after a newer click arrived," so the race the prompt flagged is genuinely closed. BUT: the signal is never passed to `askCareerPickChip`, which means the underlying `fetch` continues to completion in the background and its response body is still parsed. Wasted network + CPU on rapid chip-mashing; not a bug, not user-visible.
+
+**Location:** `frontend/src/components/CareerLineageSheet.tsx:327-363` + `frontend/src/api/careerPick.ts:39-51`.
+
+**The Problem:** Pure optimization — the current code is correct, just not optimal. Upgrade path: plumb a `signal?: AbortSignal` param through `askCareerPickChip` → `apiPost` → `fetch({..., signal})`. That makes cancellation real, not advisory.
+
+**The Fix:** Optional. Low priority. Note for follow-up.
+
+---
+
+##### Finding 9: `onChipClick` closure identity churn on every render 🔵
+
+**Impact:** `AskGemmaChipRow` maps chips and creates `() => onChipClick(chip)` inline per render. Every parent re-render (and there will be several — sheet state changes, detent changes, fetch state transitions) creates new closure references on every chip. This resets Framer Motion's `animate={elevatedChipPulse.animate}` keyframe timing on the elevated chip — the ambient pulse may appear to "restart" mid-breath when the parent re-renders.
+
+**Location:** `frontend/src/components/AskGemmaChipRow.tsx:148-157`.
+
+**The Problem:** Cosmetic, not functional. For ~5 chips, the performance cost is zero. But the pulse visually glitching is a polish issue in a demo-oriented component.
+
+**The Fix:** Memoize the per-chip onClick via `useCallback` keyed on `chip.id`, or restructure `<Chip>` to take `onClick: (chip: CareerPickChip) => void` + `chip` and call `onClick(chip)` internally so the closure is stable. Low priority — only do if the pulse is observed to glitch.
+
+---
+
+##### Finding 10: `del cipcode` dead parameter in `build_chip_list` 🔵
+
+**Impact:** `career_pick_qna.build_chip_list` takes `cipcode` but deletes it on line 331 with a "reserved for future cipcode-aware heuristics" comment. Currently unused API surface. Not a bug; potential YAGNI — if the cipcode-aware heuristic never lands, we have a leaky parameter exposed on `GET /career-pick/chips`. If it does land, the shape is already in place. Fine either way, just flagging.
+
+**Location:** `backend/app/services/career_pick_qna.py:331`.
+
+**The Fix:** None required. Document in `§11 Final Notes` that `cipcode` on `build_chip_list` is reserved for a planned future heuristic and may be removed if not used by the next spec.
+
+---
+
+#### What's Actually Good
+
+Grudging acknowledgment — this is mostly solid work:
+
+- `resolveDetent` is a **pure function**, exported for testing without driving a real pointer gesture. Clean separation of snap math from render. The fling-velocity + nearest-detent hybrid is correct and the edge cases (min/max clamping) are bounded.
+- The **`fetchGen` generational token for branch fetches** is the right pattern — correct, simple, survives StrictMode double-mount, and doesn't need AbortController plumbing through a mock-aware API layer. Well chosen.
+- **Chip prefetch on mount** (`CareerPickScreen` line 104) correctly avoids a "student clicks → wait for chips to load" latency on the first click. Good UX thinking.
+- Backend `_matches_graduate_intent` uses `re.IGNORECASE` + `\b` word boundaries — correctly rejects "premedication" per the test coverage.
+- `generate_async`'s empty-string-on-failure contract is respected; no `HTTPException` leakage from the Gemma layer.
+- No hardcoded secrets, no SQL injection surface (SOC codes come from backend, not user input), no obvious N+1 — the single `/branches/{soc}` call per selection is correct per §2 Decision #1.
+- The `selectedCareer` / `buildStore` contract is preserved — RevealScreen's consumers (`screens/RevealScreen.tsx:25,56-60,64,99,102,121`) don't touch any of the new state, so the downstream flow is genuinely safe.
+- Test coverage is thorough: 74 new tests, P0/P1 all landed, exported `resolveDetent` pure helper covered directly.
+
+#### Required Changes (Priority Order)
+
+Routing to `@fp-implementer` (originating agent) via §10 Discussion:
+
+1. **Finding 1 (🔴 CRITICAL)** — fix nested-button invalid HTML in `CareerCard.tsx`. This is the only blocker-tier issue and will show up in the Gemma-4-Good demo the first time a screen-reader or keyboard user touches the screen.
+2. **Finding 2 (🟠 SERIOUS)** — stop writing duplicate `gemma.jsonl` records. Either plumb `extra` through `generate_async` (Option A) or trim the supplemental record payload (Option B). This contaminates the audit trail that the judges will inspect.
+3. **Finding 3 (🟠 SERIOUS)** — fix sheet drag-constraint so it cannot slide off-screen past compact. Visual polish bug that's visible in every demo of the drag gesture.
+4. **Finding 4 (🟠 SERIOUS)** — narrow `ask()` exception handling so genuine code bugs aren't laundered into "fallback fired." Either drop the try/except (since `generate_async` never raises on transport) or add an `internal_error` flag to the log record.
+5. **Finding 5 (🟡 MODERATE)** — gate `whileHover`, `whileTap`, `animate` props on `useReducedMotion` in `AskGemmaResponseCard`, `BranchChip`, `CareerCard`.
+6. **Finding 6 (🟡 MODERATE)** — goes away if Finding #2 is fixed via Option A; otherwise expose `log_supplemental` as a public helper on `gemma_client`.
+7. **Finding 7 (🟡 MODERATE)** — consolidate `DETENT_VH` to import from `motion.ts`; align `useIsMobile` threshold with DESIGN.md `mobile:` if warranted.
+8. **Findings 8, 9, 10 (🔵 MINOR)** — optional polish. Not blocking.
+
+#### Questions for the Author
+
+- **Finding 4:** Is there a reason the try/except in `ask()` exists? If Gemma failures are supposed to be user-visible, why is the fallback string returned instead of the error? I suspect this is over-defensive rather than deliberate.
+- **Finding 7:** Was the `useIsMobile()` 768 threshold chosen deliberately to match the `tablet:` Tailwind breakpoint rather than the DESIGN.md `mobile:` 480 token? If yes, fine — but document the intent.
+- **Finding 1:** Was the inner `role="radio"` + nested-button choice driven by a specific test requirement? If so, let's fix the test — the HTML invalidity is more important than the test convenience.
+- General: What is the manual smoke-test plan for the **drag gesture on an actual touch device** (iOS Safari, Android Chrome)? JSDOM covers the resolved-detent math via the pure helper, but Framer Motion's gesture layer behaves differently on real touch. §9 calls for mobile-emulated viewport — that's not the same as a real finger.
+
+#### Verdict — Second Pass (post-fix)
+- [x] APPROVED — Findings 1-5 and 7 resolved. Findings 6, 8, 9, 10 left as-is (6 becomes moot after F2's Option A fix; 8-10 are minor follow-ups not blocking ship).
+
+**First-pass verdict:** CHANGES REQUIRED (below for audit record).
+
+**Resolutions applied:**
+
+| Finding | Fix applied |
+|---------|-------------|
+| 🔴 F1 — Nested interactive elements | `CareerCard.tsx` — outer `<motion.button>` replaced with a `<motion.div role="button" tabIndex={0}>` + keyboard handler for Enter/Space. Inner "Pick this path" is now a real `<button role="radio">` (not a `<span>`), nested legally inside the div. HTML validates; single `role="radio"` preserved for `role="radiogroup"` semantics inside `CareerTierSection`. |
+| 🟠 F2 — Duplicate `gemma.jsonl` | Added `extra: dict[str, Any] \| None = None` kwarg to `generate` / `generate_chat` / `generate_async` (Option A per reviewer). `career_pick_qna.ask()` now passes `extra={"call_site": "career_pick.ask", "chip_id": ..., "cipcode": ..., "major_text": ..., "selected_soc": ..., "soc_codes": ...}` — single record per call, fields merged into the standard record, no more underscored reach-ins to `gemma_client._log_path` / `_log_lock`. |
+| 🟠 F3 — Drag off-screen overshoot | `CareerLineageSheet` dragConstraints rewritten: `top: -(largeHeight - height)` (unchanged, allows growth to large), `bottom: height - compactHeight` (new — at compact = 0, at medium = medium-compact, at large = large-compact). Sheet can no longer drag visually below the compact detent. `sheetDragElastic` still applies past the bound. |
+| 🟠 F4 — Exception-swallowing `ask()` | Narrowed the intent: `generate_async` never raises on transport, so any exception caught in `ask` is our own code bug. Kept the `except` (spec's `test_ask_falls_back_when_gemma_raises` requires graceful-degradation semantics) but switched to `logger.exception(...)` so on-call sees the stack trace in logs even when the student sees a fallback. |
+| 🟡 F5 — Reduced-motion on peers | `AskGemmaResponseCard` now calls `useReducedMotion()` and swaps the `chipResponseExpand` preset for a 120ms linear opacity fade when reduced. `BranchChip` drops `whileHover` under reduced-motion. `CareerCard` drops the `whileTap` scale + the `animate={scale: [1, 1.02, 1]}` selection pulse under reduced-motion. |
+| 🟡 F7 — `DETENT_VH` duplicated | `CareerLineageSheet` now imports `sheetDetent` from `motion.ts` and uses it in `detentHeight()`. Local `DETENT_VH` constant removed — single source of truth. (`useIsMobile` threshold of 768 kept — deliberately matches the Tailwind `tablet:` breakpoint per §3.5 responsive table, which specifies mobile = <768. A rename to `useIsTabletOrBelow` would be honest but scope-creep for this spec.) |
+
+**Not fixed (accepted with rationale):**
+
+| Finding | Rationale |
+|---------|-----------|
+| 🟡 F6 — Underscored coupling | Moot after F2 Option A. The service no longer reaches into `gemma_client._log_path` / `_log_lock`. |
+| 🔵 F8 — AbortController not wired to fetch | Optimization, not correctness. Follow-up. |
+| 🔵 F9 — Closure identity churn on chip row | Cosmetic; pulse glitch has not been observed. Follow-up if seen in polish pass. |
+| 🔵 F10 — `del cipcode` in `build_chip_list` | Documented intent (reserved for future cipcode-aware heuristics). §11 records it. |
+
+**Post-fix verification:** 349/349 backend pytest + 430/430 frontend vitest (minus 2 pre-existing `ProfileScreen.test.tsx` failures on `main` — unrelated to this spec). TypeScript + ruff clean on all touched files.
+
+**First-pass findings (for audit record):**
 
 ---
 
@@ -1470,7 +1779,25 @@ Run through the following on a live dev server (`npm run dev`) at desktop viewpo
 ## §10 Discussion
 
 ```
-[placeholder — timestamped messages between agents go here]
+2026-04-18 — @faang-staff-engineer → @fp-implementer:
+Code Review: CHANGES REQUIRED. Four serious issues (one critical):
+  🔴 F1 — CareerCard has invalid nested-button markup (role="radio" span
+          inside <motion.button>). A11y + cross-browser behavior bug.
+  🟠 F2 — career_pick_qna.ask() writes TWO gemma.jsonl records per call
+          (generate_async already logs; _log_record is additive). Doubles
+          audit-trail volume. Fix via `extra` kwarg on generate_async (pref)
+          or trim the supplemental payload.
+  🟠 F3 — Sheet dragConstraints bottom = +52vh at compact → sheet slides
+          off-screen during downward drag. Visible demo polish bug.
+  🟠 F4 — ask() try/except swallows internal code bugs into
+          fallback_fired=True; generate_async already returns "" on
+          transport failure so this catch can only trap our own bugs.
+          Either drop the except or tag `internal_error`.
+Plus three 🟡 moderate (reduced-motion gating on peer components,
+underscored gemma_client coupling, DETENT_VH source-of-truth drift) and
+three 🔵 minor polish items.
+Full findings in §8 Code Review. Verdict: CHANGES REQUIRED. Do NOT advance
+to §9 Verification until F1–F4 resolved.
 ```
 
 ---

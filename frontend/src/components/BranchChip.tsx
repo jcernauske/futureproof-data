@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { CareerBranch } from "@/types/build";
 
 interface BranchChipProps {
@@ -48,6 +48,7 @@ function formatDelta(value: number): string {
 }
 
 export function BranchChip({ branch }: BranchChipProps) {
+  const reducedMotion = useReducedMotion() ?? false;
   const rationale = branch.unlock;
 
   return (
@@ -55,7 +56,7 @@ export function BranchChip({ branch }: BranchChipProps) {
       tabIndex={0}
       role="article"
       aria-label={`Branch: ${branch.to_title}`}
-      whileHover={{ y: -2 }}
+      whileHover={reducedMotion ? undefined : { y: -2 }}
       className="
         shrink-0 min-w-[220px] max-w-[260px] snap-start
         bg-bp-mid border border-border-subtle hover:border-border
