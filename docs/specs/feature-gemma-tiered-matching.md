@@ -68,7 +68,7 @@ Execute the following workflow:
 
 ---
 
-## Status: DRAFT
+## Status: IN_PROGRESS
 
 ## Metadata
 
@@ -287,43 +287,164 @@ export interface IntentResult {
 
 ### Service Changes
 
-**`backend/app/services/intent.py` prompt rubric (replaces current `_SYSTEM_PROMPT` alternative-count paragraph):**
+> **Note:** This section was revised on 2026-04-18 to fold in the 6 required items from @genai-architect's CHANGES REQUESTED review (§5) plus the 2 non-blocking cleanups from @fp-architect.
 
-New instruction block to insert into the system prompt:
+**`backend/app/services/intent.py` `_INTENT_SYSTEM_PROMPT` — full rewrite (replaces the current template at lines 22–55).**
+
+Key structural changes from the genai-architect review:
+- Tier rubric is inserted **immediately after the persona/task description**, before the school-specific data blocks (Finding #3: attention placement).
+- Template example shows `"alternatives": []` rather than a populated object (Finding #2: schema template undercuts "Never pad").
+- Explicit positive constraint for high confidence (Finding #2).
+- Lexical-match tiebreaker sentence for the high tier (Finding #1).
+- High-tier example rewritten to a colloquial input requiring interpretation (Finding #6).
+- Medium-tier example augmented with a cross-family alternative (Finding #7).
+- Reasoning capped at 2 sentences to protect token budget (Finding #4).
 
 ```
+You are a college program advisor who understands how students, parents,
+counselors, and registrars all describe academic programs differently.
+
+A student has told you what they want to study. Your job is to match their
+intent to the most appropriate CIP (Classification of Instructional Programs)
+code from the available options.
+
+Consider how different people describe the same program:
+- Students say: "pre-med", "CS", "business", "art"
+- Parents say: "Physical Therapy", "Deaf Education", "Criminal Justice"
+- Counselors say: "Special Ed", "STEM", "Allied Health"
+- Registrars say: "CIP 51.2308 Physical Therapy/Therapist"
+
 Confidence tiers drive how many alternatives you return.
 
-- "high": The input maps to exactly one CIP — no ambiguity. Return alternatives: [].
-  Examples: "Physical Therapy" → 51.2308; "Nursing RN" → 51.3801.
+- "high": The input resolves to exactly one CIP — no ambiguity, even if the
+  phrasing is colloquial. Output exactly "alternatives": [].
+  Tiebreaker: if the school's reported program list contains a single entry
+  whose title is a near-direct match to the student input, use high even if
+  the phrase sounds like an umbrella term.
+  Example: "pre-PT" → 51.2308 Physical Therapy/Therapist.
 
-- "medium": The input is a well-known shorthand or umbrella term that maps to a primary
-  CIP but reasonable students mean different things. Return 2–4 alternatives, ordered
-  by how likely you'd pick each if the student had phrased it differently. Each alternative
-  must be a genuinely distinct program within the same CIP family.
-  Examples: "business" (primary: 52.0201 Business Administration; alternatives: 52.0801
-  Finance, 52.1401 Marketing, 52.0701 Entrepreneurship); "psychology" (primary: 42.0101
-  Psychology General; alternatives: 42.2701 Cognitive Psychology, 42.2813 Clinical Psych).
+- "medium": The input is a well-known shorthand or umbrella term that maps
+  to a primary CIP but reasonable students mean different things. Return 2–4
+  alternatives, ordered by how likely you'd pick each if the student had
+  phrased it differently. Alternatives must be genuinely distinct programs
+  and may span CIP families when a cross-family reading is plausible.
+  Example: "business" (primary: 52.0201 Business Administration;
+  alternatives: 52.0801 Finance, 52.1401 Marketing, 52.0701 Entrepreneurship,
+  42.2804 Industrial-Organizational Psychology).
 
-- "low": The input is too vague, ambiguous, or non-program-like for you to stake a primary
-  match confidently. Still return your best primary, but include up to 10 alternatives
-  spanning the plausible CIP neighborhoods. The frontend will show a picker rather than
-  your primary.
+- "low": The input is too vague, ambiguous, or non-program-like for you to
+  stake a primary match confidently. Still return your best primary, but
+  include up to 10 alternatives spanning the plausible CIP neighborhoods.
+  The frontend will show a picker rather than your primary.
   Examples: "helping people", "something with computers but not coding".
 
-Never pad. If you're high-confident, alternatives stays empty. Never exceed 10.
+Never pad. If you are high-confident, "alternatives" MUST be []. Never exceed 10.
+
+The student typed: "{student_input}"
+School: {school_name}
+
+Programs this school reports (these have earnings data):
+{school_cip_list}
+
+Additional specific programs in the same families (from the national
+crosswalk — these have career path data even if the school doesn't report
+them separately):
+{crosswalk_cip_list}
+
+Respond in JSON only, no preamble, no markdown. Keep "reasoning" to at most
+two sentences.
+{"matched_cip": "XX.XXXX", "matched_title": "Program Title",
+"confidence": "high|medium|low",
+"reasoning": "Up to two sentences explaining why this is the best match.",
+"parent_cip": "XX.XX (the school-reported CIP that covers this program,
+if different from matched_cip)",
+"alternatives": []}
 ```
 
-**`backend/app/services/intent.py:resolve_intent` — post-parse validation (additive, ~3 lines):**
+**`backend/cli.py` `_INTENT_SYSTEM_PROMPT`** — mirror the exact rubric above verbatim into the duplicate at lines 607–640.
+
+**Drift-warning comments** (@fp-architect concern #10 — non-blocking cleanup folded in):
+Add a one-line comment directly above each `_INTENT_SYSTEM_PROMPT` assignment noting that the two sites must stay in lockstep and referencing the parked consolidation follow-up in §11.
+
+**`backend/app/services/intent.py` — token budget bump:**
+
+Raise `max_tokens` from 500 → 700 at `_call_gemma_intent` (intent.py:176) to absorb the 10-alternative low-tier ceiling plus the 2-sentence reasoning (Finding #4).
+
+**`backend/app/services/intent.py` — hardened JSON fence stripping (Finding #8):**
+
+Replace the current strip at lines 192–196:
 
 ```python
-raw_alts = parsed.get("alternatives") or []
-alternatives = raw_alts[:10] if isinstance(raw_alts, list) else None
+cleaned = raw_response.strip()
+if cleaned.startswith("```"):
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
 ```
 
-(Replace the current `alternatives = parsed.get("alternatives")` assignment.)
+with a more defensive version that drops both markdown fences and any trailing prose after the final top-level `}`:
 
-**`backend/cli.py` prompt** — mirror the exact rubric above into the duplicate prompt string near line 620.
+```python
+cleaned = raw_response.strip()
+if cleaned.startswith("```"):
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+    cleaned = re.sub(r"\s*```\s*$", "", cleaned)
+last_brace = cleaned.rfind("}")
+if last_brace != -1:
+    cleaned = cleaned[: last_brace + 1]
+```
+
+**`backend/app/services/intent.py:resolve_intent` — post-parse alternatives pipeline (Findings #2, #9, #10):**
+
+Replace the current `alternatives = parsed.get("alternatives")` assignment (line 278) with a pipeline that:
+1. Coerces non-list values to `None` without crashing (P0 test #5).
+2. Drops entries that aren't dicts or are missing `cip` / `title`.
+3. Drops entries whose `cip` does not match `^\d{2}\.\d{4}$` (Finding #10: CIP hallucination).
+4. Drops entries whose `cip` equals `matched_cip` or duplicates an earlier entry (Finding #9: dedup).
+5. Clamps the result to ≤10 (spec §4 contract).
+
+Reference implementation:
+
+```python
+_CIP_PATTERN = re.compile(r"^\d{2}\.\d{4}$")  # module-level constant
+
+def _sanitize_alternatives(
+    raw: Any, primary_cip: str
+) -> list[dict[str, str]] | None:
+    if not isinstance(raw, list):
+        return None
+    seen: set[str] = {primary_cip}
+    cleaned: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        cip = str(item.get("cip", "")).strip()
+        title = str(item.get("title", "")).strip()
+        if not cip or not title:
+            continue
+        if not _CIP_PATTERN.match(cip):
+            continue
+        if cip in seen:
+            continue
+        seen.add(cip)
+        cleaned.append({
+            "cip": cip,
+            "title": title,
+            "why": str(item.get("why", "")).strip(),
+        })
+        if len(cleaned) == 10:
+            break
+    return cleaned
+```
+
+The `resolve_intent` call site becomes:
+
+```python
+alternatives = _sanitize_alternatives(parsed.get("alternatives"), matched_cip)
+```
+
+**Medium-tier degenerate-data policy (@fp-architect concern #12):**
+
+When Gemma returns `confidence="medium"` with `alternatives=[]` (or alternatives that all get filtered out), the spec pins behavior to option (b) from the architect review: render the caution-styled card with the primary match alone, no alternatives list. Rationale: the caution styling honestly reflects Gemma's self-reported uncertainty even if its alternatives pool was unhelpful; silently upgrading to high styling would lie about confidence. The P1 frontend test `medium-tier card with zero alternatives still renders primary` enforces this.
 
 ### Frontend Changes
 
@@ -424,22 +545,132 @@ Per `CLAUDE.md` and `SPEC_GUIDELINES.md`:
 ## §5 Architecture Review
 
 ### @fp-architect Review
-**Status:** PENDING
+**Status:** COMPLETE
+**Reviewed:** 2026-04-18
+
+#### System Context
+
+This change sits entirely in the intent-resolution slice of the backend (FastAPI service layer + shared Pydantic model) and the `MajorInput` component on the frontend. It does not touch Brightsmith zones, DuckDB Gold products, the MCP server, or any Gemma role outside of intent resolution (which is a pre-RPG onboarding concern, not one of the seven numbered Gemma roles). The change is additive semantics on an existing shipped contract: `IntentResult.confidence` and `IntentResult.alternatives` are already wired through `backend/app/routers/intent.py` -> `backend/app/services/intent.py` -> `frontend/src/types/buildInput.ts`. The spec makes the schema end-to-end-usable rather than introducing new boundaries.
+
+#### Data Flow Analysis
+
+Traced source to screen:
+
+1. `POST /intent/` (router at `backend/app/routers/intent.py:10`) -> `intent.resolve_intent(major_text, school_name, unitid, programs)` (service at `backend/app/services/intent.py:241`).
+2. Service calls `_call_gemma_intent` -> `gemma_client.generate` (Ollama or OpenRouter). JSON parsed; on failure, `raise ValueError` (line 270) bubbles to the router, which surfaces as a handled error that drives the frontend to `phase="fallback"`.
+3. Service returns `IntentResult` with `confidence` verbatim from Gemma and `needs_clarification = confidence == "low"` (line 307). This is unchanged.
+4. Frontend reads `IntentResult` -> `MajorInput.tsx` renders `ClarifyContent` when `needs_clarification` is true (routed at the parent phase dispatcher), `MatchContent` otherwise. `MatchContent` currently derives `isLowConfidence = confidence === "low"` (line 300), which is dead code because low never reaches this branch. Spec replaces with `isUncertain = confidence !== "high"`.
+5. On primary confirm or alternative confirm, `onConfirm` hits `POST /intent/confirm` (router at `backend/app/routers/intent.py:23`) with the chosen CIP/title. No change to that endpoint.
+
+Every boundary crossing is already typed. No new arrows.
+
+#### Contract Review
+
+`IntentResult` (backend `career.py:317`) and its TypeScript twin (`buildInput.ts:55`) are structurally identical and stay so. The router signatures don't change. The `/intent/confirm` payload doesn't change. The only semantic drift: `confidence="medium"` flips from "renders same as high" to "renders caution styling with alternatives," and `alternatives` flips from "frontend ignores it" to "frontend renders it when uncertain." Zero breaking changes for the CLI harness or any existing `IntentResult` consumer.
+
 #### Findings
-[Filled in by @fp-architect]
+
+##### Sound
+
+1. **No schema migration.** Reusing the shipped `IntentResult` shape is the right call. A Pydantic v2 migration for this hackathon would be pure cost.
+2. **Backend tier gate stays authoritative.** Keeping `needs_clarification = confidence == "low"` in the service means the router/backend remains the single source of truth for "should the picker render." The frontend's new `isUncertain` flag is strictly a rendering concern downstream of that gate — it never contradicts it.
+3. **Fallback path preserved.** `raise ValueError` on parse failure (line 270) still drives `phase="fallback"`. Tier-aware rendering only matters after a successful parse, so the fallback contract is untouched.
+4. **Alternatives clamp at the service layer is the right boundary.** See concerns #7.
+5. **Zero MCP / DuckDB / Brightsmith impact.** Correctly scoped.
+
+##### Concerns
+
+6. **Backend vs frontend tier-semantics split is intentional but must be documented in-code.** Backend: "low" == "needs clarify picker." Frontend: "non-high" == "show caution + alternatives." These are two different predicates on the same field, and both are correct — but a future reader will trip on it. **Impact:** A maintainer adding a fourth tier (e.g., "unknown") or renaming "medium" will update one side and miss the other, re-introducing the current dead-code defect in the opposite direction. **Recommendation:** Add a one-line comment in `intent.py:307` ("low routes to clarify picker; medium/high route to match card — see MajorInput.tsx isUncertain") and mirror it in `MatchContent`. No runtime cost, eliminates the drift trap. This does not block approval.
+
+7. **Loose `alternatives: list[dict] | None` is acceptable for this spec but accrues real debt.** Pydantic v2 is in the stack (per `CLAUDE.md` Stack row), and the project standard is "Pydantic v2 for data models... No `Any` unless genuinely unavoidable." A `list[dict]` is effectively `list[dict[str, Any]]` — it'd let a future agent silently widen the alternative shape (e.g., add `earnings`) without updating the TS twin. **Impact:** Silent contract drift between backend and frontend the next time someone touches the alternative payload. **Recommendation:** Accept the loose type for THIS spec (hackathon scope, already shipped), but the follow-up refactor spec referenced in §2 decision #7 should be tracked as a named follow-up in §11, not just "parked." A `class Alternative(BaseModel)` is ~10 lines and would make the post-parse clamp self-validating. Not a blocker.
+
+8. **Service-layer clamp is the correct location.** The `alternatives = raw_alts[:10] if isinstance(raw_alts, list) else None` lives in `resolve_intent` before `IntentResult` is constructed. This is the right seam — it's defense against a misbehaving Gemma, which is service-layer territory, not model-layer. A Pydantic `field_validator` with `max_length=10` would **reject** a 15-item response (raising `ValidationError` up through the router as HTTP 500), but we want graceful degradation to the first 10. The spec's imperative clamp is the right mechanism; Pydantic would be wrong here. APPROVED as specified.
+
+9. **`isUncertain` naming is preferable to the proposed alternatives.** `confidence !== "high"` is semantically "we are not certain." `isMedium` would under-describe (doesn't cover future tiers); `isNotHigh` reads awkwardly. `isUncertain` is the right abstraction even if `confidence` remains stringly-typed.
+
+10. **Prompt drift between `intent.py` and `cli.py` is a real but time-bounded risk.** Out-of-scope consolidation per §2 decision #5 is defensible given the May 18 deadline, BUT the spec currently relies on a human remembering to update two files. **Impact:** CLI and web UI drift silently when the next prompt tweak lands and the author touches only one site. **Recommendation:** Add a one-line comment at the top of each `_INTENT_SYSTEM_PROMPT` definition — something like `# DUPLICATE: mirrors backend/cli.py:607 (consolidation tracked in §11 follow-ups of feature-gemma-tiered-matching.md)` and the reverse. Costs five minutes, buys a year of drift protection. Not a blocker for approval, but should land with this spec.
+
+11. **API contract: zero breaking change confirmed.** `POST /intent/` response shape is unchanged. `POST /intent/confirm` request shape is unchanged. The CLI harness (which reads `IntentResult.alternatives` at `cli.py:977+` per the spec) already handles alternatives; it will continue to work and will now receive better-populated alternatives arrays for medium/low tiers. No consumer breaks.
+
+12. **New failure mode the spec doesn't explicitly handle: Gemma returns `"confidence": "medium"` with an empty or null `alternatives`.** Per the prompt, this shouldn't happen, but Gemma is a probabilistic system. Spec §4 P1 test `medium-tier card with zero alternatives still renders primary` correctly covers the frontend side. The backend side also handles it gracefully (`alternatives = raw_alts[:10] if isinstance(raw_alts, list) else None` — empty list passes through, None passes through). **Impact:** No crash, but the student sees a caution-styled card with no alternatives and a "Close enough" button — which reads as a UI bug. **Recommendation:** Decide the policy explicitly in the spec: either (a) downgrade to `high`-style rendering when medium-with-no-alts (cleanest UX), or (b) keep caution styling and let the primary stand alone (matches P1 test). I'd pick (a) but (b) is defensible. Current spec is ambiguous. Not a blocker — the P1 test pins the behavior to (b) — but should be called out explicitly in §3 or §4.
+
+13. **`confidence` as `str` (not `Literal["high","medium","low"]`) is a missed cheap win.** `Literal` on the Pydantic model would catch malformed Gemma responses at parse time with zero runtime cost. Same cost-benefit as concern #7 — not a blocker, but genuinely five minutes of work for a typo-proof contract. The `confidence = str(parsed.get("confidence", "unknown"))` line at `intent.py:276` is already tolerant; a `Literal` validator would reject "unknown" and fall through to the error path (which in turn routes to `phase="fallback"` via the router). Acceptable either way; noting for the follow-up tightening spec.
+
+14. **Ollama VRAM / latency — negligible impact.** Up to 10 alternatives at ~30-40 tokens each adds ~300-400 output tokens. Gemma 4 on Ollama handles this comfortably at temperature 0.1 with max_tokens=500 (current value at `intent.py:177`). No need to bump `max_tokens`. Both Ollama and OpenRouter paths identical — spec is correct to call for smoke tests in §9 on both.
+
+15. **Caching path is untouched and correct.** `_intent_cache` at `intent.py:20` stores confirmed matches (`confirm_intent` seeds it with `"confidence": "high"`). Cache hits never emit alternatives because by definition they've been student-confirmed and are high-confidence outcomes. Spec doesn't mention this, but the cache hydrate path at `intent.py:252` correctly omits `alternatives` — a cached hit will render as high tier, which is the right semantic. No concern.
+
+##### Blockers
+
+None.
+
 #### Verdict
-- [ ] APPROVED
+- [x] APPROVED
 - [ ] CHANGES REQUESTED
 - [ ] REJECTED
 
+#### Conditions
+
+Approved as specified. Two strongly-recommended but non-blocking cleanups to land with implementation:
+
+1. Add drift-warning comments at both `_INTENT_SYSTEM_PROMPT` sites (`backend/app/services/intent.py:22` and `backend/cli.py:607`) pointing at each other and at §11 follow-ups of this spec. Five minutes of work; prevents the exact class of bug this spec exists to fix.
+2. Resolve the ambiguity flagged in concern #12 (medium tier with zero alternatives) explicitly in §3 or §4 — confirm the P1 test's behavior is intentional, or downgrade to high-style rendering. Either is fine; the spec should pick one.
+
+Neither blocks implementation. If the implementer hits medium-with-zero-alts in testing and the UX reads as a bug, fall back to option (a) in concern #12 and document the change in §6.
+
 ### @genai-architect Review
-**Status:** PENDING
+**Status:** COMPLETE
+**Reviewed:** 2026-04-18
+
 #### Findings
-[Filled in by @genai-architect — prompt design for tiered alternative count, calibration risks, fallback behavior under JSON parse failure]
+
+1. **Tier collapse toward medium is the primary calibration risk.** Gemma 4 (both Ollama and OpenRouter quantizations) hedges toward the middle of discrete scales when boundary conditions are under-defined. "Exactly one CIP — no ambiguity" and "too vague for a primary match" are crisp. "Well-known shorthand or umbrella term" is broad enough to capture clean inputs like "Computer Science" or "Mechanical Engineering." Recommend adding a tiebreaker sentence: "If the school's own program list contains a single entry whose name is a near-direct match to the student input, use high regardless of whether it is an umbrella term." This gives Gemma an observable anchor that breaks the high/medium tie without requiring a post-hoc server-side override.
+
+2. **"Never pad" is a weak negative constraint — the schema template undercuts it.** At `temperature=0.1` the rubric's instruction-following is reliable in isolation, but the JSON schema template at `intent.py:53–54` shows `"alternatives": [{"cip": "XX.XXXX", ...}]` with one populated example object. That example is a counter-example to "high → empty array." Gemma pattern-matches on the schema shape before it runs the tier logic. Replace the template value with `"alternatives": []` and add an explicit positive constraint: "For high confidence, output exactly `\"alternatives\": []`."
+
+3. **Rubric should be inserted before the school CIP data, not after the JSON schema.** The proposed insertion point ("replaces current alternative-count paragraph") sits after the `{school_cip_list}` and `{crosswalk_cip_list}` blocks. In practice those blocks run 20–60 lines, pushing the tier semantics late in the system context behind a wall of CIP codes. Insert the rubric immediately after the persona/task description and before the `{student_input}` / school-data block. The JSON schema template should remain last.
+
+4. **Token budget — real truncation risk at low tier; raise `max_tokens` to 700.** Current ceiling is 500 (`intent.py:176`). A full low-tier response with 10 alternatives at ~12 tokens each (~120 tokens) plus primary fields (~80 tokens) runs 350–420 tokens of JSON. That nominally fits, but Gemma writes more verbose `reasoning` on low-confidence inputs (explaining the ambiguity) — 3-sentence reasoning alone costs 60–80 tokens and pushes the total over 500. The truncated JSON will fail `json.loads`, triggering the `raise ValueError` fallback on exactly the inputs (vague, uncertain) where showing options is most valuable. Raise `max_tokens` to 700, or add an explicit instruction: "reasoning: maximum 2 sentences."
+
+5. **Temperature: hold at 0.1 for all tiers.** Medium-tier ordering of alternatives ("ordered by how likely you'd pick each") is a ranking task, not a creative generation task. Higher temperature increases variance in which alternatives surface without improving their relevance or coverage. No change recommended.
+
+6. **High-confidence example teaches format, not semantics.** "Physical Therapy" → 51.2308 is a near-lexical match — it tells Gemma nothing about when to pick high vs. medium, only how to format a CIP code. Replace with a colloquial input that requires interpretation but has exactly one valid mapping: e.g., "pre-PT" → 51.2308, or "nursing BSN" → 51.3801. This teaches the model that high confidence is about uniqueness of the resolved mapping, not lexical precision of the input.
+
+7. **Medium-tier "psychology" example risks anchoring alternatives to subcodes only.** Both listed alternatives (42.2701, 42.2813) are subcodes of the primary 42.0101. If Gemma anchors on this pattern it will generate systematically narrow alternatives that stay within the same 2-digit CIP family, missing more relevant cross-family programs (e.g., 42.2801 Industrial-Organizational Psychology sits closer to business for some students). Add one cross-family alternative to the medium example to signal that alternatives can span CIP families.
+
+8. **JSON parse fragility is meaningfully higher with 10-item arrays.** The markdown-fence stripping at `intent.py:193–196` handles only a single fence pair with no trailing content. Gemma 4 via Ollama occasionally appends an explanation sentence after the closing `}` on uncertain outputs — a behavior that increases with response length and hedging. The existing `raise ValueError` fallback is the right error boundary, but the stripping should be hardened to drop everything after the last `}` that closes the top-level JSON object before attempting `json.loads`. This prevents a valid but prose-appended response from unnecessarily falling to the clarify picker.
+
+9. **Alternatives deduplication must be server-side, not just a P2 test.** Gemma regularly returns the primary `matched_cip` as the first element of `alternatives` on umbrella inputs. The spec's P2 test flags this but imposes no enforcement. For medium tier, a duplicate-primary alternative row renders as a button that re-confirms the same CIP as the hero match — a silent UX defect that the P2 test would catch in CI but only after shipping. Promote deduplication of `matched_cip` from `alternatives` to the same post-parse block as the clamp (`raw_alts[:10]`), at zero additional complexity.
+
+10. **Cross-backend parity — CIP hallucination is the primary Ollama/OpenRouter divergence risk.** Instruction-following and JSON adherence are comparable between the two backends at `temperature=0.1`. The divergence point is CIP code accuracy in alternatives: the larger cloud model (`google/gemma-4-26b-a4b-it`) has broader training coverage of CIP codes and is less likely to hallucinate, but it also generates more confident-sounding alternatives with plausible-looking but invalid 6-digit CIP codes (e.g., `52.0999` instead of `52.0901`). The post-parse clamp does not validate CIP format. Add a format check on each alternative's `cip` field (`^\d{2}\.\d{4}$`) and silently drop malformed entries; this also makes the alternatives array safe to pass directly to the MCP `get_career_paths` tool without a second validation layer downstream.
+
+11. **`@fp-architect` finding #15 (cache path is correct) needs a scope clarification.** The architect correctly notes that `confirm_intent` seeds the cache with `"confidence": "high"` — post-confirmation, high rendering is right. The gap is the *pre-confirmation* repeat path: a student types "business," gets a medium-tier result (alternatives rendered), does not confirm, navigates away and returns. The cache key is `(normalized_input, unitid)`, but `_intent_cache` is only populated by `confirm_intent` — not by `resolve_intent`. So the pre-confirmation repeat does re-call Gemma, not hit the cache. No actual bug. Finding #15 is correct; no cache change needed. This resolves apparent tension between architect and genai-architect reviews.
+
+12. **Rubric reinforcement in the user message: not recommended.** The user message is currently `'Match this student input to a CIP code: "{prompt_input}"'` (`intent.py:175`). Adding tier context there would add ~50 tokens per call and is redundant at `temperature=0.1`. The user message's job is to anchor Gemma's attention on the student input, not re-state the rubric. Leave it as-is.
+
 #### Verdict
 - [ ] APPROVED
-- [ ] CHANGES REQUESTED
+- [x] CHANGES REQUESTED
 - [ ] REJECTED
+
+**Required before implementation (5 items — these affect correctness):**
+
+1. Raise `max_tokens` from 500 to 700 (finding #4).
+2. Replace the alternatives template value with `[]` and add positive high-tier constraint (finding #2).
+3. Insert the tier rubric before the school CIP data block (findings #3).
+4. Add CIP format validation (`^\d{2}\.\d{4}$`) on each alternative; drop malformed entries silently (finding #10).
+5. Add server-side deduplication of `matched_cip` from the alternatives list in the post-parse block (finding #9).
+6. Harden JSON fence-stripping to discard trailing prose after the closing `}` (finding #8).
+
+**Strongly recommended prompt improvements (non-blocking):**
+
+- Replace high-confidence example with a colloquial input (finding #6).
+- Add one cross-family alternative to the medium-tier example (finding #7).
+- Add a lexical-match tiebreaker sentence to the high-tier definition (finding #1).
+
+#### Resolution (2026-04-18)
+
+All 6 required items and all 3 non-blocking prompt improvements from @genai-architect, plus the 2 non-blocking cleanups from @fp-architect (concerns #10 drift comments, #12 medium-with-zero-alts policy), have been folded into §4 Service Changes. Spec proceeds to step 2 (Design Vision) under the revised §4.
 
 ### @fp-data-reviewer Review
 **Status:** SKIPPED (no pipeline, crosswalk, or stat formula changes)
