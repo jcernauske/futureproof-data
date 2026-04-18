@@ -4,6 +4,8 @@ export interface SchoolSelection {
   unitid: number;
   name: string;
   institutionControl: string | null;
+  netPriceAnnual: number | null;
+  costOfAttendanceAnnual: number | null;
 }
 
 export interface MajorSelection {
@@ -36,6 +38,8 @@ export interface SchoolSearchResult {
   unitid: number;
   institution_name: string;
   institution_control: string | null;
+  net_price_annual: number | null;
+  cost_of_attendance_annual: number | null;
 }
 
 export interface ProgramResult {

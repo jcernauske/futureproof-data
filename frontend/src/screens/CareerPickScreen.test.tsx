@@ -83,7 +83,7 @@ beforeEach(() => {
   // Seed required upstream state so the nav guard doesn't redirect.
   useBuildInputStore.setState({
     phase: "sliders",
-    school: { unitid: 110635, name: "UC Berkeley", institutionControl: "Public" },
+    school: { unitid: 110635, name: "UC Berkeley", institutionControl: "Public", netPriceAnnual: null, costOfAttendanceAnnual: null },
     programs: [],
     major: {
       cipCode: "11.0701",
@@ -202,6 +202,25 @@ describe("CareerPickScreen", () => {
     expect(sessionStorage.getItem("fp-nav-hint")).toBe("session-expired");
     // No API call should fire — guard runs before fetch.
     expect(mockGetOutcomes).not.toHaveBeenCalled();
+  });
+
+  it("tiers lay out 3-up on desktop (grid-cols-1 desktop:grid-cols-3)", async () => {
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText("Software Developers")).toBeInTheDocument();
+    });
+
+    // Shared parent of the three tier regions carries the responsive grid classes.
+    const tierParent = screen
+      .getByRole("region", { name: "Common career paths" })
+      .closest("[class*='desktop:grid-cols-3']");
+    expect(tierParent).not.toBeNull();
+    expect(tierParent!.className).toContain("grid-cols-1");
+    expect(tierParent!.className).toContain("desktop:grid-cols-3");
   });
 
 });

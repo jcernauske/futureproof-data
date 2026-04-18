@@ -70,6 +70,8 @@ export function SchoolSearch({
       unitid: result.unitid,
       name: result.institution_name,
       institutionControl: result.institution_control,
+      netPriceAnnual: result.net_price_annual,
+      costOfAttendanceAnnual: result.cost_of_attendance_annual,
     });
     setShowDropdown(false);
     setQuery("");

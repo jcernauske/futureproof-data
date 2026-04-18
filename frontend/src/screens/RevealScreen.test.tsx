@@ -1,4 +1,4 @@
-import { render, waitFor, act } from "@testing-library/react";
+import { render, waitFor, act, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { RevealScreen } from "./RevealScreen";
@@ -74,7 +74,7 @@ function makeCareer(soc = "15-1252"): CareerOutcome {
 function seedReady() {
   useBuildInputStore.setState({
     phase: "sliders",
-    school: { unitid: 110635, name: "UC Berkeley", institutionControl: "Public" },
+    school: { unitid: 110635, name: "UC Berkeley", institutionControl: "Public", netPriceAnnual: null, costOfAttendanceAnnual: null },
     programs: [],
     major: {
       cipCode: "11.0701",
@@ -210,5 +210,56 @@ describe("RevealScreen — unmount race safety", () => {
     expect(unmountWarnings).toEqual([]);
 
     errSpy.mockRestore();
+  });
+});
+
+describe("RevealScreen — grid layout", () => {
+  it("pentagon wraps in col-span-7 and stat cards in col-span-5 at desktop", async () => {
+    seedReady();
+    // Seed a complete build so the screen renders the reveal content.
+    useBuildStore.setState({
+      build: {
+        build_id: "b-1",
+        created_at: "2026-04-17T00:00:00Z",
+        school_name: "UC Berkeley",
+        unitid: 110635,
+        major_text: "CS",
+        cipcode: "11.0701",
+        program_name: "CS",
+        effort: "balanced",
+        loan_pct: 0.5,
+        career: makeCareer(),
+        gauntlet: { fights: [], wins: 0, losses: 0, draws: 0, unknown: 0, verdict: "" },
+        branches: [],
+        skill_recs: [],
+        guidance: "",
+        skills_crafted: [],
+        skill_pool: [],
+        next_steps: "",
+        profile_name: "",
+      },
+      hasSeenStatTutorial: true,
+    });
+
+    render(
+      <MemoryRouter>
+        <RevealScreen />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Software Developer")).toBeInTheDocument();
+    });
+
+    // Pentagon wrapper carries col-span-12 on mobile + desktop:col-span-7.
+    const pentagonCell = screen.getByText("Software Developer").closest("div")
+      ?.parentElement
+      ?.querySelector("[class*='desktop:col-span-7']");
+    expect(pentagonCell).not.toBeNull();
+
+    // Stat cards wrapper carries desktop:col-span-5.
+    const statCardsCell = document.querySelector("[class*='desktop:col-span-5']");
+    expect(statCardsCell).not.toBeNull();
+    expect(statCardsCell!.className).toContain("col-span-12");
   });
 });

@@ -54,13 +54,17 @@ const LOAN_STOPS: SliderStop<number>[] = [
 // Copy describes the Student Loans Boss impact only — ROI is cost-based
 // and does not change with loan coverage. See plan
 // ~/.claude/plans/why-are-we-still-jaunty-curry.md
-const LOAN_IMPACT: Record<number, string> = {
-  0: "no debt — Loans Boss auto-win",
-  25: "financing 25% of 4-year cost",
-  50: "financing 50% of 4-year cost",
-  75: "financing 75% of 4-year cost",
-  100: "financing 100% of 4-year cost — Loans Boss at full difficulty",
-};
+function loanImpactText(pct: number, netPriceAnnual?: number | null): string {
+  if (pct === 0) return "no debt — Loans Boss auto-win";
+  const hasCost = typeof netPriceAnnual === "number" && netPriceAnnual > 0;
+  const total = hasCost
+    ? `$${(netPriceAnnual! * 4).toLocaleString()}`
+    : "4-year cost";
+  if (pct === 100) {
+    return `financing 100% of ${total} — Loans Boss at full difficulty`;
+  }
+  return `financing ${pct}% of ${total}`;
+}
 
 function ernShiftDisplay(shift: number): string {
   if (shift === 0) return "±0";
@@ -167,7 +171,7 @@ export function EffortLoansPanel({
           ariaLabel="Loan percentage"
         />
         <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
-          {LOAN_IMPACT[loans.percentage]}
+          {loanImpactText(loans.percentage, netPriceAnnual)}
         </div>
 
         {/*

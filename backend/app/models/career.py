@@ -35,6 +35,13 @@ class SchoolMatch(BaseModel):
     unitid: int
     institution_name: str
     institution_control: str | None = None
+    # Institution-level cost (from raw-ingest-college-scorecard-institution).
+    # Surfaced on the school object so the loan slider can render
+    # "financing X% of $Y" as soon as the student picks a school — before
+    # any career data has been fetched. Same value for every program at
+    # the same UNITID, so it's a property of the school, not the program.
+    net_price_annual: float | None = None
+    cost_of_attendance_annual: float | None = None
 
 
 class Program(BaseModel):
