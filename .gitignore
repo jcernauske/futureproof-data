@@ -1,5 +1,18 @@
-# Data pipeline
-data/
+# Data pipeline — local zones aren't tracked. The deployed backend
+# only needs the Iceberg consumable slice + catalog + reference YAMLs;
+# those are explicitly re-included below.
+data/ai_ready/
+data/bronze/
+data/silver/
+data/governance/
+data/raw/
+data/warehouse/
+data/futureproof.duckdb
+data/catalog.db
+data/catalog/*.bak*
+data/gold/catalog.db
+data/gold/iceberg_catalog.db
+data/gold/pyiceberg_catalog.db
 
 # CLI harness local state
 backend/data/

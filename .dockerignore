@@ -1,0 +1,26 @@
+# Default-deny: keep the backend build context small. Anything the
+# Dockerfile COPYs is allow-listed below.
+*
+
+# Backend service needs these:
+!backend/
+!src/
+!data/catalog/
+!data/gold/iceberg_warehouse/
+!data/reference/
+
+# Strip caches and local-only artifacts even inside allowed dirs
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.venv
+**/node_modules
+**/dist
+**/build
+backend/data
+data/catalog/*.bak*
+
+# Never ship secrets
+**/.env
