@@ -185,7 +185,7 @@ export function RevealScreen() {
             className="col-span-12 text-center mb-10"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springs.smooth, delay: 0.9 }}
+            transition={{ ...springs.smooth, delay: 1.5 }}
           >
             <h1 className="font-display font-bold text-display text-text-primary">
               {career.occupation_title}
@@ -208,7 +208,7 @@ export function RevealScreen() {
               stats={career.stats}
               size={280}
               animated
-              delay={1.4}
+              delay={2.0}
             />
           </div>
         )}
@@ -219,7 +219,7 @@ export function RevealScreen() {
             className="col-span-12 desktop:col-span-5 grid grid-cols-1 gap-3 mb-10 desktop:mb-0"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springs.smooth, delay: 2.6 }}
+            transition={{ ...springs.smooth, delay: 2.8 }}
           >
             {STAT_KEYS.map((key) => (
               <StatDetailCard
@@ -234,7 +234,7 @@ export function RevealScreen() {
         {/* Gemma's Take — full width, below pentagon/stats */}
         {revealReady && (
           <div className="col-span-12 mt-10">
-            <GemmaTake narrative={build.guidance} delay={2.2} />
+            <GemmaTake narrative={build.guidance} delay={3.0} />
           </div>
         )}
 
@@ -244,7 +244,7 @@ export function RevealScreen() {
             className="col-span-12 mt-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springs.smooth, delay: 3.0 }}
+            transition={{ ...springs.smooth, delay: 3.3 }}
           >
             <CareerDetail career={career} loanPct={build.loan_pct} />
           </motion.div>
@@ -256,7 +256,7 @@ export function RevealScreen() {
             className="col-span-12 text-center mt-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springs.smooth, delay: 3.4 }}
+            transition={{ ...springs.smooth, delay: 3.7 }}
           >
             <button
               id="btn-fight-bosses"

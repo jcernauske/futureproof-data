@@ -37,7 +37,7 @@ export function MenuScreen() {
 
   // Profile guard — bounce to landing if no profile.
   useEffect(() => {
-    if (!profileName) navigate("/", { replace: true });
+    if (!profileName) navigate("/app", { replace: true });
   }, [profileName, navigate]);
 
   useEffect(() => {

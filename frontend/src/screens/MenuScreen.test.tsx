@@ -230,7 +230,7 @@ describe("MenuScreen", () => {
     });
   });
 
-  it("redirects to / when no profile in store (saboteur: profile-less direct nav)", () => {
+  it("redirects to /app when no profile in store (saboteur: profile-less direct nav)", () => {
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -238,7 +238,7 @@ describe("MenuScreen", () => {
     });
     mockListBuilds.mockResolvedValue([]);
     renderScreen();
-    expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true });
     // Must not fire the list query before the profile guard kicks the user out.
     expect(mockListBuilds).not.toHaveBeenCalled();
   });

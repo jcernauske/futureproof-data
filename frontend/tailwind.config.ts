@@ -88,6 +88,10 @@ export default {
         data: ["Space Mono", "monospace"],
       },
       fontSize: {
+        "marketing-hero": ["6rem", { lineHeight: "1.05", letterSpacing: "-0.02em" }],
+        "marketing-section": ["4rem", { lineHeight: "1.1", letterSpacing: "-0.015em" }],
+        "hero-desktop": ["4rem", { lineHeight: "1.1" }],
+        "hero-tablet": ["3.5rem", { lineHeight: "1.1" }],
         hero: ["3rem", { lineHeight: "1.1" }],
         title: ["2.5rem", { lineHeight: "1.2" }],
         display: ["2.25rem", { lineHeight: "1.15" }],

@@ -109,7 +109,7 @@ export function ProfileScreen() {
   }
 
   useEffect(() => {
-    if (!profileName) navigate("/");
+    if (!profileName) navigate("/app");
   }, [profileName, navigate]);
 
   if (!profileName) return null;

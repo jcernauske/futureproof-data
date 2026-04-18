@@ -133,13 +133,13 @@ describe("ProfileScreen", () => {
     });
   });
 
-  it("redirects to / if no profile", () => {
+  it("redirects to /app if no profile", () => {
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
       animalName: null,
     });
     renderProfile();
-    expect(mockNavigate).toHaveBeenCalledWith("/");
+    expect(mockNavigate).toHaveBeenCalledWith("/app");
   });
 });

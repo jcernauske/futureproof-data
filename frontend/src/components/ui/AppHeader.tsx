@@ -19,7 +19,13 @@ export function AppHeader() {
   const [starting, setStarting] = useState(false);
   const { phase, clearMajor, clearSchool } = useBuildInputStore();
 
-  const isLanding = location.pathname === "/";
+  // TODO (spec §11 post-hackathon): replace this pathname-based marketing gate
+  // with an InAppLayout wrapper route once a second marketing route lands
+  // (e.g., /privacy, /about). The current "/"-only check does not scale past
+  // one marketing surface. Tracked under `landing-page-and-design-polish.md`
+  // §11 Follow-ups + staff-engineer Finding 5.
+  const isMarketing = location.pathname === "/";
+  const isLanding = location.pathname === "/app";
   const isSchool = location.pathname === "/school";
   const isHub = location.pathname === "/menu";
   const isGauntlet = location.pathname === "/gauntlet";
@@ -45,6 +51,8 @@ export function AppHeader() {
   function handleHome() {
     navigate("/menu");
   }
+
+  if (isMarketing) return null;
 
   return (
     <AnimatePresence>

@@ -58,7 +58,7 @@ export function SchoolMajorScreen() {
   const [showSessionExpired, setShowSessionExpired] = useState(false);
 
   useEffect(() => {
-    if (!profileName) navigate("/");
+    if (!profileName) navigate("/app");
   }, [profileName, navigate]);
 
   useEffect(() => {
