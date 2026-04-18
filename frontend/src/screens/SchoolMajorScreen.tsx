@@ -10,6 +10,7 @@ import { SchoolSearch } from "@/components/school/SchoolSearch";
 import { MajorInput } from "@/components/school/MajorInput";
 import { EffortLoansPanel } from "@/components/school/EffortLoansPanel";
 import { BuildSummaryBar } from "@/components/ui/BuildSummaryBar";
+import { PageContainer } from "@/components/ui/PageContainer";
 import type {
   MajorSelection,
   ProgramResult,
@@ -36,11 +37,13 @@ export function SchoolMajorScreen() {
   const tieredCareers = useBuildStore((s) => s.tieredCareers);
   const selectedCareer = useBuildStore((s) => s.selectedCareer);
 
-  // net_price_annual is school-level — every CareerOutcome at the same UNITID
-  // carries the same value. If the user already touched /career-pick we'll have
-  // a tier'd or selected career to pull from; on first visit it's null and the
-  // slider falls back to the existing copy.
+  // net_price_annual is school-level — same value for every CareerOutcome
+  // and every Program at a given UNITID. Prefer the value already on the
+  // selected school (available as soon as the student picks one). Fall
+  // back to career-scoped sources for older builds where SchoolSelection
+  // hadn't captured it yet.
   const netPriceAnnual = useMemo<number | null>(() => {
+    if (school?.netPriceAnnual != null) return school.netPriceAnnual;
     const fromSelected = selectedCareer?.net_price_annual ?? null;
     if (fromSelected !== null) return fromSelected;
     const sample =
@@ -49,7 +52,7 @@ export function SchoolMajorScreen() {
       tieredCareers?.stretch[0] ??
       null;
     return sample?.net_price_annual ?? null;
-  }, [selectedCareer, tieredCareers]);
+  }, [school, selectedCareer, tieredCareers]);
 
   const submitting = false;
   const [showSessionExpired, setShowSessionExpired] = useState(false);
@@ -101,11 +104,9 @@ export function SchoolMajorScreen() {
   if (!profileName) return null;
 
   return (
-    <div className="min-h-screen bg-bp-deep relative overflow-hidden pt-14">
-      <div className="noise-overlay" />
-
-      <div className="min-h-[calc(100vh-56px)] flex flex-col items-center px-6 py-12 relative">
-        <div className="w-full max-w-lg space-y-6">
+    <div className="min-h-screen relative overflow-hidden pt-14">
+      <PageContainer variant="centered" className="py-12">
+        <div className="space-y-6">
           {/* Session-expired banner — shown once when redirected from a downstream screen after state was lost. */}
           <AnimatePresence>
             {showSessionExpired && (
@@ -182,7 +183,7 @@ export function SchoolMajorScreen() {
             )}
           </AnimatePresence>
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }

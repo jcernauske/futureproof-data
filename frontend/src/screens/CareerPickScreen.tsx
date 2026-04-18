@@ -6,6 +6,7 @@ import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { getOutcomes, getTieredCareers } from "@/api/build";
 import { CareerTierSection } from "@/components/CareerTierSection";
+import { PageContainer } from "@/components/ui/PageContainer";
 import type { CareerOutcome } from "@/types/build";
 
 const TIER_DESCRIPTIONS = {
@@ -92,42 +93,40 @@ export function CareerPickScreen() {
   if (!school || !major) return null;
 
   return (
-    <div className="min-h-screen bg-bp-deep pt-14">
-      <div className="max-w-[720px] mx-auto px-6 py-10 pb-32">
-        {/* Step indicator */}
-        <motion.p
-          className="font-data text-micro text-text-muted tracking-[2px] uppercase mb-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          CHOOSE YOUR PATH
-        </motion.p>
-
-        {/* Title */}
-        <motion.h1
-          className="font-display font-bold text-display text-text-primary mb-3"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...springs.smooth, delay: 0.15 }}
-        >
-          Where could this degree take you?
-        </motion.h1>
-
-        {/* Subtitle */}
-        <motion.p
-          className="font-body text-body-lg text-text-secondary mb-10"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...springs.smooth, delay: 0.25 }}
-        >
-          Gemma analyzed your program and grouped career paths by how common they
-          are for graduates like you.
-        </motion.p>
+    <div className="min-h-screen pt-14">
+      <PageContainer variant="grid" className="py-10 pb-32">
+        {/* Header block — spans full grid width */}
+        <div className="col-span-12 desktop:col-span-8 desktop:col-start-3 mb-10">
+          <motion.p
+            className="font-data text-micro text-text-muted tracking-[2px] uppercase mb-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            CHOOSE YOUR PATH
+          </motion.p>
+          <motion.h1
+            className="font-display font-bold text-display text-text-primary mb-3"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...springs.smooth, delay: 0.15 }}
+          >
+            Where could this degree take you?
+          </motion.h1>
+          <motion.p
+            className="font-body text-body-lg text-text-secondary"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...springs.smooth, delay: 0.25 }}
+          >
+            Gemma analyzed your program and grouped career paths by how common
+            they are for graduates like you.
+          </motion.p>
+        </div>
 
         {/* Loading state */}
         {loading && (
-          <div className="flex items-center justify-center py-20">
+          <div className="col-span-12 flex items-center justify-center py-20">
             <div className="font-body text-body text-text-muted animate-pulse">
               Analyzing career paths...
             </div>
@@ -136,7 +135,7 @@ export function CareerPickScreen() {
 
         {/* Error state */}
         {error && (
-          <div className="text-center py-20">
+          <div className="col-span-12 text-center py-20">
             <p className="font-body text-body text-accent-alert mb-4">{error}</p>
             <button
               onClick={() => {
@@ -151,10 +150,10 @@ export function CareerPickScreen() {
           </div>
         )}
 
-        {/* Tier sections */}
+        {/* Tier sections — stack on mobile/tablet, 3-up on desktop */}
         {tieredCareers && (
           <motion.div
-            className="space-y-10"
+            className="col-span-12 grid grid-cols-1 desktop:grid-cols-3 gap-10"
             variants={staggerContainer(0.3, stagger.normal)}
             initial="hidden"
             animate="visible"
@@ -169,7 +168,6 @@ export function CareerPickScreen() {
                 onSelect={handleSelect}
               />
             </motion.div>
-
             <motion.div variants={staggerItem}>
               <CareerTierSection
                 id="section-tier-less-common"
@@ -180,7 +178,6 @@ export function CareerPickScreen() {
                 onSelect={handleSelect}
               />
             </motion.div>
-
             <motion.div variants={staggerItem}>
               <CareerTierSection
                 id="section-tier-stretch"
@@ -193,33 +190,35 @@ export function CareerPickScreen() {
             </motion.div>
           </motion.div>
         )}
-      </div>
+      </PageContainer>
 
-      {/* CTA */}
+      {/* CTA — sticky on mobile, inline on desktop */}
       {tieredCareers && (
         <div className="fixed bottom-0 left-0 right-0 bg-bp-deep/90 backdrop-blur-sm border-t border-border-subtle p-4 desktop:static desktop:border-0 desktop:bg-transparent desktop:p-0">
-          <div className="max-w-[720px] mx-auto text-center">
-            <motion.button
-              id="btn-build-career"
-              aria-label="Build your career path"
-              disabled={!selectedCareer}
-              onClick={handleBuild}
-              className={`w-full desktop:w-auto font-display font-semibold text-cta h-12 px-7 rounded-lg transition-all duration-normal ${
-                selectedCareer
-                  ? "bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive"
-                  : "bg-bp-surface text-text-muted cursor-not-allowed opacity-60"
-              }`}
-              whileTap={selectedCareer ? { scale: 0.97 } : undefined}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springs.smooth, delay: 0.5 }}
-            >
-              See my build ✦
-            </motion.button>
-            <p className="font-body text-small text-text-muted mt-2">
-              You can always come back and pick a different path.
-            </p>
-          </div>
+          <PageContainer variant="centered">
+            <div className="text-center">
+              <motion.button
+                id="btn-build-career"
+                aria-label="Build your career path"
+                disabled={!selectedCareer}
+                onClick={handleBuild}
+                className={`w-full desktop:w-auto font-display font-semibold text-cta h-12 px-7 rounded-lg transition-all duration-normal ${
+                  selectedCareer
+                    ? "bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive"
+                    : "bg-bp-surface text-text-muted cursor-not-allowed opacity-60"
+                }`}
+                whileTap={selectedCareer ? { scale: 0.97 } : undefined}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springs.smooth, delay: 0.5 }}
+              >
+                See my build ✦
+              </motion.button>
+              <p className="font-body text-small text-text-muted mt-2">
+                You can always come back and pick a different path.
+              </p>
+            </div>
+          </PageContainer>
         </div>
       )}
     </div>

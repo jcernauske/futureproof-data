@@ -11,6 +11,7 @@ import { getBuild } from "@/api/build";
 import { BuildCard } from "@/components/menu/BuildCard";
 import { CompareView } from "@/components/menu/CompareView";
 import { GemmaChat } from "@/components/menu/GemmaChat";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 type Mode = "list" | "select" | "compare";
 
@@ -134,10 +135,7 @@ export function MenuScreen() {
   if (!profileName) return null;
 
   return (
-    <main
-      data-testid="screen-menu"
-      className="min-h-screen w-full pt-24 pb-16 px-6 tablet:px-8 mx-auto max-w-[800px]"
-    >
+    <PageContainer variant="centered" testId="screen-menu" className="pt-24 pb-16">
       <AnimatePresence mode="wait">
         {mode === "compare" && compareIds.length > 0 ? (
           <motion.div
@@ -291,6 +289,6 @@ export function MenuScreen() {
         build={chatBuild}
         onClose={() => setChatOpen(false)}
       />
-    </main>
+    </PageContainer>
   );
 }

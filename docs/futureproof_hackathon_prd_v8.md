@@ -616,10 +616,12 @@ The frontend is built on **Brightpath**, a fully documented design system alread
 
 | Artifact | Location | What It Contains |
 |---|---|---|
-| Design philosophy & token definitions | `docs/design-system-proposal.md` | Emotional framework per screen, three visual pillars (Cinematic Dark, Plush Materiality, Progressive Illumination), full color/type/spacing rationale |
-| CSS custom properties (source of truth) | `frontend/src/styles/tokens.css` | All tokens: backgrounds, accents, stat colors, boss colors, borders, typography, radii, shadows, spacing, transitions, breakpoints |
-| Tailwind configuration | `frontend/tailwind.config.ts` | Maps CSS custom properties to Tailwind utilities (`bg-bp-deep`, `text-accent-thrive`, `shadow-glow-insight`, etc.) |
-| Interactive reference mockup | `docs/mockups/brightpath-design-system.html` | Live HTML reference showing all tokens rendered |
+| Design philosophy & token definitions | `DESIGN.md` | Emotional framework, three visual pillars (Cinematic Dark, Plush Materiality, Progressive Illumination), full color/type/spacing rationale, grid system, surface treatments |
+| CSS custom properties (source of truth) | `frontend/src/styles/tokens.css` | All tokens: backgrounds, accents, stat colors, boss colors, borders, typography, radii, shadows, spacing, transitions, breakpoints, grid layout |
+| Tailwind configuration | `frontend/tailwind.config.ts` | Maps CSS custom properties to Tailwind utilities (`bg-bp-deep`, `text-accent-thrive`, `shadow-glow-insight`, `container`, etc.) |
+| Page layout primitive | `frontend/src/components/ui/PageContainer.tsx` | Thin wrapper around Tailwind's `container` utility + 12-col CSS Grid. Three variants (`centered`, `grid`, `bleed`) cover every screen shape. |
+| Interactive reference mockup (canonical) | `docs/mockups/brightpath-design-system-v3.html` | Live HTML reference. Includes Grid System demo (12-col overlay, example layouts, PageContainer variants). Canonical as of 2026-04-17. |
+| Previous mockup (retained for history) | `docs/mockups/brightpath-design-system-v2.html` | Pre-grid-system reference. Kept on disk for diff-ability; not linked from active docs. |
 
 ### Design Principles
 
@@ -643,9 +645,13 @@ Every color, font, spacing value, and shadow in the frontend comes from CSS cust
 
 **Motion:** CSS transitions for hover/focus (150ms/200ms/300ms ease-out). Spring animations for stat reveals and branch tree illumination defined in component code.
 
+**Layout:** 12-column responsive grid. Container max-widths scale with viewport (720 / 1024 / 1200 / 1280 at tablet / desktop / wide / ultra). Gutters scale too (16 / 24 / 32 px). Every screen wraps content in `<PageContainer>`. See `DESIGN.md` §Grid System and `docs/specs/design-grid-system-12col.md`.
+
 ### What PRD v8 Changes in the Design System
 
-The profile name system and emoji-only approach don't require new tokens — they use existing text and accent tokens. The Wrapped share frames use the same dark background and accent system. The stat tutorial overlay uses `bg-raised` with `accent-*` highlights. No design system changes needed for v8 scope.
+The profile name system and emoji-only approach don't require new tokens — they use existing text and accent tokens. The Wrapped share frames use the same dark background and accent system. The stat tutorial overlay uses `bg-raised` with `accent-*` highlights.
+
+**Post-v8 addition (2026-04-17):** a 12-column responsive grid system + `<PageContainer>` layout primitive was added after v8 shipped. Screens were migrated to the new grid and four screens (CareerPick, BranchTree, Reveal) gained multi-column desktop layouts. Infrastructure only — no change to PRD scope. See `docs/specs/design-grid-system-12col.md`.
 
 -----
 
@@ -820,7 +826,7 @@ All mockups live in `docs/mockups/`. Created by @fp-design-visionary. These are 
 | File | Description |
 |---|---|
 | `chrome-shell.html` | Application shell — header, navigation, profile persistence across all screens. Screen selector to preview chrome state on each of the 10 screens. |
-| `brightpath-design-system.html` | Interactive design system reference — all Brightpath tokens rendered (palette, typography, spacing, components) |
+| `brightpath-design-system-v3.html` | Interactive design system reference — canonical. All Brightpath tokens rendered (palette, typography, spacing, components) + Grid System demo. |
 
 ### Legacy Explorations (superseded by current screens)
 

@@ -227,6 +227,48 @@ For simple hover/focus states. Springs (below) handle meaningful animations.
 
 ---
 
+## Grid System
+
+Every page is laid out on a **12-column responsive grid**. Column count is fixed at 12 at every breakpoint; responsive behavior comes from how content spans those columns.
+
+### Tokens
+
+| Token | CSS Variable | Value | Usage |
+|-------|--------------|-------|-------|
+| columns | `--layout-grid-columns` | 12 | Fixed at every breakpoint |
+| gutter.mobile | `--layout-grid-gutter-mobile` | 16px | Gap + outer padding on mobile (<768) |
+| gutter.tablet | `--layout-grid-gutter-tablet` | 24px | Gap + outer padding at ≥768 |
+| gutter.desktop | `--layout-grid-gutter-desktop` | 32px | Gap + outer padding at ≥1200 |
+| container.tablet | `--layout-container-max-tablet` | 720px | Max container width at ≥768 |
+| container.desktop | `--layout-container-max-desktop` | 1024px | Max container width at ≥1200 |
+| container.wide | `--layout-container-max-wide` | 1200px | Max container width at ≥1440 |
+| container.ultra | `--layout-container-max-ultra` | 1280px | Max container width at ≥1920 |
+
+### Column Span Conventions
+
+| Pattern | Mobile | Tablet | Desktop+ |
+|---------|--------|--------|----------|
+| Single-column readable (forms, long-form) | `col-span-12` | `col-span-12` | `col-span-8 col-start-3` |
+| Full-bleed visualization | `col-span-12` | `col-span-12` | `col-span-12` |
+| Main + sidebar | stacked | stacked | `col-span-8` + `col-span-4` |
+| Three-up cards | stacked | `col-span-6` (2-up, wraps) | `col-span-4` (3-up) |
+
+### Implementation
+
+Every screen wraps content in `<PageContainer>` (`frontend/src/components/ui/PageContainer.tsx`). Three variants:
+
+| Variant | Purpose |
+|---------|---------|
+| `centered` | Single-column readable content. Wraps children in `col-span-12 desktop:col-span-8 desktop:col-start-3`. Used for forms (SchoolMajor), identity (Profile), hero (Landing). |
+| `grid` | Exposes the raw 12-col grid. Children pick their own spans. Used for multi-column layouts (CareerPick tiers, BranchTree with sidebar, Reveal pentagon+stats, Gauntlet). |
+| `bleed` | Responsive container max-width only, no grid layer. For full-bleed content (SaveWrapped viewer). |
+
+Tailwind's native `container` utility is configured in `tailwind.config.ts` with the breakpoint-indexed max-widths and padding above. Gutters are available as `gap-grid-mobile`, `gap-grid-tablet`, `gap-grid-desktop` utilities.
+
+See also: §Breakpoints for viewport definitions and §Spacing for the 4px-base spacing scale.
+
+---
+
 ## Surface Treatments
 
 ### Background Gradient
@@ -724,7 +766,7 @@ All rendered art (bears, boss monsters) follows the **plush toy** aesthetic:
 | `frontend/tailwind.config.ts` | Tailwind theme mapping tokens to utility classes |
 | `frontend/src/styles/motion.ts` | Framer Motion springs, stagger delays, animation variants |
 | `frontend/src/index.css` | Font imports, keyframe animations, ambient effects |
-| `docs/mockups/brightpath-design-system.html` | Interactive visual reference (open in browser) |
+| `docs/mockups/brightpath-design-system-v3.html` | Interactive visual reference — canonical (open in browser). Includes Grid System demo. v2 retained for history. |
 
 ---
 

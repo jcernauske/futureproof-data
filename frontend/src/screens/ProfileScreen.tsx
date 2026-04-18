@@ -6,6 +6,7 @@ import { apiPost } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 interface ProfileResponse {
   profile_name: string;
@@ -114,11 +115,10 @@ export function ProfileScreen() {
   if (!profileName) return null;
 
   return (
-    <div className="min-h-screen bg-bp-deep relative overflow-hidden pt-14">
-      <div className="noise-overlay" />
-
+    <div className="min-h-screen relative overflow-hidden pt-14">
+      <PageContainer variant="centered">
       <motion.div
-        className="min-h-[calc(100vh-56px)] flex flex-col items-center justify-center px-6 relative"
+        className="min-h-[calc(100vh-56px)] flex flex-col items-center justify-center relative"
         variants={staggerContainer}
         initial="hidden"
         animate="show"
@@ -284,6 +284,7 @@ export function ProfileScreen() {
           )}
         </AnimatePresence>
       </motion.div>
+      </PageContainer>
     </div>
   );
 }

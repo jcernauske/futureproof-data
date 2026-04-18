@@ -12,6 +12,7 @@ import { StatTutorial } from "@/components/StatTutorial";
 import { GemmaTake } from "@/components/GemmaTake";
 import { StatDetailCard } from "@/components/StatDetailCard";
 import { CareerDetail } from "@/components/CareerDetail";
+import { PageContainer } from "@/components/ui/PageContainer";
 import type { StatKey } from "@/data/statExplanations";
 
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
@@ -148,7 +149,7 @@ export function RevealScreen() {
   const career = build.career;
 
   return (
-    <div className="min-h-screen bg-bp-deep pt-14">
+    <div className="min-h-screen pt-14">
       {/* Ambient glow */}
       <motion.div
         className="fixed inset-0 pointer-events-none z-0"
@@ -160,11 +161,12 @@ export function RevealScreen() {
         transition={stage2Reveal.glowPulse.transition}
       />
 
-      <div className="relative z-10 max-w-[800px] mx-auto px-6 py-10 pb-20">
-        {/* Character emoji */}
+      <div className="relative z-10">
+      <PageContainer variant="grid" className="py-10 pb-20">
+        {/* Character emoji — full width */}
         {revealReady && (
           <motion.div
-            className="text-center mb-6"
+            className="col-span-12 text-center mb-6"
             {...stage2Reveal.bearReveal}
           >
             <motion.div
@@ -177,10 +179,10 @@ export function RevealScreen() {
           </motion.div>
         )}
 
-        {/* Career title + salary */}
+        {/* Career title + salary — full width */}
         {revealReady && (
           <motion.div
-            className="text-center mb-10"
+            className="col-span-12 text-center mb-10"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springs.smooth, delay: 0.9 }}
@@ -199,9 +201,9 @@ export function RevealScreen() {
           </motion.div>
         )}
 
-        {/* Pentagon */}
+        {/* Pentagon — col-span-12 on mobile, col-span-7 on desktop */}
         {revealReady && (
-          <div className="flex justify-center mb-10">
+          <div className="col-span-12 desktop:col-span-7 flex justify-center items-center mb-10 desktop:mb-0">
             <PentagonChart
               stats={career.stats}
               size={280}
@@ -211,17 +213,10 @@ export function RevealScreen() {
           </div>
         )}
 
-        {/* Gemma's Take */}
-        {revealReady && (
-          <div className="mb-10">
-            <GemmaTake narrative={build.guidance} delay={2.2} />
-          </div>
-        )}
-
-        {/* Stat detail cards */}
+        {/* Stat detail cards — col-span-12 on mobile, col-span-5 on desktop */}
         {revealReady && (
           <motion.div
-            className="grid grid-cols-1 desktop:grid-cols-5 gap-3 mb-10"
+            className="col-span-12 desktop:col-span-5 grid grid-cols-1 gap-3 mb-10 desktop:mb-0"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springs.smooth, delay: 2.6 }}
@@ -236,10 +231,17 @@ export function RevealScreen() {
           </motion.div>
         )}
 
-        {/* Career detail */}
+        {/* Gemma's Take — full width, below pentagon/stats */}
+        {revealReady && (
+          <div className="col-span-12 mt-10">
+            <GemmaTake narrative={build.guidance} delay={2.2} />
+          </div>
+        )}
+
+        {/* Career detail — full width */}
         {revealReady && (
           <motion.div
-            className="mb-10"
+            className="col-span-12 mt-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springs.smooth, delay: 3.0 }}
@@ -248,10 +250,10 @@ export function RevealScreen() {
           </motion.div>
         )}
 
-        {/* Fight bosses CTA */}
+        {/* Fight bosses CTA — full width */}
         {revealReady && (
           <motion.div
-            className="text-center"
+            className="col-span-12 text-center mt-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springs.smooth, delay: 3.4 }}
@@ -269,6 +271,7 @@ export function RevealScreen() {
             </p>
           </motion.div>
         )}
+      </PageContainer>
       </div>
 
       {/* Stat tutorial overlay */}

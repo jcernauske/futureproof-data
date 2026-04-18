@@ -11,6 +11,7 @@ import { BossFightCard } from "@/components/gauntlet/BossFightCard";
 import { FightProgress } from "@/components/gauntlet/FightProgress";
 import { FinalBoss } from "@/components/gauntlet/FinalBoss";
 import { NextSteps } from "@/components/gauntlet/NextSteps";
+import { PageContainer } from "@/components/ui/PageContainer";
 import type { Build, BossFightResult, BossId, AppliedSkill } from "@/types/build";
 import type { FightPhase } from "@/store/gauntletStore";
 
@@ -251,11 +252,11 @@ export function GauntletScreen() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-bp-void pt-14">
-      <div className="max-w-[640px] mx-auto px-6 py-8">
-        {/* Fight progress — shown during fighting and final_boss */}
+    <div className="min-h-screen pt-14">
+      <PageContainer variant="grid" className="py-8">
+        {/* Fight progress — full width across top during fighting/final_boss */}
         {(phase === "fighting" || phase === "final_boss") && (
-          <div className="mb-8">
+          <div className="col-span-12 mb-8">
             <FightProgress
               fights={build.gauntlet.fights}
               currentFightIndex={currentFightIndex}
@@ -264,6 +265,8 @@ export function GauntletScreen() {
           </div>
         )}
 
+        {/* Phase content — centered single column at desktop */}
+        <div className="col-span-12 desktop:col-span-8 desktop:col-start-3">
         <AnimatePresence mode="wait">
           {/* Intro */}
           {phase === "intro" && (
@@ -349,7 +352,8 @@ export function GauntletScreen() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+        </div>
+      </PageContainer>
     </div>
   );
 }

@@ -416,4 +416,29 @@ describe("BranchTreeScreen", () => {
     fireEvent.click(screen.getByText("Back to My Build"));
     expect(mockNavigate).toHaveBeenCalledWith("/reveal");
   });
+
+  it("wraps content in PageContainer grid with tree col-span-8 and sidebar col-span-4 at desktop", async () => {
+    mockGetTree.mockResolvedValue(makeTreeResponse(2));
+    renderScreen();
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("page-container")).toBeInTheDocument();
+      },
+      { timeout: SETTLE_TIMEOUT },
+    );
+
+    // Tree cell carries desktop:col-span-8 on mobile-default col-span-12.
+    const treeCell = document.querySelector("[class*='desktop:col-span-8']");
+    expect(treeCell).not.toBeNull();
+    expect(treeCell!.className).toContain("col-span-12");
+
+    // Sidebar cell carries desktop:col-span-4 and is hidden on mobile.
+    const sidebarCell = document.querySelector(
+      "[class*='desktop:col-span-4']",
+    );
+    expect(sidebarCell).not.toBeNull();
+    expect(sidebarCell!.className).toContain("hidden");
+    expect(sidebarCell!.className).toContain("desktop:block");
+  });
 });

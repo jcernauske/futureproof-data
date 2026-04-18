@@ -11,6 +11,7 @@ import {
 import { SaveConfirmation } from "@/components/wrapped/SaveConfirmation";
 import { WrappedViewer } from "@/components/wrapped/WrappedViewer";
 import { Button } from "@/components/ui/Button";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 type Phase = "save" | "rendering" | "viewer" | "error";
 
@@ -114,6 +115,7 @@ export function SaveWrappedScreen() {
   if (!build) return null;
 
   return (
+    <PageContainer variant="bleed">
     <AnimatePresence mode="wait">
       {phase === "save" && (
         <motion.div
@@ -142,7 +144,7 @@ export function SaveWrappedScreen() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="min-h-screen w-full flex items-center justify-center bg-bp-void"
+          className="min-h-screen w-full flex items-center justify-center"
         >
           <div className="flex flex-col items-center gap-6 text-center px-8">
             <motion.div
@@ -188,7 +190,7 @@ export function SaveWrappedScreen() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="min-h-screen w-full flex items-center justify-center bg-bp-void px-8"
+          className="min-h-screen w-full flex items-center justify-center px-8"
         >
           <div className="flex flex-col items-center gap-6 text-center max-w-md">
             <p className="font-display text-heading text-accent-alert">
@@ -216,5 +218,6 @@ export function SaveWrappedScreen() {
         </motion.div>
       )}
     </AnimatePresence>
+    </PageContainer>
   );
 }

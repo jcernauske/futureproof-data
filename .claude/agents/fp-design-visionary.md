@@ -101,7 +101,7 @@ Build a **self-contained HTML file** in `docs/mockups/` that:
 4. **Shows all states** — populated, empty, loading (simulated), error
 5. **Runs with zero dependencies** — open in browser, it just works. Inline CSS + JS. CDN for fonts only.
 
-Use the full token set from DESIGN.md's "Color Tokens" section as CSS custom properties. Reference `docs/mockups/brightpath-design-system.html` or `docs/mockups/brightpath-design-system-v2.html` as structural templates.
+Use the full token set from DESIGN.md's "Color Tokens" section as CSS custom properties. Reference `docs/mockups/brightpath-design-system-v3.html` (canonical) as the structural template. v2 is retained for history only.
 
 Every mockup MUST include:
 - **Scenario switcher** — floating pill bar to toggle states

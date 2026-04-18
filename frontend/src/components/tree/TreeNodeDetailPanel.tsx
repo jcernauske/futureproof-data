@@ -6,6 +6,13 @@ interface TreeNodeDetailPanelProps {
   node: PositionedNode | null;
   rootNode: PositionedNode | null;
   onClose: () => void;
+  /**
+   * `modal` — floats over the tree in the top-right corner (default, used
+   * on mobile/tablet where the tree takes the full grid width).
+   * `sidebar` — renders inline in a grid cell (used on desktop+ where the
+   * detail panel lives in a persistent right-side column).
+   */
+  variant?: "modal" | "sidebar";
 }
 
 const STAT_LABELS: Record<string, { label: string; color: string }> = {
@@ -42,16 +49,26 @@ function resultPill(result: string | null) {
   );
 }
 
-export function TreeNodeDetailPanel({ node, rootNode, onClose }: TreeNodeDetailPanelProps) {
+export function TreeNodeDetailPanel({
+  node,
+  rootNode,
+  onClose,
+  variant = "modal",
+}: TreeNodeDetailPanelProps) {
   const salary =
     node?.median_wage != null ? `$${node.median_wage.toLocaleString()}` : null;
+
+  const positionClasses =
+    variant === "sidebar"
+      ? "w-full rounded-xl border border-border p-5 sticky top-24"
+      : "absolute top-10 right-8 w-[280px] rounded-xl border border-border p-5 z-50";
 
   return (
     <AnimatePresence>
       {node && (
         <motion.div
           key="detail-panel"
-          className="absolute top-10 right-8 w-[280px] rounded-xl border border-border p-5 z-50"
+          className={positionClasses}
           style={{ background: "#232545" }}
           initial={{ opacity: 0, x: 12 }}
           animate={{ opacity: 1, x: 0 }}
@@ -59,7 +76,7 @@ export function TreeNodeDetailPanel({ node, rootNode, onClose }: TreeNodeDetailP
           transition={{ ...springs.smooth, duration: 0.3 }}
           role="dialog"
           aria-label={`Details for ${node.title}`}
-          data-testid="panel-node-detail"
+          data-testid={variant === "sidebar" ? "panel-node-detail-sidebar" : "panel-node-detail"}
         >
           {/* Close button */}
           <button

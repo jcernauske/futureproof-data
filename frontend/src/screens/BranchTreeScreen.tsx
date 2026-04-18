@@ -7,6 +7,7 @@ import { getTree } from "@/api/tree";
 import { BranchTreeFlow } from "@/components/tree/BranchTreeFlow";
 import { TreeNodeDetailPanel } from "@/components/tree/TreeNodeDetailPanel";
 import { TreeFallback } from "@/components/tree/TreeFallback";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { computeLayout } from "@/data/treeLayout";
 import { treeToFlow } from "@/data/treeFlowLayout";
 import type { TreeResponse } from "@/types/tree";
@@ -111,7 +112,7 @@ export function BranchTreeScreen() {
   const emoji = animalEmoji ?? "\uD83D\uDC3B";
 
   return (
-    <div className="min-h-screen bg-bp-void pt-14">
+    <div className="min-h-screen pt-14">
       <AnimatePresence mode="wait">
         {/* Loading state */}
         {screenState === "loading" && (
@@ -143,51 +144,68 @@ export function BranchTreeScreen() {
         {screenState === "tree" && treeData && (
           <motion.div
             key="tree"
-            className="relative"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <BranchTreeFlow
-              tree={treeData.tree}
-              emoji={emoji}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={handleSelectNode}
-            />
+            <PageContainer variant="grid">
+              {/* Tree — full width on mobile/tablet, 8 cols on desktop */}
+              <div className="col-span-12 desktop:col-span-8 relative">
+                <BranchTreeFlow
+                  tree={treeData.tree}
+                  emoji={emoji}
+                  selectedNodeId={selectedNodeId}
+                  onSelectNode={handleSelectNode}
+                />
 
-            {/* Detail panel */}
-            <TreeNodeDetailPanel
-              node={selectedNode}
-              rootNode={rootNode}
-              onClose={() => setSelectedNodeId(null)}
-            />
-
-            {/* CTA area */}
-            <div className="flex flex-col items-center gap-3 mt-4 mb-12 px-6">
-              <button
-                className="font-body text-cta font-bold text-text-inverse bg-accent-thrive px-8 py-3 rounded-lg transition-all duration-normal hover:brightness-110"
-                onClick={() => navigate("/save")}
-                aria-label="Save and share your build"
-                data-testid="btn-save-share"
-              >
-                Save & Share &rarr;
-              </button>
-              <div className="flex gap-4">
-                <button
-                  className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
-                  onClick={() => navigate("/gauntlet")}
-                >
-                  Back to Gauntlet
-                </button>
-                <button
-                  className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
-                  onClick={() => navigate("/reveal")}
-                >
-                  Back to My Build
-                </button>
+                {/* Modal-style detail panel — only on mobile/tablet */}
+                <div className="desktop:hidden">
+                  <TreeNodeDetailPanel
+                    variant="modal"
+                    node={selectedNode}
+                    rootNode={rootNode}
+                    onClose={() => setSelectedNodeId(null)}
+                  />
+                </div>
               </div>
-            </div>
+
+              {/* Sidebar detail panel — only on desktop */}
+              <div className="hidden desktop:block desktop:col-span-4">
+                <TreeNodeDetailPanel
+                  variant="sidebar"
+                  node={selectedNode}
+                  rootNode={rootNode}
+                  onClose={() => setSelectedNodeId(null)}
+                />
+              </div>
+
+              {/* CTA area — full width */}
+              <div className="col-span-12 flex flex-col items-center gap-3 mt-4 mb-12">
+                <button
+                  className="font-body text-cta font-bold text-text-inverse bg-accent-thrive px-8 py-3 rounded-lg transition-all duration-normal hover:brightness-110"
+                  onClick={() => navigate("/save")}
+                  aria-label="Save and share your build"
+                  data-testid="btn-save-share"
+                >
+                  Save & Share &rarr;
+                </button>
+                <div className="flex gap-4">
+                  <button
+                    className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
+                    onClick={() => navigate("/gauntlet")}
+                  >
+                    Back to Gauntlet
+                  </button>
+                  <button
+                    className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
+                    onClick={() => navigate("/reveal")}
+                  >
+                    Back to My Build
+                  </button>
+                </div>
+              </div>
+            </PageContainer>
           </motion.div>
         )}
 

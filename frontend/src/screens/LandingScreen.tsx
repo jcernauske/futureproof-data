@@ -6,6 +6,7 @@ import { apiPost } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
 import { PentagonGlow } from "@/components/landing/PentagonGlow";
 import { Button } from "@/components/ui/Button";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 interface ProfileResponse {
   profile_name: string;
@@ -26,13 +27,6 @@ const staggerItem = {
     transition: springs.smooth,
   },
 };
-
-const STARS = Array.from({ length: 12 }, (_, i) => ({
-  left: `${[10, 75, 4, 90, 92, 12, 96, 55, 42, 6, 50, 38][i]}%`,
-  top: `${[6, 12, 30, 18, 65, 78, 55, 88, 4, 55, 40, 72][i]}%`,
-  delay: `${[0, 0.7, 1.5, 0.3, 2.0, 1.1, 0.6, 1.8, 2.3, 0.9, 1.3, 2.6][i]}s`,
-  duration: `${[3.5, 4.2, 3.8, 5.0, 3.2, 4.5, 3.9, 4.1, 3.6, 4.8, 5.2, 3.4][i]}s`,
-}));
 
 export function LandingScreen() {
   const navigate = useNavigate();
@@ -55,25 +49,10 @@ export function LandingScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-bp-void relative overflow-hidden pt-14">
-      <div className="noise-overlay" />
-      <div className="ambient-glow" />
-
-      {STARS.map((star, i) => (
-        <div
-          key={i}
-          className="star"
-          style={{
-            left: star.left,
-            top: star.top,
-            animationDelay: star.delay,
-            animationDuration: star.duration,
-          }}
-        />
-      ))}
-
+    <div className="min-h-screen relative overflow-hidden pt-14">
+      <PageContainer variant="centered">
       <motion.div
-        className="min-h-screen flex flex-col items-center justify-center px-8 relative"
+        className="min-h-[calc(100vh-56px)] flex flex-col items-center justify-center relative"
         variants={staggerContainer}
         initial="hidden"
         animate="show"
@@ -127,6 +106,7 @@ export function LandingScreen() {
           Every number has a receipt.
         </motion.p>
       </motion.div>
+      </PageContainer>
     </div>
   );
 }

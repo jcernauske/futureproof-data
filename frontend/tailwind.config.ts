@@ -15,6 +15,20 @@ import type { Config } from "tailwindcss";
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
+    container: {
+      center: true,
+      padding: {
+        DEFAULT: "var(--layout-grid-gutter-mobile)",
+        tablet: "var(--layout-grid-gutter-tablet)",
+        desktop: "var(--layout-grid-gutter-desktop)",
+      },
+      screens: {
+        tablet: "var(--layout-container-max-tablet)",
+        desktop: "var(--layout-container-max-desktop)",
+        wide: "var(--layout-container-max-wide)",
+        ultra: "var(--layout-container-max-ultra)",
+      },
+    },
     extend: {
       colors: {
         bp: {
@@ -132,6 +146,11 @@ export default {
         fast: "150ms",
         normal: "200ms",
         slow: "300ms",
+      },
+      gap: {
+        "grid-mobile": "var(--layout-grid-gutter-mobile)",
+        "grid-tablet": "var(--layout-grid-gutter-tablet)",
+        "grid-desktop": "var(--layout-grid-gutter-desktop)",
       },
     },
   },
