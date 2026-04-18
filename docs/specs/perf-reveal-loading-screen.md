@@ -5,12 +5,12 @@
 ```
 Read the spec at docs/specs/perf-reveal-loading-screen.md in its entirety.
 
-This is a Standard-weight backend-only performance spec. No UI changes, no schema changes, no new public API surface. Architecture Review and Design Vision are SKIPPED.
+This is a Standard-weight performance spec. Backend is parallelization (asyncio.gather fan-out); frontend is a single-line numeric tuning of `minDisplayTime` on RevealScreen. No schema changes, no new public API surface, no visual redesign. Architecture Review, Design Vision, and Design Audit are SKIPPED (see §3 — numeric tuning, not a visual redesign).
 
 Execute the following workflow:
 
 1. IMPLEMENTATION
-   - Implement §4 Technical Specification as written.
+   - Implement §4 Technical Specification as written (backend parallelization + the single-line frontend `minDisplayTime` change).
    - BEFORE coding: Review §4 Testing Impact Analysis thoroughly.
    - DURING coding: update only the tests listed under "Authorized Test Modifications".
    - CRITICAL: If any test NOT in the "Authorized Test Modifications" list fails, STOP and escalate to human via §10 Discussion.
@@ -21,7 +21,8 @@ Execute the following workflow:
 2. TESTING
    - Invoke @test-writer to review §4 Testing Impact Analysis and implement every "New Tests Required" entry in priority order (P0 first).
    - Backend tests: pytest in backend/tests/.
-   - Run the full pytest suite to catch regressions.
+   - Frontend tests: vitest in frontend/ — @test-writer must add the RevealScreen pacing-floor coverage listed in §4.
+   - Run the full pytest + vitest suites to catch regressions.
    - If still broken after 3 attempts: escalate via §10.
 
 3. CODE REVIEW
@@ -38,9 +39,9 @@ Execute the following workflow:
 4. VERIFICATION
    - Invoke @fp-builder to run full build verification.
    - Backend: ruff check, mypy, pytest.
-   - Frontend: TypeScript, vitest, Vite production build (no frontend changes expected, but run as a regression guard).
+   - Frontend: TypeScript, vitest, Vite production build — one-line `RevealScreen.tsx` change plus new vitest coverage.
    - Log results to §9 Verification.
-   - Run the manual latency smoke listed in §9 under both INFERENCE_BACKEND=ollama and INFERENCE_BACKEND=openrouter.
+   - Run the manual latency smoke listed in §9 under both INFERENCE_BACKEND=ollama and INFERENCE_BACKEND=openrouter. Smoke includes confirming the relaxed pacing floor is honored (no 2 s hold on fast backends).
    - If all green: mark status COMPLETE.
 
 5. COMPLETION
@@ -71,8 +72,8 @@ Execute the following workflow:
 |-------|-------|
 | Created | 2026-04-17 |
 | Author | Jeff Cernauske + Claude Code |
-| Spec Version | 1.0 |
-| Last Updated | 2026-04-17 |
+| Spec Version | 1.1 |
+| Last Updated | 2026-04-18 |
 | Blocked By | — |
 | Related Specs | `docs/specs/cloud-gemma-deployment.md`, `docs/specs/screen-career-pick-reveal.md` |
 
@@ -82,33 +83,35 @@ Execute the following workflow:
 
 ### Overview
 
-Parallelize the up-to-eight sequential Gemma LLM calls inside `POST /build` so the `/reveal` loading screen shrinks from 10–30 s today to ≤5 s, without changing any user-visible UI or removing the loading screen (the loading screen is a kept pacing beat, not a bug).
+Parallelize the up-to-eight sequential Gemma LLM calls inside `POST /build` so the `/reveal` loading screen shrinks from 10–30 s today to ≤5 s, without removing the loading screen (the loading screen is a kept pacing beat, not a bug). In addition, relax the 2 s `minDisplayTime` floor in `RevealScreen.tsx` to a shorter pacing-beat minimum so the perf win is actually visible to the user on fast backends.
 
 ### Problem Statement
 
-The `/reveal` loading screen is currently shown for far longer than its intended pacing beat. Tracing `backend/app/routers/builds.py:49-96` shows the endpoint fires up to **8 Gemma calls sequentially**:
+The `/reveal` loading screen is currently shown for far longer than its intended pacing beat. Tracing `backend/app/routers/builds.py:56-103` shows the endpoint fires up to **8 Gemma calls sequentially**:
 
-- 5× boss narrative calls inside `boss_fights.run_gauntlet` (`backend/app/services/boss_fights.py:645-661`, a sequential `for fight in fights` loop)
+- 5× boss narrative calls inside `boss_fights.run_gauntlet` (`backend/app/services/boss_fights.py:661-677`, a sequential `for fight in fights` loop)
 - 1× `skill_recs.generate_recs` (`backend/app/services/skill_recs.py`)
 - 1× `skill_pool.generate_pool` (`backend/app/services/skill_pool.py`, skipped if all bosses win)
-- 1× `guidance.generate_guidance` (`backend/app/services/guidance.py:108-134`)
+- 1× `guidance.generate_guidance` (`backend/app/services/guidance.py:122-139`)
 
-At typical latencies — ~500 ms per call on local Ollama, ~2–4 s per call on the OpenRouter demo path — the sequential fan-out produces 4–32 s of wall-clock time on the loading screen. The frontend 2-second `minDisplayTime` (`frontend/src/screens/RevealScreen.tsx:67`) is a floor, not a ceiling, and does not help.
+At typical latencies — ~500 ms per call on local Ollama, ~2–4 s per call on the OpenRouter demo path — the sequential fan-out produces 4–32 s of wall-clock time on the loading screen. The frontend 2-second `minDisplayTime` (`frontend/src/screens/RevealScreen.tsx:68`) is a floor, not a ceiling, and does not help — and once the backend is fast, that floor actively masks the perf win. This spec drops the floor from 2000 ms to 1000 ms (see Decision #8) so the screen still feels intentional but no longer holds users back.
 
 The calls are almost all independent: grep verified that `skill_recs`, `skill_pool`, and `guidance` read `fight.result`, `fight.label`, and `fight.reason` only — never `fight.narrative`. This means every Gemma call after scoring can fan out in parallel in a single `asyncio.gather`.
 
-Jeff likes the loading screen as an atmospheric beat. This spec shortens the wait, it does not eliminate it; the 2 s minimum display floor stays in place.
+Jeff likes the loading screen as an atmospheric beat. This spec shortens the wait, it does not eliminate it; a 1 s minimum display floor (relaxed from 2 s) keeps the screen a pacing beat instead of a flash, while letting the perf win actually reach users.
 
 ### Success Criteria
 
 - [ ] Wall-clock p50 duration of `POST /build` drops to ≤ `1.3 × (single Gemma call latency)` on both Ollama and OpenRouter backends.
-- [ ] `/reveal` loading screen p50 visible duration is between the 2 s floor and 5 s ceiling under OpenRouter.
+- [ ] `/reveal` loading screen p50 visible duration is between the **new 1 s pacing floor** and a 5 s ceiling under OpenRouter.
+- [ ] `/reveal` loading screen p50 visible duration equals `max(pacing_floor_ms, POST /build wall-clock)` — no hidden padding beyond the floor.
+- [ ] On fast backends (Ollama local), total `/reveal` visible time is ≤ 1.5 s when `POST /build` returns in < 500 ms.
 - [ ] All 5 boss narratives, `guidance`, `skill_recs`, and `skill_pool` (when applicable) are populated in the response with no regression in content quality.
 - [ ] If any single Gemma call fails or times out, the deterministic fallback for that site fires; the other 7 calls complete normally.
 - [ ] `logs/gemma.jsonl` continues to capture every Gemma call (interleaved timestamps are acceptable and expected).
 - [ ] No 429s or provider rate-limit failures under OpenRouter at default semaphore sizing.
-- [ ] No frontend code change required; the loading screen UI, copy, and animation are byte-identical to current `main`.
-- [ ] pytest suite green (incl. new tests); ruff + mypy clean.
+- [ ] Frontend changes are scoped to a single-line `minDisplayTime` tuning in `RevealScreen.tsx`; `LoadingScreen.tsx`, all design tokens, and all animations are byte-identical to current `main`.
+- [ ] pytest suite green (incl. new tests); ruff + mypy clean; vitest green incl. the new RevealScreen pacing-floor test.
 
 ---
 
@@ -125,13 +128,14 @@ Jeff likes the loading screen as an atmospheric beat. This spec shortens the wai
 | 5 | Add an **`asyncio.Semaphore` in `gemma_client`** with default `GEMMA_MAX_CONCURRENCY=8` | OpenRouter enforces per-key RPM; eight simultaneous 26B-MoE calls from one demo machine can trip it. A module-level semaphore inside `gemma_client` guarantees every call site shares the budget and the guard cannot be forgotten at a new call site. | Put the semaphore in `builds.py` — callers would have to remember it every time. Rejected. |
 | 6 | **Do not** add streaming (SSE) to `/build` | Streaming would require adding a streaming variant to `gemma_client`, a FastAPI `StreamingResponse` endpoint, an EventSource on the frontend, and a new loading-screen rendering model. Large spec on its own. | Ship streaming together with parallelism — too big, two risks in one PR. Rejected. |
 | 7 | **Do not** add hover-prefetch on `/career-pick` | Hiding the loading screen is explicitly against Jeff's design intent. | Fire `/build` on hover/focus — rejected per product direction. |
+| 8 | **Relax `minDisplayTime` from 2000 ms to 1000 ms** in `RevealScreen.tsx` | The 2 s floor was sized for the old 10–30 s backend where "the screen feels intentional" was the binding constraint. Once `/build` is ≤5 s (and ≤1 s on Ollama), the 2 s floor actively masks the perf win. 1 s keeps the loading screen longer than one full message-rotation (2 s per message means we clip mid-message — acceptable; the message is still legible) and longer than the emoji-float cycle feels abrupt, without gating users. Exact value TBD during implementation based on motion feel; 1000 ms is the recommendation, and anything in the 800–1200 ms band is acceptable without a spec amendment. | (a) Drop the floor entirely — rejected, makes the screen a flash on Ollama. (b) Make the floor adaptive (e.g., ramp down only on success, keep 2 s on error) — rejected, adds logic for no real win. (c) 500 ms — rejected as too short; cuts off the first message before it's readable. |
 
 ### Constraints
 
 - Python 3.11+ (per `backend/pyproject.toml`) — `asyncio.to_thread` and modern asyncio semantics available.
 - `gemma_client.generate` remains **sync**; every existing sync caller (CLI harness, scripts, tests) keeps working unchanged.
 - `logs/gemma.jsonl` must continue to record every call, in any order. Timestamps preserve causality.
-- Frontend is untouched. If this spec modifies `frontend/`, it is a bug in the spec.
+- Frontend scope is limited to a **single numeric change** on `frontend/src/screens/RevealScreen.tsx:68` (per §3 and Decision #8). `LoadingScreen.tsx`, all Brightpath tokens, and all animations are byte-identical to current `main`. Any other frontend diff is out of scope for this spec.
 - Both `INFERENCE_BACKEND=ollama` and `INFERENCE_BACKEND=openrouter` must be verified end-to-end before completion.
 
 ### Out of Scope (future specs)
@@ -145,7 +149,37 @@ Jeff likes the loading screen as an atmospheric beat. This spec shortens the wai
 
 ## §3 UI/UX Design
 
-**SKIPPED** — backend-only spec. No component, route, token, or animation changes. The `/reveal` loading screen (`frontend/src/components/LoadingScreen.tsx`) and the reveal choreography in `frontend/src/screens/RevealScreen.tsx` are byte-identical to current `main` after this spec ships.
+### Scope
+
+Single-line numeric tuning in `frontend/src/screens/RevealScreen.tsx:68` — the `minDisplayTime` promise timeout drops from `2000` to `1000` ms. No component changes, no route changes, no token changes, no new animations, no markup changes.
+
+### Component contract
+
+| Component | Status |
+|-----------|--------|
+| `frontend/src/components/LoadingScreen.tsx` | Byte-identical to current `main`. Props, animation tokens, copy, and pacing all unchanged. |
+| `frontend/src/screens/RevealScreen.tsx` | Single numeric change on line 68. Reveal staggers (2.0s–3.7s) after `LoadingScreen` unmounts are unchanged. |
+| Brightpath tokens (`--color-state-success`, `--color-state-loading`, motion tokens in `motion.ts`) | Untouched. |
+
+### Motion feel
+
+The existing `LoadingScreen` animations continue to run at their current speeds:
+
+- Emoji float — 3 s period — clipped at ~1/3 cycle on fast Ollama runs; the float still reads as motion because the first third is the largest amplitude delta.
+- Message rotation — 2 s per message — on fast backends the user sees only the first message; acceptable because the first message is the highest-signal one ("Forging your future self…" or equivalent).
+- Dot pulse — continuous loop — reads fine at any duration ≥ 300 ms.
+- Glow gradient — ambient CSS animation — unaffected.
+
+The 1 s floor guarantees at least one full emoji-float half-cycle and one message rendering, which is the minimum for the screen to feel intentional rather than flashed.
+
+### Agent workflow exclusions
+
+This spec does **not** invoke `@fp-design-visionary` or `@fp-design-auditor`:
+
+- `@fp-design-visionary` — only triggered for new screens, components, or animations. A numeric timeout change is not a design decision in the Brightpath sense.
+- `@fp-design-auditor` — only triggered when Brightpath tokens, component patterns, or motion tokens change. None of those change here.
+
+If the implementer's subjective read is that the 1 s floor looks wrong in practice, they may tune within 800–1200 ms (per Decision #8) without a spec amendment. Values outside that band require updating Decision #8 before shipping.
 
 ---
 
@@ -153,7 +187,7 @@ Jeff likes the loading screen as an atmospheric beat. This spec shortens the wai
 
 ### Architecture Overview
 
-Inside `POST /build`, the orchestration in `backend/app/routers/builds.py:49-96` is rewritten as an `async def` function that:
+**Backend.** Inside `POST /build`, the orchestration in `backend/app/routers/builds.py:56-103` is rewritten as an `async def` function that:
 
 1. Calls the **new** `stat_engine.compute_one(...)` to fetch a single `CareerOutcome` for the selected SOC — replacing the current `compute_pentagon(...)` + `next(...)` pattern.
 2. Calls the **new** `boss_fights.score_gauntlet(career)` — the pure-Python scoring loop, returns a `GauntletResult` with empty `fight.narrative` strings.
@@ -166,6 +200,8 @@ Inside `POST /build`, the orchestration in `backend/app/routers/builds.py:49-96`
 5. Attaches narratives to fights (by boss_id), assembles the `Build`, stores, persists, and returns.
 
 `gemma_client` grows a module-level `asyncio.Semaphore` used by every new `*_async` wrapper. Existing sync `generate`/`generate_chat` entry points are unchanged and continue to be used by the CLI harness, scripts, and tests.
+
+**Frontend.** `frontend/src/screens/RevealScreen.tsx:68` — the `minDisplayTime` promise timeout drops from `2000` to `1000` ms (Decision #8). No other frontend code changes. The loading-screen UI, tokens, animations, and reveal stagger are byte-identical to current `main`.
 
 ### File Changes
 
@@ -183,6 +219,8 @@ Inside `POST /build`, the orchestration in `backend/app/routers/builds.py:49-96`
 | `backend/tests/services/test_stat_engine.py` | Modify | Add coverage for `compute_one`. Existing `compute_pentagon` tests untouched. (Authorized.) |
 | `backend/tests/services/test_gemma_client.py` | Create | New test file for semaphore + async wrappers if one does not exist; otherwise add to the existing module. |
 | `backend/tests/routers/test_builds_router.py` | Modify (if exists) or Create | Integration-style test: mock `gemma_client.generate_async` with timestamp recording; assert overlap of call intervals. |
+| `frontend/src/screens/RevealScreen.tsx` | Modify | Change the `minDisplayTime` promise timeout on line 68 from `2000` to `1000` ms. No other changes. |
+| `frontend/src/screens/RevealScreen.test.tsx` | Modify (if exists) or Create | Add `test_reveal_honors_relaxed_pacing_floor` per §4 Testing Impact Analysis. Authorized — see "New Tests Required". |
 
 ### Data Model Changes
 
@@ -356,6 +394,7 @@ Exact fallback symbol names (`_fallback_recs`, `_fallback_narrative`) must be ve
 | `test_boss_fights.py::test_run_gauntlet_*` | Update to assert the sync `run_gauntlet` facade still produces correct results; split out new tests targeting `score_gauntlet` and `narrate_one` separately. | The sequential narrative loop moves from `run_gauntlet` to `narrate_one`; existing tests were validating both concerns together. |
 | `test_builds.py::test_create_build_*` | Convert to `pytest.mark.asyncio` where needed; update Gemma mocks to support both sync and async call surfaces. | `create_build` is now async. |
 | `test_stat_engine.py` | Add a new test module section for `compute_one`. | Additive coverage. |
+| `RevealScreen.test.tsx` (vitest, if it exists) | Any test that hard-codes the 2000 ms `minDisplayTime` floor — update to 1000 ms. | Decision #8 relaxes the floor. |
 
 #### Confirmed Safe
 
@@ -381,6 +420,8 @@ These tests must NOT break. If any fail during implementation, STOP and escalate
 | P1 | `backend/tests/services/test_gemma_client.py` | `test_generate_async_logs_to_jsonl` | Verify `logs/gemma.jsonl` still gets one record per async call (uses tmp-path fixture + `GEMMA_LOG_DISABLED` unset). |
 | P1 | `backend/tests/services/test_builds.py` | `test_create_build_preserves_fight_order` | Boss-fight-result ordering in the final `Build` matches `BOSS_SPECS` iteration order regardless of which Gemma narrative finishes first. |
 | P2 | `backend/tests/services/test_builds.py` | `test_create_build_latency_budget` | With Gemma mocks at 100 ms each, assert total wall-clock < 300 ms (well below 8 × 100 ms). Not a hard CI gate — tagged `@pytest.mark.slow`. |
+| P1 | `frontend/src/screens/RevealScreen.test.tsx` | `test_reveal_honors_relaxed_pacing_floor` | Mock `createBuild` to resolve in 200 ms; assert `LoadingScreen` is mounted for ≥ 1000 ms and ≤ 1500 ms. Validates the new floor and that no hidden padding beyond the floor exists. |
+| P2 | `frontend/src/screens/RevealScreen.test.tsx` | `test_reveal_waits_for_slow_build` | Mock `createBuild` to resolve in 3000 ms; assert `LoadingScreen` unmounts within ~50 ms of `createBuild` resolving (i.e. backend latency drives, not the floor). |
 
 #### Test Data Requirements
 
@@ -431,7 +472,7 @@ _None yet._
 | Suite | Pass | Fail | Skip | Total |
 |-------|------|------|------|-------|
 | pytest (backend) | | | | |
-| vitest (frontend, regression-only) | | | | |
+| vitest (frontend, incl. new RevealScreen pacing-floor test) | | | | |
 
 ---
 
@@ -439,8 +480,8 @@ _None yet._
 
 **Status:** PENDING
 
-### Design Audit (@design-builder)
-**Status:** SKIPPED — backend-only spec, no Brightpath token usage.
+### Design Audit (@design-builder / @fp-design-auditor)
+**Status:** SKIPPED — per §3 and Decision #8, frontend change is a numeric tuning (`minDisplayTime: 2000 → 1000`), not a visual redesign. No Brightpath tokens, components, or motion tokens change.
 
 ### Code Review (@faang-staff-engineer)
 **Status:** PENDING
@@ -479,11 +520,12 @@ Record p50 wall-clock for `POST /build` under each backend by running the `/reve
 | Scenario | Target | Actual |
 |----------|--------|--------|
 | INFERENCE_BACKEND=ollama, `/build` p50 | < 2 s | |
-| INFERENCE_BACKEND=ollama, `/reveal` loading p50 | 2.0–3.0 s (floor governs) | |
+| INFERENCE_BACKEND=ollama, `/reveal` loading p50 | 1.0–1.5 s (new 1 s floor governs) | |
 | INFERENCE_BACKEND=openrouter, `/build` p50 | < 5 s | |
-| INFERENCE_BACKEND=openrouter, `/reveal` loading p50 | 2.0–5.0 s | |
+| INFERENCE_BACKEND=openrouter, `/reveal` loading p50 | 1.0–5.0 s | |
 | `logs/gemma.jsonl` last N lines show overlapping `started_at` timestamps | yes | |
 | OpenRouter 429 count during smoke | 0 | |
+| On a fast Ollama run (`/build` ~400 ms), `/reveal` visible time ≤ 1.5 s (Decision #8 honored) | yes | |
 
 ### Build Accountability Log
 | Attempt | Result | Error | Fix Applied |
