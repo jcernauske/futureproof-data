@@ -68,7 +68,7 @@ Execute the following workflow:
 
 ---
 
-## Status: IN_PROGRESS
+## Status: COMPLETE
 
 ## Metadata
 
@@ -102,19 +102,19 @@ Both stem from the same oversight: we wired a richer schema than we rendered. Th
 
 ### Success Criteria
 
-- [ ] Gemma's response emits `confidence` in `{"high","medium","low"}` and an `alternatives` array whose length is zero for high, 2–4 for medium, and may contain up to 10 for low (driven by the prompt, not post-processed).
-- [ ] The frontend renders three visually distinct paths:
+- [x] Gemma's response emits `confidence` in `{"high","medium","low"}` and an `alternatives` array whose length is zero for high, 2–4 for medium, and may contain up to 10 for low (driven by the prompt, not post-processed).
+- [x] The frontend renders three visually distinct paths:
    - `high` → existing purple match card, one match, `"That's right"` button.
    - `medium` → caution (yellow) match card, one primary match + 2–4 visible alternatives, `"Close enough"` button, `"best guess"` pill.
    - `low` → existing clarify picker (program list), unchanged.
-- [ ] No low-confidence result ever renders the match card (routed to clarify as today).
-- [ ] No high-confidence result ever shows alternatives (clean card, same as today).
-- [ ] Clicking an alternative in the medium-tier card confirms it just like the primary match (same `onConfirm` handoff, same `/intent/confirm` API call).
-- [ ] Backend tests cover all three tiers + the alternative-count contract.
-- [ ] Frontend tests cover all three rendering paths + alternative selection.
-- [ ] `DESIGN.md` §Gemma Interactions documents the tiered rendering pattern.
-- [ ] v3 HTML mockup (`docs/mockups/brightpath-design-system-v3.html`) shows a medium-tier card with alternatives alongside the existing default/caution/confirming variants.
-- [ ] Both `backend/app/services/intent.py` and `backend/cli.py` use aligned prompts — no drift between web and CLI behavior.
+- [x] No low-confidence result ever renders the match card (routed to clarify as today).
+- [x] No high-confidence result ever shows alternatives (clean card, same as today).
+- [x] Clicking an alternative in the medium-tier card confirms it just like the primary match (same `onConfirm` handoff, same `/intent/confirm` API call).
+- [x] Backend tests cover all three tiers + the alternative-count contract.
+- [x] Frontend tests cover all three rendering paths + alternative selection.
+- [x] `DESIGN.md` §Gemma Interactions documents the tiered rendering pattern.
+- [x] v3 HTML mockup (`docs/mockups/brightpath-design-system-v3.html`) shows a medium-tier card with alternatives alongside the existing default/caution/confirming variants.
+- [x] Both `backend/app/services/intent.py` and `backend/cli.py` use aligned prompts — no drift between web and CLI behavior.
 
 ---
 
