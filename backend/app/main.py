@@ -6,6 +6,7 @@ from app.routers import (
     branches,
     builds,
     builds_collection,
+    career_pick,
     gauntlet,
     guidance_router,
     health,
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
         guidance_router.router, prefix="/build", tags=["Guidance"]
     )
     application.include_router(branches.router, tags=["Branches"])
+    application.include_router(career_pick.router)
     application.include_router(skills.router, prefix="/build", tags=["Skills"])
     application.include_router(wrapped.router, prefix="/build", tags=["Wrapped"])
     application.include_router(reports.router, tags=["Reports"])
