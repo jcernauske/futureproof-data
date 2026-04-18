@@ -157,21 +157,31 @@ Parked as follow-up specs — do NOT implement in this spec:
 
 ## §3 UI/UX Design
 
-> `@fp-design-visionary` fills this section during the DESIGN VISION step. What's below is scope + tokens, not pixel spec.
+### Emotional Target
+
+**The feeling: "Gemma is thinking with me, not guessing at me."**
+
+The high-tier card is confident and warm — "I've got you." The low-tier picker is humble and direct — "help me out here." The medium tier is the missing third voice: **deliberative**. It should feel like a thoughtful advisor pausing mid-sentence to say, "I think it's *this* — but honestly, you could also mean one of these." The student should read the caution styling as *care*, not *error*. Amber is not a warning here; it is the color of a lantern held up to a branching path.
+
+Everything in this tier must honor two truths at once:
+1. Gemma's primary pick deserves the hero slot — it's still the best single answer.
+2. The alternatives are not afterthoughts — they're peers, visible, and one click from confirming.
+
+The student's gut reaction on seeing this card for the first time should be: *"Oh — it showed me its work."*
 
 ### In Scope
 
 Three rendering paths inside `MajorInput` after Gemma resolves:
 
 1. **High-tier match card** — *unchanged* from current production.
-2. **Medium-tier match card** — NEW pattern. Extends the Match Card base with an inline alternatives list below the primary match, above the actions row.
+2. **Medium-tier match card** — NEW pattern. Extends the Match Card base with an inline alternatives list between the career preview and the actions row.
 3. **Low-tier clarify picker** — *unchanged*.
 
 ### Reference Material
 
-- `DESIGN.md` §Gemma Interactions (all three tones are already documented: insight default, caution low-confidence → now medium, thrive confirming)
-- `docs/mockups/brightpath-design-system-v3.html#gemma` (existing default + caution + confirming variants + tone gallery)
-- `frontend/src/components/school/MajorInput.tsx` MatchContent component (existing implementation to extend)
+- `DESIGN.md` §Gemma Interactions (insight default, caution uncertain, thrive confirming)
+- `docs/mockups/brightpath-design-system-v3.html#gemma` (existing default + caution + confirming variants + tone gallery — a new "Medium-tier · with alternatives" variant will be added in the implementation step; the HTML is not edited in this design step)
+- `frontend/src/components/school/MajorInput.tsx` `MatchContent` (lines 289–448 — existing implementation to extend)
 
 ### Brightpath Tokens to Use (NO NEW TOKENS)
 
@@ -184,40 +194,362 @@ Three rendering paths inside `MajorInput` after Gemma resolves:
 | Medium-tier attribution raw-input echo | `text-accent-caution` (font-semibold) |
 | "best guess" pill | `bg-[rgba(242,212,119,0.15)] text-accent-caution rounded-full` (unchanged) |
 | Alternatives section label | `font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info` (same as "WHERE THIS LEADS") |
+| Alternatives section top rule | `border-t border-border-subtle` |
 | Alternative row text default | `text-accent-info` |
 | Alternative row text hover | `text-text-primary` |
 | Alternative row hover bg | `bg-bp-surface` |
-| Row divider | `border-border-subtle` |
-| Primary CTA (medium) | `bg-accent-thrive` label = "Close enough" |
+| Alternative row glyph | `text-accent-info/60` → `text-accent-info` on hover (same `▸` treatment as career preview) |
+| Alternative row `why` text | `font-body text-small text-text-muted` |
+| Row divider between alt rows | `border-t border-border-subtle` (first row has no top border) |
+| Alternative row confirm flash (title) | `text-accent-thrive` for 320ms |
+| Alternative row confirm flash (bg) | `bg-bp-surface` held; soft `shadow-glow-thrive` equivalent box-shadow via `animate={{ boxShadow: "0 0 24px rgba(125, 212, 163, 0.45)" }}` — same value as primary CTA flash, no new token |
+| Primary CTA (medium) | `bg-accent-thrive`, label = `"Close enough"` |
 
-### Visionary Must Answer
+### Visionary Decisions (Answered)
 
-- Section-label text for the alternatives list — proposed: `"OTHER CLOSE MATCHES"`. Alternative: `"OR MAYBE ONE OF THESE"`.
-- How each alternative row renders the `why` field: inline (truncated on overflow) vs. on-hover tooltip vs. omitted entirely. Default proposal: inline right-aligned, `font-body text-small text-text-muted`, truncated at ~50 chars.
-- Whether to show the CIP code next to each alternative title (proposal: no — clutter. Only primary match shows CIP).
-- Mobile responsive behavior: alternatives stack vertically as today; confirm touch targets ≥44px.
-- Entrance animation: alternatives stagger in after primary title, using existing `stagger.fast` (50ms). Same pattern as career preview today.
-- Confirmation interaction for an alternative: identical to primary (thrive flash 320ms → onConfirm handoff).
+#### D1. Section-label text → **`"OR — ONE OF THESE?"`**
+
+Proposed options were `"OTHER CLOSE MATCHES"` and `"OR MAYBE ONE OF THESE"`. Neither is quite right. `"OTHER CLOSE MATCHES"` is accurate but clinical — it sounds like a search engine's "See also." `"OR MAYBE ONE OF THESE"` is warmer but flabby at 20 characters in an all-caps 2-letterspaced treatment; it wraps on narrower cards.
+
+**Chosen:** `"OR — ONE OF THESE?"` (19 chars with the em-dash visual break).
+
+Why it works:
+- The `OR` ties it to the primary match conversationally — "my pick… OR — one of these?" reads as a single thought, not a new section.
+- The em-dash (`—`) creates a deliberate pause, matching the "thoughtful advisor" emotional register.
+- The trailing `?` signals genuine invitation, not catalog listing. The student is being *asked*, not *presented with options*.
+- Matches the established `WHERE THIS LEADS` pattern (same font role, same 2px tracking, same `text-accent-info`) so the card feels continuous, not sectioned.
+
+Rendered: `font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info` — identical to `WHERE THIS LEADS` with an 18px top margin and a hairline `border-t border-border-subtle` above it (the first visual separator in the card; career preview sits above with no rule, this rule announces "different kind of content below").
+
+#### D2. How the `why` field renders → **Inline, right-aligned, subtle, truncated at one line**
+
+`why` is the single differentiator that makes these alternatives feel like *reasoning* instead of a dropdown. If we tooltip it, it's discoverable-by-hover only — mobile loses it entirely, and on desktop the student has to *know* to hover. If we omit it, we're throwing away Gemma's explanation of why these alternatives exist — the whole point of showing its work.
+
+**Chosen:** Inline, right-aligned on desktop (≥640px), stacking below the title on mobile (<640px). Single-line truncation via `truncate` + `max-w-[280px]` on desktop.
+
+- Font: `font-body text-small text-text-muted` (13px, `#9a9fb5` — just enough presence to register, recedes when scanning titles).
+- Italics: **no** — we already use italic for playful_warning audit messages; keeping `why` non-italic preserves that semantic distinction.
+- Placement: flex row with `justify-between` on desktop so title left-aligns and `why` right-aligns with graceful truncation. On mobile, `flex-col` so `why` drops to a second line at `text-small`.
+- When `why` is empty string (Gemma omitted it), the row renders title only — no stray empty span, no visual ghost.
+
+Example row (desktop):
+```
+▸  Finance                                             core markets & capital allocation
+▸  Marketing                                           how you grow a customer base
+▸  Entrepreneurship                                    starting and running your own
+▸  I/O Psychology                                      workplace behavior and teams
+```
+
+The visual rhythm is: glyph → title (bold, `text-accent-info`) → flexible gap → `why` (muted, truncated) → right edge. On hover the whole row's background becomes `bg-bp-surface`, the glyph goes `text-accent-info/60 → text-accent-info`, the title goes `text-accent-info → text-text-primary`, and `why` stays `text-text-muted` (it's supporting, not primary). The hover says: "focus here."
+
+#### D3. CIP code on alternative rows → **No.**
+
+The CIP code is infrastructure. It matters for the primary match because the student needs *one* canonical identifier they're confirming — a quiet assertion of "this is the exact program." On the alternatives it would triple the horizontal density (title, CIP, why) and fight the scannable rhythm. The row is a question, not a receipt.
+
+Exception for implementation: the CIP is still attached to each alternative's underlying data (`alt.cip`) and is used for the `key`, for `onConfirm` handoff, and for the `aria-label`. It is simply not *rendered* in the row.
+
+#### D4. Mobile responsive behavior
+
+- Card width unchanged from high card (same `MatchCard` container — whatever max-width it currently uses).
+- Each alternative row: `py-3 px-3` on mobile (bumping from `py-2` desktop) to guarantee a `≥44px` touch target. The title line at 16px + 12px top + 12px bottom = 40px, plus `why` second line at `text-small` 13px = ~56px total. Well above the 44px minimum.
+- Title + `why` stack vertically under 640px (`flex-col mobile:flex-row`, with `mobile:` meaning `≥640px` in this codebase — confirmed by existing usage at line 417).
+- Gap between rows on mobile unchanged; the border-t row dividers remain.
+- The primary CTA row already handles mobile via `flex-col mobile:flex-row` at line 417 — no change needed.
+
+#### D5. Entrance animation
+
+The medium card's content already staggers via the existing Framer variants pattern. Alternatives join that sequence as a **fourth step**:
+
+| Step | Element | Delay | Config |
+|------|---------|-------|--------|
+| 1 | Attribution + GemmaStar | 0ms | `{ opacity: 0 → 1 }`, `duration: 0.2` (existing) |
+| 2 | Title + CIP + best-guess pill | 150ms | `{ opacity: 0, x: -8 → 0 }`, `springs.smooth` (existing) |
+| 3 | Career preview items | 400ms + 50ms stagger per row | existing `staggerChildren: 0.05, delayChildren: 0.4` |
+| 4 | **Alternatives section label** | 500ms | `{ opacity: 0, y: 8 → 0 }`, `springs.smooth` (NEW) |
+| 5 | **Alternative rows** | 550ms + 50ms stagger per row | `staggerChildren: 0.05, delayChildren: 0.55` (NEW, mirrors career preview) |
+| 6 | Actions row (CTA + Not quite) | 700ms | existing `springs.smooth, delay: 0.7` — unchanged |
+
+The 50ms stagger between alternative rows is intentionally fast (same as career preview) — these are siblings, not a numbered sequence. They should "appear together as a set." The human eye reads the stagger as *liveness*, not *order*.
+
+Total time-to-ready from card mount: ~900ms (last alt row settles ~700ms after mount, actions fade in at 700ms). The student's eye finishes moving from the attribution to the CTA just as the CTA finishes landing.
+
+#### D6. Confirm interaction on an alternative → **Exact parity with primary confirm**
+
+When an alternative row is clicked:
+1. Local component state flips: `confirmingAltCip = alt.cip`.
+2. The clicked row's title color animates to `text-accent-thrive` over 200ms (same `duration: 0.2` used by the primary title on confirm).
+3. The row's background holds at `bg-bp-surface` and animates a box-shadow of `0 0 24px rgba(125, 212, 163, 0.45)` — the *exact same* glow value used by the primary CTA on confirm (line 426). No new token, no new value — literal reuse.
+4. All other rows and the primary CTA become `disabled` (visually: `cursor-default`, no hover state fires).
+5. At 320ms: `onConfirm` fires with `{ matched_cip: alt.cip, matched_title: alt.title }` replacing the primary's values.
+6. The parent `MajorInput`'s phase transition handles the card exit animation — the alternative row itself does not need to exit animate; the whole card fades out together.
+
+The 320ms is not negotiable — it matches the existing `confirmTimerRef` value at line 314. This is the spec's motion contract for "you chose well": every Gemma confirmation, whether primary or alternative, feels the same.
+
+#### D7. Degenerate medium-with-zero-alternatives → **Caution card, primary alone, no alternatives section**
+
+Per §4 resolution (option b from @fp-architect concern #12): when `confidence === "medium"` but `alternatives` is empty or null, the card still renders with `border-l-accent-caution`, `card-breathe-caution`, the best-guess pill, and the "Close enough" CTA — *but the entire alternatives section (top-rule, label, rows) is omitted*. There is no stub, no "Gemma didn't suggest any others" message, no downgrade to high styling. The card looks exactly like today's caution card (which was previously unreachable on the low branch and is now correctly reachable on the medium branch).
+
+Rationale: the caution styling honestly reflects Gemma's self-reported uncertainty; silently upgrading to insight/high styling would lie about confidence. The top-rule only appears when rows appear — if there are no rows, no rule.
+
+#### D8. `why` truncation — **hard cap at 60 chars or single-line overflow, whichever is first**
+
+- Gemma's `why` values from the spec examples run 20–40 chars ("core markets & capital allocation" = 32). We set `max-w-[280px]` on the `why` span and rely on Tailwind `truncate` (`overflow-hidden whitespace-nowrap text-ellipsis`) to cut gracefully.
+- On mobile the `why` span goes full-width under the title; no truncation needed since it has the full card width.
+- If Gemma returns a `why` longer than 60 chars, we soft-warn in the test suite (P2) — it won't break layout (truncation handles it), but it signals prompt-drift.
+
+### ASCII Mockups
+
+#### (a) Medium-tier card — default state
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ ║  * Gemma matched "business"                                          │ ← 3px border-l-accent-caution
+│ ║                                                                      │   card-breathe-caution glow
+│ ║  Business Administration                                             │   text-accent-caution (h3)
+│ ║  CIP 52.0201   [ best guess ]                                        │   font-data + amber pill
+│ ║                                                                      │
+│ ║  WHERE THIS LEADS                                                    │   font-data 11px track[2]
+│ ║  ▸ Financial Analyst                                                 │   accent-info on bp-mid
+│ ║  ▸ Marketing Manager                                                 │
+│ ║  ▸ Operations Manager                                                │
+│ ║  ▸ General & Operations Manager                                      │
+│ ║  ▸ Management Analyst                                                │
+│ ║  ──────────────────────────────────────────────────────────────────  │   border-t border-border-subtle
+│ ║                                                                      │
+│ ║  OR — ONE OF THESE?                                                  │   font-data 11px track[2]
+│ ║                                                                      │   text-accent-info
+│ ║  ▸  Finance                              core markets & capital a... │   title accent-info / why text-muted
+│ ║  ──────────────────────────────────────────────────────────────────  │   border-t border-border-subtle
+│ ║  ▸  Marketing                            how you grow a customer ... │
+│ ║  ──────────────────────────────────────────────────────────────────  │
+│ ║  ▸  Entrepreneurship                     starting and running you... │
+│ ║  ──────────────────────────────────────────────────────────────────  │
+│ ║  ▸  I/O Psychology                       workplace behavior and t... │
+│ ║                                                                      │
+│ ║  ┌──────────────────────────┐  ┌──────────────┐                      │
+│ ║  │    Close enough          │  │  Not quite   │                      │   bg-accent-thrive / ghost
+│ ║  └──────────────────────────┘  └──────────────┘                      │
+└────────────────────────────────────────────────────────────────────────┘
+   ↑ bg-bp-mid surface
+```
+
+#### (b) Hover on an alternative row (Marketing row hovered)
+
+```
+│ ║  OR — ONE OF THESE?                                                  │
+│ ║                                                                      │
+│ ║  ▸  Finance                              core markets & capital a... │   default: accent-info / muted
+│ ║  ──────────────────────────────────────────────────────────────────  │
+│ ║  ▓▸▓ ▓Marketing▓                         how you grow a customer ... │   HOVER: bg-bp-surface
+│ ║  ──────────────────────────────────────────────────────────────────  │          glyph accent-info (full)
+│ ║  ▸  Entrepreneurship                     starting and running you... │          title text-text-primary
+│ ║  ──────────────────────────────────────────────────────────────────  │          why stays text-muted
+│ ║  ▸  I/O Psychology                       workplace behavior and t... │
+```
+
+(▓ = hovered background and elevated text)
+
+Transition: `transition-colors duration-fast` (same as career preview glyph at line 393) — ~180ms color interpolation. The background fade feels instant; the text color shift is the signal that *this* is the row your pointer lives on.
+
+#### (c) Confirming-alt flash — Marketing row clicked
+
+```
+│ ║  OR — ONE OF THESE?                                                  │
+│ ║                                                                      │
+│ ║  ▸  Finance                              core markets & capital a... │   dimmed (disabled state)
+│ ║  ──────────────────────────────────────────────────────────────────  │
+│ ║  ✦▸  ✦Marketing✦                         how you grow a customer ... │   FLASH (320ms):
+│ ║  ──────────────────────────────────────────────────────────────────  │     title → text-accent-thrive
+│ ║  ▸  Entrepreneurship                     starting and running you... │     row bg → bp-surface held
+│ ║  ──────────────────────────────────────────────────────────────────  │     box-shadow: 0 0 24px
+│ ║  ▸  I/O Psychology                       workplace behavior and t... │         rgba(125,212,163,0.45)
+│ ║                                                                      │     glyph → text-accent-thrive
+│ ║  ┌──────────────────────────┐  ┌──────────────┐                      │
+│ ║  │    Close enough  (dim)   │  │  Not quite   │                      │   disabled (cursor-default)
+│ ║  └──────────────────────────┘  └──────────────┘                      │
+```
+
+(✦ = thrive accent applied — same green the primary CTA wears on its own confirm flash)
+
+At 320ms the `onConfirm({cip: "52.1401", title: "Marketing"})` handoff fires and the parent handles the exit — the card fades `{ opacity: 1 → 0, y: 0 → -8 }` at `duration: 0.2` (matching the existing exit variant at line 329).
+
+### Token-Mapped Component Tree
+
+A new subcomponent `AlternativesList` lives inside `MajorInput.tsx` adjacent to `MatchContent`. Approximate 30-line reference implementation — exact copy is Claude Code's decision during the IMPLEMENTATION step; tokens and motion below are the contract:
+
+```tsx
+function AlternativesList({
+  alternatives,
+  onPick,
+  confirmingAltCip,
+}: {
+  alternatives: Array<{ cip: string; title: string; why: string }>;
+  onPick: (alt: { cip: string; title: string; why: string }) => void;
+  confirmingAltCip: string | null;
+}) {
+  return (
+    <motion.div
+      className="mt-[18px] pt-4 border-t border-border-subtle"
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: {},
+        visible: { transition: { staggerChildren: 0.05, delayChildren: 0.55 } },
+      }}
+    >
+      <motion.span
+        className="font-data text-[11px] font-bold tracking-[2px] uppercase text-accent-info mb-2.5 block"
+        variants={{
+          hidden: { opacity: 0, y: 8 },
+          visible: { opacity: 1, y: 0, transition: springs.smooth },
+        }}
+      >
+        Or — one of these?
+      </motion.span>
+      <ul role="list" aria-label="Other close matches" className="flex flex-col">
+        {alternatives.map((alt, idx) => {
+          const isConfirming = confirmingAltCip === alt.cip;
+          const isDimmed = confirmingAltCip !== null && !isConfirming;
+          return (
+            <motion.li
+              key={alt.cip}
+              variants={{
+                hidden: { opacity: 0, y: 12 },
+                visible: { opacity: 1, y: 0, transition: springs.smooth },
+              }}
+              className={idx === 0 ? "" : "border-t border-border-subtle"}
+            >
+              <motion.button
+                type="button"
+                disabled={confirmingAltCip !== null}
+                onClick={() => onPick(alt)}
+                aria-label={`Select ${alt.title}`}
+                className="w-full flex flex-col mobile:flex-row mobile:items-center gap-1 mobile:gap-3 py-3 mobile:py-2 px-3 rounded-md text-left hover:bg-bp-surface transition-colors duration-fast group disabled:cursor-default"
+                animate={
+                  isConfirming
+                    ? { boxShadow: "0 0 24px rgba(125, 212, 163, 0.45)", backgroundColor: "var(--color-bp-surface)" }
+                    : { boxShadow: "0 0 0px rgba(125, 212, 163, 0)" }
+                }
+                transition={springs.snappy}
+              >
+                <span className="flex items-center gap-2 flex-1 min-w-0">
+                  <motion.span
+                    className="text-[10px] text-accent-info/60 group-hover:text-accent-info transition-colors duration-fast"
+                    animate={{ color: isConfirming ? "var(--color-accent-thrive)" : undefined }}
+                  >
+                    ▸
+                  </motion.span>
+                  <motion.span
+                    className="font-body text-body-sm font-semibold text-accent-info group-hover:text-text-primary transition-colors duration-fast truncate"
+                    animate={{ color: isConfirming ? "var(--color-accent-thrive)" : undefined }}
+                    transition={{ duration: 0.2 }}
+                    style={{ opacity: isDimmed ? 0.45 : 1 }}
+                  >
+                    {alt.title}
+                  </motion.span>
+                </span>
+                {alt.why && (
+                  <span
+                    className="font-body text-small text-text-muted truncate mobile:max-w-[280px] mobile:text-right"
+                    style={{ opacity: isDimmed ? 0.45 : 1 }}
+                  >
+                    {alt.why}
+                  </span>
+                )}
+              </motion.button>
+            </motion.li>
+          );
+        })}
+      </ul>
+    </motion.div>
+  );
+}
+```
+
+Integration point inside `MatchContent` — render between the career preview block (ends line 403) and the playful warning block (starts line 406):
+
+```tsx
+{isUncertain && intentResult.alternatives && intentResult.alternatives.length > 0 && (
+  <AlternativesList
+    alternatives={intentResult.alternatives}
+    onPick={handleAlternativePick}
+    confirmingAltCip={confirmingAltCip}
+  />
+)}
+```
+
+`MatchContent` gains two new pieces of state adjacent to the existing `confirming` / `confirmTimerRef`:
+
+```tsx
+const [confirmingAltCip, setConfirmingAltCip] = useState<string | null>(null);
+
+function handleAlternativePick(alt: { cip: string; title: string; why: string }) {
+  if (confirming || confirmingAltCip) return;
+  setConfirmingAltCip(alt.cip);
+  confirmTimerRef.current = window.setTimeout(
+    () => onConfirm({ matched_cip: alt.cip, matched_title: alt.title }),
+    320
+  );
+}
+```
+
+(Note: `onConfirm`'s signature change from `() => void` to `(override?: {matched_cip, matched_title}) => void` is an implementation detail — Claude Code resolves the exact shape. The spec's contract is: the alternative's CIP and title replace the primary's for the downstream `/intent/confirm` call.)
+
+### Motion Spec
+
+| Moment | Target | Config | Notes |
+|--------|--------|--------|-------|
+| Alternatives section appears | `border-t border-border-subtle` rule + section label | `delay: 0.5s`, `springs.smooth`, `opacity 0→1, y 8→0` | Joins the existing card stagger as step 4 |
+| Alternative rows appear | each `<li>` | `staggerChildren: 0.05, delayChildren: 0.55`, `springs.smooth`, `opacity 0→1, y 12→0` | Same motion as career preview rows |
+| Row hover | `bg`, glyph color, title color | `transition-colors duration-fast` (~180ms) | `bg-bp-surface`, glyph `accent-info/60 → accent-info`, title `accent-info → text-text-primary` |
+| Row click → confirm flash | `boxShadow`, `backgroundColor`, title/glyph color | `springs.snappy` for shadow, `duration: 0.2` for color | `boxShadow: "0 0 24px rgba(125, 212, 163, 0.45)"` — literal reuse of primary CTA value |
+| Other rows during flash | `opacity` | `style` prop | `0.45` opacity for non-chosen rows + primary CTA (visual "dimmed, not interactive") |
+| Confirm handoff | `setTimeout` 320ms → `onConfirm` | — | Identical to primary `handleConfirmClick` at line 314 |
+| Card exit after confirm | whole card | `exit={{ opacity: 0, y: -8 }, duration: 0.2}` | Existing `MatchContent` exit variant — unchanged |
+
+The visual test for "does this feel right" is: record a video, mute the audio, and watch the card transition from medium-tier default to medium-tier confirming-alt. The only motion the eye should track is (1) the chosen row's glow-and-greening, and (2) the card as a whole fading out. Everything else is held steady — siblings dim in place, CTA dims in place, no exits animate individually. The cognitive load is *one focused moment*.
 
 ### Accessibility
 
-| Element | Identifier | Type | aria-label |
-|---------|------------|------|------------|
-| Medium-tier match card | `region-gemma-match` | `role="region"` | `"Gemma's match with alternatives"` |
-| Alternatives list | `list-gemma-alternatives` | `<ul>` | `"Other close matches"` |
-| Individual alternative button | `btn-alternative-{cip}` | `<button>` | `"Select {title}"` |
-| "best guess" pill | (stays as-is) | `<span>` | existing |
+| Element | Identifier / Role | Type | aria-label / behavior |
+|---------|-------------------|------|----------------------|
+| Medium-tier match card | `region-gemma-match` | `role="region"` (inherits from parent card) | `aria-label="Gemma's match with alternatives"` when alternatives rendered; else existing label |
+| Alternatives section | — | `<div>` with stagger motion | `border-t` rule is decorative; no `role` needed |
+| Alternatives list | `list-gemma-alternatives` | `<ul role="list">` | `aria-label="Other close matches"` (separate from visual label text to stay neutral to copy tweaks) |
+| Alternative row wrapper | — | `<li>` | No `role` override; semantic list item |
+| Alternative button | `btn-alternative-{cip}` | `<button type="button">` | `aria-label="Select {alt.title}"` — CIP intentionally omitted from the spoken label (screen reader noise) |
+| Alternative button disabled state during confirm | — | `disabled` attr flips true | Screen reader announces disabled state; focus remains on clicked row |
+| `why` text | — | `<span>` | No separate label; included in screen-reader flow after title via natural DOM order |
+| Focus state | — | keyboard `Tab` | Each alternative button is focusable; focus ring uses existing `focus-visible:ring-accent-info` treatment from button base styles |
+| Keyboard confirm | — | `Enter` / `Space` | Same as mouse click — triggers `handleAlternativePick` |
 
 ### Responsive
 
-Desktop: medium card max-width unchanged from high card (same container). Alternatives list inherits card width.
-Mobile: same — alternatives stack full-width within the card.
+**Desktop (≥640px, "mobile:" breakpoint satisfied):**
+- Card max-width inherited from `MatchCard` container — unchanged.
+- Alternative row layout: `flex-row items-center gap-3`, title left-aligned with `flex-1`, `why` right-aligned with `max-w-[280px] truncate text-right`.
+- Row padding: `py-2 px-3`.
 
-### Visionary Deliverable
+**Mobile (<640px):**
+- Card shrinks to viewport with existing container padding.
+- Alternative row layout: `flex-col gap-1`, title full-width with `truncate`, `why` stacks below title at `text-small text-text-muted`, no right-alignment.
+- Row padding: `py-3 px-3` (guarantees ≥44px touch target).
+- CTA row unchanged (already `flex-col mobile:flex-row` at line 417).
 
-- ASCII mockups for medium-tier card (default, hover on alt, confirming-alt-flash)
-- Motion spec (stagger timing, hover transitions, confirm flash)
-- Token-mapped component tree
+**Wide desktop (≥1024px):**
+- No layout change. The card does not widen further; the `why` field's `max-w-[280px]` keeps the text density comfortable. Extra horizontal space lives in the card's parent container, outside the alternatives list.
+
+### Visionary Deliverable — Checklist
+
+- [x] Emotional target named: *deliberative — "Gemma is thinking with me, not guessing at me."*
+- [x] All 8 Visionary Must Answer questions resolved (D1–D8) with rationale.
+- [x] Three ASCII mockups: (a) default, (b) hover, (c) confirming-alt flash.
+- [x] Token-mapped component tree for `AlternativesList` (~60 lines of reference TSX; target of ~30 functional lines once utility spans inline).
+- [x] Motion spec table with delays, easing, and parity references to primary confirm flash.
+- [x] Accessibility table covering region, list, buttons, disabled state, keyboard.
+- [x] Responsive behavior for desktop/mobile/wide with specific class-level guidance.
+- [x] Degenerate case (medium + zero alternatives) pinned to caution-card-without-alternatives.
+- [x] No new tokens introduced. Every value reuses existing Brightpath tokens or literal values already present in the codebase.
 
 ---
 
