@@ -1672,6 +1672,95 @@
       display: flex;
       gap: 12px;
     }
+
+    /* ----------------------------------------------------------------
+       Tiered Match Card — medium-tier alternatives list
+       (feature-gemma-tiered-matching spec, added 2026-04-18)
+       ---------------------------------------------------------------- */
+    .gemma-alternatives {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .gemma-alternatives-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent-info);
+      display: block;
+      margin-bottom: 10px;
+    }
+    .gemma-alternatives-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .gemma-alternatives-list > li + li {
+      border-top: 1px solid var(--border-subtle);
+    }
+    .gemma-alternative-row {
+      all: unset;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: background 150ms ease-out, color 150ms ease-out;
+    }
+    .gemma-alternative-row:hover {
+      background: var(--bg-surface);
+    }
+    .gemma-alternative-row .gemma-match-preview-arrow {
+      color: rgba(123, 184, 224, 0.6);
+      font-size: 10px;
+      transition: color 150ms ease-out;
+    }
+    .gemma-alternative-row:hover .gemma-match-preview-arrow {
+      color: var(--accent-info);
+    }
+    .gemma-alternative-title {
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent-info);
+      transition: color 150ms ease-out;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gemma-alternative-row:hover .gemma-alternative-title {
+      color: var(--text-primary);
+    }
+    .gemma-alternative-why {
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 280px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gemma-alternative-row--confirming {
+      background: var(--bg-surface);
+      box-shadow: 0 0 24px rgba(125, 212, 163, 0.45);
+    }
+    .gemma-alternative-row--confirming .gemma-alternative-title,
+    .gemma-alternative-row--confirming .gemma-match-preview-arrow {
+      color: var(--accent-thrive);
+    }
+    .gemma-alternative-row--dimmed {
+      opacity: 0.45;
+    }
   </style>
 </head>
 <body>
@@ -2240,6 +2329,137 @@
       <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-insight);">Default · title in insight</div>
       <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-caution);">Low confidence · title in caution</div>
       <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-thrive);">Confirming · 320ms thrive flash</div>
+    </div>
+
+    <!-- Medium-tier · with alternatives
+         feature-gemma-tiered-matching spec, added 2026-04-18.
+         Extends the caution variant with an inline alternatives list.
+         Third card shows the confirm-flash state on a clicked alternative. -->
+    <h3 style="margin-top: 40px; margin-bottom: 8px;">Medium-tier · with alternatives</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">The caution variant above was previously unreachable — low-confidence results route to the clarify picker. It is now the <strong>medium</strong> tier, extended with an inline alternatives list (2–4 rows) between the career preview and the actions row. Rows reuse the career-preview visual grammar; a click runs the same 320ms thrive flash as the primary CTA, then hands off with the alternative's CIP and title.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(2, 520px); gap: 24px; max-width: calc(520px * 2 + 24px);">
+
+      <!-- Default: medium tier with 4 alternatives -->
+      <div class="gemma-match-card gemma-match-card--caution">
+        <div class="gemma-attribution" style="margin-bottom: 12px;">
+          <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true">
+            <defs>
+              <linearGradient id="gemmaStarGradMed1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+            <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGradMed1)" opacity="0.8" />
+            <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGradMed1)" />
+          </svg>
+          <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>business</strong>&rdquo;</span>
+        </div>
+        <div class="gemma-match-title">Business Administration</div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+          <span class="gemma-match-cip" style="margin-bottom: 0;">CIP 52.0201</span>
+          <span class="pill pill-caution" style="font-size: 12px;">best guess</span>
+        </div>
+        <span class="gemma-match-preview-label">Where this leads</span>
+        <ul class="gemma-match-preview-list">
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Financial Analyst</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Marketing Manager</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Operations Manager</li>
+        </ul>
+        <div class="gemma-alternatives">
+          <span class="gemma-alternatives-label">Or &mdash; one of these?</span>
+          <ul class="gemma-alternatives-list" role="list" aria-label="Other close matches">
+            <li><button type="button" class="gemma-alternative-row" aria-label="Select Finance">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">Finance</span>
+              <span class="gemma-alternative-why">core markets &amp; capital allocation</span>
+            </button></li>
+            <li><button type="button" class="gemma-alternative-row" aria-label="Select Marketing">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">Marketing</span>
+              <span class="gemma-alternative-why">how you grow a customer base</span>
+            </button></li>
+            <li><button type="button" class="gemma-alternative-row" aria-label="Select Entrepreneurship">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">Entrepreneurship</span>
+              <span class="gemma-alternative-why">starting and running your own</span>
+            </button></li>
+            <li><button type="button" class="gemma-alternative-row" aria-label="Select I/O Psychology">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">I/O Psychology</span>
+              <span class="gemma-alternative-why">workplace behavior and teams</span>
+            </button></li>
+          </ul>
+        </div>
+        <div class="gemma-match-actions" style="margin-top: 20px;">
+          <button class="btn btn-primary" style="flex: 1;">Close enough</button>
+          <button class="btn btn-ghost">Not quite</button>
+        </div>
+      </div>
+
+      <!-- Confirming an alternative: Marketing row flashes thrive, siblings dim -->
+      <div class="gemma-match-card gemma-match-card--caution">
+        <div class="gemma-attribution" style="margin-bottom: 12px;">
+          <svg class="gemma-star" viewBox="0 0 40 40" width="14" height="14" aria-hidden="true">
+            <defs>
+              <linearGradient id="gemmaStarGradMed2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent-info)" />
+                <stop offset="100%" stop-color="var(--accent-insight)" />
+              </linearGradient>
+            </defs>
+            <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" fill="url(#gemmaStarGradMed2)" opacity="0.8" />
+            <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" fill="url(#gemmaStarGradMed2)" />
+          </svg>
+          <span class="gemma-attribution-text">Gemma matched &ldquo;<strong>business</strong>&rdquo;</span>
+        </div>
+        <div class="gemma-match-title">Business Administration</div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+          <span class="gemma-match-cip" style="margin-bottom: 0;">CIP 52.0201</span>
+          <span class="pill pill-caution" style="font-size: 12px;">best guess</span>
+        </div>
+        <span class="gemma-match-preview-label">Where this leads</span>
+        <ul class="gemma-match-preview-list">
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Financial Analyst</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Marketing Manager</li>
+          <li class="gemma-match-preview-item"><span class="gemma-match-preview-arrow">&#x25B8;</span>Operations Manager</li>
+        </ul>
+        <div class="gemma-alternatives">
+          <span class="gemma-alternatives-label">Or &mdash; one of these?</span>
+          <ul class="gemma-alternatives-list" role="list" aria-label="Other close matches">
+            <li><button type="button" class="gemma-alternative-row gemma-alternative-row--dimmed" disabled aria-label="Select Finance">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">Finance</span>
+              <span class="gemma-alternative-why">core markets &amp; capital allocation</span>
+            </button></li>
+            <li><button type="button" class="gemma-alternative-row gemma-alternative-row--confirming" disabled aria-label="Select Marketing">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">Marketing</span>
+              <span class="gemma-alternative-why">how you grow a customer base</span>
+            </button></li>
+            <li><button type="button" class="gemma-alternative-row gemma-alternative-row--dimmed" disabled aria-label="Select Entrepreneurship">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">Entrepreneurship</span>
+              <span class="gemma-alternative-why">starting and running your own</span>
+            </button></li>
+            <li><button type="button" class="gemma-alternative-row gemma-alternative-row--dimmed" disabled aria-label="Select I/O Psychology">
+              <span class="gemma-match-preview-arrow">&#x25B8;</span>
+              <span class="gemma-alternative-title">I/O Psychology</span>
+              <span class="gemma-alternative-why">workplace behavior and teams</span>
+            </button></li>
+          </ul>
+        </div>
+        <div class="gemma-match-actions" style="margin-top: 20px; opacity: 0.45;">
+          <button class="btn btn-primary" style="flex: 1;" disabled>Close enough</button>
+          <button class="btn btn-ghost" disabled>Not quite</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Variant labels for medium-tier pair -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 12px; max-width: calc(520px * 2 + 24px);">
+      <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-caution);">Medium · 4 alternatives</div>
+      <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-thrive);">Confirming Marketing · 320ms flash</div>
     </div>
 
     <!-- Tone exploration: same card in every accent to A/B which reads best. -->

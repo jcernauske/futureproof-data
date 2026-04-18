@@ -634,6 +634,51 @@ This is the pattern for content-level accent use: when a color means something s
 - Confirm button label changes to "Close enough"
 - "Not quite" button text brightens to `text-primary`
 
+### Tiered Match Card (Three-Confidence Extension)
+
+Added 2026-04-18 (see `docs/specs/feature-gemma-tiered-matching.md`). The Match Card is now driven by three discrete confidence tiers Gemma self-reports on every response.
+
+| Tier | Routing | Card Variant | Alternatives List |
+|------|---------|--------------|-------------------|
+| `high` | Match card | Default (insight) — unchanged from above | Never shown |
+| `medium` | Match card | Caution variant (rules above) + **inline alternatives list** | 2–4 rows rendered inside the card |
+| `low` | Clarify picker | Card never mounts; parent routes to `ClarifyContent` | N/A |
+
+The caution variant block above was previously unreachable (low tier rendered the picker, not the card). It is now **the medium-tier variant**. All of its tokens, glow values, pill copy, and button labels apply to the medium tier — the only addition is the alternatives list block below. The low tier still renders the clarify picker.
+
+**Alternatives list** (medium tier, 2–4 rows):
+
+The list renders *inside* the match card, between the career preview and the actions row. It reuses the career preview's visual grammar — same section-label treatment, same glyph, same accent-info-default / text-primary-on-hover pattern — so the card reads as one coherent Gemma artifact rather than three stacked components.
+
+```
+Section top rule:    border-t border-border-subtle, 18px margin-top + 16px padding-top
+Section label:       font-data text-[11px] font-bold tracking-[2px] uppercase
+                     text-accent-info — "OR — ONE OF THESE?"
+Row container:       <ul role="list"> with aria-label="Other close matches"
+Row dividers:        border-t border-border-subtle (first row has no rule)
+Row button:          py-3 mobile:py-2, px-3, flex-col mobile:flex-row, hover:bg-bp-surface
+Row glyph:           ▸ in text-accent-info/60, group-hover text-accent-info
+Row title:           font-body text-body-sm font-semibold text-accent-info
+                     group-hover text-text-primary, truncated
+Row why:             font-body text-small text-text-muted, inline right-aligned on
+                     desktop (max-w-[280px] truncate), stacked below title on mobile
+Confirm flash:       320ms thrive — title + glyph animate to text-accent-thrive,
+                     box-shadow "0 0 24px rgba(125,212,163,0.45)" (literal reuse of
+                     primary CTA glow value), backgroundColor holds at bg-surface
+Siblings during flash: opacity 0.45 (primary CTA included), disabled state
+Entrance:            delay 0.55s, stagger 50ms per row, springs.smooth, y 12 -> 0
+```
+
+**Accessibility:**
+- `<ul role="list" aria-label="Other close matches">` wraps the rows.
+- Each row is a `<button type="button" aria-label="Select {title}">`. CIP is intentionally omitted from the spoken label to keep screen-reader cadence clean.
+- During confirm, `disabled` flips on all rows and CTAs — screen readers announce disabled state.
+- Keyboard: `Tab` cycles through rows, `Enter`/`Space` confirms.
+
+**Degenerate state:** Medium tier with zero alternatives (Gemma returned an empty or filtered-out list) renders the caution card with the primary match alone, no alternatives section, no top rule. The card is *not* downgraded to insight/high styling — caution honestly reflects Gemma's self-reported confidence even when its alternatives pool was unhelpful.
+
+**Copy:** Section label is `"OR — ONE OF THESE?"` — the `OR` ties it conversationally to the primary pick, the em-dash creates a thoughtful-advisor pause, and the `?` signals invitation rather than catalog. Matches the 2-letterspaced all-caps `font-data` rhythm of the sibling `"WHERE THIS LEADS"` label.
+
 ### The Pentagon (Radar Chart)
 
 The five-stat radar chart. Recurring element across multiple screens.
