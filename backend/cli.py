@@ -604,6 +604,10 @@ def _render_guidance(text: str) -> Panel:
 
 _intent_cache: dict[tuple[str, int], dict[str, Any]] = {}
 
+# DUPLICATE: this prompt is mirrored in
+# backend/app/services/intent.py:_INTENT_SYSTEM_PROMPT. Edits here MUST
+# be applied to the service copy (consolidation tracked as follow-up in
+# docs/specs/feature-gemma-tiered-matching.md §11).
 _INTENT_SYSTEM_PROMPT = """\
 You are a college program advisor who understands how students, parents, \
 counselors, and registrars all describe academic programs differently.
@@ -618,6 +622,34 @@ Consider how different people describe the same program:
 - Counselors say: "Special Ed", "STEM", "Allied Health"
 - Registrars say: "CIP 51.2308 Physical Therapy/Therapist"
 
+Confidence tiers drive how many alternatives you return.
+
+- "high": The input resolves to exactly one CIP — no ambiguity, even if \
+the phrasing is colloquial. Output exactly "alternatives": [].
+  Tiebreaker: if the school's reported program list contains a single \
+entry whose title is a near-direct match to the student input, use high \
+even if the phrase sounds like an umbrella term.
+  Example: "pre-PT" -> 51.2308 Physical Therapy/Therapist.
+
+- "medium": The input is a well-known shorthand or umbrella term that \
+maps to a primary CIP but reasonable students mean different things. \
+Return 2-4 alternatives, ordered by how likely you'd pick each if the \
+student had phrased it differently. Alternatives must be genuinely \
+distinct programs and may span CIP families when a cross-family reading \
+is plausible.
+  Example: "business" (primary: 52.0201 Business Administration; \
+alternatives: 52.0801 Finance, 52.1401 Marketing, 52.0701 \
+Entrepreneurship, 42.2804 Industrial-Organizational Psychology).
+
+- "low": The input is too vague, ambiguous, or non-program-like for you \
+to stake a primary match confidently. Still return your best primary, \
+but include up to 10 alternatives spanning the plausible CIP \
+neighborhoods. The frontend will show a picker rather than your primary.
+  Examples: "helping people", "something with computers but not coding".
+
+Never pad. If you are high-confident, "alternatives" MUST be []. \
+Never exceed 10.
+
 The student typed: "{student_input}"
 School: {school_name}
 
@@ -629,14 +661,14 @@ crosswalk — these have career path data even if the school doesn't report \
 them separately):
 {crosswalk_cip_list}
 
-Respond in JSON only, no preamble, no markdown:
+Respond in JSON only, no preamble, no markdown. Keep "reasoning" to at \
+most two sentences.
 {{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
 "confidence": "high|medium|low", \
-"reasoning": "2-3 sentences explaining why this is the best match", \
+"reasoning": "Up to two sentences explaining why this is the best match.", \
 "parent_cip": "XX.XX (the school-reported CIP that covers this program, \
 if different from matched_cip)", \
-"alternatives": [{{"cip": "XX.XXXX", "title": "Title", \
-"why": "one sentence"}}]}}\
+"alternatives": []}}\
 """
 
 
@@ -738,7 +770,7 @@ def _call_gemma_intent(
     raw_response = gemma_client.generate(
         system=system,
         user=f'Match this student input to a CIP code: "{prompt_input}"',
-        max_tokens=500,
+        max_tokens=700,
         temperature=0.1,
     )
     latency = time.perf_counter() - start
@@ -757,7 +789,10 @@ def _call_gemma_intent(
     cleaned = raw_response.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = re.sub(r"\s*```\s*$", "", cleaned)
+    last_brace = cleaned.rfind("}")
+    if last_brace != -1:
+        cleaned = cleaned[: last_brace + 1]
 
     try:
         parsed = json.loads(cleaned)
