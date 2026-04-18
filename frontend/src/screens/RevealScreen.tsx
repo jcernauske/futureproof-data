@@ -65,7 +65,7 @@ export function RevealScreen() {
     setIsBuilding(true);
     setError(null);
 
-    const minDisplayTime = new Promise<void>((r) => setTimeout(r, 2000));
+    const minDisplayTime = new Promise<void>((r) => setTimeout(r, 1000));
 
     try {
       const [result] = await Promise.all([

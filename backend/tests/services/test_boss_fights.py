@@ -186,6 +186,172 @@ def _run_one(career: CareerOutcome, boss_id: str):
     return next(f for f in gauntlet.fights if f.boss == boss_id)
 
 
+class TestScoreAndNarrateSplit:
+    """The /build async path splits run_gauntlet into a pure scorer
+    (``score_gauntlet``) + a per-fight async narrator (``narrate_one``)
+    so the narrative calls can fan out alongside recs/pool/guidance.
+
+    These tests lock the split in: pure scoring is deterministic and
+    leaves narratives empty, ``narrate_one`` hits Gemma once per fight,
+    and the sync ``run_gauntlet`` facade still populates narratives for
+    the CLI / scripts.
+    """
+
+    def test_score_gauntlet_produces_empty_narratives(self):
+        career = _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=7, ern=6)
+        gauntlet = boss_fights.score_gauntlet(career)
+        # Every fight got scored — no unknowns with full stats.
+        assert len(gauntlet.fights) == 5
+        assert all(f.narrative == "" for f in gauntlet.fights), (
+            "score_gauntlet must leave every narrative empty — the async "
+            "router owns the Gemma call via narrate_one"
+        )
+        # Verdict totals still compose normally.
+        assert (
+            gauntlet.wins + gauntlet.losses + gauntlet.draws + gauntlet.unknown
+            == 5
+        )
+
+    def test_score_gauntlet_never_calls_gemma(self, monkeypatch):
+        """If score_gauntlet ever reaches into gemma_client, the router's
+        parallel fan-out model breaks — assert the boundary."""
+        from app.services import gemma_client
+
+        called = {"n": 0}
+
+        def _explode(**kwargs):
+            called["n"] += 1
+            raise AssertionError("score_gauntlet must not call gemma.generate")
+
+        async def _explode_async(**kwargs):
+            called["n"] += 1
+            raise AssertionError("score_gauntlet must not call gemma.generate_async")
+
+        monkeypatch.setattr(gemma_client, "generate", _explode)
+        monkeypatch.setattr(gemma_client, "generate_async", _explode_async)
+
+        boss_fights.score_gauntlet(
+            _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=7)
+        )
+        assert called["n"] == 0
+
+    def test_run_gauntlet_still_populates_narratives(self, monkeypatch):
+        """The sync facade (still used by the CLI) must keep populating
+        narratives so nothing downstream sees empty strings."""
+        from app.services import gemma_client
+
+        captured: list[dict] = []
+
+        def fake_generate(**kwargs):
+            captured.append(kwargs)
+            return "Sync coach note."
+
+        monkeypatch.setattr(gemma_client, "generate", fake_generate)
+
+        gauntlet = boss_fights.run_gauntlet(
+            _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=7, ern=6),
+            with_narratives=True,
+        )
+        # One generate call per fight.
+        assert len(captured) == len(gauntlet.fights)
+        # Every fight carries the narrative Gemma returned (falls back if
+        # blank, but here we returned a real string for all).
+        assert all(f.narrative == "Sync coach note." for f in gauntlet.fights)
+
+
+class TestNarrateOne:
+    """Async ``narrate_one`` returns a coach string, falls back cleanly
+    when Gemma throws or returns empty, and never raises."""
+
+    def test_narrate_one_returns_gemma_text(self, monkeypatch):
+        from app.models.career import BossFightResult
+        from app.services import gemma_client
+
+        async def fake_async(**kwargs):
+            return "  coach narrative for the ai boss  "
+
+        monkeypatch.setattr(gemma_client, "generate_async", fake_async)
+
+        fight = BossFightResult(
+            boss="ai",  # type: ignore[arg-type]
+            label="Fight AI",
+            result="win",  # type: ignore[arg-type]
+            raw_score=16,
+            threshold_win=14,
+            threshold_draw=10,
+            reason="RES 8 + HMN 8 = 16",
+        )
+        import asyncio
+
+        text = asyncio.run(
+            boss_fights.narrate_one(_career(res=8, hmn=8), fight)
+        )
+        # narrate_one returns whatever Gemma returned; leading/trailing
+        # whitespace is intentionally preserved (stripping is the sync
+        # generate's job, and the mock bypasses that).
+        assert "coach narrative" in text
+
+    def test_narrate_one_falls_back_on_empty(self, monkeypatch):
+        from app.models.career import BossFightResult
+        from app.services import gemma_client
+
+        async def fake_async(**kwargs):
+            return ""
+
+        monkeypatch.setattr(gemma_client, "generate_async", fake_async)
+
+        fight = BossFightResult(
+            boss="loans",  # type: ignore[arg-type]
+            label="Fight Student Loans",
+            result="lose",  # type: ignore[arg-type]
+            raw_score=3,
+            threshold_win=7,
+            threshold_draw=5,
+            reason="ROI 3",
+        )
+        import asyncio
+
+        text = asyncio.run(
+            boss_fights.narrate_one(_career(roi=3), fight)
+        )
+        # Fallback format — deterministic, never crashes the router.
+        assert "Fight Student Loans" in text
+        assert "LOSE" in text
+
+    def test_narrate_one_propagates_unexpected_exception(self, monkeypatch):
+        """Unexpected bugs must bubble up — the router's
+        ``return_exceptions=True`` is the single fallback gate. If this
+        layer silently swallowed them, an attribute error on a
+        malformed CareerOutcome would masquerade as a normal Gemma
+        outage and we'd never see the real signal.
+        """
+        from app.models.career import BossFightResult
+        from app.services import gemma_client
+
+        async def boom(**kwargs):
+            raise RuntimeError("OpenRouter 503")
+
+        monkeypatch.setattr(gemma_client, "generate_async", boom)
+
+        fight = BossFightResult(
+            boss="ai",  # type: ignore[arg-type]
+            label="Fight AI",
+            result="draw",  # type: ignore[arg-type]
+            raw_score=12,
+            threshold_win=14,
+            threshold_draw=10,
+            reason="RES 6 + HMN 6",
+        )
+        import asyncio
+
+        import pytest
+
+        with pytest.raises(RuntimeError, match="OpenRouter 503"):
+            asyncio.run(
+                boss_fights.narrate_one(_career(res=6, hmn=6), fight)
+            )
+
+
 class TestRerollCommentary:
     def test_generates_commentary_on_flip(self, monkeypatch):
         from app.models.career import BossFightResult

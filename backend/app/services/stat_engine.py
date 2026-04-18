@@ -343,3 +343,39 @@ def compute_pentagon(
         for row in rows
     ]
     return outcomes
+
+
+def compute_one(
+    *,
+    unitid: int,
+    cipcode: str,
+    soc_code: str,
+    effort: EffortLevel = "balanced",
+    loan_pct: float = 1.0,
+    student_major: str | None = None,
+) -> CareerOutcome:
+    """Return a single ``CareerOutcome`` for the selected SOC.
+
+    /career-pick already ran ``compute_pentagon`` via ``/build/outcomes``
+    and the user's selection carries the SOC forward. ``/build`` only
+    needs that one row, so we reuse the same MCP fetch path and filter
+    to the selected SOC in memory. Isolating this call site keeps the
+    ``compute_pentagon`` signature frozen for every other caller.
+
+    Raises ``ValueError`` when the MCP handler returns no rows at all
+    (bubbled from ``compute_pentagon``) and ``LookupError`` when the
+    requested SOC isn't among the rows we got back.
+    """
+    outcomes = compute_pentagon(
+        unitid=unitid,
+        cipcode=cipcode,
+        student_major=student_major,
+        effort=effort,
+        loan_pct=loan_pct,
+    )
+    for outcome in outcomes:
+        if outcome.soc_code == soc_code:
+            return outcome
+    raise LookupError(
+        f"SOC {soc_code} not found for unitid={unitid}, cipcode={cipcode}"
+    )

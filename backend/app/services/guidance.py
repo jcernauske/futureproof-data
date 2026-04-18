@@ -119,6 +119,18 @@ def _prompt(
     )
 
 
+def _fallback_narrative(
+    career: CareerOutcome, gauntlet: GauntletResult
+) -> str:
+    return (
+        f"{career.institution_name}'s {career.program_name} program "
+        f"points toward {career.occupation_title}. The gauntlet scored "
+        f"{gauntlet.wins} wins, {gauntlet.losses} losses, and "
+        f"{gauntlet.draws} draws — {gauntlet.verdict} Focus your time "
+        f"in school on the losses; they're the knobs you can actually turn."
+    )
+
+
 def generate_guidance(
     career: CareerOutcome,
     gauntlet: GauntletResult,
@@ -139,13 +151,26 @@ def generate_guidance(
         return text
 
     logger.warning("guidance gen failed; using deterministic fallback")
-    return (
-        f"{career.institution_name}'s {career.program_name} program "
-        f"points toward {career.occupation_title}. The gauntlet scored "
-        f"{gauntlet.wins} wins, {gauntlet.losses} losses, and "
-        f"{gauntlet.draws} draws — {gauntlet.verdict} Focus your time "
-        f"in school on the losses; they're the knobs you can actually turn."
+    return _fallback_narrative(career, gauntlet)
+
+
+async def generate_guidance_async(
+    career: CareerOutcome,
+    gauntlet: GauntletResult,
+    branches: list[CareerBranch],
+) -> str:
+    """Async variant — same fallback contract as :func:`generate_guidance`."""
+    text = await gemma_client.generate_async(
+        system=_SYSTEM,
+        user=_prompt(career, gauntlet, branches),
+        max_tokens=1200,
+        temperature=0.7,
     )
+    if text:
+        return text
+
+    logger.warning("guidance gen failed; using deterministic fallback")
+    return _fallback_narrative(career, gauntlet)
 
 
 # ---------------------------------------------------------------------------

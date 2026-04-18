@@ -137,17 +137,12 @@ def _fallback_recs(career: CareerOutcome) -> list[SkillRec]:
     ]
 
 
-def generate_recs(
-    career: CareerOutcome, gauntlet: GauntletResult
-) -> list[SkillRec]:
-    text = gemma_client.generate(
-        system=_SYSTEM,
-        user=_prompt(career, gauntlet),
-        # 4 pipe-delimited lines at ~25 tokens each = ~100, plus
-        # Gemma preamble; 800 keeps every rec intact.
-        max_tokens=800,
-        temperature=0.6,
-    )
+def _parse_recs(text: str, career: CareerOutcome) -> list[SkillRec]:
+    """Parse Gemma's pipe-delimited output into SkillRecs.
+
+    Falls back to the deterministic recommendation set when parsing
+    yields zero usable lines or when the caller passed empty text.
+    """
     if not text:
         return _fallback_recs(career)
 
@@ -171,3 +166,33 @@ def generate_recs(
         logger.debug("skill rec parsing failed, using fallback. raw=%r", text[:200])
         return _fallback_recs(career)
     return recs
+
+
+def generate_recs(
+    career: CareerOutcome, gauntlet: GauntletResult
+) -> list[SkillRec]:
+    text = gemma_client.generate(
+        system=_SYSTEM,
+        user=_prompt(career, gauntlet),
+        # 4 pipe-delimited lines at ~25 tokens each = ~100, plus
+        # Gemma preamble; 800 keeps every rec intact.
+        max_tokens=800,
+        temperature=0.6,
+    )
+    return _parse_recs(text, career)
+
+
+async def generate_recs_async(
+    career: CareerOutcome, gauntlet: GauntletResult
+) -> list[SkillRec]:
+    """Async variant — same behavior, fans out through
+    ``gemma_client.generate_async`` so the /build router can gather it
+    alongside the boss narratives and guidance call.
+    """
+    text = await gemma_client.generate_async(
+        system=_SYSTEM,
+        user=_prompt(career, gauntlet),
+        max_tokens=800,
+        temperature=0.6,
+    )
+    return _parse_recs(text, career)

@@ -537,6 +537,32 @@ def _pad_from_fallback(
     return padded
 
 
+def _rerollable_from(
+    gauntlet: GauntletResult,
+) -> list[tuple[BossId, str]]:
+    rerollable: list[tuple[BossId, str]] = []
+    seen: set[str] = set()
+    for fight in gauntlet.fights:
+        if fight.result in ("lose", "draw") and fight.boss not in seen:
+            rerollable.append((fight.boss, fight.result))
+            seen.add(fight.boss)
+    return rerollable
+
+
+def _finalize_pool(
+    text: str, rerollable: list[tuple[BossId, str]]
+) -> list[AppliedSkill]:
+    boss_ids = [boss for boss, _ in rerollable]
+    parsed = _parse_pool(text, boss_ids) if text else []
+    if not parsed:
+        logger.warning(
+            "skill pool gen returned 0 parseable lines; "
+            "using fallback pool for %d rerollable boss(es)",
+            len(boss_ids),
+        )
+    return _pad_from_fallback(parsed, boss_ids)
+
+
 def generate_pool(
     career: CareerOutcome,
     gauntlet: GauntletResult,
@@ -556,17 +582,9 @@ def generate_pool(
     skill's ``targets`` identifies the boss it applies to. The CLI
     reroll flow filters with ``get_skills_for_boss(boss, pool)``.
     """
-    rerollable: list[tuple[BossId, str]] = []
-    seen: set[str] = set()
-    for fight in gauntlet.fights:
-        if fight.result in ("lose", "draw") and fight.boss not in seen:
-            rerollable.append((fight.boss, fight.result))
-            seen.add(fight.boss)
-
+    rerollable = _rerollable_from(gauntlet)
     if not rerollable:
         return []
-
-    boss_ids = [boss for boss, _ in rerollable]
 
     text = gemma_client.generate(
         system=_POOL_SYSTEM,
@@ -577,12 +595,25 @@ def generate_pool(
         max_tokens=2000,
         temperature=0.5,
     )
+    return _finalize_pool(text, rerollable)
 
-    parsed = _parse_pool(text, boss_ids) if text else []
-    if not parsed:
-        logger.warning(
-            "skill pool gen returned 0 parseable lines; "
-            "using fallback pool for %d rerollable boss(es)",
-            len(boss_ids),
-        )
-    return _pad_from_fallback(parsed, boss_ids)
+
+async def generate_pool_async(
+    career: CareerOutcome,
+    gauntlet: GauntletResult,
+) -> list[AppliedSkill]:
+    """Async variant — short-circuits to ``[]`` when no fights are
+    rerollable, otherwise fans out the single Gemma call via
+    ``gemma_client.generate_async``.
+    """
+    rerollable = _rerollable_from(gauntlet)
+    if not rerollable:
+        return []
+
+    text = await gemma_client.generate_async(
+        system=_POOL_SYSTEM,
+        user=_pool_prompt(career, rerollable),
+        max_tokens=2000,
+        temperature=0.5,
+    )
+    return _finalize_pool(text, rerollable)
