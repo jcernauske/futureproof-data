@@ -188,6 +188,99 @@ export const bossFight = {
   },
 } as const;
 
+// ============================================================
+// SHEET DETENTS (CareerLineageSheet)
+// ============================================================
+
+/**
+ * Detent heights as fractions of the viewport.
+ * Desktop + tablet use the standard values; mobile uses larger
+ * compacts so the chip row + title row stay legible on small viewports.
+ */
+export const sheetDetent = {
+  compact: { desktop: 0.33, tablet: 0.33, mobile: 0.45 },
+  medium: { desktop: 0.5, tablet: 0.5, mobile: 0.6 },
+  large: { desktop: 0.85, tablet: 0.85, mobile: 0.88 },
+} as const;
+
+/**
+ * Snap spring used by CareerLineageSheet when dragging ends and the
+ * sheet resolves to a detent. Tuned for "confident thunk" — fast enough
+ * to feel deliberate, damped enough to not overshoot an iOS-style sheet.
+ */
+export const sheetSnap = {
+  type: "spring" as const,
+  stiffness: 420,
+  damping: 42,
+  mass: 0.9,
+  restDelta: 0.5,
+} as const;
+
+/**
+ * Drag elasticity — resistance past the compact/large limits.
+ * 0.12 means the sheet follows the finger at 12% of the overshoot.
+ * Below 0.1 feels walled-off; above 0.2 feels loose.
+ */
+export const sheetDragElastic = 0.12;
+
+/**
+ * Velocity threshold that promotes a drag-end to the next detent
+ * even if the student didn't cross the midpoint. Units: px/s (Framer
+ * Motion pan velocity). ±600 ≈ a moderate flick.
+ */
+export const sheetFlingVelocity = 600;
+
+// ============================================================
+// CHIP ROW + RESPONSE CARD (CareerLineageSheet)
+// ============================================================
+
+/**
+ * Response card expand/collapse. Uses a custom spring for the height
+ * animation so it has real physics; opacity cross-fades on a tween so
+ * the entering answer doesn't fight the spring.
+ */
+export const chipResponseExpand = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: "auto" },
+  exit: { opacity: 0, height: 0 },
+  transition: {
+    opacity: { duration: 0.22, ease: "easeOut" as const },
+    height: { type: "spring" as const, stiffness: 260, damping: 30 },
+  },
+} as const;
+
+/**
+ * Elevated-chip ambient pulse. The chip's shadow opacity breathes on a
+ * 2.4s cycle. Gated at the consumer on ``useReducedMotion()``.
+ */
+export const elevatedChipPulse = {
+  animate: {
+    boxShadow: [
+      "0 0 14px rgba(244, 169, 126, 0.22)",
+      "0 0 22px rgba(244, 169, 126, 0.38)",
+      "0 0 14px rgba(244, 169, 126, 0.22)",
+    ] as string[],
+  },
+  transition: {
+    duration: 2.4,
+    ease: "easeInOut" as const,
+    repeat: Infinity,
+  },
+} as const;
+
+/**
+ * Optional idle ambient pulse on the drag handle pill. Opacity breathe
+ * on a 2.2s cycle. Gated at the consumer on ``useReducedMotion()``.
+ */
+export const handlePulse = {
+  animate: { opacity: [0.4, 0.65, 0.4] as number[] },
+  transition: {
+    duration: 2.2,
+    ease: "easeInOut" as const,
+    repeat: Infinity,
+  },
+} as const;
+
 /** Branch tree reveal timing. */
 export const branchTree = {
   /** Total reveal duration in seconds. */

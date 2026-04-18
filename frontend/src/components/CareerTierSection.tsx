@@ -11,6 +11,11 @@ interface CareerTierSectionProps {
   careers: CareerOutcome[];
   selectedSoc: string | null;
   onSelect: (career: CareerOutcome) => void;
+  /**
+   * Primary card click — populate the lineage sheet with this career.
+   * Distinct from ``onSelect`` which commits the pick to buildStore.
+   */
+  onExplore: (career: CareerOutcome) => void;
   /** All tiers expanded by default; student can collapse. */
   defaultExpanded?: boolean;
 }
@@ -22,6 +27,7 @@ export function CareerTierSection({
   careers,
   selectedSoc,
   onSelect,
+  onExplore,
   defaultExpanded = true,
 }: CareerTierSectionProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -87,6 +93,7 @@ export function CareerTierSection({
                     career={career}
                     selected={selectedSoc === career.soc_code}
                     onSelect={() => onSelect(career)}
+                    onExplore={() => onExplore(career)}
                   />
                 </motion.div>
               ))}
