@@ -142,7 +142,7 @@ export function CareerPickScreen() {
     <div className="min-h-screen pt-14">
       <PageContainer
         variant="grid"
-        className="py-10 pb-[calc(33vh+var(--space-6))] tablet:pb-[calc(33vh+var(--space-6))] [@media(max-width:767px)]:pb-[calc(45vh+var(--space-6))]"
+        className="py-10 pb-[calc(45vh+var(--space-6))] tablet:pb-[calc(33vh+var(--space-6))]"
       >
         {/* Header block — spans full grid width */}
         <div className="col-span-12 desktop:col-span-8 desktop:col-start-3 mb-10">

@@ -8,6 +8,11 @@ interface AskGemmaResponseCardProps {
   answer: string | null;
   onRegenerate: () => void;
   onClose: () => void;
+  /**
+   * Current sheet detent — drives the max-height ceiling so Gemma's 4–6
+   * sentences aren't truncated at the large detent. §3.3 / §3.5.
+   */
+  detent?: "medium" | "large";
 }
 
 function RegenerateIcon() {
@@ -53,7 +58,15 @@ export function AskGemmaResponseCard({
   answer,
   onRegenerate,
   onClose,
+  detent = "medium",
 }: AskGemmaResponseCardProps) {
+  // §3.3 + §3.5: detent-aware max-height. Mobile-first defaults; tablet+
+  // applies the desktop/tablet cap per §3.5.
+  const heightCap =
+    detent === "large"
+      ? "max-h-[440px] tablet:max-h-[360px]"
+      : "max-h-[220px] tablet:max-h-40";
+
   return (
     <motion.section
       role="region"
@@ -65,11 +78,11 @@ export function AskGemmaResponseCard({
       transition={chipResponseExpand.transition}
       className="overflow-hidden"
     >
-      <div className="
+      <div className={`
         mt-3 bg-bp-surface rounded-xl p-5 tablet:p-6
         border-l-[3px] border-l-accent-insight
-        max-h-40 tablet:max-h-[360px] overflow-y-auto
-      ">
+        ${heightCap} overflow-y-auto
+      `}>
         <div className="flex items-center gap-2 mb-3">
           <GemmaStar size={14} />
           <span className="font-body text-small font-semibold text-text-secondary">
