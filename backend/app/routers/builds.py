@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 
 from app import state
@@ -19,8 +21,13 @@ router = APIRouter()
 
 @router.post("/outcomes")
 async def compute_outcomes(request: OutcomesRequest):
+    # PyIceberg metadata + scan is sync and can block the event loop for
+    # seconds on a cold call. Offload to a thread so /health stays
+    # responsive — otherwise Railway's liveness probe times out and
+    # SIGKILLs the container mid-request.
     try:
-        return stat_engine.compute_pentagon(
+        return await asyncio.to_thread(
+            stat_engine.compute_pentagon,
             unitid=request.unitid,
             cipcode=request.cipcode,
             student_major=request.student_major,

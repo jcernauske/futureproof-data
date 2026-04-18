@@ -21,6 +21,7 @@ from pathlib import Path
 
 import duckdb
 from pyiceberg.schema import Schema
+from pyiceberg.table import Table
 from pyiceberg.types import (
     BooleanType,
     DoubleType,

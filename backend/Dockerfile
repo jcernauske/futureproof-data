@@ -51,4 +51,7 @@ ENV INFERENCE_BACKEND=openrouter \
 
 # Railway injects $PORT
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend"]
+# --proxy-headers + --forwarded-allow-ips so uvicorn trusts X-Forwarded-Proto
+# from Railway's edge. Without this, FastAPI's trailing-slash 307 redirects
+# go to http:// and browsers refuse to follow https→http downgrades.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend --proxy-headers --forwarded-allow-ips='*'"]
