@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 
 from raw.college_scorecard_ingestor import CollegeScorecardIngestor
 

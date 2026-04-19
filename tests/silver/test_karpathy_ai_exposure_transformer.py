@@ -5,8 +5,6 @@ import datetime
 import pytest
 
 from silver.karpathy_ai_exposure_transformer import (
-    GRAIN_FIELDS,
-    SLUG_GRAIN_FIELDS,
     _dedup_by_soc_code,
     _is_broad_soc,
     _is_valid_soc,
