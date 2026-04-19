@@ -35,9 +35,9 @@ describe("ProfileScreen", () => {
   it("renders profile name", () => {
     renderProfile();
     expect(screen.getByText("We'll call you")).toBeInTheDocument();
-    expect(
-      screen.getByText("dancing happy bear 🐻"),
-    ).toBeInTheDocument();
+    // ProfileScreen.tsx:171 strips the emoji from the name display and
+    // renders it separately at L163 — assert on both pieces.
+    expect(screen.getByText("dancing happy bear")).toBeInTheDocument();
     expect(screen.getByText("🐻")).toBeInTheDocument();
   });
 
@@ -58,7 +58,9 @@ describe("ProfileScreen", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("bold swift fox 🦊")).toBeInTheDocument();
+      // Name + emoji render in separate elements (see ProfileScreen.tsx:163, 171).
+      expect(screen.getByText("bold swift fox")).toBeInTheDocument();
+      expect(screen.getByText("🦊")).toBeInTheDocument();
     });
   });
 

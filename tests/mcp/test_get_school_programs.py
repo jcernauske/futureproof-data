@@ -43,6 +43,8 @@ def _make_row(
         "earnings_1yr_p25": 35000.0,
         "earnings_1yr_p75": 60000.0,
         "debt_median": 22000.0,
+        "debt_p25": 15000.0,
+        "debt_p75": 28000.0,
         "debt_to_earnings_annual": 0.49,
         "debt_to_earnings_tier": "Low",
         "program_value_index": 2.05,
