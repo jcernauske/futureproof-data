@@ -53,6 +53,13 @@ export function CareerPickScreen() {
     const currentMajor = major;
     const currentEffortLevel = effort.level;
     const currentLoanPct = loans.percentage / 100;
+    // The backend's substitution path keys on the school's reported
+    // broad cip, not the intent-matched leaf. When parentCip is set
+    // (e.g. IU reports 52.01 for Kelley but the student typed "marketing"
+    // → matched 52.14), send the parent so _handle_get_career_paths
+    // fires its broad-cip substitution branch instead of falling into
+    // the family-broaden fallback that returns every 52.* career.
+    const lookupCip = currentMajor.parentCip || currentMajor.cipCode;
 
     let cancelled = false;
     async function fetchCareers() {
@@ -61,7 +68,7 @@ export function CareerPickScreen() {
       try {
         const outcomes = await getOutcomes(
           currentSchool.unitid,
-          currentMajor.cipCode,
+          lookupCip,
           currentEffortLevel,
           currentLoanPct,
           currentMajor.rawText,
@@ -71,7 +78,7 @@ export function CareerPickScreen() {
           outcomes,
           currentSchool.name,
           currentMajor.cipTitle,
-          currentMajor.cipCode,
+          lookupCip,
         );
         if (cancelled) return;
         setTieredCareers(tiers);
@@ -104,8 +111,11 @@ export function CareerPickScreen() {
   useEffect(() => {
     if (!major || !tieredCareers || socCodes.length === 0) return;
     let cancelled = false;
+    // Same lookup-cip rule as the outcomes/tier calls above — the chips
+    // endpoint reads the school row to build the Ask-Gemma context, and
+    // needs the reported broad cip to land on actual program data.
     getCareerPickChips({
-      cipcode: major.cipCode,
+      cipcode: major.parentCip || major.cipCode,
       majorText: major.rawText,
       socCodes,
     })
