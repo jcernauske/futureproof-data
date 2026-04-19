@@ -30,17 +30,16 @@ describe("ReceiptsSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("screenshot has descriptive alt text matching spec §3.15 exactly", () => {
+  it("renders a decorative receipt panel mock in the right column", () => {
     render(<ReceiptsSection />);
-    const screenshot = document.getElementById("landing-receipts-screenshot");
-    expect(screenshot).not.toBeNull();
-    expect(screenshot?.tagName).toBe("IMG");
-    expect(screenshot?.getAttribute("alt")).toBe(
-      "Expanded stat receipt panel showing raw inputs, thresholds, and source datasets.",
-    );
-    // Below-the-fold optimization per §2 Decision 12.
-    expect(screenshot?.getAttribute("loading")).toBe("lazy");
-    expect(screenshot?.getAttribute("decoding")).toBe("async");
+    // The screenshot slot now hosts a decorative ReceiptPanelArt component
+    // (aria-hidden) instead of a screenshot <img>. The previous slug-based
+    // screenshot fallback was replaced — the panel mock sells the receipts
+    // story without pretending to be a real captured image.
+    const slot = document.getElementById("landing-receipts-screenshot");
+    expect(slot).not.toBeNull();
+    const art = slot?.querySelector("[aria-hidden]");
+    expect(art).not.toBeNull();
   });
 
   it("receipt stat block renders all four lines in spec order", () => {

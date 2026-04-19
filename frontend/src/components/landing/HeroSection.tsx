@@ -21,13 +21,56 @@ export function HeroSection() {
       id="landing-section-hero"
       className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-32"
     >
-      {/* PentagonGlow owns its own drift + breathe internally — do NOT
-          wrap in a second motion.div or the two animations compound.
-          Responsive scale (0.68/0.82/1.0) lets the component ship at its
-          max 440px SVG viewbox on desktop and scale down cleanly on
-          smaller viewports. Per visual critique §3 item 1. */}
-      <div className="mb-10 tablet:mb-12 scale-[0.68] tablet:scale-[0.82] desktop:scale-100 origin-center">
-        <PentagonGlow size={440} />
+      {/* Pentagon + labeled stats legend — turns the atmospheric pentagon
+          into a product demo by pairing it with a sample build's actual
+          values. Mirrors v3 mockup's Stats section. PentagonGlow owns its
+          own drift + breathe internally — do NOT wrap in a second motion.div
+          or the two animations compound. Responsive: pentagon left + legend
+          right on desktop, stacked on mobile. */}
+      <div className="mb-10 tablet:mb-12 flex flex-col desktop:flex-row items-center justify-center gap-10 desktop:gap-24">
+        <div className="scale-[0.68] tablet:scale-[0.82] desktop:scale-100 origin-center">
+          <PentagonGlow size={440} />
+        </div>
+        <div className="w-full max-w-[320px] desktop:max-w-[280px]">
+          <p className="font-data text-micro tracking-[0.2em] uppercase text-text-muted mb-4">
+            Example build
+          </p>
+          <ul className="space-y-3">
+            {[
+              { abbr: "ERN", label: "Earning Power", value: 78, color: "var(--color-stat-ern)" },
+              { abbr: "ROI", label: "Return on Investment", value: 82, color: "var(--color-stat-roi)" },
+              { abbr: "RES", label: "AI Resilience", value: 65, color: "var(--color-stat-res)" },
+              { abbr: "GRW", label: "Growth Potential", value: 71, color: "var(--color-stat-grw)" },
+              { abbr: "HMN", label: "Human Edge", value: 59, color: "var(--color-stat-hmn)" },
+            ].map((s) => (
+              <li
+                key={s.abbr}
+                className="flex items-center gap-3 pb-3 border-b border-border-subtle/40 last:border-b-0 last:pb-0"
+              >
+                <span
+                  aria-hidden
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ background: s.color }}
+                />
+                <span
+                  className="font-data text-micro tracking-[0.15em] uppercase shrink-0 w-9"
+                  style={{ color: s.color }}
+                >
+                  {s.abbr}
+                </span>
+                <span className="flex-1 font-body text-small text-text-secondary">
+                  {s.label}
+                </span>
+                <span
+                  className="font-display font-bold text-body tabular-nums"
+                  style={{ color: s.color }}
+                >
+                  {s.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       {/*

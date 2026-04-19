@@ -1,4 +1,12 @@
-import { ScreenshotWithFallback } from "./ScreenshotWithFallback";
+import type { ReactElement } from "react";
+import { BossRowArt, BranchTreeArt, PentagonArt } from "./HowItWorksCardArt";
+
+type CardArtKey = "pentagon" | "boss-row" | "branch-tree";
+const CARD_ART: Record<CardArtKey, () => ReactElement> = {
+  pentagon: PentagonArt,
+  "boss-row": BossRowArt,
+  "branch-tree": BranchTreeArt,
+};
 
 /**
  * Section C — How It Works
@@ -17,8 +25,7 @@ interface CardSpec {
   label: string;
   heading: string;
   body: string;
-  screenshot: string;
-  alt: string;
+  art: CardArtKey;
   tone: CardTone;
 }
 
@@ -28,8 +35,7 @@ const CARDS: CardSpec[] = [
     label: "STATS",
     heading: "You see the stats.",
     body: "Five numbers, one to ten. Every stat has a tappable receipt. No vibes, no admissions-brochure gloss — just where the number came from.",
-    screenshot: "01-reveal",
-    alt: "Stage 2 Reveal showing the pentagon of five career stats alongside Gemma's Take narrative.",
+    art: "pentagon",
     tone: "thrive",
   },
   {
@@ -37,8 +43,7 @@ const CARDS: CardSpec[] = [
     label: "GAUNTLET",
     heading: "You fight the bosses.",
     body: "Fight AI, Student Loans, the Market, Burnout, the Ceiling. Each boss is a real career threat, scored from real data. Lose one? Reroll with a skill, see what changes.",
-    screenshot: "02-gauntlet-reroll",
-    alt: "Boss gauntlet mid-reroll showing a skill card equipped against Fight AI.",
+    art: "boss-row",
     tone: "alert",
   },
   {
@@ -46,8 +51,7 @@ const CARDS: CardSpec[] = [
     label: "BRANCHES",
     heading: "You see the branches.",
     body: "A degree isn't one job — it's a starting position. Tap any career and the tree unfolds: the ten other careers your major actually leads to, with the stat deltas that come with each.",
-    screenshot: "03-branch-tree",
-    alt: "Branch Tree for a Marketing major showing every career path lit with endpoint glow.",
+    art: "branch-tree",
     tone: "insight",
   },
 ];
@@ -63,34 +67,35 @@ export function HowItWorksSection() {
         className="absolute left-1/2 top-0 h-[80px] w-px -translate-x-1/2 bg-gradient-to-b from-border-subtle to-transparent"
       />
       <div className="mx-auto max-w-[1280px]">
+        <p className="font-data text-micro tracking-[0.2em] uppercase text-accent-info text-center mb-4">
+          How it works
+        </p>
         <h2 className="font-display font-bold text-heading tablet:text-title text-text-primary text-center max-w-[720px] mx-auto mb-16 tablet:mb-20">
           Three things happen when you spec a build.
         </h2>
 
         <div className="grid grid-cols-1 desktop:grid-cols-3 gap-8 tablet:gap-10">
-          {CARDS.map((card) => (
-            <article
-              key={card.identifier}
-              id={card.identifier}
-              className="group bg-bp-mid border border-border-subtle rounded-xl p-8 shadow-md transition-all duration-normal desktop:hover:bg-bp-surface desktop:hover:border-border desktop:hover:shadow-lg desktop:hover:-translate-y-[3px]"
-            >
-              <ScreenshotWithFallback
-                slug={card.screenshot}
-                alt={card.alt}
-                tone={card.tone}
-                className="w-full aspect-[16/10] object-cover rounded-lg border border-border-subtle shadow-md transition-[filter] duration-normal desktop:group-hover:brightness-[1.02]"
-              />
-              <p className="mt-6 font-data font-bold text-[11px] tracking-[2px] uppercase text-accent-info">
-                {card.label}
-              </p>
-              <h3 className="mt-2 font-display font-semibold text-heading text-text-primary">
-                {card.heading}
-              </h3>
-              <p className="mt-3 font-body text-body text-text-secondary leading-normal">
-                {card.body}
-              </p>
-            </article>
-          ))}
+          {CARDS.map((card) => {
+            const Art = CARD_ART[card.art];
+            return (
+              <article
+                key={card.identifier}
+                id={card.identifier}
+                className="group bg-bp-mid border border-border-subtle rounded-xl p-8 shadow-md transition-all duration-normal desktop:hover:bg-bp-surface desktop:hover:border-border desktop:hover:shadow-lg desktop:hover:-translate-y-[3px]"
+              >
+                <Art />
+                <p className={`mt-6 font-data font-bold text-[11px] tracking-[2px] uppercase text-accent-${card.tone}`}>
+                  {card.label}
+                </p>
+                <h3 className="mt-2 font-display font-semibold text-heading text-text-primary">
+                  {card.heading}
+                </h3>
+                <p className="mt-3 font-body text-body text-text-secondary leading-normal">
+                  {card.body}
+                </p>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>
