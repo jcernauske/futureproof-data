@@ -90,6 +90,11 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       major_text: rawText.trim(),
       matched_cip: cipCode,
       matched_title: cipTitle,
+      // Persist parent_cip in the cache so subsequent lookups for the
+      // same (major_text, unitid) return the same substitution signal.
+      // Override path (student picked an alternative leaf) drops to ""
+      // since alts are committed as specific, non-substituting leaves.
+      parent_cip: override ? "" : intentResult.parent_cip,
     }).catch(() => {});
 
     onConfirm({
@@ -100,6 +105,10 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       // picks an alternative we drop it rather than show the wrong list.
       careersPreview: override ? [] : intentResult.careers_preview,
       substitutionApplied: override ? false : intentResult.parent_cip !== "",
+      // When the student overrode with an alternative CIP, the backend's
+      // substitution path doesn't apply — the alternative is already a
+      // specific leaf the student picked knowingly. Drop parent_cip.
+      parentCip: override ? "" : intentResult.parent_cip,
     });
   }
 
@@ -114,6 +123,7 @@ export function MajorInput({ school, programs, onConfirm }: MajorInputProps) {
       rawText: rawText.trim(),
       careersPreview: [],
       substitutionApplied: false,
+      parentCip: "",
     });
   }
 

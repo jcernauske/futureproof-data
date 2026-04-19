@@ -312,7 +312,53 @@ describe("MajorInput — tiered rendering (P0)", () => {
     // list.
     expect(payload.careersPreview).toEqual([]);
     expect(payload.substitutionApplied).toBe(false);
+    // Alt-pick override path drops parent_cip — the alternative is a
+    // specific leaf the student committed to, substitution doesn't apply.
+    expect(payload.parentCip).toBe("");
     expect(payload.rawText).toBe("business");
+  });
+
+  it("primary confirm propagates parent_cip so backend can substitute", async () => {
+    // Regression anchor for the IU+Marketing bug. YAML short-circuit
+    // returns matched_cip="52.14" + parent_cip="52.01" (school reports
+    // broad Business cip). handleConfirm must thread parent_cip onto
+    // MajorSelection so /build/outcomes sends the school's reported
+    // cipcode and the MCP substitution branch fires. Before the fix,
+    // the value was read only as a boolean and then discarded.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    mockedApiPost.mockImplementation((url: string) => {
+      if (url === "/intent/") {
+        return Promise.resolve(
+          makeIntentResult({
+            matched_cip: "52.14",
+            matched_title: "Marketing",
+            confidence: "high",
+            parent_cip: "52.01",
+            alternatives: [],
+          }),
+        );
+      }
+      // /intent/confirm fire-and-forget.
+      return Promise.resolve({});
+    });
+
+    const { onConfirm } = renderMajorInput();
+    await typeAndSubmit("marketing");
+
+    const confirm = await screen.findByRole("button", { name: "That's right" });
+    fireEvent.click(confirm);
+
+    // Primary-confirm shares the 320ms thrive-flash timer with the
+    // alt-pick flow (MajorInput.tsx:331).
+    expect(onConfirm).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(320);
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    const payload = onConfirm.mock.calls[0]![0];
+    expect(payload.cipCode).toBe("52.14");
+    expect(payload.parentCip).toBe("52.01");
+    expect(payload.substitutionApplied).toBe(true);
   });
 
   it("low-tier result renders clarify picker, not match card", async () => {
