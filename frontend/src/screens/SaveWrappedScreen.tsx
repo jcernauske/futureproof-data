@@ -12,6 +12,8 @@ import { SaveConfirmation } from "@/components/wrapped/SaveConfirmation";
 import { WrappedViewer } from "@/components/wrapped/WrappedViewer";
 import { Button } from "@/components/ui/Button";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { HorizonSilhouette } from "@/components/horizon/HorizonSilhouette";
+import { drawAndPersist } from "@/hooks/useHorizonPick";
 
 type Phase = "save" | "rendering" | "viewer" | "error";
 
@@ -20,6 +22,7 @@ const MIN_SAVE_DISPLAY_MS = 1500;
 export function SaveWrappedScreen() {
   const navigate = useNavigate();
   const build = useBuildStore((s) => s.build);
+  const setBuild = useBuildStore((s) => s.setBuild);
   const profileName = useProfileStore((s) => s.profileName);
   const animalEmoji = useProfileStore((s) => s.animalEmoji);
 
@@ -27,6 +30,29 @@ export function SaveWrappedScreen() {
   const [frames, setFrames] = useState<WrappedFrameInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [retryCounter, setRetryCounter] = useState(0);
+
+  // Horizon silhouette: lock a horizonIndex on first mount when absent.
+  //
+  // CRITICAL: use `=== undefined` (not `!build.horizonIndex`) — index 0 is
+  // a valid drawn value and falsy-checking would silently re-roll for the
+  // 1/48 of builds that get index 0.
+  //
+  // CRITICAL (Code review Major #2): we deliberately do NOT call
+  // `useHorizonPick("desktop")` here. That hook draws + persists on every
+  // mount unconditionally, which would burn 1-2 entries from the landing
+  // footer's shared desktop bag every time the user views /app/save (and
+  // discard the result whenever horizonIndex was already locked). Instead
+  // we lazy-draw via the pure `drawAndPersist` helper, ONLY when no index
+  // is yet committed. Zero touches to the bag on subsequent mounts.
+  useEffect(() => {
+    if (!build) return;
+    if (build.horizonIndex !== undefined) return;
+    const pick = drawAndPersist("desktop");
+    setBuild({ ...build, horizonIndex: pick.index });
+    // build is allowed to mutate here; the `!== undefined` guard prevents
+    // the StrictMode double-mount from setting horizonIndex twice (the
+    // second pass sees the just-committed index and short-circuits).
+  }, [build, setBuild]);
 
   // Navigation guard — must have a build
   useEffect(() => {
@@ -173,13 +199,27 @@ export function SaveWrappedScreen() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
+          className="relative"
         >
-          <WrappedViewer
-            frames={frames}
-            onDone={handleDone}
-            onDownloadFrame={handleDownloadFrame}
-            onDownloadAll={handleDownloadAll}
-          />
+          {/* Horizon silhouette sits behind the share card. Locked to
+              build.horizonIndex so user device-screenshots are stable
+              across remounts. The viewer card stacks above on z-10. */}
+          {build.horizonIndex !== undefined && (
+            <div
+              className="absolute inset-x-0 bottom-0 z-0 pointer-events-none"
+              aria-hidden="true"
+            >
+              <HorizonSilhouette index={build.horizonIndex} />
+            </div>
+          )}
+          <div className="relative z-10">
+            <WrappedViewer
+              frames={frames}
+              onDone={handleDone}
+              onDownloadFrame={handleDownloadFrame}
+              onDownloadAll={handleDownloadAll}
+            />
+          </div>
         </motion.div>
       )}
 

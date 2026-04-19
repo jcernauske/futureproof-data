@@ -166,5 +166,6 @@ export interface Build {
   skills_crafted: AppliedSkill[];
   skill_pool: AppliedSkill[];
   next_steps: string;
+  horizonIndex?: number;    // 0..47 inclusive, locked at first /app/save view
   profile_name?: string;
 }

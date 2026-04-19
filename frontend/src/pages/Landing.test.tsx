@@ -31,7 +31,7 @@ describe("Landing page", () => {
       "landing-section-cta-rail",
       "landing-section-data",
       "landing-section-team",
-      "landing-footer",
+      "horizon-footer",
     ];
 
     // Query the live DOM in document order so we catch both "missing"

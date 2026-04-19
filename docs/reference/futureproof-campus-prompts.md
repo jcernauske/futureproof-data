@@ -110,3 +110,47 @@ Add: `ground strip fades to deep navy, bottom edge transitions seamlessly to dar
 - Once you have all 10 finalists, do a side-by-side review — they should feel like a *set*. If one sticks out stylistically, re-roll it.
 - For transparent-background versions (to float on your page bg): remove the sky in Photoshop / Affinity / Photoroom after generation. Manual cleanup on tree edges is always needed.
 - Consider saving both full-rectangle PNGs (sky intact, for standalone use) and transparent PNGs (sky removed, for the footer composite).
+
+---
+
+## Hero — Landing Page Above-the-Fold
+
+A single, distinct render that sits behind the headline and CTA on the landing hero. **Never enters the footer rotation pool.** Lives at `frontend/public/hero/` (separate dir from `frontend/public/campus/`).
+
+What makes it distinct from the 48 footer images:
+- **Town panorama**, not a single campus
+- **Twilight** with amber horizon glow (footer set is locked at full night, no glow)
+- **River foreground** with reflections on water
+- **Inhabited** — tiny student silhouettes, leaning bicycle, hot air balloon with string lights
+- **Generous open sky** for headline + CTA overlay
+
+**Aspect ratio:** `--ar 21:9` (cinemascope). Not 6:1 (footer language) and not 16:9 (YouTube thumbnail).
+**Style flag:** `--style raw`
+**Style reference (recommended):** append `--sref [url-of-best-existing-footer-image]` to lock the family style.
+
+### Prompt
+
+Flat orthographic elevation view of a cheerful cartoon big state university campus at night, row of wide brick Georgian buildings mixed with a tall brutalist concrete tower, a football stadium silhouette visible in the distance, large block letter logo on one building facade, wide open quad feeling, American flag on a pole, university seen dead-on from across the street, no perspective, rounded cartoon architecture with soft edges, bold clean cartoon outlines, pure flat color fills, deep navy indigo sky, NO moon, NO stars, warm glowing yellow windows lit from inside, warm amber lamplight, colorful bunting strung between buildings, round fluffy lollipop trees, cozy peaceful campus at night, in the style of Richard Scarry Busytown meets Disney Zootopia, children's picture book nighttime scene, Animal Crossing at night, horizontal frieze composition, no text --ar 21:9 --style raw --sref https://cdn.midjourney.com/06485682-9dae-4ffa-b725-a67b91364d6c/0_3.png
+
+> Flat orthographic elevation view of a cheerful cartoon college town panorama at twilight, a wide establishing shot showing an entire small university town from across a river, in the foreground a calm river with a stone footbridge and warm reflections of building lights on the water, on the far bank a long row of mixed campus and town buildings reading left to right — a red brick Georgian library with a clock tower, a white-steepled chapel, a glass-and-steel modern science building, a brownstone dormitory with bay windows, a small main-street block with a corner bookstore and a coffee shop with a chalkboard sandwich sign, a bell tower at the visual center as the anchor — gentle rolling hills with round fluffy lollipop trees rising behind the buildings, colorful bunting strung between buildings, a few tiny silhouetted students walking along the riverwalk path with backpacks, lampposts casting pools of amber light onto the path, a bicycle leaning against a lamppost, university and town seen dead-on from across the river, no perspective, rounded cartoon architecture with soft edges, bold clean cartoon outlines, pure flat color fills, deep navy indigo sky fading to a warm amber horizon glow behind the hills, NO moon, NO stars, MANY warm glowing yellow and amber windows lit from inside, every building has lit windows, windows are the focal light source, warm amber lamplight spilling onto facades and the riverwalk, cozy peaceful college town at twilight, in the style of Richard Scarry Busytown meets Disney Zootopia, children's picture book twilight scene, Animal Crossing at golden hour fading to night, panoramic establishing shot composition, generous sky above for headline overlay, no text --ar 21:9 --style raw  --sref https://cdn.midjourney.com/8b95b2f2-b521-4e0a-8bf2-09bcb61cb90f/0_3.png
+
+### Re-roll dial-ins
+
+- **If it goes spooky:** add `NOT haunted, NOT spooky, happy peaceful, NO gothic spires`
+- **If sky has stars/moon despite the negative prompt:** add `single flat navy-to-amber gradient sky, no stars, no moon, no clouds`
+- **If the headline space at top fills with detail:** add `upper two-thirds of frame is open empty sky, all architecture and activity in lower third`
+
+### After Midjourney
+
+1. Run **Upscale (Subtle)** once → ~5824 × 2496 master
+2. Save raw PNG to `Midjourney/` (gitignored)
+3. Run optimize script targeting `frontend/public/hero/` to produce **three responsive widths** (1400 / 2048 / 2880) in both AVIF and WebP
+   - The 2880 width matters for 5K iMacs; without it the hero looks soft on retina
+   - May need to extend `scripts/optimize_campus_images.py` to accept custom widths via flag
+4. Once finalized, append the chosen seed and `--sref` URL below for reproducibility
+
+### Locked finalist
+
+- **Seed:** _TBD — fill in after rendering_
+- **Sref URL:** _TBD — fill in after rendering_
+- **File path:** `frontend/public/hero/futureproof-hero-twilight-{1400,2048,2880}.{avif,webp}`
