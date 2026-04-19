@@ -181,6 +181,45 @@ class TestIUBFinance:
         assert "11-3031" in socs
 
 
+class TestIUBMarketing52_14_PaddedInput:
+    """End-to-end against real Iceberg: the padded 6-digit broad CIP
+    form ('52.0100') must produce the same substituted Marketing
+    payload as the bare 4-digit form.
+
+    This is the integration-level expression of Bug A: the backend
+    would see padded input from Gemma/frontend and mis-filter
+    career_outcomes (stored at 4-digit granularity) down to zero
+    rows — user sees "missing crosswalk data" instead of Marketing
+    careers. Mirrors TestIUBMarketing::test_substitution_fires with
+    the padded input form.
+    """
+
+    def test_substitution_fires_with_52_0100(self, server):
+        result = _call(
+            server,
+            unitid=IUB_UNITID,
+            cipcode="52.0100",  # padded broad — Bug A target
+            student_major="Marketing",
+        )
+        # Same invariants as the bare-4-digit case.
+        assert result["substitution_applied"] is True
+        # Response canonicalizes the reported cipcode to 4-digit, so
+        # this is "52.01" even though we passed "52.0100".
+        assert result["reported_cipcode"] == "52.01"
+        assert result["substituted_cipcode"] == "52.14"
+        assert result["row_count"] > 0
+        # Caveat must carry the canonical reported cipcode too — dual
+        # location (caveat + root) is §4 Decision #3.
+        caveat = result["data_caveat"]
+        assert caveat["type"] == "blended_substitution"
+        assert caveat["reported_cipcode"] == "52.01"
+        assert caveat["substituted_cipcode"] == "52.14"
+        # Blended earnings must match what the bare-4-digit case gets —
+        # same 52.01 row on IU's side.
+        rows = result["data"]
+        assert abs(rows[0]["earnings_1yr_median"] - 63371.0) < 1.0
+
+
 class TestSpecificCipBypass:
     """A school that reports 52.14 directly should not be substituted."""
 

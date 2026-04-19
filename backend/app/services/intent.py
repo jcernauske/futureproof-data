@@ -10,10 +10,11 @@ import json
 import logging
 import re
 import time
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.models.career import IntentResult
-from app.services import gemma_client, mcp_client
+from app.services import gemma_client, major_lookup, mcp_client
 
 logger = logging.getLogger(__name__)
 
@@ -67,26 +68,23 @@ def _promote_to_leaf_cip(
 # Edits here MUST be applied to the CLI copy (consolidation tracked as
 # follow-up in docs/specs/feature-gemma-tiered-matching.md §11).
 _INTENT_SYSTEM_PROMPT = """\
-You are a college program advisor who understands how students, parents, \
-counselors, and registrars all describe academic programs differently.
+You map a student's free-text major to a CIP (Classification of \
+Instructional Programs) code. Pick the most specific CIP that matches \
+their intent. Full stop.
 
-A student has told you what they want to study. Your job is to match their \
-intent to the most appropriate CIP (Classification of Instructional Programs) \
-code from the available options.
+Students, parents, counselors, and registrars describe the same program \
+differently:
+- Students: "pre-med", "CS", "business", "art"
+- Parents: "Physical Therapy", "Deaf Education", "Criminal Justice"
+- Counselors: "Special Ed", "STEM", "Allied Health"
+- Registrars: "CIP 51.2308 Physical Therapy/Therapist"
 
-Consider how different people describe the same program:
-- Students say: "pre-med", "CS", "business", "art"
-- Parents say: "Physical Therapy", "Deaf Education", "Criminal Justice"
-- Counselors say: "Special Ed", "STEM", "Allied Health"
-- Registrars say: "CIP 51.2308 Physical Therapy/Therapist"
+Read through the surface form to the program underneath.
 
 Confidence tiers drive how many alternatives you return.
 
 - "high": The input resolves to exactly one CIP — no ambiguity, even if \
 the phrasing is colloquial. Output exactly "alternatives": [].
-  Tiebreaker: if the school's reported program list contains a single \
-entry whose title is a near-direct match to the student input, use high \
-even if the phrase sounds like an umbrella term.
   Example: "pre-PT" -> 51.2308 Physical Therapy/Therapist.
 
 - "medium": The input is a well-known shorthand or umbrella term that \
@@ -111,26 +109,35 @@ Never exceed 10.
 The student typed: "{student_input}"
 School: {school_name}
 
-Programs this school reports (these have earnings data):
+Candidate CIPs — programs reported by this school:
 {school_cip_list}
 
-Additional specific programs in the same families (from the national \
-crosswalk — these have career path data even if the school doesn't report \
-them separately):
+Candidate CIPs — specific programs in the same families from the \
+national crosswalk:
 {crosswalk_cip_list}
 
-Respond in JSON only, no preamble, no markdown. Keep "reasoning" to at \
-most two sentences.
+Both lists above are equally valid match candidates. Do NOT prefer a \
+school-reported CIP over a crosswalk CIP to "preserve earnings data" — \
+the backend blends earnings automatically when it substitutes a broad \
+school CIP with a specific cousin. Your job is the match; the blending \
+is not yours to protect.
+
+Respond in JSON only, no preamble, no markdown.
 
 "matched_cip" MUST be the full 6-digit leaf format XX.XXXX (e.g. \
 13.1001, 51.2308, 52.0201). NEVER put a 4-digit umbrella like XX.XX \
-there — if the student's input maps to a whole family rather than one \
-specific program, pick the single most representative leaf from the \
-programs listed above and put the 4-digit family code in "parent_cip".
+there — if the student's intent lands on a whole family rather than \
+one specific program, pick the single most representative leaf from the \
+candidates above and put the 4-digit family code in "parent_cip".
+
+"reasoning" is shown to the student. Keep it to one or two sentences. \
+Name the program and the tell that anchored the match. Direct, \
+confident, no hedging. Do not say "based on" or "as an AI" or "I'm \
+not certain" — state the call.
 
 {{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
 "confidence": "high|medium|low", \
-"reasoning": "Up to two sentences explaining why this is the best match.", \
+"reasoning": "One or two sentences naming the program and why it fits.", \
 "parent_cip": "XX.XX (4-digit family code, may equal matched_cip[:5] \
 when matched_cip is already a leaf in this family)", \
 "alternatives": []}}\
@@ -365,12 +372,79 @@ def _audit_intent_mapping(
         return None
 
 
+def _derive_parent_cip(
+    cip4: str, programs: Sequence[Mapping[str, Any]]
+) -> str:
+    """Pick the school's reported broader-family CIP (if any) that the
+    YAML-matched cip4 should substitute against.
+
+    The frontend uses a non-empty ``parent_cip`` as the "substitution will
+    apply" signal on the major-confirm card (MajorInput.tsx:102). On the
+    /build/outcomes side, ``_handle_get_career_paths`` fires the
+    substitution branch when the caller passes a broad CIP
+    (``_is_broad_cip``) AND the YAML has a specific cip4. We surface the
+    broad reported CIP here so the confirm card matches what outcomes
+    will do.
+
+    Rules (tight — callers pass raw programs from IntentRequest, so we
+    defend against missing/bad cipcode values):
+
+    - If ``programs`` contains an entry whose canonical 4-digit cipcode
+      equals ``cip4`` exactly, the school reports the specific program.
+      No substitution needed — return ``""``.
+    - Otherwise, scan for an entry in the same 2-digit family as ``cip4``
+      that matches ``_BROAD_CIP_PATTERN`` semantics (raw ``XX.01`` or
+      zero-padded ``XX.0100``). Specific 6-digit forms (``XX.0101``) do
+      not qualify as a substitution parent. Return the first match's
+      canonical 4-digit form.
+    - Otherwise return ``""``. The outcomes path will handle the miss
+      via its existing broadening fallback.
+    """
+    if not cip4 or not programs:
+        return ""
+    family = cip4[:2]
+    if not family.isdigit():
+        return ""
+    candidates: list[str] = []
+    for program in programs:
+        # FastAPI validates IntentRequest.programs as list[dict], but
+        # defend against direct internal callers that might bypass
+        # that validation (CLI, future tests).
+        if not isinstance(program, Mapping):
+            continue
+        raw = str(program.get("cipcode", "") or "")
+        if not raw:
+            continue
+        canonical = raw[:5] if len(raw) >= 5 else raw
+        if canonical == cip4:
+            return ""
+        if canonical[:2] != family:
+            continue
+        if raw in (f"{family}.01", f"{family}.0100"):
+            candidates.append(canonical)
+    return candidates[0] if candidates else ""
+
+
 def resolve_intent(
     major_text: str,
     school_name: str,
     unitid: int,
     programs: list[dict],
 ) -> IntentResult:
+    """Resolve a student's free-text major to an ``IntentResult``.
+
+    Post-condition asymmetry on ``matched_cip``: the Gemma path guards
+    with ``_CIP_PATTERN`` (6-digit XX.XXXX, see the ``ValueError`` at
+    the malformed-primary check below) and raises on a 4-digit leak.
+    The deterministic YAML short-circuit can return a 4-digit family
+    code when the YAML entry itself stores a family (e.g. "Special
+    Education" → ``13.10``) AND the school's catalog has no descendant
+    leaf for ``_promote_to_leaf_cip`` to promote to. Downstream MCP
+    queries accept 4-digit cipcodes (``_CIPCODE_PATTERN`` in
+    ``futureproof_server.py`` permits XX.YY and XX.YYYY), so neither
+    path crashes, but a consumer that assumes 6-digit leaves must
+    handle both post-conditions.
+    """
     normalized = major_text.lower().strip()
     cache_key = (normalized, unitid)
 
@@ -383,6 +457,60 @@ def resolve_intent(
             reasoning=cached.get("reasoning", "Cache hit"),
             careers_preview=cached.get("careers_preview", []),
             parent_cip=cached.get("parent_cip", ""),
+        )
+
+    # Deterministic YAML short-circuit. When the student's input is an
+    # exact or alias match for a known major in
+    # data/reference/major_to_cip.yaml, we have the answer without
+    # calling Gemma — skip both the Gemma call and the prompt-bias
+    # failure mode that broad-CIP schools otherwise trigger.
+    #
+    # parent_cip contract: frontend reads `parent_cip !== ""` as "the
+    # backend will substitute on /build/outcomes" (MajorInput.tsx:102).
+    # _derive_parent_cip walks the school's reported programs to pick
+    # the broad same-family CIP when it exists, so the confirm card and
+    # outcomes stay in sync.
+    #
+    # Cache policy: this block deliberately does NOT write to
+    # _intent_cache. Cache writes are owned by confirm_intent and
+    # happen only after the student confirms the match — same
+    # invariant as the Gemma path.
+    deterministic = major_lookup.lookup_major(major_text)
+    if deterministic is not None:
+        cip4 = str(deterministic.get("cip4", ""))
+        title = str(deterministic.get("major", ""))
+        parent_cip = _derive_parent_cip(cip4, programs)
+        # Some YAML entries store a 4-digit family code (e.g. "Special
+        # Education" → "13.10"). The frontend and downstream career
+        # queries want a 6-digit leaf when the school reports one, so
+        # promote using the school's catalog — same semantics as the
+        # Gemma path at L407 below.
+        school_cips = _get_school_cips(unitid)
+        matched_cip = _promote_to_leaf_cip(cip4, parent_cip, school_cips)
+        careers = _get_career_titles_for_cip(matched_cip)
+        audit = _audit_intent_mapping(major_text, matched_cip, title, careers)
+        audit_flag = None
+        audit_message = None
+        if audit:
+            tone = str(audit.get("tone", "clean"))
+            message = str(audit.get("message", ""))
+            if not bool(audit.get("valid", True)):
+                audit_flag = "hard_reject"
+                audit_message = message
+            elif tone == "playful_warning":
+                audit_flag = "playful_warning"
+                audit_message = message
+        return IntentResult(
+            matched_cip=matched_cip,
+            matched_title=title,
+            confidence="high",
+            reasoning="Deterministic match from major_to_cip.yaml.",
+            careers_preview=careers,
+            audit_flag=audit_flag,
+            audit_message=audit_message,
+            needs_clarification=False,
+            alternatives=None,
+            parent_cip=parent_cip,
         )
 
     school_cips = _get_school_cips(unitid)

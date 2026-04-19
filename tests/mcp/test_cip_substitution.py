@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 
 from mcp_server.futureproof_server import (
     CAREER_OUTCOMES_TABLE,
+    CAREER_PATHS_TABLE,
     FutureProofMCPServer,
 )
 
@@ -462,6 +463,219 @@ class TestCaveatMetadata:
                 {"unitid": 151351, "cipcode": "52.01"}
             )
         assert "data_caveat" not in result
+
+
+class TestCanonicalCip4:
+    """The 4-digit projection that Bug A's fix is built on.
+
+    ``_canonical_cip4`` is called at every ``cipcode=`` filter site in
+    ``futureproof_server.py``. If any of these cases regress, the
+    substitution lookup silently returns zero rows for a padded-6-digit
+    input again, which is exactly Bug A.
+    """
+
+    def test_strips_padding(self):
+        # Bare 4-digit passes through unchanged (len == 5).
+        assert FutureProofMCPServer._canonical_cip4("52.01") == "52.01"
+        # Zero-padded 6-digit broad CIP → 4-digit prefix (the Bug A path).
+        assert FutureProofMCPServer._canonical_cip4("52.0100") == "52.01"
+        # Specific 6-digit → 4-digit prefix (standard-path normalization).
+        assert FutureProofMCPServer._canonical_cip4("52.0101") == "52.01"
+        # Specific leaf in a non-broad family → 4-digit prefix.
+        assert FutureProofMCPServer._canonical_cip4("52.1401") == "52.14"
+        # Already 4-digit in a non-broad family — identity.
+        assert FutureProofMCPServer._canonical_cip4("52.14") == "52.14"
+        # Empty input: early-return branch at the top of the helper.
+        # If this ever returns anything other than "", the filter sites
+        # would hand a truthy-but-garbage value to Iceberg and either
+        # raise or silently return []. "" is the only safe outcome.
+        assert FutureProofMCPServer._canonical_cip4("") == ""
+
+
+class TestIntegrationLikePath:
+    """Full ``_handle_get_career_paths`` exercises for the new CIP
+    granularities the bugfix has to cover."""
+
+    def test_padded_broad_cip_still_substitutes(self):
+        """cipcode='52.0100' + Marketing at IU → same substituted payload
+        as the bare '52.01' case. Every response site must canonicalize
+        ``reported_cipcode`` to the 4-digit form so a future UI consumer
+        sees the same value regardless of input granularity.
+        """
+        server = _make_server()
+        xw_patch, q_patch = _patch_substitution(
+            server, ["11-2021", "13-1161"]
+        )
+        with xw_patch, q_patch:
+            result = server._handle_get_career_paths(
+                {
+                    "unitid": 151351,
+                    "cipcode": "52.0100",  # padded broad — this is Bug A
+                    "student_major": "Marketing",
+                }
+            )
+        assert result["substitution_applied"] is True
+        # The root canonicalizes the reported CIP — this is the signal
+        # downstream UI consumers will branch on. If anything other than
+        # "52.01" lands here, Bug A's "reported_cipcode echoes caller
+        # input verbatim" regression is back.
+        assert result["reported_cipcode"] == "52.01"
+        # The caveat must agree with the root — dual-location fix.
+        assert result["data_caveat"]["reported_cipcode"] == "52.01"
+        # Substitution target unchanged.
+        assert result["substituted_cipcode"] == "52.14"
+        # Caveat type and row count unchanged from the bare-4-digit case.
+        assert result["data_caveat"]["type"] == "blended_substitution"
+        assert result["row_count"] == 2
+        socs = [r["soc_code"] for r in result["data"]]
+        assert set(socs) == {"11-2021", "13-1161"}
+        for row in result["data"]:
+            # Substituted rows continue to carry the specific substituted
+            # CIP (52.14), not the broadened reported CIP.
+            assert row["cipcode"] == "52.14"
+            assert row["unitid"] == 151351
+            # Blended earnings come from IU's 52.01 row — Bug A's
+            # canonicalization lookup is what makes this possible. If
+            # the lookup missed, err would have been returned and we'd
+            # be looking at a ``data: None`` response instead.
+            assert row["earnings_1yr_median"] == 63371.0
+
+    def test_specific_six_digit_does_not_substitute(self):
+        """cipcode='52.0101' is a SPECIFIC 6-digit CIP (Business/Commerce,
+        General) — ``_is_broad_cip`` returns False. Substitution does NOT
+        fire. The request falls through the standard path, which
+        canonicalizes to '52.01' and then routes through the deterministic
+        broadening fallback (``_fallback_broaden_cip``) because IU has no
+        row at exactly 52.01 in ``program_career_paths``.
+
+        The response must be shaped by the broadening fallback — caveat
+        type 'cip_broadened', NOT 'blended_substitution'. This is the
+        explicit design decision at §1 Success Criterion 4: widening
+        ``_BROAD_CIP_PATTERN`` was rejected; specific-CIP inputs stay
+        on the standard/broadening path.
+        """
+        server = _make_server()
+
+        # Standard path → canonical_cipcode='52.01'. The exact-filter
+        # query for cipcode='52.01' returns [], so the handler falls
+        # through to _fallback_broaden_cip, which issues an
+        # unfiltered-by-cipcode query for all rows at this unitid. We
+        # return one row at '52.14' (family-match) so Attempt 3 fires
+        # (family-wide match) and we land in the cip_broadened branch.
+        #
+        # NOTE: we explicitly DO NOT return a row at '52.01', because
+        # the point of this test is that 52.0101 does NOT substitute
+        # — it broadens. If we planted a 52.01 row the exact filter
+        # would hit before the fallback ran.
+        family_rows = [
+            {
+                "unitid": 151351,
+                "cipcode": "52.14",
+                "program_name": "Marketing",
+                "soc_code": "11-2021",
+                "occupation_title": "Marketing Managers",
+                "stats_available_count": 5,
+            }
+        ]
+
+        def _fake_query(table_name, filters=None, columns=None, limit=None):
+            filters = filters or {}
+            # Standard-path filter site: unitid + canonical cipcode.
+            if (
+                table_name == CAREER_PATHS_TABLE
+                and filters.get("cipcode") == "52.01"
+            ):
+                # Empty — forces fallback.
+                return []
+            # _fallback_broaden_cip unfiltered-by-cipcode query: we
+            # detect it by absence of the cipcode filter key.
+            if (
+                table_name == CAREER_PATHS_TABLE
+                and "cipcode" not in filters
+                and filters.get("unitid") == 151351
+            ):
+                return list(family_rows)
+            return []
+
+        with patch.object(
+            server, "query_iceberg_simple", side_effect=_fake_query
+        ):
+            result = server._handle_get_career_paths(
+                {
+                    "unitid": 151351,
+                    "cipcode": "52.0101",  # specific — NOT broad
+                    "student_major": "Marketing",
+                }
+            )
+
+        # Substitution did not fire — no blended_substitution caveat.
+        # The broadening fallback sets substitution_applied=True but
+        # the caveat type differentiates the two paths.
+        assert result["substitution_applied"] is True, (
+            "broadening fallback still toggles substitution_applied=True"
+        )
+        assert result["data_caveat"]["type"] == "cip_broadened", (
+            "specific 6-digit CIP must NOT hit the blended_substitution "
+            "path — widening _BROAD_CIP_PATTERN was rejected in Decision "
+            "#1 Alt (b)"
+        )
+        # The root reported_cipcode must reflect the canonical form the
+        # handler actually queried against (§4 L2202 — canonicalize at
+        # the broadened-rows response site too).
+        assert result["reported_cipcode"] == "52.01"
+
+
+class TestStandardPath:
+    """P1 coverage: the standard-path filter site canonicalizes too."""
+
+    def test_padded_specific_cip_normalizes(self):
+        """cipcode='52.1000' (HR padded to 6 digits) with no student_major
+        returns IU's HR program_career_paths rows. Validates Bug A's fix
+        at the standard-path filter site (the caller hands in a padded
+        specific CIP; the filter must strip to '52.10' to hit IU's row).
+        """
+        server = _make_server()
+
+        iu_hr_row = {
+            "unitid": 151351,
+            "cipcode": "52.10",
+            "program_name": "Human Resources Management/Personnel Admin",
+            "soc_code": "13-1071",
+            "occupation_title": "Human Resources Specialists",
+            "stats_available_count": 5,
+        }
+
+        def _fake_query(table_name, filters=None, columns=None, limit=None):
+            filters = filters or {}
+            # Standard path passes the canonicalized CIP ('52.10') — if
+            # the fix regresses and hands in '52.1000' verbatim, this
+            # branch never matches and we fall into the broadening
+            # fallback instead. That would be the Bug A regression.
+            if (
+                table_name == CAREER_PATHS_TABLE
+                and filters.get("cipcode") == "52.10"
+            ):
+                return [iu_hr_row]
+            return []
+
+        with patch.object(
+            server, "query_iceberg_simple", side_effect=_fake_query
+        ):
+            result = server._handle_get_career_paths(
+                {
+                    "unitid": 151351,
+                    "cipcode": "52.1000",  # padded specific — Bug A target
+                }
+            )
+
+        assert result["substitution_applied"] is False, (
+            "No substitution: student_major not provided and the school "
+            "reports this program directly"
+        )
+        # The school's HR row comes back through the standard path.
+        assert result["row_count"] == 1
+        assert result["data"][0]["cipcode"] == "52.10"
+        assert result["data"][0]["soc_code"] == "13-1071"
 
 
 class TestErrorHandling:
