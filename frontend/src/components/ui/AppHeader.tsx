@@ -5,6 +5,7 @@ import { springs } from "@/styles/motion";
 import { apiPost } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 interface ProfileResponse {
   profile_name: string;
@@ -70,9 +71,7 @@ export function AppHeader() {
         >
           {/* Left zone: wordmark + back/home */}
           <div className="flex items-center gap-3 shrink-0">
-            <span className="font-display font-bold text-body-sm text-accent-thrive">
-              FutureProof
-            </span>
+            <Wordmark size="sm" />
             {!isLanding && (
               <button
                 onClick={isHub ? handleHome : handleBack}

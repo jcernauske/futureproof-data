@@ -147,6 +147,17 @@ Space Mono:wght@400;700
 | data | `--text-data` | 16px / 1rem | 1.4 | Space Mono | 400 | `text-data` | Salary figures, percentages |
 | data-sm | `--text-data-small` | 13px / 0.8125rem | 1.3 | Space Mono | 400 | `text-data-sm` | Stat deltas, small data |
 
+### Line Heights
+
+Line-height tokens pair with the type scale above. `leading-normal` is the body default; use the others where the scale's per-token line-height isn't enough (tight headlines, breathing pull quotes).
+
+| Token | CSS Variable | Value | Tailwind | Usage |
+|-------|-------------|-------|----------|-------|
+| tight | `--leading-tight` | 1.1 | `leading-tight` | Hero/display headlines, screen intros |
+| snug | `--leading-snug` | 1.2 | `leading-snug` | Large titles, multi-line section headers |
+| relaxed | `--leading-relaxed` | 1.4 | `leading-relaxed` | Reasoning card paragraphs, long captions |
+| normal | `--leading-normal` | 1.5 | `leading-normal` | Body default (applied on `<body>`) |
+
 ---
 
 ## Spacing
@@ -414,6 +425,32 @@ import { Wordmark } from "@/components/ui/Wordmark";
 
 ---
 
+## Focus States
+
+Every interactive element (buttons, chips, inputs, textareas, disclosure toggles, links, clickable rows) must show a visible focus ring on `:focus-visible`. The ring is a high-contrast info-tinted outline — it's the only accessibility token that trumps aesthetics.
+
+**Global convention:**
+```css
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid var(--color-focus-ring);  /* rgba(123, 184, 224, 0.4) */
+  outline-offset: 2px;
+}
+```
+
+- **Ring color:** `--color-focus-ring` — the info accent at 40% opacity. Never swap to another color. Consistent across light and dark surfaces.
+- **Offset:** 2px. Prevents the ring from blending into rounded-card borders.
+- **Thickness:** 3px. Meets WCAG 2.2 focus-visible contrast minimums against every background token.
+
+**Input-specific override:** `.input-field:focus-within` swaps the ring for a glowing box-shadow (`0 0 0 3px var(--color-focus-ring)` + border-color shift to `accent-info`). Same visual weight, inset to the field's rounded rectangle. See the Inputs spec below.
+
+**Never** disable focus rings on custom controls. If a ring clashes with an animation, change the animation — not the ring.
+
+---
+
 ## Components
 
 ### Buttons
@@ -500,6 +537,15 @@ border-radius: radius-full
 | pill-empathy | `rgba(232, 139, 169, 0.15)` | accent-empathy | Human edge |
 
 **Pattern:** accent color at 15% opacity for background, full accent for text.
+
+**Feasibility glyph convention:** When a pill is used to classify a target (e.g., "is this career reachable from this school"), prefix the label with a semantic glyph. Pills without these glyphs are decorative; pills with them are taxonomic and must follow the convention.
+
+| Glyph | Name | Semantic |
+|-------|------|----------|
+| `◆` | filled diamond | Present / reachable. The thing exists here. Pair with `pill-thrive` or `pill-caution`. |
+| `◇` | open diamond | Absent / unreachable. The thing isn't here. Pair with `pill-alert` or `pill-empathy`. |
+
+Examples: `◆ direct hit`, `◆ Through Business program`, `◇ not here`. The glyph carries the meaning; the color carries the temperature.
 
 ### Inputs
 
