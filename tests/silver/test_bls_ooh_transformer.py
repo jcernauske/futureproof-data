@@ -6,7 +6,6 @@ import pytest
 
 from silver.bls_ooh_transformer import (
     BROAD_OCCUPATION_CODES,
-    EDUCATION_LEVEL_LOOKUP,
     SOC_MAJOR_GROUP_LOOKUP,
     derive_growth_category,
     get_silver_schema,
