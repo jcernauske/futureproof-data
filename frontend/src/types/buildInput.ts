@@ -14,6 +14,13 @@ export interface MajorSelection {
   rawText: string;
   careersPreview: string[];
   substitutionApplied: boolean;
+  // School's reported broad same-family CIP when substitution will apply
+  // (from IntentResult.parent_cip). Empty string when the school reports
+  // the student's major directly. Every backend call that looks up a
+  // school row (build/outcomes, build/tier, build, career-pick/chips)
+  // must send `parentCip || cipCode` — the substitution branch in the
+  // MCP handler keys off the school's broad cip, not the matched leaf.
+  parentCip: string;
 }
 
 export interface EffortSelection {
