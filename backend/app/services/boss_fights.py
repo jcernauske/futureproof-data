@@ -326,50 +326,43 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 _GENERIC_INSTRUCTIONS = (
-    "Write the coach's 3-4 sentence take on this fight. "
-    "If the result is LOSE, say what the student can do about it. "
-    "If WIN, say what it actually means in practice. "
-    "Be concrete — reference the student's actual career, school, "
-    "or stats, not generic advice. "
-    "Write at a 6th grade reading level. No jargon."
+    "Explain what this piece of the student's data actually means for "
+    "their real life. Translate the numbers into plain words — dollars, "
+    "hours, percentages, what the work looks like. Reference the "
+    "student's actual career and school. No generic advice."
 )
 
 _BOSS_INSTRUCTIONS: dict[str, str] = {
     "ceiling": (
-        "Write the coach's 3-4 sentence take on this fight. "
-        "Use the actual dollar figures — cite them. "
-        "If WIN but the earnings band is narrow, be honest: a win means "
-        "the student is near the top of a limited range, not that they'll "
-        "get rich. Name the actual salary range. "
-        "If LOSE, name the dollar ceiling and what it means for their "
-        "lifestyle. "
-        "Write at a 6th grade reading level. No jargon."
+        "Explain how high pay can go on this career path. Name the "
+        "actual salary range graduates reach — what people earn at the "
+        "low end and what people earn at the high end. If the range is "
+        "narrow, say so plainly: there's a real limit, not that they "
+        "will get rich. If the range is wide, say there's room to grow "
+        "inside this career. Use the dollar figures provided."
     ),
     "loans": (
-        "Write the coach's 3-4 sentence take on this fight. "
-        "This fight is specifically about the student's FINANCING "
-        "choice — their modeled debt at the current loan coverage % — "
-        "NOT the overall program ROI. Cite the modeled debt dollar "
-        "figure and the financed debt-to-earnings ratio. "
-        "Explain what that ratio means (e.g. 'modeled debt is about "
-        "half of one year's salary'). "
-        "If WIN, say how manageable THIS financing plan is. "
-        "If LOSE, describe the month-to-month burden and suggest the "
-        "student explore lower loan coverage or scholarships. "
-        "Write at a 6th grade reading level. No jargon."
+        "Explain what taking on this much debt would feel like month to "
+        "month for this student. This is about THIS financing plan — "
+        "the modeled debt at the current loan coverage — not the "
+        "overall return on the degree. Use the modeled debt dollar "
+        "amount and compare it plainly to one year of starting salary "
+        "(e.g. 'the debt is about half of a year's pay'). If the "
+        "numbers are strong, say why the payments would be manageable. "
+        "If the numbers are rough, name one concrete way to shrink the "
+        "debt — lower loan coverage, scholarships, a cheaper school."
     ),
     "ai": (
-        "Write the coach's 3-4 sentence take on this fight. "
-        "Explain what AI exposure means for this specific job's daily "
-        "tasks — which parts could be automated and which can't. "
-        "If a velocity label is present, lean on it: SATURATING means "
-        "name what's already automated, ACCELERATING means warn the "
-        "gap is closing fast, EMERGING means the wave is arriving, "
-        "NASCENT means there's runway to prepare, UNKNOWN means talk "
-        "about theoretical exposure only. "
-        "If LOSE, say what the student can do to stay ahead. "
-        "If WIN, say why this job is hard for AI to replace. "
-        "Write at a 6th grade reading level. No jargon."
+        "Explain what AI means for the daily work of this job. Name "
+        "which parts of the job a computer can already do well and "
+        "which parts still need a person. If AI adoption is "
+        "saturating, say what's already being done by AI right now. If "
+        "it's accelerating, say the gap is closing fast. If it's "
+        "emerging, say the wave is arriving. If it's nascent, say "
+        "there's still runway to prepare. If adoption data is missing, "
+        "talk only about what's theoretically possible. Give one "
+        "concrete skill or habit that keeps the student ahead of "
+        "automation."
     ),
 }
 
@@ -513,26 +506,49 @@ def _classify(score: int | None, spec: BossSpec) -> BossOutcome:
 # ---------------------------------------------------------------------------
 
 _NARRATIVE_SYSTEM = (
-    "You are Gemma, narrating a single boss fight in FutureProof's "
-    "career gauntlet. The student just saw their WIN / DRAW / LOSE pill "
-    "render next to a raw score and the thresholds — your narrative "
-    "sits under that, explaining what it means in the real world.\n\n"
-    "Register by outcome:\n"
-    "- WIN: matter-of-fact. Name what beat the boss. Give one concrete "
-    "action to keep the advantage. Never celebratory.\n"
-    "- DRAW: direct. Name the stalemate in one sentence. Give one lever "
-    "that could push it toward a win.\n"
-    "- LOSE: contemplative. Name what broke down in real-world terms "
-    "(dollars, debt, job trends, AI exposure). Give one concrete pivot. "
-    "Never punishing, never doom-framing.\n\n"
-    "Vocabulary: always 'Fight [X]' for the boss name. WIN / DRAW / "
-    "LOSE in all caps only when citing the outcome noun. Stat codes "
-    "ERN/ROI/RES/GRW/HMN; translate to dollars and plain language, "
-    "never '9/10'.\n\n"
-    "Anti-patterns: no 'empowering', no 'journey', no exclamation "
-    "points, no bullet points, no 'great news', no 'as an AI'. Exactly "
-    "2-3 sentences of prose. The student sees your sentences right "
-    "next to the raw data — if you inflate or soften, they'll spot it."
+    "You are Gemma. A high school student is looking at one real piece "
+    "of data about a career path they're considering — the school, the "
+    "major, and what graduates actually earn or experience in that "
+    "job. Your job is to explain, in plain words, what that piece of "
+    "data means for their real life.\n\n"
+    "Voice: candid, factual, warm, reassuring. Talk the way a calm "
+    "older sibling with honest answers would talk — short, clear, no "
+    "performance. You are the interpretation layer, not a judge. Never "
+    "make the student feel small; never sugar-coat the numbers.\n\n"
+    "Every sentence you write must translate the data into something "
+    "real. If earnings are low compared to other graduates with this "
+    "degree, say exactly that. If most of the daily work is something "
+    "a computer can already do, say exactly that. If the cost is big "
+    "compared to the starting salary, say exactly that. Use the actual "
+    "dollar figures, years, and percentages the prompt gives you.\n\n"
+    "Never use these words or framings in your output:\n"
+    "- stat codes: ERN, ROI, RES, GRW, HMN. The student has never seen "
+    "these letters. If a stat is low, say what it means ('earnings "
+    "start low compared to other graduates from this program'), never "
+    "the code or the number.\n"
+    "- score fractions: never '7/10', '3 out of 10', or any numeric "
+    "rating. Translate to plain words.\n"
+    "- outcome labels: never WIN, DRAW, LOSE, won, lost, tied. The "
+    "student already sees a label above your words; repeating it is "
+    "redundant.\n"
+    "- game framing: never 'fight', 'boss', 'gauntlet', 'battle', "
+    "'beat', 'defeat', 'villain', 'level up', 'quest'. Those belong to "
+    "the app's framing, not yours. Talk about 'how high pay can go', "
+    "'what AI means for this work', 'paying off this debt' — not 'the "
+    "Ceiling boss'.\n"
+    "- filler: no exclamation points, bullet points, or 'as an AI'. "
+    "Never 'empowering', 'journey', 'amazing', 'great news', 'just "
+    "keep going', 'follow your passion', 'unfortunately'.\n\n"
+    "Structure each response as 2-3 sentences of prose, written at a "
+    "7th-grade reading level. First, say what the data means in real "
+    "life. Then, either name one concrete thing that keeps a strong "
+    "outcome strong, one lever that could shift a mixed outcome, or "
+    "one real next step for a tough outcome. Never doom-frame — a "
+    "student can always change school, major, or path.\n\n"
+    "If the prompt tells you there is no data for this piece of the "
+    "career path, say so plainly. Do not invent a number, do not "
+    "guess, do not fill silence with generic advice. A short, honest "
+    "'there isn't enough data to say' is better than a made-up answer."
 )
 
 
@@ -624,10 +640,68 @@ def generate_reroll_commentary(
     return text or ""
 
 
+# Per-topic no-data copy. Shown verbatim when the scorer has no inputs
+# for this piece of the career path. Voice must match Gemma's (candid,
+# factual, warm) and must NOT reference stat codes, scores, WIN/LOSE,
+# or game framing. The student sees this text where a coach note
+# normally sits.
+_UNKNOWN_FALLBACKS: dict[str, str] = {
+    "ceiling": (
+        "There isn't enough earnings data for this career path yet to "
+        "say how high pay can go. When the numbers fill in, this part "
+        "of your read will update."
+    ),
+    "ai": (
+        "There isn't enough data yet on how much AI is being used in "
+        "this kind of work, so there's no honest call to make here "
+        "right now."
+    ),
+    "loans": (
+        "There isn't enough cost or debt data for this program to "
+        "show what borrowing for it would actually look like."
+    ),
+    "market": (
+        "There isn't enough hiring data yet to say how this job "
+        "market is changing."
+    ),
+    "burnout": (
+        "There isn't enough data on the workload in this career to "
+        "say how burnout-prone it tends to be."
+    ),
+}
+
+# Degraded fallback — Gemma returned nothing for a fight that DID
+# score. Extremely rare (transport failure after retries). The copy is
+# deliberately generic and tone-matched; never leaks stat codes,
+# outcome labels, or game framing.
+_DEGRADED_FALLBACKS: dict[BossOutcome, str] = {
+    "win": (
+        "The numbers on this part of the path look strong. The write-up "
+        "didn't load this time — you can come back to it."
+    ),
+    "draw": (
+        "The numbers on this part of the path are mixed — some things "
+        "work, some push back. The write-up didn't load this time."
+    ),
+    "lose": (
+        "The numbers on this part of the path are tough. There's always "
+        "room to change school, major, or approach. The write-up "
+        "didn't load this time."
+    ),
+    "unknown": "",  # handled above
+}
+
+
 def _fallback_narrative(fight: BossFightResult) -> str:
     if fight.result == "unknown":
-        return "No data to score this boss yet — flagged for review."
-    return f"{fight.label}: {fight.result.upper()} ({fight.reason})"
+        return _UNKNOWN_FALLBACKS.get(
+            fight.boss,
+            "There isn't enough data here yet to make a call.",
+        )
+    return _DEGRADED_FALLBACKS.get(
+        fight.result,
+        "The write-up didn't load this time.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -689,6 +763,13 @@ async def narrate_one(
     fallback gate, so the router can log them distinctly and this
     layer doesn't silently mask them.
     """
+    # ``unknown`` means the scorer had no data to classify this fight.
+    # The system prompt only defines WIN / DRAW / LOSE registers, so
+    # asking Gemma to narrate an UNKNOWN result just gets us a prompt
+    # echo ("Please provide the WIN, DRAW, or LOSE result..."). Skip
+    # Gemma entirely and use the deterministic no-data fallback.
+    if fight.result == "unknown":
+        return _fallback_narrative(fight)
     narrative = await gemma_client.generate_async(
         system=_NARRATIVE_SYSTEM,
         user=_narrative_prompt(career, fight),
@@ -714,6 +795,12 @@ def run_gauntlet(
 
     if with_narratives:
         for fight in gauntlet.fights:
+            if fight.result == "unknown":
+                # Same reasoning as narrate_one: the prompt has no
+                # UNKNOWN register, so skip Gemma and use the no-data
+                # fallback directly.
+                fight.narrative = _fallback_narrative(fight)
+                continue
             try:
                 narrative = gemma_client.generate(
                     system=_NARRATIVE_SYSTEM,

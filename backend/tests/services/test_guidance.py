@@ -63,13 +63,44 @@ class TestGenerateGuidance:
         text = guidance.generate_guidance(_career(), _gauntlet(), [])
         assert "IU-B" in text
 
-    def test_fallback_includes_verdict(self, monkeypatch):
+    def test_fallback_speaks_in_gemmas_voice(self, monkeypatch):
+        """When Gemma is unreachable, the fallback must still hit the
+        voice contract: name the school/major/career in plain words,
+        point at the weak spot in plain language, and never leak stat
+        codes, outcome labels, or game framing.
+        """
         from app.services import gemma_client
 
         monkeypatch.setattr(gemma_client, "generate", lambda **kwargs: "")
         text = guidance.generate_guidance(_career(), _gauntlet(), [])
-        assert "SOLID BUILD" in text
+
+        # The fallback still grounds the student in their real context.
         assert "Marketing" in text
+        assert "IU-B" in text
+        # The AI-exposure weak spot is named in plain words, not as
+        # "Fight AI" or "LOSE".
+        assert "computer" in text.lower()
+
+        # Voice contract — these tokens must never leak into the copy
+        # the student actually reads.
+        for forbidden in (
+            "SOLID BUILD",
+            "Fight AI",
+            "boss",
+            "gauntlet",
+            "WIN",
+            "LOSE",
+            "DRAW",
+            "ERN",
+            "ROI",
+            "RES",
+            "GRW",
+            "HMN",
+            "/10",
+        ):
+            assert forbidden not in text, (
+                f"guidance fallback leaked {forbidden!r}: {text!r}"
+            )
 
     def test_prompt_includes_boss_results(self):
         prompt = guidance._prompt(_career(), _gauntlet(), [])

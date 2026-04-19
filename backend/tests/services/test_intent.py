@@ -78,9 +78,8 @@ def _make_generate_mock(
     )
     call_log: list[tuple[str, str]] = []
 
-    def _generate(*, system: str, user: str, max_tokens: int = 500,
-                  temperature: float = 0.7, model: str | None = None) -> str:
-        call_log.append((system, user))
+    def _generate(**kwargs: Any) -> str:
+        call_log.append((kwargs.get("system", ""), kwargs.get("user", "")))
         # First call: intent. Anything after that: audit. Both the intent
         # prompt and the audit prompt have distinctive lead-ins, so we
         # route by call index rather than by inspecting the system text.
@@ -1092,3 +1091,169 @@ class TestPromptCopy:
             assert key in prompt, (
                 f"Prompt is missing required format key {key!r}"
             )
+
+
+class TestDeterministicIntentCall:
+    """Intent Gemma calls must be reproducible for a given input.
+
+    The Kaggle demo runs Gemma live — the same student typing the same
+    major twice must not land on two different CIPs. Guaranteed by
+    temperature=0 plus an input-derived seed; this test pins both.
+    """
+
+    def test_seed_is_deterministic_per_input(self) -> None:
+        assert intent._derive_intent_seed("CS") == intent._derive_intent_seed("CS")
+        assert intent._derive_intent_seed("CS") == intent._derive_intent_seed("cs")
+        assert intent._derive_intent_seed("CS") == intent._derive_intent_seed("  CS  ")
+
+    def test_seed_differs_across_inputs(self) -> None:
+        assert intent._derive_intent_seed("CS") != intent._derive_intent_seed("nursing")
+
+    def test_seed_is_openai_compatible_32bit_uint(self) -> None:
+        seed = intent._derive_intent_seed("pre-PT")
+        assert 0 <= seed < 2**32
+
+    def test_gemma_call_uses_temperature_zero_and_seed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        intent_fixtures: dict[str, dict[str, Any]],
+        stub_server: _StubServer,
+        stub_gemma_config: None,
+    ) -> None:
+        captured: dict[str, Any] = {}
+
+        def _generate(**kwargs: Any) -> str:
+            if not captured:
+                captured.update(kwargs)
+            return json.dumps(intent_fixtures["high"])
+
+        monkeypatch.setattr(intent.gemma_client, "generate", _generate)
+
+        intent.resolve_intent(
+            major_text="pre-PT",
+            school_name="University of Central Anywhere",
+            unitid=123456,
+            programs=_programs_arg(),
+        )
+
+        assert captured["temperature"] == 0.0, (
+            "Intent calls must run at temperature=0 for demo reproducibility"
+        )
+        assert captured["seed"] == intent._derive_intent_seed("pre-PT"), (
+            "Intent calls must pass an input-derived seed for demo reproducibility"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestYamlGate — INTENT_YAML_ENABLED env-var contract.
+#
+# Spec: docs/specs/bugfix-disable-intent-yaml-regression.md.
+#
+# The gate's contract: env-var read per `resolve_intent` call (NOT at module
+# import). The default (unset) preserves today's YAML short-circuit. Setting
+# INTENT_YAML_ENABLED=false skips `major_lookup.lookup_major` entirely so
+# every input is routed through Gemma — what the regression script needs.
+# ---------------------------------------------------------------------------
+
+
+class TestYamlGate:
+    """Env-var gate that lets the regression script disable the YAML."""
+
+    def test_env_false_skips_yaml(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """INTENT_YAML_ENABLED=false → major_lookup.lookup_major is NOT called.
+
+        The regression script needs every input to hit Gemma so we can
+        compare Gemma's answer against the YAML's curated answer. If
+        the gate leaks (lookup_major still fires), the comparison is
+        contaminated by YAML hits.
+        """
+        # Marketing is a known YAML hit — same fixture as the
+        # short-circuit tests above. With the gate off, the YAML must
+        # be skipped and Gemma must run instead.
+        monkeypatch.setenv("INTENT_YAML_ENABLED", "false")
+
+        def _explode(_text: str) -> Any:
+            raise AssertionError(
+                "major_lookup.lookup_major must not be called when "
+                "INTENT_YAML_ENABLED=false"
+            )
+
+        monkeypatch.setattr(intent.major_lookup, "lookup_major", _explode)
+
+        # Gemma stand-in: a structurally valid response so resolve_intent
+        # returns normally. We're testing the gate, not the Gemma path.
+        payload = {
+            "matched_cip": "52.1401",
+            "matched_title": "Marketing",
+            "confidence": "high",
+            "reasoning": "Direct match.",
+            "parent_cip": "52.14",
+            "alternatives": [],
+        }
+        fake_generate = _make_generate_mock(payload)
+        monkeypatch.setattr(intent.gemma_client, "generate", fake_generate)
+        _install_school_catalog(monkeypatch, school_cips=[])
+
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=[],
+        )
+
+        # Gemma's answer wins because the YAML was skipped.
+        assert result.matched_cip == "52.1401"
+        assert len(fake_generate.call_log) >= 1, (
+            "Gate-off path must reach Gemma instead of the YAML"
+        )
+
+    def test_default_preserves_behavior(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """Env unset (or =true) → YAML short-circuit fires, Gemma is skipped.
+
+        The bugfix ships the gate defaulting to "true" so merging it is
+        a no-op in production. This test pins that default by using the
+        same "Marketing → 52.14, no Gemma" expectation as the existing
+        short-circuit tests.
+        """
+        monkeypatch.delenv("INTENT_YAML_ENABLED", raising=False)
+        counters = _patch_gemma_and_audit_quiet(
+            monkeypatch, forbid_intent_generate=True
+        )
+
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=_iu_programs(),
+        )
+
+        assert result.matched_cip == "52.14"
+        assert result.confidence == "high"
+        assert "major_to_cip.yaml" in result.reasoning.lower()
+        assert counters["generate_calls"] == 0, (
+            "Default (env unset) must preserve the YAML short-circuit "
+            "and skip Gemma entirely"
+        )
+
+        # Explicit "true" must also preserve the short-circuit.
+        intent._intent_cache.clear()
+        monkeypatch.setenv("INTENT_YAML_ENABLED", "true")
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=_iu_programs(),
+        )
+        assert result.matched_cip == "52.14"
+        assert counters["generate_calls"] == 0, (
+            "Explicit INTENT_YAML_ENABLED=true must preserve the "
+            "YAML short-circuit"
+        )

@@ -258,6 +258,39 @@ class TestScoreAndNarrateSplit:
         # blank, but here we returned a real string for all).
         assert all(f.narrative == "Sync coach note." for f in gauntlet.fights)
 
+    def test_run_gauntlet_skips_gemma_for_unknown_fights(self, monkeypatch):
+        """Same UNKNOWN short-circuit as narrate_one, on the sync path.
+
+        Mirrors the async guard: when a fight's result is ``unknown``
+        the prompt has no register to narrate against, so we must use
+        the deterministic fallback and NEVER spend a Gemma call on it.
+        """
+        from app.services import gemma_client
+
+        captured: list[dict] = []
+
+        def fake_generate(**kwargs):
+            captured.append(kwargs)
+            return "Sync coach note."
+
+        monkeypatch.setattr(gemma_client, "generate", fake_generate)
+
+        # ern missing → ceiling fight is UNKNOWN; other stats present
+        # so their fights classify normally.
+        gauntlet = boss_fights.run_gauntlet(
+            _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=None, ern=None),
+            with_narratives=True,
+        )
+
+        ceiling = next(f for f in gauntlet.fights if f.boss == "ceiling")
+        assert ceiling.result == "unknown"
+        assert ceiling.narrative == boss_fights._fallback_narrative(ceiling)
+
+        # One Gemma call per non-unknown fight, none for the ceiling.
+        scored = [f for f in gauntlet.fights if f.result != "unknown"]
+        assert len(captured) == len(scored)
+        assert all(f.narrative == "Sync coach note." for f in scored)
+
 
 class TestNarrateOne:
     """Async ``narrate_one`` returns a coach string, falls back cleanly
@@ -292,6 +325,12 @@ class TestNarrateOne:
         assert "coach narrative" in text
 
     def test_narrate_one_falls_back_on_empty(self, monkeypatch):
+        """When Gemma returns empty for a scored fight, the degraded
+        fallback kicks in. Voice contract: no stat codes, no outcome
+        labels (WIN/LOSE/DRAW), no game framing (fight/boss/gauntlet),
+        no internal boss label — the student gets a short, honest,
+        tone-matched placeholder.
+        """
         from app.models.career import BossFightResult
         from app.services import gemma_client
 
@@ -314,9 +353,105 @@ class TestNarrateOne:
         text = asyncio.run(
             boss_fights.narrate_one(_career(roi=3), fight)
         )
-        # Fallback format — deterministic, never crashes the router.
-        assert "Fight Student Loans" in text
-        assert "LOSE" in text
+        assert text  # non-empty
+        # Voice contract — these strings MUST NOT appear in the
+        # fallback the student actually sees.
+        forbidden = [
+            "Fight Student Loans",
+            "LOSE",
+            "WIN",
+            "DRAW",
+            "boss",
+            "gauntlet",
+            "battle",
+            "ROI",
+            "ERN",
+        ]
+        for word in forbidden:
+            assert word not in text, (
+                f"degraded fallback leaked forbidden token {word!r}: {text!r}"
+            )
+
+    def test_unknown_ceiling_fallback_has_correct_voice(self):
+        """Reproduces the Illinois State Special Ed screenshot bug.
+
+        When the Ceiling has no data, the student must see an honest
+        'not enough data' line — in Gemma's voice, never a prompt-echo
+        and never a stat/game/outcome leak.
+        """
+        from app.models.career import BossFightResult
+
+        fight = BossFightResult(
+            boss="ceiling",  # type: ignore[arg-type]
+            label="Fight the Ceiling",
+            result="unknown",  # type: ignore[arg-type]
+            raw_score=None,
+            threshold_win=7,
+            threshold_draw=5,
+            reason="ceiling score unavailable",
+        )
+        text = boss_fights._fallback_narrative(fight)
+
+        # The line must communicate the no-data state in plain words.
+        assert "enough" in text.lower() or "not enough" in text.lower()
+
+        # Voice contract — never leak these.
+        forbidden = [
+            "Fight the Ceiling",
+            "boss",
+            "gauntlet",
+            "battle",
+            "WIN",
+            "LOSE",
+            "DRAW",
+            "ERN",
+            "ROI",
+            "RES",
+            "GRW",
+            "HMN",
+            "flagged for review",
+            "/10",
+        ]
+        for word in forbidden:
+            assert word not in text, (
+                f"unknown-ceiling fallback leaked forbidden token "
+                f"{word!r}: {text!r}"
+            )
+
+    def test_narrate_one_skips_gemma_when_result_unknown(self, monkeypatch):
+        """No-data bosses must NOT hit Gemma.
+
+        Gemma's narrative prompt only defines WIN / DRAW / LOSE
+        registers, so asking it to narrate an UNKNOWN result gets us a
+        prompt echo ("Please provide the WIN, DRAW, or LOSE result...")
+        which leaks straight into the UI. Short-circuit to the
+        deterministic no-data fallback instead.
+        """
+        from app.models.career import BossFightResult
+        from app.services import gemma_client
+
+        async def boom(**kwargs):
+            raise AssertionError(
+                "narrate_one must not call Gemma for unknown results"
+            )
+
+        monkeypatch.setattr(gemma_client, "generate_async", boom)
+
+        fight = BossFightResult(
+            boss="ceiling",  # type: ignore[arg-type]
+            label="Fight the Ceiling",
+            result="unknown",  # type: ignore[arg-type]
+            raw_score=None,
+            threshold_win=7,
+            threshold_draw=5,
+            reason="ceiling score unavailable",
+        )
+        import asyncio
+
+        text = asyncio.run(
+            boss_fights.narrate_one(_career(ceiling=None, ern=None), fight)
+        )
+        assert text == boss_fights._fallback_narrative(fight)
 
     def test_narrate_one_propagates_unexpected_exception(self, monkeypatch):
         """Unexpected bugs must bubble up — the router's

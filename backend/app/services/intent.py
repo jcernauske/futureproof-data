@@ -6,8 +6,10 @@ console output stays in the CLI; this module handles the data flow only.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import os
 import re
 import time
 from collections.abc import Mapping, Sequence
@@ -22,6 +24,16 @@ _intent_cache: dict[tuple[str, int], dict[str, Any]] = {}
 
 _CIP_PATTERN = re.compile(r"^\d{2}\.\d{4}$")
 _CIP_FAMILY_PATTERN = re.compile(r"^\d{2}\.\d{2}$")
+
+
+def _derive_intent_seed(prompt_input: str) -> int:
+    """Deterministic seed per input so the same student text produces the
+    same Gemma resolution across runs. Paired with temperature=0 this makes
+    the live demo reproducible without a cache layer. 32-bit unsigned int,
+    safely inside the OpenAI-compatible seed range."""
+    normalized = " ".join(prompt_input.strip().lower().split())
+    digest = hashlib.sha256(normalized.encode("utf-8")).digest()
+    return int.from_bytes(digest[:4], "big")
 
 
 def _promote_to_leaf_cip(
@@ -263,7 +275,8 @@ def _call_gemma_intent(
         system=system,
         user=f'Match this student input to a CIP code: "{prompt_input}"',
         max_tokens=700,
-        temperature=0.1,
+        temperature=0.0,
+        seed=_derive_intent_seed(prompt_input),
     )
     latency = time.perf_counter() - start
 
@@ -475,7 +488,18 @@ def resolve_intent(
     # _intent_cache. Cache writes are owned by confirm_intent and
     # happen only after the student confirms the match — same
     # invariant as the Gemma path.
-    deterministic = major_lookup.lookup_major(major_text)
+    #
+    # INTENT_YAML_ENABLED gate: set to "false" to skip the YAML
+    # short-circuit entirely so every input goes through Gemma. Read
+    # per-call (not at import) so tests and scripts can flip it via
+    # monkeypatch.setenv / os.environ assignment without a process
+    # restart. Default "true" preserves today's production behavior.
+    yaml_enabled = (
+        os.environ.get("INTENT_YAML_ENABLED", "true").strip().lower() == "true"
+    )
+    deterministic = (
+        major_lookup.lookup_major(major_text) if yaml_enabled else None
+    )
     if deterministic is not None:
         cip4 = str(deterministic.get("cip4", ""))
         title = str(deterministic.get("major", ""))
@@ -588,7 +612,17 @@ def confirm_intent(
     matched_title: str,
     major_text: str,
     unitid: int,
+    parent_cip: str = "",
 ) -> None:
+    """Persist a confirmed match in the intent cache.
+
+    ``parent_cip`` must be forwarded from the IntentResult the student
+    confirmed. The cache-hit branch at ``resolve_intent`` L451 returns
+    ``parent_cip=""`` when the key is missing — without this field,
+    every second lookup for the same (major_text, unitid) silently
+    drops the substitution signal the frontend needs. Default ``""`` for
+    back-compat with pre-fix clients that don't send it.
+    """
     normalized = major_text.lower().strip()
     cache_key = (normalized, unitid)
     _intent_cache[cache_key] = {
@@ -596,4 +630,5 @@ def confirm_intent(
         "title": matched_title,
         "confidence": "high",
         "confirmed_by_student": True,
+        "parent_cip": parent_cip,
     }
