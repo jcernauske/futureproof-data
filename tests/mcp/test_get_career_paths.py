@@ -48,6 +48,8 @@ def _make_row(
         "earnings_1yr_p25": 42000.0,
         "earnings_1yr_p75": 72000.0,
         "debt_median": 25000.0,
+        "debt_p25": 18000.0,
+        "debt_p75": 32000.0,
         "debt_to_earnings_annual": 0.45,
         "confidence_tier_program": "high",
         "median_annual_wage": 98580.0,
@@ -72,6 +74,13 @@ def _make_row(
         "tuition_in_state": 9_800.0,
         "tuition_out_of_state": 21_400.0,
         "room_board_on_campus": 11_500.0,
+        # Option B AI-exposure composite provenance (S4 v4).
+        "ai_adoption_share": 0.42,
+        "velocity_label": "moderate",
+        "composite_method": "weighted_blend",
+        "adoption_percentile": 58,
+        # Cost-based ROI provenance.
+        "roi_cost_basis": "net_price_annual",
     }
     row.update(overrides)
     return row
