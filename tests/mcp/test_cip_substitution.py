@@ -717,3 +717,46 @@ class TestErrorHandling:
             )
         assert result["data"] is None
         assert "crosswalk" in result["message"].lower()
+
+
+class TestMajorToCipLookupPathResolution:
+    """Regression anchor: the YAML loader must NOT rely on Path.cwd().
+
+    Before this was fixed, the loader used ``Path.cwd() /
+    "data/reference/major_to_cip.yaml"`` as its fallback. When uvicorn
+    was started from ``backend/`` (which is exactly what the user's
+    shell does), the YAML lived at ``repo/data/reference/`` but the
+    loader looked at ``backend/data/reference/`` — missed, silently
+    cached an empty list, and every substitution call fell through to
+    the broaden fallback. The bug was invisible to tests that
+    constructed servers with pre-populated ``_major_to_cip_cache``
+    (every other test in this file).
+
+    The loader now walks up from the module file looking for the YAML,
+    the same strategy ``major_lookup.py`` uses. Test by running from a
+    cwd outside the repo and asserting the lookup still resolves the
+    shipped YAML.
+    """
+
+    def test_loader_resolves_yaml_from_non_repo_cwd(
+        self, tmp_path, monkeypatch
+    ):
+        from mcp_server.futureproof_server import FutureProofMCPServer
+
+        monkeypatch.chdir(tmp_path)
+
+        # Fresh server instance — real loader path, no fake cache.
+        server = FutureProofMCPServer.__new__(FutureProofMCPServer)
+        server._major_to_cip_cache = None
+
+        entries = server._load_major_to_cip_lookup()
+        # Must find the shipped YAML without relying on cwd.
+        assert entries, (
+            "YAML loader returned an empty list from a non-repo cwd — "
+            "this is the exact failure that masked the IU+Marketing "
+            "substitution at runtime."
+        )
+        # Spot-check the canonical entry so a future YAML rewrite that
+        # drops Marketing doesn't let this regression back in.
+        majors = {str(e.get("major", "")).lower() for e in entries}
+        assert "marketing" in majors
