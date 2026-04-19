@@ -1415,17 +1415,42 @@ class FutureProofMCPServer(BaseMCPServer):
         the parsed list. Missing or malformed files log a warning and
         return an empty list so substitution degrades to the standard
         path rather than breaking the handler.
+
+        Path resolution is cwd-independent: we first ask Brightsmith for
+        ``PROJECT_ROOT``, and on failure walk up from this module file
+        looking for the YAML. Previously this fell back to ``Path.cwd()``,
+        which silently no-op'd substitution whenever uvicorn was started
+        from ``backend/`` — the YAML isn't at ``backend/data/reference/``,
+        so the handler loaded an empty list and every intent lookup
+        returned None. Same failure mode the ``major_lookup`` module was
+        written to dodge; mirror its walk-up strategy here.
         """
         if self._major_to_cip_cache is not None:
             return self._major_to_cip_cache
+        root: Path | None = None
         try:
             from brightsmith.config import PROJECT_ROOT
             root = Path(PROJECT_ROOT)
         except Exception:
-            root = Path.cwd()
-        path = root / MAJOR_TO_CIP_LOOKUP_PATH
-        if not path.exists():
-            logger.warning("major_to_cip.yaml not found at %s", path)
+            root = None
+        path: Path | None = None
+        if root is not None:
+            candidate = root / MAJOR_TO_CIP_LOOKUP_PATH
+            if candidate.is_file():
+                path = candidate
+        if path is None:
+            rel = Path(MAJOR_TO_CIP_LOOKUP_PATH)
+            for parent in Path(__file__).resolve().parents:
+                candidate = parent / rel
+                if candidate.is_file():
+                    path = candidate
+                    break
+        if path is None:
+            logger.warning(
+                "major_to_cip.yaml not found via Brightsmith PROJECT_ROOT "
+                "or walk-up from %s",
+                Path(__file__).resolve().parent,
+            )
             self._major_to_cip_cache = []
             return self._major_to_cip_cache
         try:
