@@ -81,7 +81,7 @@ describe("HowItWorksSection", () => {
     );
   });
 
-  it("each card contains a screenshot with descriptive alt text", () => {
+  it("each card contains decorative thematic art marked aria-hidden", () => {
     render(<HowItWorksSection />);
     const cards = [
       "landing-how-stats-card",
@@ -90,12 +90,11 @@ describe("HowItWorksSection", () => {
     ];
     cards.forEach((id) => {
       const card = document.getElementById(id);
-      const img = card?.querySelector("img");
-      expect(img).not.toBeNull();
-      // Alt text must be non-empty for a11y — the spec ships each with a specific alt.
-      expect(img?.getAttribute("alt")?.length ?? 0).toBeGreaterThan(20);
-      expect(img?.getAttribute("loading")).toBe("lazy");
-      expect(img?.getAttribute("decoding")).toBe("async");
+      // Each card has a decorative art element (aria-hidden div containing
+      // a thematic SVG or styled DOM). Decorative art is intentionally
+      // unannounced — the heading + body do the screen-reader work.
+      const art = card?.querySelector("[aria-hidden]");
+      expect(art).not.toBeNull();
     });
   });
 

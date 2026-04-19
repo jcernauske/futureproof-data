@@ -1,4 +1,4 @@
-import { ScreenshotWithFallback } from "./ScreenshotWithFallback";
+import { ReceiptPanelArt } from "./ReceiptPanelArt";
 
 /**
  * Section D — Receipts Story
@@ -27,18 +27,13 @@ export function ReceiptsSection() {
   return (
     <section
       id="landing-section-receipts"
-      className="relative border-t border-border-subtle px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-32"
+      className="relative px-6 tablet:px-10 py-16 tablet:py-20 desktop:py-32"
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[120px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 100% at 50% 0%, rgba(184, 169, 232, 0.18) 0%, transparent 65%)",
-        }}
-      />
       <div className="mx-auto max-w-[1280px] grid grid-cols-1 desktop:grid-cols-12 gap-10 desktop:gap-16 items-center">
         <div className="desktop:col-span-7 max-w-[62ch]">
+          <p className="font-data text-micro tracking-[0.2em] uppercase text-accent-insight mb-4">
+            Evidence
+          </p>
           <h2 className="font-display font-bold text-heading tablet:text-title text-text-primary">
             Every number is tappable.
           </h2>
@@ -74,13 +69,9 @@ export function ReceiptsSection() {
             }}
             aria-hidden
           />
-          <ScreenshotWithFallback
-            id="landing-receipts-screenshot"
-            slug="04-receipt-panel"
-            alt="Expanded stat receipt panel showing raw inputs, thresholds, and source datasets."
-            tone="insight"
-            className="w-full aspect-[9/16] object-cover rounded-xl border border-border shadow-lg relative"
-          />
+          <div id="landing-receipts-screenshot" className="relative">
+            <ReceiptPanelArt />
+          </div>
         </div>
       </div>
     </section>

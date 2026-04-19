@@ -16,6 +16,9 @@ export function TeamSection() {
         className="absolute left-1/2 top-0 h-[80px] w-px -translate-x-1/2 bg-gradient-to-b from-border-subtle to-transparent"
       />
       <div className="mx-auto max-w-[640px] text-center">
+        <p className="font-data text-micro tracking-[0.2em] uppercase text-accent-empathy mb-4">
+          Team
+        </p>
         <h2 className="font-display font-bold text-heading text-text-primary">
           Who built this.
         </h2>
