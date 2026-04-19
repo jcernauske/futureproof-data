@@ -15,6 +15,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+import yaml
+from brightsmith.mcp.base_mcp_server import BaseMCPServer, ResourceDef, ToolDef
+
+from mcp_server._state_input import FIPS_TO_STATE_NAME, normalize_state_input
+
 # Fields in program_career_paths and onet_work_profiles that are
 # persisted as JSON-encoded strings but should be returned to callers
 # as native Python objects. task_breakdown_* added in v4 of
@@ -45,11 +50,6 @@ def _decode_json_struct_fields(row: dict) -> dict:
             except (json.JSONDecodeError, TypeError):
                 pass
     return row
-
-import yaml
-from brightsmith.mcp.base_mcp_server import BaseMCPServer, ResourceDef, ToolDef
-
-from mcp_server._state_input import FIPS_TO_STATE_NAME, normalize_state_input
 
 logger = logging.getLogger(__name__)
 
@@ -1487,6 +1487,20 @@ class FutureProofMCPServer(BaseMCPServer):
         """Return the 2-digit family prefix of a CIP code."""
         return cipcode.split(".", 1)[0] if "." in cipcode else cipcode[:2]
 
+    @staticmethod
+    def _canonical_cip4(cipcode: str) -> str:
+        """Normalize an arbitrary CIP code to the 4-digit XX.YY form.
+
+        ``consumable.career_outcomes`` and ``consumable.program_career_paths``
+        are both stored at 4-digit granularity. Callers (Gemma, frontend,
+        YAML) may hand in 6-digit forms (``"52.0100"``, ``"52.0101"``,
+        ``"52.1401"``) that exact-equals queries against either table will
+        miss. Normalize to the 4-digit prefix at every filter site.
+        """
+        if not cipcode:
+            return cipcode
+        return cipcode[:5] if len(cipcode) >= 5 else cipcode
+
     def _fetch_crosswalk_socs(self, cip4: str) -> list[str]:
         """Return distinct SOC codes for a 4-digit CIP prefix.
 
@@ -1536,9 +1550,12 @@ class FutureProofMCPServer(BaseMCPServer):
         from gold.futureproof_engine import compute_stat_ern, compute_stat_roi
 
         # 1. School's broad-CIP row from career_outcomes.
+        #    career_outcomes is stored at 4-digit granularity; canonicalize
+        #    the caller-supplied cipcode so 6-digit forms ("52.0100") match.
+        canonical_reported = self._canonical_cip4(reported_cipcode)
         co_rows = self.query_iceberg_simple(
             CAREER_OUTCOMES_TABLE,
-            filters={"unitid": unitid, "cipcode": reported_cipcode},
+            filters={"unitid": unitid, "cipcode": canonical_reported},
             columns=_SUB_CO_FIELDS,
             limit=1,
         )
@@ -1547,7 +1564,7 @@ class FutureProofMCPServer(BaseMCPServer):
         if not co_rows:
             return None, (
                 f"No career_outcomes row for unitid={unitid}, "
-                f"cipcode='{reported_cipcode}'; cannot substitute."
+                f"cipcode='{canonical_reported}'; cannot substitute."
             )
         school = co_rows[0]
         cip_fam_rank = school.get("cip_family_earnings_rank")
@@ -1742,7 +1759,12 @@ class FutureProofMCPServer(BaseMCPServer):
             }
             return prefix_rows, caveat
 
-        # Attempt 2: General CIP for this family (XX.0100)
+        # Attempt 2: General CIP for this family (XX.0100).
+        # NOTE: career_transitions (valid_rows) is stored at 4-digit
+        # granularity — this equality against the 6-digit padded form
+        # cannot match today and never has. Known-dead branch, retained
+        # here for audit trail; canonicalizing is deferred per
+        # bugfix-broad-cip-substitution-and-intent §4.
         general_cip = f"{family}.0100"
         general_rows = [
             r for r in valid_rows
@@ -1856,8 +1878,9 @@ class FutureProofMCPServer(BaseMCPServer):
             limit=50,
         )
         school_row = None
+        canonical_cip = self._canonical_cip4(cipcode)
         for r in co_rows:
-            if "error" not in r and str(r.get("cipcode", "")) == cipcode:
+            if "error" not in r and str(r.get("cipcode", "")) == canonical_cip:
                 school_row = r
                 break
         if school_row is None:
@@ -2081,6 +2104,10 @@ class FutureProofMCPServer(BaseMCPServer):
         if substitution is not None:
             entry = substitution["entry"]
             matched_cip4 = substitution["matched_cip4"]
+            # Canonicalize the reported cipcode so the caveat and response
+            # root always surface the 4-digit form regardless of what the
+            # caller handed in ("52.01" vs "52.0100").
+            canonical_reported = self._canonical_cip4(cipcode)
             rows, err = self._build_substituted_rows(
                 unitid=unitid_value,
                 reported_cipcode=cipcode,
@@ -2113,7 +2140,7 @@ class FutureProofMCPServer(BaseMCPServer):
                     f"This school does not report "
                     f"{entry.get('major')}-specific outcome data."
                 ),
-                "reported_cipcode": cipcode,
+                "reported_cipcode": canonical_reported,
                 "substituted_cipcode": matched_cip4,
                 "substituted_program": entry.get("major"),
                 "earnings_specificity": "school_broad",
@@ -2124,7 +2151,7 @@ class FutureProofMCPServer(BaseMCPServer):
                 "data": rows,
                 "row_count": len(rows),
                 "substitution_applied": True,
-                "reported_cipcode": cipcode,
+                "reported_cipcode": canonical_reported,
                 "substituted_cipcode": matched_cip4,
                 "student_major": student_major,
                 "data_caveat": caveat,
@@ -2134,9 +2161,13 @@ class FutureProofMCPServer(BaseMCPServer):
         # ------------------------------------------------------------------
         # Standard path
         # ------------------------------------------------------------------
+        # program_career_paths and career_outcomes are both stored at
+        # 4-digit granularity; canonicalize once here so every downstream
+        # filter and response field reflects the actual lookup key.
+        canonical_cipcode = self._canonical_cip4(cipcode)
         rows = self.query_iceberg_simple(
             CAREER_PATHS_TABLE,
-            filters={"unitid": unitid_value, "cipcode": cipcode},
+            filters={"unitid": unitid_value, "cipcode": canonical_cipcode},
             columns=CAREER_PATHS_RESPONSE_FIELDS,
             limit=CAREER_PATHS_SCAN_LIMIT,
         )
@@ -2168,7 +2199,7 @@ class FutureProofMCPServer(BaseMCPServer):
                         "data": broadened_rows,
                         "row_count": len(broadened_rows),
                         "substitution_applied": True,
-                        "reported_cipcode": cipcode,
+                        "reported_cipcode": canonical_cipcode,
                         "substituted_cipcode": broadened_caveat.get("broadened_to", ""),
                         "data_caveat": broadened_caveat,
                     },
@@ -2178,7 +2209,7 @@ class FutureProofMCPServer(BaseMCPServer):
             # ── Tier 2: Gemma SOC resolution (AI-estimated) ──
             programs = self.query_iceberg_simple(
                 CAREER_OUTCOMES_TABLE,
-                filters={"unitid": unitid_value, "cipcode": cipcode},
+                filters={"unitid": unitid_value, "cipcode": canonical_cipcode},
                 columns=["program_name"],
                 limit=1,
             )
@@ -2199,7 +2230,7 @@ class FutureProofMCPServer(BaseMCPServer):
                         "data": gemma_rows,
                         "row_count": len(gemma_rows),
                         "substitution_applied": True,
-                        "reported_cipcode": cipcode,
+                        "reported_cipcode": canonical_cipcode,
                         "data_caveat": gemma_caveat,
                     },
                     CAREER_PATHS_TABLE,

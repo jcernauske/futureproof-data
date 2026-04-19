@@ -685,3 +685,410 @@ def test_promote_to_leaf_cip_is_identity_on_valid_6_digit() -> None:
         intent._promote_to_leaf_cip("13.1001", "13.10", school_cips=[])
         == "13.1001"
     )
+
+
+# ---------------------------------------------------------------------------
+# TestDeterministicShortCircuit — P0/P1 cases from §4 of
+# bugfix-broad-cip-substitution-and-intent.md.
+#
+# These tests pin the invariants of the YAML short-circuit that was added
+# in §6. Specifically:
+#
+#   - Known majors skip the Gemma intent call entirely (but the audit
+#     step may still fire, per the existing contract).
+#   - The returned IntentResult's parent_cip is derived from the school's
+#     reported programs, NOT hardcoded to "". This is load-bearing for
+#     the frontend's substitution affordance gate (MajorInput.tsx:102).
+#   - Cache writes are owned by confirm_intent; the short-circuit does
+#     not populate _intent_cache.
+#   - Unknown majors fall through to Gemma unchanged.
+# ---------------------------------------------------------------------------
+
+
+def _iu_programs() -> list[dict[str, Any]]:
+    """IU-Bloomington reports 52.01 (broad business) + 52.10 (HR).
+
+    This mirrors the real IU program list used in
+    ``tests/mcp/test_cip_substitution.py`` fixtures. Marketing/52.14 is
+    NOT in this list — that is exactly the scenario the substitution
+    flow was built for, and the scenario ``parent_cip`` must reflect.
+    """
+    return [
+        {"cipcode": "52.01", "program_name": "Business/Commerce, General"},
+        {"cipcode": "52.10", "program_name": "Human Resources"},
+    ]
+
+
+def _patch_gemma_and_audit_quiet(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    forbid_intent_generate: bool = False,
+) -> dict[str, int]:
+    """Install stubs that let the short-circuit run undisturbed.
+
+    - ``gemma_client.generate`` is patched to either raise (when
+      ``forbid_intent_generate`` is True — any call would be a bug because
+      the short-circuit should skip Gemma entirely for known majors) or
+      increment a call counter so the test can assert it was NOT called.
+    - ``_audit_intent_mapping`` is patched to return None (the "audit
+      quiets silently" fallback that the service already uses when the
+      audit Gemma call fails).
+    - ``mcp_client.get_server`` returns a stub whose ``query_iceberg``
+      yields an empty list — so ``_get_school_cips`` (and any other
+      Iceberg query the short-circuit triggers) returns []. That matches
+      the Gemma path's behavior when there's no catalog on disk and keeps
+      the short-circuit from hitting the real warehouse.
+    """
+    counters = {"generate_calls": 0}
+
+    def _generate(**kwargs: Any) -> str:
+        counters["generate_calls"] += 1
+        if forbid_intent_generate:
+            raise AssertionError(
+                "gemma_client.generate must not be called on the "
+                "deterministic short-circuit path."
+            )
+        return "{}"
+
+    monkeypatch.setattr(intent.gemma_client, "generate", _generate)
+    monkeypatch.setattr(intent, "_audit_intent_mapping", lambda *a, **kw: None)
+
+    class _EmptyServer:
+        def query_iceberg(self, sql: str) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(intent.mcp_client, "get_server", lambda: _EmptyServer())
+    return counters
+
+
+class TestDeterministicShortCircuit:
+    """The YAML-match short-circuit that Bug B's prompt rewrite stopped
+    depending on Gemma's judgment for known majors."""
+
+    def test_marketing_skips_gemma(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """Exact "Marketing" input → YAML hit, Gemma is never called."""
+        counters = _patch_gemma_and_audit_quiet(
+            monkeypatch, forbid_intent_generate=True
+        )
+
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=_iu_programs(),
+        )
+
+        assert result.matched_cip == "52.14"
+        assert result.matched_title == "Marketing"
+        assert result.confidence == "high"
+        assert "major_to_cip.yaml" in result.reasoning.lower(), (
+            "Reasoning must advertise the deterministic source so "
+            "downstream UI / logs can distinguish this path from Gemma's"
+        )
+        # The short-circuit is the whole point — generate MUST NOT fire.
+        assert counters["generate_calls"] == 0
+
+    def test_parent_cip_set_when_school_reports_broad_family(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """Marketing-at-IU: parent_cip = 52.01 (frontend substitution signal).
+
+        This is the bug fix's core UX contract — if parent_cip is empty
+        here, ``MajorInput.tsx:102`` renders "no substitution" on the
+        confirm card while ``/build/outcomes`` silently substitutes.
+        Confirm card lies → user confusion.
+        """
+        _patch_gemma_and_audit_quiet(monkeypatch)
+
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=_iu_programs(),
+        )
+
+        assert result.parent_cip == "52.01", (
+            "IU reports the broad 52.01; parent_cip must surface it so "
+            "the frontend substitution affordance lights up"
+        )
+
+    def test_parent_cip_empty_when_school_reports_specific_cip(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """When the school reports 52.14 directly, no substitution is
+        needed and parent_cip must be empty — anything else would cause
+        the frontend to draw the substitution affordance for a school
+        that doesn't need substitution."""
+        _patch_gemma_and_audit_quiet(monkeypatch)
+
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="A School That Reports 52.14",
+            unitid=999999,
+            programs=[
+                {"cipcode": "52.14", "program_name": "Marketing"},
+                {"cipcode": "52.10", "program_name": "Human Resources"},
+            ],
+        )
+
+        assert result.matched_cip == "52.14"
+        assert result.parent_cip == "", (
+            "Exact school-report of the cip4 → no substitution will "
+            "apply; parent_cip must be empty"
+        )
+
+    def test_parent_cip_empty_when_no_same_family_broad(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """Different-family programs: no same-family broad CIP exists,
+        so no substitution parent to surface. Outcomes path will handle
+        the miss via its broadening fallback; confirm card correctly
+        shows no substitution affordance."""
+        _patch_gemma_and_audit_quiet(monkeypatch)
+
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Some Non-Business School",
+            unitid=888888,
+            programs=[
+                {"cipcode": "11.07", "program_name": "Computer Science"},
+                {"cipcode": "14.01", "program_name": "Engineering, General"},
+            ],
+        )
+
+        assert result.matched_cip == "52.14"
+        assert result.parent_cip == "", (
+            "No same-family broad CIP in programs → parent_cip is empty"
+        )
+
+    def test_alias_match_skips_gemma(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """Alias hits (e.g. 'mktg' for Marketing) take the short-circuit.
+
+        Without alias support, users who type shorthand would fall
+        through to Gemma and re-open the prompt-bias failure mode.
+        """
+        counters = _patch_gemma_and_audit_quiet(
+            monkeypatch, forbid_intent_generate=True
+        )
+
+        result = intent.resolve_intent(
+            major_text="mktg",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=_iu_programs(),
+        )
+
+        assert result.matched_cip == "52.14"
+        assert result.matched_title == "Marketing"
+        assert result.confidence == "high"
+        assert counters["generate_calls"] == 0
+
+    def test_unknown_major_falls_through_to_gemma(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """Unknown-major inputs skip the short-circuit and call Gemma.
+
+        The short-circuit is only for YAML-covered majors. Coverage gaps
+        (Education 6-digit, entire Nursing family, etc. — tracked
+        separately) must still reach Gemma or we'd regress those.
+        """
+        payload = {
+            "matched_cip": "99.9999",
+            "matched_title": "Truly Nonsense",
+            "confidence": "low",
+            "reasoning": "Guessing.",
+            "parent_cip": "",
+            "alternatives": [],
+        }
+        fake_generate = _make_generate_mock(payload)
+        monkeypatch.setattr(intent.gemma_client, "generate", fake_generate)
+        # Install the empty stub server so ``_get_school_cips`` / crosswalk
+        # queries don't hit the real warehouse.
+        _install_school_catalog(monkeypatch, school_cips=[])
+
+        # "Underwater basket weaving" is explicitly called out in §1 of the
+        # spec as the sentinel for "not in YAML → falls through to Gemma".
+        # Gemma's response is structurally valid (99.9999 passes _CIP_PATTERN)
+        # so resolve_intent returns normally rather than raising.
+        result = intent.resolve_intent(
+            major_text="Underwater basket weaving",
+            school_name="Anywhere State",
+            unitid=42,
+            programs=_iu_programs(),
+        )
+
+        # At least one call to gemma_client.generate for the intent step.
+        # (Audit would make it two, but that fires regardless.) What we
+        # care about is that the call_log is non-empty — the
+        # short-circuit did NOT skip Gemma.
+        assert len(fake_generate.call_log) >= 1, (
+            "Unknown-major input must still reach Gemma"
+        )
+        assert result.matched_cip == "99.9999"
+
+    def test_short_circuit_does_not_write_cache(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """After a YAML short-circuit hit, _intent_cache must be empty.
+
+        Cache writes are owned by ``confirm_intent`` (the student clicks
+        "yes, this is my major" → persisted). The short-circuit is part
+        of resolve_intent and must not pre-populate the cache, or the
+        student's subsequent clarifications would be silently ignored.
+        """
+        _patch_gemma_and_audit_quiet(monkeypatch)
+
+        assert not intent._intent_cache, "Precondition: cache starts empty"
+
+        intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=_iu_programs(),
+        )
+
+        # The cache key would be ("marketing", 151351) — a Gemma-path
+        # resolve_intent does NOT write the cache either (only
+        # confirm_intent does), so the short-circuit path must match.
+        assert ("marketing", 151351) not in intent._intent_cache
+        # Defensive: the entire cache must be empty since no other test
+        # in this module mutates it (the autouse fixture clears it).
+        assert intent._intent_cache == {}
+
+    def test_short_circuit_runs_audit(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_gemma_config: None,
+    ) -> None:
+        """The audit step fires on the short-circuit path so audit_flag
+        and audit_message propagate identically to the Gemma path.
+
+        Rationale: the short-circuit trades Gemma's judgment for the
+        YAML's known answer, but the audit is an *independent* safety
+        net that catches adversarial inputs the YAML never considered.
+        Short-circuiting the audit would silently drop that safety net.
+        """
+        audit_calls: list[tuple[str, str, str, list[str]]] = []
+
+        def _fake_audit(
+            student_input: str,
+            matched_cip: str,
+            matched_title: str,
+            career_titles: list[str],
+        ) -> dict[str, Any]:
+            audit_calls.append(
+                (student_input, matched_cip, matched_title, career_titles)
+            )
+            return {
+                "valid": True,
+                "tone": "playful_warning",
+                "message": "Marketing is a real major. Proceed.",
+            }
+
+        # Same plumbing as _patch_gemma_and_audit_quiet, but we override
+        # the audit patch with a real capturer.
+        def _generate(**kwargs: Any) -> str:
+            return "{}"
+
+        monkeypatch.setattr(intent.gemma_client, "generate", _generate)
+        monkeypatch.setattr(intent, "_audit_intent_mapping", _fake_audit)
+
+        class _EmptyServer:
+            def query_iceberg(self, sql: str) -> list[dict[str, Any]]:
+                return []
+
+        monkeypatch.setattr(
+            intent.mcp_client, "get_server", lambda: _EmptyServer()
+        )
+
+        result = intent.resolve_intent(
+            major_text="Marketing",
+            school_name="Indiana University-Bloomington",
+            unitid=151351,
+            programs=_iu_programs(),
+        )
+
+        # Audit MUST have fired.
+        assert len(audit_calls) == 1
+        student_input, matched_cip, matched_title, _careers = audit_calls[0]
+        assert student_input == "Marketing"
+        assert matched_cip == "52.14"
+        assert matched_title == "Marketing"
+        # The audit's tone must propagate onto the result.
+        assert result.audit_flag == "playful_warning"
+        assert result.audit_message == "Marketing is a real major. Proceed."
+
+
+# ---------------------------------------------------------------------------
+# TestPromptCopy — P2 snapshot of the prompt body (post-rewrite).
+#
+# Guards against accidental regressions toward the pre-rewrite framing
+# that caused Bug B: the old prompt's "these have earnings data" / "these
+# have career path data" split biased Gemma toward school-reported CIPs.
+# The rewrite (@fp-copywriter §10) explicitly tells Gemma the backend
+# blends earnings and both CIP lists are equal match candidates.
+# ---------------------------------------------------------------------------
+
+
+class TestPromptCopy:
+    """Lightweight snapshot of the _INTENT_SYSTEM_PROMPT body."""
+
+    def test_prompt_does_not_bias_toward_school_cips(self) -> None:
+        """The rewritten prompt must:
+
+        - Kill the asymmetric labels that caused Bug B.
+        - Explicitly direct Gemma to pick the most specific CIP.
+        - Surface the "backend blends earnings" invariant so Gemma
+          stops dodging the substitution flow to 'preserve' earnings.
+        - Treat both CIP lists as equal candidates.
+        """
+        prompt = intent._INTENT_SYSTEM_PROMPT
+
+        # The three exact strings the old prompt used to bias Gemma:
+        # "(these have earnings data)" on the school list and "these
+        # have career path data" on the crosswalk list. Either phrase
+        # returning is a regression to Bug B.
+        assert "these have earnings data" not in prompt, (
+            "Old earnings-data bias phrase is back — this is the exact "
+            "copy that caused Bug B"
+        )
+        assert "these have career path data" not in prompt, (
+            "Old career-path-data framing is back — same bug"
+        )
+
+        # Positive assertions — the rewrite's load-bearing signals must
+        # be present. Keep these loose (substring, case-insensitive) so
+        # minor wording tweaks don't break the test, but the contract
+        # itself does.
+        lowered = prompt.lower()
+        assert "most specific cip" in lowered, (
+            "Prompt must instruct Gemma to pick the most specific CIP"
+        )
+        assert "blends earnings" in lowered or "blend earnings" in lowered, (
+            "Prompt must tell Gemma the backend handles earnings blending"
+        )
+        # Format keys that _call_gemma_intent needs — if these drift the
+        # .format() call will KeyError at runtime. Fail fast here.
+        for key in ("{student_input}", "{school_name}",
+                    "{school_cip_list}", "{crosswalk_cip_list}"):
+            assert key in prompt, (
+                f"Prompt is missing required format key {key!r}"
+            )
