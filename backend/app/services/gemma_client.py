@@ -185,6 +185,7 @@ def generate(
     user: str,
     max_tokens: int = 500,
     temperature: float = 0.7,
+    seed: int | None = None,
     model: str | None = None,
     extra: dict[str, Any] | None = None,
 ) -> str:
@@ -193,6 +194,11 @@ def generate(
     Returns an empty string on failure — narratives are best-effort and
     must never crash the CLI. Callers log the error and fall back to a
     static placeholder.
+
+    ``seed`` forwards to the OpenAI-compatible ``seed`` parameter when
+    set. Both OpenRouter and Ollama accept it; with ``temperature=0`` it
+    makes output reproducible for a given (prompt, model, seed) tuple,
+    which is what demo determinism depends on.
 
     ``extra`` is merged into the JSONL log record — use it to stamp
     ``call_site`` and any other call-specific correlation fields so
@@ -203,6 +209,7 @@ def generate(
         messages=[{"role": "user", "content": user}],
         max_tokens=max_tokens,
         temperature=temperature,
+        seed=seed,
         model=model,
         extra=extra,
     )
@@ -214,6 +221,7 @@ def generate_chat(
     messages: list[dict],
     max_tokens: int = 500,
     temperature: float = 0.7,
+    seed: int | None = None,
     model: str | None = None,
     extra: dict[str, Any] | None = None,
 ) -> str:
@@ -222,6 +230,8 @@ def generate_chat(
     ``messages`` is an OpenAI-format list of ``{"role", "content"}`` dicts
     (without the system message — that's passed separately). Returns an
     empty string on failure, same failure contract as ``generate()``.
+
+    ``seed`` forwards to the OpenAI-compatible ``seed`` parameter when set.
 
     ``extra`` is merged into the JSONL log record.
     """
@@ -234,6 +244,7 @@ def generate_chat(
         "model": resolved_model,
         "max_tokens": max_tokens,
         "temperature": temperature,
+        "seed": seed,
         "messages": full_messages,
     }
     if extra:
@@ -243,13 +254,17 @@ def generate_chat(
         record = {**extra, **record}
     started = time.perf_counter()
 
+    completion_kwargs: dict[str, Any] = {
+        "model": resolved_model,
+        "messages": full_messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if seed is not None:
+        completion_kwargs["seed"] = seed
+
     try:
-        response = client.chat.completions.create(
-            model=resolved_model,
-            messages=full_messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        response = client.chat.completions.create(**completion_kwargs)
     except Exception as exc:
         record["duration_ms"] = int((time.perf_counter() - started) * 1000)
         record["error"] = f"{type(exc).__name__}: {exc}"
@@ -298,6 +313,7 @@ async def generate_async(
     user: str,
     max_tokens: int = 500,
     temperature: float = 0.7,
+    seed: int | None = None,
     model: str | None = None,
     extra: dict[str, Any] | None = None,
 ) -> str:
@@ -318,6 +334,7 @@ async def generate_async(
             user=user,
             max_tokens=max_tokens,
             temperature=temperature,
+            seed=seed,
             model=model,
             extra=extra,
         )
@@ -329,6 +346,7 @@ async def generate_chat_async(
     messages: list[dict],
     max_tokens: int = 500,
     temperature: float = 0.7,
+    seed: int | None = None,
     model: str | None = None,
 ) -> str:
     """Async variant of :func:`generate_chat` — same semaphore discipline."""
@@ -340,6 +358,7 @@ async def generate_chat_async(
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
+            seed=seed,
             model=model,
         )
 

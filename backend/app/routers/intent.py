@@ -26,5 +26,6 @@ async def confirm_intent(request: IntentConfirmRequest):
         matched_title=request.matched_title,
         major_text=request.major_text,
         unitid=request.unitid,
+        parent_cip=request.parent_cip,
     )
     return {"cached": True}
