@@ -470,14 +470,25 @@ class TestCreateBuildPartialFailureFallback:
                 f"{fight.boss} narrative got clobbered: {fight.narrative!r}"
             )
 
-        # The failing site fell back to the deterministic string.
+        # The failing site fell back to the deterministic string. The
+        # fallback must carry Gemma's voice: non-empty, but never leaks
+        # the internal boss label, outcome pill, stat codes, or game
+        # framing (see _NARRATIVE_SYSTEM rules in boss_fights.py).
         market_fight = next(
             f for f in build.gauntlet.fights if f.boss == "market"
         )
         assert market_fight.narrative != ""
-        assert "Fight the Market" in market_fight.narrative
-        # Fallback format includes the result pill in caps.
-        assert market_fight.result.upper() in market_fight.narrative
+        for forbidden in (
+            "Fight the Market",
+            "boss",
+            "gauntlet",
+            market_fight.result.upper(),
+            "GRW",
+        ):
+            assert forbidden not in market_fight.narrative, (
+                f"market degraded fallback leaked {forbidden!r}: "
+                f"{market_fight.narrative!r}"
+            )
 
         # Recs/pool/guidance still succeeded.
         assert build.guidance == "async guidance"
