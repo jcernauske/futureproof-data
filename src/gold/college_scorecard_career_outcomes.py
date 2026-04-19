@@ -512,7 +512,7 @@ def transform(
     silver_table = silver_catalog.load_table("base.college_scorecard")
 
     # Read via PyIceberg scan -> Arrow (same pattern as Silver transformer)
-    arrow_table = silver_table.scan().to_arrow()
+    arrow_table = silver_table.scan().to_arrow()  # noqa: F841  (DuckDB auto-registers by local name)
     con = duckdb.connect()
     result = con.sql("SELECT * FROM arrow_table").fetchall()
     columns = [field.name for field in silver_table.schema().fields]

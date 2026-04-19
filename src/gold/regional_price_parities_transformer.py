@@ -171,7 +171,7 @@ def transform(
     silver_catalog = get_catalog(silver_warehouse, catalog_path)
     silver_table = silver_catalog.load_table("base.bea_rpp")
 
-    arrow_table = silver_table.scan().to_arrow()
+    arrow_table = silver_table.scan().to_arrow()  # noqa: F841  (DuckDB auto-registers by local name)
     con = duckdb.connect()
     result = con.sql("SELECT * FROM arrow_table").fetchall()
     columns = [field.name for field in silver_table.schema().fields]

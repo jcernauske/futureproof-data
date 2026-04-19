@@ -8,7 +8,6 @@ staff-engineer requirement.
 import datetime
 import json
 
-import pytest
 
 from silver.onet_transformer import (
     BURNOUT_ELEMENT_IDS,
@@ -573,8 +572,6 @@ class TestConstants:
     def test_no_spec_incorrect_burnout_ids(self):
         """Verify the incorrect spec IDs are NOT in our set."""
         wrong_ids = {"4.C.3.d.5", "4.C.3.d.7", "4.C.3.b.2", "4.C.3.d.4_wrong"}
-        # 4.C.3.d.5 and 4.C.3.d.7 do not exist in data
-        assert "4.C.3.d.5" not in BURNOUT_ELEMENT_IDS
-        assert "4.C.3.d.7" not in BURNOUT_ELEMENT_IDS
+        assert BURNOUT_ELEMENT_IDS.isdisjoint(wrong_ids)
         # 4.C.3.b.2 is "Degree of Automation" (wrong), we use 4.C.3.a.2.b
         assert "4.C.3.a.2.b" in BURNOUT_ELEMENT_IDS
