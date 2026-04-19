@@ -394,7 +394,7 @@ def transform(
 
     def _read_table(table_name: str) -> list[dict]:
         tbl = silver_catalog.load_table(table_name)
-        arrow = tbl.scan().to_arrow()
+        arrow = tbl.scan().to_arrow()  # noqa: F841  (DuckDB auto-registers by local name)
         con = duckdb.connect()
         rows_raw = con.sql("SELECT * FROM arrow").fetchall()
         cols = [field.name for field in tbl.schema().fields]

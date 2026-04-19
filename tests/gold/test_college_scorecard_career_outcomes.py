@@ -10,7 +10,6 @@ import pytest
 
 from gold.college_scorecard_career_outcomes import (
     CSI_ENRICHMENT_COLUMNS,
-    GOLD_SQL,
     GRAIN_FIELDS,
     GRAIN_PREFIX,
     _snap_outcome_completeness,

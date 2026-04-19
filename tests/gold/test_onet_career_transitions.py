@@ -7,7 +7,6 @@ these exceed the minimum 15 tests for consumable zone.
 
 import datetime
 
-import pytest
 
 from gold.onet_career_transitions import (
     GRAIN_FIELDS,

@@ -10,7 +10,6 @@ import datetime
 import pytest
 
 from gold.bls_ooh_occupation_profiles import (
-    GOLD_SQL,
     GRAIN_FIELDS,
     GRAIN_PREFIX,
     GRW_BREAKPOINTS,

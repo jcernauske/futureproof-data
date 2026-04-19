@@ -705,7 +705,7 @@ def add_br_record_ids(
 def _read_table(catalog, table_name: str) -> list[dict]:
     """Read an Iceberg table into a list of dicts."""
     tbl = catalog.load_table(table_name)
-    arrow = tbl.scan().to_arrow()
+    arrow = tbl.scan().to_arrow()  # noqa: F841  (DuckDB auto-registers by local name)
     con = duckdb.connect()
     rows_raw = con.sql("SELECT * FROM arrow").fetchall()
     cols = [field.name for field in tbl.schema().fields]
@@ -947,6 +947,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     do_overwrite = "--overwrite" in sys.argv
     result = transform(overwrite=do_overwrite)
-    print(f"FutureProof Engine transform complete:")
+    print("FutureProof Engine transform complete:")
     print(f"  Table 1: {result['table_1']}")
     print(f"  Table 2: {result['table_2']}")
