@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 /**
  * Sticky top nav for the marketing landing page. Glass effect (backdrop blur
@@ -54,11 +55,8 @@ export function LandingTopNav() {
       aria-label="Landing page sections"
     >
       <div className="mx-auto max-w-[1280px] px-6 tablet:px-10 h-14 flex items-center justify-between gap-6">
-        <a
-          href="#landing-root"
-          className="font-display font-bold text-body text-text-primary shrink-0"
-        >
-          FutureProof
+        <a href="#landing-root" className="shrink-0">
+          <Wordmark size="md" />
         </a>
 
         <ul className="hidden tablet:flex items-center gap-1 desktop:gap-2">

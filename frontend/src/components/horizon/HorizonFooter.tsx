@@ -14,6 +14,7 @@ import { useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
 import { useHorizonPick } from "@/hooks/useHorizonPick";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 /**
  * Build the asset URL for a campus image variant.
@@ -305,9 +306,7 @@ export function HorizonFooter() {
             className="flex flex-col gap-2 min-w-0"
             {...chromeItemMotion}
           >
-            <span className="font-display font-bold text-heading text-text-primary leading-tight">
-              FutureProof
-            </span>
+            <Wordmark size="lg" />
             <a
               id="horizon-live-app"
               href="/app"

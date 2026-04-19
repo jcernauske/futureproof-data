@@ -110,6 +110,7 @@ beforeEach(() => {
       rawText: "Computer Science",
       careersPreview: [],
       substitutionApplied: false,
+      parentCip: "",
     },
     effort: { level: "balanced", percentile: 50, ernShift: 0 },
     loans: { percentage: 50 },
@@ -131,6 +132,109 @@ function renderScreen() {
     </MemoryRouter>,
   );
 }
+
+describe("CareerPickScreen — lookup cip routing (regression)", () => {
+  it("routes parentCip to /build/outcomes + /build/tier + /career-pick/chips when substitution applies", async () => {
+    // Regression anchor: before the IU+Marketing fix, the screen sent
+    // major.cipCode (the matched leaf, e.g. "52.14") to every endpoint.
+    // When the school only reports the broad family cip, the backend
+    // falls into the broaden-fallback and returns non-marketing careers.
+    // The fix routes parentCip when it's non-empty.
+    useBuildInputStore.setState({
+      phase: "sliders",
+      school: {
+        unitid: 151351,
+        name: "Indiana University-Bloomington",
+        institutionControl: "Public",
+        netPriceAnnual: null,
+        costOfAttendanceAnnual: null,
+      },
+      programs: [],
+      major: {
+        cipCode: "52.14",
+        cipTitle: "Marketing",
+        rawText: "marketing",
+        careersPreview: [],
+        substitutionApplied: true,
+        parentCip: "52.01",
+      },
+      effort: { level: "balanced", percentile: 50, ernShift: 0 },
+      loans: { percentage: 50 },
+    });
+
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(mockGetOutcomes).toHaveBeenCalled();
+    });
+
+    // /build/outcomes must get the school's reported broad cip, not the
+    // matched leaf — that's the cip the MCP substitution branch keys on.
+    expect(mockGetOutcomes).toHaveBeenCalledWith(
+      151351,
+      "52.01",
+      "balanced",
+      0.5,
+      "marketing",
+    );
+
+    // /build/tier must see the same lookup cip so tiering matches the
+    // substituted career row set.
+    await waitFor(() => {
+      expect(mockGetTieredCareers).toHaveBeenCalled();
+    });
+    const tierArgs = mockGetTieredCareers.mock.calls[0]!;
+    expect(tierArgs[3]).toBe("52.01");
+
+    // /career-pick/chips: backend reads the same school row, same rule.
+    await waitFor(() => {
+      expect(mockGetCareerPickChips).toHaveBeenCalled();
+    });
+    expect(mockGetCareerPickChips.mock.calls[0]![0]).toMatchObject({
+      cipcode: "52.01",
+      majorText: "marketing",
+    });
+  });
+
+  it("falls back to cipCode when parentCip is empty (school reports the leaf directly)", async () => {
+    // Non-regression for schools that report the specific cip (e.g. ISU
+    // reports 52.14 Marketing directly). parentCip="" → send cipCode.
+    useBuildInputStore.setState({
+      phase: "sliders",
+      school: {
+        unitid: 151111,
+        name: "Indiana State University",
+        institutionControl: "Public",
+        netPriceAnnual: null,
+        costOfAttendanceAnnual: null,
+      },
+      programs: [],
+      major: {
+        cipCode: "52.14",
+        cipTitle: "Marketing",
+        rawText: "marketing",
+        careersPreview: [],
+        substitutionApplied: false,
+        parentCip: "",
+      },
+      effort: { level: "balanced", percentile: 50, ernShift: 0 },
+      loans: { percentage: 50 },
+    });
+
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(mockGetOutcomes).toHaveBeenCalled();
+    });
+    expect(mockGetOutcomes.mock.calls[0]![1]).toBe("52.14");
+  });
+});
 
 describe("CareerPickScreen", () => {
   it("renders all three tiers with their careers after load", async () => {
