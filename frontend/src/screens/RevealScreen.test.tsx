@@ -86,6 +86,7 @@ function seedReady() {
       rawText: "Computer Science",
       careersPreview: [],
       substitutionApplied: false,
+      parentCip: "",
     },
     effort: { level: "balanced", percentile: 50, ernShift: 0 },
     loans: { percentage: 50 },
