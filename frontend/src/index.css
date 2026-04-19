@@ -132,7 +132,9 @@
   }
 }
 
-/* Marketing surface — Section E terminal cursor */
+/* Marketing surface — Section E terminal cursor. Also the canonical
+   caret/cursor-blink primitive (Set Your Course reasoning card streaming
+   cursor). Reuse this keyframe — don't add a second one. */
 @keyframes terminal-cursor-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
@@ -146,5 +148,52 @@
   .animate-terminal-cursor {
     animation: none;
     opacity: 1;
+  }
+}
+
+/* Gemma streaming-token shimmer — a moving insight-tinted gradient sweep
+   across the currently arriving sentence in a reasoning card. Pairs with
+   the card-breathe glow on the card container. */
+@keyframes gemma-shimmer {
+  0%   { background-position: -50% 0%; opacity: 0.65; }
+  50%  { opacity: 1; }
+  100% { background-position: 150% 0%; opacity: 0.95; }
+}
+
+.animate-gemma-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(184, 169, 232, 0.22) 50%,
+    transparent 100%
+  );
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  background-position: -50% 0%;
+  animation: gemma-shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gemma-shimmer {
+    animation: none;
+    background-image: none;
+  }
+}
+
+/* Chip-sized caution pulse — for the primary "Not what I expected" chip
+   in low-confidence state. Smaller glow radius than card-breathe-caution
+   because chips are smaller surfaces. */
+@keyframes chip-pulse-caution {
+  0%, 100% { box-shadow: 0 0 0 rgba(242, 212, 119, 0); }
+  50%      { box-shadow: 0 0 24px rgba(242, 212, 119, 0.28); }
+}
+
+.animate-chip-pulse-caution {
+  animation: chip-pulse-caution 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-chip-pulse-caution {
+    animation: none;
   }
 }
