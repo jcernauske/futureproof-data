@@ -19,6 +19,8 @@ import { SaveWrappedScreen } from "./SaveWrappedScreen";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import type { Build } from "@/types/build";
+import type { StoredBag } from "@/hooks/useHorizonPick";
+import { __resetInMemoryBagsForTesting } from "@/hooks/useHorizonPick";
 
 // --- Mocks --------------------------------------------------------------
 
@@ -117,6 +119,12 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockRenderWrapped.mockReset();
   mockGetWrapped.mockReset();
+  // Wipe horizon bag state so cursor-stability assertions aren't polluted
+  // by leftovers from prior tests.
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    window.sessionStorage.clear();
+  }
+  __resetInMemoryBagsForTesting();
   useBuildStore.setState({ build: makeBuild() });
   useProfileStore.setState({
     profileName: "bold bear",
@@ -132,6 +140,7 @@ afterEach(() => {
     animalEmoji: null,
     animalName: null,
   });
+  __resetInMemoryBagsForTesting();
 });
 
 // --- Tests --------------------------------------------------------------
@@ -326,6 +335,191 @@ describe("SaveWrappedScreen", () => {
     expect(
       screen.getByText(/Failed to render wrapped/),
     ).toBeInTheDocument();
+  });
+
+  // --- Horizon silhouette / horizonIndex commit (feature-horizon-footer §4) ---
+
+  it("sets build.horizonIndex on first mount when absent", async () => {
+    /* Locked-at-commit contract: the first time SaveWrappedScreen mounts
+     * with build.horizonIndex === undefined, the desktop bag is drawn and
+     * the index is persisted onto the build via setBuild. No pre-existing
+     * value should ever be drawn — the value is locked from this point on.
+     */
+    // Belt-and-suspenders: clear any leftover bag state.
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.clear();
+    }
+    expect(useBuildStore.getState().build?.horizonIndex).toBeUndefined();
+
+    mockRenderWrapped.mockReturnValue(new Promise(() => {}));
+    mockGetWrapped.mockReturnValue(new Promise(() => {}));
+    renderScreen();
+
+    await waitFor(() => {
+      const idx = useBuildStore.getState().build?.horizonIndex;
+      expect(idx).not.toBeUndefined();
+    });
+
+    const idx = useBuildStore.getState().build?.horizonIndex;
+    expect(typeof idx).toBe("number");
+    expect(idx!).toBeGreaterThanOrEqual(0);
+    expect(idx!).toBeLessThan(48); // HORIZON_POOL_SIZE
+  });
+
+  it("preserves build.horizonIndex on subsequent mounts (locked-at-commit)", async () => {
+    /* Once horizonIndex is set, future mounts MUST NOT overwrite it —
+     * not even when index 0 was the locked value. The implementer used
+     * `=== undefined` (not `!build.horizonIndex`); this test is the
+     * regression guard against someone "simplifying" that to a falsy
+     * check, which would silently re-roll for the 1/48 of builds with
+     * index 0.
+     */
+    useBuildStore.setState({ build: makeBuild({ horizonIndex: 0 }) });
+
+    mockRenderWrapped.mockReturnValue(new Promise(() => {}));
+    mockGetWrapped.mockReturnValue(new Promise(() => {}));
+    renderScreen();
+
+    // Give the effect a chance to run.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+
+    expect(useBuildStore.getState().build?.horizonIndex).toBe(0);
+  });
+
+  it("preserves a non-zero horizonIndex on remount", async () => {
+    useBuildStore.setState({ build: makeBuild({ horizonIndex: 17 }) });
+
+    mockRenderWrapped.mockReturnValue(new Promise(() => {}));
+    mockGetWrapped.mockReturnValue(new Promise(() => {}));
+    renderScreen();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+
+    expect(useBuildStore.getState().build?.horizonIndex).toBe(17);
+  });
+
+  it("does NOT advance the desktop bag on remount when horizonIndex is already set (Major #2 regression)", async () => {
+    /* Code review Major #2: previously SaveWrappedScreen called
+     * `useHorizonPick("desktop")` unconditionally, whose mount-time effect
+     * draws + persists every time. Result: every save-screen view burned a
+     * desktop bag entry — even when horizonIndex was already locked — and
+     * polluted the landing footer's shared bag walk.
+     *
+     * Fix: lazy-draw via `drawAndPersist`, gated by
+     * `horizonIndex === undefined`. When the index is already set, we make
+     * zero touches to the bag.
+     *
+     * This test seeds the desktop bag, locks an index on the build, mounts
+     * the save screen, and asserts the storage cursor did not move.
+     */
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.clear();
+    }
+
+    // Seed a known desktop bag so we can detect any cursor advance.
+    const seededBag: StoredBag = {
+      order: Array.from({ length: 48 }, (_, i) => i),
+      cursor: 7,
+      lastShown: 6,
+    };
+    window.sessionStorage.setItem(
+      "fp.horizon.bag.v1.desktop",
+      JSON.stringify(seededBag),
+    );
+
+    // Build already has horizonIndex set — the screen must NOT touch the bag.
+    useBuildStore.setState({ build: makeBuild({ horizonIndex: 23 }) });
+
+    mockRenderWrapped.mockReturnValue(new Promise(() => {}));
+    mockGetWrapped.mockReturnValue(new Promise(() => {}));
+
+    // First mount with horizonIndex set.
+    const { unmount: unmountA } = renderScreen();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    unmountA();
+
+    // Second mount, same locked horizonIndex.
+    const { unmount: unmountB } = renderScreen();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    unmountB();
+
+    // Third mount for paranoid measure.
+    renderScreen();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+
+    // The bag's cursor MUST be exactly where we left it. If anyone wires the
+    // hook back in unconditionally, this jumps to 8/9/10 and the test fails.
+    const raw = window.sessionStorage.getItem("fp.horizon.bag.v1.desktop");
+    expect(raw).not.toBeNull();
+    const after = JSON.parse(raw!) as StoredBag;
+    expect(after.cursor).toBe(7);
+    expect(after.lastShown).toBe(6);
+
+    // And the build's horizonIndex is still the locked value.
+    expect(useBuildStore.getState().build?.horizonIndex).toBe(23);
+  });
+
+  it("silhouette mounts behind share card (z-index check)", async () => {
+    /* Layering contract: the silhouette overlay must sit at z-0 while the
+     * WrappedViewer card sits at z-10 above. If anyone reorders the JSX
+     * or strips the z-index utility, the silhouette would either occlude
+     * the card or stack visually wrong.
+     */
+    useBuildStore.setState({ build: makeBuild({ horizonIndex: 5 }) });
+    mockRenderWrapped.mockResolvedValue({ status: "ok", frame_count: 6 });
+    mockGetWrapped.mockResolvedValue({
+      frames: Array.from({ length: 6 }, (_, i) => ({
+        index: i,
+        url: `data:image/svg+xml;base64,frame-${i}`,
+      })),
+    });
+
+    const { container } = renderScreen();
+
+    // Wait for the viewer phase (silhouette is only mounted there).
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("region-wrapped-viewer")).toBeInTheDocument();
+      },
+      { timeout: 4000 },
+    );
+
+    const silhouette = container.querySelector("#horizon-silhouette");
+    expect(silhouette).not.toBeNull();
+
+    // Walk up to find the wrapper that carries the z-0 utility.
+    const silhouetteWrap = silhouette!.closest(".z-0");
+    expect(silhouetteWrap).not.toBeNull();
+
+    // The viewer should be wrapped in a sibling at z-10.
+    const viewer = screen.getByTestId("region-wrapped-viewer");
+    const viewerWrap = viewer.closest(".z-10");
+    expect(viewerWrap).not.toBeNull();
+  });
+
+  it("does not render the silhouette during the save-confirmation phase", async () => {
+    /* Layering boundary: the silhouette is gated by both the viewer
+     * phase AND `build.horizonIndex !== undefined`. During the save
+     * phase (the first 1.5s) the viewer JSX block isn't mounted at all,
+     * so the silhouette must be absent — it must not leak into the
+     * SaveConfirmation card.
+     */
+    useBuildStore.setState({ build: makeBuild({ horizonIndex: 5 }) });
+    mockRenderWrapped.mockReturnValue(new Promise(() => {})); // hang
+    mockGetWrapped.mockReturnValue(new Promise(() => {}));
+    const { container } = renderScreen();
+
+    expect(screen.getByTestId("region-save-confirm")).toBeInTheDocument();
+    expect(container.querySelector("#horizon-silhouette")).toBeNull();
   });
 
   // --- Cancellation on unmount ---

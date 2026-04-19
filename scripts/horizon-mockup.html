@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FutureProof — Horizon Footer + Wrapped Silhouette mockup</title>
+
+<!--
+  Horizon Footer + Wrapped Silhouette mockup.
+  Self-contained: open with `open scripts/horizon-mockup.html` from repo root.
+
+  Font fidelity vs DESIGN.md:
+    font-display  -> Fredoka (CDN exact match)
+    font-body     -> Nunito  (CDN exact match)
+    font-data     -> Space Mono (CDN exact match)
+
+  Image source: ../frontend/public/campus/<basename>-{1400|2048}.{avif|webp}
+  48 unique basenames enumerated below in JS. Picture element prefers AVIF -> WebP,
+  defaults to 1400, swaps to 2048 above 1200px viewport.
+
+  Scope notes:
+    - "Next campus" floating button is mockup-only chrome (emoji allowed here).
+      Real UI never has a reroll button — bag walk is one-shot per page-load.
+    - Wrapped silhouette here is static. Real-app persistence on
+      build.horizonIndex is not modeled in mockup.
+    - HyenaStudios logo is a placeholder "HS" disc.
+      TODO: replace with real HyenaStudios logo asset.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+/>
+
+<style>
+  /* -------- Brightpath tokens (verbatim from DESIGN.md) -------- */
+  :root {
+    --color-bg-void:     #12131F;
+    --color-bg-deep:     #1B1D30;
+    --color-bg-mid:      #232545;
+    --color-bg-surface:  #2D3060;
+    --color-bg-raised:   #3A3D75;
+
+    --color-accent-thrive:  #7DD4A3;
+    --color-accent-alert:   #F4A97E;
+    --color-accent-caution: #F2D477;
+    --color-accent-insight: #B8A9E8;
+    --color-accent-info:    #7BB8E0;
+    --color-accent-empathy: #E88BA9;
+
+    --color-text-primary:   #F5F0E8;
+    --color-text-secondary: #C4BFB0;
+    --color-text-muted:     #8A8595;
+
+    --color-border-subtle:  rgba(255, 255, 255, 0.06);
+    --color-border-default: rgba(255, 255, 255, 0.10);
+    --color-border-strong:  rgba(255, 255, 255, 0.20);
+
+    --shadow-md: 0 4px 16px rgba(27, 29, 48, 0.6);
+    --shadow-lg: 0 8px 32px rgba(27, 29, 48, 0.7);
+
+    --radius-md:   10px;
+    --radius-lg:   14px;
+    --radius-xl:   20px;
+    --radius-full: 9999px;
+
+    --font-display: "Fredoka", system-ui, sans-serif;
+    --font-body:    "Nunito", system-ui, sans-serif;
+    --font-data:    "Space Mono", ui-monospace, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-deep);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(45, 48, 96, 0.5) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 35%, rgba(58, 61, 117, 0.35) 0%, transparent 65%),
+      radial-gradient(ellipse 70% 40% at 50% 70%, rgba(35, 37, 69, 0.6) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 10% 90%, rgba(58, 61, 117, 0.25) 0%, transparent 55%),
+      linear-gradient(180deg, #12131F 0%, #1B1D30 30%, #181A2E 60%, #12131F 100%);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* ============================================================
+     HERO PLACEHOLDER (so scrolling reveals parallax)
+     ============================================================ */
+  .hero-placeholder {
+    min-height: 110vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 24px;
+    text-align: center;
+    gap: 12px;
+  }
+  .hero-placeholder h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(40px, 6vw, 72px);
+    line-height: 1.1;
+    margin: 0;
+    color: var(--color-text-primary);
+  }
+  .hero-placeholder p {
+    font-family: var(--font-body);
+    font-size: 18px;
+    color: var(--color-text-secondary);
+    max-width: 540px;
+    margin: 0;
+  }
+  .hero-placeholder .scroll-hint {
+    margin-top: 32px;
+    font-family: var(--font-data);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--color-text-muted);
+  }
+
+  /* ============================================================
+     HORIZON FOOTER — composite
+     ============================================================ */
+  .horizon {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    isolation: isolate;
+    margin-top: 80px;
+  }
+
+  /* Sky bleed: top 120px gradient bg-deep -> transparent (overlays image top) */
+  .horizon__sky-bleed {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 120px;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      var(--color-bg-deep) 0%,
+      rgba(27, 29, 48, 0.65) 45%,
+      transparent 100%
+    );
+    opacity: 0;
+    animation: horizon-skybleed-in 800ms ease-out 0ms forwards;
+  }
+  @keyframes horizon-skybleed-in { to { opacity: 1; } }
+
+  /* Image stage */
+  .horizon__stage {
+    position: relative;
+    width: 100%;
+    height: clamp(220px, 22vw, 480px);
+    overflow: hidden;
+    z-index: 1;
+    background: var(--color-bg-deep);
+  }
+  .horizon__img-wrap {
+    position: absolute;
+    inset: -8% 0 -8% 0; /* extra room for parallax translate */
+    will-change: transform;
+  }
+  .horizon__img,
+  .horizon__img-wrap picture,
+  .horizon__img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+    display: block;
+  }
+  .horizon__img {
+    opacity: 0;
+    transform: scale(1.02);
+    transition: opacity 1000ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 1000ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .horizon__img.is-mounted {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Ground bleed: bottom 60px transparent -> bg-void (overlays image bottom) */
+  .horizon__ground-bleed {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 60px;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(18, 19, 31, 0.7) 55%,
+      var(--color-bg-void) 100%
+    );
+  }
+
+  /* Caption — overlaid mid-band */
+  .horizon__caption {
+    position: absolute;
+    left: 50%;
+    bottom: 88px; /* sits above the ground bleed */
+    transform: translateX(-50%);
+    z-index: 4;
+    font-family: var(--font-data);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    line-height: 1.3;
+    color: rgba(245, 240, 232, 0.6);
+    text-shadow: 0 1px 2px rgba(18, 19, 31, 0.95);
+    text-align: center;
+    white-space: nowrap;
+    max-width: 92vw;
+    opacity: 0;
+    animation: horizon-caption-in 400ms ease-out 1000ms forwards;
+  }
+  @keyframes horizon-caption-in {
+    from { opacity: 0; transform: translate(-50%, 6px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  /* Chrome bar — three columns desktop, stacks mobile */
+  .horizon__chrome {
+    position: relative;
+    z-index: 2;
+    background: var(--color-bg-void);
+    padding: 28px 48px 32px;
+    border-top: 1px solid var(--color-border-subtle);
+    opacity: 0;
+    transform: translateY(8px);
+    animation: chrome-in 600ms cubic-bezier(0.22, 1, 0.36, 1) 1200ms forwards;
+  }
+  @keyframes chrome-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .horizon__chrome-grid {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .chrome-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .chrome-col--center { align-items: center; text-align: center; }
+  .chrome-col--right  { align-items: flex-end; text-align: right; }
+
+  /* Identity (left) */
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+  }
+  .live-link {
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--color-text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: rgba(196, 191, 176, 0.3);
+    transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
+  }
+  .live-link:hover {
+    color: var(--color-accent-thrive);
+    text-decoration-color: var(--color-accent-thrive);
+  }
+
+  /* Provenance (center) */
+  .provenance-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+  .provenance-sub {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+  }
+  .ai-disclaimer {
+    margin-top: 12px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-text-muted);
+    max-width: 420px;
+    line-height: 1.45;
+  }
+
+  /* GemmaStar — info -> insight gradient */
+  .gemma-star {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  /* Studio (right) */
+  .studio-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .studio-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border-subtle);
+    background: rgba(255, 255, 255, 0.02);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.04em;
+  }
+  .studio-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--color-text-secondary);
+    line-height: 1.2;
+  }
+  .copy-line {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  /* ============================================================
+     WRAPPED SILHOUETTE (Save screen demo)
+     ============================================================ */
+  .wrapped-section {
+    position: relative;
+    padding: 120px 24px 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .wrapped-eyebrow {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--color-accent-info);
+  }
+  .wrapped-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 36px;
+    color: var(--color-text-primary);
+    margin: 0;
+    text-align: center;
+  }
+  .wrapped-subtitle {
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--color-text-secondary);
+    max-width: 540px;
+    text-align: center;
+    margin: 0;
+  }
+
+  .wrapped-stage {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    margin-top: 40px;
+    isolation: isolate;
+  }
+
+  /* The silhouette band — 180px tall, 60% opacity, mask fades into bg from above */
+  .wrapped-silhouette {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    opacity: 0.6;
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.5) 28%,
+      rgba(0, 0, 0, 1) 70%
+    );
+    mask-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.5) 28%,
+      rgba(0, 0, 0, 1) 70%
+    );
+  }
+  .wrapped-silhouette picture,
+  .wrapped-silhouette img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+    display: block;
+  }
+
+  /* Stand-in share card sits centered over the silhouette band */
+  .share-card {
+    position: relative;
+    z-index: 2;
+    margin: -120px auto 0;
+    width: min(540px, calc(100% - 32px));
+    background: var(--color-bg-mid);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .share-card__label {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .share-card__name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 28px;
+    color: var(--color-text-primary);
+    line-height: 1.2;
+    margin: 0;
+  }
+  .share-card__meta {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+  .share-card__stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .stat-pip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 4px;
+    background: var(--color-bg-deep);
+    border-radius: var(--radius-md);
+  }
+  .stat-pip__label {
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .stat-pip__value {
+    font-family: var(--font-data);
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .stat--ern .stat-pip__label, .stat--ern .stat-pip__value { color: #F2D477; }
+  .stat--roi .stat-pip__label, .stat--roi .stat-pip__value { color: #7DD4A3; }
+  .stat--res .stat-pip__label, .stat--res .stat-pip__value { color: #B8A9E8; }
+  .stat--grw .stat-pip__label, .stat--grw .stat-pip__value { color: #7BB8E0; }
+  .stat--hmn .stat-pip__label, .stat--hmn .stat-pip__value { color: #E88BA9; }
+
+  /* ============================================================
+     SECTION DIVIDER
+     ============================================================ */
+  .section-divider {
+    width: 100%;
+    max-width: 1100px;
+    margin: 80px auto 0;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .section-divider hr {
+    flex: 1;
+    height: 1px;
+    border: 0;
+    background: var(--color-border-subtle);
+  }
+  .section-divider span {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  /* ============================================================
+     MOCKUP CHROME (floating button + index display)
+     ============================================================ */
+  .mockup-chrome {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 14px;
+    background: rgba(18, 19, 31, 0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-lg);
+  }
+  .mockup-chrome__index {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+  .mockup-chrome__btn {
+    appearance: none;
+    border: 0;
+    background: var(--color-accent-thrive);
+    color: var(--color-bg-deep);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: transform 150ms ease-out, background 150ms ease-out;
+  }
+  .mockup-chrome__btn:hover { background: #6bc494; }
+  .mockup-chrome__btn:active { transform: scale(0.97); }
+
+  /* ============================================================
+     RESPONSIVE — mobile (<480px)
+     ============================================================ */
+  @media (max-width: 480px) {
+    .horizon__stage { height: 200px; }
+    .horizon__img,
+    .horizon__img-wrap picture,
+    .horizon__img-wrap img {
+      object-position: center 30%;
+    }
+    .horizon__caption { display: none; }
+    .horizon__chrome { padding: 24px 20px 28px; }
+    .horizon__chrome-grid {
+      grid-template-columns: 1fr;
+      gap: 24px;
+      text-align: left;
+    }
+    .chrome-col--center,
+    .chrome-col--right {
+      align-items: flex-start;
+      text-align: left;
+    }
+    .ai-disclaimer { max-width: none; }
+    .wordmark { font-size: 24px; }
+    .studio-name { font-size: 20px; }
+    .wrapped-section { padding: 60px 16px 100px; }
+    .wrapped-title { font-size: 28px; }
+    .share-card { padding: 24px; margin-top: -100px; }
+    .share-card__name { font-size: 22px; }
+  }
+
+  /* Tablet stack — single column at <840px (chrome bar gets cramped) */
+  @media (min-width: 481px) and (max-width: 839px) {
+    .horizon__chrome { padding: 24px 28px 28px; }
+    .horizon__chrome-grid {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .chrome-col--center,
+    .chrome-col--right {
+      align-items: flex-start;
+      text-align: left;
+    }
+    .ai-disclaimer { max-width: none; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .horizon__sky-bleed,
+    .horizon__caption,
+    .horizon__chrome { animation: none; opacity: 1; transform: none; }
+    .horizon__img { transition: none; opacity: 1; transform: none; }
+    .horizon__img-wrap { transform: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- =========================================================
+     MOCKUP-ONLY CHROME
+     ========================================================= -->
+<div class="mockup-chrome" role="region" aria-label="Mockup controls">
+  <span class="mockup-chrome__index" id="mockupIndex">– / 48</span>
+  <button class="mockup-chrome__btn" id="rerollBtn" type="button">
+    🎲 Next campus
+  </button>
+</div>
+
+<!-- =========================================================
+     HERO PLACEHOLDER (gives scroll runway for parallax test)
+     ========================================================= -->
+<section class="hero-placeholder">
+  <h1>Hero placeholder</h1>
+  <p>Scroll to see the horizon footer. Resize the window to test mobile stacking. Click <strong>Next campus</strong> to swap illustrations and replay the warm-mount animation.</p>
+  <div class="scroll-hint">↓  scroll  ↓</div>
+</section>
+
+<!-- =========================================================
+     HORIZON FOOTER
+     ========================================================= -->
+<footer class="horizon" id="horizon">
+  <div class="horizon__sky-bleed" aria-hidden="true"></div>
+
+  <div class="horizon__stage">
+    <div class="horizon__img-wrap" id="parallaxWrap">
+      <picture id="horizonPicture">
+        <!-- populated by JS -->
+      </picture>
+      <img class="horizon__img" id="horizonImg" alt="" role="presentation"
+           loading="lazy" decoding="async" />
+    </div>
+
+    <p class="horizon__caption" id="horizonCaption" key="0"></p>
+
+    <div class="horizon__ground-bleed" aria-hidden="true"></div>
+  </div>
+
+  <div class="horizon__chrome">
+    <div class="horizon__chrome-grid">
+
+      <!-- LEFT: identity -->
+      <div class="chrome-col">
+        <div class="wordmark">FutureProof</div>
+        <a class="live-link" href="/app">Live app</a>
+      </div>
+
+      <!-- CENTER: provenance -->
+      <div class="chrome-col chrome-col--center">
+        <div class="provenance-row">
+          <!-- GemmaStar: 14px four-pointed star with info->insight gradient -->
+          <svg class="gemma-star" viewBox="0 0 16 16" aria-hidden="true">
+            <defs>
+              <linearGradient id="gemmaStarGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%"  stop-color="#7BB8E0" />
+                <stop offset="100%" stop-color="#B8A9E8" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M8 0.5 L9.6 6.4 L15.5 8 L9.6 9.6 L8 15.5 L6.4 9.6 L0.5 8 L6.4 6.4 Z"
+              fill="url(#gemmaStarGrad)"
+            />
+          </svg>
+          <span>Built with Gemma 4</span>
+        </div>
+        <div class="provenance-sub">
+          Submitted to Gemma 4 Good · Kaggle / Google DeepMind · 2026
+        </div>
+        <p class="ai-disclaimer">
+          AI-estimated. Not a substitute for professional career counseling.
+        </p>
+      </div>
+
+      <!-- RIGHT: studio -->
+      <div class="chrome-col chrome-col--right">
+        <div class="studio-row">
+          <!-- TODO: replace with real HyenaStudios logo asset. -->
+          <span class="studio-logo" aria-hidden="true">HS</span>
+          <span class="studio-name">HyenaStudios</span>
+        </div>
+        <div class="copy-line">© 2026</div>
+      </div>
+
+    </div>
+  </div>
+</footer>
+
+<!-- =========================================================
+     SECTION DIVIDER
+     ========================================================= -->
+<div class="section-divider">
+  <hr />
+  <span>/app/save preview</span>
+  <hr />
+</div>
+
+<!-- =========================================================
+     WRAPPED SILHOUETTE — Save screen demo
+     ========================================================= -->
+<section class="wrapped-section">
+  <div class="wrapped-eyebrow">Variant 2 — Wrapped Silhouette</div>
+  <h2 class="wrapped-title">Your build, framed by the horizon.</h2>
+  <p class="wrapped-subtitle">
+    Locked at build commit. No caption, no chrome, no reroll — pure atmosphere behind the share card.
+  </p>
+
+  <div class="wrapped-stage">
+    <div class="wrapped-silhouette">
+      <picture id="wrappedPicture">
+        <!-- populated by JS -->
+      </picture>
+    </div>
+
+    <!-- Stand-in share card -->
+    <div class="share-card">
+      <div class="share-card__label">FutureProof Build · v1</div>
+      <h3 class="share-card__name">Maple the Strategist Bear</h3>
+      <div class="share-card__meta">
+        Iowa State University · BS Finance → Financial Analyst
+      </div>
+      <div class="share-card__stats">
+        <div class="stat-pip stat--ern">
+          <span class="stat-pip__label">ERN</span>
+          <span class="stat-pip__value">78</span>
+        </div>
+        <div class="stat-pip stat--roi">
+          <span class="stat-pip__label">ROI</span>
+          <span class="stat-pip__value">82</span>
+        </div>
+        <div class="stat-pip stat--res">
+          <span class="stat-pip__label">RES</span>
+          <span class="stat-pip__value">64</span>
+        </div>
+        <div class="stat-pip stat--grw">
+          <span class="stat-pip__label">GRW</span>
+          <span class="stat-pip__value">71</span>
+        </div>
+        <div class="stat-pip stat--hmn">
+          <span class="stat-pip__label">HMN</span>
+          <span class="stat-pip__value">59</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ============================================================
+   Image basenames (48 unique) — enumerated from disk.
+   Path resolution: ../frontend/public/campus/<basename>-<size>.<ext>
+   ============================================================ */
+const BASENAMES = [
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__016bced6-4944-4768-b990-e73bc98c2f60_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__016bced6-4944-4768-b990-e73bc98c2f60_0(1)",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__016bced6-4944-4768-b990-e73bc98c2f60_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__016bced6-4944-4768-b990-e73bc98c2f60_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__016bced6-4944-4768-b990-e73bc98c2f60_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__06485682-9dae-4ffa-b725-a67b91364d6c_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__06485682-9dae-4ffa-b725-a67b91364d6c_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__06485682-9dae-4ffa-b725-a67b91364d6c_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__06485682-9dae-4ffa-b725-a67b91364d6c_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__129f957b-ce3c-4415-8886-b47e1a0bfb08_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__129f957b-ce3c-4415-8886-b47e1a0bfb08_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__129f957b-ce3c-4415-8886-b47e1a0bfb08_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__129f957b-ce3c-4415-8886-b47e1a0bfb08_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__1a0c7cad-6042-4387-9566-9c477d5bc9db_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__1a0c7cad-6042-4387-9566-9c477d5bc9db_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__1a0c7cad-6042-4387-9566-9c477d5bc9db_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__1a0c7cad-6042-4387-9566-9c477d5bc9db_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__26d87bc4-abea-4e1c-8f4b-a3e50fb3931d_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__26d87bc4-abea-4e1c-8f4b-a3e50fb3931d_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__26d87bc4-abea-4e1c-8f4b-a3e50fb3931d_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__26d87bc4-abea-4e1c-8f4b-a3e50fb3931d_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__6af1cf11-708a-4b6b-9904-cb1005c9fc83_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__6af1cf11-708a-4b6b-9904-cb1005c9fc83_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__6af1cf11-708a-4b6b-9904-cb1005c9fc83_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__6af1cf11-708a-4b6b-9904-cb1005c9fc83_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8744d380-caed-4c1a-8cb6-de105d95bc80_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8744d380-caed-4c1a-8cb6-de105d95bc80_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8744d380-caed-4c1a-8cb6-de105d95bc80_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8744d380-caed-4c1a-8cb6-de105d95bc80_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8b95b2f2-b521-4e0a-8bf2-09bcb61cb90f_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8b95b2f2-b521-4e0a-8bf2-09bcb61cb90f_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8b95b2f2-b521-4e0a-8bf2-09bcb61cb90f_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__8b95b2f2-b521-4e0a-8bf2-09bcb61cb90f_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__c88aff77-764b-40c7-9828-4c3ff52fa003_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__c88aff77-764b-40c7-9828-4c3ff52fa003_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__c88aff77-764b-40c7-9828-4c3ff52fa003_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__c88aff77-764b-40c7-9828-4c3ff52fa003_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__d0b71273-1d96-46bb-afda-0b377fdee117_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__d0b71273-1d96-46bb-afda-0b377fdee117_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__d0b71273-1d96-46bb-afda-0b377fdee117_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__d0b71273-1d96-46bb-afda-0b377fdee117_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__e63d17a9-6c09-46a8-854f-1a5d4321b8d3_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__e63d17a9-6c09-46a8-854f-1a5d4321b8d3_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__e63d17a9-6c09-46a8-854f-1a5d4321b8d3_2",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__e63d17a9-6c09-46a8-854f-1a5d4321b8d3_3",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__ff478da8-a0e3-413e-8d4b-9896f3a8f20e_0",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon__ff478da8-a0e3-413e-8d4b-9896f3a8f20e_1",
+  "jcern_Flat_orthographic_elevation_view_of_a_cheerful_cartoon_Iv_47f7ef64-7dc3-4a6b-9cfb-e6839a7f4e05",
+];
+
+const CAPTIONS = [
+  "700K data points · 50 states · 7 public datasets · Every number has a receipt.",
+  "2,500 schools · 355 majors · 634 occupations · One pentagon each.",
+  "5 stats · 6 boss fights · 626K paths · Every value ties back to a public dataset.",
+];
+
+const IMAGE_BASE = "../frontend/public/campus/";
+const STORAGE_KEY = "fp.horizon.bag";
+
+/* ----------------------------------------------------------
+   Shuffled-bag walk:
+   - Persists in sessionStorage
+   - Walks one item at a time, anti-adjacency (never repeat
+     the most recent index when starting a fresh bag)
+   - Refills (re-shuffles) when bag empties, guaranteeing
+     coverage of all 48
+   ---------------------------------------------------------- */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function readBag() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) { return null; }
+}
+function writeBag(bag) {
+  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(bag)); } catch (_) {}
+}
+
+function nextIndex() {
+  let bag = readBag(); // { remaining: number[], lastIndex: number | null }
+  if (!bag) bag = { remaining: shuffle([...Array(BASENAMES.length).keys()]), lastIndex: null };
+
+  if (bag.remaining.length === 0) {
+    // Refill — re-shuffle all 48 with anti-adjacency for the seam
+    let refilled = shuffle([...Array(BASENAMES.length).keys()]);
+    if (bag.lastIndex !== null && refilled[0] === bag.lastIndex && refilled.length > 1) {
+      [refilled[0], refilled[1]] = [refilled[1], refilled[0]];
+    }
+    bag.remaining = refilled;
+  }
+
+  const idx = bag.remaining.shift();
+  bag.lastIndex = idx;
+  writeBag(bag);
+  return idx;
+}
+
+/* ----------------------------------------------------------
+   <picture> builder — AVIF -> WebP, 1400 default, 2048 above 1200px
+   ---------------------------------------------------------- */
+function buildPictureHTML(basename) {
+  const enc = encodeURIComponent(basename).replace(/'/g, "%27");
+  // We want literal filename chars (parens etc) preserved; encodeURIComponent
+  // handles spaces (none here) and parens by leaving them or escaping them safely.
+  const url = (size, ext) => IMAGE_BASE + enc + "-" + size + "." + ext;
+  return `
+    <source media="(min-width: 1200px)" type="image/avif" srcset="${url(2048, "avif")}" />
+    <source media="(min-width: 1200px)" type="image/webp" srcset="${url(2048, "webp")}" />
+    <source type="image/avif" srcset="${url(1400, "avif")}" />
+    <source type="image/webp" srcset="${url(1400, "webp")}" />
+    <img src="${url(1400, "webp")}" alt="" role="presentation" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;" />
+  `;
+}
+
+/* ----------------------------------------------------------
+   Mount + warm-mount animation orchestration
+   ---------------------------------------------------------- */
+const horizonImg = document.getElementById("horizonImg");
+const horizonPicture = document.getElementById("horizonPicture");
+const horizonCaption = document.getElementById("horizonCaption");
+const wrappedPicture = document.getElementById("wrappedPicture");
+const indexLabel = document.getElementById("mockupIndex");
+
+let currentIndex = null;
+
+function setHorizon(index, { warm = true } = {}) {
+  currentIndex = index;
+  const basename = BASENAMES[index];
+
+  // Update <picture> sources for the horizon
+  horizonPicture.innerHTML = buildPictureHTML(basename);
+  // The bare <img> after the picture will inherit its sources via the parent
+  // picture; but since we put <img> inside the picture's parent (not inside
+  // picture itself), simpler: make the in-picture <img> the one that shows.
+  // We hide the standalone .horizon__img and let picture's <img> drive opacity.
+  horizonImg.style.display = "none";
+
+  // Caption — image-paired by index mod 3
+  const cap = CAPTIONS[index % CAPTIONS.length];
+  horizonCaption.textContent = cap;
+
+  // Wrapped silhouette mirrors the same image (in real app this is locked
+  // at build commit; the mockup simply shows it tracking the same draw)
+  wrappedPicture.innerHTML = buildPictureHTML(basename);
+
+  // Index label
+  indexLabel.textContent = (index + 1) + " / " + BASENAMES.length;
+
+  if (!warm) return;
+
+  // Replay warm-mount: re-trigger animations on the chrome composite
+  const horizon = document.getElementById("horizon");
+  const skyBleed = horizon.querySelector(".horizon__sky-bleed");
+  const chrome   = horizon.querySelector(".horizon__chrome");
+  const cap2     = horizon.querySelector(".horizon__caption");
+  const innerImg = horizonPicture.querySelector("img");
+
+  // Reset
+  [skyBleed, chrome, cap2].forEach(el => {
+    if (!el) return;
+    el.style.animation = "none";
+    // force reflow
+    void el.offsetWidth;
+    el.style.animation = "";
+  });
+
+  if (innerImg) {
+    innerImg.style.opacity = "0";
+    innerImg.style.transform = "scale(1.02)";
+    innerImg.style.transition =
+      "opacity 1000ms cubic-bezier(0.22, 1, 0.36, 1), transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)";
+    // small delay so the load can begin
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        innerImg.style.opacity = "1";
+        innerImg.style.transform = "scale(1)";
+      });
+    });
+  }
+}
+
+/* ----------------------------------------------------------
+   Parallax — image translates at 0.85x scroll speed while visible
+   Stripped under prefers-reduced-motion
+   ---------------------------------------------------------- */
+const parallaxWrap = document.getElementById("parallaxWrap");
+const horizonEl = document.getElementById("horizon");
+let parallaxActive = false;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function tickParallax() {
+  if (!parallaxActive || reduceMotion) return;
+  const rect = horizonEl.getBoundingClientRect();
+  const vh = window.innerHeight;
+  // distance from viewport top to footer top
+  const distance = vh - rect.top;
+  // translate range: ~ -40px .. +40px
+  const t = Math.max(-60, Math.min(40, (distance - vh * 0.5) * 0.15));
+  parallaxWrap.style.transform = `translate3d(0, ${t.toFixed(2)}px, 0)`;
+  rafPending = false;
+}
+
+let rafPending = false;
+function onScroll() {
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(tickParallax);
+}
+
+if (!reduceMotion && "IntersectionObserver" in window) {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      parallaxActive = e.isIntersecting;
+      if (parallaxActive) tickParallax();
+    });
+  }, { rootMargin: "0px" });
+  io.observe(horizonEl);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+}
+
+/* ----------------------------------------------------------
+   Boot + reroll wiring
+   ---------------------------------------------------------- */
+document.getElementById("rerollBtn").addEventListener("click", () => {
+  setHorizon(nextIndex(), { warm: true });
+});
+
+// Initial draw
+setHorizon(nextIndex(), { warm: true });
+</script>
+
+</body>
+</html>
