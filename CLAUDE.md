@@ -155,6 +155,7 @@ The design system is **Brightpath** — dark-first, plush/soft, cinematic. See `
 ## Rules
 
 - **Specs are the source of truth.** If it's not in the spec, it doesn't get built.
+- **No path is out of scope.** We cannot predict what judges, beta testers, or students will search. Real users have real, unpredictable interests — Jeff's wife teaches deaf education, his daughter's friends will type anything. Design for robustness across the full input space, not a handful of happy paths. If a feature works for Marketing-at-IU but breaks on "deaf education," it's not shipped. This rule overrides any argument of the form "the demo doesn't touch that case" — scripted demos are a subset of what the product does, not the whole of it.
 - **No schema changes without a spec.** Iceberg table creation, schema evolution, and pipeline interface changes require a spec.
 - **Type hints everywhere.** Every public function and class gets type hints. No `Any` unless genuinely unavoidable.
 - **Pydantic v2 for data models.** Use `BaseModel` for anything that crosses module boundaries.

@@ -373,6 +373,47 @@ For effects that don't need spring physics. Defined in `index.css`:
 
 ---
 
+## Brand / Wordmark
+
+The **FutureProof wordmark** is the product's signature — a warm-white wordmark preceded by a lavender sparkle glyph. It reads as "a proper noun, lit from the side." No other wordmark treatment is official.
+
+### Anatomy
+
+```
+✦ FutureProof
+└┬┘ └────┬────┘
+ │       └── Wordmark: font-display, weight 600, letter-spacing -0.01em, text-text-primary (#F5F0E8)
+ └────────── Glyph: ✦ (U+2726 Black Four Pointed Star), text-accent-insight (#B8A9E8), 6px right margin
+```
+
+- **Glyph:** `✦` — the same sparkle used for the Gemma-star motif elsewhere in the product. Always `--color-accent-insight` (#B8A9E8). Never any other color, never swapped for a different glyph.
+- **Wordmark:** Always the single token `FutureProof` (PascalCase, no space). Always `--color-text-primary` warm white. Never green, never `accent-thrive`, never italicized.
+- **Pairing:** Glyph + wordmark are inseparable. Do not show the wordmark without the glyph in top-nav/footer/chrome chrome contexts.
+
+### Sizes
+
+| Size | Font Size | Weight | Glyph Size | Usage |
+|------|-----------|--------|------------|-------|
+| sm | `text-body-sm` (15px) | 600 | matches text | Compact chrome: in-app top nav (AppHeader) |
+| md | `text-body-lg` (18px) | 600 | matches text | Default: marketing top nav, mockup chrome |
+| lg | `text-heading` (28px) | 700 | matches text | Footer identity, large-format chrome |
+
+Letter-spacing is `-0.01em` at every size. Line-height collapses to `1` so the baseline aligns with the glyph cleanly.
+
+### Implementation
+
+Use the `<Wordmark />` component (`frontend/src/components/ui/Wordmark.tsx`) — never inline the treatment. A single source prevents the kind of drift the pre-systematization wordmark had (three call sites, three different colors, no glyph).
+
+```tsx
+import { Wordmark } from "@/components/ui/Wordmark";
+
+<Wordmark size="sm" />   // AppHeader
+<Wordmark size="md" />   // LandingTopNav
+<Wordmark size="lg" />   // HorizonFooter
+```
+
+---
+
 ## Components
 
 ### Buttons

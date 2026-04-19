@@ -1,0 +1,1383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Set Your Course — Brightpath Mockup Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <!-- ============================================================
+         Left index rail (sticky)
+         ============================================================ -->
+    <aside class="index-rail" aria-label="Scenario index">
+      <h2>Scenarios</h2>
+      <ol>
+        <li><a href="#s01">Empty state</a></li>
+        <li><a href="#s02">Mid-resolution streaming</a></li>
+        <li><a href="#s03">Resolved, high confidence</a></li>
+        <li><a href="#s04">Resolved, low confidence</a></li>
+        <li><a href="#s05">Chip rail: label A vs B</a></li>
+        <li><a href="#s06">Clarifier (desktop inline)</a></li>
+        <li><a href="#s07">Clarifier (mobile sheet)</a></li>
+        <li><a href="#s08">Debug trace streaming</a></li>
+        <li><a href="#s09">Debug trace resolved</a></li>
+        <li><a href="#s10">Community — 3+ suggestions</a></li>
+        <li><a href="#s11">Community — n=1 (flagged)</a></li>
+        <li><a href="#s12">Community — absent</a></li>
+        <li><a href="#s13">school_gap CTA tile</a></li>
+        <li><a href="#s14">Commit + Start Over dialog</a></li>
+        <li><a href="#s15">Canonical full screen</a></li>
+      </ol>
+    </aside>
+
+    <main>
+      <!-- ============================================================
+           Page header
+           ============================================================ -->
+      <header class="page-header">
+        <div class="page-eyebrow">Design Showcase · Brightpath</div>
+        <h1>Set Your Course — Static Scenarios</h1>
+        <p>
+          Fifteen scenarios of the new Set Your Course screen, rendered in Brightpath tokens.
+          Everything below is static — no backend, no Gemma, no live animation beyond CSS keyframes.
+          Scroll, screenshot the ones worth keeping, then make the three synthesis calls in the box below.
+        </p>
+
+        <!-- Decisions callout -->
+        <section class="decisions" aria-label="Decisions to make">
+          <h3>Decisions to make</h3>
+          <ol>
+            <li>
+              <strong>Community Suggestions visibility threshold.</strong> Render the section at
+              <em>count ≥ 1</em> (aggressive, shows the mechanism early) or <em>count ≥ 3</em>
+              (safer, nothing social until a crowd actually exists)?
+              <span class="decision-meta">See scenarios 10, 11, 12. The n=1 case is the PM's "surveillance with n=1" concern made visible.</span>
+            </li>
+            <li>
+              <strong>Middle chip label.</strong> Ship
+              <em>"Show me less common paths"</em> (spec default, taxonomic) or
+              <em>"Show me weirder jobs"</em> (PM critique, kid-voiced)?
+              <span class="decision-meta">See scenario 5. Rendered side-by-side; the third-chip ("Wrong major") is fixed.</span>
+            </li>
+            <li>
+              <strong>School Discovery in v0.5.</strong> Stub the tile and ship the dead-link
+              destination (scenario 13), cut the tile entirely, or build a minimal Discover screen?
+              <span class="decision-meta">See scenario 13. Stub is the fastest path; the tile is already in the design, the <code>/discover</code> route can be a "coming soon" one-liner.</span>
+            </li>
+          </ol>
+        </section>
+      </header>
+
+      <!-- ============================================================
+           01 — Empty state
+           ============================================================ -->
+      <section class="scenario" id="s01">
+        <div class="scenario-head">
+          <div class="scenario-num">01 · Empty state</div>
+          <h2>Landing, before the student has touched anything</h2>
+          <p class="scenario-caption">
+            A waiting planetarium. School and major are empty. The preview shows three faint dots and
+            one honest sentence. No spinner, no skeleton rows. The commit button is disabled.
+          </p>
+          <span class="scenario-criterion">Success: “quiet invitation, nothing announces itself”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Build</span><span>Compare</span><span>About</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+              <p>Pick a school and a major. The careers follow.</p>
+            </div>
+
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="placeholder">School name or nickname</span>
+                    <span class="input-glyph">↓</span>
+                  </div>
+                </div>
+
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="placeholder">What are you studying?</span>
+                  </div>
+                </div>
+
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+
+              <div>
+                <div class="preview-empty" aria-label="Preview empty">
+                  <div class="dots"><span></span><span></span><span></span></div>
+                  <p>The careers will show up here as you type.</p>
+                  <div class="dots"><span></span><span></span><span></span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <span class="cta-primary disabled" aria-disabled="true">Yes, continue</span>
+                <span class="cta-ghost">Start over</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           02 — Mid-resolution streaming (early + mid)
+           ============================================================ -->
+      <section class="scenario" id="s02">
+        <div class="scenario-head">
+          <div class="scenario-num">02 · Mid-resolution streaming</div>
+          <h2>Gemma is reasoning, paragraphs arriving</h2>
+          <p class="scenario-caption">
+            Two frozen frames of the streaming reasoning card: <strong>early</strong> (one sentence, still shimmering) and
+            <strong>mid-stream</strong> (two paragraphs settled, the third arriving). The <code>gemma-shimmer</code>
+            keyframe is active on the arriving sentence; breathing glow pulses on the card.
+          </p>
+          <span class="scenario-criterion">Success: §5 “witnessing thought, not loading”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · two frames side-by-side</div>
+        <div class="sidebyside">
+          <!-- Early frame -->
+          <div class="frame frame-desktop">
+            <div class="chrome">
+              <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+              <div class="chrome-nav"><span>Frame A · early</span></div>
+            </div>
+            <div class="screen">
+              <div class="screen-intro">
+                <div class="eyebrow">Set your course</div>
+                <h1>Where does this take you?</h1>
+              </div>
+              <div class="two-col">
+                <div>
+                  <div class="input-group">
+                    <label class="input-label">Your school</label>
+                    <div class="input-field">
+                      <span class="value">Indiana University Bloomington</span>
+                      <span class="input-glyph">✓</span>
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Your major</label>
+                    <div class="input-field focused">
+                      <span class="value">Marketing</span>
+                      <span class="input-caret">│</span>
+                    </div>
+                  </div>
+                  <div class="disclosure">Show effort & loans</div>
+                </div>
+                <div>
+                  <div class="gemma-thinking">
+                    <div class="gemma-spinner" aria-hidden="true"></div>
+                    <span>Gemma is reading your input…</span>
+                  </div>
+                  <div class="reasoning-card" role="status" aria-live="polite">
+                    <p>
+                      <span class="arriving">Marketing at IU maps to Business/Commerce</span>
+                      <span class="cursor-blink" aria-hidden="true"></span>
+                    </p>
+                  </div>
+                  <div class="preview-placeholder">careers populate here when reasoning resolves</div>
+                </div>
+              </div>
+              <div class="commit-bar">
+                <div class="commit-actions">
+                  <span class="cta-primary disabled" aria-disabled="true">Yes, continue</span>
+                  <span class="cta-ghost">Start over</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mid-stream frame -->
+          <div class="frame frame-desktop">
+            <div class="chrome">
+              <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+              <div class="chrome-nav"><span>Frame B · mid-stream</span></div>
+            </div>
+            <div class="screen">
+              <div class="screen-intro">
+                <div class="eyebrow">Set your course</div>
+                <h1>Where does this take you?</h1>
+              </div>
+              <div class="two-col">
+                <div>
+                  <div class="input-group">
+                    <label class="input-label">Your school</label>
+                    <div class="input-field">
+                      <span class="value">Indiana University Bloomington</span>
+                      <span class="input-glyph">✓</span>
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Your major</label>
+                    <div class="input-field focused">
+                      <span class="value">Marketing</span>
+                      <span class="input-caret">│</span>
+                    </div>
+                  </div>
+                  <div class="disclosure">Show effort & loans</div>
+                </div>
+                <div>
+                  <div class="gemma-thinking">
+                    <div class="gemma-spinner" aria-hidden="true"></div>
+                    <span>Gemma is reading your input…</span>
+                  </div>
+                  <div class="reasoning-card" role="status" aria-live="polite">
+                    <p class="settled">
+                      In Indiana University's submission to the Integrated Postsecondary Education Data System (IPEDS), Marketing is filed within its Business program — so that's what lands on the card first. The Bureau of Labor Statistics (BLS) still tracks graduate placements in marketing roles; we'll show those if you ask.
+                    </p>
+                    <p class="settled">
+                      That's why you'll see general business careers before the pure-marketing ones — the federal classification is wider than the program's actual curriculum.
+                    </p>
+                    <p>
+                      <span class="arriving">I'll surface the marketing-specific careers alongside the business fits</span>
+                      <span class="cursor-blink" aria-hidden="true"></span>
+                    </p>
+                  </div>
+                  <div class="preview-placeholder">careers populate here when reasoning resolves</div>
+                </div>
+              </div>
+              <div class="commit-bar">
+                <div class="commit-actions">
+                  <span class="cta-primary disabled" aria-disabled="true">Yes, continue</span>
+                  <span class="cta-ghost">Start over</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           03 — Resolved, high confidence
+           ============================================================ -->
+      <section class="scenario" id="s03">
+        <div class="scenario-head">
+          <div class="scenario-num">03 · Resolved · high confidence</div>
+          <h2>IU + Marketing → Business/Commerce, confident</h2>
+          <p class="scenario-caption">
+            Reasoning card has compressed into a one-line resolution header. Career preview has streamed in.
+            Commit is enabled and thrive-colored. No nudge line above the commit (confidence is high).
+            Community section is absent (count below threshold).
+          </p>
+          <span class="scenario-criterion">Success: §3 State C “quiet confidence”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Build</span><span>Compare</span><span>About</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+                <span class="section-label">Where this leads</span>
+                <ul class="career-list">
+                  <li>Financial Analyst</li>
+                  <li>Operations Analyst</li>
+                  <li>Management Consultant</li>
+                  <li>Market Research Analyst</li>
+                </ul>
+
+                <div class="chip-sep">Something feel off?</div>
+                <div class="chips">
+                  <button class="chip primary" type="button">
+                    <span class="gemma-star" aria-hidden="true"></span>
+                    Not what I expected
+                  </button>
+                  <button class="chip ghost" type="button">Show me less common paths</button>
+                  <button class="chip ghost" type="button">Wrong major</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           04 — Resolved, low confidence (soft nudge)
+           ============================================================ -->
+      <section class="scenario" id="s04">
+        <div class="scenario-head">
+          <div class="scenario-num">04 · Resolved · low confidence</div>
+          <h2>Same resolution, but Gemma wasn't sure</h2>
+          <p class="scenario-caption">
+            Same screen as scenario 3 with three diffs: primary chip is gently pulsing (yellow glow),
+            resolution title sits in caution rather than insight, and the nudge whisper appears above
+            the commit. <em>The commit is still enabled</em> — we never gate the student.
+          </p>
+          <span class="scenario-criterion">Success: §8 “whisper, not warning”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Build</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted" style="color: var(--color-accent-caution);">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title" style="color: var(--color-accent-caution);">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+                <span class="section-label">Where this leads</span>
+                <ul class="career-list">
+                  <li>Financial Analyst</li>
+                  <li>Operations Analyst</li>
+                  <li>Management Consultant</li>
+                  <li>Market Research Analyst</li>
+                </ul>
+
+                <div class="chip-sep">Something feel off?</div>
+                <div class="chips">
+                  <button class="chip primary pulsing" type="button">
+                    <span class="gemma-star" aria-hidden="true"></span>
+                    Not what I expected
+                  </button>
+                  <button class="chip ghost" type="button">Show me less common paths</button>
+                  <button class="chip ghost" type="button">Wrong major</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="nudge">Gemma wasn't sure on this one. Worth a sanity check?</div>
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           05 — Chip rail label A vs B
+           ============================================================ -->
+      <section class="scenario" id="s05">
+        <div class="scenario-head">
+          <div class="scenario-num">05 · Chip label decision · A vs B</div>
+          <h2>Middle chip — "Show me less common paths" vs "Show me weirder jobs"</h2>
+          <p class="scenario-caption">
+            Same chip rail, same weights, different label on the middle chip. Variant A is the spec default
+            (taxonomic but clear). Variant B is the PM's kid-voiced rewrite.
+            The third chip is fixed: <em>"Wrong major"</em>.
+          </p>
+          <span class="scenario-criterion">Decision 2: Which reads like a student, which reads like a site?</span>
+        </div>
+
+        <div class="viewport-label">Desktop · side-by-side variants</div>
+        <div class="sidebyside">
+          <div class="variant-card">
+            <h5>Variant A · Spec default</h5>
+            <div class="chips">
+              <button class="chip primary" type="button">
+                <span class="gemma-star" aria-hidden="true"></span>
+                Not what I expected
+              </button>
+              <button class="chip ghost candidate-a" type="button">
+                <span class="chip-label variant-a">A</span>
+                Show me less common paths
+              </button>
+              <button class="chip ghost" type="button">Wrong major</button>
+            </div>
+            <p class="variant-body">
+              Reads as product copy. Honest about what the toggle does (reveals stretch tiers).
+              Matches the rest of the spec's voice-of-the-tool language.
+            </p>
+          </div>
+          <div class="variant-card">
+            <h5>Variant B · PM critique · kid-voiced</h5>
+            <div class="chips">
+              <button class="chip primary" type="button">
+                <span class="gemma-star" aria-hidden="true"></span>
+                Not what I expected
+              </button>
+              <button class="chip ghost candidate-b" type="button">
+                <span class="chip-label variant-b">B</span>
+                Show me weirder jobs
+              </button>
+              <button class="chip ghost" type="button">Wrong major</button>
+            </div>
+            <p class="variant-body">
+              Reads as the student. Matches the founder's own "I don't see my shit" quote.
+              Risk: "weirder" slightly over-promises — the tier is unusual, not literally weird.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           06 — Clarifier (desktop inline)
+           ============================================================ -->
+      <section class="scenario" id="s06">
+        <div class="scenario-head">
+          <div class="scenario-num">06 · Clarifier open · desktop inline</div>
+          <h2>The primary chip expanded into its clarifier</h2>
+          <p class="scenario-caption">
+            "Not what I expected" has become a container. Label and sub-label explain the ask.
+            Input takes keyboard focus on open. Character count shows 280 max. Other two chips stay visible.
+          </p>
+          <span class="scenario-criterion">Success: §4 “preview stays in view, no modal”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · focused on right column</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Clarifier · inline</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+                <span class="section-label">Where this leads</span>
+                <ul class="career-list">
+                  <li>Financial Analyst</li>
+                  <li>Operations Analyst</li>
+                  <li>Management Consultant</li>
+                  <li>Market Research Analyst</li>
+                </ul>
+
+                <div class="chip-sep">Something feel off?</div>
+                <div class="chips" style="flex-direction: column; align-items: stretch;">
+                  <div class="clarifier-inline">
+                    <div class="chip-header">
+                      <span class="gemma-star" aria-hidden="true"></span>
+                      Not what I expected
+                    </div>
+                    <div>
+                      <label>What were you hoping to see?</label>
+                      <span class="sub">Name a job, a field, whatever's missing.</span>
+                      <textarea rows="3" placeholder="e.g. brand manager, UX designer, something with less math…">I wanted actual marketing jobs</textarea>
+                      <div class="char-count">27 / 280</div>
+                    </div>
+                    <div class="clarifier-actions">
+                      <button class="btn-ghost" type="button">Cancel</button>
+                      <button class="btn-primary" type="button">
+                        <span class="gemma-star" aria-hidden="true"></span>
+                        Ask Gemma
+                      </button>
+                    </div>
+                  </div>
+                  <button class="chip ghost" type="button">Show me less common paths</button>
+                  <button class="chip ghost" type="button">Wrong major</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           07 — Clarifier (mobile bottom sheet)
+           ============================================================ -->
+      <section class="scenario" id="s07">
+        <div class="scenario-head">
+          <div class="scenario-num">07 · Clarifier open · mobile sheet</div>
+          <h2>Same clarifier, bottom-sheet on a 375px viewport</h2>
+          <p class="scenario-caption">
+            The preview behind the sheet is dimmed + blurred. Drag handle at the top is visual only in MVP.
+            Submit button is full-width, 48px tall. Cancel is inline text underneath.
+          </p>
+          <span class="scenario-criterion">Success: §4 mobile “native-feeling scoped input”</span>
+        </div>
+
+        <div class="viewport-label">Mobile · 375</div>
+        <div class="frame frame-mobile" style="margin-left: 0;">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+          </div>
+          <div class="bottom-sheet-shell">
+            <div class="dim-layer">
+              <div class="screen-intro">
+                <div class="eyebrow">Set your course</div>
+                <h1>Where does this take you?</h1>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Your school</label>
+                <div class="input-field"><span class="value">Indiana University…</span><span class="input-glyph">✓</span></div>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Your major</label>
+                <div class="input-field"><span class="value">Marketing</span><span class="edit-glyph">✎</span></div>
+              </div>
+            </div>
+
+            <div class="bottom-sheet">
+              <div class="grab" aria-hidden="true"></div>
+              <h4>What were you hoping to see?</h4>
+              <div class="sub">Name a job, a field, whatever's missing.</div>
+              <textarea rows="4" placeholder="e.g. brand manager, UX designer…">I wanted actual marketing jobs</textarea>
+              <div class="char-count">27 / 280</div>
+              <button class="btn-primary" type="button">
+                <span class="gemma-star" aria-hidden="true"></span>
+                Ask Gemma
+              </button>
+              <div class="cancel">Cancel</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           08 — Debug trace streaming
+           ============================================================ -->
+      <section class="scenario" id="s08">
+        <div class="scenario-head">
+          <div class="scenario-num">08 · Debug trace streaming</div>
+          <h2>Clarifier submitted — Gemma's debug reasoning mid-stream</h2>
+          <p class="scenario-caption">
+            Career preview has been replaced in place. Breadcrumb echoes the student's clarifier input.
+            Reasoning card is shimmering on the arriving sentence. A tool-call indicator shows
+            Gemma's context lookup that informs the trace.
+          </p>
+          <span class="scenario-criterion">Success: §5 + §3 State D.2 “the resolution IS the trace now”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · right column in focus</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Debug trace · streaming</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+
+                <div class="gemma-thinking" style="margin-top: var(--space-5);">
+                  <div class="gemma-spinner" aria-hidden="true"></div>
+                  <span>Gemma is investigating…</span>
+                </div>
+                <div class="breadcrumb">from your clarifier: “I wanted actual marketing jobs”</div>
+
+                <div class="reasoning-card" role="status" aria-live="polite">
+                  <p class="settled">
+                    You've been searching Marketing at IU. IU reports this program under Business/Commerce — but graduates do land in core marketing roles.
+                  </p>
+                  <p>
+                    <span class="arriving">Let me pull from the Bureau of Labor Statistics (BLS) and show you which marketing careers are actually reachable from a Business degree at IU</span>
+                    <span class="cursor-blink" aria-hidden="true"></span>
+                  </p>
+                </div>
+                <span class="tool-call">Gemma looked up career paths for IU · Business/Commerce</span>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary disabled" type="button" aria-disabled="true">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           09 — Debug trace resolved
+           ============================================================ -->
+      <section class="scenario" id="s09">
+        <div class="scenario-head">
+          <div class="scenario-num">09 · Debug trace resolved</div>
+          <h2>3 candidate careers with feasibility pills</h2>
+          <p class="scenario-caption">
+            Reasoning settled, shimmer gone. Three candidates classified by feasibility mode:
+            <em>Direct match</em> (thrive), <em>Through Business program</em> (caution), <em>As a concentration</em> (info). Internal mode names remain in code + logs only.
+            A "back to original" ghost link dismisses the trace.
+          </p>
+          <span class="scenario-criterion">Success: §7 feasibility-tagged list + §5 settled state</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Debug trace · resolved</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+
+                <div class="breadcrumb">from your clarifier: “I wanted actual marketing jobs”</div>
+
+                <div class="reasoning-card" style="animation: none;">
+                  <p class="settled">
+                    In IU's submission to the Integrated Postsecondary Education Data System (IPEDS), marketing coursework is filed within its Business program. But the Bureau of Labor Statistics (BLS) shows graduates regularly land in core marketing roles — here's what BLS tracks.
+                  </p>
+                </div>
+
+                <span class="tool-call">Gemma looked up career paths for IU · Business/Commerce</span>
+
+                <span class="section-label">This school → these careers</span>
+                <ul class="trace-list">
+                  <li class="trace-row">
+                    <div>
+                      <div class="title">Market Research Analyst</div>
+                      <div class="sub">Direct match · Business grads at IU regularly land here</div>
+                    </div>
+                    <span class="pill pill-thrive">◆ direct hit</span>
+                  </li>
+                  <li class="trace-row">
+                    <div>
+                      <div class="title">Marketing Manager</div>
+                      <div class="sub">Classified as business, works as marketing</div>
+                    </div>
+                    <span class="pill pill-caution">◆ Through Business program</span>
+                  </li>
+                  <li class="trace-row">
+                    <div>
+                      <div class="title">Account Manager</div>
+                      <div class="sub">adjacent path · business grads move into this role within 2–4 years</div>
+                    </div>
+                    <span class="pill pill-thrive">◆ adjacent</span>
+                  </li>
+                </ul>
+
+                <div style="margin-top: var(--space-5);">
+                  <button class="btn-ghost" type="button">◂ Back to original</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           10 — Community suggestions · count ≥ 3
+           ============================================================ -->
+      <section class="scenario" id="s10">
+        <div class="scenario-head">
+          <div class="scenario-num">10 · Community · count ≥ 3</div>
+          <h2>"Where others landed" with realistic counts</h2>
+          <p class="scenario-caption">
+            Mature-system case. Three careers, three counts (17, 12, 4), section rendered between the
+            career preview and the chip rail. Header interpolates the student's input + school. No avatars,
+            no timestamps, no "trending." Just career + count.
+          </p>
+          <span class="scenario-criterion">Success: §6 “honest, not creepy”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · right column focus</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Community · count ≥ 3</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+                <span class="section-label">Where this leads</span>
+                <ul class="career-list">
+                  <li>Financial Analyst</li>
+                  <li>Operations Analyst</li>
+                  <li>Management Consultant</li>
+                  <li>Market Research Analyst</li>
+                </ul>
+
+                <div class="community">
+                  <span class="section-label">Other students searching “marketing” at IU ended up here</span>
+                  <div class="community-card">
+                    <div class="community-row">
+                      <div class="title">Marketing Manager</div>
+                      <div class="count">17 students</div>
+                    </div>
+                    <div class="community-row">
+                      <div class="title">Market Research Analyst</div>
+                      <div class="count">12 students</div>
+                    </div>
+                    <div class="community-row">
+                      <div class="title">Advertising Specialist</div>
+                      <div class="count">4 students</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="chip-sep">Something feel off?</div>
+                <div class="chips">
+                  <button class="chip primary" type="button">
+                    <span class="gemma-star" aria-hidden="true"></span>
+                    Not what I expected
+                  </button>
+                  <button class="chip ghost" type="button">Show me less common paths</button>
+                  <button class="chip ghost" type="button">Wrong major</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           11 — Community · n=1 creepy case
+           ============================================================ -->
+      <section class="scenario" id="s11">
+        <div class="scenario-head">
+          <div class="scenario-num">11 · Community · n=1 (PM-flagged)</div>
+          <h2>One row. One student. Does it read as "pioneer" or "panopticon"?</h2>
+          <p class="scenario-caption">
+            Same card shape, single row. An alert-colored left stripe flags the row as the PM's concern made visible.
+            If we render this at threshold <em>≥1</em>, every early user sees themselves in it. If we render at
+            <em>≥3</em>, this state doesn't exist and we ship scenario 12 instead.
+          </p>
+          <span class="scenario-criterion">Decision 1: community threshold — ship this, or hide it?</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · right column focus</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Community · n=1</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+                <span class="section-label">Where this leads</span>
+                <ul class="career-list">
+                  <li>Financial Analyst</li>
+                  <li>Operations Analyst</li>
+                  <li>Management Consultant</li>
+                  <li>Market Research Analyst</li>
+                </ul>
+
+                <div class="community">
+                  <span class="section-label">Other students searching “marketing” at IU ended up here</span>
+                  <div class="community-card">
+                    <div class="community-row creepy-flag">
+                      <div class="title">Brand Strategist</div>
+                      <div class="count">1 student</div>
+                    </div>
+                  </div>
+                  <span class="note">⚠ PM concern: does a single-row "community" read as surveillance?</span>
+                </div>
+
+                <div class="chip-sep">Something feel off?</div>
+                <div class="chips">
+                  <button class="chip primary" type="button">
+                    <span class="gemma-star" aria-hidden="true"></span>
+                    Not what I expected
+                  </button>
+                  <button class="chip ghost" type="button">Show me less common paths</button>
+                  <button class="chip ghost" type="button">Wrong major</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           12 — Community absent
+           ============================================================ -->
+      <section class="scenario" id="s12">
+        <div class="scenario-head">
+          <div class="scenario-num">12 · Community absent · cold start</div>
+          <h2>The default for day one of any (school, input) combo</h2>
+          <p class="scenario-caption">
+            No section rendered. No rule, no card, no "be the first" copy. Just the career preview, the
+            separator, and the chip rail. This is what the product looks like on day one for every
+            (school, input) combination that hasn't been resolved yet.
+          </p>
+          <span class="scenario-criterion">Success: §6 “absence is honesty, filler is noise”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · right column focus</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Community · cold start</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+                <span class="section-label">Where this leads</span>
+                <ul class="career-list">
+                  <li>Financial Analyst</li>
+                  <li>Operations Analyst</li>
+                  <li>Management Consultant</li>
+                  <li>Market Research Analyst</li>
+                </ul>
+
+                <div class="chip-sep">Something feel off?</div>
+                <div class="chips">
+                  <button class="chip primary" type="button">
+                    <span class="gemma-star" aria-hidden="true"></span>
+                    Not what I expected
+                  </button>
+                  <button class="chip ghost" type="button">Show me less common paths</button>
+                  <button class="chip ghost" type="button">Wrong major</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           13 — school_gap CTA tile
+           ============================================================ -->
+      <section class="scenario" id="s13">
+        <div class="scenario-head">
+          <div class="scenario-num">13 · school_gap CTA tile</div>
+          <h2>"This school doesn't offer that path" — full-width leave-gesture tile</h2>
+          <p class="scenario-caption">
+            Caution-striped tile beneath the feasibility list. Reads as "go somewhere" (secondary button, arrow glyph),
+            not "refine here" (chip). The link points to the v0.5 School Discovery stub — static top-10 Marketing programs nationally.
+            The pill underneath marks it as a v0.5 stub.
+          </p>
+          <span class="scenario-criterion">Decision 3: ship the stub, or cut the tile?</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · right column focus</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>school_gap · tile</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+
+                <div class="breadcrumb">from your clarifier: “I want to be a brand strategist”</div>
+
+                <span class="section-label">This school → these careers</span>
+                <ul class="trace-list">
+                  <li class="trace-row">
+                    <div>
+                      <div class="title">Marketing Manager</div>
+                      <div class="sub">Through Business program · reachable from IU's Business degree</div>
+                    </div>
+                    <span class="pill pill-caution">◆ Through Business program</span>
+                  </li>
+                  <li class="trace-row">
+                    <div>
+                      <div class="title">Brand Strategist</div>
+                      <div class="sub">Not offered here · this needs a Marketing degree</div>
+                    </div>
+                    <span class="pill pill-alert">◇ not here</span>
+                  </li>
+                </ul>
+
+                <div class="gap-tile">
+                  <span class="gap-icon">◇</span>
+                  <h4>This school doesn't offer that path.</h4>
+                  <p>
+                    Brand Strategist typically comes from a Marketing degree. In Indiana University Bloomington's submission to the Integrated Postsecondary Education Data System (IPEDS), that major isn't offered here —
+                    but other schools do.
+                  </p>
+                  <a class="btn-secondary" href="/discover?cip=52.14" aria-label="Find schools offering a Marketing degree">
+                    Find schools with this major <span aria-hidden="true">▸</span>
+                  </a>
+                  <div>
+                    <span class="stub-note">v0.5 stub · /discover route renders a "coming soon" page</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           14 — Commit + Start Over
+           ============================================================ -->
+      <section class="scenario" id="s14">
+        <div class="scenario-head">
+          <div class="scenario-num">14 · Commit + Start Over confirm</div>
+          <h2>Both actions visible, plus the "Start over" confirmation dialog</h2>
+          <p class="scenario-caption">
+            Top: the commit bar at rest (enabled thrive, ghost start-over). Bottom: the student has tapped
+            "Start over" and the confirm dialog is in front of a dimmed screen. No navigation — the student
+            stays on the screen.
+          </p>
+          <span class="scenario-criterion">Success: §8 “matter-of-fact, celebration happens at reveal”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · commit bar at rest</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Commit bar · at rest</span></div>
+          </div>
+          <div class="screen" style="padding-bottom: var(--space-8);">
+            <div class="commit-bar" style="margin-top: 0;">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280 · Start Over confirm dialog</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Start over · confirm</span></div>
+          </div>
+          <div class="screen" style="padding-bottom: var(--space-6);">
+            <div class="confirm-shell">
+              <div class="confirm-dialog">
+                <h4>Start over?</h4>
+                <p>This clears your school, major, and anything Gemma has resolved. The inputs go back to empty.</p>
+                <div class="confirm-actions">
+                  <button class="btn-ghost" type="button">Keep going</button>
+                  <button class="btn-warn" type="button">Yes, clear it</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           15 — Canonical full screen
+           ============================================================ -->
+      <section class="scenario" id="s15">
+        <div class="scenario-head">
+          <div class="scenario-num">15 · Canonical composition</div>
+          <h2>What the Kaggle judge sees on first load of the happy path</h2>
+          <p class="scenario-caption">
+            IU + Marketing, resolved, high confidence, no community section, no chip open. Both columns visible.
+            Commit enabled. This is the screenshot that leads the video — if it doesn't look right, nothing else matters.
+          </p>
+          <span class="scenario-criterion">Success: §15 “what judging sees first”</span>
+        </div>
+
+        <div class="viewport-label">Desktop · 1280</div>
+        <div class="frame frame-desktop">
+          <div class="chrome">
+            <div class="chrome-brand"><span class="chrome-brand-mark">✦</span>FutureProof</div>
+            <div class="chrome-nav"><span>Build</span><span>Compare</span><span>About</span></div>
+          </div>
+          <div class="screen">
+            <div class="screen-intro">
+              <div class="eyebrow">Set your course</div>
+              <h1>Where does this take you?</h1>
+              <p>Pick a school and a major. The careers follow.</p>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="input-group">
+                  <label class="input-label">Your school</label>
+                  <div class="input-field">
+                    <span class="value">Indiana University Bloomington</span>
+                    <span class="input-glyph">✓</span>
+                  </div>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Your major</label>
+                  <div class="input-field">
+                    <span class="value">Marketing</span>
+                    <span class="edit-glyph">✎</span>
+                  </div>
+                </div>
+                <div class="disclosure">Show effort & loans</div>
+              </div>
+              <div>
+                <div class="resolution-header">
+                  <div class="row">
+                    <span class="gemma-star gemma-star-lg" aria-hidden="true"></span>
+                    <span>Gemma matched</span>
+                    <span class="quoted">“marketing”</span>
+                  </div>
+                  <div class="resolved">
+                    <span class="title">Business/Commerce</span>
+                    <!-- taxonomy code removed — internal only per spec §2 Decision #12 -->
+                  </div>
+                </div>
+                <span class="section-label">Where this leads</span>
+                <ul class="career-list">
+                  <li>Financial Analyst</li>
+                  <li>Operations Analyst</li>
+                  <li>Management Consultant</li>
+                  <li>Market Research Analyst</li>
+                </ul>
+
+                <div class="chip-sep">Something feel off?</div>
+                <div class="chips">
+                  <button class="chip primary" type="button">
+                    <span class="gemma-star" aria-hidden="true"></span>
+                    Not what I expected
+                  </button>
+                  <button class="chip ghost" type="button">Show me less common paths</button>
+                  <button class="chip ghost" type="button">Wrong major</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-bar">
+              <div class="commit-actions">
+                <button class="cta-primary" type="button">Yes, continue</button>
+                <button class="cta-ghost" type="button">Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+      <p class="caption-small" style="text-align: center; margin-bottom: var(--space-12);">
+        End of scenarios. Fifteen in total. Tokens sourced from
+        <code>frontend/src/styles/tokens.css</code>. No backend, no Gemma, no build step —
+        everything you see is CSS.
+      </p>
+    </main>
+  </div>
+</body>
+</html>
