@@ -239,3 +239,50 @@ class TestSpecificCipBypass:
             # Standard rows use the reported cipcode as-is.
             for row in result["data"]:
                 assert row["cipcode"] == "52.14"
+
+
+class TestIUBMarketing52_14_BrokenContract:
+    """Pins the backend behavior the *frontend* used to rely on and no
+    longer does.
+
+    Before the frontend fix, CareerPickScreen sent
+    ``cipcode = intent.matched_cip = "52.14"`` to ``/build/outcomes`` for
+    IU-B Marketing. The MCP handler saw a non-broad, non-prefix-child CIP
+    and skipped substitution. The standard-path query found no IU 52.14
+    rows, ``_fallback_broaden_cip`` dropped to the family prefix, and the
+    response shipped every 52.* IU program — so the student saw
+    accounting / finance / management careers instead of marketing.
+
+    The frontend now sends ``parentCip = "52.01"`` for this flow
+    (covered by TestIUBMarketing above). This test intentionally calls
+    the handler with the *old* shape to document the backend's
+    broaden-fallback behavior: if a future frontend refactor accidentally
+    reverts to sending the matched leaf, we want a test that surfaces
+    exactly what the user would see, so the regression is caught before
+    a release rather than after.
+    """
+
+    def test_52_14_at_iub_falls_to_broaden_fallback(self, server):
+        result = _call(
+            server,
+            unitid=IUB_UNITID,
+            cipcode="52.14",
+            student_major="Marketing",
+        )
+        # The fallback still reports substitution_applied (it's a kind
+        # of substitution — broadening the caller's cip) but the caveat
+        # shape is the broadening one, NOT the blended-major one.
+        caveat = result.get("data_caveat") or {}
+        assert caveat.get("type") == "cip_broadened", (
+            "If this assertion flips to 'blended_substitution', the "
+            "backend gained a self-healing path and the frontend no "
+            "longer needs to route parentCip. Reconsider the fix."
+        )
+        # The row set is the family-broadened result — not the Marketing
+        # crosswalk SOC set. 11-2021 (Marketing Managers) would be here
+        # only if substitution had fired.
+        socs = _socs(result)
+        assert "11-2021" not in socs, (
+            "Broaden-fallback surfaced a Marketing SOC; check whether "
+            "IU now reports 52.14 directly or substitution changed."
+        )
