@@ -296,6 +296,7 @@ describe("MenuScreen", () => {
         rawText: "Old Major",
         careersPreview: [],
         substitutionApplied: false,
+        parentCip: "",
       },
       effort: { level: "all_in", percentile: 90, ernShift: 2 },
       loans: { percentage: 100 },

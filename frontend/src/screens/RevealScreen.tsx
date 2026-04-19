@@ -68,12 +68,18 @@ export function RevealScreen() {
     const minDisplayTime = new Promise<void>((r) => setTimeout(r, 1000));
 
     try {
+      // Match CareerPickScreen's lookup-cip rule: send the school's
+      // reported broad cip when substitution applies so POST /build
+      // runs through the same substituted-career path as /build/outcomes.
+      // Otherwise the finalized build would stat-engine against the
+      // broaden-fallback's wrong SOC set.
+      const lookupCip = major.parentCip || major.cipCode;
       const [result] = await Promise.all([
         createBuild(
           profileName,
           school.name,
           school.unitid,
-          major.cipCode,
+          lookupCip,
           major.cipTitle,
           major.rawText,
           effort.level,
