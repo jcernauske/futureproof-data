@@ -10,6 +10,7 @@ import { GauntletScreen } from "@/screens/GauntletScreen";
 import { BranchTreeScreen } from "@/screens/BranchTreeScreen";
 import { SaveWrappedScreen } from "@/screens/SaveWrappedScreen";
 import { MenuScreen } from "@/screens/MenuScreen";
+import { MockupsShowcase } from "@/screens/MockupsShowcase";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { GlobalChrome } from "@/components/ui/GlobalChrome";
@@ -31,6 +32,7 @@ export function AppRoutes() {
         <Route path="/branches" element={<BranchTreeScreen />} />
         <Route path="/save" element={<SaveWrappedScreen />} />
         <Route path="/menu" element={<MenuScreen />} />
+        <Route path="/mockups/horizon" element={<MockupsShowcase />} />
         <Route
           path="/build"
           element={

@@ -9,6 +9,11 @@
  *     disable the commit button (P1).
  *   - Start-over (after the confirm dialog) resets school / major /
  *     resolution / debug trace (P1).
+ *
+ * Chapter Book integration (feature-chapter-book §4 New Tests Required):
+ *   - 4fr_8fr grid renders at desktop viewport, collapses to 1-col below 1200px.
+ *   - Tapping a career row swaps right column from list → book; Back restores list.
+ *   - Book state resets when the resolution's matched_cip changes.
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -18,6 +23,8 @@ import { MemoryRouter } from "react-router-dom";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
+import { makeCareer, branchesFullArc } from "@/components/chapter-book/__fixtures__/branches";
+import type { CareerOutcome, TieredCareers } from "@/types/build";
 
 // Mock every API module the screen pulls in so no network escapes.
 vi.mock("@/api/intent", () => ({
@@ -39,8 +46,15 @@ vi.mock("@/api/client", () => ({
   apiGet: vi.fn().mockResolvedValue([]),
   apiPost: vi.fn().mockResolvedValue({ committed: true, logged: false }),
 }));
+// ChapterBook fetches branches on mount. Mock so no network escapes and
+// the book can render ready/loading/error shapes in the list→book tests.
+vi.mock("@/api/tree", () => ({
+  getBranchesForSoc: vi.fn().mockResolvedValue([]),
+}));
 
 import { commitResolution } from "@/api/intent";
+import { getOutcomes, getTieredCareers } from "@/api/build";
+import { getBranchesForSoc } from "@/api/tree";
 import { SetYourCourseScreen } from "./SetYourCourseScreen";
 
 const mockNavigate = vi.fn();
@@ -217,6 +231,214 @@ describe("TestLowConfidence", () => {
 // ---------------------------------------------------------------------------
 // TestStartOver (P1)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// TestChapterBook — feature-chapter-book §4 New Tests Required (P0)
+//
+// These tests exercise the 4fr/8fr grid, the list→book swap when a
+// career row is tapped, and the book-state reset when the Gemma
+// resolution's matched_cip changes.
+// ---------------------------------------------------------------------------
+
+const RESOLVED_MARKETING = {
+  matched_cip: "52.1401",
+  matched_title: "Marketing",
+  confidence: "high",
+  reasoning: "",
+  careers_preview: [],
+  audit_flag: null,
+  audit_message: null,
+  needs_clarification: false,
+  alternatives: [],
+  parent_cip: "",
+  confirmed_focus: null,
+};
+
+function seedWithResolvedMajor(): void {
+  seedState({
+    initialResolution: { ...RESOLVED_MARKETING },
+    currentResolution: { ...RESOLVED_MARKETING },
+  });
+}
+
+function makeCareers(): CareerOutcome[] {
+  // Two careers — so we can prove the clicked-on one (not "the first")
+  // is what opens in the book. The second has a distinctive SOC prefix
+  // (11-*) for unambiguous assertions.
+  return [
+    makeCareer({
+      soc_code: "19-4021",
+      occupation_title: "Biological Technician",
+    }),
+    makeCareer({
+      soc_code: "11-9121",
+      occupation_title: "Natural Sciences Manager",
+    }),
+  ];
+}
+
+function mockTiersWithCareers(careers: CareerOutcome[]): void {
+  // getOutcomes drives the tier fetch; getTieredCareers returns the
+  // grouped result. Both must be mocked or the effect chain stalls.
+  const tiered: TieredCareers = {
+    common: careers,
+    less_common: [],
+    stretch: [],
+  };
+  vi.mocked(getOutcomes).mockResolvedValue(careers);
+  vi.mocked(getTieredCareers).mockResolvedValue(tiered);
+}
+
+describe("TestChapterBook_GridLayout", () => {
+  it("renders the 4fr_8fr grid on desktop viewports (>=1200px)", () => {
+    // window.innerWidth for jsdom defaults to 1024. We bump it to the
+    // desktop breakpoint for this assertion — though we're really
+    // checking that the class is in the DOM, since Tailwind doesn't
+    // actually evaluate media queries in jsdom. The `desktop:` prefix
+    // is what @fp-design-auditor reviews for.
+    Object.defineProperty(window, "innerWidth", {
+      writable: true,
+      configurable: true,
+      value: 1280,
+    });
+    seedState();
+    const { container } = renderScreen();
+    // Find the grid wrapper by its class signature. This matches the
+    // wrapper in SetYourCourseScreen.tsx:319.
+    const grid = container.querySelector(".grid.grid-cols-1");
+    expect(grid).not.toBeNull();
+    expect(grid!.className).toContain("desktop:grid-cols-[4fr_8fr]");
+    // Guard against a silent regression to the older 7fr_5fr ratio.
+    expect(grid!.className).not.toContain("7fr_5fr");
+  });
+
+  it("collapses to single column below desktop (<1200px)", () => {
+    Object.defineProperty(window, "innerWidth", {
+      writable: true,
+      configurable: true,
+      value: 1024, // tablet
+    });
+    seedState();
+    const { container } = renderScreen();
+    const grid = container.querySelector(".grid.grid-cols-1");
+    expect(grid).not.toBeNull();
+    // The fallback `grid-cols-1` class is present, so below the desktop
+    // breakpoint Tailwind falls through to the single-column layout.
+    expect(grid!.className).toContain("grid-cols-1");
+  });
+});
+
+describe("TestChapterBook_ListToBookSwap", () => {
+  beforeEach(() => {
+    vi.mocked(getOutcomes).mockReset();
+    vi.mocked(getTieredCareers).mockReset();
+    vi.mocked(getBranchesForSoc).mockReset();
+    vi.mocked(getBranchesForSoc).mockResolvedValue(branchesFullArc);
+  });
+
+  it("tapping a career row swaps the right column from list to Chapter Book, and Back restores the list", async () => {
+    const careers = makeCareers();
+    mockTiersWithCareers(careers);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    // Wait for the list to render (the tier-fetch effect chain takes a
+    // few microtasks to settle).
+    const list = await screen.findByTestId("career-list");
+    expect(list).toBeInTheDocument();
+    // The chapter book is NOT yet rendered.
+    expect(screen.queryByTestId("chapter-book-11-9121")).not.toBeInTheDocument();
+
+    // Click the second career row (Natural Sciences Manager) — proves
+    // the clicked career opens, not whichever one happens to be first.
+    const row = screen.getByTestId("career-row-11-9121");
+    fireEvent.click(row);
+
+    // Book mounts; list unmounts. Use findByTestId to wait for the
+    // AnimatePresence wait-mode swap + book fetch.
+    const book = await screen.findByTestId("chapter-book-11-9121");
+    expect(book).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByTestId("career-list")).not.toBeInTheDocument();
+    });
+
+    // The book is fetching for the career we clicked on.
+    expect(getBranchesForSoc).toHaveBeenCalledWith("11-9121");
+    // And the header shows that career's title (there's also an anchor
+    // card inside rendering the title — getAllByText is safe).
+    expect(
+      screen.getAllByText("Natural Sciences Manager").length,
+    ).toBeGreaterThan(0);
+
+    // Click Back — book unmounts, list restores.
+    fireEvent.click(screen.getByTestId("chapter-book-back"));
+    const restoredList = await screen.findByTestId("career-list");
+    expect(restoredList).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByTestId("chapter-book-11-9121")).not.toBeInTheDocument();
+    });
+  });
+
+  it("resets book state when the resolution's matched_cip changes (Decision #13)", async () => {
+    const careers = makeCareers();
+    mockTiersWithCareers(careers);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    // Get into book mode first.
+    await screen.findByTestId("career-list");
+    fireEvent.click(screen.getByTestId("career-row-19-4021"));
+    await screen.findByTestId("chapter-book-19-4021");
+
+    // Simulate a Gemma re-resolution pointing at a different CIP. The
+    // useEffect keyed on currentResolution?.matched_cip must clear the
+    // book-mode state.
+    useBuildInputStore.setState({
+      currentResolution: {
+        ...RESOLVED_MARKETING,
+        matched_cip: "42.0101", // Psychology — different CIP
+        matched_title: "Psychology",
+      },
+    });
+
+    // Book reverts to list mode (or, depending on the new mocks, to
+    // the loading/empty-list state). The load-bearing contract from
+    // Decision #13 is: the book unmounts when matched_cip changes.
+    await waitFor(() => {
+      expect(screen.queryByTestId("chapter-book-19-4021")).not.toBeInTheDocument();
+    });
+  });
+
+  it("passing the same matched_cip twice does not collapse book mode", async () => {
+    // Regression guard: Decision #13 says "reset when matched_cip
+    // changes". A store update that sets the SAME matched_cip (e.g. a
+    // re-render, a debug_trace overwrite) must not kick the student
+    // out of the book mid-read.
+    const careers = makeCareers();
+    mockTiersWithCareers(careers);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    await screen.findByTestId("career-list");
+    fireEvent.click(screen.getByTestId("career-row-19-4021"));
+    const book = await screen.findByTestId("chapter-book-19-4021");
+    expect(book).toBeInTheDocument();
+
+    // Mutate the resolution without changing matched_cip — book should
+    // survive.
+    useBuildInputStore.setState({
+      currentResolution: {
+        ...RESOLVED_MARKETING,
+        // matched_cip unchanged
+        reasoning: "A fresh reasoning trace arrived.",
+      },
+    });
+
+    // Book persists.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.getByTestId("chapter-book-19-4021")).toBeInTheDocument();
+  });
+});
 
 describe("TestStartOver", () => {
   it("resets_state — confirming start-over clears school, major, resolution, debug trace", async () => {
