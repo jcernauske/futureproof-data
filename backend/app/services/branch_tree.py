@@ -100,6 +100,11 @@ def get_branches(
                     else None
                 ),
                 experience_delta=as_float(row.get("experience_delta_years")),
+                related_education_level=(
+                    str(row["related_education_level"])
+                    if row.get("related_education_level") is not None
+                    else None
+                ),
             )
         )
 

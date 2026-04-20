@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiGet } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
@@ -14,6 +14,7 @@ import { AskGemmaChip } from "@/components/school/AskGemmaChip";
 import { CareerListSkeleton } from "@/components/school/CareerListSkeleton";
 import { CollapsibleCareerSection } from "@/components/school/CollapsibleCareerSection";
 import { CommunitySuggestions } from "@/components/school/CommunitySuggestions";
+import { ChapterBook } from "@/components/chapter-book/ChapterBook";
 import { Button } from "@/components/ui/Button";
 import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
@@ -69,6 +70,12 @@ export function SetYourCourseScreen() {
   const [tiersError, setTiersError] = useState<string | null>(null);
   const [effortExpanded, setEffortExpanded] = useState(false);
   const [confirmStartOver, setConfirmStartOver] = useState(false);
+  // Chapter Book open-state — screen-local per feature-chapter-book
+  // Decision #13. Cleared when the Gemma resolution's matched_cip
+  // changes so book mode doesn't survive a re-resolution.
+  const [selectedChapterCareer, setSelectedChapterCareer] =
+    useState<CareerOutcome | null>(null);
+  const reducedMotion = useReducedMotion();
 
   // Profile guard — bounce to /app if the profile isn't set. Stash this
   // route so ProfileScreen returns here after onboarding.
@@ -163,15 +170,31 @@ export function SetYourCourseScreen() {
 
   const handleCareerSelect = useCallback(
     (career: CareerOutcome) => {
+      // Preserve existing commit telemetry (the pickedSoc badge and any
+      // downstream consumers of selectedCareer), then open the Chapter
+      // Book per feature-chapter-book §4 + Decision #7.
       setSelectedCareer(career);
       setCommittedClick({
         soc: career.soc_code,
         title: career.occupation_title,
         feasibility: null,
       });
+      setSelectedChapterCareer(career);
     },
     [setSelectedCareer, setCommittedClick],
   );
+
+  const handleChapterBookBack = useCallback(() => {
+    setSelectedChapterCareer(null);
+  }, []);
+
+  // Decision #13 — book-mode state is cleared when the Gemma resolution
+  // points at a new CIP. Without this, a student who opens the book,
+  // edits their field-of-study, and sees a re-resolution would see stale
+  // chapters under the new resolution's career list.
+  useEffect(() => {
+    setSelectedChapterCareer(null);
+  }, [currentResolution?.matched_cip]);
 
   function handleStartOverRequest() {
     setConfirmStartOver(true);
@@ -182,6 +205,7 @@ export function SetYourCourseScreen() {
     setTieredCareers(null);
     setTiersError(null);
     setSelectedCareer(null);
+    setSelectedChapterCareer(null);
     reset();
     setConfirmStartOver(false);
   }
@@ -293,7 +317,7 @@ export function SetYourCourseScreen() {
             </p>
           </header>
 
-          <div className="grid grid-cols-1 desktop:grid-cols-[7fr_5fr] gap-6 desktop:gap-8 items-start">
+          <div className="grid grid-cols-1 desktop:grid-cols-[4fr_8fr] gap-6 desktop:gap-8 items-start">
             {/* LEFT — inputs + effort/loans disclosure */}
             <section aria-label="Your inputs" className="flex flex-col gap-6">
               <div>
@@ -598,45 +622,75 @@ export function SetYourCourseScreen() {
                 )}
               </AnimatePresence>
 
-              {/* Career lists — two collapsible sections. Common tier
-                  is expanded by default, uncommon (less_common + stretch)
-                  is collapsed with a count in the header. Hidden when
-                  the clarifier diverged from the current resolution —
-                  tiles would be stale; the reasoning card above becomes
-                  the honest answer plus a reset CTA. */}
+              {/* Career lists → Chapter Book. Right-column mode toggle
+                  per feature-chapter-book Decision #2 (replace-the-list).
+                  AnimatePresence mode="wait" ensures the exiting panel
+                  clears before the entering panel mounts, which combined
+                  with the 60ms book-entrance delay reads as "rearrange"
+                  not "flicker" (§3.2). Hidden entirely when the clarifier
+                  diverged — tiles would be stale. */}
               {currentResolution && !streaming && !clarifierDiverged && (
-                <div className="mt-6 flex flex-col gap-4">
-                  <p className="font-body text-small italic text-text-muted">
-                    Showing Standard Occupational Classification (SOC) codes related to CIP {currentResolution.matched_cip.slice(0, 5)}.
-                  </p>
-                  {tiersLoading && !tieredCareers && <CareerListSkeleton />}
-                  {tiersError && (
-                    <p className="font-body text-small text-accent-alert">
-                      {tiersError}
-                    </p>
-                  )}
-                  {tieredCareers && (
-                    <>
-                      <CollapsibleCareerSection
-                        label="Where this commonly leads"
-                        careers={commonCareers}
-                        defaultOpen={true}
-                        pickedSoc={selectedCareer?.soc_code ?? null}
-                        onSelect={handleCareerSelect}
-                        testId="section-common-paths"
+                <AnimatePresence mode="wait" initial={false}>
+                  {selectedChapterCareer ? (
+                    <motion.div
+                      key="book-mode"
+                      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+                      transition={
+                        reducedMotion
+                          ? { duration: 0 }
+                          : { ...springs.smooth, delay: 0.06 }
+                      }
+                      className="mt-6"
+                    >
+                      <ChapterBook
+                        career={selectedChapterCareer}
+                        onBack={handleChapterBookBack}
                       />
-                      <CollapsibleCareerSection
-                        label="Uncommon paths"
-                        careers={uncommonCareers}
-                        defaultOpen={false}
-                        showCount={true}
-                        pickedSoc={selectedCareer?.soc_code ?? null}
-                        onSelect={handleCareerSelect}
-                        testId="section-uncommon-paths"
-                      />
-                    </>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="list-mode"
+                      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                      transition={reducedMotion ? { duration: 0 } : springs.smooth}
+                      className="mt-6 flex flex-col gap-4"
+                    >
+                      <p className="font-body text-small italic text-text-muted">
+                        Showing Standard Occupational Classification (SOC) codes related to CIP {currentResolution.matched_cip.slice(0, 5)}.
+                      </p>
+                      {tiersLoading && !tieredCareers && <CareerListSkeleton />}
+                      {tiersError && (
+                        <p className="font-body text-small text-accent-alert">
+                          {tiersError}
+                        </p>
+                      )}
+                      {tieredCareers && (
+                        <>
+                          <CollapsibleCareerSection
+                            label="Where this commonly leads"
+                            careers={commonCareers}
+                            defaultOpen={true}
+                            pickedSoc={selectedCareer?.soc_code ?? null}
+                            onSelect={handleCareerSelect}
+                            testId="section-common-paths"
+                          />
+                          <CollapsibleCareerSection
+                            label="Uncommon paths"
+                            careers={uncommonCareers}
+                            defaultOpen={false}
+                            showCount={true}
+                            pickedSoc={selectedCareer?.soc_code ?? null}
+                            onSelect={handleCareerSelect}
+                            testId="section-uncommon-paths"
+                          />
+                        </>
+                      )}
+                    </motion.div>
                   )}
-                </div>
+                </AnimatePresence>
               )}
 
 

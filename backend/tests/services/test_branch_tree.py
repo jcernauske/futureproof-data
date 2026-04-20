@@ -45,6 +45,9 @@ class TestGetBranches:
         assert branch.delta_hmn == -1
         assert branch.delta_res == 0
         assert branch.unlock == "Bachelor's · high relatedness"
+        # feature-chapter-book Decision #12 — typed education-level surfaces
+        # alongside the composed ``unlock`` display string.
+        assert branch.related_education_level == "Bachelor's"
 
     def test_skips_rows_without_related_soc(self, monkeypatch):
         _stub_mcp(
@@ -202,3 +205,39 @@ class TestExperiencePassthrough:
         assert branch.experience_years == 7.0
         assert isinstance(branch.experience_years, float)
         assert branch.experience_delta == 4.0
+
+
+class TestRelatedEducationLevel:
+    """feature-chapter-book Decision #12: surface the typed education-level
+    field so the Chapter Book doesn't have to regex-parse the composed
+    ``unlock`` display string.
+    """
+
+    def test_related_education_level_passthrough(self, monkeypatch):
+        _stub_mcp(
+            monkeypatch,
+            [
+                {
+                    "soc_code": "19-4021",
+                    "related_soc_code": "19-1042",
+                    "related_title": "Medical Scientist",
+                    "related_education_level": "Master's degree",
+                }
+            ],
+        )
+        branch = branch_tree.get_branches("19-4021")[0]
+        assert branch.related_education_level == "Master's degree"
+
+    def test_related_education_level_null_when_missing(self, monkeypatch):
+        _stub_mcp(
+            monkeypatch,
+            [
+                {
+                    "soc_code": "19-4021",
+                    "related_soc_code": "19-1029",
+                    "related_title": "Biologist",
+                }
+            ],
+        )
+        branch = branch_tree.get_branches("19-4021")[0]
+        assert branch.related_education_level is None

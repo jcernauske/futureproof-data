@@ -126,6 +126,15 @@ export interface CareerBranch {
   delta_hmn: number | null;
   unlock: string | null;
   relatedness: number | null;
+  // O*NET experience requirements (onet-experience-requirements spec,
+  // Gold contract v1.2.0). Nullable when O*NET lacks ETE coverage.
+  experience_years: number | null;
+  experience_tier: "entry" | "early" | "mid" | "senior" | null;
+  experience_delta: number | null;
+  // Typed education level of the target occupation. Used by the Chapter
+  // Book to detect grad-degree-gated chapters (feature-chapter-book
+  // Decision #12). Nullable.
+  related_education_level: string | null;
 }
 
 export interface SkillRec {

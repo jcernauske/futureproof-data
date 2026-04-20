@@ -26,6 +26,10 @@ function baseBranch(overrides: Partial<CareerBranch> = {}): CareerBranch {
     delta_hmn: 0,
     unlock: null,
     relatedness: 0.8,
+    experience_years: null,
+    experience_tier: null,
+    experience_delta: null,
+    related_education_level: null,
     ...overrides,
   };
 }

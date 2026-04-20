@@ -137,9 +137,9 @@ export async function mockCreateBuild(
   };
 
   const branches: CareerBranch[] = [
-    { from_soc: career.soc_code, to_soc: "11-3021", to_title: "IT Manager", delta_ern: 2, delta_roi: 1, delta_res: 1, delta_grw: 0, delta_hmn: 2, unlock: "5+ years experience", relatedness: 0.85 },
-    { from_soc: career.soc_code, to_soc: "15-2051", to_title: "Data Scientist", delta_ern: 1, delta_roi: 0, delta_res: -1, delta_grw: 2, delta_hmn: -1, unlock: "Graduate degree", relatedness: 0.72 },
-    { from_soc: career.soc_code, to_soc: "15-1221", to_title: "Research Scientist", delta_ern: 1, delta_roi: 1, delta_res: -1, delta_grw: 1, delta_hmn: 0, unlock: "PhD", relatedness: 0.65 },
+    { from_soc: career.soc_code, to_soc: "11-3021", to_title: "IT Manager", delta_ern: 2, delta_roi: 1, delta_res: 1, delta_grw: 0, delta_hmn: 2, unlock: "5+ years experience", relatedness: 0.85, experience_years: 6, experience_tier: "mid", experience_delta: 4, related_education_level: "Bachelor's degree" },
+    { from_soc: career.soc_code, to_soc: "15-2051", to_title: "Data Scientist", delta_ern: 1, delta_roi: 0, delta_res: -1, delta_grw: 2, delta_hmn: -1, unlock: "Graduate degree", relatedness: 0.72, experience_years: 3, experience_tier: "early", experience_delta: 1, related_education_level: "Master's degree" },
+    { from_soc: career.soc_code, to_soc: "15-1221", to_title: "Research Scientist", delta_ern: 1, delta_roi: 1, delta_res: -1, delta_grw: 1, delta_hmn: 0, unlock: "PhD", relatedness: 0.65, experience_years: 9, experience_tier: "senior", experience_delta: 7, related_education_level: "Doctoral or professional degree" },
   ];
 
   const skillRecs: SkillRec[] = [

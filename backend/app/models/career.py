@@ -220,6 +220,11 @@ class CareerBranch(BaseModel):
     experience_years: float | None = None
     experience_tier: str | None = None
     experience_delta: float | None = None
+    # Typed education level of the target occupation. Surfaced for the
+    # Chapter Book's grad-degree gate detection without regex-parsing
+    # the ``unlock`` display string. Added by feature-chapter-book
+    # (Decision #12). Nullable; upstream row may lack the field.
+    related_education_level: str | None = None
 
 
 class SkillRec(BaseModel):

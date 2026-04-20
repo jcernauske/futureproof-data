@@ -17,6 +17,10 @@ const MOCK_BRANCHES: Record<string, CareerBranch[]> = {
       delta_hmn: 1,
       unlock: "Bachelor's + 5yr experience",
       relatedness: 0.92,
+      experience_years: 5.5,
+      experience_tier: "mid",
+      experience_delta: 3.5,
+      related_education_level: "Bachelor's degree",
     },
     {
       from_soc: "13-2051",
@@ -29,6 +33,10 @@ const MOCK_BRANCHES: Record<string, CareerBranch[]> = {
       delta_hmn: 2,
       unlock: "Master's preferred · 10+ yrs",
       relatedness: 0.78,
+      experience_years: 10,
+      experience_tier: "senior",
+      experience_delta: 8,
+      related_education_level: "Master's degree",
     },
   ],
 };
