@@ -151,13 +151,17 @@
   }
 }
 
-/* Gemma streaming-token shimmer — a moving insight-tinted gradient sweep
-   across the currently arriving sentence in a reasoning card. Pairs with
-   the card-breathe glow on the card container. */
+/* Gemma streaming-sentence shimmer — a one-shot insight-tinted gradient
+   sweep across a sentence the moment it arrives. Fires per sentence, then
+   settles. Paired with a text-opacity ramp (0.6 → 1.0) on the sentence
+   element itself, so the eye reads "this sentence just got real."
+
+   Timing per feature-set-your-course visionary §5: 320ms ease-out forwards.
+   Not infinite — the mockup looped it for static showcase; real product is
+   one-shot per sentence. */
 @keyframes gemma-shimmer {
-  0%   { background-position: -50% 0%; opacity: 0.65; }
-  50%  { opacity: 1; }
-  100% { background-position: 150% 0%; opacity: 0.95; }
+  from { background-position: -50% 0%; }
+  to   { background-position: 150% 0%; }
 }
 
 .animate-gemma-shimmer {
@@ -170,13 +174,51 @@
   background-size: 50% 100%;
   background-repeat: no-repeat;
   background-position: -50% 0%;
-  animation: gemma-shimmer 1.8s ease-in-out infinite;
+  animation: gemma-shimmer 320ms ease-out forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-gemma-shimmer {
     animation: none;
     background-image: none;
+  }
+}
+
+/* Looping shimmer — arriving / pre-stream Gemma-thinking variant. DESIGN.md
+   §Gemma Thinking forbids a loop on *settled* sentences because it reads
+   as "still loading." For sentences that are still arriving, and for the
+   pre-stream placeholder, a loop is exactly right: something really is
+   still loading. Paired with the terminal-cursor square at the end of the
+   running text.
+
+   Implementation matches the mockup's `.reasoning-card .arriving` pattern:
+   an insight-tinted gradient band sits as a background behind the text
+   and sweeps left→right. Text stays its normal color; the band brightens
+   the surface under each letter as it passes, like a highlight wipe. */
+@keyframes gemma-shimmer-loop {
+  0%   { background-position: -50% 0%; opacity: 0.72; }
+  50%  { opacity: 1; }
+  100% { background-position: 150% 0%; opacity: 0.95; }
+}
+
+.animate-gemma-shimmer-loop {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(184, 169, 232, 0.22) 50%,
+    transparent 100%
+  );
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  background-position: -50% 0%;
+  animation: gemma-shimmer-loop 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gemma-shimmer-loop {
+    animation: none;
+    background-image: none;
+    opacity: 1;
   }
 }
 

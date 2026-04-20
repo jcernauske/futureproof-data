@@ -35,6 +35,7 @@ async def compute_outcomes(request: OutcomesRequest):
             unitid=request.unitid,
             cipcode=request.cipcode,
             student_major=request.student_major,
+            student_cip=request.student_cip,
             effort=request.effort,
             loan_pct=request.loan_pct,
         )
@@ -69,6 +70,7 @@ async def create_build(request: BuildRequest):
             cipcode=request.cipcode,
             soc_code=request.selected_soc,
             student_major=request.student_major,
+            student_cip=request.student_cip,
             effort=cast(EffortLevel, request.effort),
             loan_pct=request.loan_pct,
         )

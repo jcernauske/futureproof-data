@@ -28,6 +28,7 @@ import logging
 import os
 import threading
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -348,8 +349,14 @@ async def generate_chat_async(
     temperature: float = 0.7,
     seed: int | None = None,
     model: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> str:
-    """Async variant of :func:`generate_chat` — same semaphore discipline."""
+    """Async variant of :func:`generate_chat` — same semaphore discipline.
+
+    ``extra`` is merged into the JSONL log record — matches
+    :func:`generate_async` so call sites (e.g. set-your-course chip
+    dispatcher) can stamp ``call_site`` and correlation fields.
+    """
     sem = _get_semaphore()
     async with sem:
         return await asyncio.to_thread(
@@ -360,7 +367,143 @@ async def generate_chat_async(
             temperature=temperature,
             seed=seed,
             model=model,
+            extra=extra,
         )
+
+
+async def generate_stream_async(
+    *,
+    system: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int = 500,
+    temperature: float = 0.7,
+    seed: int | None = None,
+    model: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> AsyncIterator[str]:
+    """Streaming variant — yields content-delta chunks as they arrive.
+
+    Uses OpenAI-compatible ``stream=True``. The sync iterator from the
+    OpenAI client is drained in a worker thread and bridged to the async
+    generator via a queue so the caller can ``async for`` over deltas
+    without blocking the event loop.
+
+    On transport failure the generator yields nothing (no exception
+    raised) — matches the empty-string-on-failure contract of the other
+    generate helpers. One JSONL record per call is appended under
+    ``_log_lock`` with the fully assembled response, ``duration_ms``, and
+    any ``extra`` fields the caller passed (e.g. ``call_site``).
+
+    The semaphore is held for the entire streaming lifetime so the global
+    concurrency budget stays honest.
+    """
+    import queue as _queue
+
+    sem = _get_semaphore()
+    async with sem:
+        client, config = _cached_client()
+        resolved_model = model or config.model
+        full_messages = [{"role": "system", "content": system}, *messages]
+        record: dict[str, Any] = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "backend": config.backend,
+            "model": resolved_model,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "seed": seed,
+            "messages": full_messages,
+            "streamed": True,
+        }
+        if extra:
+            record = {**extra, **record}
+
+        completion_kwargs: dict[str, Any] = {
+            "model": resolved_model,
+            "messages": full_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,
+        }
+        if seed is not None:
+            completion_kwargs["seed"] = seed
+
+        # Sentinel types for the bridge queue.
+        _DONE = object()
+        q: "_queue.Queue[Any]" = _queue.Queue(maxsize=256)
+        # Single-element holder so the async finally can reach the
+        # OpenAI stream object constructed inside the worker thread.
+        # Needed to close() it on client abort — otherwise the drain
+        # thread blocks forever in q.put() when the queue is full and
+        # the consumer is gone, leaking a thread + the Gemma semaphore.
+        stream_holder: list[Any] = []
+
+        def _drain_sync() -> None:
+            try:
+                stream = client.chat.completions.create(**completion_kwargs)
+                stream_holder.append(stream)
+                for chunk in stream:
+                    choices = getattr(chunk, "choices", None) or []
+                    if not choices:
+                        continue
+                    delta = getattr(choices[0], "delta", None)
+                    content = getattr(delta, "content", None) if delta else None
+                    if content:
+                        q.put(content)
+            except Exception as exc:  # pragma: no cover - defensive
+                q.put(("__error__", f"{type(exc).__name__}: {exc}"))
+            finally:
+                q.put(_DONE)
+
+        started = time.perf_counter()
+        loop = asyncio.get_running_loop()
+        task = loop.run_in_executor(None, _drain_sync)
+
+        assembled: list[str] = []
+        error: str | None = None
+        try:
+            while True:
+                item = await asyncio.to_thread(q.get)
+                if item is _DONE:
+                    break
+                if isinstance(item, tuple) and item and item[0] == "__error__":
+                    error = str(item[1])
+                    break
+                if isinstance(item, str):
+                    assembled.append(item)
+                    yield item
+        finally:
+            # On cancel / abort / GeneratorExit: close the OpenAI stream
+            # so the drain thread's `for chunk in stream:` loop exits
+            # promptly. Then drain any pending queue items so the thread's
+            # final q.put(_DONE) can complete even if the queue is full.
+            if stream_holder:
+                try:
+                    stream_holder[0].close()
+                except Exception:  # pragma: no cover - defensive
+                    pass
+            while not task.done():
+                try:
+                    await asyncio.wait_for(
+                        asyncio.to_thread(q.get), timeout=0.1
+                    )
+                except asyncio.TimeoutError:
+                    continue
+                except Exception:  # pragma: no cover - defensive
+                    break
+            try:
+                await task
+            except Exception:  # pragma: no cover - defensive
+                pass
+
+            record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+            record["response"] = "".join(assembled)
+            if error is not None:
+                record["error"] = error
+            _log_exchange(record)
+            if error is not None:
+                logger.warning(
+                    "gemma stream failed backend=%s: %s", config.backend, error
+                )
 
 
 def _trim_to_last_sentence(text: str) -> str:

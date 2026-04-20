@@ -379,8 +379,17 @@ For effects that don't need spring physics. Defined in `index.css`:
 |-----------|----------|-------|
 | `stat-label-fade` | 1s ease-out | Pentagon stat labels fading in |
 | `vertex-glow-pulse` | 4s ease-in-out infinite | Pentagon vertex glow dots |
-| `ambient-breathe` | 6s ease-in-out infinite | Background ambient glow |
+| `ambient-breathe` | 6s ease-in-out infinite | Background ambient glow (absolute-positioned translate + scale) |
 | `twinkle` | 4s ease-in-out infinite | Star particles |
+| `card-breathe` | 4s ease-in-out infinite | Insight glow pulse on Gemma Match Card + Reasoning Card (`box-shadow` 24 → 36px at `rgba(184, 169, 232, 0.12 → 0.25)`) |
+| `card-breathe-caution` | 4s ease-in-out infinite | Caution variant of card glow (low-confidence match card) |
+| `card-breathe-info` | 4s ease-in-out infinite | Info variant of card glow |
+| `landing-pending-dot` | 2s ease-in-out infinite | Landing screenshot-pending dot pulse |
+| `terminal-cursor-blink` | 1s steps(2, end) infinite | Canonical caret/cursor blink — terminal cursor, streaming cursor, input caret. Utility class `.animate-terminal-cursor`. Never add a second blink keyframe. |
+| `gemma-shimmer` | 320ms ease-out forwards | One-shot insight-gradient sweep across a *single* sentence the moment it arrives in a Reasoning Card. Fires per sentence, settles, does not loop. Paired with a text-opacity ramp 0.6 → 1.0 on the sentence element so the eye reads "this sentence just got real." Utility class `.animate-gemma-shimmer`. |
+| `chip-pulse-caution` | 1.6s ease-in-out infinite | Low-confidence pulse on a primary Chip. Smaller glow radius than `card-breathe-caution` — tuned for chip-sized surfaces. Utility class `.animate-chip-pulse-caution`. |
+
+All animations respect `prefers-reduced-motion: reduce` — keyframes hold at their resting frame and background gradients collapse. New keyframes must include the reduced-motion override at the point of definition, not in a component.
 
 ---
 
@@ -924,6 +933,555 @@ shadow: shadow-lg
 backdrop: rgba(18, 19, 31, 0.85) with backdrop-blur(8px)
 entrance: scale from 0.95, opacity from 0, springs.smooth
 ```
+
+### Chips
+
+Interactive, selectable category pills — distinct from read-only Pills/Badges. Chips invite the student to redirect, refine, or challenge. The canonical composition is a **chip rail**: one primary chip that opens the hero action, one or more ghost chips for alternates, and an optional dashed separator above. Introduced with the Set Your Course screen — reuse for any "something feel off?" style redirect.
+
+**Base chip:**
+```
+display: inline-flex
+align-items: center
+gap: 6px
+padding: 10px 18px
+border-radius: radius-full
+font-family: font-body
+font-size: text-small (14px)
+font-weight: 600
+transition: background, border-color, transform, box-shadow (all fast)
+```
+
+**Variants:**
+
+| Variant | Background | Border | Text | Weight | Usage |
+|---------|-----------|--------|------|--------|-------|
+| **primary** | `rgba(242, 212, 119, 0.12)` (caution @ 12%) | `rgba(242, 212, 119, 0.28)` | `accent-caution` | 700 | Hero redirect ("Not what I expected"). One per rail. Adds `shadow-sm`. |
+| **ghost** | transparent | `border-default` | `text-secondary` | 600 | Alternate redirects ("Show me less common paths", "Wrong major"). |
+
+**Hover (primary):** background → `rgba(242, 212, 119, 0.18)`, border → `rgba(242, 212, 119, 0.42)`, add `0 0 20px rgba(242, 212, 119, 0.18)`, `translateY(-1px)`.
+**Hover (ghost):** background → `rgba(255, 255, 255, 0.04)`, border → `border-strong`, text → `text-primary`.
+**Press:** `scale(0.97)` via `transitions.press`. Applies to all variants.
+
+**Ghost toggled-on ("active"):** For ghost chips that represent a toggleable state (canonical use: "Show me less common paths" reveals/hides stretch tiers). When on:
+- Background → `--color-state-active` (thrive @ 10%)
+- Border → `rgba(125, 212, 163, 0.28)`
+- Prepend a `✓` glyph in `text-accent-thrive` to the label
+- `aria-pressed="true"` on the button
+
+Tapping again reverts to default. This is the only chip state that *persists* between interactions — the primary's pulsing, hover, and press are all transient.
+
+**Disabled:** background → `--color-state-disabled`, text → `text-muted`, any prefix glyph desaturates to `text-muted`, `cursor: not-allowed`, no hover. Use `aria-disabled="true"` — **not** the HTML `disabled` attribute — so screen readers still announce the chip and its context.
+
+**Low-confidence state:** Add `.animate-chip-pulse-caution` to the primary chip. Softly pulses its box-shadow to signal "Gemma wasn't sure — worth a look." Paired with the Commit Bar nudge whisper (below).
+
+**A/B label tag:** When comparing copy variants side-by-side, the middle ghost chip can carry a tiny label tag inside it:
+```
+display: inline-flex
+padding: 2px 8px
+font-family: font-data
+font-size: 10px
+letter-spacing: 1px
+text-transform: uppercase
+border-radius: radius-full
+margin-right: space-2
+```
+Variant colorways: `variant-a` → `accent-info` on `rgba(123, 184, 224, 0.12)`; `variant-b` → `accent-empathy` on `rgba(232, 139, 169, 0.12)`. The chip itself gets an inner-border highlight: `box-shadow: inset 0 0 0 2px rgba(123, 184, 224, 0.35)` (A) or `rgba(232, 139, 169, 0.35)` (B).
+
+**Chip rail separator (`.chip-sep`):** A dashed-feel divider labeled with italic prompt copy ("Something feel off?"). Flex with hairline rules on both sides.
+```
+display: flex
+align-items: center
+gap: space-3
+margin: space-6 0 space-4
+color: text-muted
+font-size: text-small
+font-style: italic
+
+::before, ::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: border-subtle;
+}
+```
+
+**Mobile:** Chip rail flips to `flex-direction: column; align-items: stretch;` inside `.frame-mobile`. Each chip becomes full-width.
+
+**Inline expansion:** The primary chip can expand in place into a clarifier (below) — it becomes the Clarifier container. Ghost chips stay visible underneath.
+
+### Reasoning Card
+
+Gemma's streaming reasoning surface. Not a chat bubble, not a spinner — the visible channel for "Gemma is thinking out loud, word by word." Use any time Gemma is generating multi-sentence reasoning the student should witness (§5 of Set Your Course: "witnessing thought, not loading").
+
+**Container:**
+```
+background: rgba(27, 29, 48, 0.6)          /* bg-deep @ 60% */
+border: 1px solid border-subtle
+border-left: 3px solid accent-insight      /* the "this is Gemma" stripe */
+border-radius: radius-xl
+padding: space-5
+shadow: shadow-md
+animation: card-breathe (4s insight pulse — the same keyframe the Match Card uses)
+```
+
+**Streaming cadence:** paragraph-by-paragraph, sentence-level. The frontend accumulates streamed deltas into a buffer and flushes a **sentence** to the DOM when the buffer ends with terminal punctuation (`.`, `!`, `?`) or hits 80 characters (whichever first — prevents pathological long-unpunctuated strings). On `\n\n`, the paragraph finalizes. **Not token-by-token** — that reads as "bot," not "thought."
+
+**Sentence states:**
+
+| State | Class | Treatment |
+|-------|-------|-----------|
+| **arriving** | `.animate-gemma-shimmer` | The sentence *just* flushed into the DOM. A 320ms insight-gradient sweep sweeps left→right once and holds. Sentence text-opacity ramps `0.6 → 1.0` under the sweep — the "text cooling" metaphor. After 320ms the sentence has settled; no animation continues. |
+| **settled** | (default paragraph) | Full `text-primary @ 1.0`, `leading-relaxed`. Previously-arrived sentences in the same paragraph are settled as soon as a new sentence starts arriving. |
+
+Paragraph typography: `font-body`, `text-body`, `color: text-primary`, `leading: relaxed`. Paragraphs separate with `space-3` gap.
+
+**Why one-shot-per-sentence and not a continuous loop:** the mockup loops the shimmer because it's static — it has no real sentences arriving. In the shipped product, each sentence sweeps *once* as it lands, then settles. A continuous loop would read as "still loading," defeating the "reasoning is happening" metaphor.
+
+**Streaming cursor (`.cursor-blink`):** A solid insight rectangle that follows the last arriving word.
+```
+display: inline-block
+width: 8px
+height: 1.1em
+background: accent-insight
+vertical-align: text-bottom
+margin-left: 2px
+animation: terminal-cursor-blink 1.2s ease-in-out infinite
+```
+Use `.animate-terminal-cursor` with these styles — don't invent a new keyframe. (The 1.2s override is a Set-Your-Course default; standard terminal cursor is 1s.)
+
+**Pairing patterns:**
+- Precede with a `GemmaThinking` status line ("Gemma is reading your input…").
+- Follow with a `.breadcrumb` echo of the student's clarifier input and/or a `.tool-call` chip when reasoning resolves.
+
+**Accessibility:** `role="status"` + `aria-live="polite"` so screen readers receive each settled paragraph. The arriving paragraph should have `aria-hidden="true"` on the cursor span only.
+
+### Clarifier
+
+A caution-tinted, scoped input that expands out of the primary chip when the student wants to push back on Gemma's match. Desktop renders inline (no modal); mobile renders as a bottom sheet (see Bottom Sheet below).
+
+**Container (inline, desktop):**
+```
+background: rgba(242, 212, 119, 0.06)
+border: 1px solid rgba(242, 212, 119, 0.28)
+box-shadow: 0 0 24px rgba(242, 212, 119, 0.14)
+border-radius: radius-xl
+padding: space-5
+display: flex
+flex-direction: column
+gap: space-4
+```
+
+**Anatomy (top to bottom):**
+1. **Chip header** — the same sparkle + text from the primary chip ("Not what I expected"), `font-weight: 700`, `text-accent-caution`. Signals "the chip you clicked is now a container."
+2. **Label** — `font-body`, `text-small`, weight 700, `text-secondary`. The big ask ("What were you hoping to see?").
+3. **Sub** — `text-small`, `text-muted`. One-line clarification ("Name a job, a field, whatever's missing.").
+4. **Input** — height min 48px, `bg-deep`, `border-default`, `radius-md`, `text-body`, `color: text-primary`. Focus: `border-accent-info` + 3px focus ring. Placeholder is permissive-framed and italic-muted (e.g. *"e.g. brand manager, UX designer, something with less math…"*). Use a single-line `<input>` on desktop; promote to `<textarea>` on mobile only when the keyboard + autocorrect benefit outweighs the extra vertical budget.
+5. **Char count** — `.char-count` — `font-data`, `text-micro`, `text-muted`, right-aligned. Format `{n} / {max}`. 280 is the canonical ceiling (enforced both client-side and Pydantic server-side per spec).
+6. **Actions** — right-aligned flex row: Ghost "Cancel" + Primary **"Ask Gemma"** with a `GemmaStar` prefix. On submit the button label morphs to **"Asking…"** with the `GemmaThinking` spinner inline (replacing the star). Labels are spec-locked — don't rephrase.
+
+**Preview stays in view** — the career preview above the clarifier must remain visible. Never turn the clarifier into a modal on desktop.
+
+**Submit choreography (spec-locked):** the clarifier **dismisses immediately** on submit — it does *not* wait for Gemma's first chunk. Desktop inline collapses via `springs.smooth` (~200ms); the bottom sheet slides down. The streaming debug trace replaces the career preview as the student's focal point. Rule from the visionary §4: leaving the clarifier open while streaming creates two competing focus points. Dismiss first, then stream.
+
+**Keyboard:** `Enter` submits if the input is non-empty; `Shift+Enter` inserts a newline (textarea mobile only); `Esc` cancels (reverses the expand and returns the chip to default). Focus lands in the input automatically on open.
+
+### Bottom Sheet
+
+Mobile-native scoped input surface. Slides up from the bottom of the viewport, dims + blurs everything behind it. Use when a desktop inline expansion would overflow a small viewport (the Clarifier's default mobile behavior).
+
+**Shell (the dimmed backdrop region):**
+```
+position: relative
+background: bg-void
+border-radius: radius-xl
+border: 1px solid border-default
+overflow: hidden
+```
+With a scrim pseudo-element:
+```
+::after {
+  position: absolute; inset: 0;
+  background: rgba(18, 19, 31, 0.7);
+  backdrop-filter: blur(6px);
+  z-index: 1;
+}
+```
+Any content behind the scrim renders at `opacity: 0.35`.
+
+**Sheet:**
+```
+position: absolute; left: 0; right: 0; bottom: 0
+background: bg-mid
+border-top: 1px solid border-strong
+border-radius: radius-xl radius-xl 0 0
+shadow: shadow-lg
+padding: space-6 space-5 space-6
+z-index: 2
+display: flex; flex-direction: column; gap: space-4
+```
+
+**Drag handle (`.grab`):**
+```
+width: 40px
+height: 4px
+background: rgba(58, 61, 117, 0.6)
+border-radius: radius-full
+margin: 0 auto space-4
+```
+Visual only in MVP — not a drag-to-dismiss affordance. Tells the student "this is a sheet, not a modal."
+
+**Primary action (inside the sheet):** full-width, 48px tall, `text-cta` size. Centered content. Below it, a muted centered `.cancel` inline-text line. No secondary button cluster — mobile decisions are binary.
+
+**Entrance:** Slide up from `y: 100%` with `springs.smooth`. Scrim fades in over 200ms.
+
+**Accessibility (required):**
+- The sheet itself gets `role="dialog"` + `aria-modal="true"` + an `aria-label` matching the sheet's headline (e.g. "What were you hoping to see?").
+- `Escape` dismisses the sheet — reverse of the entrance.
+- **Tapping the dimmed scrim behind the sheet acts as Cancel** — dismisses the sheet without submitting. Same effect as tapping the inline `.cancel` text.
+- Focus enters the first input or button on mount and is trapped inside the sheet until dismiss. On dismiss, focus returns to the trigger chip.
+- The drag handle is `aria-hidden="true"` — it's decorative in MVP (no drag-to-dismiss).
+
+### Commit Bar
+
+Persistent primary-action footer for "make the decision" surfaces (Set Your Course commit, build confirmation, etc.). Distinct from a generic button group — this is the "big yes + soft escape" pairing at the bottom of the screen with an optional whisper of Gemma's unease above it.
+
+**Container (desktop inline):**
+```
+margin-top: space-8
+padding: space-5 space-6
+display: flex
+align-items: center
+justify-content: space-between
+gap: space-4
+background: bg-deep
+border: 1px solid border-subtle
+border-radius: radius-xl
+```
+
+**Anatomy:**
+- **Nudge (optional):** `.nudge` — `font-size: text-small`, italic, `text-muted`, right-aligned, sits inline (left of actions) or above them on mobile. Used only when Gemma's confidence is below the high threshold. Copy is always a question. Visionary-locked default: ***"Want to double-check this first?"*** — never a warning, never blames the student. §8 "whisper, not warning."
+- **CTA primary (`.cta-primary`):** 48px tall, 0 space-8 padding, `accent-thrive` background, `text-inverse` label, `text-cta` size, weight 700. Label is spec-locked: **"Yes, continue"** — the "Yes," is a kid-voice cue that reads as confirmatory ("yes, that's me"), not transactional. Don't shorten to "Continue." Hover: add `shadow-glow-thrive`, `translateY(-1px)`. Disabled: `bg-state-disabled`, `text-muted`, `cursor: not-allowed`, `pointer-events: none`.
+- **CTA ghost (`.cta-ghost`):** 40px tall, 0 space-4 padding, `text-secondary`, weight 600, `text-small`. Label is spec-locked: **"Start over"**. Hover: text → `text-primary`, `rgba(255, 255, 255, 0.04)` background.
+
+**Mobile (fixed):** The bar pins to the bottom of the viewport.
+```
+position: absolute; bottom: 0; left: 0; right: 0
+margin-top: 0
+border-radius: 0
+border: none (or border-top only)
+background: rgba(27, 29, 48, 0.92)
+backdrop-filter: blur(12px)
+flex-direction: column
+padding: space-3 space-4 calc(space-5)
+gap: space-2
+```
+Nudge goes above actions, centered. Actions span full width, `justify-content: space-between`.
+
+**Never gate the student.** The primary CTA stays *enabled* in low-confidence states — only the nudge changes. The student always retains agency; Gemma only whispers.
+
+**Nudge dismissal rule:** the nudge clears the moment the student taps **any** chip — primary *or* ghost. Tapping any chip satisfies the "worth a double-check?" framing; re-rendering the nudge after a chip would read as nagging. Mount and unmount the nudge via `AnimatePresence` so the disappearance is a gentle fade, not a jump. Also clears on successful commit.
+
+**Accessibility:** the nudge is `aria-describedby`-associated with the primary CTA so screen-reader users hear the context alongside the button, rather than having to locate the nudge line separately.
+
+### Trace / Feasibility List
+
+A structured list that classifies each candidate by reachability. Used after a clarifier resolves, in the debug-trace view. Shares visual DNA with the career preview list but carries right-side feasibility pills and descriptive sub-lines.
+
+**Container:**
+```
+list-style: none
+background: bg-mid
+border: 1px solid border-subtle
+border-radius: radius-xl
+overflow: hidden
+```
+
+**Row (`.trace-row`):**
+```
+padding: space-4 space-5
+border-top: 1px solid border-subtle   /* first row: none */
+display: grid
+grid-template-columns: 1fr auto
+gap: space-3
+align-items: center
+```
+Hover: `background: bg-surface`.
+
+**Row content:**
+- **Left column** — `.title` in `font-body`, `text-body-sm`, weight 600, `text-accent-info`, with a `→` glyph prefix (also info-colored). `.sub` below in `text-small`, `text-muted`, indented to align under the title.
+- **Right column** — a Pill/Badge with the feasibility glyph convention (`◆` reachable / `◇` absent). Accent follows semantics: thrive (direct hit), caution (through another program), alert (not here at all).
+
+**Click behavior is mode-dependent:**
+
+| Mode | Row clickable? | Behavior |
+|------|---------------|----------|
+| **Preview** (shown under an initial resolution) | No | Rows are read-only. The student commits via the Commit Bar, not by clicking a career. Cursor stays `default`, no hover background. |
+| **Debug-trace** (shown after a chip-routed clarifier response) | Yes | Rows are `<button>`s. Click triggers a 180ms thrive flash (title → `accent-thrive`, `bg-[rgba(125,212,163,0.12)]` row background), then the resolution crossfades to that career and the trace dismisses. Same choreography as a community-suggestion click. |
+
+The visual difference is minimal — the same component renders both modes. What changes is the presence of a click target and the cursor affordance.
+
+The list often follows a `.breadcrumb` echo of the student's clarifier and a `.tool-call` chip showing which tool Gemma invoked. Pair in that order: breadcrumb → reasoning card → tool-call → section-label → trace list.
+
+### Community Card
+
+"Where other students landed" — aggregated, opt-in, honest. Shows only career + count. No avatars, no timestamps, no trending indicator. Absence is the default; the card exists to *be honest* about the crowd, not to manufacture social pressure. §6 "honest, not creepy."
+
+**Container:**
+```
+background: bg-mid
+border: 1px solid border-subtle
+border-radius: radius-xl
+overflow: hidden
+```
+
+**Row (`.community-row`):**
+```
+display: grid
+grid-template-columns: 1fr auto
+align-items: center
+padding: 14px 20px
+border-top: 1px solid border-subtle   /* first row: none */
+cursor: pointer
+transition: background fast
+```
+Hover: `background: bg-surface`.
+
+- **Title:** `font-body`, `text-body-sm`, weight 600, `text-accent-info`, `→` glyph prefix.
+- **Count:** `font-data`, `0.8125rem`, `text-muted`, right-aligned. Format `{n} students`.
+
+**n=1 behavior:** The shipped product renders the n=1 row *plainly* — no special variant, no alert stripe. Per `feature-set-your-course.md` §1, `COMMUNITY_MIN_COUNT` defaults to 1 during the hackathon; raising the threshold to 3 is a post-hackathon env-var change, not a separate visual state.
+
+> **Mockup-only variant — not shipped.** The Set Your Course mockup (`docs/specs/design/set-your-course-mockup/index.html` scenario 11) shows a `.creepy-flag` treatment — `box-shadow: inset 3px 0 0 var(--color-accent-alert)` on the row plus an "⚠ PM concern: does a single-row community read as surveillance?" note. That was a visual argument *against* shipping n=1 at all, staged for the decision review. It is not a product state. Do not implement it in runtime code.
+
+**If the threshold is later raised and the section needs to communicate "count below threshold":** prefer absence over any alert-stripe treatment. Absence is honesty, filler is noise.
+
+### Gap Tile
+
+A caution-striped leave-gesture tile — "this school doesn't offer that path." Reads as *go somewhere else*, not *refine here*. Different from a chip (which refines in place) and different from a confirm dialog (which is a decision, not a redirect). §13 of Set Your Course.
+
+**Container:**
+```
+margin-top: space-5
+padding: space-5 space-6
+background: bg-mid
+border: 1px solid border-subtle
+border-left: 3px solid accent-caution
+border-radius: radius-xl
+shadow: shadow-md
+position: relative
+```
+
+**Anatomy:**
+- **Icon** — `◇` (open diamond — "this is absent here"), `font-size: 20px`, `accent-caution`, block, margin-bottom space-2.
+- **Headline (spec-locked)** — **"This school doesn't offer that path."** `font-display`, `text-subheading`, weight 600, `text-primary`.
+- **Body** — `text-body`, `text-secondary`, `leading-relaxed`, margin-bottom space-4. Copy template: ***"`<Career>` typically comes from a `<program_title>` degree. `<School>` doesn't offer that program."*** Interpolate career title and the broader program's human-readable name — **never** the CIP code, which lives only in the destination URL's query string.
+- **CTA (spec-locked)** — Secondary button (outline info, see `.btn-secondary`). Label is **"Find schools with this major"** followed by a `▸` glyph (`gap-2`). Navigates to `/discover?cip=<cip4>` — the cip4 value is URL-only, never rendered.
+- **Stub note** — optional `.stub-note` meta pill (see Meta Pill Family) below the CTA. Use when the destination is a v0.5 stub (currently the case for `/discover` — see `feature-school-discovery.md`).
+
+**Multi-candidate variant (batched):** when the debug trace surfaces more than one `school_gap` career, **do not render multiple tiles** — render **one tile that batches them.** Replace the headline and body with:
+- **Batched headline:** **"These paths aren't at this school."**
+- **Batched body:** a single dense comma-separated line of career titles in `font-body`, `text-body-sm`, `text-muted`. No inline feasibility pills.
+- **Single CTA:** same "Find schools with this major" label, linking to `/discover?cip=<primary_cip>` where `primary_cip` is the highest-confidence gap target. Don't split into multiple CTAs — the student needs one onward gesture, not a menu.
+
+**Tone:** the caution stripe is the warmth — it says "you're not in the wrong place, you're in a place that doesn't have this." Never use alert-striped tiles for school-gap — alert reads as error, caution reads as redirect.
+
+### Tool-Call Indicator
+
+Chip-sized glyph that announces "Gemma just invoked a tool." Sits inline between reasoning and results. Concrete attribution — makes the model's action legible to the student without opening a dev console.
+
+**Style:**
+```
+display: inline-flex
+align-items: center
+gap: 6px
+padding: 6px space-3
+margin-top: space-3
+background: rgba(123, 184, 224, 0.08)
+border: 1px solid rgba(123, 184, 224, 0.22)
+border-radius: radius-full
+font-family: font-data
+font-size: text-micro
+color: accent-info
+
+::before {
+  content: "⚙";
+  font-size: 11px;
+}
+```
+
+**Copy pattern:** past tense, factual. "Gemma looked up career paths for IU · Business/Commerce", "Gemma pulled BLS occupation data for 13-1161". Never marketing-y ("Gemma worked hard!"). Matches the Gemma attribution conventions in the Gemma Interactions spec.
+
+### Breadcrumb Echo
+
+A muted italic line that echoes the student's input back into a downstream view. Tells the student "here's what I'm reasoning about" without repeating the whole clarifier. One line, no wrapping.
+
+```
+font-size: text-small
+color: text-muted
+font-style: italic
+margin-bottom: space-4
+padding-left: space-2
+border-left: 2px solid border-subtle
+```
+
+**Copy pattern:** lower-case lead-in + quoted user text. `from your clarifier: "I wanted actual marketing jobs"`. Always quotes the user verbatim — never paraphrased.
+
+### Disclosure Toggle
+
+A lightweight `▸`-prefixed inline expander for optional settings clusters ("Show effort & loans", "Show advanced filters"). Not a button, not an accordion header — a muted hint that more exists if wanted.
+
+```
+display: flex
+align-items: center
+gap: space-2
+font-size: text-small
+color: text-muted
+cursor: pointer
+padding: space-2 0
+
+::before {
+  content: "▸";
+  font-family: font-data;
+}
+
+:hover { color: text-secondary; }
+```
+
+**Open state:** rotate the `▸` glyph 90° with `transition-fast`. Content reveals below with `springs.gentle`, staggered inputs at `stagger.fast`.
+
+### Meta Pill Family
+
+A unified primitive for **small data-font tagged pills** — the stub-note, the scenario criterion tag, the PM concern note, the A/B chip label. Each of these was styled ad-hoc in the mockup; the shared DNA is `font-data` + `text-micro` + tinted background + tinted border + `radius-full`.
+
+**Base:**
+```
+display: inline-flex
+align-items: center
+gap: space-2           /* when prefixed with a glyph */
+padding: 4px 10px      /* micro pills: 2px 8px for chip-label */
+border-radius: radius-full
+font-family: font-data
+font-size: text-micro  /* or 10–11px for the smallest variants */
+letter-spacing: 0.5px
+```
+
+**Colorways (background at 8–12% / border at 22–28% / text at full accent):**
+
+| Variant | Accent | Usage |
+|---------|--------|-------|
+| `meta-info` | info | Scenario criterion, live data tag, navigational meta |
+| `meta-insight` | insight | Stub notes, AI meta, "coming soon" markers |
+| `meta-caution` | caution | Warning meta, "review" flags |
+| `meta-empathy` | empathy | PM concern notes, human-reviewed meta |
+
+**Don't use for:**
+- Interactive status (use Pills / Badges with semantic glyphs).
+- Tool-call announcements (use the dedicated Tool-Call Indicator — has `font-data` but also a `⚙` glyph + info background specifically).
+
+The A/B chip label is a compact sub-variant: 2px vertical padding, 8px horizontal, 10px font, text-transform uppercase, inside another chip. Treat as a badge-within-chip, not a standalone meta pill.
+
+### Editorial Chrome
+
+A family of patterns built originally for the Set Your Course mockup showcase but intentionally promoted into the design system because they look *right*. Use in-app when a screen carries a lot of structured, scannable content: settings, the planned comparison screen, post-reveal summary panels, design-review surfaces, and any future changelog / journal view. Editorial chrome is what makes a dense screen feel *curated* instead of *dumped*.
+
+#### Index Rail
+
+Sticky left-side table-of-contents for long vertical screens. A 240px rail that pairs with a scrolling content column on the right.
+
+```
+position: sticky
+top: space-6
+align-self: start
+padding: space-5
+background: bg-deep
+border: 1px solid border-subtle
+border-radius: radius-xl
+shadow: shadow-md
+max-height: calc(100vh - space-10)
+overflow-y: auto
+```
+
+- **Header** — `font-data`, 11px, weight 700, letter-spacing 2px, uppercase, `accent-info`. The same treatment as section labels.
+- **List** — `<ol>` with `list-style: none`, auto-numbered via `counter-reset: idx` + `counter-increment`. Numbers render in `font-data`, 11px, `text-muted`, with `decimal-leading-zero` format ("01", "02", …).
+- **Link row** — `display: block`, padding `6px 10px`, `text-small`, `text-secondary`, `radius-sm`. Hover: `background: border-subtle`, text → `text-primary`.
+
+**Responsive:** collapse to `position: static`, full-width, no max-height below 900px. The grid parent swaps from two columns to one.
+
+**In-app reuse targets:** comparison screen (scenarios of saved builds), branch tree full-index, Wrapped/Year-in-Review navigation.
+
+#### Scenario Head
+
+A compact header block that introduces a chunk of content with a taxonomic meta line, a display-font title, a scenario caption, and an optional success criterion pill. Originally the chunk-divider in the mockup — use in-app anywhere a screen needs a big internal chapter break.
+
+```
+margin-bottom: space-5
+padding-bottom: space-4
+border-bottom: 1px solid border-subtle
+```
+
+**Anatomy:**
+- **Number / meta** — `.scenario-num` — `font-data`, 11px, weight 700, letter-spacing 2px, uppercase, `accent-info`. The "01 · Empty state" treatment. Pattern: `{NN · {CATEGORY}}` with middot separators.
+- **Title** — `<h2>` in `font-display`, `text-heading`, weight 600, `text-primary`.
+- **Caption** — `.scenario-caption` — `text-body`, `text-secondary`, `leading-relaxed`, `max-width: 80ch`.
+- **Criterion** — `.scenario-criterion` (reuse as a Meta Pill `meta-info` variant) — rounded-full, `font-data`, `text-micro`, `accent-info` on `rgba(123, 184, 224, 0.1)` with `rgba(123, 184, 224, 0.25)` border. Copy pattern: `Success: "{criterion}"` or `Decision N: {question}`.
+
+#### Decisions Callout
+
+A structured, caution-striped callout for framed-decision copy — used when the student or reader needs to make an explicit choice before continuing. Bigger than a tile, smaller than a modal.
+
+```
+padding: space-6
+background: bg-mid
+border: 1px solid border-default
+border-left: 3px solid accent-caution
+border-radius: radius-xl
+shadow: shadow-md
+```
+
+- **Title** — `<h3>` in `font-display`, `text-subheading`, weight 600, `accent-caution`.
+- **List** — ordered list; each `<li>`: `text-body`, `leading-relaxed`, `text-secondary`. Bold the decision name with `text-primary`.
+- **Meta** — `.decision-meta` — `text-small`, `text-muted`, italic, displayed on its own line below each decision. Use for context references ("See scenarios 10, 11, 12.").
+
+**In-app reuse targets:** settings with destructive consequences (delete save, change school), build confirmation when a previous save exists, onboarding choice screens.
+
+#### Variant Card
+
+A bordered card used to display side-by-side options for comparison (A vs B). Reuse when the screen needs to present two or three options at once without forcing a selection first.
+
+```
+padding: space-5
+background: bg-deep
+border: 1px solid border-subtle
+border-radius: radius-xl
+```
+
+- **Label** — `<h5>` — `font-data`, 11px, letter-spacing 1px, uppercase, `accent-info`, margin-bottom space-3. Pattern: `Variant {letter} · {qualifier}`.
+- **Preview** — whatever UI the variant actually contains (a chip rail, a card, a copy sample).
+- **Body** — `.variant-body` — `text-body-sm`, `text-secondary`, `leading-relaxed`, margin-top space-3. One-paragraph rationale.
+
+Render two or three variants in a CSS grid with `grid-template-columns: 1fr 1fr` (or `1fr 1fr 1fr`) and `gap: space-5`. The mockup's `.sidebyside` class is the canonical layout utility.
+
+**In-app reuse targets:** build comparison (side-by-side pentagons + vibe copy), boss-fight strategy comparisons, A/B branch preview.
+
+#### Viewport Label
+
+A meta-line that precedes a preview frame, describing the viewport or context ("Desktop · 1280 · two frames side-by-side"). Tiny, technical, never styled loud.
+
+```
+display: flex
+align-items: center
+gap: space-2
+font-family: font-data
+font-size: 11px
+letter-spacing: 1.5px
+text-transform: uppercase
+color: text-muted
+margin: space-6 0 space-3
+```
+
+A `.dim` inline span downshifts to 10px, `font-body`, lowercase, no letter-spacing — for the secondary qualifier after a middot.
+
+**In-app reuse targets:** developer / admin surfaces, debug traces, any screen showing a preview at an explicit viewport size.
 
 ---
 

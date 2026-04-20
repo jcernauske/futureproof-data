@@ -2013,15 +2013,25 @@ class FutureProofMCPServer(BaseMCPServer):
     def _handle_get_career_paths(self, input_dict: dict) -> dict:
         """Query consumable.program_career_paths by unitid + cipcode.
 
-        When ``student_major`` is provided and the school's reported
-        cipcode is a broad XX.01 code, substitutes the matched specific
-        CIP's crosswalk SOC set while keeping the school's broad-program
-        earnings for the ERN/ROI stats. See docs/specs/
-        cip-intent-substitution.md for the full flow.
+        Substitution signal resolution order:
+        1. ``student_cip`` — caller-provided resolved CIP (e.g. from a
+           Gemma intent resolution). Skips the YAML lookup entirely.
+        2. ``student_major`` — free-text, resolved via
+           ``_find_major_intent`` against ``major_to_cip.yaml``.
+           Legacy path retained for the old ``/school`` flow and CLI
+           callers that don't already hold a resolved CIP.
+
+        When the resolved (or looked-up) CIP is specific and the
+        school's reported cipcode is a broad XX.01 code in the same
+        family, substitutes the specific CIP's crosswalk SOC set while
+        keeping the school's broad-program earnings for the ERN/ROI
+        stats. See docs/specs/cip-intent-substitution.md for the
+        substitution flow.
         """
         raw_unitid = input_dict.get("unitid")
         raw_cipcode = input_dict.get("cipcode")
         raw_student_major = input_dict.get("student_major")
+        raw_student_cip = input_dict.get("student_cip")
         raw_loan_pct = input_dict.get("loan_pct", 1.0)
 
         # loan_pct is optional; clamp to [0.0, 1.0] and fall back to 1.0
@@ -2073,22 +2083,47 @@ class FutureProofMCPServer(BaseMCPServer):
             if raw_student_major is not None
             else ""
         )
+        student_cip = (
+            str(raw_student_cip).strip()
+            if raw_student_cip is not None
+            else ""
+        )
         substitution_note: str | None = None
         substitution: dict | None = None  # set if substitution fires
 
-        if student_major:
+        # Prefer an explicit resolved CIP from the caller. The new
+        # /set-your-course flow passes Gemma's matched_cip directly, so
+        # the YAML-backed lookup is skipped. Old /school flow callers and
+        # the CLI still fall back to student_major + _find_major_intent.
+        entry: dict | None = None
+        entry_source: str = ""
+        if student_cip and _CIPCODE_PATTERN.match(student_cip):
+            entry = {
+                "cip4": self._canonical_cip4(student_cip),
+                # Use student_major for the human-readable label when
+                # the caller provided it alongside the resolved CIP;
+                # otherwise derive from the crosswalk/outcomes. This is
+                # used only for the substitution caveat message.
+                "major": student_major or "",
+            }
+            entry_source = "resolved_cip"
+        elif student_major:
             entry = self._find_major_intent(student_major)
+            entry_source = "yaml_lookup" if entry is not None else ""
+
+        hint_label = student_major or student_cip
+        if hint_label:
             if entry is None:
                 if self._is_broad_cip(cipcode):
                     substitution_note = (
-                        f"Could not map '{student_major}' to a specific "
+                        f"Could not map '{hint_label}' to a specific "
                         f"program. Showing results for the school's "
                         f"reported program."
                     )
                 else:
                     substitution_note = (
-                        f"student_major='{student_major}' provided but "
-                        f"no lookup match found and cipcode '{cipcode}' "
+                        f"Student hint '{hint_label}' provided but "
+                        f"no match found and cipcode '{cipcode}' "
                         f"is already specific; showing reported career "
                         f"paths."
                     )
@@ -2098,7 +2133,7 @@ class FutureProofMCPServer(BaseMCPServer):
                     cipcode
                 ):
                     substitution_note = (
-                        f"Student major '{student_major}' maps to CIP "
+                        f"Student hint '{hint_label}' maps to CIP "
                         f"family {self._cip_family(matched_cip4)}, "
                         f"but the school's reported cipcode "
                         f"'{cipcode}' is in family "
@@ -2114,10 +2149,11 @@ class FutureProofMCPServer(BaseMCPServer):
                     substitution = {
                         "entry": entry,
                         "matched_cip4": matched_cip4,
+                        "source": entry_source,
                     }
                 else:
                     substitution_note = (
-                        f"student_major='{student_major}' matched CIP "
+                        f"Student hint '{hint_label}' matched CIP "
                         f"'{matched_cip4}' but school cipcode "
                         f"'{cipcode}' is equally or more specific; "
                         f"showing reported career paths."
@@ -2155,19 +2191,28 @@ class FutureProofMCPServer(BaseMCPServer):
             for row in rows:
                 _decode_json_struct_fields(row)
 
+            # Caller may pass student_cip without student_major (new
+            # Gemma-resolution flow has the CIP before the student's
+            # raw text lands here). Fall back to the cip_family_name
+            # from the substituted rows so the caveat still reads well.
+            major_label = (
+                str(entry.get("major") or "").strip()
+                or (rows[0].get("cip_family_name") if rows else None)
+                or f"the matched program ({matched_cip4})"
+            )
             caveat = {
                 "type": "blended_substitution",
                 "message": (
                     f"Earnings and debt reflect all "
                     f"{(rows[0].get('cip_family_name') or 'program').lower()} "
                     f"graduates at this school. Career paths reflect "
-                    f"typical {entry.get('major')} outcomes nationally. "
+                    f"typical {major_label} outcomes nationally. "
                     f"This school does not report "
-                    f"{entry.get('major')}-specific outcome data."
+                    f"{major_label}-specific outcome data."
                 ),
                 "reported_cipcode": canonical_reported,
                 "substituted_cipcode": matched_cip4,
-                "substituted_program": entry.get("major"),
+                "substituted_program": major_label,
                 "earnings_specificity": "school_broad",
                 "career_path_specificity": "national_major_specific",
             }

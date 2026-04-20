@@ -20,6 +20,7 @@ export async function getOutcomes(
   effort: string,
   loanPct: number,
   studentMajor?: string,
+  studentCip?: string,
 ): Promise<CareerOutcome[]> {
   if (USE_MOCK) return mockGetOutcomes();
   return apiPost<CareerOutcome[]>("/build/outcomes", {
@@ -28,6 +29,7 @@ export async function getOutcomes(
     effort,
     loan_pct: loanPct,
     student_major: studentMajor ?? null,
+    student_cip: studentCip ?? null,
   });
 }
 
@@ -89,6 +91,7 @@ export async function createBuild(
   selectedSoc: string,
   selectedTitle: string,
   studentMajor?: string,
+  studentCip?: string,
 ): Promise<Build> {
   if (USE_MOCK) return mockCreateBuild(selectedSoc, profileName, schoolName);
   return apiPost<Build>("/build", {
@@ -103,5 +106,6 @@ export async function createBuild(
     selected_soc: selectedSoc,
     selected_title: selectedTitle,
     student_major: studentMajor ?? null,
+    student_cip: studentCip ?? null,
   });
 }
