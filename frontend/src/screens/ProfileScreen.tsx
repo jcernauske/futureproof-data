@@ -77,7 +77,9 @@ export function ProfileScreen() {
       });
       if (res.found && res.profile_name && res.animal_emoji && res.animal_name) {
         setProfile(res.profile_name, res.animal_emoji, res.animal_name);
-        navigate("/school");
+        const after = sessionStorage.getItem("fp-after-profile");
+        if (after) sessionStorage.removeItem("fp-after-profile");
+        navigate(after || "/school");
       } else if (res.suggestion) {
         setSuggestion(res.suggestion);
       } else {
@@ -99,7 +101,9 @@ export function ProfileScreen() {
       });
       if (res.found && res.profile_name && res.animal_emoji && res.animal_name) {
         setProfile(res.profile_name, res.animal_emoji, res.animal_name);
-        navigate("/school");
+        const after = sessionStorage.getItem("fp-after-profile");
+        if (after) sessionStorage.removeItem("fp-after-profile");
+        navigate(after || "/school");
       }
     } catch {
       setLookupError("Something went wrong. Try again.");
@@ -210,7 +214,11 @@ export function ProfileScreen() {
           variants={staggerItem}
         >
           <Button
-            onClick={() => navigate("/school")}
+            onClick={() => {
+              const after = sessionStorage.getItem("fp-after-profile");
+              if (after) sessionStorage.removeItem("fp-after-profile");
+              navigate(after || "/school");
+            }}
             aria-label="Continue to school selection"
             className="w-full"
           >

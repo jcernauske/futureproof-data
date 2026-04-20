@@ -74,6 +74,12 @@ export function RevealScreen() {
       // Otherwise the finalized build would stat-engine against the
       // broaden-fallback's wrong SOC set.
       const lookupCip = major.parentCip || major.cipCode;
+      // When parentCip is set, major.cipCode is Gemma's resolved
+      // specific leaf — pass it as student_cip so the MCP handler
+      // drives substitution from our resolution instead of the
+      // YAML-backed _find_major_intent lookup. When parentCip is
+      // empty, student_cip is redundant with cipcode but harmless.
+      const studentCip = major.parentCip ? major.cipCode : undefined;
       const [result] = await Promise.all([
         createBuild(
           profileName,
@@ -87,6 +93,7 @@ export function RevealScreen() {
           selectedCareer.soc_code,
           selectedCareer.occupation_title,
           major.rawText,
+          studentCip,
         ),
         minDisplayTime,
       ]);

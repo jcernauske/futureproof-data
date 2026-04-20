@@ -102,6 +102,11 @@ export function MenuScreen() {
     navigate("/school");
   }, [navigate, resetInputs]);
 
+  const handleNewBuildSetCourse = useCallback(() => {
+    resetInputs();
+    navigate("/set-your-course");
+  }, [navigate, resetInputs]);
+
   const handleEnterSelect = useCallback(() => {
     if (builds.length < 2) return;
     setMode("select");
@@ -189,9 +194,18 @@ export function MenuScreen() {
                   <p className="font-body text-body text-text-secondary">
                     Start your first one to see it here.
                   </p>
-                  <Button variant="primary" onClick={handleNewBuild} data-testid="btn-new-build">
-                    Start your first build
-                  </Button>
+                  <div className="flex flex-col tablet:flex-row items-center gap-3">
+                    <Button variant="primary" onClick={handleNewBuild} data-testid="btn-new-build">
+                      Start your first build
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={handleNewBuildSetCourse}
+                      data-testid="btn-new-build-set-course"
+                    >
+                      Try the new flow ✦
+                    </Button>
+                  </div>
                 </div>
               )}
               {!loadingList && !listError && builds.length > 0 && (
@@ -236,13 +250,22 @@ export function MenuScreen() {
                 aria-label="Build actions"
                 className="flex flex-col tablet:flex-row gap-3 tablet:items-center tablet:justify-between"
               >
-                <Button
-                  variant="primary"
-                  onClick={handleNewBuild}
-                  data-testid="btn-new-build"
-                >
-                  New Build ✦
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="primary"
+                    onClick={handleNewBuild}
+                    data-testid="btn-new-build"
+                  >
+                    New Build ✦
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleNewBuildSetCourse}
+                    data-testid="btn-new-build-set-course"
+                  >
+                    Try the new flow ✦
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-3">
                   {mode === "select" ? (
                     <>

@@ -3,6 +3,7 @@ import { Landing } from "@/pages/Landing";
 import { LandingScreen } from "@/screens/LandingScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SchoolMajorScreen } from "@/screens/SchoolMajorScreen";
+import { SetYourCourseScreen } from "@/screens/SetYourCourseScreen";
 import { CareerPickScreen } from "@/screens/CareerPickScreen";
 import { RevealScreen } from "@/screens/RevealScreen";
 import { GauntletScreen } from "@/screens/GauntletScreen";
@@ -23,6 +24,7 @@ export function AppRoutes() {
         <Route path="/app" element={<LandingScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/school" element={<SchoolMajorScreen />} />
+        <Route path="/set-your-course" element={<SetYourCourseScreen />} />
         <Route path="/career-pick" element={<CareerPickScreen />} />
         <Route path="/reveal" element={<RevealScreen />} />
         <Route path="/gauntlet" element={<GauntletScreen />} />

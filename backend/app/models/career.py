@@ -325,6 +325,12 @@ class IntentResult(BaseModel):
     needs_clarification: bool = False
     alternatives: list[dict] | None = None
     parent_cip: str = ""
+    # Student-named sub-specialty (e.g. "Deaf Education") that the chip-
+    # routing prompt verified is inside the resolved 4-digit CIP. Carried
+    # forward on the resolution so downstream Gemma prose interpolates it.
+    # Initial resolution never sets this — only the chip flow does. See
+    # docs/specs/feature-set-your-course.md §2 Decision #16.
+    confirmed_focus: str | None = None
 
 
 class ProfileResult(BaseModel):

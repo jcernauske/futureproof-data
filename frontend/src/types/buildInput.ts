@@ -70,4 +70,24 @@ export interface IntentResult {
   needs_clarification: boolean;
   alternatives: Array<{ cip: string; title: string; why: string }> | null;
   parent_cip: string;
+  // Optional broad CIP explicitly reported by the school — separate from
+  // parent_cip which is the Gemma-inferred parent. Defaults to parent_cip
+  // when the backend doesn't distinguish the two. See spec §4.
+  school_reported_cip4?: string;
+  // Student-named sub-specialty verified by Gemma via tool call. Only set
+  // through the chip-dispatch flow — never on initial resolution. Optional
+  // so existing fixtures that predate the field still satisfy the shape.
+  // See spec §2 Decision #16.
+  confirmed_focus?: string | null;
+}
+
+/**
+ * Community Suggestions surface — ranked crowd signals keyed by
+ * (unitid, input_normalized). See spec §4 "Community Suggestions Surface".
+ */
+export interface Suggestion {
+  clicked_soc: string;
+  clicked_career_title: string;
+  canonical_cip4: string;
+  count: number;
 }

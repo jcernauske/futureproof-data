@@ -293,6 +293,7 @@ def compute_pentagon(
     unitid: int,
     cipcode: str,
     student_major: str | None,
+    student_cip: str | None = None,
     effort: EffortLevel = "balanced",
     loan_pct: float = 1.0,
 ) -> list[CareerOutcome]:
@@ -318,6 +319,8 @@ def compute_pentagon(
     }
     if student_major:
         args["student_major"] = student_major
+    if student_cip:
+        args["student_cip"] = student_cip
 
     result = mcp_client.call("get_career_paths", args)
     rows = result.get("data") or []
@@ -353,6 +356,7 @@ def compute_one(
     effort: EffortLevel = "balanced",
     loan_pct: float = 1.0,
     student_major: str | None = None,
+    student_cip: str | None = None,
 ) -> CareerOutcome:
     """Return a single ``CareerOutcome`` for the selected SOC.
 
@@ -370,6 +374,7 @@ def compute_one(
         unitid=unitid,
         cipcode=cipcode,
         student_major=student_major,
+        student_cip=student_cip,
         effort=effort,
         loan_pct=loan_pct,
     )

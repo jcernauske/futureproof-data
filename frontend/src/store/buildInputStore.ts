@@ -5,6 +5,7 @@ import type {
   EffortSelection,
   LoanSelection,
   ProgramResult,
+  IntentResult,
 } from "@/types/buildInput";
 
 type Phase = "school" | "major" | "sliders";
@@ -17,6 +18,15 @@ interface BuildInputState {
   effort: EffortSelection;
   loans: LoanSelection;
 
+  // Set Your Course resolution state — see
+  // docs/specs/feature-set-your-course.md §4. The fields are additive and
+  // default to null/false so the existing /school flow writes partial
+  // payloads the store still accepts.
+  initialResolution: IntentResult | null;
+  currentResolution: IntentResult | null;
+  hasCorrected: boolean;
+  debugTrace: string | null;
+
   setPhase: (phase: Phase) => void;
   setSchool: (school: SchoolSelection) => void;
   setPrograms: (programs: ProgramResult[]) => void;
@@ -27,6 +37,12 @@ interface BuildInputState {
   clearMajor: () => void;
   reset: () => void;
   resetInputs: () => void;
+
+  // Set Your Course setters.
+  setInitialResolution: (result: IntentResult | null) => void;
+  setCurrentResolution: (result: IntentResult | null) => void;
+  setDebugTrace: (trace: string | null) => void;
+  clearResolution: () => void;
 }
 
 const DEFAULT_EFFORT: EffortSelection = {
@@ -37,13 +53,30 @@ const DEFAULT_EFFORT: EffortSelection = {
 
 const DEFAULT_LOANS: LoanSelection = { percentage: 50 };
 
-export const useBuildInputStore = create<BuildInputState>((set) => ({
+const EMPTY_RESOLUTION_SLICE = {
+  initialResolution: null as IntentResult | null,
+  currentResolution: null as IntentResult | null,
+  hasCorrected: false,
+  debugTrace: null as string | null,
+};
+
+function deriveHasCorrected(
+  initial: IntentResult | null,
+  current: IntentResult | null,
+): boolean {
+  if (!initial || !current) return false;
+  return initial.matched_cip !== current.matched_cip;
+}
+
+export const useBuildInputStore = create<BuildInputState>((set, get) => ({
   phase: "school",
   school: null,
   programs: [],
   major: null,
   effort: DEFAULT_EFFORT,
   loans: DEFAULT_LOANS,
+
+  ...EMPTY_RESOLUTION_SLICE,
 
   setPhase: (phase) => set({ phase }),
   setSchool: (school) => set({ school, phase: "major" }),
@@ -52,8 +85,15 @@ export const useBuildInputStore = create<BuildInputState>((set) => ({
   setEffort: (effort) => set({ effort }),
   setLoans: (loans) => set({ loans }),
   clearSchool: () =>
-    set({ school: null, programs: [], major: null, phase: "school" }),
-  clearMajor: () => set({ major: null, phase: "major" }),
+    set({
+      school: null,
+      programs: [],
+      major: null,
+      phase: "school",
+      ...EMPTY_RESOLUTION_SLICE,
+    }),
+  clearMajor: () =>
+    set({ major: null, phase: "major", ...EMPTY_RESOLUTION_SLICE }),
   reset: () =>
     set({
       phase: "school",
@@ -62,6 +102,7 @@ export const useBuildInputStore = create<BuildInputState>((set) => ({
       major: null,
       effort: DEFAULT_EFFORT,
       loans: DEFAULT_LOANS,
+      ...EMPTY_RESOLUTION_SLICE,
     }),
   resetInputs: () =>
     set({
@@ -71,5 +112,19 @@ export const useBuildInputStore = create<BuildInputState>((set) => ({
       major: null,
       effort: DEFAULT_EFFORT,
       loans: DEFAULT_LOANS,
+      ...EMPTY_RESOLUTION_SLICE,
     }),
+
+  setInitialResolution: (result) =>
+    set({
+      initialResolution: result,
+      hasCorrected: deriveHasCorrected(result, get().currentResolution),
+    }),
+  setCurrentResolution: (result) =>
+    set({
+      currentResolution: result,
+      hasCorrected: deriveHasCorrected(get().initialResolution, result),
+    }),
+  setDebugTrace: (trace) => set({ debugTrace: trace }),
+  clearResolution: () => set({ ...EMPTY_RESOLUTION_SLICE }),
 }));
