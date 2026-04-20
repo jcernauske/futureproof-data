@@ -51,3 +51,6 @@ node_modules/
 
 # Build artifacts
 *.tsbuildinfo
+
+# Agent runtime state
+.claude/*.lock
