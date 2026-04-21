@@ -21,16 +21,23 @@ export async function getOutcomes(
   loanPct: number,
   studentMajor?: string,
   studentCip?: string,
+  signal?: AbortSignal,
+  intentKeywords?: string[],
 ): Promise<CareerOutcome[]> {
   if (USE_MOCK) return mockGetOutcomes();
-  return apiPost<CareerOutcome[]>("/build/outcomes", {
-    unitid,
-    cipcode,
-    effort,
-    loan_pct: loanPct,
-    student_major: studentMajor ?? null,
-    student_cip: studentCip ?? null,
-  });
+  return apiPost<CareerOutcome[]>(
+    "/build/outcomes",
+    {
+      unitid,
+      cipcode,
+      effort,
+      loan_pct: loanPct,
+      student_major: studentMajor ?? null,
+      student_cip: studentCip ?? null,
+      intent_keywords: intentKeywords ?? [],
+    },
+    { signal },
+  );
 }
 
 // Map backend tier labels to frontend keys.
@@ -64,14 +71,23 @@ export async function getTieredCareers(
   schoolName: string,
   programName: string,
   cipcode: string,
+  studentMajorText?: string,
+  intentKeywords?: string[],
+  signal?: AbortSignal,
 ): Promise<TieredCareers> {
   if (USE_MOCK) return mockGetTieredCareers();
-  const raw = await apiPost<Record<string, CareerOutcome[]>>("/build/tier", {
-    outcomes: outcomes.map((o) => ({ ...o })),
-    school_name: schoolName,
-    program_name: programName,
-    cipcode,
-  });
+  const raw = await apiPost<Record<string, CareerOutcome[]>>(
+    "/build/tier",
+    {
+      outcomes: outcomes.map((o) => ({ ...o })),
+      school_name: schoolName,
+      program_name: programName,
+      cipcode,
+      student_major_text: studentMajorText ?? null,
+      intent_keywords: intentKeywords ?? [],
+    },
+    { signal },
+  );
   return normalizeTiers(raw);
 }
 

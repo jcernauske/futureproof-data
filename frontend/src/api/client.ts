@@ -18,11 +18,16 @@ function formatErrorDetail(body: unknown, status: number): string {
   return `API error: ${status}`;
 }
 
-export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+export async function apiPost<T>(
+  path: string,
+  body?: unknown,
+  opts?: { signal?: AbortSignal },
+): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
+    signal: opts?.signal,
   });
   if (!res.ok) {
     const parsed = await res.json().catch(() => ({}));
