@@ -67,6 +67,7 @@ function makeCareer(soc = "15-1252"): CareerOutcome {
     burnout_drivers: [],
     stats_available_count: 5,
     overall_confidence: "high",
+    match_quality: null,
     substitution_applied: false,
     reported_cipcode: null,
     substituted_cipcode: null,
