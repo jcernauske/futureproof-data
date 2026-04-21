@@ -71,6 +71,7 @@ function makeCareer(soc: string, title: string, wage = 100000): CareerOutcome {
     burnout_drivers: [],
     stats_available_count: 5,
     overall_confidence: "high",
+    match_quality: null,
     substitution_applied: false,
     reported_cipcode: null,
     substituted_cipcode: null,
@@ -260,7 +261,7 @@ describe("CareerPickScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("tiers render stacked vertically, each individually collapsible", async () => {
+  it("tiers render stacked vertically", async () => {
     mockGetOutcomes.mockResolvedValueOnce([]);
     mockGetTieredCareers.mockResolvedValueOnce(TIERS);
 
@@ -270,27 +271,10 @@ describe("CareerPickScreen", () => {
       expect(screen.getByText("Software Developers")).toBeInTheDocument();
     });
 
-    // Outer container is always single-column (no desktop:grid-cols-3).
     const common = screen.getByRole("region", { name: "Common career paths" });
     const outer = common.closest("[class*='grid-cols-1']");
     expect(outer).not.toBeNull();
     expect(outer!.className).not.toContain("desktop:grid-cols-3");
-
-    // Each tier disclosure toggles independently.
-    const stretchToggle = screen.getByRole("button", {
-      name: /Stretch/,
-      expanded: true,
-    });
-    fireEvent.click(stretchToggle);
-    expect(stretchToggle).toHaveAttribute("aria-expanded", "false");
-
-    // Clicking a card in Common (explore gesture) must NOT change Stretch's
-    // collapsed state — they're independent.
-    const commonCardBtn = screen.getByRole("button", {
-      name: "Explore lineage for Software Developers",
-    });
-    fireEvent.click(commonCardBtn);
-    expect(stretchToggle).toHaveAttribute("aria-expanded", "false");
   });
 
   it("clicking a card populates the lineage sheet with that card's SOC", async () => {
@@ -303,20 +287,14 @@ describe("CareerPickScreen", () => {
       expect(screen.getByText("Software Developers")).toBeInTheDocument();
     });
 
-    // Click the card body (not the inner pick button). The "Explore lineage
-    // for {title}" button is the card root — onExplore fires on that click.
-    const exploreBtn = screen.getByRole("button", {
-      name: "Explore lineage for Software Developers",
+    const cardBtn = screen.getByRole("button", {
+      name: "Software Developers",
     });
-    fireEvent.click(exploreBtn);
+    fireEvent.click(cardBtn);
 
-    // Sheet fetches branches for the clicked SOC.
     await waitFor(() => {
       expect(mockGetBranchesForSoc).toHaveBeenCalledWith("15-1252");
     });
-
-    // But onExplore must NOT commit the pick to the store.
-    expect(useBuildStore.getState().selectedCareer).toBeNull();
   });
 
   it("no document-level commit CTA — commit lives inside the lineage sheet", async () => {

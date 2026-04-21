@@ -79,6 +79,8 @@ export function CareerPickScreen() {
           currentSchool.name,
           currentMajor.cipTitle,
           lookupCip,
+          currentMajor.studentMajorText,
+          currentMajor.intentKeywords,
         );
         if (cancelled) return;
         setTieredCareers(tiers);
@@ -273,9 +275,10 @@ export function CareerPickScreen() {
                 id="section-tier-common"
                 label="Common"
                 description={TIER_DESCRIPTIONS.common}
+                accent="common"
                 careers={tieredCareers.common}
                 pickedSoc={selectedCareer?.soc_code ?? null}
-                onExplore={handleExplore}
+                onSelect={handleExplore}
               />
             </motion.div>
             <motion.div variants={staggerItem}>
@@ -283,9 +286,10 @@ export function CareerPickScreen() {
                 id="section-tier-less-common"
                 label="Less Common"
                 description={TIER_DESCRIPTIONS.less_common}
+                accent="uncommon"
                 careers={tieredCareers.less_common}
                 pickedSoc={selectedCareer?.soc_code ?? null}
-                onExplore={handleExplore}
+                onSelect={handleExplore}
               />
             </motion.div>
             <motion.div variants={staggerItem}>
@@ -293,9 +297,10 @@ export function CareerPickScreen() {
                 id="section-tier-stretch"
                 label="Stretch"
                 description={TIER_DESCRIPTIONS.stretch}
+                accent="uncommon"
                 careers={tieredCareers.stretch}
                 pickedSoc={selectedCareer?.soc_code ?? null}
-                onExplore={handleExplore}
+                onSelect={handleExplore}
               />
             </motion.div>
           </motion.div>
