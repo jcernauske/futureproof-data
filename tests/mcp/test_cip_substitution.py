@@ -86,102 +86,84 @@ def _make_server() -> FutureProofMCPServer:
     return server
 
 
-def _fake_query_simple(table_name, filters=None, columns=None, limit=None):
-    """Mock dispatch for query_iceberg_simple across the 4 tables used.
+# Per-SOC payload catalog — the shape returned by the new single-JOIN
+# helper `_fetch_substituted_join`. Each row blends occupation_profiles
+# + onet_work_profiles + ai_exposure fields onto a single
+# ``soc_code`` key, mirroring the production JOIN SELECT list.
+_SUBSTITUTED_JOIN_CATALOG: dict[str, dict] = {
+    "11-2021": {
+        "soc_code": "11-2021",
+        "occupation_title": "Marketing Managers",
+        "soc_major_group_name": "Management",
+        "median_annual_wage": 161030.0,
+        "wage_percentile_overall": 0.95,
+        "grw_score_rounded": 7,
+        "market_score_rounded": 8,
+        "growth_category": "Faster than average",
+        "employment_current": 400000,
+        "education_level_name": "Bachelor's degree",
+        "primary_title": "Marketing Managers",
+        "hmn_score_rounded": 6,
+        "burnout_score_rounded": 6,
+        "top_5_activities": "[]",
+        "top_human_activities": "[]",
+        "burnout_drivers": "[]",
+        "stat_res": 3,
+        "boss_ai_score": 8,
+    },
+    "13-1161": {
+        "soc_code": "13-1161",
+        "occupation_title": "Market Research Analysts",
+        "soc_major_group_name": "Business and Financial Operations",
+        "median_annual_wage": 76950.0,
+        "wage_percentile_overall": 0.72,
+        "grw_score_rounded": 7,
+        "market_score_rounded": 8,
+        "growth_category": "Faster than average",
+        "employment_current": 900000,
+        "education_level_name": "Bachelor's degree",
+        "primary_title": "Market Research Analysts",
+        "hmn_score_rounded": 3,
+        "burnout_score_rounded": 5,
+        "top_5_activities": "[]",
+        "top_human_activities": "[]",
+        "burnout_drivers": "[]",
+        "stat_res": 2,
+        "boss_ai_score": 9,
+    },
+}
 
-    Returns (table, filters) → rows. The marketing SOCs 11-2021 and
-    13-1161 get representative occupation/onet/ai rows; others return
-    empty lists so the handler produces a sparse pentagon for them.
-    """
+
+def _fake_query_simple(table_name, filters=None, columns=None, limit=None):
+    """Mock dispatch for the school-row lookup via query_iceberg_simple."""
     filters = filters or {}
     if table_name == CAREER_OUTCOMES_TABLE:
         if filters.get("unitid") == 151351 and filters.get("cipcode") == "52.01":
             return [IUB_CO_ROW]
         return []
-    if table_name == "consumable.occupation_profiles":
-        soc = filters.get("soc_code")
-        if soc == "11-2021":
-            return [
-                {
-                    "soc_code": "11-2021",
-                    "occupation_title": "Marketing Managers",
-                    "soc_major_group_name": "Management",
-                    "median_annual_wage": 161030.0,
-                    "wage_percentile_overall": 0.95,
-                    "grw_score_rounded": 7,
-                    "market_score_rounded": 8,
-                    "growth_category": "Faster than average",
-                    "employment_current": 400000,
-                    "education_level_name": "Bachelor's degree",
-                }
-            ]
-        if soc == "13-1161":
-            return [
-                {
-                    "soc_code": "13-1161",
-                    "occupation_title": "Market Research Analysts",
-                    "soc_major_group_name": "Business and Financial Operations",
-                    "median_annual_wage": 76950.0,
-                    "wage_percentile_overall": 0.72,
-                    "grw_score_rounded": 7,
-                    "market_score_rounded": 8,
-                    "growth_category": "Faster than average",
-                    "employment_current": 900000,
-                    "education_level_name": "Bachelor's degree",
-                }
-            ]
-        return []
-    if table_name == "consumable.onet_work_profiles":
-        soc = filters.get("bls_soc_code")
-        if soc == "11-2021":
-            return [
-                {
-                    "bls_soc_code": "11-2021",
-                    "primary_title": "Marketing Managers",
-                    "hmn_score_rounded": 6,
-                    "burnout_score_rounded": 6,
-                    "top_5_activities": "[]",
-                    "top_human_activities": "[]",
-                    "burnout_drivers": "[]",
-                }
-            ]
-        if soc == "13-1161":
-            return [
-                {
-                    "bls_soc_code": "13-1161",
-                    "primary_title": "Market Research Analysts",
-                    "hmn_score_rounded": 3,
-                    "burnout_score_rounded": 5,
-                    "top_5_activities": "[]",
-                    "top_human_activities": "[]",
-                    "burnout_drivers": "[]",
-                }
-            ]
-        return []
-    if table_name == "consumable.ai_exposure":
-        soc = filters.get("soc_code")
-        if soc == "11-2021":
-            return [
-                {
-                    "soc_code": "11-2021",
-                    "stat_res": 3,
-                    "boss_ai_score": 8,
-                }
-            ]
-        if soc == "13-1161":
-            return [
-                {
-                    "soc_code": "13-1161",
-                    "stat_res": 2,
-                    "boss_ai_score": 9,
-                }
-            ]
-        return []
     return []
 
 
+def _fake_substituted_join(cip4: str) -> list[dict]:
+    """Return JOIN-shaped rows for any SOC the catalog knows about.
+
+    In practice the cip4 argument is ignored — the patched
+    `_fetch_crosswalk_socs` drives which SOCs the handler iterates
+    over, and this helper just echoes the corresponding catalog rows
+    plus empty dicts for any unknown SOC (preserving the LEFT-JOIN
+    ``{}`` fallback semantics the production code relies on).
+    """
+    return list(_SUBSTITUTED_JOIN_CATALOG.values())
+
+
 def _patch_substitution(server, cip4_socs: list[str]):
-    """Patch the crosswalk + query_iceberg_simple for a substitution flow."""
+    """Patch the substitution path helpers.
+
+    ``_fetch_crosswalk_socs`` is patched to return the provided SOCs
+    directly; ``_fetch_substituted_join`` is patched to return the
+    per-SOC catalog rows the new JOIN would have produced; the
+    school-row lookup still flows through ``query_iceberg_simple``.
+    """
     return (
         patch.object(
             server,
@@ -193,6 +175,11 @@ def _patch_substitution(server, cip4_socs: list[str]):
             "query_iceberg_simple",
             side_effect=_fake_query_simple,
         ),
+        patch.object(
+            server,
+            "_fetch_substituted_join",
+            side_effect=_fake_substituted_join,
+        ),
     )
 
 
@@ -201,10 +188,10 @@ class TestSubstitutionFires:
 
     def test_iub_marketing_substitution_fires(self):
         server = _make_server()
-        xw_patch, q_patch = _patch_substitution(
+        xw_patch, q_patch, j_patch = _patch_substitution(
             server, ["11-2021", "13-1161"]
         )
-        with xw_patch, q_patch:
+        with xw_patch, q_patch, j_patch:
             result = server._handle_get_career_paths(
                 {
                     "unitid": 151351,
@@ -384,8 +371,8 @@ class TestBlendedStats:
         expected_roi = compute_stat_roi(0.3077)
 
         server = _make_server()
-        xw_patch, q_patch = _patch_substitution(server, ["13-1161"])
-        with xw_patch, q_patch:
+        xw_patch, q_patch, j_patch = _patch_substitution(server, ["13-1161"])
+        with xw_patch, q_patch, j_patch:
             result = server._handle_get_career_paths(
                 {
                     "unitid": 151351,
@@ -410,8 +397,8 @@ class TestBlendedStats:
             # Return empty op/onet/ai but the IU-B CO row.
             return _fake_query_simple(*a, **kw)
 
-        xw_patch, q_patch = _patch_substitution(server, ["13-1161"])
-        with xw_patch, q_patch:
+        xw_patch, q_patch, j_patch = _patch_substitution(server, ["13-1161"])
+        with xw_patch, q_patch, j_patch:
             r1 = server._handle_get_career_paths(
                 {
                     "unitid": 151351,
@@ -419,8 +406,8 @@ class TestBlendedStats:
                     "student_major": "Marketing",
                 }
             )
-        xw_patch2, q_patch2 = _patch_substitution(server, ["13-1161"])
-        with xw_patch2, q_patch2:
+        xw_patch2, q_patch2, j_patch2 = _patch_substitution(server, ["13-1161"])
+        with xw_patch2, q_patch2, j_patch2:
             r2 = server._handle_get_career_paths(
                 {
                     "unitid": 151351,
@@ -434,8 +421,8 @@ class TestBlendedStats:
 class TestCaveatMetadata:
     def test_data_caveat_present_on_substituted(self):
         server = _make_server()
-        xw_patch, q_patch = _patch_substitution(server, ["11-2021"])
-        with xw_patch, q_patch:
+        xw_patch, q_patch, j_patch = _patch_substitution(server, ["11-2021"])
+        with xw_patch, q_patch, j_patch:
             result = server._handle_get_career_paths(
                 {
                     "unitid": 151351,
@@ -503,10 +490,10 @@ class TestIntegrationLikePath:
         sees the same value regardless of input granularity.
         """
         server = _make_server()
-        xw_patch, q_patch = _patch_substitution(
+        xw_patch, q_patch, j_patch = _patch_substitution(
             server, ["11-2021", "13-1161"]
         )
-        with xw_patch, q_patch:
+        with xw_patch, q_patch, j_patch:
             result = server._handle_get_career_paths(
                 {
                     "unitid": 151351,
@@ -707,6 +694,8 @@ class TestErrorHandling:
         q_patch = patch.object(
             server, "query_iceberg_simple", side_effect=_fake_query_simple
         )
+        # Empty crosswalk → early return before the JOIN fetch, so no
+        # need to patch _fetch_substituted_join here.
         with xw_patch, q_patch:
             result = server._handle_get_career_paths(
                 {
