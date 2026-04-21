@@ -1,14 +1,7 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CareerTierSection } from "./CareerTierSection";
 import type { CareerOutcome } from "@/types/build";
-
-/**
- * CareerTierSection tests
- *
- * Section is a disclosure — the header toggles visibility. aria-expanded has
- * to reflect actual state or screen readers will lie about the tree.
- */
 
 function makeCareer(soc: string, title: string): CareerOutcome {
   return {
@@ -42,6 +35,7 @@ function makeCareer(soc: string, title: string): CareerOutcome {
     burnout_drivers: [],
     stats_available_count: 5,
     overall_confidence: "high",
+    match_quality: null,
     substitution_applied: false,
     reported_cipcode: null,
     substituted_cipcode: null,
@@ -56,42 +50,22 @@ describe("CareerTierSection", () => {
     makeCareer("15-2051", "Data Scientist"),
   ];
 
-  it("defaults to expanded and shows careers + aria-expanded=true", () => {
+  it("renders careers with tier heading and count", () => {
     render(
       <CareerTierSection
         id="section-tier-common"
         label="Common"
         description="Most common paths"
+        accent="common"
         careers={careers}
         pickedSoc={null}
-        onExplore={vi.fn()}
+        onSelect={vi.fn()}
       />,
     );
-    const toggle = screen.getByRole("button", { expanded: true });
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Software Developer")).toBeVisible();
-    expect(screen.getByText("Data Scientist")).toBeVisible();
-  });
-
-  it("toggle hides careers from the a11y tree and flips aria-expanded", () => {
-    render(
-      <CareerTierSection
-        id="section-tier-common"
-        label="Common"
-        description="Most common paths"
-        careers={careers}
-        pickedSoc={null}
-        onExplore={vi.fn()}
-      />,
-    );
-    const toggle = screen.getByRole("button", { expanded: true });
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    // After collapse click, the toggle should flip state. The AnimatePresence
-    // exit animation may still leave DOM around, so the contract we assert
-    // on is the aria-expanded flag (which is what screen readers see).
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Common")).toBeInTheDocument();
+    expect(screen.getByText("2 paths")).toBeInTheDocument();
+    expect(screen.getByText("Software Developer")).toBeInTheDocument();
+    expect(screen.getByText("Data Scientist")).toBeInTheDocument();
   });
 
   it("renders null when careers array is empty (no dead sections)", () => {
@@ -100,12 +74,29 @@ describe("CareerTierSection", () => {
         id="section-tier-common"
         label="Common"
         description="Most common paths"
+        accent="common"
         careers={[]}
         pickedSoc={null}
-        onExplore={vi.fn()}
+        onSelect={vi.fn()}
       />,
     );
-    // Guard against rendering a header + "0 paths" badge for an empty tier.
     expect(container.firstChild).toBeNull();
+  });
+
+  it("calls onSelect when a career card is clicked", () => {
+    const onSelect = vi.fn();
+    render(
+      <CareerTierSection
+        id="section-tier-common"
+        label="Common"
+        description="Most common paths"
+        accent="common"
+        careers={careers}
+        pickedSoc={null}
+        onSelect={onSelect}
+      />,
+    );
+    screen.getByText("Software Developer").closest("button")!.click();
+    expect(onSelect).toHaveBeenCalledWith(careers[0]);
   });
 });
