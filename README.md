@@ -16,6 +16,88 @@ uv sync
 uv run pytest
 ```
 
+## MCP Server
+
+This project ships one MCP (Model Context Protocol) server: `src/mcp_server/futureproof_server.py`. It exposes the Gold-zone consumable tables as eight callable tools any MCP-aware LLM client can use — Claude Desktop, ChatGPT with MCP, Cursor, or your own application.
+
+### Tools exposed
+
+| Tool | Description |
+|------|-------------|
+| `get_school_programs` | Fuzzy school search → list programs with earnings/debt |
+| `get_career_paths` | Core query: school + major → career outcomes with 5-stat pentagon + boss scores |
+| `get_occupation_data` | BLS occupation detail for a SOC code |
+| `get_task_breakdown` | O*NET task-level profile for a SOC code |
+| `get_career_branches` | Stage 3 branching paths from a SOC code |
+| `get_ai_exposure` | Karpathy/Gemma blended AI exposure score for a SOC code |
+| `get_regional_price_parity` | BEA cost-of-living adjustment by US state |
+| `compare_purchasing_power` | Compare salary purchasing power between two states |
+
+Full descriptions and JSON Schemas live in `src/mcp_server/futureproof_server.py::get_tools()`.
+
+### Run the server
+
+```bash
+# From the repo root, after `uv sync`
+uv run python -m brightsmith.serve
+```
+
+The server speaks the MCP protocol over stdio. It will block on stdin reading MCP requests; that's correct behavior — your MCP client connects and drives the conversation.
+
+The server reads:
+- `data/catalog/catalog.db` — Iceberg catalog pointing at the gold-zone tables (override with `FUTUREPROOF_CATALOG_PATH`)
+- `data/warehouse/` — warehouse path placeholder (override with `FUTUREPROOF_WAREHOUSE_PATH`; reads come from the catalog's absolute paths)
+
+If either is missing, the data pipeline hasn't been built yet — run the Brightsmith pipeline (`uv run` against the specs in `docs/specs/`) to populate the gold zone first.
+
+### Connect Claude Desktop
+
+1. Locate your Claude Desktop config file:
+   - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+2. Add the FutureProof server to the `mcpServers` block (create the file if it doesn't exist):
+
+   ```json
+   {
+     "mcpServers": {
+       "futureproof": {
+         "command": "uv",
+         "args": [
+           "--directory",
+           "/absolute/path/to/futureproof-data",
+           "run",
+           "python",
+           "-m",
+           "brightsmith.serve"
+         ]
+       }
+     }
+   }
+   ```
+
+   Replace `/absolute/path/to/futureproof-data` with the absolute path to your local clone (e.g., `/Users/you/code/futureproof-data`). Claude Desktop launches the server as a subprocess and communicates with it over stdio.
+
+3. Quit and relaunch Claude Desktop. Open a new chat. The hammer/tool icon at the bottom of the input box should show eight tools beginning with `get_` and `compare_`. If it doesn't, check Claude Desktop's logs:
+   - **macOS:** `~/Library/Logs/Claude/mcp*.log`
+
+4. Ask Claude something the tools can answer, e.g.:
+   > "Use FutureProof to look up the career paths for Biology majors at Indiana University Bloomington (unitid 151351, CIP 26.05). Summarize the top three by median wage."
+
+   Claude will call `get_career_paths`, parse the result, and narrate. You'll see the tool invocation rendered inline in the conversation.
+
+### Connect other MCP clients
+
+Any client that speaks the MCP stdio transport works the same way. The command + args contract is identical: launch `uv run python -m brightsmith.serve` from the repo root and pipe MCP JSON-RPC over stdin/stdout. See the [MCP specification](https://modelcontextprotocol.io) for client implementations.
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| Tools list is empty in Claude Desktop | Server crashed at startup. Check `~/Library/Logs/Claude/mcp*.log` for the traceback — usually a missing `data/catalog/catalog.db` (run the pipeline) or an import error (run `uv sync`). |
+| Tool call returns "no data" for a real school | The Gold-zone tables don't have that `unitid` × `cipcode` combination — try `get_school_programs` first to see what programs the school reports. |
+| Server hangs on startup with no log output | Ollama isn't running and a tool that requires Gemma at startup is being initialized — only relevant if you've added Gemma-dependent tools. The default eight tools are pure DuckDB reads, no Gemma at startup. |
+| Stdio transport works, but the in-process backend bypasses it | Expected today — the FutureProof FastAPI backend currently imports the MCP server's handlers directly (see `backend/app/services/mcp_client.py`). Real Gemma-driven tool calling from inside the backend ships in `docs/specs/feature-chip-dispatch-mcp-tool-calling.md`. |
+
 ## Pipeline
 
 This project follows the Brightsmith spec-driven pipeline. Start with:
