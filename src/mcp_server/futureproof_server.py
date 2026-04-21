@@ -9,16 +9,21 @@ Start with: python -m brightsmith.serve
 
 from __future__ import annotations
 
+import collections
 import json
 import logging
+import os
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
 import yaml
 from brightsmith.mcp.base_mcp_server import BaseMCPServer, ResourceDef, ToolDef
 
+from mcp_server._query_engine import QueryEngine
 from mcp_server._state_input import FIPS_TO_STATE_NAME, normalize_state_input
+from mcp_server._telemetry import timed
 
 # Fields in program_career_paths and onet_work_profiles that are
 # persisted as JSON-encoded strings but should be returned to callers
@@ -50,6 +55,7 @@ def _decode_json_struct_fields(row: dict) -> dict:
             except (json.JSONDecodeError, TypeError):
                 pass
     return row
+
 
 logger = logging.getLogger(__name__)
 
@@ -218,10 +224,11 @@ CAREER_PATHS_RESPONSE_FIELDS = [
     "roi_cost_basis",
 ]
 
-# Load cap when scanning program_career_paths for a single unitid+cipcode
-# combo. A school+major produces 5-20 rows in practice, but we scan
-# without filters then filter in Python to support composite keys.
-CAREER_PATHS_SCAN_LIMIT = 500_000
+# Defensive LIMIT cap on the standard-path program_career_paths query.
+# With predicate pushdown the WHERE unitid=? AND cipcode=? filter
+# returns <= 50 rows in practice, so this is a belt-and-suspenders cap,
+# not the primary scan gate it was before the performance rewrite.
+CAREER_PATHS_SCAN_LIMIT = 1000
 
 # ---------------------------------------------------------------------------
 # CIP intent substitution constants
@@ -428,6 +435,94 @@ CAREER_BRANCHES_SCAN_LIMIT = 200_000
 
 _SOC_CODE_PATTERN = re.compile(r"^\d{2}-\d{4}$")
 _CIPCODE_PATTERN = re.compile(r"^\d{2}\.\d{2,4}$")
+_CIP4_PATTERN = re.compile(r"^\d{2}\.\d{2}$")
+
+
+# Bounded-LRU caches keyed on ``(engine_id, ...)`` so
+# ``mcp_client.reset_server()`` transparently invalidates between test
+# cases: a new ``QueryEngine`` instance has a new ``id``, so prior
+# entries become unreachable via the new key. DO NOT switch to a
+# content-addressed key (e.g. catalog path hash) without first
+# updating test isolation — stable keys would cause cached rows to
+# leak across test cases and mask regressions.
+#
+# Cardinality of the crosswalk cache is bounded by the ~1.6k 4-digit
+# CIPs in the taxonomy; 128 entries cover the ones users actually
+# touch. The career-paths cache is larger because it keys on
+# ``(unitid, cipcode)`` pairs, and ``loan_pct``/``student_cip`` are
+# INTENTIONALLY NOT in the key: they are applied by the stat engine
+# post-query and do not affect the underlying
+# ``query_iceberg_simple`` result. Including them would make the LRU
+# miss on essentially every request.
+_CROSSWALK_CACHE_MAX = 128
+_CAREER_PATHS_CACHE_MAX = 256
+_crosswalk_cache: collections.OrderedDict[tuple[int, str], tuple[str, ...]] = (
+    collections.OrderedDict()
+)
+_career_paths_cache: collections.OrderedDict[tuple[int, int, str], tuple] = (
+    collections.OrderedDict()
+)
+_cache_lock = threading.Lock()
+
+# Guards first-time construction of the per-server QueryEngine.
+# Without this, two concurrent first requests would each build their
+# own QueryEngine (with its own DuckDB connection), and one would
+# orphan when the second overwrote ``self._query_engine``. One-time
+# cost per process.
+_engine_init_lock = threading.Lock()
+
+
+def _cache_get(cache: collections.OrderedDict, key: tuple) -> tuple[Any, bool]:
+    """Return (value, hit) for the LRU-ordered dict; refresh on hit."""
+    with _cache_lock:
+        if key in cache:
+            cache.move_to_end(key)
+            return cache[key], True
+        return None, False
+
+
+def _cache_put(
+    cache: collections.OrderedDict, key: tuple, value: Any, maxsize: int
+) -> None:
+    with _cache_lock:
+        if key in cache:
+            cache.move_to_end(key)
+        elif len(cache) >= maxsize:
+            cache.popitem(last=False)
+        cache[key] = value
+
+
+def _career_paths_result_path(result: dict) -> str:
+    """Infer which branch ``_handle_get_career_paths`` took for the log."""
+    caveat = result.get("data_caveat")
+    if isinstance(caveat, dict):
+        t = caveat.get("type")
+        if t == "blended_substitution":
+            return "substituted"
+        if t == "gemma_soc_resolution":
+            return "fallback_gemma"
+        if t in ("broaden_cip", "cip_broadening"):
+            return "fallback_broaden"
+    if result.get("substitution_applied") and result.get("data"):
+        # Broadening path sets substitution_applied=True but type name varies.
+        return "fallback_broaden"
+    if result.get("data") is None:
+        return "error"
+    return "standard"
+
+
+def _cache_drop_engine(engine_id: int) -> None:
+    """Drop every entry whose first key component matches ``engine_id``.
+
+    Called by ``FutureProofMCPServer.shutdown()`` so a subsequent server
+    instance (potentially reusing the same ``id``) cannot inherit stale
+    cached rows.
+    """
+    with _cache_lock:
+        for cache in (_crosswalk_cache, _career_paths_cache):
+            stale = [k for k in cache if k[0] == engine_id]
+            for k in stale:
+                del cache[k]
 
 
 class FutureProofMCPServer(BaseMCPServer):
@@ -437,6 +532,113 @@ class FutureProofMCPServer(BaseMCPServer):
     query_table, list_tables, get_data_quality, get_lineage, and
     get_contract tools.
     """
+
+    # ------------------------------------------------------------------
+    # QueryEngine lifecycle — overrides the brightsmith base helpers
+    # ------------------------------------------------------------------
+
+    def _get_query_engine(self) -> QueryEngine:
+        """Lazy-initialize the per-server QueryEngine singleton.
+
+        Stashed on the instance rather than in ``__init__`` so
+        construction stays import-safe for test code that never queries.
+
+        Double-checked locking: the hot path (engine already built)
+        stays lock-free; only the first request per process pays the
+        lock. Without this, two concurrent first requests each
+        construct their own QueryEngine + DuckDB connection and one
+        orphans when the second overwrites ``self._query_engine``.
+        """
+        engine = getattr(self, "_query_engine", None)
+        if engine is not None:
+            return engine
+        with _engine_init_lock:
+            engine = getattr(self, "_query_engine", None)
+            if engine is None:
+                engine = QueryEngine(self.catalog)
+                self._query_engine = engine
+            return engine
+
+    def query_iceberg_simple(
+        self,
+        table_name: str,
+        filters: dict | None = None,
+        columns: list[str] | None = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """Predicate-pushdown override of the brightsmith base helper.
+
+        Delegates to the persistent ``QueryEngine`` so filters become a
+        SQL ``WHERE`` clause (pushed into DuckDB/Iceberg) rather than a
+        Python-side post-filter over a full scan.
+        """
+        try:
+            return self._get_query_engine().query_filtered(
+                table_name,
+                filters=filters,
+                columns=columns,
+                limit=limit,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return [{"error": f"Cannot query {table_name}: {exc}"}]
+
+    def query_iceberg(self, sql: str) -> list[dict]:
+        """SQL pass-through override of the brightsmith base helper.
+
+        Routes through the persistent ``QueryEngine`` so DuckDB init +
+        Iceberg view registration happen exactly once per process
+        instead of per call.
+        """
+        return self._get_query_engine().query_sql(sql)
+
+    def shutdown(self) -> None:
+        """Close the persistent DuckDB connection and drop caches.
+
+        Called by ``backend.app.services.mcp_client.reset_server`` so
+        test isolation is tight. Idempotent — safe to call on a server
+        that never queried.
+        """
+        engine = getattr(self, "_query_engine", None)
+        if engine is not None:
+            _cache_drop_engine(id(engine))
+            try:
+                engine.shutdown()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("QueryEngine shutdown failed: %s", exc)
+            self._query_engine = None
+
+    def _standard_path_rows(self, unitid: int, canonical_cipcode: str) -> list[dict]:
+        """Fetch the standard-path program_career_paths rows.
+
+        When ``FUTUREPROOF_OUTCOMES_CACHE=1``, an LRU keyed by
+        ``(engine_id, unitid, canonical_cipcode)`` is consulted first.
+        The key deliberately excludes ``loan_pct`` and ``student_cip``
+        because those are applied downstream by the stat engine and
+        do not affect ``query_iceberg_simple`` output.
+        """
+        cache_enabled = os.environ.get("FUTUREPROOF_OUTCOMES_CACHE") == "1"
+        engine = self._get_query_engine()
+        key = (id(engine), int(unitid), canonical_cipcode)
+        if cache_enabled:
+            cached, hit = _cache_get(_career_paths_cache, key)
+            self._last_career_paths_cache_hit = hit
+            if hit:
+                # Return a shallow copy of the list so downstream sort
+                # / mutation doesn't poison the cached value.
+                return [dict(r) for r in cached]
+        else:
+            self._last_career_paths_cache_hit = False
+        rows = self.query_iceberg_simple(
+            CAREER_PATHS_TABLE,
+            filters={"unitid": unitid, "cipcode": canonical_cipcode},
+            columns=CAREER_PATHS_RESPONSE_FIELDS,
+            limit=CAREER_PATHS_SCAN_LIMIT,
+        )
+        if cache_enabled and not (rows and "error" in rows[0]):
+            # Snapshot before caller mutates.
+            snapshot = tuple(dict(r) for r in rows)
+            _cache_put(_career_paths_cache, key, snapshot, _CAREER_PATHS_CACHE_MAX)
+        return rows
 
     def get_tools(self) -> list[ToolDef]:
         return [
@@ -811,6 +1013,7 @@ class FutureProofMCPServer(BaseMCPServer):
         """
         try:
             from brightsmith.config import PROJECT_ROOT
+
             root = Path(PROJECT_ROOT)
         except Exception:
             root = Path.cwd()
@@ -1309,7 +1512,9 @@ class FutureProofMCPServer(BaseMCPServer):
             }
 
         needle = str(raw_name).strip()
-        min_confidence = str(input_dict.get("min_confidence") or "insufficient").strip().lower()
+        min_confidence = (
+            str(input_dict.get("min_confidence") or "insufficient").strip().lower()
+        )
         if min_confidence not in CONFIDENCE_TIER_ORDER:
             return self.attach_governance(
                 {
@@ -1341,7 +1546,8 @@ class FutureProofMCPServer(BaseMCPServer):
                         SCHOOL_PROGRAMS_TABLE,
                     )
                 filtered = [
-                    r for r in rows
+                    r
+                    for r in rows
                     if self._confidence_tier_allowed(
                         r.get("confidence_tier"), min_confidence
                     )
@@ -1378,11 +1584,10 @@ class FutureProofMCPServer(BaseMCPServer):
 
         needle_lower = needle.lower()
         filtered = [
-            r for r in rows
+            r
+            for r in rows
             if str(r.get("institution_name") or "").lower().find(needle_lower) >= 0
-            and self._confidence_tier_allowed(
-                r.get("confidence_tier"), min_confidence
-            )
+            and self._confidence_tier_allowed(r.get("confidence_tier"), min_confidence)
         ]
 
         if not filtered:
@@ -1430,6 +1635,7 @@ class FutureProofMCPServer(BaseMCPServer):
         root: Path | None = None
         try:
             from brightsmith.config import PROJECT_ROOT
+
             root = Path(PROJECT_ROOT)
         except Exception:
             root = None
@@ -1457,9 +1663,7 @@ class FutureProofMCPServer(BaseMCPServer):
             with path.open() as f:
                 data = yaml.safe_load(f) or []
             if not isinstance(data, list):
-                logger.warning(
-                    "major_to_cip.yaml has unexpected shape; expected list"
-                )
+                logger.warning("major_to_cip.yaml has unexpected shape; expected list")
                 self._major_to_cip_cache = []
                 return self._major_to_cip_cache
             self._major_to_cip_cache = data
@@ -1494,9 +1698,7 @@ class FutureProofMCPServer(BaseMCPServer):
         return bool(_BROAD_CIP_PATTERN.match(cipcode))
 
     @staticmethod
-    def _matched_cip_is_more_specific(
-        school_cip: str, matched_cip: str
-    ) -> bool:
+    def _matched_cip_is_more_specific(school_cip: str, matched_cip: str) -> bool:
         """True if matched_cip is a child of school_cip.
 
         Example: school reports 13.10 (Special Education, General),
@@ -1526,31 +1728,117 @@ class FutureProofMCPServer(BaseMCPServer):
             return cipcode
         return cipcode[:5] if len(cipcode) >= 5 else cipcode
 
+    def _fetch_substituted_join(self, cip4: str) -> list[dict]:
+        """Return the substituted JOIN rows for a 4-digit CIP.
+
+        Extracted so tests can patch this helper with a fixture while
+        production code exercises the real ``QueryEngine``. The SOC CTE
+        is bounded by the substituted CIP; LEFT JOINs preserve the
+        fan-out's ``{}`` fallback when occupation_profiles /
+        onet_work_profiles / ai_exposure has no row for a SOC. No SQL
+        ORDER BY — the Python ``_sub_sort_key`` downstream is
+        authoritative.
+
+        Format contract: ``base.cip_soc_crosswalk.cipcode`` is stored
+        as ``XX.XXXX`` (6 chars); ``SUBSTR(_, 1, 5)`` yields the
+        4-digit prefix.
+        """
+        join_sql = """
+        WITH socs AS (
+            SELECT DISTINCT soc_code
+            FROM base_cip_soc_crosswalk
+            WHERE SUBSTR(cipcode, 1, 5) = $cip4
+              AND soc_code IS NOT NULL
+              AND soc_code <> '99-9999'
+        )
+        SELECT
+            socs.soc_code,
+            op.occupation_title,
+            op.soc_major_group_name,
+            op.median_annual_wage,
+            op.wage_percentile_overall,
+            op.grw_score_rounded,
+            op.market_score_rounded,
+            op.growth_category,
+            op.employment_current,
+            op.education_level_name,
+            onet.primary_title,
+            onet.hmn_score_rounded,
+            onet.burnout_score_rounded,
+            onet.top_5_activities,
+            onet.top_human_activities,
+            onet.burnout_drivers,
+            ai.stat_res,
+            ai.boss_ai_score
+        FROM socs
+        LEFT JOIN consumable_occupation_profiles op
+            ON op.soc_code = socs.soc_code
+        LEFT JOIN consumable_onet_work_profiles onet
+            ON onet.bls_soc_code = socs.soc_code
+        LEFT JOIN consumable_ai_exposure ai
+            ON ai.soc_code = socs.soc_code
+        """
+        return self._get_query_engine().query_sql(join_sql, {"cip4": cip4})
+
+    @timed(
+        "fetch_crosswalk_socs",
+        extract=lambda result, self, cip4: {
+            "cip4": cip4,
+            "row_count": len(result) if isinstance(result, list) else 0,
+            "cache_hit": getattr(self, "_last_crosswalk_cache_hit", False),
+        },
+    )
     def _fetch_crosswalk_socs(self, cip4: str) -> list[str]:
         """Return distinct SOC codes for a 4-digit CIP prefix.
 
-        The base.cip_soc_crosswalk view is registered by query_iceberg as
-        ``base_cip_soc_crosswalk``. Rows with NULL or catch-all SOCs
-        ('99-9999') are excluded.
+        LRU-cached by ``(engine_id, cip4)``. The cached value is a
+        tuple (immutable, hashable-adjacent) that callers convert to a
+        list on the way out so downstream code keeps its list contract.
+        Cache is flushed by ``shutdown()`` so ``reset_server()`` in
+        tests produces clean state.
         """
         # Sanity-check the prefix before formatting into SQL. This value
         # comes from our own YAML file but we still treat it as
         # untrusted input to prevent injection.
-        if not re.match(r"^\d{2}\.\d{2}$", cip4):
+        if not _CIP4_PATTERN.match(cip4):
+            self._last_crosswalk_cache_hit = False
             return []
+
+        engine = self._get_query_engine()
+        key = (id(engine), cip4)
+        cached, hit = _cache_get(_crosswalk_cache, key)
+        if hit:
+            self._last_crosswalk_cache_hit = True
+            return list(cached)
+        self._last_crosswalk_cache_hit = False
+
         sql = (
             "SELECT DISTINCT soc_code FROM base_cip_soc_crosswalk "
-            f"WHERE SUBSTR(cipcode, 1, 5) = '{cip4}' "
+            "WHERE SUBSTR(cipcode, 1, 5) = $cip4 "
             "AND soc_code IS NOT NULL AND soc_code <> '99-9999' "
             "ORDER BY soc_code"
         )
         try:
-            rows = self.query_iceberg(sql)
+            rows = engine.query_sql(sql, {"cip4": cip4})
         except Exception as e:  # noqa: BLE001
             logger.warning("Crosswalk lookup failed for %s: %s", cip4, e)
             return []
-        return [str(r["soc_code"]) for r in rows if r.get("soc_code")]
+        socs: tuple[str, ...] = tuple(
+            str(r["soc_code"]) for r in rows if r.get("soc_code")
+        )
+        _cache_put(_crosswalk_cache, key, socs, _CROSSWALK_CACHE_MAX)
+        return list(socs)
 
+    @timed(
+        "build_substituted_rows_join",
+        extract=lambda result, self, **kw: {
+            "unitid": kw.get("unitid"),
+            "reported_cipcode": kw.get("reported_cipcode"),
+            "substituted_cipcode": kw.get("substituted_cipcode"),
+            "row_count": (len(result[0]) if result[0] is not None else 0),
+            "error": result[1] if result[1] is not None else None,
+        },
+    )
     def _build_substituted_rows(
         self,
         *,
@@ -1559,6 +1847,7 @@ class FutureProofMCPServer(BaseMCPServer):
         substituted_cipcode: str,
         substituted_program_name: str,
         loan_pct: float = 1.0,
+        intent_keywords: list[str] | None = None,
     ) -> tuple[list[dict] | None, str | None]:
         """Assemble blended career-path rows for a substitution.
 
@@ -1566,6 +1855,17 @@ class FutureProofMCPServer(BaseMCPServer):
         earnings/debt basis, fetches the substituted CIP's SOCs from
         the crosswalk, and joins occupation_profiles + onet_work_profiles
         + ai_exposure for each SOC to compute the 5-stat pentagon.
+
+        Replaces the prior 3×N fan-out with a single parameterized JOIN
+        against the persistent ``QueryEngine`` views; the school lookup
+        is issued first so the zero-school short-circuit (and its
+        error message) match the fan-out byte-for-byte.
+
+        Format contracts:
+          - ``base.cip_soc_crosswalk.cipcode`` is stored as ``XX.XXXX``
+            (6 chars); ``SUBSTR(_, 1, 5)`` yields the 4-digit prefix.
+          - ``consumable.career_outcomes.cipcode`` is stored at 4-digit
+            (``XX.YY``) granularity.
 
         Returns (rows, None) on success or (None, message) on failure
         (e.g. school's broad-CIP row missing, crosswalk empty).
@@ -1587,6 +1887,9 @@ class FutureProofMCPServer(BaseMCPServer):
         if co_rows and "error" in co_rows[0]:
             return None, co_rows[0]["error"]
         if not co_rows:
+            # Short-circuit before issuing the JOIN: CROSS JOIN against
+            # an empty school CTE would silently produce zero rows,
+            # which is NOT parity with the fan-out's descriptive error.
             return None, (
                 f"No career_outcomes row for unitid={unitid}, "
                 f"cipcode='{canonical_reported}'; cannot substitute."
@@ -1608,68 +1911,55 @@ class FutureProofMCPServer(BaseMCPServer):
         socs = self._fetch_crosswalk_socs(substituted_cipcode)
         if not socs:
             return None, (
-                f"No crosswalk SOCs found for substituted CIP "
-                f"'{substituted_cipcode}'."
+                f"No crosswalk SOCs found for substituted CIP '{substituted_cipcode}'."
             )
 
-        # 3. For each SOC, join occupation_profiles, onet, ai_exposure.
+        # 2b. SOC expansion: add intent-driven SOCs from the 832-SOC universe.
+        socs = self._expand_socs_if_needed(
+            socs, intent_keywords or [], substituted_cipcode,
+            program_name=substituted_program_name,
+        )
+
+        # 3. Single JOIN for all per-SOC data. Replaces the 3×N fan-out
+        # with one parameterized query. Extracted into a helper so
+        # test code can patch the JOIN fetch while the parity path
+        # exercises the real QueryEngine.
+        try:
+            joined = self._fetch_substituted_join(substituted_cipcode)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "Substituted JOIN failed for cip4=%s: %s",
+                substituted_cipcode,
+                e,
+            )
+            return None, f"Substituted JOIN failed: {e}"
+
+        # Index JOIN rows by soc_code so we can preserve the crosswalk
+        # SOC ordering (and include SOCs the LEFT JOIN didn't match
+        # against any occupation source, matching the fan-out's
+        # "{} fallback" behavior).
+        by_soc = {r["soc_code"]: r for r in joined if r.get("soc_code")}
         rows: list[dict] = []
         for soc in socs:
-            op_rows = self.query_iceberg_simple(
-                OCCUPATION_PROFILES_TABLE,
-                filters={"soc_code": soc},
-                columns=_SUB_OP_FIELDS,
-                limit=1,
-            )
-            op = (
-                op_rows[0]
-                if op_rows and "error" not in op_rows[0]
-                else {}
-            )
+            j = by_soc.get(soc, {})
+            op_title = j.get("occupation_title")
+            onet_primary = j.get("primary_title")
 
-            onet_rows = self.query_iceberg_simple(
-                ONET_WORK_PROFILES_TABLE,
-                filters={"bls_soc_code": soc},
-                columns=_SUB_ONET_FIELDS,
-                limit=1,
-            )
-            onet = (
-                onet_rows[0]
-                if onet_rows and "error" not in onet_rows[0]
-                else {}
-            )
-
-            ai_rows = self.query_iceberg_simple(
-                AI_EXPOSURE_TABLE_SUB,
-                filters={"soc_code": soc},
-                columns=_SUB_AI_FIELDS,
-                limit=1,
-            )
-            ai = (
-                ai_rows[0]
-                if ai_rows and "error" not in ai_rows[0]
-                else {}
-            )
-
-            stat_ern = compute_stat_ern(
-                cip_fam_rank, op.get("wage_percentile_overall")
-            )
+            stat_ern = compute_stat_ern(cip_fam_rank, j.get("wage_percentile_overall"))
             stat_roi = compute_stat_roi(adj_dte)
-            boss_loans_sub = (
-                (11 - stat_roi) if stat_roi is not None else None
-            )
-            stat_grw = op.get("grw_score_rounded")
-            stat_hmn = onet.get("hmn_score_rounded")
-            stat_res = ai.get("stat_res")
+            boss_loans_sub = (11 - stat_roi) if stat_roi is not None else None
+            stat_grw = j.get("grw_score_rounded")
+            stat_hmn = j.get("hmn_score_rounded")
+            stat_res = j.get("stat_res")
 
             stats_available = sum(
                 1
                 for v in (stat_ern, stat_roi, stat_res, stat_grw, stat_hmn)
                 if v is not None
             )
-            boss_ai = ai.get("boss_ai_score")
-            boss_market = op.get("market_score_rounded")
-            boss_burnout = onet.get("burnout_score_rounded")
+            boss_ai = j.get("boss_ai_score")
+            boss_market = j.get("market_score_rounded")
+            boss_burnout = j.get("burnout_score_rounded")
             # boss_ceiling is not derivable from occupation-level tables;
             # it lives on program_career_paths and stays omitted on
             # substituted rows. boss_loans mirrors the inline stat_roi
@@ -1687,12 +1977,8 @@ class FutureProofMCPServer(BaseMCPServer):
                 "program_name": substituted_program_name,
                 "cip_family_name": school.get("cip_family_name"),
                 "soc_code": soc,
-                "occupation_title": (
-                    op.get("occupation_title")
-                    or onet.get("primary_title")
-                    or None
-                ),
-                "soc_major_group_name": op.get("soc_major_group_name"),
+                "occupation_title": (op_title or onet_primary or None),
+                "soc_major_group_name": j.get("soc_major_group_name"),
                 "stat_ern": stat_ern,
                 "stat_roi": stat_roi,
                 "stat_res": stat_res,
@@ -1709,36 +1995,224 @@ class FutureProofMCPServer(BaseMCPServer):
                 "debt_median": school.get("debt_median"),
                 "debt_p25": school.get("debt_p25"),
                 "debt_p75": school.get("debt_p75"),
-                "debt_to_earnings_annual": school.get(
-                    "debt_to_earnings_annual"
-                ),
+                "debt_to_earnings_annual": school.get("debt_to_earnings_annual"),
                 "confidence_tier_program": school.get("confidence_tier"),
                 # Institution-level cost fields (mirror school row).
                 "institution_control": school.get("institution_control"),
                 "net_price_annual": school.get("net_price_annual"),
-                "cost_of_attendance_annual": school.get(
-                    "cost_of_attendance_annual"
-                ),
+                "cost_of_attendance_annual": school.get("cost_of_attendance_annual"),
                 "net_price_4yr": school.get("net_price_4yr"),
                 "tuition_in_state": school.get("tuition_in_state"),
                 "tuition_out_of_state": school.get("tuition_out_of_state"),
                 "room_board_on_campus": school.get("room_board_on_campus"),
-                "median_annual_wage": op.get("median_annual_wage"),
-                "growth_category": op.get("growth_category"),
-                "employment_current": op.get("employment_current"),
-                "education_level_name": op.get("education_level_name"),
-                "top_5_activities": onet.get("top_5_activities"),
-                "top_human_activities": onet.get("top_human_activities"),
-                "burnout_drivers": onet.get("burnout_drivers"),
+                "median_annual_wage": j.get("median_annual_wage"),
+                "growth_category": j.get("growth_category"),
+                "employment_current": j.get("employment_current"),
+                "education_level_name": j.get("education_level_name"),
+                "top_5_activities": j.get("top_5_activities"),
+                "top_human_activities": j.get("top_human_activities"),
+                "burnout_drivers": j.get("burnout_drivers"),
                 "match_quality": "substituted_cip",
                 "stats_available_count": stats_available,
                 "bosses_available_count": bosses_available,
-                "overall_confidence": (
-                    "high" if stats_available == 5 else "medium"
-                ),
+                "overall_confidence": ("high" if stats_available == 5 else "medium"),
             }
             rows.append(row)
         return rows, None
+
+    # ------------------------------------------------------------------
+    # SOC expansion helpers
+    # ------------------------------------------------------------------
+
+    def _expand_socs_if_needed(
+        self,
+        base_socs: list[str],
+        intent_keywords: list[str],
+        cip4: str,
+        *,
+        program_name: str = "",
+    ) -> list[str]:
+        """Call soc_expansion.expand_socs if available; return base_socs on failure."""
+        try:
+            from app.services.soc_expansion import expand_socs
+        except ImportError:
+            logger.debug("soc_expansion not importable — skipping expansion")
+            return base_socs
+
+        base_soc_titles: list[str] | None = None
+        if not intent_keywords and program_name:
+            base_soc_titles = self._fetch_soc_titles(base_socs)
+
+        engine = self._get_query_engine()
+
+        try:
+            return expand_socs(
+                intent_keywords=intent_keywords,
+                base_socs=base_socs,
+                cip_family=self._cip_family(cip4),
+                program_name=program_name,
+                base_soc_titles=base_soc_titles,
+                query_fn=engine.query_sql,
+            )
+        except Exception:
+            logger.warning("soc_expansion failed — returning base SOCs", exc_info=True)
+            return base_socs
+
+    def _fetch_soc_titles(self, soc_codes: list[str]) -> list[str]:
+        """Fetch occupation titles for a list of SOC codes."""
+        if not soc_codes:
+            return []
+        try:
+            engine = self._get_query_engine()
+            valid = [s for s in soc_codes if _SOC_CODE_PATTERN.match(s)]
+            if not valid:
+                return []
+            rows = engine.query_sql(
+                "SELECT soc_code, occupation_title "
+                "FROM consumable_occupation_profiles "
+                "WHERE soc_code IN ("
+                + ", ".join(f"'{s}'" for s in valid)
+                + ")",
+                {},
+            )
+            by_soc = {r["soc_code"]: r.get("occupation_title", "") for r in rows}
+            return [str(by_soc.get(s, "")) for s in soc_codes]
+        except Exception:
+            logger.debug("_fetch_soc_titles failed", exc_info=True)
+            return []
+
+    def _build_expanded_rows(
+        self,
+        new_socs: list[str],
+        existing_rows: list[dict],
+        canonical_cipcode: str,
+    ) -> list[dict]:
+        """Build rows for Gemma-expanded SOCs on the standard path.
+
+        Uses a dynamic JOIN against occupation_profiles, onet_work_profiles,
+        and ai_exposure — same as the substituted path's _fetch_substituted_join
+        but scoped to the specific new SOCs.
+        """
+        if not new_socs or not existing_rows:
+            return []
+
+        template = existing_rows[0]
+        engine = self._get_query_engine()
+
+        soc_list_sql = ", ".join(
+            f"'{s}'" for s in new_socs if _SOC_CODE_PATTERN.match(s)
+        )
+        if not soc_list_sql:
+            return []
+
+        try:
+            joined = engine.query_sql(
+                f"""
+                SELECT
+                    op.soc_code,
+                    op.occupation_title,
+                    op.soc_major_group_name,
+                    op.median_annual_wage,
+                    op.wage_percentile_overall,
+                    op.grw_score_rounded,
+                    op.market_score_rounded,
+                    op.growth_category,
+                    op.employment_current,
+                    op.education_level_name,
+                    onet.primary_title,
+                    onet.hmn_score_rounded,
+                    onet.burnout_score_rounded,
+                    onet.top_5_activities,
+                    onet.top_human_activities,
+                    onet.burnout_drivers,
+                    ai.stat_res,
+                    ai.boss_ai_score
+                FROM consumable_occupation_profiles op
+                LEFT JOIN consumable_onet_work_profiles onet
+                    ON onet.bls_soc_code = op.soc_code
+                LEFT JOIN consumable_ai_exposure ai
+                    ON ai.soc_code = op.soc_code
+                WHERE op.soc_code IN ({soc_list_sql})
+                """,
+                {},
+            )
+        except Exception:
+            logger.warning("_build_expanded_rows JOIN failed", exc_info=True)
+            return []
+
+        rows: list[dict] = []
+        for j in joined:
+            soc = j.get("soc_code", "")
+            op_title = j.get("occupation_title")
+            onet_primary = j.get("primary_title")
+            stat_ern = template.get("stat_ern")
+            stat_roi = template.get("stat_roi")
+            stat_grw = j.get("grw_score_rounded")
+            stat_hmn = j.get("hmn_score_rounded")
+            stat_res = j.get("stat_res")
+            boss_ai = j.get("boss_ai_score")
+            boss_loans = template.get("boss_loans_score")
+            boss_market = j.get("market_score_rounded")
+            boss_burnout = j.get("burnout_score_rounded")
+
+            stats_available = sum(
+                1
+                for v in (stat_ern, stat_roi, stat_res, stat_grw, stat_hmn)
+                if v is not None
+            )
+            bosses_available = sum(
+                1
+                for v in (boss_ai, boss_loans, boss_market, boss_burnout)
+                if v is not None
+            )
+
+            row = {
+                "unitid": template.get("unitid"),
+                "institution_name": template.get("institution_name"),
+                "cipcode": canonical_cipcode,
+                "program_name": template.get("program_name"),
+                "cip_family_name": template.get("cip_family_name"),
+                "soc_code": soc,
+                "occupation_title": (op_title or onet_primary or None),
+                "soc_major_group_name": j.get("soc_major_group_name"),
+                "stat_ern": stat_ern,
+                "stat_roi": stat_roi,
+                "stat_res": stat_res,
+                "stat_grw": stat_grw,
+                "stat_hmn": stat_hmn,
+                "boss_ai_score": boss_ai,
+                "boss_loans_score": boss_loans,
+                "boss_market_score": boss_market,
+                "boss_burnout_score": boss_burnout,
+                "boss_ceiling_score": None,
+                "earnings_1yr_median": template.get("earnings_1yr_median"),
+                "earnings_1yr_p25": template.get("earnings_1yr_p25"),
+                "earnings_1yr_p75": template.get("earnings_1yr_p75"),
+                "debt_median": template.get("debt_median"),
+                "debt_p25": template.get("debt_p25"),
+                "debt_p75": template.get("debt_p75"),
+                "debt_to_earnings_annual": template.get("debt_to_earnings_annual"),
+                "confidence_tier_program": template.get("confidence_tier_program"),
+                "institution_control": template.get("institution_control"),
+                "net_price_annual": template.get("net_price_annual"),
+                "cost_of_attendance_annual": template.get("cost_of_attendance_annual"),
+                "tuition_in_state": template.get("tuition_in_state"),
+                "tuition_out_of_state": template.get("tuition_out_of_state"),
+                "room_board_on_campus": template.get("room_board_on_campus"),
+                "median_annual_wage": j.get("median_annual_wage"),
+                "growth_category": j.get("growth_category"),
+                "employment_current": j.get("employment_current"),
+                "education_level_name": j.get("education_level_name"),
+                "top_5_activities": j.get("top_5_activities"),
+                "top_human_activities": j.get("top_human_activities"),
+                "burnout_drivers": j.get("burnout_drivers"),
+                "match_quality": "gemma_expanded",
+                "stats_available_count": stats_available,
+                "bosses_available_count": bosses_available,
+                "overall_confidence": "medium",
+            }
+            rows.append(row)
+        return rows
 
     # ------------------------------------------------------------------
     # Fallback: CIP broadening (deterministic, fast)
@@ -1769,8 +2243,7 @@ class FutureProofMCPServer(BaseMCPServer):
 
         # Attempt 1: Same 4-digit prefix, same school
         prefix_rows = [
-            r for r in valid_rows
-            if str(r.get("cipcode", "")).startswith(cip4)
+            r for r in valid_rows if str(r.get("cipcode", "")).startswith(cip4)
         ]
         if prefix_rows:
             caveat = {
@@ -1792,8 +2265,7 @@ class FutureProofMCPServer(BaseMCPServer):
         # bugfix-broad-cip-substitution-and-intent §4.
         general_cip = f"{family}.0100"
         general_rows = [
-            r for r in valid_rows
-            if str(r.get("cipcode", "")) == general_cip
+            r for r in valid_rows if str(r.get("cipcode", "")) == general_cip
         ]
         if general_rows:
             caveat = {
@@ -1809,8 +2281,7 @@ class FutureProofMCPServer(BaseMCPServer):
 
         # Attempt 3: Any CIP in this 2-digit family
         family_rows = [
-            r for r in valid_rows
-            if str(r.get("cipcode", "")).startswith(f"{family}.")
+            r for r in valid_rows if str(r.get("cipcode", "")).startswith(f"{family}.")
         ]
         if family_rows:
             caveat = {
@@ -1867,7 +2338,9 @@ class FutureProofMCPServer(BaseMCPServer):
         )
 
         if not raw:
-            logger.warning("Gemma SOC resolution returned empty response for CIP %s", cipcode)
+            logger.warning(
+                "Gemma SOC resolution returned empty response for CIP %s", cipcode
+            )
             return None, None
 
         # Parse Gemma's response
@@ -1878,7 +2351,9 @@ class FutureProofMCPServer(BaseMCPServer):
         try:
             parsed = json.loads(cleaned)
         except json.JSONDecodeError:
-            logger.warning("Gemma SOC resolution returned unparseable JSON: %s", cleaned[:200])
+            logger.warning(
+                "Gemma SOC resolution returned unparseable JSON: %s", cleaned[:200]
+            )
             return None, None
 
         soc_list = parsed.get("soc_codes", [])
@@ -1888,7 +2363,8 @@ class FutureProofMCPServer(BaseMCPServer):
         # Validate SOC format
         _soc_re = re.compile(r"^\d{2}-\d{4}$")
         valid_socs = [
-            s["soc"] for s in soc_list
+            s["soc"]
+            for s in soc_list
             if isinstance(s, dict) and _soc_re.match(str(s.get("soc", "")))
         ]
         if not valid_socs:
@@ -1910,7 +2386,9 @@ class FutureProofMCPServer(BaseMCPServer):
                 break
         if school_row is None:
             for r in co_rows:
-                if "error" not in r and str(r.get("cipcode", "")).startswith(f"{family}."):
+                if "error" not in r and str(r.get("cipcode", "")).startswith(
+                    f"{family}."
+                ):
                     school_row = r
                     break
         if school_row is None and co_rows and "error" not in co_rows[0]:
@@ -1958,7 +2436,9 @@ class FutureProofMCPServer(BaseMCPServer):
                 row["debt_median"] = school_row.get("debt_median")
                 row["debt_p25"] = school_row.get("debt_p25")
                 row["debt_p75"] = school_row.get("debt_p75")
-                row["debt_to_earnings_annual"] = school_row.get("debt_to_earnings_annual")
+                row["debt_to_earnings_annual"] = school_row.get(
+                    "debt_to_earnings_annual"
+                )
                 # Institution-level cost fields propagated through the
                 # Gemma SOC-resolution fallback so callers get the same
                 # ROI inputs whether the path went via crosswalk or AI.
@@ -2010,6 +2490,19 @@ class FutureProofMCPServer(BaseMCPServer):
         }
         return rows, caveat
 
+    @timed(
+        "career_paths_handler",
+        extract=lambda result, self, input_dict: {
+            "unitid": input_dict.get("unitid"),
+            "cipcode": input_dict.get("cipcode"),
+            "path": (
+                _career_paths_result_path(result)
+                if isinstance(result, dict)
+                else "unknown"
+            ),
+            "row_count": (result.get("row_count") if isinstance(result, dict) else 0),
+        },
+    )
     def _handle_get_career_paths(self, input_dict: dict) -> dict:
         """Query consumable.program_career_paths by unitid + cipcode.
 
@@ -2033,6 +2526,12 @@ class FutureProofMCPServer(BaseMCPServer):
         raw_student_major = input_dict.get("student_major")
         raw_student_cip = input_dict.get("student_cip")
         raw_loan_pct = input_dict.get("loan_pct", 1.0)
+        raw_intent_keywords = input_dict.get("intent_keywords", [])
+        intent_keywords: list[str] = (
+            [str(k) for k in raw_intent_keywords]
+            if isinstance(raw_intent_keywords, list)
+            else []
+        )
 
         # loan_pct is optional; clamp to [0.0, 1.0] and fall back to 1.0
         # on garbage input so the tool remains permissive.
@@ -2062,7 +2561,7 @@ class FutureProofMCPServer(BaseMCPServer):
             )
 
         # Validate cipcode format.
-        cipcode = (str(raw_cipcode).strip() if raw_cipcode is not None else "")
+        cipcode = str(raw_cipcode).strip() if raw_cipcode is not None else ""
         if not cipcode or not _CIPCODE_PATTERN.match(cipcode):
             return self.attach_governance(
                 {
@@ -2079,14 +2578,10 @@ class FutureProofMCPServer(BaseMCPServer):
         # CIP intent substitution decision
         # ------------------------------------------------------------------
         student_major = (
-            str(raw_student_major).strip()
-            if raw_student_major is not None
-            else ""
+            str(raw_student_major).strip() if raw_student_major is not None else ""
         )
         student_cip = (
-            str(raw_student_cip).strip()
-            if raw_student_cip is not None
-            else ""
+            str(raw_student_cip).strip() if raw_student_cip is not None else ""
         )
         substitution_note: str | None = None
         substitution: dict | None = None  # set if substitution fires
@@ -2129,9 +2624,7 @@ class FutureProofMCPServer(BaseMCPServer):
                     )
             else:
                 matched_cip4 = str(entry.get("cip4") or "")
-                if self._cip_family(matched_cip4) != self._cip_family(
-                    cipcode
-                ):
+                if self._cip_family(matched_cip4) != self._cip_family(cipcode):
                     substitution_note = (
                         f"Student hint '{hint_label}' maps to CIP "
                         f"family {self._cip_family(matched_cip4)}, "
@@ -2140,11 +2633,8 @@ class FutureProofMCPServer(BaseMCPServer):
                         f"{self._cip_family(cipcode)}. Showing the "
                         f"reported program; no substitution applied."
                     )
-                elif (
-                    self._is_broad_cip(cipcode)
-                    or self._matched_cip_is_more_specific(
-                        cipcode, matched_cip4
-                    )
+                elif self._is_broad_cip(cipcode) or self._matched_cip_is_more_specific(
+                    cipcode, matched_cip4
                 ):
                     substitution = {
                         "entry": entry,
@@ -2175,6 +2665,7 @@ class FutureProofMCPServer(BaseMCPServer):
                 substituted_cipcode=matched_cip4,
                 substituted_program_name=str(entry.get("major") or ""),
                 loan_pct=loan_pct_value,
+                intent_keywords=intent_keywords,
             )
             if err is not None:
                 return self.attach_governance(
@@ -2235,12 +2726,7 @@ class FutureProofMCPServer(BaseMCPServer):
         # 4-digit granularity; canonicalize once here so every downstream
         # filter and response field reflects the actual lookup key.
         canonical_cipcode = self._canonical_cip4(cipcode)
-        rows = self.query_iceberg_simple(
-            CAREER_PATHS_TABLE,
-            filters={"unitid": unitid_value, "cipcode": canonical_cipcode},
-            columns=CAREER_PATHS_RESPONSE_FIELDS,
-            limit=CAREER_PATHS_SCAN_LIMIT,
-        )
+        rows = self._standard_path_rows(unitid_value, canonical_cipcode)
 
         if rows and "error" in rows[0]:
             return self.attach_governance(
@@ -2319,6 +2805,27 @@ class FutureProofMCPServer(BaseMCPServer):
                 CAREER_PATHS_TABLE,
             )
 
+        # SOC expansion on the standard path: extract base SOCs from
+        # pre-joined rows, call expand_socs, and build new rows for any
+        # expanded SOCs using the substituted-path's dynamic JOIN.
+        base_socs = [
+            str(r["soc_code"]) for r in rows
+            if r.get("soc_code")
+        ]
+        program_name_for_expansion = (
+            str(rows[0].get("program_name", "")) if rows else ""
+        )
+        expanded_socs = self._expand_socs_if_needed(
+            base_socs, intent_keywords, canonical_cipcode,
+            program_name=program_name_for_expansion,
+        )
+        new_socs = [s for s in expanded_socs if s not in set(base_socs)]
+        if new_socs:
+            expanded_rows = self._build_expanded_rows(
+                new_socs, rows, canonical_cipcode,
+            )
+            rows.extend(expanded_rows)
+
         def _sort_key(row: dict) -> tuple:
             stats = row.get("stats_available_count")
             # Descending stats first; stable ascending title secondary.
@@ -2346,7 +2853,7 @@ class FutureProofMCPServer(BaseMCPServer):
     def _handle_get_occupation_data(self, input_dict: dict) -> dict:
         """Query consumable.occupation_profiles for a single SOC code."""
         raw_soc = input_dict.get("soc_code")
-        soc_code = (str(raw_soc).strip() if raw_soc is not None else "")
+        soc_code = str(raw_soc).strip() if raw_soc is not None else ""
         if not soc_code:
             return {
                 "data": None,
@@ -2356,9 +2863,7 @@ class FutureProofMCPServer(BaseMCPServer):
             return self.attach_governance(
                 {
                     "data": None,
-                    "message": (
-                        f"soc_code must be in XX-XXXX format; got {raw_soc!r}"
-                    ),
+                    "message": (f"soc_code must be in XX-XXXX format; got {raw_soc!r}"),
                 },
                 OCCUPATION_DATA_TABLE,
             )
@@ -2380,9 +2885,7 @@ class FutureProofMCPServer(BaseMCPServer):
             return self.attach_governance(
                 {
                     "data": None,
-                    "message": (
-                        f"No occupation data for SOC code '{soc_code}'"
-                    ),
+                    "message": (f"No occupation data for SOC code '{soc_code}'"),
                 },
                 OCCUPATION_DATA_TABLE,
             )
@@ -2404,7 +2907,7 @@ class FutureProofMCPServer(BaseMCPServer):
         the other tools; the handler translates.
         """
         raw_soc = input_dict.get("soc_code")
-        soc_code = (str(raw_soc).strip() if raw_soc is not None else "")
+        soc_code = str(raw_soc).strip() if raw_soc is not None else ""
         if not soc_code:
             return {
                 "data": None,
@@ -2414,9 +2917,7 @@ class FutureProofMCPServer(BaseMCPServer):
             return self.attach_governance(
                 {
                     "data": None,
-                    "message": (
-                        f"soc_code must be in XX-XXXX format; got {raw_soc!r}"
-                    ),
+                    "message": (f"soc_code must be in XX-XXXX format; got {raw_soc!r}"),
                 },
                 TASK_BREAKDOWN_TABLE,
             )
@@ -2438,9 +2939,7 @@ class FutureProofMCPServer(BaseMCPServer):
             return self.attach_governance(
                 {
                     "data": None,
-                    "message": (
-                        f"No O*NET task data for SOC code '{soc_code}'"
-                    ),
+                    "message": (f"No O*NET task data for SOC code '{soc_code}'"),
                 },
                 TASK_BREAKDOWN_TABLE,
             )
@@ -2457,7 +2956,7 @@ class FutureProofMCPServer(BaseMCPServer):
     def _handle_get_career_branches(self, input_dict: dict) -> dict:
         """Query consumable.career_branches by source SOC code."""
         raw_soc = input_dict.get("soc_code")
-        soc_code = (str(raw_soc).strip() if raw_soc is not None else "")
+        soc_code = str(raw_soc).strip() if raw_soc is not None else ""
         if not soc_code:
             return {
                 "data": None,
@@ -2467,9 +2966,7 @@ class FutureProofMCPServer(BaseMCPServer):
             return self.attach_governance(
                 {
                     "data": None,
-                    "message": (
-                        f"soc_code must be in XX-XXXX format; got {raw_soc!r}"
-                    ),
+                    "message": (f"soc_code must be in XX-XXXX format; got {raw_soc!r}"),
                 },
                 CAREER_BRANCHES_TABLE,
             )
