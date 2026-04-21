@@ -56,6 +56,7 @@ from app.services import (  # noqa: E402
     career_tree,
     gemma_client,
     guidance,
+    intent,
     mcp_client,
     next_steps,
     receipts,
@@ -765,7 +766,8 @@ def _call_gemma_intent(
         f"- {c['cipcode']} {c['program_name']}" for c in school_cips
     )
     crosswalk_cip_list = "\n".join(
-        f"- {c['cipcode']} {c['cip_title']}" for c in crosswalk_cips[:60]
+        f"- {c['cipcode']} {c['cip_title']}"
+        for c in intent._sample_crosswalk(crosswalk_cips, max_total=60)
     )
 
     prompt_input = student_input
