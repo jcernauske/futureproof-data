@@ -1,0 +1,332 @@
+{
+  "input": {
+    "cipcode": "14.01",
+    "student_major": "Engineering",
+    "unitid": 145637
+  },
+  "response": {
+    "data": [
+      {
+        "adoption_percentile": 75.91522157996147,
+        "ai_adoption_share": 0.09459387286419155,
+        "boss_ai_score": 5,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 1,
+        "boss_loans_score": null,
+        "boss_market_score": 7,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.88
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.76
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.75
+          }
+        ],
+        "cip_family_name": "Engineering",
+        "cipcode": "14.01",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "low",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 60121.0,
+        "earnings_1yr_p75": 69541.0,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 212500,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 167740.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Architectural and engineering managers",
+        "overall_confidence": "low",
+        "program_name": "Engineering, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "11-9041",
+        "soc_major_group_name": "Management",
+        "stat_ern": null,
+        "stat_grw": 6,
+        "stat_hmn": 4,
+        "stat_res": 6,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Getting Information",
+            "importance": 4.61
+          },
+          {
+            "activity": "Working with Computers",
+            "importance": 4.57
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.49
+          },
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 4.46
+          },
+          {
+            "activity": "Coordinating the Work and Activities of Others",
+            "importance": 4.2
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.49
+          },
+          {
+            "activity": "Coordinating the Work and Activities of Others",
+            "importance": 4.2
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.13
+          },
+          {
+            "activity": "Guiding, Directing, and Motivating Subordinates",
+            "importance": 3.83
+          },
+          {
+            "activity": "Developing and Building Teams",
+            "importance": 3.81
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "accelerating"
+      },
+      {
+        "adoption_percentile": 63.77649325626204,
+        "ai_adoption_share": 0.05398637043797968,
+        "boss_ai_score": 3,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 4,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.97
+          },
+          {
+            "element": "Time Pressure",
+            "value": 0.64
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.63
+          }
+        ],
+        "cip_family_name": "Engineering",
+        "cipcode": "14.01",
+        "composite_method": "gemma_plus_anthropic",
+        "confidence_tier_program": "low",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 60121.0,
+        "earnings_1yr_p75": 69541.0,
+        "education_level_name": "Doctoral or professional degree",
+        "employment_current": 50300,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 106120.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Engineering teachers, postsecondary",
+        "overall_confidence": "low",
+        "program_name": "Engineering, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "25-1032",
+        "soc_major_group_name": "Educational Instruction and Library",
+        "stat_ern": null,
+        "stat_grw": 7,
+        "stat_hmn": 4,
+        "stat_res": 8,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.64
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.63
+          },
+          {
+            "activity": "Updating and Using Relevant Knowledge",
+            "importance": 4.62
+          },
+          {
+            "activity": "Analyzing Data or Information",
+            "importance": 4.48
+          },
+          {
+            "activity": "Processing Information",
+            "importance": 4.37
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.64
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.63
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.36
+          },
+          {
+            "activity": "Coaching and Developing Others",
+            "importance": 4.04
+          },
+          {
+            "activity": "Coordinating the Work and Activities of Others",
+            "importance": 3.76
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "emerging"
+      },
+      {
+        "adoption_percentile": 97.88053949903662,
+        "ai_adoption_share": 0.8045101043921958,
+        "boss_ai_score": 6,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 3,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.82
+          },
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.78
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.66
+          }
+        ],
+        "cip_family_name": "Engineering",
+        "cipcode": "14.01",
+        "composite_method": "gemma_plus_anthropic",
+        "confidence_tier_program": "low",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 60121.0,
+        "earnings_1yr_p75": 69541.0,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 158800,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 117750.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Engineers, all other",
+        "overall_confidence": "low",
+        "program_name": "Engineering, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "17-2199",
+        "soc_major_group_name": "Architecture and Engineering",
+        "stat_ern": null,
+        "stat_grw": 5,
+        "stat_hmn": 3,
+        "stat_res": 5,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Working with Computers",
+            "importance": 4.51
+          },
+          {
+            "activity": "Getting Information",
+            "importance": 4.41
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.4
+          },
+          {
+            "activity": "Analyzing Data or Information",
+            "importance": 4.11
+          },
+          {
+            "activity": "Updating and Using Relevant Knowledge",
+            "importance": 4.03
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.4
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 3.97
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.59
+          },
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 3.25
+          },
+          {
+            "activity": "Developing and Building Teams",
+            "importance": 3.23
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "saturating"
+      }
+    ],
+    "row_count": 3,
+    "substitution_applied": false,
+    "substitution_note": "Could not map 'Engineering' to a specific program. Showing results for the school's reported program."
+  }
+}

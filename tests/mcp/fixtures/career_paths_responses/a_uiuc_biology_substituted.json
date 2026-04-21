@@ -1,0 +1,1019 @@
+{
+  "input": {
+    "cipcode": "26.01",
+    "student_major": "Biology",
+    "unitid": 145637
+  },
+  "response": {
+    "data": [
+      {
+        "adoption_percentile": null,
+        "ai_adoption_share": null,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 9,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.76
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.75
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.6
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "two_signal_no_anthropic",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Associate's degree",
+        "employment_current": 18600,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 46790.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Agricultural technicians",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "19-4012",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": null,
+        "stat_grw": 6,
+        "stat_hmn": 4,
+        "stat_res": 7,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Getting Information",
+            "importance": 4.01
+          },
+          {
+            "activity": "Operating Vehicles, Mechanized Devices, or Equipment",
+            "importance": 4.0
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 3.86
+          },
+          {
+            "activity": "Working with Computers",
+            "importance": 3.84
+          },
+          {
+            "activity": "Updating and Using Relevant Knowledge",
+            "importance": 3.83
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 3.86
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.62
+          },
+          {
+            "activity": "Performing General Physical Activities",
+            "importance": 3.49
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 3.25
+          },
+          {
+            "activity": "Handling and Moving Objects",
+            "importance": 3.23
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "unknown"
+      },
+      {
+        "adoption_percentile": 93.25626204238921,
+        "ai_adoption_share": 0.37002834966311976,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 7,
+        "boss_loans_score": null,
+        "boss_market_score": 7,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.96
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.8
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.77
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "gemma_plus_anthropic",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Doctoral or professional degree",
+        "employment_current": 66000,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 83460.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Biological science teachers, postsecondary",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "25-1042",
+        "soc_major_group_name": "Educational Instruction and Library",
+        "stat_ern": null,
+        "stat_grw": 7,
+        "stat_hmn": 4,
+        "stat_res": 7,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.7
+          },
+          {
+            "activity": "Updating and Using Relevant Knowledge",
+            "importance": 4.63
+          },
+          {
+            "activity": "Working with Computers",
+            "importance": 4.59
+          },
+          {
+            "activity": "Processing Information",
+            "importance": 4.56
+          },
+          {
+            "activity": "Interpreting the Meaning of Information for Others",
+            "importance": 4.44
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.7
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.4
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.36
+          },
+          {
+            "activity": "Coaching and Developing Others",
+            "importance": 4.0
+          },
+          {
+            "activity": "Guiding, Directing, and Motivating Subordinates",
+            "importance": 3.6
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "saturating"
+      },
+      {
+        "adoption_percentile": 96.72447013487476,
+        "ai_adoption_share": 0.5533895624237395,
+        "boss_ai_score": 6,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 5,
+        "boss_loans_score": null,
+        "boss_market_score": 5,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.82
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.81
+          },
+          {
+            "element": "Time Pressure",
+            "value": 0.56
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "gemma_plus_anthropic",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 63700,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 93330.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Biological scientists, all other",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "19-1029",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": null,
+        "stat_grw": 5,
+        "stat_hmn": 4,
+        "stat_res": 5,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Analyzing Data or Information",
+            "importance": 4.58
+          },
+          {
+            "activity": "Working with Computers",
+            "importance": 4.58
+          },
+          {
+            "activity": "Getting Information",
+            "importance": 4.56
+          },
+          {
+            "activity": "Processing Information",
+            "importance": 4.55
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.53
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.53
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.28
+          },
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 3.87
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.75
+          },
+          {
+            "activity": "Guiding, Directing, and Motivating Subordinates",
+            "importance": 3.58
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "saturating"
+      },
+      {
+        "adoption_percentile": 83.81502890173411,
+        "ai_adoption_share": 0.15673208468051716,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 9,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.85
+          },
+          {
+            "element": "Importance of Repeating Same Tasks",
+            "value": 0.59
+          },
+          {
+            "element": "Time Pressure",
+            "value": 0.58
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 82700,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 52000.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Biological technicians",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "19-4021",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": null,
+        "stat_grw": 6,
+        "stat_hmn": 2,
+        "stat_res": 7,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Documenting/Recording Information",
+            "importance": 4.65
+          },
+          {
+            "activity": "Processing Information",
+            "importance": 4.61
+          },
+          {
+            "activity": "Analyzing Data or Information",
+            "importance": 4.44
+          },
+          {
+            "activity": "Identifying Objects, Actions, and Events",
+            "importance": 4.39
+          },
+          {
+            "activity": "Getting Information",
+            "importance": 4.19
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.01
+          },
+          {
+            "activity": "Handling and Moving Objects",
+            "importance": 3.68
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.29
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 3.19
+          },
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 2.8
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "accelerating"
+      },
+      {
+        "adoption_percentile": null,
+        "ai_adoption_share": null,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 7,
+        "boss_ceiling_score": 9,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.89
+          },
+          {
+            "element": "Importance of Repeating Same Tasks",
+            "value": 0.87
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.84
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "two_signal_no_anthropic",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Associate's degree",
+        "employment_current": 20400,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 49430.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Food science technicians",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "19-4013",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": null,
+        "stat_grw": 6,
+        "stat_hmn": 4,
+        "stat_res": 7,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.3
+          },
+          {
+            "activity": "Monitoring Processes, Materials, or Surroundings",
+            "importance": 4.28
+          },
+          {
+            "activity": "Working with Computers",
+            "importance": 4.22
+          },
+          {
+            "activity": "Documenting/Recording Information",
+            "importance": 4.16
+          },
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 4.14
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.3
+          },
+          {
+            "activity": "Coaching and Developing Others",
+            "importance": 3.68
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 3.55
+          },
+          {
+            "activity": "Coordinating the Work and Activities of Others",
+            "importance": 3.55
+          },
+          {
+            "activity": "Guiding, Directing, and Motivating Subordinates",
+            "importance": 3.37
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "unknown"
+      },
+      {
+        "adoption_percentile": 14.836223506743737,
+        "ai_adoption_share": 0.004621850465677112,
+        "boss_ai_score": 5,
+        "boss_burnout_score": 7,
+        "boss_ceiling_score": 7,
+        "boss_loans_score": null,
+        "boss_market_score": 7,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.93
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.92
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.88
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 20700,
+        "growth_category": "growing_fast",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 67440.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Forensic science technicians",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "19-4092",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": null,
+        "stat_grw": 8,
+        "stat_hmn": 4,
+        "stat_res": 6,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Getting Information",
+            "importance": 4.46
+          },
+          {
+            "activity": "Documenting/Recording Information",
+            "importance": 4.23
+          },
+          {
+            "activity": "Interpreting the Meaning of Information for Others",
+            "importance": 4.21
+          },
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 4.15
+          },
+          {
+            "activity": "Communicating with People Outside the Organization",
+            "importance": 4.08
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 3.95
+          },
+          {
+            "activity": "Performing for or Working Directly with the Public",
+            "importance": 3.91
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.87
+          },
+          {
+            "activity": "Handling and Moving Objects",
+            "importance": 3.66
+          },
+          {
+            "activity": "Performing General Physical Activities",
+            "importance": 3.54
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "nascent"
+      },
+      {
+        "adoption_percentile": 61.46435452793834,
+        "ai_adoption_share": 0.050070046711502045,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 5,
+        "boss_loans_score": null,
+        "boss_market_score": 7,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.89
+          },
+          {
+            "element": "Importance of Repeating Same Tasks",
+            "value": 0.74
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.72
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Doctoral or professional degree",
+        "employment_current": 165300,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 100590.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Medical scientists, except epidemiologists",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "19-1042",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": null,
+        "stat_grw": 7,
+        "stat_hmn": 3,
+        "stat_res": 7,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Updating and Using Relevant Knowledge",
+            "importance": 4.58
+          },
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 4.47
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.32
+          },
+          {
+            "activity": "Getting Information",
+            "importance": 4.27
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.26
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.32
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.26
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.82
+          },
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 3.55
+          },
+          {
+            "activity": "Developing and Building Teams",
+            "importance": 3.48
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "emerging"
+      },
+      {
+        "adoption_percentile": 77.26396917148362,
+        "ai_adoption_share": 0.1067133918630782,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 1,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.83
+          },
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.71
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.69
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 104300,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 161180.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Natural sciences managers",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "11-9121",
+        "soc_major_group_name": "Management",
+        "stat_ern": null,
+        "stat_grw": 6,
+        "stat_hmn": 4,
+        "stat_res": 7,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Getting Information",
+            "importance": 4.46
+          },
+          {
+            "activity": "Working with Computers",
+            "importance": 4.31
+          },
+          {
+            "activity": "Organizing, Planning, and Prioritizing Work",
+            "importance": 4.27
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.26
+          },
+          {
+            "activity": "Documenting/Recording Information",
+            "importance": 4.25
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.26
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.02
+          },
+          {
+            "activity": "Coordinating the Work and Activities of Others",
+            "importance": 3.7
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 3.58
+          },
+          {
+            "activity": "Developing and Building Teams",
+            "importance": 3.49
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "accelerating"
+      },
+      {
+        "adoption_percentile": 63.39113680154143,
+        "ai_adoption_share": 0.0538776415413064,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 8,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.75
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.64
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.62
+          }
+        ],
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 1094500,
+        "growth_category": "declining",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 64580.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Secondary school teachers, except special and career/technical education",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "25-2031",
+        "soc_major_group_name": "Educational Instruction and Library",
+        "stat_ern": null,
+        "stat_grw": 4,
+        "stat_hmn": 7,
+        "stat_res": 7,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.65
+          },
+          {
+            "activity": "Coaching and Developing Others",
+            "importance": 4.45
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.36
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.35
+          },
+          {
+            "activity": "Developing Objectives and Strategies",
+            "importance": 4.22
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.65
+          },
+          {
+            "activity": "Coaching and Developing Others",
+            "importance": 4.45
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.36
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.35
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.06
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "emerging"
+      },
+      {
+        "adoption_percentile": null,
+        "ai_adoption_share": null,
+        "boss_ai_score": null,
+        "boss_burnout_score": null,
+        "boss_ceiling_score": 5,
+        "boss_loans_score": null,
+        "boss_market_score": 4,
+        "bosses_available_count": 2,
+        "burnout_drivers": null,
+        "cip_family_name": "Biological and Biomedical Sciences",
+        "cipcode": "26.01",
+        "composite_method": null,
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 24172.25,
+        "earnings_1yr_p75": 31641.75,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 7800,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "partial_no_onet",
+        "median_annual_wage": 87800.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Life scientists, all other",
+        "overall_confidence": "low",
+        "program_name": "Biology, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "19-1099",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": null,
+        "stat_grw": 6,
+        "stat_hmn": null,
+        "stat_res": null,
+        "stat_roi": null,
+        "stats_available_count": 1,
+        "top_5_activities": null,
+        "top_human_activities": null,
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": null
+      }
+    ],
+    "row_count": 10,
+    "substitution_applied": false,
+    "substitution_note": "Could not map 'Biology' to a specific program. Showing results for the school's reported program."
+  }
+}
