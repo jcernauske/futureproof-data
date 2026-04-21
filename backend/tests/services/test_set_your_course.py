@@ -28,7 +28,6 @@ resets the Gemma semaphore/cache between tests.
 
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
@@ -265,45 +264,78 @@ class TestStreamInitial:
 # ---------------------------------------------------------------------------
 
 
-class _GemmaRecorder:
-    """Captures ``generate_chat_async`` kwargs so tests can assert the
-    prompt carried the clarifier / tool context / etc."""
+class _ToolLoopRecorder:
+    """Captures ``generate_with_tools_loop`` kwargs and returns a
+    configured (text, tool_call_log) tuple."""
 
-    def __init__(self, response: str = "") -> None:
+    def __init__(
+        self,
+        response: str = "",
+        tool_call_log: list[Any] | None = None,
+    ) -> None:
         self.response = response
+        self.tool_call_log = tool_call_log or []
         self.calls: list[dict[str, Any]] = []
 
-    async def __call__(self, **kwargs: Any) -> str:
+    async def __call__(self, **kwargs: Any) -> tuple[str, list[Any]]:
         self.calls.append(kwargs)
-        return self.response
+        return self.response, self.tool_call_log
+
+
+def _stub_tool_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub mcp_client.get_tool_openai_schema to return a valid schema."""
+    monkeypatch.setattr(
+        mcp_client,
+        "get_tool_openai_schema",
+        lambda name: {
+            "type": "function",
+            "function": {
+                "name": "get_career_paths",
+                "description": "Returns career outcomes.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "unitid": {"type": "integer"},
+                        "cipcode": {"type": "string"},
+                    },
+                    "required": ["unitid", "cipcode"],
+                },
+            },
+        },
+    )
+
+
+def _make_tool_call_turn(
+    *,
+    turn_number: int = 0,
+    tool_name: str = "get_career_paths",
+    error: str | None = None,
+) -> Any:
+    from app.services.gemma_client import ToolCallTurn
+    return ToolCallTurn(
+        turn_number=turn_number,
+        tool_name=tool_name,
+        tool_args={"unitid": 151351, "cipcode": "52.1401"},
+        tool_result_size_bytes=500,
+        duration_ms=100,
+        error=error,
+    )
 
 
 class TestChipDispatch:
     @pytest.mark.asyncio
-    async def test_not_expected_runs_gemma_with_clarifier(
+    async def test_not_expected_runs_gemma_with_tools(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The clarifier is interpolated into the system prompt and the
-        pre-fetch is called before Gemma."""
-        mcp_calls: list[tuple[str, dict[str, Any]]] = []
-
-        def _mock_mcp_call(tool: str, args: dict[str, Any]) -> dict[str, Any]:
-            mcp_calls.append((tool, args))
-            return {
-                "data": [
-                    {
-                        "occupation_title": "Marketing Manager",
-                        "soc_code": "11-2021",
-                    }
-                ]
-            }
-
-        monkeypatch.setattr(mcp_client, "call", _mock_mcp_call)
-        recorder = _GemmaRecorder(
-            response='Trace.\n---BUCKET---\n{"bucket": "no_issue_found"}'
+        """handle_chip_dispatch invokes generate_with_tools_loop with the
+        get_career_paths schema in the tool catalog."""
+        _stub_tool_schema(monkeypatch)
+        recorder = _ToolLoopRecorder(
+            response='Trace.\n---BUCKET---\n{"bucket": "no_issue_found"}',
+            tool_call_log=[_make_tool_call_turn()],
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", recorder
+            gemma_client, "generate_with_tools_loop", recorder
         )
 
         request = _make_chip_request(
@@ -311,36 +343,18 @@ class TestChipDispatch:
         )
         response = await set_your_course.handle_chip_dispatch(request)
 
-        # Pre-fetch happened exactly once against get_career_paths.
-        # The new flow passes student_cip = matched_cip so the MCP
-        # handler's YAML-backed _find_major_intent is bypassed.
-        assert len(mcp_calls) == 1
-        tool_name, tool_args = mcp_calls[0]
-        assert tool_name == "get_career_paths"
-        assert tool_args == {
-            "unitid": 151351,
-            "cipcode": "52.1401",
-            "student_cip": "52.1401",
-        }
-
-        # Gemma was called with the clarifier text in the system prompt.
         assert len(recorder.calls) == 1
         call = recorder.calls[0]
-        system = call["system"]
-        assert "I wanted marketing-manager jobs" in system
-        assert "Indiana University" in system
-        # And the user message carried the tool context block.
-        user = call["messages"][0]["content"]
-        assert "Marketing Manager" in user or "11-2021" in user
-
+        assert "I wanted marketing-manager jobs" in call["system"]
+        assert "Indiana University" in call["system"]
+        assert len(call["tools"]) == 1
+        assert call["tools"][0]["function"]["name"] == "get_career_paths"
         assert response.bucket == "no_issue_found"
 
     @pytest.mark.asyncio
     async def test_not_expected_without_clarifier_422(self) -> None:
         """Pydantic's ``@model_validator`` on ChipRequest rejects a
-        ``not_expected`` request with an empty/null clarifier. This is
-        the service's first line of defense — FastAPI returns 422 from
-        the router level without ever reaching the handler."""
+        ``not_expected`` request with an empty/null clarifier."""
         with pytest.raises(Exception) as excinfo:
             ChipRequest(
                 chip_id="not_expected",
@@ -356,7 +370,7 @@ class TestChipDispatch:
         with pytest.raises(Exception) as excinfo:
             ChipRequest(
                 chip_id="not_expected",
-                clarifier="   ",  # whitespace-only is rejected
+                clarifier="   ",
                 current_resolution=_make_current_resolution(),
                 initial_resolution=_make_current_resolution(),
                 school_name="IU",
@@ -369,16 +383,9 @@ class TestChipDispatch:
     async def test_show_less_common_skips_gemma(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The ``show_less_common`` chip is purely a frontend toggle —
-        backend must NOT call Gemma, NOT call MCP, and MUST return an
-        empty response."""
-        recorder = _GemmaRecorder()
-
-        def _fail_mcp(*a: Any, **kw: Any) -> Any:
-            raise AssertionError("MCP must not be called for show_less_common")
-
-        monkeypatch.setattr(gemma_client, "generate_chat_async", recorder)
-        monkeypatch.setattr(mcp_client, "call", _fail_mcp)
+        """The ``show_less_common`` chip is purely a frontend toggle."""
+        recorder = _ToolLoopRecorder()
+        monkeypatch.setattr(gemma_client, "generate_with_tools_loop", recorder)
 
         request = _make_chip_request(chip_id="show_less_common", clarifier=None)
         response = await set_your_course.handle_chip_dispatch(request)
@@ -393,15 +400,9 @@ class TestChipDispatch:
     async def test_change_major_skips_gemma(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The ``change_major`` chip is also local-only. Same invariant
-        as ``show_less_common``."""
-        recorder = _GemmaRecorder()
-
-        def _fail_mcp(*a: Any, **kw: Any) -> Any:
-            raise AssertionError("MCP must not be called for change_major")
-
-        monkeypatch.setattr(gemma_client, "generate_chat_async", recorder)
-        monkeypatch.setattr(mcp_client, "call", _fail_mcp)
+        """The ``change_major`` chip is also local-only."""
+        recorder = _ToolLoopRecorder()
+        monkeypatch.setattr(gemma_client, "generate_with_tools_loop", recorder)
 
         request = _make_chip_request(chip_id="change_major", clarifier=None)
         response = await set_your_course.handle_chip_dispatch(request)
@@ -417,15 +418,15 @@ class TestChipDispatch:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A valid ``---BUCKET---`` body is parsed onto the response."""
-        monkeypatch.setattr(
-            mcp_client, "call", lambda *a, **kw: {"data": []}
-        )
+        _stub_tool_schema(monkeypatch)
         raw = (
             "Prose narration.\n"
             '---BUCKET---\n{"bucket": "crosswalk_mismatch"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(response=raw, tool_call_log=[_make_tool_call_turn()]),
         )
 
         response = await set_your_course.handle_chip_dispatch(
@@ -440,11 +441,7 @@ class TestChipDispatch:
     ) -> None:
         """An ``---UPDATED_RESOLUTION---`` tail with a valid CIP produces
         an ``IntentResult`` on the response."""
-        monkeypatch.setattr(
-            mcp_client,
-            "call",
-            lambda *a, **kw: {"data": [{"occupation_title": "Nurse"}]},
-        )
+        _stub_tool_schema(monkeypatch)
         monkeypatch.setattr(intent, "_derive_parent_cip", lambda cip4, progs: "")
         monkeypatch.setattr(intent, "_get_career_titles_for_cip", lambda cip: [])
 
@@ -458,7 +455,9 @@ class TestChipDispatch:
             '{"bucket": "semantic_drift"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(response=raw, tool_call_log=[_make_tool_call_turn()]),
         )
 
         response = await set_your_course.handle_chip_dispatch(
@@ -474,15 +473,15 @@ class TestChipDispatch:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Without ``---UPDATED_RESOLUTION---`` the field stays None."""
-        monkeypatch.setattr(
-            mcp_client, "call", lambda *a, **kw: {"data": []}
-        )
+        _stub_tool_schema(monkeypatch)
         raw = (
             "Can't classify.\n"
             '---BUCKET---\n{"bucket": "no_issue_found"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(response=raw),
         )
 
         response = await set_your_course.handle_chip_dispatch(
@@ -492,63 +491,48 @@ class TestChipDispatch:
         assert response.bucket == "no_issue_found"
 
     @pytest.mark.asyncio
-    async def test_tool_call_results_get_merged_into_prompt(
+    async def test_tool_call_made_true_when_loop_dispatched(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The MCP pre-fetch data lands in the user message so Gemma
-        grounds on it."""
-        monkeypatch.setattr(
-            mcp_client,
-            "call",
-            lambda tool, args: {
-                "data": [
-                    {
-                        "occupation_title": "Speech-Language Pathologist",
-                        "soc_code": "29-1127",
-                    },
-                    {
-                        "occupation_title": "Audiologist",
-                        "soc_code": "29-1181",
-                    },
-                ]
-            },
-        )
-        recorder = _GemmaRecorder(
-            response='Trace.\n---BUCKET---\n{"bucket": "no_issue_found"}'
+        """tool_call_made is True when the loop dispatched a tool."""
+        _stub_tool_schema(monkeypatch)
+        raw = (
+            "Confirmed deaf education.\n"
+            '---BUCKET---\n{"bucket": "crosswalk_mismatch"}\n'
+            '---CONFIRMED_FOCUS---\n{"confirmed_focus": "Deaf Education"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", recorder
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
         )
-
-        await set_your_course.handle_chip_dispatch(_make_chip_request())
-
-        assert len(recorder.calls) == 1
-        user = recorder.calls[0]["messages"][0]["content"]
-        assert "Speech-Language Pathologist" in user
-        assert "Audiologist" in user
-        assert "29-1127" in user
+        response = await set_your_course.handle_chip_dispatch(
+            _make_chip_request()
+        )
+        assert response.confirmed_focus == "Deaf Education"
 
     @pytest.mark.asyncio
     async def test_malformed_tails_are_ignored_no_crash(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Half-written JSON after a tail marker must not crash the
-        handler. The tail body is dropped; the prose still lands on
-        ``debug_trace``."""
-        monkeypatch.setattr(
-            mcp_client, "call", lambda *a, **kw: {"data": []}
-        )
+        """Half-written JSON after a tail marker must not crash."""
+        _stub_tool_schema(monkeypatch)
         raw = (
             "Prose narration.\n"
             "---UPDATED_RESOLUTION---\n"
-            '{"matched_cip": "NOT-A-CIP"\n'  # malformed — no closing brace
+            '{"matched_cip": "NOT-A-CIP"\n'
             "---BUCKET---\n"
             "{not json at all\n"
             "---CONFIRMED_FOCUS---\n"
-            '{"confirmed_focus":'  # truncated
+            '{"confirmed_focus":'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(response=raw),
         )
 
         response = await set_your_course.handle_chip_dispatch(
@@ -557,7 +541,6 @@ class TestChipDispatch:
         assert response.updated_resolution is None
         assert response.bucket is None
         assert response.confirmed_focus is None
-        # Prose is retained — we never fail the request on parse errors.
         assert "Prose narration" in response.debug_trace
 
 
@@ -573,18 +556,19 @@ class TestConfirmedFocus:
     ) -> None:
         """A ``---CONFIRMED_FOCUS---`` tail populates the field IF a
         tool call happened AND the bucket allows it."""
-        monkeypatch.setattr(
-            mcp_client,
-            "call",
-            lambda *a, **kw: {"data": [{"occupation_title": "Teacher"}]},
-        )
+        _stub_tool_schema(monkeypatch)
         raw = (
             "Confirmed deaf education.\n"
             '---BUCKET---\n{"bucket": "crosswalk_mismatch"}\n'
             '---CONFIRMED_FOCUS---\n{"confirmed_focus": "Deaf Education"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
         )
 
         response = await set_your_course.handle_chip_dispatch(
@@ -598,15 +582,18 @@ class TestConfirmedFocus:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Absence of the tail → confirmed_focus stays None."""
-        monkeypatch.setattr(
-            mcp_client, "call", lambda *a, **kw: {"data": [{"occupation_title": "X"}]}
-        )
+        _stub_tool_schema(monkeypatch)
         raw = (
             "Trace.\n"
             '---BUCKET---\n{"bucket": "no_issue_found"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
         )
         response = await set_your_course.handle_chip_dispatch(
             _make_chip_request()
@@ -649,14 +636,9 @@ class TestConfirmedFocus:
     async def test_confirmed_focus_dropped_when_bucket_is_semantic_drift(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """semantic_drift means the 4-digit resolution CHANGED. A sub-
-        focus doesn't carry across that boundary — the service must
-        strip it."""
-        monkeypatch.setattr(
-            mcp_client,
-            "call",
-            lambda *a, **kw: {"data": [{"occupation_title": "UX Designer"}]},
-        )
+        """semantic_drift means the resolution CHANGED. Sub-focus
+        doesn't carry across that boundary."""
+        _stub_tool_schema(monkeypatch)
         monkeypatch.setattr(intent, "_derive_parent_cip", lambda cip4, progs: "")
         monkeypatch.setattr(intent, "_get_career_titles_for_cip", lambda cip: [])
         raw = (
@@ -670,15 +652,18 @@ class TestConfirmedFocus:
             '{"confirmed_focus": "UX Design"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
         )
 
         response = await set_your_course.handle_chip_dispatch(
             _make_chip_request()
         )
         assert response.confirmed_focus is None
-        # And the updated_resolution must not carry it either, even
-        # though it was parsed from the same response.
         assert response.updated_resolution is not None
         assert response.updated_resolution.confirmed_focus is None
 
@@ -686,13 +671,8 @@ class TestConfirmedFocus:
     async def test_confirmed_focus_dropped_when_bucket_is_intent_divergence(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Same invariant as semantic_drift — a changing 4-digit scope
-        voids any sub-focus."""
-        monkeypatch.setattr(
-            mcp_client,
-            "call",
-            lambda *a, **kw: {"data": [{"occupation_title": "Doctor"}]},
-        )
+        """Same invariant as semantic_drift."""
+        _stub_tool_schema(monkeypatch)
         raw = (
             "Major mismatch.\n"
             "---BUCKET---\n"
@@ -701,7 +681,12 @@ class TestConfirmedFocus:
             '{"confirmed_focus": "Pre-Med"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
         )
 
         response = await set_your_course.handle_chip_dispatch(
@@ -714,16 +699,9 @@ class TestConfirmedFocus:
     async def test_confirmed_focus_requires_tool_call_evidence(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """When the MCP pre-fetch returned nothing (tool_call_made=False)
-        the service MUST strip any confirmed_focus Gemma claims.
-
-        This is the anti-fabrication guard — sub-focus is legitimate
-        only when a verification call actually grounded it."""
-
-        # Pre-fetch returns a falsy result — no tool call evidence.
-        monkeypatch.setattr(
-            mcp_client, "call", lambda *a, **kw: None
-        )
+        """When no tool call was dispatched (tool_call_log empty),
+        the service MUST strip any confirmed_focus Gemma claims."""
+        _stub_tool_schema(monkeypatch)
         raw = (
             "I think this is deaf ed.\n"
             "---BUCKET---\n"
@@ -731,30 +709,25 @@ class TestConfirmedFocus:
             "---CONFIRMED_FOCUS---\n"
             '{"confirmed_focus": "Deaf Education"}'
         )
+        # Empty tool_call_log = no tool call evidence
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(response=raw, tool_call_log=[]),
         )
 
         response = await set_your_course.handle_chip_dispatch(
             _make_chip_request()
         )
         assert response.confirmed_focus is None
-        # Bucket still gets through — only confirmed_focus is guarded.
         assert response.bucket == "crosswalk_mismatch"
 
     @pytest.mark.asyncio
     async def test_confirmed_focus_strips_numeric_codes(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """P1 defense-in-depth: if Gemma leaks a parenthetical CIP code
-        into the confirmed_focus value, the service strips it before
-        returning. Spec §2 Decision #12 forbids internal codes in
-        student-facing prose."""
-        monkeypatch.setattr(
-            mcp_client,
-            "call",
-            lambda *a, **kw: {"data": [{"occupation_title": "Teacher"}]},
-        )
+        """Gemma leaking a CIP code into confirmed_focus gets stripped."""
+        _stub_tool_schema(monkeypatch)
         raw = (
             "Confirmed.\n"
             "---BUCKET---\n"
@@ -763,7 +736,12 @@ class TestConfirmedFocus:
             '{"confirmed_focus": "Deaf Education (13.1003)"}'
         )
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _GemmaRecorder(response=raw)
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
         )
 
         response = await set_your_course.handle_chip_dispatch(
@@ -785,47 +763,405 @@ class TestObservability:
         tmp_path,
         stub_intent_helpers: None,
     ) -> None:
-        """Every Gemma call from this service stamps ``call_site``
-        onto its JSONL record — either ``set_your_course_resolve`` (for
-        the stream path) or ``set_your_course_chip`` + ``chip_id`` (for
-        the chip path).
+        """The chip dispatch passes call_site to generate_with_tools_loop
+        via the extra dict."""
+        _stub_tool_schema(monkeypatch)
 
-        We replace the sync ``generate_chat`` with a shim that writes
-        a JSONL record directly to a tmp file mirroring the real
-        log path, so we can assert on the record's shape without
-        depending on the OpenAI client."""
+        captured_extra: list[dict[str, Any]] = []
 
-        # Re-enable logging and point the log path at tmp.
-        monkeypatch.delenv("GEMMA_LOG_DISABLED", raising=False)
-        log_path = tmp_path / "gemma.jsonl"
-        monkeypatch.setattr(gemma_client, "_log_path", lambda: log_path)
-        gemma_client._LOG_PATH_CACHED = None
-
-        # Replace generate_chat_async with a shim that records the
-        # extra dict onto the log file the same way the real client
-        # would, but without hitting any network.
-        async def _fake_chat_async(**kwargs: Any) -> str:
-            record = {"response": "trace"}
+        async def _fake_loop(**kwargs: Any) -> tuple[str, list[Any]]:
             if kwargs.get("extra"):
-                record.update(kwargs["extra"])
-            gemma_client._log_exchange(record)
-            return 'Trace.\n---BUCKET---\n{"bucket": "no_issue_found"}'
+                captured_extra.append(kwargs["extra"])
+            return 'Trace.\n---BUCKET---\n{"bucket": "no_issue_found"}', []
 
         monkeypatch.setattr(
-            gemma_client, "generate_chat_async", _fake_chat_async
-        )
-        monkeypatch.setattr(
-            mcp_client, "call", lambda *a, **kw: {"data": []}
+            gemma_client, "generate_with_tools_loop", _fake_loop
         )
 
         await set_your_course.handle_chip_dispatch(_make_chip_request())
 
-        contents = log_path.read_text()
-        lines = [
-            json.loads(line) for line in contents.splitlines() if line.strip()
+        assert len(captured_extra) == 1
+        assert captured_extra[0]["call_site"] == "chip_dispatch_tool_call"
+        assert captured_extra[0]["chip_id"] == "not_expected"
+
+
+# ---------------------------------------------------------------------------
+# Intent-aware fields: _parse_intent_keywords + _merge_confirmed_focus
+# ---------------------------------------------------------------------------
+
+
+class TestParseIntentKeywords:
+    """Direct tests on the pure ``_parse_intent_keywords`` function.
+
+    This function sanitizes the raw JSON value Gemma returns for
+    ``intent_keywords``. It must handle: list of strings (happy),
+    string (malformed), null/None, list with non-string elements,
+    and empty list.
+    """
+
+    def test_valid_list_of_strings(self):
+        result = set_your_course._parse_intent_keywords(
+            ["pre-med", "doctor", "physician"]
+        )
+        assert result == ["pre-med", "doctor", "physician"]
+
+    def test_lowercases_and_strips(self):
+        result = set_your_course._parse_intent_keywords(
+            ["  Pre-Med ", "DOCTOR"]
+        )
+        assert result == ["pre-med", "doctor"]
+
+    def test_string_instead_of_list_returns_empty(self):
+        """Gemma sometimes emits a bare string instead of a list."""
+        result = set_your_course._parse_intent_keywords("pre-med")
+        assert result == []
+
+    def test_null_returns_empty(self):
+        result = set_your_course._parse_intent_keywords(None)
+        assert result == []
+
+    def test_integer_returns_empty(self):
+        result = set_your_course._parse_intent_keywords(42)
+        assert result == []
+
+    def test_list_with_non_string_elements_filters_them(self):
+        """Non-string items in the list are silently dropped."""
+        result = set_your_course._parse_intent_keywords(
+            ["pre-med", 42, None, "doctor", True, ""]
+        )
+        # 42, None, True are not str; "" is str but empty after strip
+        assert result == ["pre-med", "doctor"]
+
+    def test_empty_list_returns_empty(self):
+        result = set_your_course._parse_intent_keywords([])
+        assert result == []
+
+    def test_whitespace_only_strings_dropped(self):
+        result = set_your_course._parse_intent_keywords(["  ", "\t", "valid"])
+        assert result == ["valid"]
+
+
+class TestMergeConfirmedFocusIntoKeywords:
+    """Direct tests on ``_merge_confirmed_focus_into_keywords``.
+
+    This function appends lowercased confirmed_focus to intent_keywords
+    when it's not already present. It must handle: None confirmed_focus,
+    empty string, already-present token, and normal append.
+    """
+
+    def test_no_confirmed_focus_returns_unchanged(self):
+        ir = IntentResult(
+            matched_cip="13.1001",
+            matched_title="Special Ed",
+            confidence="high",
+            intent_keywords=["teacher"],
+        )
+        result = set_your_course._merge_confirmed_focus_into_keywords(ir)
+        assert result.intent_keywords == ["teacher"]
+
+    def test_confirmed_focus_appended_lowercased(self):
+        ir = IntentResult(
+            matched_cip="13.1001",
+            matched_title="Special Ed",
+            confidence="high",
+            intent_keywords=["teacher"],
+            confirmed_focus="Deaf Education",
+        )
+        result = set_your_course._merge_confirmed_focus_into_keywords(ir)
+        assert result.intent_keywords == ["teacher", "deaf education"]
+
+    def test_confirmed_focus_deduped(self):
+        """If the token is already in intent_keywords, don't add it again."""
+        ir = IntentResult(
+            matched_cip="13.1001",
+            matched_title="Special Ed",
+            confidence="high",
+            intent_keywords=["deaf education", "teacher"],
+            confirmed_focus="Deaf Education",
+        )
+        result = set_your_course._merge_confirmed_focus_into_keywords(ir)
+        assert result.intent_keywords == ["deaf education", "teacher"]
+        assert result.intent_keywords.count("deaf education") == 1
+
+    def test_empty_confirmed_focus_returns_unchanged(self):
+        ir = IntentResult(
+            matched_cip="13.1001",
+            matched_title="Special Ed",
+            confidence="high",
+            intent_keywords=["teacher"],
+            confirmed_focus="",
+        )
+        result = set_your_course._merge_confirmed_focus_into_keywords(ir)
+        assert result.intent_keywords == ["teacher"]
+
+    def test_whitespace_only_confirmed_focus_returns_unchanged(self):
+        ir = IntentResult(
+            matched_cip="13.1001",
+            matched_title="Special Ed",
+            confidence="high",
+            intent_keywords=[],
+            confirmed_focus="   ",
+        )
+        result = set_your_course._merge_confirmed_focus_into_keywords(ir)
+        assert result.intent_keywords == []
+
+    def test_original_intent_result_not_mutated(self):
+        """_merge returns a new IntentResult via model_copy; the
+        original must remain untouched."""
+        ir = IntentResult(
+            matched_cip="13.1001",
+            matched_title="Special Ed",
+            confidence="high",
+            intent_keywords=["teacher"],
+            confirmed_focus="Deaf Education",
+        )
+        result = set_your_course._merge_confirmed_focus_into_keywords(ir)
+        assert ir.intent_keywords == ["teacher"]  # original unchanged
+        assert result.intent_keywords == ["teacher", "deaf education"]
+
+
+# ---------------------------------------------------------------------------
+# Intent-aware resolver tail parsing (P0)
+# ---------------------------------------------------------------------------
+
+
+class TestResolverIntentKeywords:
+    """Verify that ``_build_intent_result_from_tail`` correctly parses
+    ``intent_keywords`` and ``student_major_text`` from the Gemma JSON
+    tail — and handles all the malformed / missing variations."""
+
+    def test_resolver_emits_intent_keywords_when_present(self):
+        """Happy path: Gemma JSON tail includes intent_keywords list."""
+        parsed = {
+            "matched_cip": "26.0101",
+            "matched_title": "Biology",
+            "confidence": "high",
+            "parent_cip": "26.01",
+            "alternatives": [],
+            "intent_keywords": ["pre-med", "doctor", "physician"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="biology pre-med",
+            prose="Biology program.",
+            parsed=parsed,
+            school_cips=[{"cipcode": "26.0101", "program_name": "Biology"}],
+            programs=[],
+        )
+        assert result.intent_keywords == ["pre-med", "doctor", "physician"]
+        assert result.student_major_text == "biology pre-med"
+
+    def test_resolver_back_compat_missing_intent_keywords(self):
+        """Gemma response WITHOUT intent_keywords key falls back to []."""
+        parsed = {
+            "matched_cip": "52.1401",
+            "matched_title": "Marketing",
+            "confidence": "high",
+            "parent_cip": "52.14",
+            "alternatives": [],
+            # No intent_keywords key at all
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="marketing",
+            prose="Marketing.",
+            parsed=parsed,
+            school_cips=[{"cipcode": "52.1401", "program_name": "Marketing"}],
+            programs=[],
+        )
+        assert result.intent_keywords == []
+        assert result.student_major_text == "marketing"
+
+    def test_resolver_intent_keywords_string_falls_back_to_empty(self):
+        """Gemma returns a string instead of a list → []."""
+        parsed = {
+            "matched_cip": "26.0101",
+            "matched_title": "Biology",
+            "confidence": "high",
+            "parent_cip": "26.01",
+            "alternatives": [],
+            "intent_keywords": "pre-med",  # string, not list
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="biology pre-med",
+            prose="Biology.",
+            parsed=parsed,
+            school_cips=[{"cipcode": "26.0101", "program_name": "Biology"}],
+            programs=[],
+        )
+        assert result.intent_keywords == []
+
+    def test_resolver_intent_keywords_null_falls_back_to_empty(self):
+        """Gemma returns null for intent_keywords → []."""
+        parsed = {
+            "matched_cip": "26.0101",
+            "matched_title": "Biology",
+            "confidence": "high",
+            "parent_cip": "26.01",
+            "alternatives": [],
+            "intent_keywords": None,
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="biology pre-med",
+            prose="Biology.",
+            parsed=parsed,
+            school_cips=[{"cipcode": "26.0101", "program_name": "Biology"}],
+            programs=[],
+        )
+        assert result.intent_keywords == []
+
+    def test_resolver_extracts_intent_for_deaf_ed(self):
+        """The deaf-ed scenario: Gemma emits sub-specialty keywords for
+        a specific niche inside a broader CIP."""
+        parsed = {
+            "matched_cip": "13.1001",
+            "matched_title": "Special Education and Teaching, General",
+            "confidence": "high",
+            "parent_cip": "13.10",
+            "alternatives": [],
+            "intent_keywords": ["deaf education", "special education", "teacher"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="deaf ed",
+            prose="Special Education.",
+            parsed=parsed,
+            school_cips=[
+                {"cipcode": "13.1001", "program_name": "Special Education"}
+            ],
+            programs=[],
+        )
+        assert result.intent_keywords == [
+            "deaf education",
+            "special education",
+            "teacher",
         ]
-        assert any(
-            r.get("call_site") == "set_your_course_chip"
-            and r.get("chip_id") == "not_expected"
-            for r in lines
-        ), f"expected a chip call_site record, got: {lines!r}"
+        assert result.student_major_text == "deaf ed"
+
+    def test_student_major_text_set_on_fallback_path(self):
+        """When parsed is None (unparseable tail), student_major_text
+        should still be set on the fallback IntentResult."""
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="deaf ed",
+            prose="",
+            parsed=None,
+            school_cips=[],
+            programs=[],
+        )
+        assert result.student_major_text == "deaf ed"
+        assert result.intent_keywords == []
+        assert result.confidence == "low"
+
+    def test_student_major_text_set_on_malformed_cip_path(self):
+        """When matched_cip is malformed, the low-confidence degraded
+        result should still carry student_major_text and intent_keywords."""
+        parsed = {
+            "matched_cip": "NOTACIP",
+            "matched_title": "Biology",
+            "confidence": "high",
+            "parent_cip": "26.01",
+            "alternatives": [],
+            "intent_keywords": ["pre-med"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="biology pre-med",
+            prose="Biology.",
+            parsed=parsed,
+            school_cips=[],
+            programs=[],
+        )
+        assert result.student_major_text == "biology pre-med"
+        assert result.intent_keywords == ["pre-med"]
+        assert result.confidence == "low"
+
+
+# ---------------------------------------------------------------------------
+# Chip flow: confirmed_focus → intent_keywords merge (P0)
+# ---------------------------------------------------------------------------
+
+
+class TestChipFlowIntentKeywords:
+    @pytest.mark.asyncio
+    async def test_confirmed_focus_populates_intent_keywords(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When the chip flow confirms a sub-specialty,
+        ``_merge_confirmed_focus_into_keywords`` appends the lowercased
+        token to intent_keywords."""
+        _stub_tool_schema(monkeypatch)
+        monkeypatch.setattr(intent, "_derive_parent_cip", lambda cip4, progs: "")
+        monkeypatch.setattr(intent, "_get_career_titles_for_cip", lambda cip: [])
+
+        raw = (
+            "Confirmed deaf education path.\n"
+            "---UPDATED_RESOLUTION---\n"
+            '{"matched_cip": "13.1001", "matched_title": "Special Education", '
+            '"confidence": "high", "reasoning": "Confirmed sub-focus."}\n'
+            "---BUCKET---\n"
+            '{"bucket": "crosswalk_mismatch"}\n'
+            "---CONFIRMED_FOCUS---\n"
+            '{"confirmed_focus": "Deaf Education"}'
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
+        )
+
+        current = _make_current_resolution(
+            matched_cip="13.1001",
+            matched_title="Special Education",
+            student_major_text="deaf ed",
+            intent_keywords=["special education", "teacher"],
+        )
+        request = _make_chip_request(
+            clarifier="I want deaf education specifically.",
+            current=current,
+        )
+        response = await set_your_course.handle_chip_dispatch(request)
+
+        assert response.confirmed_focus == "Deaf Education"
+        assert response.updated_resolution is not None
+        assert response.updated_resolution.confirmed_focus == "Deaf Education"
+        assert "deaf education" in response.updated_resolution.intent_keywords
+
+    @pytest.mark.asyncio
+    async def test_chip_flow_carries_forward_intent_fields(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``_parse_updated_resolution`` copies student_major_text and
+        intent_keywords from the request's current_resolution."""
+        _stub_tool_schema(monkeypatch)
+        monkeypatch.setattr(intent, "_derive_parent_cip", lambda cip4, progs: "")
+        monkeypatch.setattr(intent, "_get_career_titles_for_cip", lambda cip: [])
+
+        raw = (
+            "Re-resolving.\n"
+            "---UPDATED_RESOLUTION---\n"
+            '{"matched_cip": "52.1401", "matched_title": "Marketing", '
+            '"confidence": "high", "reasoning": "Narrowed."}\n'
+            "---BUCKET---\n"
+            '{"bucket": "crosswalk_mismatch"}'
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate_with_tools_loop",
+            _ToolLoopRecorder(
+                response=raw,
+                tool_call_log=[_make_tool_call_turn()],
+            ),
+        )
+
+        current = _make_current_resolution(
+            student_major_text="marketing analytics",
+            intent_keywords=["analytics", "data"],
+        )
+        request = _make_chip_request(
+            clarifier="I want marketing analytics roles.",
+            current=current,
+        )
+        response = await set_your_course.handle_chip_dispatch(request)
+
+        assert response.updated_resolution is not None
+        assert response.updated_resolution.student_major_text == "marketing analytics"
+        assert response.updated_resolution.intent_keywords == ["analytics", "data"]
