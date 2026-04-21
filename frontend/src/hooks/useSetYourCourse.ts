@@ -9,9 +9,20 @@ import {
   type ChipId,
   type FeasibilityMode,
 } from "@/api/intent";
+import { getOutcomes, getTieredCareers } from "@/api/build";
+import { useDebouncedTrigger } from "@/hooks/useDebouncedTrigger";
 import type { IntentResult, Suggestion } from "@/types/buildInput";
+import type { CareerOutcome, TieredCareers } from "@/types/build";
 
 const MAJOR_DEBOUNCE_MS = 300;
+const CAREER_FETCH_DEBOUNCE_MS = 250;
+
+export type SocRevealState =
+  | { kind: "idle" }
+  | { kind: "outcomes-loading" }
+  | { kind: "outcomes-loaded-tiering"; outcomes: CareerOutcome[] }
+  | { kind: "tiered"; outcomes: CareerOutcome[]; tiers: TieredCareers }
+  | { kind: "error"; message: string };
 
 interface CommittedClick {
   soc: string | null;
@@ -59,6 +70,13 @@ interface UseSetYourCourseApi {
   clarifierDiverged: boolean;
 
   /**
+   * When a chip dispatch returns intent_divergence with a confirmed_focus,
+   * this holds the suggested new major text (e.g., "Computer Science").
+   * The screen should offer to re-search with this value. Null otherwise.
+   */
+  suggestedMajor: string | null;
+
+  /**
    * What callers should route to /build/outcomes to match the semantics of
    * CareerPickScreen.tsx line 62. When parent_cip is present (IU reports
    * 52.01 for Kelley but Gemma matched 52.14), use the broad parent so the
@@ -66,16 +84,21 @@ interface UseSetYourCourseApi {
    */
   parentCipOrMatched: string | null;
 
+  /** Outcomes-first paint state machine for the SOC reveal. */
+  socReveal: SocRevealState;
+
   /** Register the career card the student clicked (for commit metadata). */
   setCommittedClick: (click: CommittedClick) => void;
 }
 
-export function useSetYourCourse(): UseSetYourCourseApi {
+export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseApi {
   const navigate = useNavigate();
   const {
     school,
     programs,
     major,
+    effort,
+    loans,
     initialResolution,
     currentResolution,
     debugTrace,
@@ -87,6 +110,7 @@ export function useSetYourCourse(): UseSetYourCourseApi {
   } = useBuildInputStore();
   const selectedCareer = useBuildStore((s) => s.selectedCareer);
   const tieredCareers = useBuildStore((s) => s.tieredCareers);
+  const setTieredCareersStore = useBuildStore((s) => s.setTieredCareers);
 
   const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -103,6 +127,7 @@ export function useSetYourCourse(): UseSetYourCourseApi {
   // the career list is stale and should be hidden — the reasoning card
   // becomes the honest answer instead.
   const [lastBucket, setLastBucket] = useState<string | null>(null);
+  const [suggestedMajor, setSuggestedMajor] = useState<string | null>(null);
   const [lastChipUpdatedResolution, setLastChipUpdatedResolution] =
     useState<boolean>(false);
   // Character-by-character reveal of the chip debug_trace response. The
@@ -145,6 +170,101 @@ export function useSetYourCourse(): UseSetYourCourseApi {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       abortRef.current?.abort();
     };
+  }, []);
+
+  // Compute parentCipOrMatched early — the state machine needs it.
+  const parentCipOrMatched = useMemo(() => {
+    if (!currentResolution) return null;
+    return currentResolution.parent_cip || currentResolution.matched_cip || null;
+  }, [currentResolution]);
+
+  // --- Outcomes-first paint state machine ---
+  const [socReveal, setSocReveal] = useState<SocRevealState>({ kind: "idle" });
+  const outcomeAbortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+
+  function doCareerFetch() {
+    if (!school || !parentCipOrMatched) {
+      setSocReveal({ kind: "idle" });
+      return;
+    }
+    const reqId = ++requestIdRef.current;
+    outcomeAbortRef.current?.abort();
+    const controller = new AbortController();
+    outcomeAbortRef.current = controller;
+    setSocReveal({ kind: "outcomes-loading" });
+
+    const capturedSchool = school;
+    const capturedCip = parentCipOrMatched;
+    const capturedEffort = effort.level;
+    const capturedLoanPct = loans.percentage / 100;
+    const capturedMajor = liveMajorText.trim();
+    const capturedMatchedCip = currentResolution?.matched_cip;
+    const capturedMatchedTitle = currentResolution?.matched_title ?? "";
+    const capturedStudentMajorText = currentResolution?.student_major_text;
+    const capturedIntentKeywords = currentResolution?.intent_keywords;
+
+    (async () => {
+      try {
+        const outcomes = await getOutcomes(
+          capturedSchool.unitid,
+          capturedCip,
+          capturedEffort,
+          capturedLoanPct,
+          capturedMajor || undefined,
+          capturedMatchedCip || undefined,
+          controller.signal,
+          capturedIntentKeywords,
+        );
+        if (requestIdRef.current !== reqId) return;
+        setSocReveal({ kind: "outcomes-loaded-tiering", outcomes });
+
+        try {
+          const tiers = await getTieredCareers(
+            outcomes,
+            capturedSchool.name,
+            capturedMatchedTitle,
+            capturedCip,
+            capturedStudentMajorText,
+            capturedIntentKeywords,
+            controller.signal,
+          );
+          if (requestIdRef.current !== reqId) return;
+          setTieredCareersStore(tiers);
+          setSocReveal({ kind: "tiered", outcomes, tiers });
+        } catch {
+          if (requestIdRef.current !== reqId) return;
+          // Tiering failed — keep showing the flat outcomes list.
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (requestIdRef.current !== reqId) return;
+        setSocReveal({
+          kind: "error",
+          message: err instanceof Error ? err.message : "Failed to load careers",
+        });
+      }
+    })();
+  }
+
+  const debouncedCareerFetch = useDebouncedTrigger(doCareerFetch, {
+    delayMs: CAREER_FETCH_DEBOUNCE_MS,
+    immediateOnKeyChange: parentCipOrMatched,
+  });
+
+  useEffect(() => {
+    if (!school || !parentCipOrMatched) {
+      requestIdRef.current++;
+      outcomeAbortRef.current?.abort();
+      setSocReveal({ kind: "idle" });
+      return;
+    }
+    debouncedCareerFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [school, parentCipOrMatched, effort.level, loans.percentage, liveMajorText, debouncedCareerFetch]);
+
+  useEffect(() => {
+    return () => { outcomeAbortRef.current?.abort(); };
   }, []);
 
   const resolve = useCallback(
@@ -289,6 +409,16 @@ export function useSetYourCourse(): UseSetYourCourseApi {
         setLastBucket(response.bucket ?? null);
         setLastChipUpdatedResolution(Boolean(response.updated_resolution));
 
+        if (
+          response.bucket === "intent_divergence" &&
+          response.confirmed_focus &&
+          !response.updated_resolution
+        ) {
+          setSuggestedMajor(response.confirmed_focus);
+        } else {
+          setSuggestedMajor(null);
+        }
+
         if (response.updated_resolution) {
           const merged: IntentResult = {
             ...currentResolution,
@@ -376,6 +506,8 @@ export function useSetYourCourse(): UseSetYourCourseApi {
         careersPreview: currentResolution.careers_preview ?? [],
         substitutionApplied: Boolean(currentResolution.parent_cip),
         parentCip: currentResolution.parent_cip ?? "",
+        studentMajorText: currentResolution.student_major_text ?? "",
+        intentKeywords: currentResolution.intent_keywords ?? [],
       });
 
       navigate("/reveal");
@@ -397,11 +529,6 @@ export function useSetYourCourse(): UseSetYourCourseApi {
     setMajor,
     navigate,
   ]);
-
-  const parentCipOrMatched = useMemo(() => {
-    if (!currentResolution) return null;
-    return currentResolution.parent_cip || currentResolution.matched_cip || null;
-  }, [currentResolution]);
 
   // True when the most recent chip clarifier pointed somewhere the
   // current resolution can't reach. In that case the career tiles are
@@ -441,7 +568,9 @@ export function useSetYourCourse(): UseSetYourCourseApi {
     revealDone,
     lastBucket,
     clarifierDiverged,
+    suggestedMajor,
     parentCipOrMatched,
+    socReveal,
     setCommittedClick,
   };
 }
