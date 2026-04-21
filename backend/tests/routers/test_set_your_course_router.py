@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app.services import gemma_client, set_your_course
+from app.services import career_tiering, gemma_client, set_your_course
 
 
 @pytest.fixture(autouse=True)
@@ -180,3 +180,154 @@ class TestChip:
         # the contract under test.
         assert response.status_code == 422
         assert handler_calls == []
+
+
+# ---------------------------------------------------------------------------
+# POST /build/tier — intent fields forwarding (P1)
+# ---------------------------------------------------------------------------
+
+
+class TestTierEndpointIntentFields:
+    """Verify the /build/tier endpoint forwards student_major_text and
+    intent_keywords to the ``career_tiering.tier_careers`` service."""
+
+    def test_tier_endpoint_forwards_intent_fields(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """POST /build/tier with student_major_text + intent_keywords
+        forwards them to tier_careers."""
+        captured: dict[str, Any] = {}
+
+        def _capture_tier_careers(outcomes, **kwargs):
+            captured.update(kwargs)
+            from collections import OrderedDict
+
+            return OrderedDict({"All career paths": list(outcomes)})
+
+        monkeypatch.setattr(
+            career_tiering, "tier_careers", _capture_tier_careers
+        )
+
+        response = client.post(
+            "/build/tier",
+            json={
+                "outcomes": [],
+                "school_name": "Indiana University",
+                "program_name": "Biology",
+                "cipcode": "26.0101",
+                "student_major_text": "biology pre-med",
+                "intent_keywords": ["pre-med", "doctor"],
+            },
+        )
+        assert response.status_code == 200
+        assert captured["student_major_text"] == "biology pre-med"
+        assert captured["intent_keywords"] == ["pre-med", "doctor"]
+
+    def test_tier_endpoint_omitted_intent_fields_default_empty(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """POST /build/tier WITHOUT intent fields uses defaults (empty
+        string and empty list) for backward compat."""
+        captured: dict[str, Any] = {}
+
+        def _capture_tier_careers(outcomes, **kwargs):
+            captured.update(kwargs)
+            from collections import OrderedDict
+
+            return OrderedDict({"All career paths": list(outcomes)})
+
+        monkeypatch.setattr(
+            career_tiering, "tier_careers", _capture_tier_careers
+        )
+
+        response = client.post(
+            "/build/tier",
+            json={
+                "outcomes": [],
+                "school_name": "Test U",
+                "program_name": "Marketing",
+                "cipcode": "52.14",
+            },
+        )
+        assert response.status_code == 200
+        # When student_major_text is None (not in JSON), the router
+        # passes "" via `or ""`; intent_keywords defaults to [].
+        assert captured["student_major_text"] == ""
+        assert captured["intent_keywords"] == []
+
+
+# ---------------------------------------------------------------------------
+# Chip flow: intent fields round-trip (P1)
+# ---------------------------------------------------------------------------
+
+
+class TestChipFlowIntentFieldsRouter:
+    """Verify that intent fields on the current_resolution survive the
+    chip dispatch round-trip at the router level."""
+
+    def test_chip_flow_preserves_intent_fields(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """IntentResult round-trips through chip dispatch with
+        intent_keywords + student_major_text intact on the updated
+        resolution."""
+        from app.models.api import ChipResponse
+        from app.models.career import IntentResult
+
+        async def _fake_dispatch(request: Any) -> ChipResponse:
+            # Verify the request carries the intent fields
+            cr = request.current_resolution
+            assert cr.student_major_text == "deaf ed"
+            assert cr.intent_keywords == ["deaf education", "teacher"]
+
+            updated = IntentResult(
+                matched_cip="13.1001",
+                matched_title="Special Education",
+                confidence="high",
+                reasoning="Updated.",
+                careers_preview=[],
+                parent_cip="",
+                confirmed_focus="Deaf Education",
+                student_major_text=cr.student_major_text,
+                intent_keywords=[*cr.intent_keywords, "deaf education"],
+            )
+            return ChipResponse(
+                debug_trace="Trace",
+                updated_resolution=updated,
+                bucket="crosswalk_mismatch",
+                confirmed_focus="Deaf Education",
+            )
+
+        monkeypatch.setattr(
+            set_your_course, "handle_chip_dispatch", _fake_dispatch
+        )
+
+        resolution_dict = {
+            **_current_resolution_dict(),
+            "student_major_text": "deaf ed",
+            "intent_keywords": ["deaf education", "teacher"],
+        }
+        response = client.post(
+            "/intent/chip",
+            json={
+                "chip_id": "not_expected",
+                "clarifier": "I want deaf ed.",
+                "current_resolution": resolution_dict,
+                "initial_resolution": _current_resolution_dict(),
+                "school_name": "Indiana University",
+                "unitid": 151351,
+                "programs": [],
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        updated = body["updated_resolution"]
+        assert updated is not None
+        assert updated["student_major_text"] == "deaf ed"
+        assert "deaf education" in updated["intent_keywords"]

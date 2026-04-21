@@ -196,3 +196,216 @@ class TestTierCareers:
         assert career_tiering.TIER_LESS_COMMON not in tiers
         assert career_tiering.TIER_STRETCH not in tiers
         assert len(tiers[career_tiering.TIER_COMMON]) == 8
+
+
+# ---------------------------------------------------------------------------
+# Intent-aware tiering prompt tests (P0)
+# ---------------------------------------------------------------------------
+
+
+class TestIntentAwarePrompt:
+    """Verify that ``_prompt`` and ``tier_careers`` correctly inject (or
+    omit) the STUDENT INTENT block and INTENT MATCH RULES based on the
+    ``student_major_text`` and ``intent_keywords`` arguments."""
+
+    def test_no_intent_preserves_existing_behavior(self, monkeypatch):
+        """When both intent_keywords and student_major_text are empty/absent,
+        the prompt must NOT contain the STUDENT INTENT block or INTENT MATCH
+        RULES — and the Gemma call + parse pipeline is identical to the
+        pre-intent codepath."""
+        captured: dict = {}
+
+        def capture(**kw):
+            captured.update(kw)
+            return (
+                "COMMON\n11-2021\n13-1161\n11-2022\n"
+                "LESS_COMMON\n13-1131\n11-2011\n27-3031\n"
+                "STRETCH\n11-3011\n13-1199\n"
+            )
+
+        monkeypatch.setattr(career_tiering.gemma_client, "generate", capture)
+        outcomes = _outcomes_8()
+
+        # Call WITHOUT intent args (backwards compat)
+        tiers_no_args = career_tiering.tier_careers(
+            outcomes, "Test U", "Marketing", "52.14"
+        )
+        prompt_no_args = captured["user"]
+
+        assert "STUDENT INTENT" not in prompt_no_args
+        assert "INTENT MATCH RULES" not in prompt_no_args
+
+        # Call WITH explicitly empty intent args
+        career_tiering.tier_careers(
+            outcomes,
+            "Test U",
+            "Marketing",
+            "52.14",
+            student_major_text="",
+            intent_keywords=[],
+        )
+        prompt_empty = captured["user"]
+        assert "STUDENT INTENT" not in prompt_empty
+        assert "INTENT MATCH RULES" not in prompt_empty
+
+        # Also verify None for intent_keywords
+        career_tiering.tier_careers(
+            outcomes,
+            "Test U",
+            "Marketing",
+            "52.14",
+            student_major_text="",
+            intent_keywords=None,
+        )
+        prompt_none = captured["user"]
+        assert "STUDENT INTENT" not in prompt_none
+        assert "INTENT MATCH RULES" not in prompt_none
+
+        # Tiers still parse correctly (basic sanity)
+        assert career_tiering.TIER_COMMON in tiers_no_args
+        assert len(tiers_no_args[career_tiering.TIER_COMMON]) == 3
+
+    def test_intent_keywords_inject_student_intent_block(self, monkeypatch):
+        """When intent_keywords are provided, the prompt must contain
+        STUDENT INTENT and INTENT MATCH RULES sections."""
+        captured: dict = {}
+
+        def capture(**kw):
+            captured.update(kw)
+            return (
+                "COMMON\n11-2021\n13-1161\n11-2022\n"
+                "LESS_COMMON\n13-1131\n11-2011\n27-3031\n"
+                "STRETCH\n11-3011\n13-1199\n"
+            )
+
+        monkeypatch.setattr(career_tiering.gemma_client, "generate", capture)
+
+        career_tiering.tier_careers(
+            _outcomes_8(),
+            "IU-B",
+            "Biology",
+            "26.0101",
+            student_major_text="biology pre-med",
+            intent_keywords=["pre-med", "doctor", "physician"],
+        )
+        prompt = captured["user"]
+
+        assert "STUDENT INTENT" in prompt
+        assert 'The student typed: "biology pre-med"' in prompt
+        assert "pre-med, doctor, physician" in prompt
+        assert "INTENT MATCH RULES" in prompt
+        # The rules mention demotion logic for education mismatch
+        assert "demote" in prompt.lower()
+        # The rules mention promotion for direct matches
+        assert "promote" in prompt.lower()
+
+    def test_student_major_text_alone_triggers_intent_block(self, monkeypatch):
+        """Even without intent_keywords, providing student_major_text
+        alone should inject the STUDENT INTENT block (the text itself is
+        signal to Gemma)."""
+        captured: dict = {}
+
+        def capture(**kw):
+            captured.update(kw)
+            return ""
+
+        monkeypatch.setattr(career_tiering.gemma_client, "generate", capture)
+
+        career_tiering.tier_careers(
+            _outcomes_8(),
+            "Test U",
+            "Special Education",
+            "13.1001",
+            student_major_text="deaf education",
+            intent_keywords=[],
+        )
+        prompt = captured["user"]
+
+        assert "STUDENT INTENT" in prompt
+        assert 'The student typed: "deaf education"' in prompt
+        assert "INTENT MATCH RULES" in prompt
+
+    def test_intent_keywords_alone_triggers_intent_block(self, monkeypatch):
+        """Intent keywords without student_major_text still injects the
+        block (keywords are the primary signal)."""
+        captured: dict = {}
+
+        def capture(**kw):
+            captured.update(kw)
+            return ""
+
+        monkeypatch.setattr(career_tiering.gemma_client, "generate", capture)
+
+        career_tiering.tier_careers(
+            _outcomes_8(),
+            "Test U",
+            "Special Education",
+            "13.1001",
+            student_major_text="",
+            intent_keywords=["deaf education", "special education"],
+        )
+        prompt = captured["user"]
+
+        assert "STUDENT INTENT" in prompt
+        assert "deaf education, special education" in prompt
+        assert "INTENT MATCH RULES" in prompt
+        # No student-typed line since student_major_text is empty
+        assert 'The student typed:' not in prompt
+
+    def test_prompt_directly_with_and_without_intent(self):
+        """Test the ``_prompt`` function directly as a pure function
+        to verify intent block injection without any mocking overhead."""
+        outcomes = _outcomes_8()
+
+        # Without intent
+        prompt_no_intent = career_tiering._prompt(
+            outcomes, "Test U", "Marketing", "52.14"
+        )
+        assert "STUDENT INTENT" not in prompt_no_intent
+        assert "INTENT MATCH RULES" not in prompt_no_intent
+
+        # With intent
+        prompt_with_intent = career_tiering._prompt(
+            outcomes,
+            "Test U",
+            "Marketing",
+            "52.14",
+            student_major_text="marketing analytics",
+            intent_keywords=["analytics", "data"],
+        )
+        assert "STUDENT INTENT" in prompt_with_intent
+        assert 'The student typed: "marketing analytics"' in prompt_with_intent
+        assert "analytics, data" in prompt_with_intent
+        assert "INTENT MATCH RULES" in prompt_with_intent
+
+    def test_intent_keywords_for_special_ed_case(self, monkeypatch):
+        """The deaf-ed case from the spec: verify the prompt carries
+        intent keywords that would let Gemma demote program-negating
+        titles (e.g., generic admin roles for a deaf-ed student)."""
+        captured: dict = {}
+
+        def capture(**kw):
+            captured.update(kw)
+            return (
+                "COMMON\n11-2021\n13-1161\n11-2022\n"
+                "LESS_COMMON\n13-1131\n11-2011\n27-3031\n"
+                "STRETCH\n11-3011\n13-1199\n"
+            )
+
+        monkeypatch.setattr(career_tiering.gemma_client, "generate", capture)
+
+        career_tiering.tier_careers(
+            _outcomes_8(),
+            "Indiana University",
+            "Special Education and Teaching",
+            "13.1001",
+            student_major_text="deaf ed",
+            intent_keywords=["deaf education", "special education", "teacher"],
+        )
+        prompt = captured["user"]
+
+        assert "STUDENT INTENT" in prompt
+        assert 'The student typed: "deaf ed"' in prompt
+        assert "deaf education" in prompt
+        assert "teacher" in prompt
+        assert "INTENT MATCH RULES" in prompt

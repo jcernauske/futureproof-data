@@ -317,3 +317,668 @@ async def test_generate_async_jsonl_integrity_under_gather(monkeypatch, tmp_path
         assert record["response"] == bulky_body
 
     gemma_client.reset_cache()
+
+
+# ---------------------------------------------------------------------------
+# generate_with_tools tests
+# ---------------------------------------------------------------------------
+
+
+def _make_stub_client_for_tools(monkeypatch, tmp_path, response_factory):
+    """Wire up a stub OpenAI client that returns whatever response_factory builds.
+
+    Returns (stub_client, cfg, log_path) for assertions.
+    """
+    monkeypatch.delenv("GEMMA_LOG_DISABLED", raising=False)
+    gemma_client.reset_cache()
+
+    log_path = tmp_path / "gemma.jsonl"
+    monkeypatch.setattr(gemma_client, "_log_path", lambda: log_path)
+
+    class _Completions:
+        def create(self, **kwargs):
+            return response_factory(**kwargs)
+
+    class _Chat:
+        def __init__(self):
+            self.completions = _Completions()
+
+    class _StubClient:
+        def __init__(self):
+            self.chat = _Chat()
+
+    cfg = gemma_client.InferenceConfig(
+        backend="ollama",
+        base_url="http://stub",
+        api_key="stub",
+        model="gemma4:e4b",
+    )
+
+    from functools import lru_cache
+
+    stub_client = _StubClient()
+
+    @lru_cache(maxsize=1)
+    def _stub_cached_client():
+        return stub_client, cfg
+
+    monkeypatch.setattr(gemma_client, "_cached_client", _stub_cached_client)
+    return stub_client, cfg, log_path
+
+
+def test_generate_with_tools_parses_tool_call(monkeypatch, tmp_path):
+    """When the OpenAI client returns a tool_calls response,
+    generate_with_tools correctly parses out name + arguments."""
+
+    class _Function:
+        name = "expand_socs"
+        arguments = '{"soc_codes": ["29-1228"], "rationale": "pre-med intent"}'
+
+    class _ToolCall:
+        id = "call_1"
+        type = "function"
+        function = _Function()
+
+    class _Message:
+        content = None
+        tool_calls = [_ToolCall()]
+
+    class _Choice:
+        message = _Message()
+        finish_reason = "stop"
+
+    class _Response:
+        choices = [_Choice()]
+        usage = type(
+            "U", (), {"prompt_tokens": 20, "completion_tokens": 15, "total_tokens": 35}
+        )()
+
+    _make_stub_client_for_tools(monkeypatch, tmp_path, lambda **kw: _Response())
+
+    result = gemma_client.generate_with_tools(
+        system="You expand SOCs.",
+        user="Student wants pre-med.",
+        tools=[{"type": "function", "function": {"name": "expand_socs"}}],
+        tool_choice="required",
+        extra={"call_site": "soc_expansion"},
+    )
+
+    assert result is not None
+    assert result["name"] == "expand_socs"
+    assert result["arguments"]["soc_codes"] == ["29-1228"]
+    assert result["arguments"]["rationale"] == "pre-med intent"
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_no_tool_call_falls_back(monkeypatch, tmp_path):
+    """When the model returns plain text (no tool_calls) and fallback
+    also fails to produce parseable JSON, returns None."""
+
+    class _Message:
+        content = "I cannot call tools right now."
+        tool_calls = None
+
+    class _Choice:
+        message = _Message()
+        finish_reason = "stop"
+
+    class _Response:
+        choices = [_Choice()]
+        usage = type(
+            "U", (), {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18}
+        )()
+
+    _make_stub_client_for_tools(monkeypatch, tmp_path, lambda **kw: _Response())
+
+    result = gemma_client.generate_with_tools(
+        system="You expand SOCs.",
+        user="Student wants pre-med.",
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "expand_socs",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "soc_codes": {"type": "array", "description": "SOC codes"},
+                        "rationale": {"type": "string", "description": "reason"},
+                    },
+                    "required": ["soc_codes", "rationale"],
+                },
+            },
+        }],
+        tool_choice="required",
+    )
+
+    assert result is None
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_content_json_fallback(monkeypatch, tmp_path):
+    """When the model returns JSON in the content field instead of using
+    tool_calls, the fallback extracts and returns it."""
+
+    json_in_content = json.dumps({
+        "soc_codes": ["29-1229", "29-1221"],
+        "rationale": "physician and surgeon for pre-med",
+    })
+
+    class _Message:
+        content = json_in_content
+        tool_calls = None
+
+    class _Choice:
+        message = _Message()
+        finish_reason = "stop"
+
+    class _Response:
+        choices = [_Choice()]
+        usage = None
+
+    _make_stub_client_for_tools(monkeypatch, tmp_path, lambda **kw: _Response())
+
+    result = gemma_client.generate_with_tools(
+        system="You expand SOCs.",
+        user="Student wants pre-med.",
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "expand_socs",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "soc_codes": {"type": "array", "description": "SOC codes"},
+                        "rationale": {"type": "string", "description": "reason"},
+                    },
+                    "required": ["soc_codes", "rationale"],
+                },
+            },
+        }],
+        tool_choice="required",
+    )
+
+    assert result is not None
+    assert result["name"] == "expand_socs"
+    assert result["arguments"]["soc_codes"] == ["29-1229", "29-1221"]
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_fenced_json_fallback(monkeypatch, tmp_path):
+    """When the model wraps JSON in markdown code fences, the fallback
+    still extracts it."""
+
+    fenced = (
+        "Here are the picks:\n\n```json\n"
+        '{"soc_codes": ["29-1229"], "rationale": "physicians"}\n'
+        "```"
+    )
+
+    class _Message:
+        content = fenced
+        tool_calls = None
+
+    class _Choice:
+        message = _Message()
+        finish_reason = "stop"
+
+    class _Response:
+        choices = [_Choice()]
+        usage = None
+
+    _make_stub_client_for_tools(monkeypatch, tmp_path, lambda **kw: _Response())
+
+    result = gemma_client.generate_with_tools(
+        system="You expand SOCs.",
+        user="Student wants pre-med.",
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "expand_socs",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "soc_codes": {"type": "array", "description": "SOC codes"},
+                        "rationale": {"type": "string", "description": "reason"},
+                    },
+                    "required": ["soc_codes", "rationale"],
+                },
+            },
+        }],
+        tool_choice="required",
+    )
+
+    assert result is not None
+    assert result["name"] == "expand_socs"
+    assert result["arguments"]["soc_codes"] == ["29-1229"]
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_prompt_fallback(monkeypatch, tmp_path):
+    """When the initial call returns empty content (no tool_calls, no JSON),
+    the fallback re-issues as a plain prompt and parses the JSON response."""
+
+    call_count = 0
+
+    def _response_factory(**kwargs):
+        nonlocal call_count
+        call_count += 1
+
+        if "tools" in kwargs:
+
+            class _EmptyMessage:
+                content = ""
+                tool_calls = None
+
+            class _EmptyChoice:
+                message = _EmptyMessage()
+                finish_reason = "stop"
+
+            class _EmptyResponse:
+                choices = [_EmptyChoice()]
+                usage = None
+
+            return _EmptyResponse()
+
+        class _FallbackMessage:
+            content = '{"soc_codes": ["29-1229"], "rationale": "physician"}'
+            tool_calls = None
+
+        class _FallbackChoice:
+            message = _FallbackMessage()
+            finish_reason = "stop"
+
+        class _FallbackResponse:
+            choices = [_FallbackChoice()]
+            usage = None
+
+        return _FallbackResponse()
+
+    _make_stub_client_for_tools(monkeypatch, tmp_path, _response_factory)
+
+    result = gemma_client.generate_with_tools(
+        system="You expand SOCs.",
+        user="Student wants pre-med.",
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "expand_socs",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "soc_codes": {"type": "array", "description": "SOC codes"},
+                        "rationale": {"type": "string", "description": "reason"},
+                    },
+                    "required": ["soc_codes", "rationale"],
+                },
+            },
+        }],
+        tool_choice="required",
+    )
+
+    assert result is not None
+    assert result["name"] == "expand_socs"
+    assert result["arguments"]["soc_codes"] == ["29-1229"]
+    assert call_count == 2
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_logs_to_jsonl(monkeypatch, tmp_path):
+    """Every generate_with_tools call appends a JSONL record with
+    call_site, tool_call_made, and tool_name fields."""
+
+    class _Function:
+        name = "expand_socs"
+        arguments = '{"soc_codes": ["29-1228"], "rationale": "test"}'
+
+    class _ToolCall:
+        id = "call_1"
+        type = "function"
+        function = _Function()
+
+    class _Message:
+        content = None
+        tool_calls = [_ToolCall()]
+
+    class _Choice:
+        message = _Message()
+        finish_reason = "stop"
+
+    class _Response:
+        choices = [_Choice()]
+        usage = None
+
+    _, _, log_path = _make_stub_client_for_tools(
+        monkeypatch, tmp_path, lambda **kw: _Response(),
+    )
+
+    gemma_client.generate_with_tools(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "expand_socs"}}],
+        tool_choice="required",
+        extra={"call_site": "soc_expansion"},
+    )
+
+    assert log_path.exists(), "expected gemma.jsonl to be created"
+    lines = [ln for ln in log_path.read_text().splitlines() if ln.strip()]
+    assert len(lines) == 1
+
+    record = json.loads(lines[0])
+    assert record["call_site"] == "soc_expansion"
+    assert record["tool_call_made"] is True
+    assert record["tool_name"] == "expand_socs"
+    assert record["backend"] == "ollama"
+    assert "duration_ms" in record
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_transport_error_returns_none(monkeypatch, tmp_path):
+    """When the OpenAI client raises, generate_with_tools returns None
+    and logs the error."""
+
+    def _explode(**kwargs):
+        raise ConnectionError("Backend unreachable")
+
+    _, _, log_path = _make_stub_client_for_tools(
+        monkeypatch, tmp_path, _explode,
+    )
+
+    result = gemma_client.generate_with_tools(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "expand_socs"}}],
+    )
+
+    assert result is None
+
+    # Log should still have recorded the failure.
+    lines = [ln for ln in log_path.read_text().splitlines() if ln.strip()]
+    assert len(lines) == 1
+    record = json.loads(lines[0])
+    assert "error" in record
+    assert record["tool_call_made"] is False
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_unparseable_args_returns_none(monkeypatch, tmp_path):
+    """When tool arguments are not valid JSON, returns None."""
+
+    class _Function:
+        name = "expand_socs"
+        arguments = "NOT VALID JSON {{{{"
+
+    class _ToolCall:
+        id = "call_1"
+        type = "function"
+        function = _Function()
+
+    class _Message:
+        content = None
+        tool_calls = [_ToolCall()]
+
+    class _Choice:
+        message = _Message()
+        finish_reason = "stop"
+
+    class _Response:
+        choices = [_Choice()]
+        usage = None
+
+    _make_stub_client_for_tools(monkeypatch, tmp_path, lambda **kw: _Response())
+
+    result = gemma_client.generate_with_tools(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "expand_socs"}}],
+    )
+
+    assert result is None
+
+    gemma_client.reset_cache()
+
+
+# ---------------------------------------------------------------------------
+# generate_with_tools_loop tests
+# ---------------------------------------------------------------------------
+
+
+def _make_tool_loop_stub(monkeypatch, tmp_path, response_sequence):
+    """Wire up a stub client that returns responses from a sequence.
+
+    Each item in response_sequence is called in order for successive
+    client.chat.completions.create() calls.
+    """
+    monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+    monkeypatch.setenv("GEMMA_MAX_CONCURRENCY", "8")
+    gemma_client.reset_cache()
+
+    call_idx = [0]
+
+    class _Completions:
+        def create(self, **kwargs):
+            idx = call_idx[0]
+            call_idx[0] += 1
+            if idx < len(response_sequence):
+                return response_sequence[idx]
+            raise RuntimeError(f"Unexpected call index {idx}")
+
+    class _Chat:
+        def __init__(self):
+            self.completions = _Completions()
+
+    class _StubClient:
+        def __init__(self):
+            self.chat = _Chat()
+
+    cfg = gemma_client.InferenceConfig(
+        backend="openrouter",
+        base_url="http://stub",
+        api_key="stub",
+        model="gemma4:stub",
+    )
+
+    from functools import lru_cache
+
+    stub_client = _StubClient()
+
+    @lru_cache(maxsize=1)
+    def _stub_cached_client():
+        return stub_client, cfg
+
+    monkeypatch.setattr(gemma_client, "_cached_client", _stub_cached_client)
+    return stub_client, cfg
+
+
+class _PlainTextResponse:
+    def __init__(self, content: str):
+        class _M:
+            pass
+        msg = _M()
+        msg.content = content
+        msg.tool_calls = None
+        choice = _M()
+        choice.message = msg
+        choice.finish_reason = "stop"
+        self.choices = [choice]
+        self.usage = None
+
+
+class _ToolCallResponse:
+    def __init__(self, tool_name: str, tool_args: str, call_id: str = "call_1"):
+        class _M:
+            pass
+        fn = _M()
+        fn.name = tool_name
+        fn.arguments = tool_args
+        tc = _M()
+        tc.id = call_id
+        tc.type = "function"
+        tc.function = fn
+        msg = _M()
+        msg.content = None
+        msg.tool_calls = [tc]
+        choice = _M()
+        choice.message = msg
+        choice.finish_reason = "stop"
+        self.choices = [choice]
+        self.usage = None
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_single_turn(monkeypatch, tmp_path):
+    """Plain text response on turn 1 returns directly with empty tool log."""
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _PlainTextResponse("This is the final answer."),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        raise AssertionError("Dispatch should not be called")
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    assert text == "This is the final answer."
+    assert log == []
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_two_turn(monkeypatch, tmp_path):
+    """tool_calls on turn 1, text on turn 2 — loop dispatches and returns."""
+    _career_args = '{"unitid": 151351, "cipcode": "52.1401"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _career_args),
+        _PlainTextResponse("Final response after tool call."),
+    ])
+
+    dispatch_calls: list[tuple[str, dict]] = []
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        dispatch_calls.append((name, args))
+        return {"data": [{"occupation_title": "Marketing Manager"}]}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    assert text == "Final response after tool call."
+    assert len(log) == 1
+    assert log[0].tool_name == "get_career_paths"
+    assert log[0].error is None
+    assert len(dispatch_calls) == 1
+    assert dispatch_calls[0][0] == "get_career_paths"
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_dispatch_error(monkeypatch, tmp_path):
+    """When dispatch raises, loop returns empty text with error in log."""
+    _career_args = '{"unitid": 151351, "cipcode": "52.1401"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _career_args),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        raise RuntimeError("DB unavailable")
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    assert text == ""
+    assert len(log) == 1
+    assert log[0].error is not None
+    assert "DB unavailable" in log[0].error
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_turn_cap(monkeypatch, tmp_path):
+    """Pathological model keeps calling tools — loop hits cap and returns empty."""
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args, "c1"),
+        _ToolCallResponse("get_career_paths", _args, "c2"),
+        _ToolCallResponse("get_career_paths", _args, "c3"),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        max_turns=3,
+    )
+
+    assert text == ""
+    assert len(log) == 3
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_transport_error(monkeypatch, tmp_path):
+    """When the client raises on turn 1, returns empty text."""
+    monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+    monkeypatch.setenv("GEMMA_MAX_CONCURRENCY", "8")
+    gemma_client.reset_cache()
+
+    class _Completions:
+        def create(self, **kwargs):
+            raise ConnectionError("Backend down")
+
+    class _Chat:
+        def __init__(self):
+            self.completions = _Completions()
+
+    class _StubClient:
+        def __init__(self):
+            self.chat = _Chat()
+
+    cfg = gemma_client.InferenceConfig(
+        backend="openrouter",
+        base_url="http://stub",
+        api_key="stub",
+        model="gemma4:stub",
+    )
+
+    from functools import lru_cache
+
+    @lru_cache(maxsize=1)
+    def _stub():
+        return _StubClient(), cfg
+
+    monkeypatch.setattr(gemma_client, "_cached_client", _stub)
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        raise AssertionError("Should not be called")
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    assert text == ""
+    assert log == []
+    gemma_client.reset_cache()
