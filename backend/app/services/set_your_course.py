@@ -149,14 +149,20 @@ with: "{clarifier}"
   Labor Statistics (BLS)"); subsequent references may use the acronym
   alone. Applies to sources (BLS, IPEDS, O*NET, BEA, College
   Scorecard) — NOT to internal taxonomies (CIP, SOC stay forbidden).
-- **You have no tool access in this turn.** The career data for the
-  student's current resolution has already been fetched and is pasted
-  below in the "Pre-fetched career data" block. Reason directly from
-  that block and the clarifier. Do NOT emit any tool-call markup —
-  no "<|tool_call|>", no "<tool_call>", no function-call pseudo-xml.
-  Anything like that will render as literal text to the student and
-  break the answer. If the pre-fetched data doesn't cover the case,
-  say so honestly in prose; do not pretend to call a tool.
+- You have access to one tool:
+  get_career_paths(unitid, cipcode) — returns the matched career list
+  for a school + program. Call this when:
+  * The clarifier mentions a sub-specialty you can't verify is offered
+    at this school (e.g., "deaf education" inside a Special Ed CIP).
+  * The clarifier suggests a different program than current_resolution
+    and you need to check if the school offers it.
+  * You need to ground a feasibility judgment in actual data.
+  Do NOT call the tool when:
+  * The decision is clear from the clarifier alone (e.g., "I want
+    something completely different" — that's a change_major case).
+  * You've already called it once this turn and got a useful result.
+  After your tool call (if any) returns, emit your final structured
+  chip response per the format spec below.
 - If you change the resolution, emit the structured tail. If not, omit.
 - Keep the prose to 2–4 sentences — the clarifier is a moment, not a
   lecture.
@@ -228,7 +234,8 @@ Then on the next line emit a single JSON object and nothing after it:
 "confidence": "high|medium|low", \
 "parent_cip": "XX.XX (4-digit family code; may equal matched_cip[:5] \
 when matched_cip is already a leaf)", \
-"alternatives": []}}
+"alternatives": [], \
+"intent_keywords": []}}
 
 Rules for the JSON tail:
 - "matched_cip" MUST be a 6-digit leaf in XX.XXXX format (e.g. 13.1001,
@@ -253,6 +260,22 @@ Rules for the JSON tail:
 - "alternatives" is [] for high confidence; 2–4 items for medium;
   up to 10 items for low. Never exceed 10.
 - Each alternative: {{"cip": "XX.XXXX", "title": "...", "why": "short phrase"}}.
+- "intent_keywords" is a list of 0–6 lowercase tokens that capture the \
+student's stated career direction, including sub-specialties INSIDE \
+the matched program. Extract these whenever the student's text is more \
+specific than the program title alone. Examples:
+    * "pre-med" matched to Biology → ["pre-med", "doctor", "physician"]
+    * "deaf ed" matched to "Special Education and Teaching, Specific \
+Subject Areas" → ["deaf education", "special education", "teacher"] \
+(the program IS the intent — emit them anyway)
+    * "I want to design video games" matched to a CS or Game Design \
+program → ["game design", "video games"]
+    * Plain "marketing" matched to Marketing CIP → [] (no signal beyond \
+the program name itself)
+    * Plain "biology" matched to Biology CIP → [] (same)
+  The rule: if the student named a role, target career, or sub-specialty, \
+those tokens go in. If they only named the program at the same granularity \
+as the matched CIP, leave it empty.
 
 Context:
 The student typed: "{student_input}"
@@ -319,7 +342,8 @@ async def stream_initial_resolution(
         f"- {c['cipcode']} {c['program_name']}" for c in school_cips
     ) or "(no programs reported)"
     crosswalk_cip_list = "\n".join(
-        f"- {c['cipcode']} {c['cip_title']}" for c in crosswalk_cips[:60]
+        f"- {c['cipcode']} {c['cip_title']}"
+        for c in intent._sample_crosswalk(crosswalk_cips, max_total=60)
     ) or "(no crosswalk data)"
 
     system = _STREAM_INTENT_SYSTEM_PROMPT.format(
@@ -352,7 +376,7 @@ async def stream_initial_resolution(
         async for chunk in gemma_client.generate_stream_async(
             system=system,
             messages=[{"role": "user", "content": user}],
-            max_tokens=700,
+            max_tokens=1500,
             temperature=0.0,
             seed=intent._derive_intent_seed(major_text),
             extra=extra,
@@ -447,6 +471,111 @@ def _safe_parse_tail(tail: str) -> dict[str, Any] | None:
     return None
 
 
+def _parse_intent_keywords(raw: Any) -> list[str]:
+    """Safely extract intent_keywords from a parsed JSON value."""
+    if not isinstance(raw, list):
+        return []
+    return [str(k).lower().strip() for k in raw if isinstance(k, str) and k.strip()]
+
+
+def _merge_confirmed_focus_into_keywords(ir: IntentResult) -> IntentResult:
+    """Append lowercased confirmed_focus to intent_keywords if not already present."""
+    if not ir.confirmed_focus:
+        return ir
+    token = ir.confirmed_focus.lower().strip()
+    if not token or token in ir.intent_keywords:
+        return ir
+    return ir.model_copy(
+        update={"intent_keywords": [*ir.intent_keywords, token]}
+    )
+
+
+_FALLBACK_JSON_SYSTEM = """\
+Pick the best CIP code for the student's input from the list below.
+Reply with ONLY a JSON object, nothing else. No explanation, no markdown.
+
+{{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
+"confidence": "high", "parent_cip": "XX.XX", \
+"intent_keywords": ["keyword1"]}}
+
+Programs at this school:
+{school_cip_list}
+
+Crosswalk codes:
+{crosswalk_cip_list}
+"""
+
+
+def _fallback_resolve(
+    major_text: str,
+    school_cips: list[dict[str, str]],
+    programs: Sequence[Mapping[str, Any]],
+) -> IntentResult | None:
+    """Simple JSON-only Gemma call as fallback.
+
+    Called when the streaming prompt didn't produce a parseable JSON
+    tail (common with smaller models like e4b that can't follow the
+    two-part prose+delimiter+JSON format).
+    """
+    family_prefixes = list({
+        c.get("cipcode", "")[:2] for c in school_cips if c.get("cipcode")
+    })
+    crosswalk_cips = intent._get_crosswalk_cips_for_families(family_prefixes)
+    sampled = intent._sample_crosswalk(crosswalk_cips, max_total=60)
+
+    school_list = "\n".join(
+        f"- {c['cipcode']} {c['program_name']}" for c in school_cips
+    ) or "(none)"
+    xwalk_list = "\n".join(
+        f"- {c['cipcode']} {c['cip_title']}" for c in sampled
+    ) or "(none)"
+
+    system = _FALLBACK_JSON_SYSTEM.format(
+        school_cip_list=school_list, crosswalk_cip_list=xwalk_list,
+    )
+    try:
+        raw = gemma_client.generate(
+            system=system,
+            user=f'Student typed: "{major_text}"',
+            max_tokens=200,
+            temperature=0.0,
+        )
+        parsed = _safe_parse_tail(raw)
+        if not parsed or not parsed.get("matched_cip"):
+            return None
+
+        matched_cip = str(parsed["matched_cip"]).strip()
+        matched_title = str(parsed.get("matched_title", "")).strip()
+        confidence = str(parsed.get("confidence", "medium")).strip()
+        raw_parent = str(parsed.get("parent_cip", "")).strip()
+        matched_cip = intent._promote_to_leaf_cip(
+            matched_cip, raw_parent, school_cips
+        )
+        cip4 = matched_cip[:5] if len(matched_cip) >= 5 else ""
+        parent_cip = next(
+            (c["cipcode"][:5] for c in school_cips
+             if c.get("cipcode", "")[:2] == cip4[:2]),
+            cip4,
+        ) if cip4 else ""
+        return IntentResult(
+            matched_cip=matched_cip,
+            matched_title=_NUMERIC_CODE_PARENTHETICAL.sub("", matched_title),
+            confidence=confidence,
+            reasoning=f"Matched to {matched_title}.",
+            careers_preview=[],
+            needs_clarification=confidence == "low",
+            alternatives=None,
+            parent_cip=parent_cip,
+            student_major_text=major_text,
+            intent_keywords=_parse_intent_keywords(
+                parsed.get("intent_keywords")
+            ),
+        )
+    except Exception as exc:
+        logger.warning("_fallback_resolve failed: %s", exc)
+    return None
+
+
 def _build_intent_result_from_tail(
     *,
     major_text: str,
@@ -461,6 +590,9 @@ def _build_intent_result_from_tail(
     placeholder so the frontend always has something to render.
     """
     if parsed is None:
+        fallback = _fallback_resolve(major_text, school_cips, programs)
+        if fallback is not None:
+            return fallback
         return IntentResult(
             matched_cip="",
             matched_title="",
@@ -471,6 +603,7 @@ def _build_intent_result_from_tail(
             needs_clarification=True,
             alternatives=None,
             parent_cip="",
+            student_major_text=major_text,
         )
 
     matched_cip = str(parsed.get("matched_cip", "")).strip()
@@ -531,6 +664,8 @@ def _build_intent_result_from_tail(
         else ""
     )
 
+    intent_keywords = _parse_intent_keywords(parsed.get("intent_keywords") or [])
+
     if not _CIP_PATTERN.match(matched_cip):
         # Malformed primary: degrade to low-confidence placeholder but
         # keep any prose we already streamed.
@@ -543,6 +678,8 @@ def _build_intent_result_from_tail(
             needs_clarification=True,
             alternatives=None,
             parent_cip="",
+            student_major_text=major_text,
+            intent_keywords=intent_keywords,
         )
 
     careers_preview = intent._get_career_titles_for_cip(matched_cip)
@@ -552,7 +689,7 @@ def _build_intent_result_from_tail(
 
     reasoning = prose.strip() or str(parsed.get("reasoning", "")).strip()
 
-    return IntentResult(
+    result = IntentResult(
         matched_cip=matched_cip,
         matched_title=matched_title,
         confidence=confidence,
@@ -564,7 +701,10 @@ def _build_intent_result_from_tail(
         alternatives=alternatives,
         parent_cip=parent_cip,
         confirmed_focus=None,
+        student_major_text=major_text,
+        intent_keywords=intent_keywords,
     )
+    return _merge_confirmed_focus_into_keywords(result)
 
 
 # ---------------------------------------------------------------------------
@@ -584,8 +724,8 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
     nothing — the frontend handles these — and we return an empty
     response (no Gemma call, no log). The endpoint exists for symmetry.
 
-    For ``not_expected`` we run the chip-routing prompt with a tool
-    pre-fetch for grounding.
+    For ``not_expected`` we run the chip-routing prompt through a real
+    Gemma tool-calling loop against the MCP server.
     """
     if request.chip_id in ("show_less_common", "change_major"):
         return ChipResponse(
@@ -595,10 +735,7 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
             confirmed_focus=None,
         )
 
-    # not_expected path.
-    prefetch_result, tool_call_made = await _prefetch_career_paths(request)
-    prefetch_block = _format_prefetch_block(prefetch_result)
-
+    # not_expected path — real Gemma tool-calling loop.
     current = request.current_resolution
     initial = request.initial_resolution
     current_cip4 = current.matched_cip[:5] if len(current.matched_cip) >= 5 else ""
@@ -621,16 +758,14 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
         sources_for_prompt_context=_SOURCES_PROMPT_CONTEXT,
     )
 
-    user_parts = [
-        f'Student tapped "not expected" with clarifier: "{request.clarifier or ""}".',
-        "Pre-fetched tool context (for grounding):",
-        prefetch_block,
-        "Classify, reason in 2-4 sentences, and emit the structured tails.",
-    ]
-    user = "\n\n".join(user_parts)
+    user_msg = (
+        f'Student tapped "not expected" with clarifier: '
+        f'"{request.clarifier or ""}".\n\n'
+        f"Classify, reason in 2-4 sentences, and emit the structured tails."
+    )
 
     extra = {
-        "call_site": "set_your_course_chip",
+        "call_site": "chip_dispatch_tool_call",
         "chip_id": request.chip_id,
         "unitid": request.unitid,
         "school_name": request.school_name,
@@ -639,12 +774,37 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
         "clarifier_len": len(request.clarifier or ""),
     }
 
-    raw = await gemma_client.generate_chat_async(
+    tool_schema = mcp_client.get_tool_openai_schema("get_career_paths")
+    if tool_schema is None:
+        logger.error("get_career_paths tool schema not found in MCP server")
+        return ChipResponse(
+            debug_trace=_TRANSPORT_FAILURE_MESSAGE,
+            updated_resolution=None,
+            bucket=None,
+            confirmed_focus=None,
+        )
+
+    async def _dispatch(tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:
+        # Inject student_cip for substitution semantics when Gemma
+        # calls get_career_paths — same as the old pre-fetch.
+        if tool_name == "get_career_paths" and current.matched_cip:
+            tool_args = {**tool_args, "student_cip": current.matched_cip}
+        return await mcp_client.call_async(tool_name, tool_args)
+
+    raw, tool_call_log = await gemma_client.generate_with_tools_loop(
         system=system,
-        messages=[{"role": "user", "content": user}],
-        max_tokens=600,
+        user=user_msg,
+        tools=[tool_schema],
+        dispatch=_dispatch,
+        max_turns=3,
+        max_wall_time_s=30.0,
         temperature=0.2,
+        max_tokens=600,
         extra=extra,
+    )
+
+    tool_call_made = len(tool_call_log) > 0 and any(
+        tc.error is None for tc in tool_call_log
     )
 
     if not raw:
@@ -660,66 +820,6 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
         request=request,
         tool_call_made=tool_call_made,
     )
-
-
-async def _prefetch_career_paths(
-    request: ChipRequest,
-) -> tuple[dict[str, Any] | None, bool]:
-    """Pre-fetch get_career_paths so Gemma has grounded context.
-
-    Returns ``(result, tool_call_made)``. ``tool_call_made`` is only True
-    when the MCP call actually returned data — used as the gate for the
-    ``confirmed_focus`` invariant (we never confirm a sub-focus without
-    tool verification).
-    """
-    # Route the pre-fetch through the same substitution semantics the
-    # live preview uses: when the school reports a broader parent CIP,
-    # send that as the cipcode so the MCP handler's substitution branch
-    # fires, and pass Gemma's matched leaf as student_cip so the YAML
-    # lookup is skipped entirely. Falls back to the matched CIP alone
-    # when no parent is set.
-    resolution = request.current_resolution
-    lookup_cip = (resolution.parent_cip or resolution.matched_cip).strip()
-    args: dict[str, Any] = {
-        "unitid": request.unitid,
-        "cipcode": lookup_cip,
-    }
-    if resolution.matched_cip:
-        args["student_cip"] = resolution.matched_cip
-    for attempt in range(2):
-        try:
-            result = mcp_client.call("get_career_paths", args)
-            if result:
-                return result, True
-            return None, False
-        except Exception as exc:
-            logger.warning(
-                "set_your_course pre-fetch attempt %d failed: %s",
-                attempt + 1,
-                exc,
-            )
-    return None, False
-
-
-def _format_prefetch_block(result: dict[str, Any] | None) -> str:
-    """Render the MCP pre-fetch as a compact prompt block."""
-    if not result:
-        return "(pre-fetch unavailable — proceed with what the student told us)"
-    data = result.get("data") if isinstance(result, dict) else None
-    if not data:
-        caveat = result.get("data_caveat") if isinstance(result, dict) else None
-        if caveat:
-            return json.dumps(caveat, default=str)[:1200]
-        return "(pre-fetch returned no rows)"
-    # Compact top-N summary — don't flood the context window.
-    top: list[str] = []
-    for row in list(data)[:8]:
-        if not isinstance(row, dict):
-            continue
-        title = row.get("occupation_title") or row.get("soc_title") or "?"
-        soc = row.get("soc_code") or row.get("soc") or ""
-        top.append(f"- {title} ({soc})" if soc else f"- {title}")
-    return "\n".join(top) if top else "(pre-fetch returned no usable rows)"
 
 
 _UPDATED_TAIL = "---UPDATED_RESOLUTION---"
@@ -771,7 +871,7 @@ def _parse_chip_response(
     confirmed_focus = _parse_confirmed_focus(confirmed_body)
 
     # Invariants.
-    if bucket in ("semantic_drift", "intent_divergence"):
+    if bucket == "semantic_drift":
         confirmed_focus = None
     if not tool_call_made:
         confirmed_focus = None
@@ -779,10 +879,14 @@ def _parse_chip_response(
         confirmed_focus = _NUMERIC_CODE_PARENTHETICAL.sub("", confirmed_focus).strip()
         confirmed_focus = confirmed_focus or None
 
-    # Mirror confirmed_focus onto the updated_resolution when it exists.
+    # Mirror confirmed_focus onto the updated_resolution when it exists,
+    # then merge its tokens into intent_keywords for downstream tiering.
     if updated_resolution is not None and confirmed_focus:
         updated_resolution = updated_resolution.model_copy(
             update={"confirmed_focus": confirmed_focus}
+        )
+        updated_resolution = _merge_confirmed_focus_into_keywords(
+            updated_resolution
         )
 
     return ChipResponse(
@@ -880,6 +984,7 @@ def _parse_updated_resolution(
     parent_cip = intent._derive_parent_cip(cip4, request.programs)
     careers = intent._get_career_titles_for_cip(matched_cip)
 
+    current = request.current_resolution
     return IntentResult(
         matched_cip=matched_cip,
         matched_title=matched_title,
@@ -892,6 +997,8 @@ def _parse_updated_resolution(
         alternatives=None,
         parent_cip=parent_cip,
         confirmed_focus=None,  # applied by caller when invariants allow
+        student_major_text=current.student_major_text if current else "",
+        intent_keywords=list(current.intent_keywords) if current else [],
     )
 
 
