@@ -74,6 +74,8 @@ export interface CareerOutcome {
   stats_available_count: number | null;
   overall_confidence: string | null;
 
+  match_quality: string | null;
+
   substitution_applied: boolean;
   reported_cipcode: string | null;
   substituted_cipcode: string | null;

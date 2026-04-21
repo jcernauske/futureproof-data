@@ -21,6 +21,8 @@ export interface MajorSelection {
   // must send `parentCip || cipCode` — the substitution branch in the
   // MCP handler keys off the school's broad cip, not the matched leaf.
   parentCip: string;
+  studentMajorText?: string;
+  intentKeywords?: string[];
 }
 
 export interface EffortSelection {
@@ -79,6 +81,8 @@ export interface IntentResult {
   // so existing fixtures that predate the field still satisfy the shape.
   // See spec §2 Decision #16.
   confirmed_focus?: string | null;
+  student_major_text?: string;
+  intent_keywords?: string[];
 }
 
 /**

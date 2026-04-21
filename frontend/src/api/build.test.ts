@@ -164,6 +164,118 @@ describe("build.ts — getTieredCareers (real API)", () => {
   });
 });
 
+describe("build.ts — getTieredCareers intent fields", () => {
+  it("forwards studentMajorText and intentKeywords in POST body", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { getTieredCareers } = await import("./build");
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ "Common paths": [] }),
+    });
+
+    await getTieredCareers(
+      [{ soc_code: "29-1071" }] as never,
+      "Indiana University",
+      "Biology",
+      "26.0101",
+      "biology pre-med",
+      ["pre-med", "doctor"],
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(init.body);
+    expect(body.student_major_text).toBe("biology pre-med");
+    expect(body.intent_keywords).toEqual(["pre-med", "doctor"]);
+  });
+
+  it("sends null student_major_text and empty intent_keywords when omitted", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { getTieredCareers } = await import("./build");
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ "Common paths": [] }),
+    });
+
+    // Call without the optional intent args
+    await getTieredCareers(
+      [] as never,
+      "Test U",
+      "Marketing",
+      "52.14",
+    );
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(init.body);
+    expect(body.student_major_text).toBeNull();
+    expect(body.intent_keywords).toEqual([]);
+  });
+});
+
+describe("build.ts — AbortSignal forwarding", () => {
+  it("getOutcomes forwards AbortSignal to apiPost", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { getOutcomes } = await import("./build");
+    const controller = new AbortController();
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve([]),
+    });
+
+    await getOutcomes(151351, "52.14", "balanced", 0.5, undefined, undefined, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.signal).toBe(controller.signal);
+  });
+
+  it("getTieredCareers forwards AbortSignal to apiPost", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { getTieredCareers } = await import("./build");
+    const controller = new AbortController();
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ "Common paths": [] }),
+    });
+
+    await getTieredCareers(
+      [{ soc_code: "15-1252" }] as never,
+      "UC Berkeley",
+      "CS",
+      "11.0701",
+      undefined,
+      undefined,
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.signal).toBe(controller.signal);
+  });
+
+  it("aborted fetch raises AbortError", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { getOutcomes } = await import("./build");
+    const controller = new AbortController();
+    controller.abort();
+
+    fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+      if (init.signal?.aborted) {
+        return Promise.reject(new DOMException("The operation was aborted.", "AbortError"));
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    });
+
+    await expect(
+      getOutcomes(151351, "52.14", "balanced", 0.5, undefined, undefined, controller.signal),
+    ).rejects.toThrow("The operation was aborted");
+  });
+});
+
 describe("build.ts — mock fixtures", () => {
   it("mockGetTieredCareers returns shape-compatible tiers with all three keys", async () => {
     vi.stubEnv("VITE_USE_MOCK_API", "true");
