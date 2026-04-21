@@ -1,0 +1,226 @@
+{
+  "input": {
+    "cipcode": "51.00",
+    "student_major": "Nursing",
+    "unitid": 145637
+  },
+  "response": {
+    "data": [
+      {
+        "adoption_percentile": 30.2504816955684,
+        "ai_adoption_share": 0.012222226787012805,
+        "boss_ai_score": 2,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 5,
+        "boss_loans_score": 9,
+        "boss_market_score": 7,
+        "bosses_available_count": 5,
+        "burnout_drivers": [
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.73
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.71
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.71
+          }
+        ],
+        "cip_family_name": "Health Professions and Related Programs",
+        "cipcode": "51.00",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "high",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": 20250.0,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": 2.0859720745137054,
+        "earnings_1yr_median": 29149.0,
+        "earnings_1yr_p25": 32935.0,
+        "earnings_1yr_p75": 62573.0,
+        "education_level_name": "High school diploma or equivalent",
+        "employment_current": 65100,
+        "growth_category": "growing_fast",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 51030.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Community health workers",
+        "overall_confidence": "high",
+        "program_name": "Health Services/Allied Health/Health Sciences, General.",
+        "roi_cost_basis": "cost_of_attendance",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "21-1094",
+        "soc_major_group_name": "Community and Social Service",
+        "stat_ern": 3,
+        "stat_grw": 8,
+        "stat_hmn": 5,
+        "stat_res": 9,
+        "stat_roi": 2,
+        "stats_available_count": 5,
+        "top_5_activities": [
+          {
+            "activity": "Communicating with People Outside the Organization",
+            "importance": 4.87
+          },
+          {
+            "activity": "Organizing, Planning, and Prioritizing Work",
+            "importance": 4.75
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.75
+          },
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 4.68
+          },
+          {
+            "activity": "Performing for or Working Directly with the Public",
+            "importance": 4.62
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.75
+          },
+          {
+            "activity": "Performing for or Working Directly with the Public",
+            "importance": 4.62
+          },
+          {
+            "activity": "Assisting and Caring for Others",
+            "importance": 4.36
+          },
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.07
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.02
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "nascent"
+      },
+      {
+        "adoption_percentile": 59.34489402697495,
+        "ai_adoption_share": 0.046629335809275745,
+        "boss_ai_score": 4,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 8,
+        "boss_loans_score": 9,
+        "boss_market_score": 6,
+        "bosses_available_count": 5,
+        "burnout_drivers": [
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.77
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.7
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.7
+          }
+        ],
+        "cip_family_name": "Health Professions and Related Programs",
+        "cipcode": "51.00",
+        "composite_method": "three_signal",
+        "confidence_tier_program": "high",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": 20250.0,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": 2.0859720745137054,
+        "earnings_1yr_median": 29149.0,
+        "earnings_1yr_p25": 32935.0,
+        "earnings_1yr_p75": 62573.0,
+        "education_level_name": "Bachelor's degree",
+        "employment_current": 71800,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 63000.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Health education specialists",
+        "overall_confidence": "high",
+        "program_name": "Health Services/Allied Health/Health Sciences, General.",
+        "roi_cost_basis": "cost_of_attendance",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "21-1091",
+        "soc_major_group_name": "Community and Social Service",
+        "stat_ern": 4,
+        "stat_grw": 6,
+        "stat_hmn": 5,
+        "stat_res": 7,
+        "stat_roi": 2,
+        "stats_available_count": 5,
+        "top_5_activities": [
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 4.8
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.72
+          },
+          {
+            "activity": "Updating and Using Relevant Knowledge",
+            "importance": 4.68
+          },
+          {
+            "activity": "Getting Information",
+            "importance": 4.53
+          },
+          {
+            "activity": "Interpreting the Meaning of Information for Others",
+            "importance": 4.52
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.72
+          },
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.44
+          },
+          {
+            "activity": "Performing for or Working Directly with the Public",
+            "importance": 4.43
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.35
+          },
+          {
+            "activity": "Developing and Building Teams",
+            "importance": 4.23
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "emerging"
+      }
+    ],
+    "row_count": 2,
+    "substitution_applied": false,
+    "substitution_note": "Student hint 'Nursing' provided but no match found and cipcode '51.00' is already specific; showing reported career paths."
+  }
+}

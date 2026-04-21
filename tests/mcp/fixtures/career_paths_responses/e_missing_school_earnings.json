@@ -1,0 +1,11 @@
+{
+  "input": {
+    "cipcode": "52.01",
+    "student_major": "Marketing",
+    "unitid": 999999
+  },
+  "response": {
+    "data": null,
+    "message": "No career_outcomes row for unitid=999999, cipcode='52.01'; cannot substitute."
+  }
+}

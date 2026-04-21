@@ -1,0 +1,332 @@
+{
+  "input": {
+    "cipcode": "13.01",
+    "student_major": "Education",
+    "unitid": 145637
+  },
+  "response": {
+    "data": [
+      {
+        "adoption_percentile": 65.3179190751445,
+        "ai_adoption_share": 0.05802882653644028,
+        "boss_ai_score": 3,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 10,
+        "boss_loans_score": null,
+        "boss_market_score": 6,
+        "bosses_available_count": 4,
+        "burnout_drivers": [
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.82
+          },
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.79
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.75
+          }
+        ],
+        "cip_family_name": "Education",
+        "cipcode": "13.01",
+        "composite_method": "gemma_plus_anthropic",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 32724.0,
+        "earnings_1yr_p75": 39794.0,
+        "education_level_name": "Doctoral or professional degree",
+        "employment_current": 74900,
+        "growth_category": "growing",
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "full",
+        "median_annual_wage": 72090.0,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Education teachers, postsecondary",
+        "overall_confidence": "low",
+        "program_name": "Education, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "25-1081",
+        "soc_major_group_name": "Educational Instruction and Library",
+        "stat_ern": null,
+        "stat_grw": 5,
+        "stat_hmn": 5,
+        "stat_res": 8,
+        "stat_roi": null,
+        "stats_available_count": 3,
+        "top_5_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.74
+          },
+          {
+            "activity": "Getting Information",
+            "importance": 4.72
+          },
+          {
+            "activity": "Organizing, Planning, and Prioritizing Work",
+            "importance": 4.48
+          },
+          {
+            "activity": "Judging the Qualities of Objects, Services, or People",
+            "importance": 4.4
+          },
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 4.31
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Training and Teaching Others",
+            "importance": 4.74
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.3
+          },
+          {
+            "activity": "Coaching and Developing Others",
+            "importance": 4.2
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.11
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.01
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "emerging"
+      },
+      {
+        "adoption_percentile": null,
+        "ai_adoption_share": null,
+        "boss_ai_score": 3,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": null,
+        "boss_loans_score": null,
+        "boss_market_score": null,
+        "bosses_available_count": 2,
+        "burnout_drivers": [
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.82
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.81
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.51
+          }
+        ],
+        "cip_family_name": "Education",
+        "cipcode": "13.01",
+        "composite_method": "gemma_only",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 32724.0,
+        "earnings_1yr_p75": 39794.0,
+        "education_level_name": null,
+        "employment_current": null,
+        "growth_category": null,
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "partial_no_bls",
+        "median_annual_wage": null,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Teaching Assistants, Preschool, Elementary, Middle, and Secondary School, Except Special Education",
+        "overall_confidence": "medium",
+        "program_name": "Education, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "25-9042",
+        "soc_major_group_name": null,
+        "stat_ern": null,
+        "stat_grw": null,
+        "stat_hmn": 6,
+        "stat_res": 8,
+        "stat_roi": null,
+        "stats_available_count": 2,
+        "top_5_activities": [
+          {
+            "activity": "Assisting and Caring for Others",
+            "importance": 4.5
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.46
+          },
+          {
+            "activity": "Getting Information",
+            "importance": 4.45
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.37
+          },
+          {
+            "activity": "Resolving Conflicts and Negotiating with Others",
+            "importance": 4.31
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Assisting and Caring for Others",
+            "importance": 4.5
+          },
+          {
+            "activity": "Thinking Creatively",
+            "importance": 4.46
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 4.37
+          },
+          {
+            "activity": "Resolving Conflicts and Negotiating with Others",
+            "importance": 4.31
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 4.14
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "unknown"
+      },
+      {
+        "adoption_percentile": null,
+        "ai_adoption_share": null,
+        "boss_ai_score": 2,
+        "boss_burnout_score": 4,
+        "boss_ceiling_score": null,
+        "boss_loans_score": null,
+        "boss_market_score": null,
+        "bosses_available_count": 2,
+        "burnout_drivers": [
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.72
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.65
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.56
+          }
+        ],
+        "cip_family_name": "Education",
+        "cipcode": "13.01",
+        "composite_method": "gemma_only",
+        "confidence_tier_program": "insufficient",
+        "cost_of_attendance_annual": 32134.0,
+        "debt_median": null,
+        "debt_p25": null,
+        "debt_p75": null,
+        "debt_to_earnings_annual": null,
+        "earnings_1yr_median": null,
+        "earnings_1yr_p25": 32724.0,
+        "earnings_1yr_p75": 39794.0,
+        "education_level_name": null,
+        "employment_current": null,
+        "growth_category": null,
+        "institution_control": "Public",
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "match_quality": "partial_no_bls",
+        "median_annual_wage": null,
+        "net_price_4yr": 60804.0,
+        "net_price_annual": 15201.0,
+        "occupation_title": "Teaching Assistants, Special Education",
+        "overall_confidence": "medium",
+        "program_name": "Education, General.",
+        "roi_cost_basis": "none",
+        "room_board_on_campus": 13938.0,
+        "soc_code": "25-9043",
+        "soc_major_group_name": null,
+        "stat_ern": null,
+        "stat_grw": null,
+        "stat_hmn": 7,
+        "stat_res": 9,
+        "stat_roi": null,
+        "stats_available_count": 2,
+        "top_5_activities": [
+          {
+            "activity": "Getting Information",
+            "importance": 4.34
+          },
+          {
+            "activity": "Assisting and Caring for Others",
+            "importance": 4.06
+          },
+          {
+            "activity": "Communicating with Supervisors, Peers, or Subordinates",
+            "importance": 3.87
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.78
+          },
+          {
+            "activity": "Monitoring Processes, Materials, or Surroundings",
+            "importance": 3.71
+          }
+        ],
+        "top_human_activities": [
+          {
+            "activity": "Assisting and Caring for Others",
+            "importance": 4.06
+          },
+          {
+            "activity": "Establishing and Maintaining Interpersonal Relationships",
+            "importance": 3.78
+          },
+          {
+            "activity": "Making Decisions and Solving Problems",
+            "importance": 3.6
+          },
+          {
+            "activity": "Resolving Conflicts and Negotiating with Others",
+            "importance": 3.59
+          },
+          {
+            "activity": "Coaching and Developing Others",
+            "importance": 3.57
+          }
+        ],
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "unitid": 145637,
+        "velocity_label": "unknown"
+      }
+    ],
+    "row_count": 3,
+    "substitution_applied": false,
+    "substitution_note": "Could not map 'Education' to a specific program. Showing results for the school's reported program."
+  }
+}
