@@ -69,6 +69,9 @@ def _prompt(
     school_name: str,
     program_name: str,
     cipcode: str,
+    *,
+    student_major_text: str = "",
+    intent_keywords: list[str] | None = None,
 ) -> str:
     soc_lines = "\n".join(
         f"  {o.soc_code}  {o.occupation_title}"
@@ -76,9 +79,42 @@ def _prompt(
         + (f"  [{o.education_level_name}]" if o.education_level_name else "")
         for o in outcomes
     )
+    has_intent = bool(intent_keywords) or bool(student_major_text.strip())
+    intent_block = ""
+    if has_intent:
+        parts = ["\nSTUDENT INTENT"]
+        if student_major_text.strip():
+            parts.append(f'The student typed: "{student_major_text.strip()}"')
+        if intent_keywords:
+            parts.append(
+                f"Extracted intent keywords: {', '.join(intent_keywords)}"
+            )
+        intent_block = "\n".join(parts) + "\n"
+
+    intent_rules = ""
+    if has_intent:
+        intent_rules = (
+            "- INTENT MATCH RULES (apply when STUDENT INTENT block is "
+            "present):\n"
+            "  * If a SOC's education level shown in brackets (e.g., "
+            "[Bachelor's degree], [Associate's degree]) is below what "
+            "the student's intent implies — keywords like \"doctor\", "
+            "\"physician\", \"pre-med\", \"pre-vet\", \"veterinarian\", "
+            "\"dentist\", \"lawyer\", \"attorney\", \"pre-law\" imply a "
+            "doctoral or professional degree — demote that SOC toward "
+            "STRETCH even if it's a frequent crosswalk match.\n"
+            "  * If a SOC directly matches a stated intent keyword by "
+            "title or near-synonym, promote it toward COMMON or "
+            "LESS_COMMON.\n"
+            "  * Never invent careers not in the list above. Intent "
+            "only re-orders the existing matches; it doesn't add new "
+            "ones.\n"
+        )
+
     return (
         f"School: {school_name}\n"
-        f"Major: {program_name} (CIP {cipcode})\n\n"
+        f"Major: {program_name} (CIP {cipcode})\n"
+        f"{intent_block}\n"
         f"The CIP-SOC crosswalk returned {len(outcomes)} matched "
         f"occupations. Tier ALL of them for this specific "
         f"school+major:\n\n"
@@ -98,6 +134,7 @@ def _prompt(
         f"- LESS_COMMON: the next 5-7 plausible careers.\n"
         f"- STRETCH: remaining matches that are possible but atypical "
         f"for this school+major.\n"
+        f"{intent_rules}"
         f"- Every SOC code from the list above must appear in exactly "
         f"one tier.\n"
         f"- Output ONLY the header+SOC format. No titles, no "
@@ -163,6 +200,9 @@ def tier_careers(
     school_name: str,
     program_name: str,
     cipcode: str,
+    *,
+    student_major_text: str = "",
+    intent_keywords: list[str] | None = None,
 ) -> OrderedDict[str, list[CareerOutcome]]:
     """Tier a full crosswalk-matched career list via Gemma.
 
@@ -181,7 +221,14 @@ def tier_careers(
 
     text = gemma_client.generate(
         system=_SYSTEM,
-        user=_prompt(outcomes, school_name, program_name, cipcode),
+        user=_prompt(
+            outcomes,
+            school_name,
+            program_name,
+            cipcode,
+            student_major_text=student_major_text,
+            intent_keywords=intent_keywords,
+        ),
         max_tokens=1500,
         temperature=0.2,
     )

@@ -285,6 +285,7 @@ def _row_to_outcome(
         # which is the financing-agnostic cost-vs-earnings ratio.
         roi_cost_basis=row.get("roi_cost_basis"),
         financed_dte=financed_dte,
+        match_quality=row.get("match_quality"),
     )
 
 
@@ -296,6 +297,7 @@ def compute_pentagon(
     student_cip: str | None = None,
     effort: EffortLevel = "balanced",
     loan_pct: float = 1.0,
+    intent_keywords: list[str] | None = None,
 ) -> list[CareerOutcome]:
     """Return every career outcome for a school+major combo.
 
@@ -321,6 +323,8 @@ def compute_pentagon(
         args["student_major"] = student_major
     if student_cip:
         args["student_cip"] = student_cip
+    if intent_keywords:
+        args["intent_keywords"] = intent_keywords
 
     result = mcp_client.call("get_career_paths", args)
     rows = result.get("data") or []
@@ -357,6 +361,7 @@ def compute_one(
     loan_pct: float = 1.0,
     student_major: str | None = None,
     student_cip: str | None = None,
+    intent_keywords: list[str] | None = None,
 ) -> CareerOutcome:
     """Return a single ``CareerOutcome`` for the selected SOC.
 
@@ -377,6 +382,7 @@ def compute_one(
         student_cip=student_cip,
         effort=effort,
         loan_pct=loan_pct,
+        intent_keywords=intent_keywords,
     )
     for outcome in outcomes:
         if outcome.soc_code == soc_code:

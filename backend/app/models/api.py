@@ -48,6 +48,7 @@ class OutcomesRequest(BaseModel):
     student_cip: str | None = None
     effort: str = "balanced"
     loan_pct: float = 1.0
+    intent_keywords: list[str] = Field(default_factory=list)
 
 
 class TierRequest(BaseModel):
@@ -55,6 +56,8 @@ class TierRequest(BaseModel):
     school_name: str
     program_name: str
     cipcode: str
+    student_major_text: str | None = None
+    intent_keywords: list[str] = Field(default_factory=list)
 
 
 class BuildRequest(BaseModel):
@@ -72,6 +75,7 @@ class BuildRequest(BaseModel):
     # Caller-resolved CIP (mirrors OutcomesRequest). New flow forwards
     # Gemma's matched_cip so /build stays consistent with the preview.
     student_cip: str | None = None
+    intent_keywords: list[str] = Field(default_factory=list)
 
 
 class RerollRequest(BaseModel):

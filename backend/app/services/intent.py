@@ -226,6 +226,37 @@ def _get_crosswalk_cips_for_families(
     ]
 
 
+def _sample_crosswalk(
+    cips: list[dict[str, str]], max_total: int = 60
+) -> list[dict[str, str]]:
+    """Sample evenly across CIP families so every family gets representation.
+
+    A naive ``cips[:60]`` starves high-numbered families (biology, health,
+    business) when a large school spans many CIP families.
+    """
+    if len(cips) <= max_total:
+        return cips
+
+    from collections import defaultdict
+
+    by_family: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for c in cips:
+        family = c.get("cipcode", "")[:2]
+        by_family[family].append(c)
+
+    families = sorted(by_family)
+    per_family = max(1, max_total // len(families))
+    result: list[dict[str, str]] = []
+    for fam in families:
+        result.extend(by_family[fam][:per_family])
+
+    if len(result) < max_total:
+        remaining = [c for c in cips if c not in result]
+        result.extend(remaining[: max_total - len(result)])
+
+    return result[:max_total]
+
+
 def _get_career_titles_for_cip(cipcode: str) -> list[str]:
     server = mcp_client.get_server()
     prefix = cipcode[:5] if len(cipcode) >= 5 else cipcode
@@ -257,7 +288,8 @@ def _call_gemma_intent(
         f"- {c['cipcode']} {c['program_name']}" for c in school_cips
     )
     crosswalk_cip_list = "\n".join(
-        f"- {c['cipcode']} {c['cip_title']}" for c in crosswalk_cips[:60]
+        f"- {c['cipcode']} {c['cip_title']}"
+        for c in _sample_crosswalk(crosswalk_cips, max_total=60)
     )
     prompt_input = student_input
     if clarification:
@@ -274,7 +306,7 @@ def _call_gemma_intent(
     raw_response = gemma_client.generate(
         system=system,
         user=f'Match this student input to a CIP code: "{prompt_input}"',
-        max_tokens=700,
+        max_tokens=1500,
         temperature=0.0,
         seed=_derive_intent_seed(prompt_input),
     )
