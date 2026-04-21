@@ -168,6 +168,8 @@ class CareerOutcome(BaseModel):
     stats_available_count: int | None = None
     overall_confidence: str | None = None
 
+    match_quality: str | None = None
+
     substitution_applied: bool = False
     reported_cipcode: str | None = None
     substituted_cipcode: str | None = None
@@ -336,6 +338,8 @@ class IntentResult(BaseModel):
     # Initial resolution never sets this — only the chip flow does. See
     # docs/specs/feature-set-your-course.md §2 Decision #16.
     confirmed_focus: str | None = None
+    student_major_text: str = ""
+    intent_keywords: list[str] = Field(default_factory=list)
 
 
 class ProfileResult(BaseModel):
