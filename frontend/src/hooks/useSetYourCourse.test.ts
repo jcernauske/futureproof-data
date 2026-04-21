@@ -44,7 +44,11 @@ vi.mock("@/api/build", () => ({
 }));
 
 import { streamIntent, dispatchChip, commitResolution } from "@/api/intent";
+import { getOutcomes, getTieredCareers } from "@/api/build";
 import { useSetYourCourse } from "./useSetYourCourse";
+import type { CareerOutcome, TieredCareers } from "@/types/build";
+
+const CAREER_FETCH_DEBOUNCE_MS = 250;
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -122,11 +126,76 @@ function seedSchool() {
   });
 }
 
+function makeOutcome(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
+  return {
+    unitid: 151351,
+    institution_name: "Indiana University",
+    cipcode: "52.14",
+    program_name: "Marketing",
+    soc_code: "11-2021",
+    occupation_title: "Marketing Manager",
+    soc_major_group_name: "Management",
+    median_annual_wage: 133380,
+    earnings_1yr_median: 55000,
+    earnings_1yr_p25: 42000,
+    earnings_1yr_p75: 68000,
+    debt_median: 24000,
+    debt_to_earnings_annual: 0.44,
+    education_level_name: "Bachelor's degree",
+    growth_category: "Average",
+    net_price_annual: 18000,
+    cost_of_attendance_annual: 26000,
+    modeled_total_debt: 72000,
+    debt_median_reference: 24000,
+    institution_control: "Public",
+    tuition_in_state: 10000,
+    tuition_out_of_state: 22000,
+    room_board_on_campus: 11000,
+    stats: { ern: 4, roi: 3, res: 3, grw: 3, hmn: 3 },
+    bosses: { ai: 2, loans: 1, market: 2, burnout: 2, ceiling: 2 },
+    top_5_activities: [],
+    top_human_activities: [],
+    burnout_drivers: [],
+    stats_available_count: 5,
+    overall_confidence: "high",
+    match_quality: null,
+    substitution_applied: false,
+    reported_cipcode: null,
+    substituted_cipcode: null,
+    data_caveat: null,
+    loan_pct: 0.5,
+    ...overrides,
+  };
+}
+
+function makeTiers(outcomes: CareerOutcome[]): TieredCareers {
+  return { common: outcomes, less_common: [], stretch: [] };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function seedResolution() {
+  useBuildInputStore.setState({
+    initialResolution: makeResolution(),
+    currentResolution: makeResolution(),
+  });
+}
+
 beforeEach(() => {
   mockNavigate.mockReset();
   vi.mocked(streamIntent).mockReset();
   vi.mocked(dispatchChip).mockReset();
   vi.mocked(commitResolution).mockReset();
+  vi.mocked(getOutcomes).mockReset();
+  vi.mocked(getTieredCareers).mockReset();
   // Keep buildStore in a known baseline so commit() can fall back to
   // a career when selectedCareer is null.
   useBuildStore.setState({
@@ -527,5 +596,270 @@ describe("TestConfirmedFocus", () => {
     // New resolution replaces the prior currentResolution entirely —
     // the old sub-focus cannot survive a topic change.
     expect(finalState.currentResolution?.confirmed_focus).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TestSocRevealStateMachine (P0)
+// ---------------------------------------------------------------------------
+
+describe("TestSocRevealStateMachine", () => {
+  it("socReveal transitions idle -> outcomes-loading -> outcomes-loaded-tiering -> tiered", async () => {
+    vi.useFakeTimers();
+    seedResolution();
+    const outcomes = [makeOutcome()];
+    const tiers = makeTiers(outcomes);
+
+    const outcomesDef = deferred<CareerOutcome[]>();
+    const tierDef = deferred<TieredCareers>();
+    vi.mocked(getOutcomes).mockReturnValue(outcomesDef.promise);
+    vi.mocked(getTieredCareers).mockReturnValue(tierDef.promise);
+
+    const { result } = renderHook(() => useSetYourCourse("marketing"), { wrapper });
+
+    expect(result.current.socReveal.kind).toBe("idle");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+    expect(result.current.socReveal.kind).toBe("outcomes-loading");
+
+    await act(async () => {
+      outcomesDef.resolve(outcomes);
+      await Promise.resolve();
+    });
+    // Flush React state updates.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.socReveal.kind).toBe("outcomes-loaded-tiering");
+    if (result.current.socReveal.kind === "outcomes-loaded-tiering") {
+      expect(result.current.socReveal.outcomes).toHaveLength(1);
+    }
+
+    // Resolve tiering.
+    await act(async () => {
+      tierDef.resolve(tiers);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.socReveal.kind).toBe("tiered");
+    if (result.current.socReveal.kind === "tiered") {
+      expect(result.current.socReveal.tiers.common).toHaveLength(1);
+    }
+  });
+
+  it("stale tier response does not overwrite fresh outcomes-loading state", async () => {
+    vi.useFakeTimers();
+    seedResolution();
+    const outcomes1 = [makeOutcome({ soc_code: "11-2021" })];
+
+    const outcomesDef1 = deferred<CareerOutcome[]>();
+    const tierDef1 = deferred<TieredCareers>();
+    vi.mocked(getOutcomes).mockReturnValueOnce(outcomesDef1.promise);
+    vi.mocked(getTieredCareers).mockReturnValueOnce(tierDef1.promise);
+
+    const { result, rerender } = renderHook(
+      ({ text }) => useSetYourCourse(text),
+      { wrapper, initialProps: { text: "marketing" } },
+    );
+
+    // Fire first debounce.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+    expect(result.current.socReveal.kind).toBe("outcomes-loading");
+
+    // Resolve first outcomes.
+    await act(async () => {
+      outcomesDef1.resolve(outcomes1);
+      await Promise.resolve();
+    });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.socReveal.kind).toBe("outcomes-loaded-tiering");
+
+    // Fire second request (simulate keystroke change triggering re-fetch).
+    const outcomesDef2 = deferred<CareerOutcome[]>();
+    vi.mocked(getOutcomes).mockReturnValueOnce(outcomesDef2.promise);
+    vi.mocked(getTieredCareers).mockReturnValueOnce(deferred<TieredCareers>().promise);
+
+    rerender({ text: "marketing strategy" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+    expect(result.current.socReveal.kind).toBe("outcomes-loading");
+
+    // Now the STALE tier from request 1 resolves — must be ignored.
+    await act(async () => {
+      tierDef1.resolve(makeTiers(outcomes1));
+      await Promise.resolve();
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    // State must still be in the second request's outcomes-loading, NOT tiered.
+    expect(result.current.socReveal.kind).toBe("outcomes-loading");
+  });
+
+  it("superseded outcomes request is aborted", async () => {
+    vi.useFakeTimers();
+    seedResolution();
+
+    const abortSpy = vi.spyOn(AbortController.prototype, "abort");
+
+    vi.mocked(getOutcomes).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getTieredCareers).mockReturnValue(new Promise(() => {}));
+
+    const { rerender } = renderHook(
+      ({ text }) => useSetYourCourse(text),
+      { wrapper, initialProps: { text: "marketing" } },
+    );
+
+    // Fire first debounce.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+    expect(getOutcomes).toHaveBeenCalledTimes(1);
+    abortSpy.mockClear();
+
+    // Trigger second fetch.
+    rerender({ text: "biology" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+
+    expect(abortSpy).toHaveBeenCalled();
+    abortSpy.mockRestore();
+  });
+
+  it("keystrokes inside debounce window do not fire fetch", async () => {
+    vi.useFakeTimers();
+    seedResolution();
+
+    vi.mocked(getOutcomes).mockResolvedValue([makeOutcome()]);
+    vi.mocked(getTieredCareers).mockResolvedValue(makeTiers([makeOutcome()]));
+
+    const { rerender } = renderHook(
+      ({ text }) => useSetYourCourse(text),
+      { wrapper, initialProps: { text: "m" } },
+    );
+
+    // 5 rapid keystrokes, each before debounce fires.
+    for (const char of ["ma", "mar", "mark", "marke"]) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50);
+      });
+      rerender({ text: char });
+    }
+
+    // Nothing fired yet.
+    expect(getOutcomes).not.toHaveBeenCalled();
+
+    // Now let the debounce complete.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+
+    expect(getOutcomes).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolved CIP change fires immediately, bypassing debounce", async () => {
+    vi.useFakeTimers();
+
+    vi.mocked(getOutcomes).mockResolvedValue([makeOutcome()]);
+    vi.mocked(getTieredCareers).mockResolvedValue(makeTiers([makeOutcome()]));
+
+    // Seed with one CIP, then change it.
+    useBuildInputStore.setState({
+      initialResolution: makeResolution({ matched_cip: "52.1401" }),
+      currentResolution: makeResolution({ matched_cip: "52.1401" }),
+    });
+
+    renderHook(
+      ({ text }) => useSetYourCourse(text),
+      { wrapper, initialProps: { text: "marketing" } },
+    );
+
+    // Let the initial effect fire.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+    const firstCallCount = vi.mocked(getOutcomes).mock.calls.length;
+
+    // Change the resolved CIP — this should fire immediately.
+    act(() => {
+      useBuildInputStore.setState({
+        currentResolution: makeResolution({
+          matched_cip: "26.0101",
+          matched_title: "Biology",
+        }),
+      });
+    });
+
+    // Do NOT advance timers — the CIP change should fire synchronously
+    // via the immediateOnKeyChange override.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(vi.mocked(getOutcomes).mock.calls.length).toBeGreaterThan(firstCallCount);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TestSocRevealErrors (P1)
+// ---------------------------------------------------------------------------
+
+describe("TestSocRevealErrors", () => {
+  it("error during outcomes settles state to error", async () => {
+    vi.useFakeTimers();
+    seedResolution();
+
+    vi.mocked(getOutcomes).mockRejectedValue(new Error("Network failure"));
+
+    const { result } = renderHook(() => useSetYourCourse("marketing"), { wrapper });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+    // Flush the async rejection handler.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.socReveal.kind).toBe("error");
+    if (result.current.socReveal.kind === "error") {
+      expect(result.current.socReveal.message).toBe("Network failure");
+    }
+  });
+
+  it("error during tier keeps outcomes visible as fallback", async () => {
+    vi.useFakeTimers();
+    seedResolution();
+    const outcomes = [makeOutcome()];
+
+    vi.mocked(getOutcomes).mockResolvedValue(outcomes);
+    vi.mocked(getTieredCareers).mockRejectedValue(new Error("Gemma timeout"));
+
+    const { result } = renderHook(() => useSetYourCourse("marketing"), { wrapper });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
+    });
+    // Flush outcomes + tiering rejection.
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Tiering failed — flat outcomes stay visible.
+    expect(result.current.socReveal.kind).toBe("outcomes-loaded-tiering");
+    if (result.current.socReveal.kind === "outcomes-loaded-tiering") {
+      expect(result.current.socReveal.outcomes).toHaveLength(1);
+    }
   });
 });
