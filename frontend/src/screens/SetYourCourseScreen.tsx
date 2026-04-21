@@ -6,15 +6,13 @@ import { apiGet } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
-import { getOutcomes, getTieredCareers } from "@/api/build";
 import { useSetYourCourse } from "@/hooks/useSetYourCourse";
 import { SchoolSearch } from "@/components/school/SchoolSearch";
 import { EffortLoansPanel } from "@/components/school/EffortLoansPanel";
 import { AskGemmaChip } from "@/components/school/AskGemmaChip";
 import { CareerListSkeleton } from "@/components/school/CareerListSkeleton";
-import { CollapsibleCareerSection } from "@/components/school/CollapsibleCareerSection";
+import { CareerTierSection } from "@/components/CareerTierSection";
 import { CommunitySuggestions } from "@/components/school/CommunitySuggestions";
-import { ChapterBook } from "@/components/chapter-book/ChapterBook";
 import { Button } from "@/components/ui/Button";
 import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
@@ -23,7 +21,7 @@ import type {
   ProgramResult,
   SchoolSelection,
 } from "@/types/buildInput";
-import type { CareerOutcome, TieredCareers } from "@/types/build";
+import type { CareerOutcome } from "@/types/build";
 
 export function SetYourCourseScreen() {
   const navigate = useNavigate();
@@ -44,6 +42,8 @@ export function SetYourCourseScreen() {
   const selectedCareer = useBuildStore((s) => s.selectedCareer);
   const setSelectedCareer = useBuildStore((s) => s.setSelectedCareer);
 
+  const [majorText, setMajorText] = useState("");
+
   const {
     resolve,
     onChip,
@@ -53,28 +53,18 @@ export function SetYourCourseScreen() {
     streamingText,
     error,
     suggestions,
-    parentCipOrMatched,
     setCommittedClick,
     lastClarifier,
     debugTrace,
     revealedTrace,
     revealDone,
     clarifierDiverged,
-  } = useSetYourCourse();
+    suggestedMajor,
+    socReveal,
+  } = useSetYourCourse(majorText);
 
-  const [majorText, setMajorText] = useState("");
-  const [tieredCareers, setTieredCareers] = useState<TieredCareers | null>(
-    null,
-  );
-  const [tiersLoading, setTiersLoading] = useState(false);
-  const [tiersError, setTiersError] = useState<string | null>(null);
   const [effortExpanded, setEffortExpanded] = useState(false);
   const [confirmStartOver, setConfirmStartOver] = useState(false);
-  // Chapter Book open-state — screen-local per feature-chapter-book
-  // Decision #13. Cleared when the Gemma resolution's matched_cip
-  // changes so book mode doesn't survive a re-resolution.
-  const [selectedChapterCareer, setSelectedChapterCareer] =
-    useState<CareerOutcome | null>(null);
   const reducedMotion = useReducedMotion();
 
   // Profile guard — bounce to /app if the profile isn't set. Stash this
@@ -104,97 +94,17 @@ export function SetYourCourseScreen() {
     resolve(value);
   }
 
-  // Live career preview — refetch whenever the resolved CIP changes.
-  // Routes parent_cip || matched_cip into /build/outcomes and passes
-  // matched_cip as student_cip so the MCP handler bypasses the YAML
-  // lookup (see backend/app/services/set_your_course.py).
-  useEffect(() => {
-    if (!school || !parentCipOrMatched) {
-      setTieredCareers(null);
-      setTiersError(null);
-      return;
-    }
-
-    const currentSchool = school;
-    const lookupCip = parentCipOrMatched;
-    const effortLevel = effort.level;
-    const loanPct = loans.percentage / 100;
-    const rawText = majorText.trim();
-
-    let cancelled = false;
-    setTiersLoading(true);
-    setTiersError(null);
-
-    (async () => {
-      try {
-        const outcomes = await getOutcomes(
-          currentSchool.unitid,
-          lookupCip,
-          effortLevel,
-          loanPct,
-          rawText || undefined,
-          currentResolution?.matched_cip || undefined,
-        );
-        if (cancelled) return;
-        const tiers = await getTieredCareers(
-          outcomes,
-          currentSchool.name,
-          currentResolution?.matched_title ?? "",
-          lookupCip,
-        );
-        if (cancelled) return;
-        setTieredCareers(tiers);
-      } catch (err) {
-        if (!cancelled) {
-          setTiersError(
-            err instanceof Error ? err.message : "Failed to load careers",
-          );
-        }
-      } finally {
-        if (!cancelled) setTiersLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    school,
-    parentCipOrMatched,
-    effort.level,
-    loans.percentage,
-    majorText,
-    currentResolution?.matched_title,
-    currentResolution?.matched_cip,
-  ]);
-
   const handleCareerSelect = useCallback(
     (career: CareerOutcome) => {
-      // Preserve existing commit telemetry (the pickedSoc badge and any
-      // downstream consumers of selectedCareer), then open the Chapter
-      // Book per feature-chapter-book §4 + Decision #7.
       setSelectedCareer(career);
       setCommittedClick({
         soc: career.soc_code,
         title: career.occupation_title,
         feasibility: null,
       });
-      setSelectedChapterCareer(career);
     },
     [setSelectedCareer, setCommittedClick],
   );
-
-  const handleChapterBookBack = useCallback(() => {
-    setSelectedChapterCareer(null);
-  }, []);
-
-  // Decision #13 — book-mode state is cleared when the Gemma resolution
-  // points at a new CIP. Without this, a student who opens the book,
-  // edits their field-of-study, and sees a re-resolution would see stale
-  // chapters under the new resolution's career list.
-  useEffect(() => {
-    setSelectedChapterCareer(null);
-  }, [currentResolution?.matched_cip]);
 
   function handleStartOverRequest() {
     setConfirmStartOver(true);
@@ -202,10 +112,7 @@ export function SetYourCourseScreen() {
 
   function handleStartOverConfirm() {
     setMajorText("");
-    setTieredCareers(null);
-    setTiersError(null);
     setSelectedCareer(null);
-    setSelectedChapterCareer(null);
     reset();
     setConfirmStartOver(false);
   }
@@ -284,19 +191,48 @@ export function SetYourCourseScreen() {
     };
   }, [currentResolution, programs]);
 
-  // Split tiered careers into two groupings for the collapsible sections.
-  // Common tier stays expanded by default; less_common + stretch collapse
-  // into a single "Uncommon paths" drawer with a count.
+  const tieredCareers = socReveal.kind === "tiered" ? socReveal.tiers : null;
+
+  const isPostgrad = (c: CareerOutcome) =>
+    c.education_level_name != null &&
+    /doctoral|professional|master/i.test(c.education_level_name);
+
   const commonCareers = useMemo<CareerOutcome[]>(
-    () => (tieredCareers ? tieredCareers.common.slice(0, 6) : []),
+    () => (tieredCareers ? tieredCareers.common.filter((c) => !isPostgrad(c)).slice(0, 6) : []),
     [tieredCareers],
   );
   const uncommonCareers = useMemo<CareerOutcome[]>(
     () =>
       tieredCareers
-        ? [...tieredCareers.less_common, ...tieredCareers.stretch]
+        ? [...tieredCareers.less_common, ...tieredCareers.stretch].filter((c) => !isPostgrad(c))
         : [],
     [tieredCareers],
+  );
+  const postgradCareers = useMemo<CareerOutcome[]>(
+    () =>
+      tieredCareers
+        ? [
+            ...tieredCareers.common,
+            ...tieredCareers.less_common,
+            ...tieredCareers.stretch,
+          ].filter(isPostgrad)
+        : [],
+    [tieredCareers],
+  );
+
+  const outcomesForIntermediate = useMemo<CareerOutcome[]>(
+    () =>
+      socReveal.kind === "outcomes-loaded-tiering"
+        ? socReveal.outcomes.filter((c) => !isPostgrad(c)).slice(0, 6)
+        : [],
+    [socReveal],
+  );
+  const postgradIntermediate = useMemo<CareerOutcome[]>(
+    () =>
+      socReveal.kind === "outcomes-loaded-tiering"
+        ? socReveal.outcomes.filter(isPostgrad)
+        : [],
+    [socReveal],
   );
 
   if (!profileName) return null;
@@ -327,7 +263,10 @@ export function SetYourCourseScreen() {
                 <SchoolSearch
                   selected={school}
                   onSelect={handleSchoolSelect}
-                  onClear={clearSchool}
+                  onClear={() => {
+                    clearSchool();
+                    setMajorText("");
+                  }}
                 />
               </div>
 
@@ -592,16 +531,15 @@ export function SetYourCourseScreen() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const next = lastClarifier;
+                                  const next = suggestedMajor || lastClarifier;
                                   setMajorText(next);
-                                  setTieredCareers(null);
                                   resolve(next);
                                 }}
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-insight/15 hover:bg-accent-insight/25 text-accent-insight font-display font-medium text-small ring-1 ring-accent-insight/30 hover:ring-accent-insight/50 transition-colors duration-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-focus-ring)]"
                                 data-testid="btn-try-clarifier"
                               >
                                 <span className="opacity-60">→</span>
-                                Try &ldquo;{lastClarifier}&rdquo; as the field of study
+                                Try &ldquo;{suggestedMajor || lastClarifier}&rdquo; as the field of study
                               </button>
                               <span
                                 aria-disabled="true"
@@ -622,75 +560,87 @@ export function SetYourCourseScreen() {
                 )}
               </AnimatePresence>
 
-              {/* Career lists → Chapter Book. Right-column mode toggle
-                  per feature-chapter-book Decision #2 (replace-the-list).
-                  AnimatePresence mode="wait" ensures the exiting panel
-                  clears before the entering panel mounts, which combined
-                  with the 60ms book-entrance delay reads as "rearrange"
-                  not "flicker" (§3.2). Hidden entirely when the clarifier
-                  diverged — tiles would be stale. */}
+              {/* Career tier cards — always-open sections, no chapter book */}
               {currentResolution && !streaming && !clarifierDiverged && (
-                <AnimatePresence mode="wait" initial={false}>
-                  {selectedChapterCareer ? (
-                    <motion.div
-                      key="book-mode"
-                      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
-                      transition={
-                        reducedMotion
-                          ? { duration: 0 }
-                          : { ...springs.smooth, delay: 0.06 }
-                      }
-                      className="mt-6"
-                    >
-                      <ChapterBook
-                        career={selectedChapterCareer}
-                        onBack={handleChapterBookBack}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="list-mode"
-                      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
-                      transition={reducedMotion ? { duration: 0 } : springs.smooth}
-                      className="mt-6 flex flex-col gap-4"
-                    >
-                      <p className="font-body text-small italic text-text-muted">
-                        Showing Standard Occupational Classification (SOC) codes related to CIP {currentResolution.matched_cip.slice(0, 5)}.
-                      </p>
-                      {tiersLoading && !tieredCareers && <CareerListSkeleton />}
-                      {tiersError && (
-                        <p className="font-body text-small text-accent-alert">
-                          {tiersError}
-                        </p>
-                      )}
-                      {tieredCareers && (
-                        <>
-                          <CollapsibleCareerSection
-                            label="Where this commonly leads"
-                            careers={commonCareers}
-                            defaultOpen={true}
-                            pickedSoc={selectedCareer?.soc_code ?? null}
-                            onSelect={handleCareerSelect}
-                            testId="section-common-paths"
-                          />
-                          <CollapsibleCareerSection
-                            label="Uncommon paths"
-                            careers={uncommonCareers}
-                            defaultOpen={false}
-                            showCount={true}
-                            pickedSoc={selectedCareer?.soc_code ?? null}
-                            onSelect={handleCareerSelect}
-                            testId="section-uncommon-paths"
-                          />
-                        </>
-                      )}
-                    </motion.div>
+                <motion.div
+                  key={currentResolution.matched_cip}
+                  initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={reducedMotion ? { duration: 0 } : springs.smooth}
+                  className="mt-6 flex flex-col gap-6"
+                >
+                  <p className="font-body text-small italic text-text-muted">
+                    Showing Standard Occupational Classification (SOC) codes related to CIP {currentResolution.matched_cip.slice(0, 5)}.
+                  </p>
+                  {socReveal.kind === "outcomes-loading" && <CareerListSkeleton />}
+                  {socReveal.kind === "error" && (
+                    <p className="font-body text-small text-accent-alert">
+                      {socReveal.message}
+                    </p>
                   )}
-                </AnimatePresence>
+                  {socReveal.kind === "outcomes-loaded-tiering" && (
+                    <>
+                      <p
+                        aria-live="polite"
+                        data-testid="tier-section-loading"
+                        className="font-data text-micro font-bold uppercase tracking-[2px] text-text-secondary animate-gemma-shimmer-loop py-2"
+                      >
+                        Organizing your paths…
+                      </p>
+                      <CareerTierSection
+                        id="tier-common"
+                        label="Career paths"
+                        description="Where most graduates from this program end up."
+                        accent="common"
+                        careers={outcomesForIntermediate}
+                        pickedSoc={selectedCareer?.soc_code ?? null}
+                        onSelect={handleCareerSelect}
+                      />
+                      {postgradIntermediate.length > 0 && (
+                        <CareerTierSection
+                          id="tier-postgrad-int"
+                          label="Requires postgraduate education"
+                          description="These paths typically need a master's or doctoral degree."
+                          accent="postgrad"
+                          careers={postgradIntermediate}
+                          pickedSoc={selectedCareer?.soc_code ?? null}
+                          onSelect={handleCareerSelect}
+                        />
+                      )}
+                    </>
+                  )}
+                  {tieredCareers && (
+                    <>
+                      <CareerTierSection
+                        id="tier-common"
+                        label="Where this commonly leads"
+                        description="Where most graduates from this program end up."
+                        accent="common"
+                        careers={commonCareers}
+                        pickedSoc={selectedCareer?.soc_code ?? null}
+                        onSelect={handleCareerSelect}
+                      />
+                      <CareerTierSection
+                        id="tier-uncommon"
+                        label="Uncommon paths"
+                        description="Realistic paths that take more intention to reach."
+                        accent="uncommon"
+                        careers={uncommonCareers}
+                        pickedSoc={selectedCareer?.soc_code ?? null}
+                        onSelect={handleCareerSelect}
+                      />
+                      <CareerTierSection
+                        id="tier-postgrad"
+                        label="Requires postgraduate education"
+                        description="These paths typically need a master's or doctoral degree."
+                        accent="postgrad"
+                        careers={postgradCareers}
+                        pickedSoc={selectedCareer?.soc_code ?? null}
+                        onSelect={handleCareerSelect}
+                      />
+                    </>
+                  )}
+                </motion.div>
               )}
 
 
