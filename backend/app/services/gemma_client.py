@@ -28,13 +28,14 @@ import logging
 import os
 import threading
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import httpx
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -139,6 +140,86 @@ def _get_semaphore() -> asyncio.Semaphore:
 
 
 # ---------------------------------------------------------------------------
+# Native Ollama API helpers (think: false)
+# ---------------------------------------------------------------------------
+#
+# Ollama's OpenAI-compatible /v1/chat/completions ignores ``think: false``
+# even via ``extra_body``. Gemma 4 models default to extended thinking
+# which consumes all output tokens with reasoning, leaving ``content``
+# empty. The native /api/chat endpoint honors ``think: false``, so we
+# use httpx for Ollama non-streaming and SSE for streaming.
+
+
+def _ollama_native_url(config: InferenceConfig) -> str:
+    """Derive the native Ollama API base from the OpenAI-compat base_url."""
+    # base_url is like "http://localhost:11434/v1"
+    return config.base_url.replace("/v1", "")
+
+
+def _ollama_chat_sync(
+    config: InferenceConfig,
+    model: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """Call Ollama native /api/chat with think=false. Returns parsed JSON."""
+    url = f"{_ollama_native_url(config)}/api/chat"
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "think": False,
+        "stream": False,
+        "options": {
+            "num_predict": max_tokens,
+            "temperature": temperature,
+        },
+    }
+    if seed is not None:
+        payload["options"]["seed"] = seed
+    resp = httpx.post(url, json=payload, timeout=180.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _ollama_chat_stream(
+    config: InferenceConfig,
+    model: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+    seed: int | None = None,
+) -> Iterator[str]:
+    """Stream Ollama native /api/chat with think=false. Yields content chunks."""
+    url = f"{_ollama_native_url(config)}/api/chat"
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "think": False,
+        "stream": True,
+        "options": {
+            "num_predict": max_tokens,
+            "temperature": temperature,
+        },
+    }
+    if seed is not None:
+        payload["options"]["seed"] = seed
+    with httpx.stream("POST", url, json=payload, timeout=180.0) as resp:
+        resp.raise_for_status()
+        for line in resp.iter_lines():
+            if not line.strip():
+                continue
+            try:
+                chunk = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            content = chunk.get("message", {}).get("content", "")
+            if content:
+                yield content
+
+
+# ---------------------------------------------------------------------------
 # JSONL call log
 # ---------------------------------------------------------------------------
 #
@@ -219,7 +300,7 @@ def generate(
 def generate_chat(
     *,
     system: str,
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     max_tokens: int = 500,
     temperature: float = 0.7,
     seed: int | None = None,
@@ -255,6 +336,46 @@ def generate_chat(
         record = {**extra, **record}
     started = time.perf_counter()
 
+    # Ollama native API: the only path that reliably disables thinking.
+    if config.backend == "ollama":
+        try:
+            data = _ollama_chat_sync(
+                config, resolved_model, full_messages,
+                max_tokens, temperature, seed,
+            )
+        except Exception as exc:
+            record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+            record["error"] = f"{type(exc).__name__}: {exc}"
+            _log_exchange(record)
+            logger.warning("gemma generate failed backend=%s: %s", config.backend, exc)
+            return ""
+
+        record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+        content = data.get("message", {}).get("content", "").strip()
+        finish_reason = data.get("done_reason", "stop")
+        truncated = finish_reason == "length"
+        if truncated:
+            logger.warning(
+                "gemma response truncated at max_tokens=%d (backend=%s). "
+                "Trimming to last complete sentence.",
+                max_tokens, config.backend,
+            )
+            content = _trim_to_last_sentence(content)
+        record["finish_reason"] = finish_reason
+        record["truncated"] = truncated
+        record["response"] = content
+        prompt_tokens = data.get("prompt_eval_count")
+        eval_tokens = data.get("eval_count")
+        if prompt_tokens is not None:
+            record["usage"] = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": eval_tokens,
+                "total_tokens": (prompt_tokens or 0) + (eval_tokens or 0),
+            }
+        _log_exchange(record)
+        return content
+
+    # OpenRouter / other OpenAI-compatible backends.
     completion_kwargs: dict[str, Any] = {
         "model": resolved_model,
         "messages": full_messages,
@@ -344,7 +465,7 @@ async def generate_async(
 async def generate_chat_async(
     *,
     system: str,
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     max_tokens: int = 500,
     temperature: float = 0.7,
     seed: int | None = None,
@@ -417,38 +538,42 @@ async def generate_stream_async(
         if extra:
             record = {**extra, **record}
 
-        completion_kwargs: dict[str, Any] = {
-            "model": resolved_model,
-            "messages": full_messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": True,
-        }
-        if seed is not None:
-            completion_kwargs["seed"] = seed
+        # Ollama native: use /api/chat with think=false + stream=true.
+        use_native_ollama = config.backend == "ollama"
 
         # Sentinel types for the bridge queue.
         _DONE = object()
         q: "_queue.Queue[Any]" = _queue.Queue(maxsize=256)
-        # Single-element holder so the async finally can reach the
-        # OpenAI stream object constructed inside the worker thread.
-        # Needed to close() it on client abort — otherwise the drain
-        # thread blocks forever in q.put() when the queue is full and
-        # the consumer is gone, leaking a thread + the Gemma semaphore.
         stream_holder: list[Any] = []
 
         def _drain_sync() -> None:
             try:
-                stream = client.chat.completions.create(**completion_kwargs)
-                stream_holder.append(stream)
-                for chunk in stream:
-                    choices = getattr(chunk, "choices", None) or []
-                    if not choices:
-                        continue
-                    delta = getattr(choices[0], "delta", None)
-                    content = getattr(delta, "content", None) if delta else None
-                    if content:
-                        q.put(content)
+                if use_native_ollama:
+                    for chunk in _ollama_chat_stream(
+                        config, resolved_model, full_messages,
+                        max_tokens, temperature, seed,
+                    ):
+                        q.put(chunk)
+                else:
+                    completion_kwargs: dict[str, Any] = {
+                        "model": resolved_model,
+                        "messages": full_messages,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "stream": True,
+                    }
+                    if seed is not None:
+                        completion_kwargs["seed"] = seed
+                    stream = client.chat.completions.create(**completion_kwargs)
+                    stream_holder.append(stream)
+                    for chunk in stream:
+                        choices = getattr(chunk, "choices", None) or []
+                        if not choices:
+                            continue
+                        delta = getattr(choices[0], "delta", None)
+                        content = getattr(delta, "content", None) if delta else None
+                        if content:
+                            q.put(content)
             except Exception as exc:  # pragma: no cover - defensive
                 q.put(("__error__", f"{type(exc).__name__}: {exc}"))
             finally:
@@ -504,6 +629,717 @@ async def generate_stream_async(
                 logger.warning(
                     "gemma stream failed backend=%s: %s", config.backend, error
                 )
+
+
+def generate_with_tools(
+    *,
+    system: str,
+    user: str,
+    tools: list[dict[str, Any]],
+    tool_choice: str | dict[str, Any] = "required",
+    max_tokens: int = 600,
+    temperature: float = 0.0,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Issue a chat completion with OpenAI-compatible function-calling.
+
+    Returns ``{"name": <fn_name>, "arguments": <dict>}`` for the first
+    tool call in the response, or ``None`` if the model returned a
+    plain message instead of calling a tool, or on transport error.
+
+    Works with both INFERENCE_BACKEND=ollama and openrouter.
+    Logs to logs/gemma.jsonl with extra["call_site"] for traceability.
+    """
+    client, config = _cached_client()
+    resolved_model = config.model
+    full_messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    record: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "backend": config.backend,
+        "model": resolved_model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "tool_calling": True,
+        "messages": full_messages,
+    }
+    if extra:
+        record = {**extra, **record}
+    started = time.perf_counter()
+
+    completion_kwargs: dict[str, Any] = {
+        "model": resolved_model,
+        "messages": full_messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "tools": tools,
+        "tool_choice": tool_choice,
+    }
+
+    try:
+        response = client.chat.completions.create(**completion_kwargs)
+    except Exception as exc:
+        record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+        record["error"] = f"{type(exc).__name__}: {exc}"
+        record["tool_call_made"] = False
+        _log_exchange(record)
+        logger.warning(
+            "gemma generate_with_tools failed backend=%s: %s",
+            config.backend, exc,
+        )
+        return None
+
+    record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+
+    choices = getattr(response, "choices", None) or []
+    if not choices:
+        record["error"] = "no_choices"
+        record["tool_call_made"] = False
+        _log_exchange(record)
+        return None
+
+    choice = choices[0]
+    message = getattr(choice, "message", None)
+    tool_calls = getattr(message, "tool_calls", None) if message else None
+
+    if not tool_calls:
+        content = getattr(message, "content", None) or ""
+        content = content.strip()
+        record["tool_call_made"] = False
+        record["tool_choice_honored"] = False
+        record["response"] = content
+
+        parsed = _try_parse_json_from_content(content, tools)
+        if parsed is not None:
+            record["tool_call_made"] = True
+            record["tool_choice_honored"] = False
+            record["fallback"] = "content_json_parse"
+            record["tool_name"] = parsed["name"]
+            record["tool_arguments"] = parsed["arguments"]
+            _log_exchange(record)
+            logger.info(
+                "gemma generate_with_tools: extracted tool call "
+                "from content (backend=%s)",
+                config.backend,
+            )
+            return parsed
+
+        logger.info(
+            "gemma generate_with_tools: no tool_calls, "
+            "retrying as plain JSON prompt (backend=%s)",
+            config.backend,
+        )
+        _log_exchange(record)
+
+        return _fallback_prompt_for_json(
+            system=system,
+            user=user,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            extra=extra,
+        )
+
+    tc = tool_calls[0]
+    fn = getattr(tc, "function", None)
+    if fn is None:
+        record["tool_call_made"] = False
+        _log_exchange(record)
+        return None
+
+    fn_name = getattr(fn, "name", "") or ""
+    fn_args_raw = getattr(fn, "arguments", "") or ""
+
+    try:
+        fn_args = (
+            json.loads(fn_args_raw)
+            if isinstance(fn_args_raw, str)
+            else fn_args_raw
+        )
+    except json.JSONDecodeError:
+        record["tool_call_made"] = True
+        record["error"] = f"unparseable_arguments: {fn_args_raw[:200]}"
+        _log_exchange(record)
+        logger.warning(
+            "gemma generate_with_tools: unparseable tool args: %s",
+            fn_args_raw[:200],
+        )
+        return None
+
+    record["tool_call_made"] = True
+    record["tool_choice_honored"] = True
+    record["tool_name"] = fn_name
+    record["tool_arguments"] = fn_args
+    _log_exchange(record)
+
+    return {"name": fn_name, "arguments": fn_args}
+
+
+def _try_parse_json_from_content(
+    content: str,
+    tools: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Try to extract a tool call from the model's plain-text content.
+
+    Some models return the tool-call JSON inside the content field
+    instead of using the tool_calls mechanism. Looks for a JSON object
+    containing keys that match the first tool's parameter schema.
+    """
+    if not content:
+        return None
+
+    fn_name = ""
+    expected_keys: set[str] = set()
+    for tool in tools:
+        func = tool.get("function", {})
+        fn_name = func.get("name", "")
+        props = func.get("parameters", {}).get("properties", {})
+        expected_keys = set(props.keys())
+        break
+
+    if not expected_keys:
+        return None
+
+    candidates = _extract_json_objects(content)
+    for obj in candidates:
+        if not isinstance(obj, dict):
+            continue
+        if expected_keys & set(obj.keys()):
+            return {"name": fn_name, "arguments": obj}
+
+    return None
+
+
+def _extract_json_objects(text: str) -> list[Any]:
+    """Extract JSON objects from text, handling markdown code fences."""
+    import re as _re
+
+    results: list[Any] = []
+
+    fenced = _re.findall(r"```(?:json)?\s*\n?(.*?)\n?```", text, _re.DOTALL)
+    for block in fenced:
+        try:
+            results.append(json.loads(block.strip()))
+        except json.JSONDecodeError:
+            pass
+
+    if not results:
+        brace_start = text.find("{")
+        if brace_start >= 0:
+            depth = 0
+            for i in range(brace_start, len(text)):
+                if text[i] == "{":
+                    depth += 1
+                elif text[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            results.append(
+                                json.loads(text[brace_start : i + 1])
+                            )
+                        except json.JSONDecodeError:
+                            pass
+                        break
+
+    return results
+
+
+def _fallback_prompt_for_json(
+    *,
+    system: str,
+    user: str,
+    tools: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Re-issue the request as a plain prompt asking for JSON output.
+
+    Used when the model doesn't support the tools=[] parameter.
+    Converts the tool schema into explicit JSON instructions in the
+    prompt, calls generate(), and parses the JSON from the response.
+    """
+    fn_name = ""
+    fn_params: dict[str, Any] = {}
+    for tool in tools:
+        func = tool.get("function", {})
+        fn_name = func.get("name", "")
+        fn_params = func.get("parameters", {})
+        break
+
+    if not fn_name:
+        return None
+
+    props = fn_params.get("properties", {})
+    required = fn_params.get("required", [])
+    schema_lines = []
+    for key, spec in props.items():
+        req_marker = " (required)" if key in required else ""
+        desc = spec.get("description", "")
+        schema_lines.append(f'  "{key}": {desc}{req_marker}')
+    schema_text = "{\n" + ",\n".join(schema_lines) + "\n}"
+
+    json_system = (
+        f"{system}\n\n"
+        f"CRITICAL INSTRUCTION: Your entire response must be a "
+        f"single JSON object and nothing else. No thinking, no "
+        f"explanation, no markdown fences, no preamble. Start "
+        f"your response with {{ and end with }}.\n\n"
+        f"Schema:\n{schema_text}"
+    )
+
+    fallback_extra = dict(extra) if extra else {}
+    fallback_extra["fallback"] = "prompt_for_json"
+    fallback_extra["original_tool"] = fn_name
+
+    fallback_max_tokens = max(max_tokens, 1024)
+
+    raw = generate(
+        system=json_system,
+        user=user,
+        max_tokens=fallback_max_tokens,
+        temperature=temperature,
+        extra=fallback_extra,
+    )
+
+    if not raw:
+        return None
+
+    candidates = _extract_json_objects(raw)
+    expected_keys = set(props.keys())
+    for obj in candidates:
+        if not isinstance(obj, dict):
+            continue
+        if expected_keys & set(obj.keys()):
+            return {"name": fn_name, "arguments": obj}
+
+    try:
+        parsed = json.loads(raw.strip())
+        if isinstance(parsed, dict) and expected_keys & set(parsed.keys()):
+            return {"name": fn_name, "arguments": parsed}
+    except json.JSONDecodeError:
+        pass
+
+    logger.warning(
+        "gemma fallback JSON parse failed for tool=%s, raw=%s",
+        fn_name, raw[:300],
+    )
+    return None
+
+
+@dataclass(frozen=True)
+class ToolCallTurn:
+    turn_number: int
+    tool_name: str
+    tool_args: dict[str, Any]
+    tool_result_size_bytes: int
+    duration_ms: int
+    error: str | None
+
+
+async def generate_with_tools_loop(
+    *,
+    system: str,
+    user: str,
+    tools: list[dict[str, Any]],
+    dispatch: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]],
+    max_turns: int = 3,
+    max_wall_time_s: float = 30.0,
+    temperature: float = 0.0,
+    max_tokens: int = 600,
+    extra: dict[str, Any] | None = None,
+) -> tuple[str, list[ToolCallTurn]]:
+    """Multi-turn Gemma tool-calling loop.
+
+    Returns ``(final_text, tool_call_log)``. On transport failure or
+    cap hit, returns ``("", [...])``.
+    """
+    sem = _get_semaphore()
+    async with sem:
+        return await _tools_loop_inner(
+            system=system,
+            user=user,
+            tools=tools,
+            dispatch=dispatch,
+            max_turns=max_turns,
+            max_wall_time_s=max_wall_time_s,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            extra=extra,
+        )
+
+
+async def _tools_loop_inner(
+    *,
+    system: str,
+    user: str,
+    tools: list[dict[str, Any]],
+    dispatch: Callable,  # type: ignore[type-arg]
+    max_turns: int,
+    max_wall_time_s: float,
+    temperature: float,
+    max_tokens: int,
+    extra: dict[str, Any] | None,
+) -> tuple[str, list[ToolCallTurn]]:
+    """Core loop logic, runs inside the semaphore."""
+    _client, config = _cached_client()
+    is_ollama = config.backend == "ollama"
+
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    tool_call_log: list[ToolCallTurn] = []
+    tool_dispatched = False
+    wall_start = time.perf_counter()
+
+    for turn in range(max_turns):
+        remaining = max_wall_time_s - (time.perf_counter() - wall_start)
+        if remaining <= 0:
+            logger.warning(
+                "generate_with_tools_loop: wall time cap hit at turn %d",
+                turn,
+            )
+            break
+
+        turn_start = time.perf_counter()
+        # After a successful tool dispatch, drop tools so Gemma
+        # produces text with the result rather than looping.
+        turn_tools = [] if tool_dispatched else tools
+        try:
+            response_text, response_tool_calls = await asyncio.wait_for(
+                _one_tool_turn(
+                    messages=messages,
+                    tools=turn_tools,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    turn_number=turn,
+                    extra=extra,
+                ),
+                timeout=remaining,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "generate_with_tools_loop: wall time cap during turn %d",
+                turn,
+            )
+            break
+
+        if response_tool_calls is None:
+            # Transport error
+            _log_tool_turn(
+                turn_number=turn,
+                tools_offered=[_tool_name(t) for t in tools],
+                tool_called=None,
+                tool_result_size=0,
+                duration_ms=int((time.perf_counter() - turn_start) * 1000),
+                error="transport_error",
+                extra=extra,
+            )
+            return "", tool_call_log
+
+        if not response_tool_calls:
+            # Plain text response — done
+            _log_tool_turn(
+                turn_number=turn,
+                tools_offered=[_tool_name(t) for t in tools],
+                tool_called=None,
+                tool_result_size=0,
+                duration_ms=int((time.perf_counter() - turn_start) * 1000),
+                error=None,
+                extra=extra,
+            )
+            return response_text, tool_call_log
+
+        # Process each tool call
+        for tc in response_tool_calls:
+            fn_name = tc.get("name", "")
+            fn_args = tc.get("arguments", {})
+            tc_id = tc.get("id", f"call_{turn}")
+
+            dispatch_start = time.perf_counter()
+            dispatch_error: str | None = None
+            result_str = ""
+            dispatch_remaining = max_wall_time_s - (
+                time.perf_counter() - wall_start
+            )
+            try:
+                result = await asyncio.wait_for(
+                    dispatch(fn_name, fn_args),
+                    timeout=max(dispatch_remaining, 0.1),
+                )
+                result_str = json.dumps(result, default=str)
+            except asyncio.TimeoutError:
+                dispatch_error = "TimeoutError: wall time cap during dispatch"
+                result_str = json.dumps({"error": dispatch_error})
+                logger.warning(
+                    "generate_with_tools_loop: dispatch %s timed out",
+                    fn_name,
+                )
+            except Exception as exc:
+                dispatch_error = f"{type(exc).__name__}: {exc}"
+                result_str = json.dumps({"error": str(exc)})
+                logger.warning(
+                    "generate_with_tools_loop: dispatch %s failed: %s",
+                    fn_name, exc,
+                )
+
+            dispatch_ms = int((time.perf_counter() - dispatch_start) * 1000)
+            tool_call_log.append(ToolCallTurn(
+                turn_number=turn,
+                tool_name=fn_name,
+                tool_args=fn_args,
+                tool_result_size_bytes=len(result_str.encode()),
+                duration_ms=dispatch_ms,
+                error=dispatch_error,
+            ))
+
+            _log_tool_turn(
+                turn_number=turn,
+                tools_offered=[_tool_name(t) for t in tools],
+                tool_called=fn_name,
+                tool_result_size=len(result_str.encode()),
+                duration_ms=int((time.perf_counter() - turn_start) * 1000),
+                error=dispatch_error,
+                extra=extra,
+            )
+
+            if dispatch_error:
+                return "", tool_call_log
+
+            tool_dispatched = True
+            # Append assistant tool-call + tool result to history.
+            # Ollama native API uses a different message shape.
+            if is_ollama:
+                messages.append({
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "function": {
+                            "name": fn_name,
+                            "arguments": fn_args,
+                        },
+                    }],
+                })
+                messages.append({
+                    "role": "tool",
+                    "content": result_str,
+                })
+            else:
+                messages.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": tc_id,
+                        "type": "function",
+                        "function": {
+                            "name": fn_name,
+                            "arguments": json.dumps(fn_args),
+                        },
+                    }],
+                })
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc_id,
+                    "content": result_str,
+                })
+
+    # If we exhausted turns without a plain-text response, return empty
+    final_text = ""
+    if tool_call_log:
+        logger.warning(
+            "generate_with_tools_loop: turn cap reached (%d turns)", max_turns
+        )
+    return final_text, tool_call_log
+
+
+async def _one_tool_turn(
+    *,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    temperature: float,
+    max_tokens: int,
+    turn_number: int,
+    extra: dict[str, Any] | None,
+) -> tuple[str, list[dict[str, Any]] | None]:
+    """Issue one Gemma call. Returns (text, tool_calls_list | None on error).
+
+    An empty tool_calls list means plain text response.
+
+    Routes Ollama through the native ``/api/chat`` endpoint with
+    ``tools`` + ``think: false`` to avoid the OpenAI-compat endpoint's
+    thinking-mode token drain.
+    """
+    _client, config = _cached_client()
+    resolved_model = config.model
+
+    if config.backend == "ollama":
+        return await _one_tool_turn_ollama(
+            config=config,
+            model=resolved_model,
+            messages=messages,
+            tools=tools,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            turn_number=turn_number,
+        )
+
+    # OpenRouter / other OpenAI-compatible backends.
+    completion_kwargs: dict[str, Any] = {
+        "model": resolved_model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if tools:
+        completion_kwargs["tools"] = tools
+        completion_kwargs["tool_choice"] = "auto"
+
+    def _call() -> Any:
+        return _client.chat.completions.create(**completion_kwargs)
+
+    try:
+        response = await asyncio.to_thread(_call)
+    except Exception as exc:
+        logger.warning(
+            "generate_with_tools_loop turn %d failed: %s", turn_number, exc
+        )
+        return "", None
+
+    choices = getattr(response, "choices", None) or []
+    if not choices:
+        return "", None
+
+    choice = choices[0]
+    message = getattr(choice, "message", None)
+    tool_calls_raw = getattr(message, "tool_calls", None) if message else None
+
+    if not tool_calls_raw:
+        content = getattr(message, "content", None) or ""
+        return content.strip(), []
+
+    parsed_calls: list[dict[str, Any]] = []
+    for tc in tool_calls_raw:
+        fn = getattr(tc, "function", None)
+        if fn is None:
+            continue
+        fn_name = getattr(fn, "name", "") or ""
+        fn_args_raw = getattr(fn, "arguments", "") or ""
+        try:
+            fn_args = (
+                json.loads(fn_args_raw)
+                if isinstance(fn_args_raw, str)
+                else fn_args_raw
+            )
+        except json.JSONDecodeError:
+            fn_args = {}
+        parsed_calls.append({
+            "id": getattr(tc, "id", f"call_{turn_number}"),
+            "name": fn_name,
+            "arguments": fn_args if isinstance(fn_args, dict) else {},
+        })
+
+    return "", parsed_calls
+
+
+async def _one_tool_turn_ollama(
+    *,
+    config: InferenceConfig,
+    model: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    temperature: float,
+    max_tokens: int,
+    turn_number: int,
+) -> tuple[str, list[dict[str, Any]] | None]:
+    """Ollama native /api/chat with tools + think=false."""
+    url = f"{_ollama_native_url(config)}/api/chat"
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "think": False,
+        "stream": False,
+        "options": {
+            "num_predict": max_tokens,
+            "temperature": temperature,
+        },
+    }
+    if tools:
+        payload["tools"] = tools
+
+    def _call() -> dict[str, Any]:
+        resp = httpx.post(url, json=payload, timeout=180.0)
+        resp.raise_for_status()
+        return resp.json()
+
+    try:
+        data = await asyncio.to_thread(_call)
+    except Exception as exc:
+        logger.warning(
+            "generate_with_tools_loop turn %d failed (ollama): %s",
+            turn_number, exc,
+        )
+        return "", None
+
+    message = data.get("message", {})
+    tool_calls_raw = message.get("tool_calls")
+
+    if not tool_calls_raw:
+        content = message.get("content", "").strip()
+        return content, []
+
+    parsed_calls: list[dict[str, Any]] = []
+    for tc in tool_calls_raw:
+        fn = tc.get("function", {})
+        fn_name = fn.get("name", "")
+        fn_args = fn.get("arguments", {})
+        if not isinstance(fn_args, dict):
+            try:
+                fn_args = json.loads(fn_args) if isinstance(fn_args, str) else {}
+            except json.JSONDecodeError:
+                fn_args = {}
+        parsed_calls.append({
+            "id": tc.get("id", f"call_{turn_number}"),
+            "name": fn_name,
+            "arguments": fn_args,
+        })
+
+    return "", parsed_calls
+
+
+def _tool_name(tool: dict[str, Any]) -> str:
+    func: dict[str, Any] = tool.get("function") or {}
+    return str(func.get("name", "unknown"))
+
+
+def _log_tool_turn(
+    *,
+    turn_number: int,
+    tools_offered: list[str],
+    tool_called: str | None,
+    tool_result_size: int,
+    duration_ms: int,
+    error: str | None,
+    extra: dict[str, Any] | None,
+) -> None:
+    record: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "call_site": (extra or {}).get("call_site", "unknown"),
+        "turn_number": turn_number,
+        "tools_offered": tools_offered,
+        "tool_called": tool_called,
+        "tool_result_size": tool_result_size,
+        "duration_ms": duration_ms,
+    }
+    if error:
+        record["error"] = error
+    if extra:
+        for k, v in extra.items():
+            if k not in record:
+                record[k] = v
+    _log_exchange(record)
 
 
 def _trim_to_last_sentence(text: str) -> str:
