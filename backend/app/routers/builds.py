@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import cast
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app import state
 from app.models.api import BuildRequest, OutcomesRequest, TierRequest
@@ -38,19 +38,24 @@ async def compute_outcomes(request: OutcomesRequest):
             student_cip=request.student_cip,
             effort=request.effort,
             loan_pct=request.loan_pct,
+            intent_keywords=request.intent_keywords or None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.post("/tier")
-async def tier_outcomes(request: TierRequest):
+async def tier_outcomes(request: TierRequest, raw_request: Request):
+    if await raw_request.is_disconnected():
+        raise HTTPException(status_code=499, detail="client_disconnected")
     outcomes = [CareerOutcome.model_validate(o) for o in request.outcomes]
     tiers = career_tiering.tier_careers(
         outcomes,
         school_name=request.school_name,
         program_name=request.program_name,
         cipcode=request.cipcode,
+        student_major_text=request.student_major_text or "",
+        intent_keywords=request.intent_keywords,
     )
     return {
         label: [o.model_dump(mode="json") for o in careers]
@@ -73,6 +78,7 @@ async def create_build(request: BuildRequest):
             student_cip=request.student_cip,
             effort=cast(EffortLevel, request.effort),
             loan_pct=request.loan_pct,
+            intent_keywords=request.intent_keywords or None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
