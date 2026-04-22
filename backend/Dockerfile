@@ -37,6 +37,7 @@ COPY backend/ backend/
 COPY src/ src/
 COPY data/catalog/ data/catalog/
 COPY data/gold/iceberg_warehouse/ data/gold/iceberg_warehouse/
+COPY data/silver/ data/silver/
 COPY data/reference/ data/reference/
 
 # Install the backend package itself
