@@ -9,10 +9,10 @@ import {
   type ChipId,
   type FeasibilityMode,
 } from "@/api/intent";
-import { getOutcomes, getTieredCareers } from "@/api/build";
+import { getOutcomes } from "@/api/build";
 import { useDebouncedTrigger } from "@/hooks/useDebouncedTrigger";
 import type { IntentResult, Suggestion } from "@/types/buildInput";
-import type { CareerOutcome, TieredCareers } from "@/types/build";
+import type { CareerOutcome } from "@/types/build";
 
 const MAJOR_DEBOUNCE_MS = 300;
 const CAREER_FETCH_DEBOUNCE_MS = 250;
@@ -20,8 +20,7 @@ const CAREER_FETCH_DEBOUNCE_MS = 250;
 export type SocRevealState =
   | { kind: "idle" }
   | { kind: "outcomes-loading" }
-  | { kind: "outcomes-loaded-tiering"; outcomes: CareerOutcome[] }
-  | { kind: "tiered"; outcomes: CareerOutcome[]; tiers: TieredCareers }
+  | { kind: "outcomes-loaded"; outcomes: CareerOutcome[] }
   | { kind: "error"; message: string };
 
 interface CommittedClick {
@@ -37,6 +36,8 @@ interface UseSetYourCourseApi {
   onChip: (chipId: ChipId, clarifier?: string) => Promise<void>;
   /** Commit the current resolution, write the log, navigate to /reveal. */
   commit: () => Promise<void>;
+  /** Swap an alternative CIP into the primary position and refetch outcomes. */
+  onPickAlternative: (index: number) => void;
 
   /** True while a resolve stream is in flight. */
   streaming: boolean;
@@ -97,8 +98,6 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     school,
     programs,
     major,
-    effort,
-    loans,
     initialResolution,
     currentResolution,
     debugTrace,
@@ -109,8 +108,6 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     clearResolution,
   } = useBuildInputStore();
   const selectedCareer = useBuildStore((s) => s.selectedCareer);
-  const tieredCareers = useBuildStore((s) => s.tieredCareers);
-  const setTieredCareersStore = useBuildStore((s) => s.setTieredCareers);
 
   const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -178,6 +175,40 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     return currentResolution.parent_cip || currentResolution.matched_cip || null;
   }, [currentResolution]);
 
+  const outcomesCacheRef = useRef<Map<string, CareerOutcome[]>>(new Map());
+  const prefetchAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!school || !currentResolution?.alternatives?.length) return;
+    prefetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    prefetchAbortRef.current = controller;
+
+    const capturedSchool = school;
+    const capturedMajor = liveMajorText.trim();
+
+    for (const alt of currentResolution.alternatives) {
+      const altCip = alt.parent_cip || alt.cip;
+      if (outcomesCacheRef.current.has(altCip)) continue;
+      getOutcomes(
+        capturedSchool.unitid,
+        altCip,
+        "balanced",
+        0.5,
+        capturedMajor || undefined,
+        alt.cip,
+        controller.signal,
+      ).then((outcomes) => {
+        if (!controller.signal.aborted) {
+          outcomesCacheRef.current.set(altCip, outcomes);
+        }
+      }).catch(() => {});
+    }
+
+    return () => { controller.abort(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentResolution?.matched_cip, school?.unitid]);
+
   // --- Outcomes-first paint state machine ---
   const [socReveal, setSocReveal] = useState<SocRevealState>({ kind: "idle" });
   const outcomeAbortRef = useRef<AbortController | null>(null);
@@ -192,50 +223,36 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     outcomeAbortRef.current?.abort();
     const controller = new AbortController();
     outcomeAbortRef.current = controller;
-    setSocReveal({ kind: "outcomes-loading" });
 
     const capturedSchool = school;
     const capturedCip = parentCipOrMatched;
-    const capturedEffort = effort.level;
-    const capturedLoanPct = loans.percentage / 100;
     const capturedMajor = liveMajorText.trim();
     const capturedMatchedCip = currentResolution?.matched_cip;
-    const capturedMatchedTitle = currentResolution?.matched_title ?? "";
-    const capturedStudentMajorText = currentResolution?.student_major_text;
     const capturedIntentKeywords = currentResolution?.intent_keywords;
+
+    const cachedOutcomes = outcomesCacheRef.current.get(capturedCip);
+    if (cachedOutcomes) {
+      setSocReveal({ kind: "outcomes-loaded", outcomes: cachedOutcomes });
+      return;
+    }
+
+    setSocReveal({ kind: "outcomes-loading" });
 
     (async () => {
       try {
         const outcomes = await getOutcomes(
           capturedSchool.unitid,
           capturedCip,
-          capturedEffort,
-          capturedLoanPct,
+          "balanced",
+          0.5,
           capturedMajor || undefined,
           capturedMatchedCip || undefined,
           controller.signal,
           capturedIntentKeywords,
         );
         if (requestIdRef.current !== reqId) return;
-        setSocReveal({ kind: "outcomes-loaded-tiering", outcomes });
-
-        try {
-          const tiers = await getTieredCareers(
-            outcomes,
-            capturedSchool.name,
-            capturedMatchedTitle,
-            capturedCip,
-            capturedStudentMajorText,
-            capturedIntentKeywords,
-            controller.signal,
-          );
-          if (requestIdRef.current !== reqId) return;
-          setTieredCareersStore(tiers);
-          setSocReveal({ kind: "tiered", outcomes, tiers });
-        } catch {
-          if (requestIdRef.current !== reqId) return;
-          // Tiering failed — keep showing the flat outcomes list.
-        }
+        outcomesCacheRef.current.set(capturedCip, outcomes);
+        setSocReveal({ kind: "outcomes-loaded", outcomes });
       } catch (err) {
         if (controller.signal.aborted) return;
         if (requestIdRef.current !== reqId) return;
@@ -261,7 +278,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     }
     debouncedCareerFetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [school, parentCipOrMatched, effort.level, loans.percentage, liveMajorText, debouncedCareerFetch]);
+  }, [school, parentCipOrMatched, liveMajorText, debouncedCareerFetch]);
 
   useEffect(() => {
     return () => { outcomeAbortRef.current?.abort(); };
@@ -284,6 +301,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
         setStreaming(false);
         setSuggestions([]);
         setError(null);
+        outcomesCacheRef.current.clear();
         return;
       }
 
@@ -293,6 +311,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
         setStreaming(true);
         setStreamingText("");
         setError(null);
+        outcomesCacheRef.current.clear();
         // Every new resolve discards any sub-focus the student accumulated
         // on the previous input — they're talking about a different topic.
         setDebugTrace(null);
@@ -319,11 +338,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
               setStreamingText((prev) => prev + event.text);
             } else if (event.type === "structured") {
               structured = { ...event.result, confirmed_focus: null };
-              // Initial resolution never carries sub-focus — that's only
-              // set by the chip dispatch after tool-verified evidence.
-              if (!initialResolution) {
-                setInitialResolution(structured);
-              }
+              setInitialResolution(structured);
               setCurrentResolution(structured);
             } else if (event.type === "suggestions") {
               setSuggestions(event.suggestions);
@@ -459,14 +474,8 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
   const commit = useCallback(async () => {
     if (!school || !currentResolution || !initialResolution) return;
 
-    // The student may have clicked through to an explicit career card from
-    // the preview; otherwise we fall back to the first common-tier career
-    // so the downstream /reveal has something to render.
-    const fallbackCareer =
-      tieredCareers?.common[0] ??
-      tieredCareers?.less_common[0] ??
-      tieredCareers?.stretch[0] ??
-      null;
+    const outcomes = socReveal.kind === "outcomes-loaded" ? socReveal.outcomes : [];
+    const fallbackCareer = outcomes[0] ?? null;
     const committed =
       selectedCareer ??
       (fallbackCareer
@@ -521,7 +530,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     major,
     currentResolution,
     initialResolution,
-    tieredCareers,
+    socReveal,
     selectedCareer,
     chipsTapped,
     lastClarifier,
@@ -547,6 +556,36 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     return DIVERGENT.has(lastBucket);
   }, [debugTrace, lastBucket, lastChipUpdatedResolution]);
 
+  const onPickAlternative = useCallback(
+    (optionIndex: number) => {
+      const res = currentResolution;
+      const init = initialResolution;
+      if (!res || !init?.alternatives) return;
+
+      if (optionIndex === 0) {
+        setCurrentResolution({
+          ...res,
+          matched_cip: init.matched_cip,
+          matched_title: init.matched_title,
+          parent_cip: init.parent_cip,
+        });
+        return;
+      }
+
+      const altIndex = optionIndex - 1;
+      const alt = init.alternatives[altIndex];
+      if (!alt) return;
+
+      setCurrentResolution({
+        ...res,
+        matched_cip: alt.cip,
+        matched_title: alt.title,
+        parent_cip: alt.parent_cip ?? res.parent_cip,
+      });
+    },
+    [currentResolution, initialResolution, setCurrentResolution],
+  );
+
   const setCommittedClick = useCallback((click: CommittedClick) => {
     setCommittedClickState(click);
   }, []);
@@ -570,6 +609,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     clarifierDiverged,
     suggestedMajor,
     parentCipOrMatched,
+    onPickAlternative,
     socReveal,
     setCommittedClick,
   };

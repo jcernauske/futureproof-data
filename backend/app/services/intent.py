@@ -227,33 +227,61 @@ def _get_crosswalk_cips_for_families(
 
 
 def _sample_crosswalk(
-    cips: list[dict[str, str]], max_total: int = 60
+    cips: list[dict[str, str]],
+    max_total: int = 120,
+    student_input: str = "",
 ) -> list[dict[str, str]]:
-    """Sample evenly across CIP families so every family gets representation.
+    """Sample evenly across CIP families with input-aware boosting.
 
-    A naive ``cips[:60]`` starves high-numbered families (biology, health,
-    business) when a large school spans many CIP families.
+    Entries whose ``cip_title`` contains a word from the student's input
+    are guaranteed a slot before the even-distribution pass fills the
+    rest.  This prevents the sampler from dropping the exact program the
+    student typed (e.g. "Advertising" buried among 24 entries in the
+    09.xx family at a large school).
     """
     if len(cips) <= max_total:
         return cips
 
     from collections import defaultdict
 
+    tokens = {
+        w for w in student_input.lower().split() if len(w) >= 3
+    }
+
+    boosted: list[dict[str, str]] = []
+    rest: list[dict[str, str]] = []
+    boosted_codes: set[str] = set()
+    if tokens:
+        for c in cips:
+            title = (c.get("cip_title") or "").lower()
+            if any(t in title for t in tokens):
+                boosted.append(c)
+                boosted_codes.add(c.get("cipcode", ""))
+            else:
+                rest.append(c)
+    else:
+        rest = cips
+
+    remaining_budget = max_total - len(boosted)
+    if remaining_budget <= 0:
+        return boosted[:max_total]
+
     by_family: dict[str, list[dict[str, str]]] = defaultdict(list)
-    for c in cips:
+    for c in rest:
         family = c.get("cipcode", "")[:2]
         by_family[family].append(c)
 
     families = sorted(by_family)
-    per_family = max(1, max_total // len(families))
-    result: list[dict[str, str]] = []
+    per_family = max(1, remaining_budget // max(len(families), 1))
+    sampled: list[dict[str, str]] = []
     for fam in families:
-        result.extend(by_family[fam][:per_family])
+        sampled.extend(by_family[fam][:per_family])
 
-    if len(result) < max_total:
-        remaining = [c for c in cips if c not in result]
-        result.extend(remaining[: max_total - len(result)])
+    if len(sampled) < remaining_budget:
+        leftover = [c for c in rest if c not in sampled]
+        sampled.extend(leftover[: remaining_budget - len(sampled)])
 
+    result = boosted + sampled[:remaining_budget]
     return result[:max_total]
 
 
@@ -289,7 +317,7 @@ def _call_gemma_intent(
     )
     crosswalk_cip_list = "\n".join(
         f"- {c['cipcode']} {c['cip_title']}"
-        for c in _sample_crosswalk(crosswalk_cips, max_total=60)
+        for c in _sample_crosswalk(crosswalk_cips, student_input=student_input)
     )
     prompt_input = student_input
     if clarification:
@@ -341,9 +369,9 @@ def _call_gemma_intent(
 
 
 def _sanitize_alternatives(
-    raw: Any, primary_cip: str
+    raw: Any, primary_cip: str, *, max_alts: int = 10
 ) -> list[dict[str, str]] | None:
-    """Drop malformed/duplicate alternatives and clamp to 10.
+    """Drop malformed/duplicate alternatives and clamp to *max_alts*.
 
     Gemma occasionally hallucinates CIP codes, echoes the primary CIP in
     the alternatives list, or returns a non-list value entirely. We defend
@@ -371,12 +399,16 @@ def _sanitize_alternatives(
         seen.add(cip)
         raw_why = item.get("why", "")
         why = raw_why.strip() if isinstance(raw_why, str) else ""
-        cleaned.append({
+        entry: dict[str, str] = {
             "cip": cip,
             "title": title,
             "why": why,
-        })
-        if len(cleaned) == 10:
+        }
+        raw_parent = item.get("parent_cip")
+        if isinstance(raw_parent, str) and raw_parent.strip():
+            entry["parent_cip"] = raw_parent.strip()
+        cleaned.append(entry)
+        if len(cleaned) == max_alts:
             break
     return cleaned
 

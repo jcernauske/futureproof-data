@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
 import type { CareerOutcome } from "@/types/build";
 import { STAT_MAP, type StatKey } from "@/data/statExplanations";
@@ -8,25 +9,48 @@ interface CareerCardProps {
   career: CareerOutcome;
   picked: boolean;
   onSelect: () => void;
+  ernShift?: number;
 }
 
 const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function formatDelta(d: number): string {
+  return d > 0 ? `+${d}` : `${d}`;
+}
+
 function StatBar({
   statKey,
-  value,
+  displayValue,
+  delta,
   index,
 }: {
   statKey: StatKey;
-  value: number | null;
+  displayValue: number | null;
+  delta: number;
   index: number;
 }) {
   const stat = STAT_MAP[statKey];
-  const v = value ?? 0;
+  const v = displayValue ?? 0;
   const pct = `${(v / 10) * 100}%`;
 
+  const [showDelta, setShowDelta] = useState(false);
+  const prevDeltaRef = useRef(delta);
+
+  useEffect(() => {
+    if (delta === prevDeltaRef.current) return;
+    prevDeltaRef.current = delta;
+    if (delta === 0) return;
+    setShowDelta(true);
+    const id = window.setTimeout(() => setShowDelta(false), 1800);
+    return () => window.clearTimeout(id);
+  }, [delta]);
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 relative">
       <span
         className={`font-data text-micro uppercase w-7 shrink-0 ${stat.textClass}`}
       >
@@ -41,13 +65,30 @@ function StatBar({
         />
       </div>
       <span className="font-data text-micro text-text-secondary w-4 text-right tabular-nums">
-        {value ?? "—"}
+        {displayValue ?? "—"}
       </span>
+      <AnimatePresence>
+        {showDelta && delta !== 0 && (
+          <motion.span
+            key={`delta-${delta}`}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: -2 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.4 }}
+            className={`absolute -right-1 -top-3.5 font-data text-[10px] font-bold ${
+              delta > 0 ? "text-accent-thrive" : "text-accent-alert"
+            }`}
+            aria-label={`${statKey.toUpperCase()} ${formatDelta(delta)}`}
+          >
+            {formatDelta(delta)}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-export function CareerCard({ career, picked, onSelect }: CareerCardProps) {
+export function CareerCard({ career, picked, onSelect, ernShift = 0 }: CareerCardProps) {
   const wage = career.median_annual_wage;
   const reducedMotion = useReducedMotion() ?? false;
 
@@ -96,14 +137,21 @@ export function CareerCard({ career, picked, onSelect }: CareerCardProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-4">
-        {STAT_ORDER.map((key, i) => (
-          <StatBar
-            key={key}
-            statKey={key}
-            value={career.stats[key]}
-            index={i}
-          />
-        ))}
+        {STAT_ORDER.map((key, i) => {
+          const base = career.stats[key];
+          const shifted = key === "ern" && base != null
+            ? clamp(base + ernShift, 1, 10)
+            : base;
+          return (
+            <StatBar
+              key={key}
+              statKey={key}
+              displayValue={shifted}
+              delta={key === "ern" ? ernShift : 0}
+              index={i}
+            />
+          );
+        })}
       </div>
     </motion.button>
   );

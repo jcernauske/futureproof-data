@@ -340,6 +340,8 @@ class IntentResult(BaseModel):
     confirmed_focus: str | None = None
     student_major_text: str = ""
     intent_keywords: list[str] = Field(default_factory=list)
+    remaining_count: int = 0
+    narrowing_hint: str = ""
 
 
 class ProfileResult(BaseModel):

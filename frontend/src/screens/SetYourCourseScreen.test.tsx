@@ -20,7 +20,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { makeCareer } from "@/components/chapter-book/__fixtures__/branches";
-import type { CareerOutcome, TieredCareers } from "@/types/build";
+import type { CareerOutcome } from "@/types/build";
 
 // Mock every API module the screen pulls in so no network escapes.
 vi.mock("@/api/intent", () => ({
@@ -49,7 +49,7 @@ vi.mock("@/api/tree", () => ({
 }));
 
 import { commitResolution } from "@/api/intent";
-import { getOutcomes, getTieredCareers } from "@/api/build";
+import { getOutcomes } from "@/api/build";
 import { SetYourCourseScreen } from "./SetYourCourseScreen";
 
 const mockNavigate = vi.fn();
@@ -94,7 +94,6 @@ function seedState(overrides: Partial<ReturnType<typeof useBuildInputStore.getSt
     ...overrides,
   });
   useBuildStore.setState({
-    tieredCareers: null,
     selectedCareer: null,
   });
 }
@@ -113,20 +112,14 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("TestRender", () => {
-  it("renders_all_sections — school, major, and commit surfaces all present", () => {
+  it("renders_all_sections — school, major, and preview surfaces all present", () => {
     seedState();
     renderScreen();
 
-    // Mockup-aligned eyebrow + headline.
     expect(screen.getByText(/Where does this take you\?/i)).toBeInTheDocument();
-    // School + major labels from the two-column layout.
     expect(screen.getByText(/^Your school$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Your field of study$/i)).toBeInTheDocument();
     expect(screen.getByTestId("major-input")).toBeInTheDocument();
-    // Commit + start over (desktop has these; mobile duplicates are in
-    // the bottom bar, so just check for presence).
-    expect(screen.getByTestId("btn-start-over")).toBeInTheDocument();
-    expect(screen.getByTestId("btn-commit")).toBeInTheDocument();
   });
 });
 
@@ -135,7 +128,9 @@ describe("TestRender", () => {
 // ---------------------------------------------------------------------------
 
 describe("TestFlow", () => {
-  it("commit_navigates_to_reveal — tapping commit with a valid resolution routes to /reveal", async () => {
+  it("commit_navigates_to_reveal — tapping Spec my build with outcomes loaded routes to /reveal", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
     seedState({
       initialResolution: {
         matched_cip: "52.1401",
@@ -166,7 +161,8 @@ describe("TestFlow", () => {
     });
 
     renderScreen();
-    const commit = screen.getByTestId("btn-commit");
+
+    const commit = await screen.findByText(/Spec my build/);
     expect(commit).not.toBeDisabled();
 
     fireEvent.click(commit);
@@ -183,7 +179,9 @@ describe("TestFlow", () => {
 // ---------------------------------------------------------------------------
 
 describe("TestLowConfidence", () => {
-  it("commit_shows_nudge_not_gate — low-confidence resolution surfaces a soft nudge but leaves commit enabled", () => {
+  it("commit_shows_nudge_not_gate — low-confidence resolution surfaces a soft nudge but leaves commit enabled", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
     seedState({
       initialResolution: {
         matched_cip: "51.0000",
@@ -214,11 +212,10 @@ describe("TestLowConfidence", () => {
     });
 
     renderScreen();
-    const nudge = screen.getByTestId("soft-nudge");
+    const nudge = await screen.findByTestId("soft-nudge");
     expect(nudge).toBeInTheDocument();
     expect(nudge.textContent).toMatch(/wasn't sure/i);
-    // Commit is NOT disabled — low confidence is a nudge, not a gate.
-    const commit = screen.getByTestId("btn-commit");
+    const commit = screen.getByText(/Spec my build/);
     expect(commit).not.toBeDisabled();
   });
 });
@@ -291,7 +288,7 @@ describe("TestChapterBook_GridLayout", () => {
     // wrapper in SetYourCourseScreen.tsx:319.
     const grid = container.querySelector(".grid.grid-cols-1");
     expect(grid).not.toBeNull();
-    expect(grid!.className).toContain("desktop:grid-cols-[4fr_8fr]");
+    expect(grid!.className).toContain("desktop:grid-cols-2");
     // Guard against a silent regression to the older 7fr_5fr ratio.
     expect(grid!.className).not.toContain("7fr_5fr");
   });
@@ -322,58 +319,35 @@ describe("TestChapterBook_GridLayout", () => {
 describe("TestSocRevealStates", () => {
   beforeEach(() => {
     vi.mocked(getOutcomes).mockReset();
-    vi.mocked(getTieredCareers).mockReset();
   });
 
-  it("chips render in intermediate state with shimmer header", async () => {
+  it("career cards render when outcomes load", async () => {
     const careers = makeCareers();
-    // getOutcomes resolves fast; getTieredCareers hangs forever.
     vi.mocked(getOutcomes).mockResolvedValue(careers);
-    let tierResolve!: (v: TieredCareers) => void;
-    vi.mocked(getTieredCareers).mockReturnValue(
-      new Promise((res) => { tierResolve = res; }),
-    );
     seedWithResolvedMajor();
     renderScreen();
 
-    const shimmer = await screen.findByTestId("tier-section-loading");
-    expect(shimmer).toBeInTheDocument();
-    expect(shimmer.textContent).toMatch(/Organizing your paths/i);
-
-    // Chips are rendered even though tiers haven't resolved.
-    expect(screen.getByText("Biological Technician")).toBeInTheDocument();
+    expect(await screen.findByText("Biological Technician")).toBeInTheDocument();
     expect(screen.getByText("Natural Sciences Manager")).toBeInTheDocument();
-
-    // Clean up the hanging promise to avoid dangling state.
-    tierResolve({ common: careers, less_common: [], stretch: [] });
+    expect(screen.getByText("Where this leads")).toBeInTheDocument();
   });
 
-  it("tier headers replace shimmer when tier resolves", async () => {
+  it("effort section appears after outcomes load", async () => {
     const careers = makeCareers();
     vi.mocked(getOutcomes).mockResolvedValue(careers);
-    vi.mocked(getTieredCareers).mockResolvedValue({
-      common: [careers[0]!],
-      less_common: [careers[1]!],
-      stretch: [],
-    });
     seedWithResolvedMajor();
     renderScreen();
 
-    // Wait for the full flow: debounce fires, outcomes resolve, tier resolves.
-    await waitFor(
-      () => {
-        expect(screen.queryByTestId("tier-section-loading")).not.toBeInTheDocument();
-        expect(screen.getByText("Where this commonly leads")).toBeInTheDocument();
-      },
-      { timeout: 3000 },
-    );
-
-    expect(screen.getByText(/Uncommon paths/)).toBeInTheDocument();
+    const section = await screen.findByTestId("effort-commit-section");
+    expect(section).toBeInTheDocument();
+    expect(screen.getByText(/Spec my build/)).toBeInTheDocument();
   });
 });
 
 describe("TestStartOver", () => {
   it("resets_state — confirming start-over clears school, major, resolution, debug trace", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
     seedState({
       initialResolution: {
         matched_cip: "52.1401",
@@ -406,11 +380,10 @@ describe("TestStartOver", () => {
 
     renderScreen();
 
-    // Open confirm dialog.
-    fireEvent.click(screen.getByTestId("btn-start-over"));
+    const startOver = await screen.findByTestId("btn-start-over");
+    fireEvent.click(startOver);
     expect(await screen.findByTestId("confirm-start-over")).toBeInTheDocument();
 
-    // Confirm.
     fireEvent.click(screen.getByTestId("btn-confirm-start-over"));
 
     await waitFor(() => {
@@ -421,5 +394,140 @@ describe("TestStartOver", () => {
       expect(state.initialResolution).toBeNull();
       expect(state.debugTrace).toBeNull();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TestCipPicker (P1) — multi-CIP picker rendering
+// ---------------------------------------------------------------------------
+
+describe("TestCipPicker", () => {
+  it("renders_cip_picker_when_alternatives_present — resolution with 2 alts shows picker", () => {
+    seedState({
+      initialResolution: {
+        matched_cip: "14.0901",
+        matched_title: "Computer Engineering",
+        confidence: "high",
+        reasoning: "Closest match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [
+          { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+          { cip: "14.1901", title: "Mechanical Engineering", why: "Physical", parent_cip: "14.19" },
+        ],
+        parent_cip: "14.09",
+        confirmed_focus: null,
+        remaining_count: 11,
+        narrowing_hint: "Try civil engineering",
+      },
+      currentResolution: {
+        matched_cip: "14.0901",
+        matched_title: "Computer Engineering",
+        confidence: "high",
+        reasoning: "Closest match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [
+          { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+          { cip: "14.1901", title: "Mechanical Engineering", why: "Physical", parent_cip: "14.19" },
+        ],
+        parent_cip: "14.09",
+        confirmed_focus: null,
+        remaining_count: 11,
+        narrowing_hint: "Try civil engineering",
+      },
+    });
+
+    renderScreen();
+
+    expect(screen.getByTestId("cip-picker")).toBeInTheDocument();
+    expect(screen.getByTestId("cip-option-primary")).toBeInTheDocument();
+    expect(screen.getByTestId("cip-option-alt-0")).toBeInTheDocument();
+    expect(screen.getByTestId("cip-option-alt-1")).toBeInTheDocument();
+  });
+
+  it("no_picker_when_single_cip — resolution with no alternatives renders no picker", () => {
+    seedState({
+      initialResolution: {
+        matched_cip: "51.3801",
+        matched_title: "Nursing",
+        confidence: "high",
+        reasoning: "Unambiguous match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [],
+        parent_cip: "51.38",
+        confirmed_focus: null,
+      },
+      currentResolution: {
+        matched_cip: "51.3801",
+        matched_title: "Nursing",
+        confidence: "high",
+        reasoning: "Unambiguous match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [],
+        parent_cip: "51.38",
+        confirmed_focus: null,
+      },
+    });
+
+    renderScreen();
+
+    expect(screen.queryByTestId("cip-picker")).not.toBeInTheDocument();
+  });
+
+  it("remaining_count_hint_rendered — remaining_count: 11 shows hint text", () => {
+    seedState({
+      initialResolution: {
+        matched_cip: "14.0901",
+        matched_title: "Computer Engineering",
+        confidence: "high",
+        reasoning: "Closest match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [
+          { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+        ],
+        parent_cip: "14.09",
+        confirmed_focus: null,
+        remaining_count: 11,
+        narrowing_hint: "Try civil engineering",
+      },
+      currentResolution: {
+        matched_cip: "14.0901",
+        matched_title: "Computer Engineering",
+        confidence: "high",
+        reasoning: "Closest match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [
+          { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+        ],
+        parent_cip: "14.09",
+        confirmed_focus: null,
+        remaining_count: 11,
+        narrowing_hint: "Try civil engineering",
+      },
+    });
+
+    renderScreen();
+
+    const hint = screen.getByTestId("cip-remaining-hint");
+    expect(hint).toBeInTheDocument();
+    expect(hint.textContent).toMatch(/11 more programs match/);
+    expect(hint.textContent).toMatch(/Try civil engineering/);
   });
 });

@@ -19,6 +19,7 @@ interface CareerTierSectionProps {
   careers: CareerOutcome[];
   pickedSoc: string | null;
   onSelect: (career: CareerOutcome) => void;
+  ernShift?: number;
 }
 
 export function CareerTierSection({
@@ -29,6 +30,7 @@ export function CareerTierSection({
   careers,
   pickedSoc,
   onSelect,
+  ernShift = 0,
 }: CareerTierSectionProps) {
   if (careers.length === 0) return null;
 
@@ -50,7 +52,7 @@ export function CareerTierSection({
         </p>
       </div>
       <motion.div
-        className="grid grid-cols-1 tablet:grid-cols-2 gap-3"
+        className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-3"
         variants={{
           hidden: { opacity: 0 },
           visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
@@ -64,6 +66,7 @@ export function CareerTierSection({
               career={career}
               picked={pickedSoc === career.soc_code}
               onSelect={() => onSelect(career)}
+              ernShift={ernShift}
             />
           </motion.div>
         ))}

@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { DiscreteSlider } from "@/components/ui/DiscreteSlider";
-import { StatBadge } from "@/components/ui/StatBadge";
 import type { SliderStop } from "@/components/ui/DiscreteSlider";
 import type { EffortSelection, LoanSelection } from "@/types/buildInput";
 
@@ -10,9 +9,9 @@ interface EffortLoansPanelProps {
   loans: LoanSelection;
   onEffortChange: (effort: EffortSelection) => void;
   onLoanChange: (loans: LoanSelection) => void;
-  profileName: string;
-  onSubmit: () => void;
-  submitting: boolean;
+  profileName?: string;
+  onSubmit?: () => void;
+  submitting?: boolean;
   /**
    * Institution-level net price per year (after grants/scholarships) sourced from
    * the College Scorecard institution-level pipeline. When provided, the loan
@@ -66,24 +65,12 @@ function loanImpactText(pct: number, netPriceAnnual?: number | null): string {
   return `financing ${pct}% of ${total}`;
 }
 
-function ernShiftDisplay(shift: number): string {
-  if (shift === 0) return "±0";
-  return shift > 0 ? `+${shift}` : `${shift}`;
-}
-
-function loanLabel(pct: number): string {
-  const stop = LOAN_STOPS.find((s) => s.value === pct);
-  return stop?.label ?? "Half";
-}
 
 export function EffortLoansPanel({
   effort,
   loans,
   onEffortChange,
   onLoanChange,
-  profileName,
-  onSubmit,
-  submitting,
   netPriceAnnual,
 }: EffortLoansPanelProps) {
   function handleEffortChange(level: string) {
@@ -108,129 +95,65 @@ export function EffortLoansPanel({
       animate={{ opacity: 1, y: 0 }}
       transition={springs.smooth}
     >
-      {/* Effort slider */}
-      <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
-        <div className="font-display text-[22px] font-semibold text-text-primary text-center mb-8">
-          How much time will you have to focus on school?
+      {/* Row 1: effort (left) + loans (right) */}
+      <div className="grid grid-cols-1 tablet:grid-cols-2 gap-5">
+        {/* Effort slider */}
+        <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
+          <div className="font-display text-[20px] font-semibold text-text-primary text-center mb-6">
+            How much time will you have to focus on school?
+          </div>
+          <DiscreteSlider
+            stops={EFFORT_STOPS}
+            value={effort.level}
+            onChange={handleEffortChange}
+            labelLeft="Working to support myself"
+            labelRight="Full focus on school"
+            fillGradient="linear-gradient(90deg, var(--color-accent-info), var(--color-accent-thrive))"
+            ariaLabel="Effort level"
+          />
+          <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
+            {effortInfo!.desc}
+          </div>
         </div>
-        <DiscreteSlider
-          stops={EFFORT_STOPS}
-          value={effort.level}
-          onChange={handleEffortChange}
-          labelLeft="Working to support myself"
-          labelRight="Full focus on school"
-          fillGradient="linear-gradient(90deg, var(--color-accent-info), var(--color-accent-thrive))"
-          ariaLabel="Effort level"
-        />
-        <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
-          {effortInfo!.desc}
-        </div>
-        <div className="flex justify-center gap-10 mt-6">
-          <div className="text-center">
-            <div className="text-[12px] text-text-muted mb-1">ERN</div>
-            <div
-              className="font-data font-bold text-[28px]"
-              style={{ color: "var(--color-stat-ern)" }}
-            >
-              {ernShiftDisplay(effort.ernShift)}
-            </div>
+
+        {/* Loan slider */}
+        <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
+          <div className="font-display text-[20px] font-semibold text-text-primary text-center mb-6">
+            How much of your costs will you cover with loans?
           </div>
-          <div className="text-center">
-            <div className="text-[12px] text-text-muted mb-1">ROI</div>
-            <div
-              className="font-data font-bold text-[28px]"
-              style={{ color: "var(--color-stat-roi)" }}
-            >
-              —
-            </div>
+          <DiscreteSlider
+            stops={LOAN_STOPS}
+            value={loans.percentage}
+            onChange={handleLoanChange}
+            labelLeft="No loans"
+            labelRight="All loans"
+            fillGradient="linear-gradient(90deg, var(--color-accent-thrive), var(--color-accent-alert))"
+            ariaLabel="Loan percentage"
+          />
+          <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
+            {loanImpactText(loans.percentage, netPriceAnnual)}
           </div>
-          <div className="text-center">
-            <div className="text-[12px] text-text-muted mb-1">RES</div>
+          {typeof netPriceAnnual === "number" && netPriceAnnual > 0 && (
             <div
-              className="font-data font-bold text-[28px]"
-              style={{ color: "var(--color-stat-res)" }}
+              className="mt-3 text-center space-y-0.5"
+              data-testid="loan-slider-cost-context"
             >
-              —
+              <div className="font-data text-data-sm text-text-muted">
+                ${netPriceAnnual.toLocaleString()}/yr × 4 years = $
+                {(netPriceAnnual * 4).toLocaleString()} total
+              </div>
+              <div className="font-data text-data-sm text-text-secondary">
+                At {loans.percentage}%: $
+                {Math.round(
+                  netPriceAnnual * 4 * (loans.percentage / 100),
+                ).toLocaleString()}{" "}
+                in loans
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Loan slider */}
-      <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
-        <div className="font-display text-[22px] font-semibold text-text-primary text-center mb-8">
-          How much of your school costs will you cover with loans?
-        </div>
-        <DiscreteSlider
-          stops={LOAN_STOPS}
-          value={loans.percentage}
-          onChange={handleLoanChange}
-          labelLeft="No loans"
-          labelRight="All loans"
-          fillGradient="linear-gradient(90deg, var(--color-accent-thrive), var(--color-accent-alert))"
-          ariaLabel="Loan percentage"
-        />
-        <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
-          {loanImpactText(loans.percentage, netPriceAnnual)}
-        </div>
-
-        {/*
-          Cost-of-attendance context — shown only when the institution-level
-          Scorecard data gave us a net price for this school. The annual line
-          frames what the slider is scaling; the live modeled-debt line lets
-          the student see their financing decision in dollars as they slide.
-        */}
-        {typeof netPriceAnnual === "number" && netPriceAnnual > 0 && (
-          <div
-            className="mt-4 text-center space-y-1"
-            data-testid="loan-slider-cost-context"
-          >
-            <div className="font-data text-data-sm text-text-muted">
-              ${netPriceAnnual.toLocaleString()}/yr × 4 years = $
-              {(netPriceAnnual * 4).toLocaleString()} total
-            </div>
-            <div className="font-data text-data-sm text-text-secondary">
-              At {loans.percentage}%: $
-              {Math.round(
-                netPriceAnnual * 4 * (loans.percentage / 100),
-              ).toLocaleString()}{" "}
-              in loans
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Live stat preview */}
-      <motion.div
-        className="bg-bp-mid border border-border-subtle rounded-xl p-6 flex justify-center gap-8"
-        layout
-        transition={springs.snappy}
-      >
-        <StatBadge
-          stat="ERN"
-          value={`▲ ${ernShiftDisplay(effort.ernShift)}`}
-          label={`${effort.percentile}th percentile`}
-          colorClass="text-stat-ern"
-        />
-        <div className="w-px bg-border-subtle" />
-        <StatBadge
-          stat="ROI"
-          value={`● ${loans.percentage}%`}
-          label={loanLabel(loans.percentage)}
-          colorClass="text-stat-roi"
-        />
-      </motion.div>
-
-      {/* CTA */}
-      <motion.button
-        onClick={onSubmit}
-        disabled={submitting}
-        className="w-full bg-accent-thrive text-text-inverse font-body font-bold text-cta h-12 rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-60 disabled:cursor-not-allowed"
-        whileTap={submitting ? undefined : { scale: 0.97 }}
-        transition={springs.snappy}
-      >
-        {submitting ? `Specing ${profileName}...` : "Spec my build →"}
-      </motion.button>
     </motion.div>
   );
 }

@@ -70,7 +70,7 @@ export interface IntentResult {
   audit_flag: string | null;
   audit_message: string | null;
   needs_clarification: boolean;
-  alternatives: Array<{ cip: string; title: string; why: string }> | null;
+  alternatives: Array<{ cip: string; title: string; why: string; parent_cip?: string }> | null;
   parent_cip: string;
   // Optional broad CIP explicitly reported by the school — separate from
   // parent_cip which is the Gemma-inferred parent. Defaults to parent_cip
@@ -83,6 +83,8 @@ export interface IntentResult {
   confirmed_focus?: string | null;
   student_major_text?: string;
   intent_keywords?: string[];
+  remaining_count?: number;
+  narrowing_hint?: string;
 }
 
 /**
