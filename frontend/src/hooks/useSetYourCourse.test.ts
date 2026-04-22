@@ -479,7 +479,7 @@ describe("TestCommit", () => {
     expect(args.inputNormalized).toBe("marketing");
     expect(args.schoolName).toBe("Indiana University");
     expect(args.unitid).toBe(151351);
-    expect(mockNavigate).toHaveBeenCalledWith("/reveal");
+    expect(mockNavigate).toHaveBeenCalledWith("/my-build");
   });
 
   it("commits_without_correction_when_resolution_unchanged — current == initial still commits (backend no-ops the log)", async () => {
@@ -516,7 +516,7 @@ describe("TestCommit", () => {
     expect(args.currentResolution.matched_cip).toBe(
       args.initialResolution.matched_cip,
     );
-    expect(mockNavigate).toHaveBeenCalledWith("/reveal");
+    expect(mockNavigate).toHaveBeenCalledWith("/my-build");
   });
 });
 

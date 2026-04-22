@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutureProof — Boss Fight Result Cards v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-void: #12131F;
+    --bg-deep: #1B1D30;
+    --bg-mid: #232545;
+    --bg-surface: #2D3060;
+    --bg-raised: #3A3D75;
+    --accent-thrive: #7DD4A3;
+    --accent-alert: #F4A97E;
+    --accent-caution: #F2D477;
+    --accent-insight: #B8A9E8;
+    --accent-info: #7BB8E0;
+    --accent-empathy: #E88BA9;
+    --boss-ai: #B8A9E8;
+    --boss-loans: #F4A97E;
+    --boss-market: #7BB8E0;
+    --boss-burnout: #E88BA9;
+    --boss-ceiling: #C4BFB0;
+    --text-primary: #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted: #8A8595;
+    --text-inverse: #1B1D30;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.1);
+    --border-strong: rgba(255,255,255,0.2);
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-data: 'Space Mono', monospace;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+    --shadow-sm: 0 2px 8px rgba(27,29,48,0.5);
+    --shadow-md: 0 4px 16px rgba(27,29,48,0.6);
+    --shadow-lg: 0 8px 32px rgba(27,29,48,0.7);
+  }
+
+  body {
+    background: var(--bg-deep);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(45,48,96,0.5) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 35%, rgba(58,61,117,0.35) 0%, transparent 65%),
+      radial-gradient(ellipse 70% 40% at 50% 70%, rgba(35,37,69,0.6) 0%, transparent 60%),
+      linear-gradient(180deg, #12131F 0%, #1B1D30 30%, #181A2E 60%, #12131F 100%);
+    min-height: 100vh;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  }
+
+  /* === SCENARIO BAR === */
+  .scenario-bar {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    gap: 6px;
+    padding: 6px 10px;
+    background: rgba(18,19,31,0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-full);
+    font-family: var(--font-data);
+    font-size: 11px;
+  }
+  .scenario-btn {
+    padding: 5px 14px;
+    border-radius: var(--radius-full);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-data);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 150ms ease-out;
+    white-space: nowrap;
+  }
+  .scenario-btn:hover { color: var(--text-secondary); background: var(--bg-surface); }
+  .scenario-btn.active {
+    background: rgba(123,184,224,0.12);
+    border-color: rgba(123,184,224,0.28);
+    color: var(--accent-info);
+  }
+
+  /* === CONTENT === */
+  .content {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 72px 24px 80px;
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 32px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .page-subtitle {
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+
+  .section-label {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent-info);
+    margin-bottom: 16px;
+  }
+
+  /* ========================================================
+     BOSS FIGHT RESULT CARD — THE VIDEO GAME VERSION
+     ======================================================== */
+
+  .boss-cards { display: flex; flex-direction: column; gap: 16px; }
+
+  .boss-card {
+    position: relative;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+  }
+  .boss-card:hover {
+    transform: translateY(-2px);
+  }
+
+  /* === RESULT BANNER (the always-visible top portion) === */
+  .result-banner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 100px;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* The dramatic gradient background per boss+result */
+  .result-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  /* WIN backgrounds: boss color fading into subtle thrive */
+  .boss-card[data-result="win"] .result-banner::before {
+    background:
+      linear-gradient(135deg,
+        var(--boss-color-alpha-12) 0%,
+        var(--boss-color-alpha-06) 40%,
+        rgba(125,212,163,0.06) 70%,
+        rgba(125,212,163,0.12) 100%
+      );
+  }
+  .boss-card[data-result="win"] {
+    border: 1px solid rgba(125,212,163,0.15);
+    box-shadow: 0 4px 24px rgba(27,29,48,0.5), inset 0 1px 0 rgba(125,212,163,0.08);
+  }
+  .boss-card[data-result="win"]:hover {
+    box-shadow: 0 8px 32px rgba(27,29,48,0.5), 0 0 24px rgba(125,212,163,0.12), inset 0 1px 0 rgba(125,212,163,0.12);
+  }
+
+  /* LOSE backgrounds: boss color dominant, deeper and heavier */
+  .boss-card[data-result="lose"] .result-banner::before {
+    background:
+      linear-gradient(135deg,
+        var(--boss-color-alpha-15) 0%,
+        var(--boss-color-alpha-08) 50%,
+        rgba(244,169,126,0.06) 80%,
+        rgba(244,169,126,0.10) 100%
+      );
+  }
+  .boss-card[data-result="lose"] {
+    border: 1px solid rgba(244,169,126,0.18);
+    box-shadow: 0 4px 24px rgba(27,29,48,0.5), inset 0 1px 0 rgba(244,169,126,0.08);
+  }
+  .boss-card[data-result="lose"]:hover {
+    box-shadow: 0 8px 32px rgba(27,29,48,0.5), 0 0 24px rgba(244,169,126,0.12), inset 0 1px 0 rgba(244,169,126,0.12);
+  }
+
+  /* DRAW backgrounds: split tension */
+  .boss-card[data-result="draw"] .result-banner::before {
+    background:
+      linear-gradient(135deg,
+        var(--boss-color-alpha-10) 0%,
+        var(--boss-color-alpha-06) 40%,
+        rgba(242,212,119,0.05) 70%,
+        rgba(242,212,119,0.10) 100%
+      );
+  }
+  .boss-card[data-result="draw"] {
+    border: 1px solid rgba(242,212,119,0.15);
+    box-shadow: 0 4px 24px rgba(27,29,48,0.5), inset 0 1px 0 rgba(242,212,119,0.08);
+  }
+  .boss-card[data-result="draw"]:hover {
+    box-shadow: 0 8px 32px rgba(27,29,48,0.5), 0 0 24px rgba(242,212,119,0.12), inset 0 1px 0 rgba(242,212,119,0.12);
+  }
+
+  /* Solid bg-mid base behind the gradient */
+  .result-banner {
+    background: var(--bg-mid);
+  }
+
+  /* === LEFT: BOSS ZONE === */
+  .boss-zone {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 0 20px 24px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .boss-portrait {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    line-height: 1;
+    flex-shrink: 0;
+    position: relative;
+    /* Boss-colored subtle glow behind the portrait */
+    box-shadow: 0 0 20px var(--boss-color-alpha-20);
+  }
+  /* The boss portrait background is a gradient from boss color */
+  .boss-portrait::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--boss-color-alpha-25) 0%, var(--boss-color-alpha-12) 100%);
+    border: 1px solid var(--boss-color-alpha-20);
+  }
+
+  .boss-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .boss-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+  .boss-subtitle {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* === FIGHT SCORE BAR === */
+  .fight-score {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0 16px;
+    flex-shrink: 0;
+    width: 80px;
+  }
+  .score-bar-track {
+    width: 4px;
+    height: 48px;
+    background: rgba(255,255,255,0.06);
+    border-radius: var(--radius-full);
+    position: relative;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: var(--radius-full);
+    transition: height 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .score-label {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* === VS DIAMOND separator === */
+  .vs-diamond {
+    position: relative;
+    z-index: 1;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .vs-diamond::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid var(--border-default);
+    border-radius: 4px;
+    transform: rotate(45deg);
+    background: var(--bg-mid);
+  }
+  .vs-diamond::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: var(--border-subtle);
+    z-index: -1;
+  }
+
+  /* === RIGHT: RESULT ZONE === */
+  .result-zone {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px 20px 0;
+    flex-shrink: 0;
+  }
+
+  .result-text {
+    text-align: right;
+  }
+  .result-word {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.1;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .result-flavor {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* WIN result text */
+  .boss-card[data-result="win"] .result-word {
+    color: var(--accent-thrive);
+    text-shadow: 0 0 20px rgba(125,212,163,0.3);
+  }
+  .boss-card[data-result="lose"] .result-word {
+    color: var(--accent-alert);
+    text-shadow: 0 0 20px rgba(244,169,126,0.25);
+  }
+  .boss-card[data-result="draw"] .result-word {
+    color: var(--accent-caution);
+    text-shadow: 0 0 20px rgba(242,212,119,0.25);
+  }
+
+  /* Expand chevron */
+  .expand-chevron {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 200ms ease-out;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .boss-card:hover .expand-chevron {
+    background: rgba(255,255,255,0.08);
+    border-color: var(--border-default);
+    color: var(--text-secondary);
+  }
+  .boss-card.expanded .expand-chevron {
+    transform: rotate(180deg);
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* === RIGHT EDGE GLOW (result color accent) === */
+  .result-banner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 4px;
+    z-index: 2;
+  }
+  .boss-card[data-result="win"] .result-banner::after {
+    background: linear-gradient(180deg, rgba(125,212,163,0.5) 0%, rgba(125,212,163,0.1) 100%);
+    box-shadow: -8px 0 24px rgba(125,212,163,0.15);
+  }
+  .boss-card[data-result="lose"] .result-banner::after {
+    background: linear-gradient(180deg, rgba(244,169,126,0.5) 0%, rgba(244,169,126,0.1) 100%);
+    box-shadow: -8px 0 24px rgba(244,169,126,0.15);
+  }
+  .boss-card[data-result="draw"] .result-banner::after {
+    background: linear-gradient(180deg, rgba(242,212,119,0.5) 0%, rgba(242,212,119,0.1) 100%);
+    box-shadow: -8px 0 24px rgba(242,212,119,0.15);
+  }
+
+  /* === LEFT EDGE STRIPE (boss color accent) === */
+  .boss-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 4px;
+    z-index: 2;
+    border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+  }
+
+  /* === EXPANDED DETAIL === */
+  .boss-detail {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 400ms cubic-bezier(0.34, 1, 0.64, 1),
+                opacity 250ms ease-out;
+    opacity: 0;
+    background: var(--bg-mid);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .boss-card.expanded .boss-detail {
+    opacity: 1;
+  }
+  .boss-detail-inner {
+    padding: 20px 24px 24px;
+  }
+
+  /* Narrative panel */
+  .narrative {
+    background: rgba(27,29,48,0.6);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    position: relative;
+    border-left: 3px solid var(--text-muted);
+  }
+  .narrative p {
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-primary);
+    line-height: 1.65;
+  }
+
+  /* Reroll section */
+  .reroll-section {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+  }
+  .reroll-label {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .skill-list { display: flex; flex-direction: column; gap: 8px; }
+  .skill-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 150ms ease-out;
+    user-select: none;
+  }
+  .skill-card:hover { border-color: var(--border-default); background: var(--bg-deep); }
+  .skill-card.selected {
+    border-color: rgba(125,212,163,0.4);
+    box-shadow: 0 0 12px rgba(125,212,163,0.12);
+  }
+  .skill-checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 150ms;
+    font-size: 11px;
+    color: transparent;
+  }
+  .skill-card.selected .skill-checkbox {
+    background: var(--accent-thrive);
+    border-color: var(--accent-thrive);
+    color: var(--text-inverse);
+  }
+  .skill-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .skill-bonus {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--accent-thrive);
+    flex-shrink: 0;
+  }
+  .reroll-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    gap: 12px;
+  }
+  .btn-ghost {
+    padding: 8px 16px;
+    border-radius: var(--radius-lg);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 150ms;
+  }
+  .btn-ghost:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+  .btn-primary {
+    padding: 10px 22px;
+    border-radius: var(--radius-lg);
+    border: none;
+    background: var(--accent-thrive);
+    color: var(--text-inverse);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 150ms;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary:hover { background: #6bc494; box-shadow: 0 0 20px rgba(125,212,163,0.3); }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled {
+    background: rgba(138,133,149,0.3);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .reroll-attempt {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: right;
+    margin-top: 8px;
+  }
+
+  /* === SCROLL-REVEAL ANIMATION === */
+  .boss-card {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.45s cubic-bezier(0.34, 1, 0.64, 1),
+                transform 0.55s cubic-bezier(0.34, 1, 0.64, 1),
+                box-shadow 200ms ease-out;
+  }
+  .boss-card.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .boss-card:hover.revealed {
+    transform: translateY(-2px);
+  }
+
+  /* Internal element stagger */
+  .boss-card .boss-portrait,
+  .boss-card .boss-info,
+  .boss-card .result-word,
+  .boss-card .fight-score {
+    opacity: 0;
+    transition: opacity 0.35s ease-out, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .boss-card .boss-portrait {
+    transform: scale(0.75);
+  }
+  .boss-card .boss-info {
+    transform: translateX(-12px);
+  }
+  .boss-card .result-word {
+    transform: scale(0.85);
+  }
+  .boss-card .fight-score {
+    transform: translateY(8px);
+  }
+
+  .boss-card.revealed .boss-portrait {
+    opacity: 1; transform: scale(1);
+    transition-delay: 0ms;
+  }
+  .boss-card.revealed .boss-info {
+    opacity: 1; transform: translateX(0);
+    transition-delay: 80ms;
+  }
+  .boss-card.revealed .result-word {
+    opacity: 1; transform: scale(1);
+    transition-delay: 160ms;
+  }
+  .boss-card.revealed .fight-score {
+    opacity: 1; transform: translateY(0);
+    transition-delay: 120ms;
+  }
+
+  /* === RESULT PILL MICRO-ANIMATIONS === */
+  @keyframes winPulse {
+    0% { box-shadow: 0 0 0 0 rgba(125,212,163,0); }
+    50% { box-shadow: 0 0 20px 4px rgba(125,212,163,0.25); }
+    100% { box-shadow: 0 0 0 0 rgba(125,212,163,0); }
+  }
+  @keyframes loseShake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-3px); }
+    30% { transform: translateX(3px); }
+    45% { transform: translateX(-2px); }
+    60% { transform: translateX(2px); }
+    75% { transform: translateX(-1px); }
+    90% { transform: translateX(1px); }
+  }
+  @keyframes drawWobble {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(1.5deg); }
+    75% { transform: rotate(-1.5deg); }
+  }
+
+  /* Thrive glow pulse on reroll success */
+  @keyframes thriveGlowPulse {
+    0% { box-shadow: 0 0 0 rgba(125,212,163,0); }
+    50% { box-shadow: 0 0 32px rgba(125,212,163,0.35); }
+    100% { box-shadow: 0 0 0 rgba(125,212,163,0); }
+  }
+  .boss-card.glow-pulse { animation: thriveGlowPulse 0.8s ease-in-out; }
+
+  /* === COMPARISON: ORIGINAL STYLE === */
+  .original-style .boss-band {
+    position: relative;
+    padding: 24px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+  }
+  .original-style .boss-band + .boss-band { margin-top: 16px; }
+
+  .original-style .boss-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .original-style .boss-circle {
+    width: 88px;
+    height: 88px;
+    border-radius: var(--radius-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 52px;
+    flex-shrink: 0;
+  }
+  .original-style .boss-circle.ai { background: var(--boss-ai); }
+  .original-style .boss-circle.loans { background: var(--boss-loans); }
+  .original-style .boss-circle.market { background: var(--boss-market); }
+  .original-style .boss-circle.burnout { background: var(--boss-burnout); }
+  .original-style .boss-circle.ceiling { background: var(--boss-ceiling); }
+  .original-style .band-info { flex: 1; }
+  .original-style .boss-name-old {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 20px;
+  }
+  .original-style .boss-subtitle-old {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .original-style .result-pill-old {
+    font-family: var(--font-data);
+    font-size: 15px;
+    font-weight: 700;
+    padding: 7px 20px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .original-style .result-pill-old.win {
+    background: rgba(125,212,163,0.22);
+    color: var(--accent-thrive);
+  }
+  .original-style .result-pill-old.lose {
+    background: rgba(244,169,126,0.22);
+    color: var(--accent-alert);
+  }
+  .original-style .result-pill-old.draw {
+    background: rgba(242,212,119,0.22);
+    color: var(--accent-caution);
+  }
+  .original-style .narrative-panel-old {
+    background: rgba(27,29,48,0.6);
+    border-left: 3px solid var(--accent-insight);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-top: 14px;
+  }
+  .original-style .narrative-panel-old p {
+    font-size: 15px;
+    color: var(--text-primary);
+    line-height: 1.65;
+  }
+
+  /* === DESIGN NOTES === */
+  .design-note {
+    margin-top: 48px;
+    padding: 20px 24px;
+    background: rgba(184,169,232,0.06);
+    border: 1px solid rgba(184,169,232,0.15);
+    border-left: 3px solid var(--accent-insight);
+    border-radius: var(--radius-xl);
+  }
+  .design-note h3 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent-insight);
+    margin-bottom: 8px;
+  }
+  .design-note p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .design-note p:last-child { margin-bottom: 0; }
+  .design-note code {
+    font-family: var(--font-data);
+    font-size: 12px;
+    padding: 2px 6px;
+    background: rgba(184,169,232,0.1);
+    border-radius: 4px;
+    color: var(--accent-insight);
+  }
+
+  /* === MOBILE === */
+  @media (max-width: 640px) {
+    .content { padding: 64px 16px 60px; }
+    .result-banner { flex-wrap: wrap; min-height: auto; }
+    .boss-zone { padding: 16px 0 8px 16px; flex: 1 1 100%; }
+    .boss-portrait { width: 48px; height: 48px; font-size: 28px; }
+    .boss-portrait::before { border-radius: 12px; }
+    .boss-name { font-size: 16px; }
+    .boss-subtitle { font-size: 12px; }
+    .fight-score { display: none; }
+    .vs-diamond { display: none; }
+    .result-zone { padding: 0 16px 16px 16px; flex: 1 1 100%; justify-content: space-between; }
+    .result-word { font-size: 18px; }
+    .boss-detail-inner { padding: 16px; }
+  }
+
+  /* Hidden state helper */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Scenario Switcher -->
+<div class="scenario-bar">
+  <button class="scenario-btn active" data-scenario="v2">v2 Redesign</button>
+  <button class="scenario-btn" data-scenario="original">Original (Compare)</button>
+  <button class="scenario-btn" data-scenario="all-expanded">All Expanded</button>
+</div>
+
+<div class="content">
+  <div class="section-label">THE GAUNTLET</div>
+  <h1 class="page-title">Boss Fight Results</h1>
+  <p class="page-subtitle">5 fights. Your stats vs. real-world threats.</p>
+
+  <!-- ===== V2 REDESIGN ===== -->
+  <div id="v2-cards" class="boss-cards"></div>
+
+  <!-- ===== ORIGINAL STYLE (for comparison) ===== -->
+  <div id="original-cards" class="original-style hidden"></div>
+
+  <!-- Design Notes -->
+  <div class="design-note" id="design-notes">
+    <h3>What changed and why</h3>
+    <p><strong>Result as hero.</strong> "VICTORY" / "DEFEATED" / "STANDOFF" in 22px Fredoka bold replaces a 15px Space Mono pill. The result now dominates the right side of every card. You see green/amber/gold before you read anything.</p>
+    <p><strong>Environmental tinting.</strong> Each card's background gradient shifts based on the result. WIN cards fade from boss color to subtle thrive green. LOSE cards carry heavier boss color into amber. The entire card tells you the outcome through color, not just a badge.</p>
+    <p><strong>Edge accents.</strong> A 4px result-colored stripe on the right edge creates a "scoreboard" feel -- like marks on a tally. The boss color stripe on the left identifies the boss. Two stripes, two stories: who you fought, and whether you won.</p>
+    <p><strong>Fight score bar.</strong> A vertical 4px bar shows how close the fight was. This adds data density without text -- you can see at a glance which fights were close calls and which were blowouts.</p>
+    <p><strong>Boss portrait refinement.</strong> The 88px solid-colored rectangle becomes a 64px rounded square with a gradient from boss color at 25% to 12%. Smaller, more refined, with a subtle glow. The emoji sits on top of depth, not a flat slab.</p>
+    <p><strong>Vocabulary shift.</strong> "WIN/LOSE/DRAW" becomes "VICTORY/DEFEATED/STANDOFF." Game language, not spreadsheet language. The flavor text underneath ("Your stats held strong" / "This one got you" / "A narrow escape") adds personality.</p>
+    <p><strong>Expand/collapse preserved.</strong> The banner is always visible; narrative expands below. LOSE and DRAW auto-expand. This matches the spec's information density goals while adding visual drama to the always-visible layer.</p>
+    <p><strong>CSS custom properties per boss.</strong> Each card sets <code>--boss-color-alpha-*</code> variables so the gradient, portrait, and stripe all derive from one source. Clean to implement in React with inline <code>style</code> props.</p>
+  </div>
+</div>
+
+<script>
+const BOSSES = [
+  {
+    id: 'ai', emoji: '\u{1F916}', name: 'Fight AI',
+    subtitle: 'How safe is this career from automation?',
+    color: '#B8A9E8', result: 'win', score: 72,
+    resultWord: 'VICTORY', flavor: 'Your stats held strong',
+    narrative: 'Software development scores well against AI automation. While AI coding assistants are powerful, the core work of understanding complex systems, making architectural decisions, and translating ambiguous human needs into working software remains firmly human. Your RES score of 7 reflects a career that works alongside AI rather than being replaced by it.'
+  },
+  {
+    id: 'loans', emoji: '\u{1F4B0}', name: 'Fight Student Loans',
+    subtitle: 'Can your earnings handle the debt?',
+    color: '#F4A97E', result: 'lose', score: 38,
+    resultWord: 'DEFEATED', flavor: 'This one got you',
+    narrative: 'Your debt-to-earnings ratio is 1.8x, which means your annual loan payments would consume a significant chunk of your starting salary. Illinois State\'s Computer Science program costs more than the median, and while $85,200 is strong, the first few years will feel tight. Historically, graduates in similar positions have taken 12-15 years to fully pay off their loans.',
+    skills: [
+      { id: 'sk1', title: 'Part-time Work Experience', bonus: '+1 ERN, +2 ROI' },
+      { id: 'sk2', title: 'Scholarship Applications', bonus: '+2 ROI' },
+      { id: 'sk3', title: 'Financial Literacy Course', bonus: '+1 ROI' }
+    ]
+  },
+  {
+    id: 'market', emoji: '\u{1F4C8}', name: 'Fight the Market',
+    subtitle: 'Is this field growing or shrinking?',
+    color: '#7BB8E0', result: 'win', score: 88,
+    resultWord: 'VICTORY', flavor: 'A dominant showing',
+    narrative: 'The software development job market is booming. With 25% projected growth over the next decade, this is one of the fastest-growing fields in the economy. Your GRW score of 9 places you in an expanding market where demand consistently outpaces supply. Tech companies, healthcare, finance, and government all compete for these skills.'
+  },
+  {
+    id: 'burnout', emoji: '\u{1F525}', name: 'Fight Burnout',
+    subtitle: 'How sustainable is this work long-term?',
+    color: '#E88BA9', result: 'draw', score: 52,
+    resultWord: 'STANDOFF', flavor: 'A narrow escape',
+    narrative: 'Software development has a moderate burnout profile. The work involves intense focus, tight deadlines, and the mental fatigue of debugging complex systems. On the flip side, remote work flexibility and creative problem-solving provide strong buffers. Your HMN score of 5 suggests the role leans technical, which can feel isolating without deliberate human connection.',
+    skills: [
+      { id: 'sk4', title: 'Mindfulness Practice', bonus: '+1 HMN' }
+    ]
+  },
+  {
+    id: 'ceiling', emoji: '\u{1F4CA}', name: 'Fight the Ceiling',
+    subtitle: 'How high can your earnings go?',
+    color: '#C4BFB0', result: 'win', score: 80,
+    resultWord: 'VICTORY', flavor: 'The ceiling is high',
+    narrative: 'The earnings ceiling for software developers is high. Senior engineers, tech leads, and architects can earn $150K-$250K+ depending on location and specialization. The path from entry-level to senior is well-defined, and the skills transfer across industries. Your ERN score of 8 puts you on a trajectory with significant upside.'
+  }
+];
+
+// Color alpha helpers
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `${r},${g},${b}`;
+}
+
+function resultColor(result) {
+  if (result === 'win') return { hex: '#7DD4A3', rgb: '125,212,163' };
+  if (result === 'lose') return { hex: '#F4A97E', rgb: '244,169,126' };
+  return { hex: '#F2D477', rgb: '242,212,119' };
+}
+
+let skillState = {};
+BOSSES.forEach(b => {
+  if (b.skills) b.skills.forEach(s => { skillState[s.id] = false; });
+});
+
+function renderV2Cards() {
+  const container = document.getElementById('v2-cards');
+  container.innerHTML = '';
+
+  BOSSES.forEach((boss, i) => {
+    const rc = resultColor(boss.result);
+    const bossRgb = hexToRgb(boss.color);
+    const isExpanded = boss.result === 'lose' || boss.result === 'draw';
+
+    const card = document.createElement('div');
+    card.className = `boss-card${isExpanded ? ' expanded' : ''}`;
+    card.dataset.result = boss.result;
+    card.dataset.boss = boss.id;
+    card.style.cssText = `
+      --boss-color: ${boss.color};
+      --boss-color-alpha-06: rgba(${bossRgb},0.06);
+      --boss-color-alpha-08: rgba(${bossRgb},0.08);
+      --boss-color-alpha-10: rgba(${bossRgb},0.10);
+      --boss-color-alpha-12: rgba(${bossRgb},0.12);
+      --boss-color-alpha-15: rgba(${bossRgb},0.15);
+      --boss-color-alpha-20: rgba(${bossRgb},0.20);
+      --boss-color-alpha-25: rgba(${bossRgb},0.25);
+    `;
+
+    // Score bar fill height (score out of 100 maps to bar height)
+    const barHeight = Math.max(10, Math.min(100, boss.score));
+    const scoreFillColor = rc.hex;
+
+    let rerollHTML = '';
+    if ((boss.result === 'lose' || boss.result === 'draw') && boss.skills) {
+      rerollHTML = `
+        <div class="reroll-section">
+          <div class="reroll-label">Equip Skills to Retry</div>
+          <div class="skill-list" id="skills-${boss.id}">
+            ${boss.skills.map(s => `
+              <div class="skill-card${skillState[s.id] ? ' selected' : ''}" data-skill="${s.id}" data-boss="${boss.id}">
+                <div class="skill-checkbox">${skillState[s.id] ? '✓' : ''}</div>
+                <div class="skill-title">${s.title}</div>
+                <div class="skill-bonus">${s.bonus}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="reroll-actions">
+            <button class="btn-ghost">Accept Result</button>
+            <button class="btn-primary" id="rescore-${boss.id}" disabled>
+              Rescore Fight ✦
+            </button>
+          </div>
+          <div class="reroll-attempt">Attempt 1/3</div>
+        </div>`;
+    }
+
+    // Build the detail height for auto-expanded cards
+    const detailStyle = isExpanded ? 'max-height: 800px; opacity: 1;' : '';
+
+    card.innerHTML = `
+      <span style="position:absolute;top:0;left:0;bottom:0;width:4px;z-index:2;border-radius:20px 0 0 20px;background:linear-gradient(180deg, ${boss.color}88 0%, ${boss.color}22 100%);"></span>
+      <div class="result-banner" onclick="toggleCard('${boss.id}')">
+        <div class="boss-zone">
+          <div class="boss-portrait">
+            <span style="position:relative;z-index:1;">${boss.emoji}</span>
+          </div>
+          <div class="boss-info">
+            <div class="boss-name" style="color: ${boss.color};">${boss.name}</div>
+            <div class="boss-subtitle">${boss.subtitle}</div>
+          </div>
+        </div>
+
+        <div class="fight-score">
+          <div class="score-label" style="color: ${rc.hex};">${boss.score}%</div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="height: ${barHeight}%; background: ${scoreFillColor};"></div>
+          </div>
+        </div>
+
+        <div class="vs-diamond"></div>
+
+        <div class="result-zone">
+          <div class="result-text">
+            <div class="result-word">${boss.resultWord}</div>
+            <div class="result-flavor">${boss.flavor}</div>
+          </div>
+          <div class="expand-chevron">▾</div>
+        </div>
+      </div>
+
+      <div class="boss-detail" style="${detailStyle}">
+        <div class="boss-detail-inner">
+          <div class="narrative" style="border-left-color: ${boss.color};">
+            <p>${boss.narrative}</p>
+          </div>
+          ${rerollHTML}
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+
+  // Bind skill toggles
+  document.querySelectorAll('.skill-card').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sid = el.dataset.skill;
+      const bid = el.dataset.boss;
+      skillState[sid] = !skillState[sid];
+      el.classList.toggle('selected');
+      el.querySelector('.skill-checkbox').textContent = skillState[sid] ? '✓' : '';
+      updateRescoreButtons();
+    });
+  });
+
+  updateRescoreButtons();
+  initScrollReveal();
+}
+
+function toggleCard(bossId) {
+  const card = document.querySelector(`.boss-card[data-boss="${bossId}"]`);
+  if (!card) return;
+  const detail = card.querySelector('.boss-detail');
+  const isExpanded = card.classList.contains('expanded');
+
+  if (isExpanded) {
+    detail.style.maxHeight = '0px';
+    card.classList.remove('expanded');
+  } else {
+    detail.style.maxHeight = detail.scrollHeight + 'px';
+    card.classList.add('expanded');
+  }
+}
+
+function updateRescoreButtons() {
+  BOSSES.forEach(boss => {
+    if (!boss.skills) return;
+    const btn = document.getElementById(`rescore-${boss.id}`);
+    if (!btn) return;
+    const anySelected = boss.skills.some(s => skillState[s.id]);
+    btn.disabled = !anySelected;
+  });
+}
+
+function initScrollReveal() {
+  const cards = document.querySelectorAll('.boss-card');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !entry.target.classList.contains('revealed')) {
+        entry.target.classList.add('revealed');
+
+        // Micro-animation on the result word
+        const result = entry.target.dataset.result;
+        const resultWord = entry.target.querySelector('.result-word');
+        if (resultWord) {
+          setTimeout(() => {
+            if (result === 'win') {
+              entry.target.style.animation = 'winPulse 0.6s ease-in-out';
+              setTimeout(() => entry.target.style.animation = '', 600);
+            } else if (result === 'lose') {
+              resultWord.style.animation = 'loseShake 0.4s ease-in-out';
+              setTimeout(() => resultWord.style.animation = '', 400);
+            } else if (result === 'draw') {
+              resultWord.style.animation = 'drawWobble 0.4s ease-in-out';
+              setTimeout(() => resultWord.style.animation = '', 400);
+            }
+          }, 300);
+        }
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+  cards.forEach((card, i) => {
+    // Stagger the initial reveal
+    card.style.transitionDelay = `${i * 100}ms`;
+    observer.observe(card);
+  });
+}
+
+function renderOriginalCards() {
+  const container = document.getElementById('original-cards');
+  container.innerHTML = '';
+
+  BOSSES.forEach(boss => {
+    const resultLabel = boss.result.toUpperCase();
+    const div = document.createElement('div');
+    div.className = 'boss-band';
+    div.innerHTML = `
+      <div class="boss-header">
+        <div class="boss-circle ${boss.id}">${boss.emoji}</div>
+        <div class="band-info">
+          <div class="boss-name-old" style="color:${boss.color}">${boss.name}</div>
+          <div class="boss-subtitle-old">${boss.subtitle}</div>
+        </div>
+        <span class="result-pill-old ${boss.result}">${resultLabel}</span>
+      </div>
+      <div class="narrative-panel-old" style="border-left-color:${boss.color}">
+        <p>${boss.narrative}</p>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Scenario switching
+document.querySelectorAll('.scenario-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const scenario = btn.dataset.scenario;
+
+    const v2 = document.getElementById('v2-cards');
+    const orig = document.getElementById('original-cards');
+    const notes = document.getElementById('design-notes');
+
+    if (scenario === 'original') {
+      v2.classList.add('hidden');
+      orig.classList.remove('hidden');
+      notes.classList.add('hidden');
+    } else if (scenario === 'all-expanded') {
+      v2.classList.remove('hidden');
+      orig.classList.add('hidden');
+      notes.classList.remove('hidden');
+      // Expand all cards
+      document.querySelectorAll('.boss-card').forEach(card => {
+        card.classList.add('expanded');
+        const detail = card.querySelector('.boss-detail');
+        if (detail) detail.style.maxHeight = detail.scrollHeight + 'px';
+      });
+    } else {
+      v2.classList.remove('hidden');
+      orig.classList.add('hidden');
+      notes.classList.remove('hidden');
+    }
+  });
+});
+
+// Initialize
+renderV2Cards();
+renderOriginalCards();
+</script>
+</body>
+</html>

@@ -169,7 +169,7 @@ describe("TestFlow", () => {
 
     await waitFor(() => {
       expect(commitResolution).toHaveBeenCalledTimes(1);
-      expect(mockNavigate).toHaveBeenCalledWith("/reveal");
+      expect(mockNavigate).toHaveBeenCalledWith("/my-build");
     });
   });
 });
