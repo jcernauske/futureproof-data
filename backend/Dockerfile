@@ -36,8 +36,9 @@ RUN git config --global "url.https://${GITHUB_TOKEN}@github.com/.insteadOf" "htt
 COPY backend/ backend/
 COPY src/ src/
 COPY data/catalog/ data/catalog/
-COPY data/gold/iceberg_warehouse/ data/gold/iceberg_warehouse/
+COPY data/gold/ data/gold/
 COPY data/silver/ data/silver/
+COPY data/bronze/ data/bronze/
 COPY data/reference/ data/reference/
 
 # Install the backend package itself
