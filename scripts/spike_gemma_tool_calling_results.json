@@ -1,0 +1,251 @@
+{
+  "ollama": {
+    "results": [
+      {
+        "label": "marketing-manager-at-iu",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "52.1401",
+          "unitid": 151351
+        },
+        "latency_ms": 11711
+      },
+      {
+        "label": "deaf-ed-at-iu",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "13.1001",
+          "unitid": 151351
+        },
+        "latency_ms": 9348
+      },
+      {
+        "label": "premed-biology",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "26.0101",
+          "unitid": 151351
+        },
+        "latency_ms": 15138
+      },
+      {
+        "label": "cs-game-design",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "11.0101",
+          "unitid": 243780
+        },
+        "latency_ms": 15467
+      },
+      {
+        "label": "nursing-at-liberal-arts",
+        "backend": "ollama",
+        "tool_call": false,
+        "args_valid": false,
+        "content_preview": "That is a wonderful and impactful career goal. Nursing is a highly rewarding field that requires specialized training. While your Liberal Arts degree provides excellent critical thinking and communica",
+        "latency_ms": 25240
+      },
+      {
+        "label": "accounting-specific",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "11.3000",
+          "student_major": "52.0201",
+          "unitid": 151351
+        },
+        "latency_ms": 31004
+      },
+      {
+        "label": "physical-therapy",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "51.0001",
+          "unitid": 150136
+        },
+        "latency_ms": 27198
+      },
+      {
+        "label": "ux-design",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "50.0401",
+          "unitid": 151351
+        },
+        "latency_ms": 37017
+      },
+      {
+        "label": "data-science",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "27.0101",
+          "student_major": "27.0101",
+          "unitid": 243780
+        },
+        "latency_ms": 35265
+      },
+      {
+        "label": "environmental-science",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "03.0104",
+          "student_major": "Environmental Science",
+          "unitid": 151351
+        },
+        "latency_ms": 20998
+      },
+      {
+        "label": "social-work",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "44.0701",
+          "unitid": 150136
+        },
+        "latency_ms": 75133
+      },
+      {
+        "label": "mechanical-engineering",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "14.1901",
+          "unitid": 243780
+        },
+        "latency_ms": 22372
+      },
+      {
+        "label": "journalism",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "51.1401",
+          "unitid": 151351
+        },
+        "latency_ms": 20072
+      },
+      {
+        "label": "psychology-clinical",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "42.0101",
+          "unitid": 151351
+        },
+        "latency_ms": 16606
+      },
+      {
+        "label": "broad-input-business",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "52.0201",
+          "unitid": 151351
+        },
+        "latency_ms": 20607
+      },
+      {
+        "label": "music-education",
+        "backend": "ollama",
+        "tool_call": false,
+        "args_valid": false,
+        "content_preview": "That is a very important distinction. Many students in music programs focus on education, but performance is a completely different career track.\n\nTo help you explore performance-related outcomes, cou",
+        "latency_ms": 39933
+      },
+      {
+        "label": "criminal-justice",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "43.0104",
+          "unitid": 151351
+        },
+        "latency_ms": 19912
+      },
+      {
+        "label": "finance-quant",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "52.0801",
+          "unitid": 243780
+        },
+        "latency_ms": 24367
+      },
+      {
+        "label": "art-therapy",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "50.0701",
+          "student_major": "50.0701",
+          "unitid": 151351
+        },
+        "latency_ms": 34597
+      },
+      {
+        "label": "supply-chain",
+        "backend": "ollama",
+        "tool_call": true,
+        "tool_name": "get_career_paths",
+        "args_valid": true,
+        "parsed_args": {
+          "cipcode": "52.0201",
+          "unitid": 243780
+        },
+        "latency_ms": 34077
+      }
+    ],
+    "summary": {
+      "backend": "ollama",
+      "count": 20,
+      "tool_call_rate": "18/20 (90%)",
+      "valid_args_rate": "18/20 (90%)",
+      "avg_latency_ms": 26803,
+      "p50_latency_ms": 24367,
+      "success_rate_pct": 90
+    }
+  }
+}

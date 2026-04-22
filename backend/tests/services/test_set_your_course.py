@@ -1165,3 +1165,261 @@ class TestChipFlowIntentKeywords:
         assert response.updated_resolution is not None
         assert response.updated_resolution.student_major_text == "marketing analytics"
         assert response.updated_resolution.intent_keywords == ["analytics", "data"]
+
+
+# ---------------------------------------------------------------------------
+# Multi-CIP resolution (feature-multi-cip-resolution §4)
+# ---------------------------------------------------------------------------
+
+
+class TestMultiCipResolution:
+    """Tests for the multi-CIP resolution feature.
+
+    The streaming prompt now asks Gemma for up to 3 ranked CIP matches.
+    ``_build_intent_result_from_tail`` parses the ``alternatives`` array,
+    ``remaining_count``, and ``narrowing_hint`` from the JSON tail.
+    ``_fallback_resolve`` also supports multi-CIP.
+    """
+
+    def test_stream_multi_cip_parses_3_ranked_options(
+        self,
+        stub_intent_helpers: None,
+    ) -> None:
+        """Mocked Gemma response with 3 CIPs -> IntentResult has primary
+        + 2 alternatives with correct fields (cip, title, why, parent_cip)."""
+        parsed = {
+            "matched_cip": "14.0901",
+            "matched_title": "Computer Engineering, General",
+            "confidence": "high",
+            "parent_cip": "14.09",
+            "alternatives": [
+                {
+                    "cip": "14.1001",
+                    "title": "Electrical Engineering",
+                    "why": "Also covers circuits",
+                    "parent_cip": "14.10",
+                },
+                {
+                    "cip": "14.1901",
+                    "title": "Mechanical Engineering",
+                    "why": "Physical systems",
+                    "parent_cip": "14.19",
+                },
+            ],
+            "remaining_count": 11,
+            "narrowing_hint": "Try 'civil engineering'",
+            "intent_keywords": ["engineering"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="engineering",
+            prose="Engineering program.",
+            parsed=parsed,
+            school_cips=[
+                {"cipcode": "14.0901", "program_name": "Computer Engineering"},
+            ],
+            programs=[],
+        )
+        assert result.matched_cip == "14.0901"
+        assert result.matched_title == "Computer Engineering, General"
+        assert result.alternatives is not None
+        assert len(result.alternatives) == 2
+        assert result.alternatives[0]["cip"] == "14.1001"
+        assert result.alternatives[0]["title"] == "Electrical Engineering"
+        assert result.alternatives[0]["why"] == "Also covers circuits"
+        assert result.alternatives[0]["parent_cip"] == "14.10"
+        assert result.alternatives[1]["cip"] == "14.1901"
+        assert result.alternatives[1]["title"] == "Mechanical Engineering"
+
+    def test_stream_single_cip_no_alternatives(
+        self,
+        stub_intent_helpers: None,
+    ) -> None:
+        """Mocked Gemma response with 1 CIP -> alternatives is empty/None,
+        remaining_count is 0."""
+        parsed = {
+            "matched_cip": "51.3801",
+            "matched_title": "Registered Nursing",
+            "confidence": "high",
+            "parent_cip": "51.38",
+            "alternatives": [],
+            "remaining_count": 0,
+            "narrowing_hint": "",
+            "intent_keywords": ["nursing"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="nursing",
+            prose="Nursing program.",
+            parsed=parsed,
+            school_cips=[{"cipcode": "51.3801", "program_name": "Nursing"}],
+            programs=[],
+        )
+        assert result.matched_cip == "51.3801"
+        # Empty list after sanitization — the sanitizer returns [] (not None)
+        # when the input was a valid but empty list.
+        assert result.alternatives == []
+        assert result.remaining_count == 0
+        assert result.narrowing_hint == ""
+
+    def test_stream_multi_cip_validates_all_against_crosswalk(
+        self,
+        stub_intent_helpers: None,
+    ) -> None:
+        """Gemma returns 3 CIPs, one invalid -> only valid alternatives survive.
+
+        The sanitizer inside _build_intent_result_from_tail runs
+        _sanitize_alternatives which regex-gates every alternative CIP.
+        An invalid CIP code (e.g., "INVALID") must be silently dropped.
+        """
+        parsed = {
+            "matched_cip": "14.0901",
+            "matched_title": "Computer Engineering",
+            "confidence": "high",
+            "parent_cip": "14.09",
+            "alternatives": [
+                {
+                    "cip": "14.1001",
+                    "title": "Electrical Engineering",
+                    "why": "Circuits",
+                    "parent_cip": "14.10",
+                },
+                {
+                    "cip": "INVALID",
+                    "title": "Fake Program",
+                    "why": "Dropped",
+                    "parent_cip": "99.99",
+                },
+            ],
+            "remaining_count": 5,
+            "narrowing_hint": "Try mechanical",
+            "intent_keywords": ["engineering"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="engineering",
+            prose="Engineering.",
+            parsed=parsed,
+            school_cips=[
+                {"cipcode": "14.0901", "program_name": "Computer Engineering"},
+            ],
+            programs=[],
+        )
+        assert result.alternatives is not None
+        assert len(result.alternatives) == 1
+        assert result.alternatives[0]["cip"] == "14.1001"
+        # The invalid "INVALID" CIP was dropped entirely.
+
+    @pytest.mark.asyncio
+    async def test_fallback_multi_cip(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_intent_helpers: None,
+    ) -> None:
+        """_fallback_resolve with multi-CIP response -> same validation
+        and population of alternatives/remaining_count/narrowing_hint."""
+        fallback_response = (
+            '{"matched_cip": "14.0901", "matched_title": "Computer Engineering", '
+            '"confidence": "high", "parent_cip": "14.09", '
+            '"alternatives": ['
+            '{"cip": "14.1001", "title": "Electrical Engineering", '
+            '"why": "Circuits", "parent_cip": "14.10"}, '
+            '{"cip": "14.1901", "title": "Mechanical Engineering", '
+            '"why": "Physical systems", "parent_cip": "14.19"}'
+            '], "remaining_count": 8, '
+            '"narrowing_hint": "Try civil engineering", '
+            '"intent_keywords": ["engineering"]}'
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate",
+            lambda **kwargs: fallback_response,
+        )
+        school_cips = [
+            {"cipcode": "14.0901", "program_name": "Computer Engineering"},
+        ]
+        result = set_your_course._fallback_resolve(
+            "engineering", school_cips, programs=[]
+        )
+        assert result is not None
+        assert result.matched_cip == "14.0901"
+        assert result.alternatives is not None
+        assert len(result.alternatives) == 2
+        assert result.alternatives[0]["cip"] == "14.1001"
+        assert result.alternatives[1]["cip"] == "14.1901"
+        assert result.remaining_count == 8
+        assert result.narrowing_hint == "Try civil engineering"
+
+    def test_stream_multi_cip_remaining_count_and_hint(
+        self,
+        stub_intent_helpers: None,
+    ) -> None:
+        """remaining_count and narrowing_hint are correctly extracted from
+        the Gemma response and populated on IntentResult."""
+        parsed = {
+            "matched_cip": "14.0901",
+            "matched_title": "Computer Engineering",
+            "confidence": "high",
+            "parent_cip": "14.09",
+            "alternatives": [
+                {
+                    "cip": "14.1001",
+                    "title": "Electrical Engineering",
+                    "why": "Circuits",
+                    "parent_cip": "14.10",
+                },
+            ],
+            "remaining_count": 11,
+            "narrowing_hint": "Try 'civil engineering' or 'aerospace'",
+            "intent_keywords": ["engineering"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="engineering",
+            prose="Engineering.",
+            parsed=parsed,
+            school_cips=[
+                {"cipcode": "14.0901", "program_name": "Computer Engineering"},
+            ],
+            programs=[],
+        )
+        assert result.remaining_count == 11
+        assert result.narrowing_hint == "Try 'civil engineering' or 'aerospace'"
+
+    def test_stream_multi_cip_deduplicates_primary(
+        self,
+        stub_intent_helpers: None,
+    ) -> None:
+        """If Gemma echoes the primary CIP in alternatives, the sanitizer
+        drops it — student must not see the same program twice."""
+        parsed = {
+            "matched_cip": "14.0901",
+            "matched_title": "Computer Engineering",
+            "confidence": "high",
+            "parent_cip": "14.09",
+            "alternatives": [
+                {
+                    "cip": "14.0901",
+                    "title": "Computer Engineering (echo)",
+                    "why": "Same as primary",
+                    "parent_cip": "14.09",
+                },
+                {
+                    "cip": "14.1001",
+                    "title": "Electrical Engineering",
+                    "why": "Circuits",
+                    "parent_cip": "14.10",
+                },
+            ],
+            "remaining_count": 0,
+            "narrowing_hint": "",
+            "intent_keywords": ["engineering"],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="engineering",
+            prose="Engineering.",
+            parsed=parsed,
+            school_cips=[
+                {"cipcode": "14.0901", "program_name": "Computer Engineering"},
+            ],
+            programs=[],
+        )
+        assert result.alternatives is not None
+        assert len(result.alternatives) == 1
+        assert result.alternatives[0]["cip"] == "14.1001"

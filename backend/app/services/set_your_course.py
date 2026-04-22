@@ -234,7 +234,10 @@ Then on the next line emit a single JSON object and nothing after it:
 "confidence": "high|medium|low", \
 "parent_cip": "XX.XX (4-digit family code; may equal matched_cip[:5] \
 when matched_cip is already a leaf)", \
-"alternatives": [], \
+"alternatives": [{{"cip": "XX.XXXX", "title": "Second Match", \
+"why": "Also matches because...", "parent_cip": "XX.XX"}}], \
+"remaining_count": 0, \
+"narrowing_hint": "", \
 "intent_keywords": []}}
 
 Rules for the JSON tail:
@@ -257,9 +260,22 @@ Rules for the JSON tail:
   when the student's input is itself broad (e.g. "business,"
   "science," "engineering"). In that case set parent_cip equal to
   matched_cip[:5].
-- "alternatives" is [] for high confidence; 2–4 items for medium;
-  up to 10 items for low. Never exceed 10.
-- Each alternative: {{"cip": "XX.XXXX", "title": "...", "why": "short phrase"}}.
+- If the student's input matches multiple programs at this school, return
+  up to 3 ranked matches total (primary + up to 2 alternatives). Rank by
+  semantic relevance to the student's input, NOT by outcome quality.
+  Rules for alternatives:
+  * Only include alternatives when 2+ distinct programs genuinely match.
+  * Each alternative's "cip" MUST exist in one of the candidate CIP lists.
+  * Do NOT include alternatives that are just degree-level variants of
+    the primary (e.g., BS vs MS in the same field).
+  * "remaining_count" = total matching CIPs minus however many you listed
+    (primary + alternatives). 0 if you listed them all.
+  * "narrowing_hint" = plain-English suggestion for how the student could
+    narrow their search. Omit if remaining_count is 0.
+  * If only 1 program matches, set "alternatives" to [], "remaining_count"
+    to 0, and omit "narrowing_hint".
+- Each alternative: {{"cip": "XX.XXXX", "title": "...", "why": "short phrase", \
+"parent_cip": "XX.XX"}}.
 - "intent_keywords" is a list of 0–6 lowercase tokens that capture the \
 student's stated career direction, including sub-specialties INSIDE \
 the matched program. Extract these whenever the student's text is more \
@@ -343,7 +359,9 @@ async def stream_initial_resolution(
     ) or "(no programs reported)"
     crosswalk_cip_list = "\n".join(
         f"- {c['cipcode']} {c['cip_title']}"
-        for c in intent._sample_crosswalk(crosswalk_cips, max_total=60)
+        for c in intent._sample_crosswalk(
+            crosswalk_cips, student_input=major_text,
+        )
     ) or "(no crosswalk data)"
 
     system = _STREAM_INTENT_SYSTEM_PROMPT.format(
@@ -492,10 +510,14 @@ def _merge_confirmed_focus_into_keywords(ir: IntentResult) -> IntentResult:
 
 _FALLBACK_JSON_SYSTEM = """\
 Pick the best CIP code for the student's input from the list below.
+If multiple programs genuinely match, return up to 3 ranked by relevance.
 Reply with ONLY a JSON object, nothing else. No explanation, no markdown.
 
 {{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
 "confidence": "high", "parent_cip": "XX.XX", \
+"alternatives": [{{"cip": "XX.XXXX", "title": "Second Match", \
+"why": "reason", "parent_cip": "XX.XX"}}], \
+"remaining_count": 0, "narrowing_hint": "", \
 "intent_keywords": ["keyword1"]}}
 
 Programs at this school:
@@ -521,7 +543,7 @@ def _fallback_resolve(
         c.get("cipcode", "")[:2] for c in school_cips if c.get("cipcode")
     })
     crosswalk_cips = intent._get_crosswalk_cips_for_families(family_prefixes)
-    sampled = intent._sample_crosswalk(crosswalk_cips, max_total=60)
+    sampled = intent._sample_crosswalk(crosswalk_cips, student_input=major_text)
 
     school_list = "\n".join(
         f"- {c['cipcode']} {c['program_name']}" for c in school_cips
@@ -557,6 +579,11 @@ def _fallback_resolve(
              if c.get("cipcode", "")[:2] == cip4[:2]),
             cip4,
         ) if cip4 else ""
+        alternatives = intent._sanitize_alternatives(
+            parsed.get("alternatives"), matched_cip, max_alts=2
+        )
+        remaining_count = max(0, min(50, int(parsed.get("remaining_count", 0) or 0)))
+        narrowing_hint = str(parsed.get("narrowing_hint", "") or "").strip()[:120]
         return IntentResult(
             matched_cip=matched_cip,
             matched_title=_NUMERIC_CODE_PARENTHETICAL.sub("", matched_title),
@@ -564,12 +591,14 @@ def _fallback_resolve(
             reasoning=f"Matched to {matched_title}.",
             careers_preview=[],
             needs_clarification=confidence == "low",
-            alternatives=None,
+            alternatives=alternatives,
             parent_cip=parent_cip,
             student_major_text=major_text,
             intent_keywords=_parse_intent_keywords(
                 parsed.get("intent_keywords")
             ),
+            remaining_count=remaining_count,
+            narrowing_hint=narrowing_hint,
         )
     except Exception as exc:
         logger.warning("_fallback_resolve failed: %s", exc)
@@ -684,10 +713,13 @@ def _build_intent_result_from_tail(
 
     careers_preview = intent._get_career_titles_for_cip(matched_cip)
     alternatives = intent._sanitize_alternatives(
-        parsed.get("alternatives"), matched_cip
+        parsed.get("alternatives"), matched_cip, max_alts=2
     )
 
     reasoning = prose.strip() or str(parsed.get("reasoning", "")).strip()
+
+    remaining_count = int(parsed.get("remaining_count", 0) or 0)
+    narrowing_hint = str(parsed.get("narrowing_hint", "") or "").strip()
 
     result = IntentResult(
         matched_cip=matched_cip,
@@ -703,6 +735,8 @@ def _build_intent_result_from_tail(
         confirmed_focus=None,
         student_major_text=major_text,
         intent_keywords=intent_keywords,
+        remaining_count=remaining_count,
+        narrowing_hint=narrowing_hint,
     )
     return _merge_confirmed_focus_into_keywords(result)
 

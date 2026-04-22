@@ -44,9 +44,9 @@ vi.mock("@/api/build", () => ({
 }));
 
 import { streamIntent, dispatchChip, commitResolution } from "@/api/intent";
-import { getOutcomes, getTieredCareers } from "@/api/build";
+import { getOutcomes } from "@/api/build";
 import { useSetYourCourse } from "./useSetYourCourse";
-import type { CareerOutcome, TieredCareers } from "@/types/build";
+import type { CareerOutcome } from "@/types/build";
 
 const CAREER_FETCH_DEBOUNCE_MS = 250;
 
@@ -168,10 +168,6 @@ function makeOutcome(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
   };
 }
 
-function makeTiers(outcomes: CareerOutcome[]): TieredCareers {
-  return { common: outcomes, less_common: [], stretch: [] };
-}
-
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -194,12 +190,8 @@ beforeEach(() => {
   vi.mocked(streamIntent).mockReset();
   vi.mocked(dispatchChip).mockReset();
   vi.mocked(commitResolution).mockReset();
-  vi.mocked(getOutcomes).mockReset();
-  vi.mocked(getTieredCareers).mockReset();
-  // Keep buildStore in a known baseline so commit() can fall back to
-  // a career when selectedCareer is null.
+  vi.mocked(getOutcomes).mockReset().mockResolvedValue([]);
   useBuildStore.setState({
-    tieredCareers: null,
     selectedCareer: null,
   });
   seedSchool();
@@ -604,16 +596,13 @@ describe("TestConfirmedFocus", () => {
 // ---------------------------------------------------------------------------
 
 describe("TestSocRevealStateMachine", () => {
-  it("socReveal transitions idle -> outcomes-loading -> outcomes-loaded-tiering -> tiered", async () => {
+  it("socReveal transitions idle -> outcomes-loading -> outcomes-loaded", async () => {
     vi.useFakeTimers();
     seedResolution();
     const outcomes = [makeOutcome()];
-    const tiers = makeTiers(outcomes);
 
     const outcomesDef = deferred<CareerOutcome[]>();
-    const tierDef = deferred<TieredCareers>();
     vi.mocked(getOutcomes).mockReturnValue(outcomesDef.promise);
-    vi.mocked(getTieredCareers).mockReturnValue(tierDef.promise);
 
     const { result } = renderHook(() => useSetYourCourse("marketing"), { wrapper });
 
@@ -632,74 +621,42 @@ describe("TestSocRevealStateMachine", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(result.current.socReveal.kind).toBe("outcomes-loaded-tiering");
-    if (result.current.socReveal.kind === "outcomes-loaded-tiering") {
+    expect(result.current.socReveal.kind).toBe("outcomes-loaded");
+    if (result.current.socReveal.kind === "outcomes-loaded") {
       expect(result.current.socReveal.outcomes).toHaveLength(1);
-    }
-
-    // Resolve tiering.
-    await act(async () => {
-      tierDef.resolve(tiers);
-      await Promise.resolve();
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(result.current.socReveal.kind).toBe("tiered");
-    if (result.current.socReveal.kind === "tiered") {
-      expect(result.current.socReveal.tiers.common).toHaveLength(1);
     }
   });
 
-  it("stale tier response does not overwrite fresh outcomes-loading state", async () => {
+  it("cache hit from prior CIP skips loading state", async () => {
     vi.useFakeTimers();
     seedResolution();
     const outcomes1 = [makeOutcome({ soc_code: "11-2021" })];
 
     const outcomesDef1 = deferred<CareerOutcome[]>();
-    const tierDef1 = deferred<TieredCareers>();
     vi.mocked(getOutcomes).mockReturnValueOnce(outcomesDef1.promise);
-    vi.mocked(getTieredCareers).mockReturnValueOnce(tierDef1.promise);
 
     const { result, rerender } = renderHook(
       ({ text }) => useSetYourCourse(text),
       { wrapper, initialProps: { text: "marketing" } },
     );
 
-    // Fire first debounce.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
     });
     expect(result.current.socReveal.kind).toBe("outcomes-loading");
 
-    // Resolve first outcomes.
     await act(async () => {
       outcomesDef1.resolve(outcomes1);
       await Promise.resolve();
     });
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.socReveal.kind).toBe("outcomes-loaded-tiering");
-
-    // Fire second request (simulate keystroke change triggering re-fetch).
-    const outcomesDef2 = deferred<CareerOutcome[]>();
-    vi.mocked(getOutcomes).mockReturnValueOnce(outcomesDef2.promise);
-    vi.mocked(getTieredCareers).mockReturnValueOnce(deferred<TieredCareers>().promise);
+    expect(result.current.socReveal.kind).toBe("outcomes-loaded");
 
     rerender({ text: "marketing strategy" });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
     });
-    expect(result.current.socReveal.kind).toBe("outcomes-loading");
-
-    // Now the STALE tier from request 1 resolves — must be ignored.
-    await act(async () => {
-      tierDef1.resolve(makeTiers(outcomes1));
-      await Promise.resolve();
-    });
-    await act(async () => { await Promise.resolve(); });
-
-    // State must still be in the second request's outcomes-loading, NOT tiered.
-    expect(result.current.socReveal.kind).toBe("outcomes-loading");
+    expect(result.current.socReveal.kind).toBe("outcomes-loaded");
   });
 
   it("superseded outcomes request is aborted", async () => {
@@ -709,7 +666,6 @@ describe("TestSocRevealStateMachine", () => {
     const abortSpy = vi.spyOn(AbortController.prototype, "abort");
 
     vi.mocked(getOutcomes).mockReturnValue(new Promise(() => {}));
-    vi.mocked(getTieredCareers).mockReturnValue(new Promise(() => {}));
 
     const { rerender } = renderHook(
       ({ text }) => useSetYourCourse(text),
@@ -738,7 +694,6 @@ describe("TestSocRevealStateMachine", () => {
     seedResolution();
 
     vi.mocked(getOutcomes).mockResolvedValue([makeOutcome()]);
-    vi.mocked(getTieredCareers).mockResolvedValue(makeTiers([makeOutcome()]));
 
     const { rerender } = renderHook(
       ({ text }) => useSetYourCourse(text),
@@ -768,7 +723,6 @@ describe("TestSocRevealStateMachine", () => {
     vi.useFakeTimers();
 
     vi.mocked(getOutcomes).mockResolvedValue([makeOutcome()]);
-    vi.mocked(getTieredCareers).mockResolvedValue(makeTiers([makeOutcome()]));
 
     // Seed with one CIP, then change it.
     useBuildInputStore.setState({
@@ -837,29 +791,120 @@ describe("TestSocRevealErrors", () => {
     }
   });
 
-  it("error during tier keeps outcomes visible as fallback", async () => {
+  it("error during outcomes fetch sets error state", async () => {
     vi.useFakeTimers();
     seedResolution();
-    const outcomes = [makeOutcome()];
 
-    vi.mocked(getOutcomes).mockResolvedValue(outcomes);
-    vi.mocked(getTieredCareers).mockRejectedValue(new Error("Gemma timeout"));
+    vi.mocked(getOutcomes).mockRejectedValue(new Error("Network failure"));
 
     const { result } = renderHook(() => useSetYourCourse("marketing"), { wrapper });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(CAREER_FETCH_DEBOUNCE_MS + 10);
     });
-    // Flush outcomes + tiering rejection.
-    await act(async () => { await Promise.resolve(); });
-    await act(async () => { await Promise.resolve(); });
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await Promise.resolve(); });
 
-    // Tiering failed — flat outcomes stay visible.
-    expect(result.current.socReveal.kind).toBe("outcomes-loaded-tiering");
-    if (result.current.socReveal.kind === "outcomes-loaded-tiering") {
-      expect(result.current.socReveal.outcomes).toHaveLength(1);
+    expect(result.current.socReveal.kind).toBe("error");
+    if (result.current.socReveal.kind === "error") {
+      expect(result.current.socReveal.message).toBe("Network failure");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TestMultiCipPick (P1) — onPickAlternative swap behavior
+// ---------------------------------------------------------------------------
+
+describe("TestMultiCipPick", () => {
+  it("pick_alternative_swaps_resolution — onPickAlternative(1) selects first alternative", async () => {
+    vi.useFakeTimers();
+
+    const resWithAlts = makeResolution({
+      matched_cip: "14.0901",
+      matched_title: "Computer Engineering",
+      parent_cip: "14.09",
+      alternatives: [
+        { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+        { cip: "14.1901", title: "Mechanical Engineering", why: "Physical", parent_cip: "14.19" },
+      ],
+      remaining_count: 11,
+      narrowing_hint: "Try civil engineering",
+    });
+    useBuildInputStore.setState({
+      initialResolution: resWithAlts,
+      currentResolution: resWithAlts,
+    });
+
+    vi.mocked(getOutcomes).mockResolvedValue([makeOutcome()]);
+
+    const { result } = renderHook(() => useSetYourCourse(), { wrapper });
+
+    // Option index 1 = first alternative (index 0 = original primary).
+    act(() => {
+      result.current.onPickAlternative(1);
+    });
+
+    const state = useBuildInputStore.getState();
+    expect(state.currentResolution?.matched_cip).toBe("14.1001");
+    expect(state.currentResolution?.matched_title).toBe("Electrical Engineering");
+    expect(state.currentResolution?.parent_cip).toBe("14.10");
+  });
+
+  it("alternatives_stay_stable — swapping does not change the alternatives array", () => {
+    const resWithAlts = makeResolution({
+      matched_cip: "14.0901",
+      matched_title: "Computer Engineering",
+      parent_cip: "14.09",
+      reasoning: "Closest match for engineering.",
+      alternatives: [
+        { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+        { cip: "14.1901", title: "Mechanical Engineering", why: "Physical", parent_cip: "14.19" },
+      ],
+    });
+    useBuildInputStore.setState({
+      initialResolution: resWithAlts,
+      currentResolution: resWithAlts,
+    });
+
+    const { result } = renderHook(() => useSetYourCourse(), { wrapper });
+
+    act(() => {
+      result.current.onPickAlternative(1);
+    });
+
+    const state = useBuildInputStore.getState();
+    const alts = state.currentResolution?.alternatives;
+    expect(alts).not.toBeNull();
+    expect(alts!.length).toBe(2);
+    // Alternatives array is unchanged — same CIPs in same order.
+    expect(alts?.[0]?.cip).toBe("14.1001");
+    expect(alts?.[1]?.cip).toBe("14.1901");
+  });
+
+  it("pick_original_primary — onPickAlternative(0) restores original primary", () => {
+    const resWithAlts = makeResolution({
+      matched_cip: "14.0901",
+      matched_title: "Computer Engineering",
+      parent_cip: "14.09",
+      alternatives: [
+        { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+      ],
+    });
+    useBuildInputStore.setState({
+      initialResolution: resWithAlts,
+      currentResolution: resWithAlts,
+    });
+
+    const { result } = renderHook(() => useSetYourCourse(), { wrapper });
+
+    // First swap to alt.
+    act(() => { result.current.onPickAlternative(1); });
+    expect(useBuildInputStore.getState().currentResolution?.matched_cip).toBe("14.1001");
+
+    // Now pick index 0 to go back to original primary.
+    act(() => { result.current.onPickAlternative(0); });
+    expect(useBuildInputStore.getState().currentResolution?.matched_cip).toBe("14.0901");
+    expect(useBuildInputStore.getState().currentResolution?.matched_title).toBe("Computer Engineering");
   });
 });

@@ -162,8 +162,11 @@ export function AskGemmaChip({
                   disabled={busy || clarifier.trim().length === 0}
                   data-testid="clarifier-submit"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <GemmaStar size={12} />
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg viewBox="0 0 40 40" width={18} height={18} aria-hidden="true" className="fill-current">
+                      <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" opacity="0.8" />
+                      <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" />
+                    </svg>
                     Ask Gemma
                   </span>
                 </Button>

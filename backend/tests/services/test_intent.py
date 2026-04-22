@@ -1257,3 +1257,75 @@ class TestYamlGate:
             "Explicit INTENT_YAML_ENABLED=true must preserve the "
             "YAML short-circuit"
         )
+
+
+# ---------------------------------------------------------------------------
+# Multi-CIP: _sanitize_alternatives respects max_alts and parent_cip
+# ---------------------------------------------------------------------------
+
+
+def test_sanitize_alternatives_respects_max_alts() -> None:
+    """When max_alts=2, only the first 2 valid alternatives survive
+    even if more are present."""
+    raw = [
+        {"cip": "52.0801", "title": "Finance", "why": "ok"},
+        {"cip": "52.1401", "title": "Marketing", "why": "ok"},
+        {"cip": "52.0701", "title": "Entrepreneurship", "why": "ok"},
+    ]
+    cleaned = intent._sanitize_alternatives(raw, primary_cip="52.0201", max_alts=2)
+    assert cleaned is not None
+    assert len(cleaned) == 2
+    assert [a["cip"] for a in cleaned] == ["52.0801", "52.1401"]
+
+
+def test_sanitize_alternatives_preserves_parent_cip() -> None:
+    """When an alternative carries a parent_cip field, _sanitize_alternatives
+    preserves it on the output dict."""
+    raw = [
+        {
+            "cip": "14.1001",
+            "title": "Electrical Engineering",
+            "why": "Circuits",
+            "parent_cip": "14.10",
+        },
+        {
+            "cip": "14.1901",
+            "title": "Mechanical Engineering",
+            "why": "Physical systems",
+            # No parent_cip — should be absent from output.
+        },
+    ]
+    cleaned = intent._sanitize_alternatives(raw, primary_cip="14.0901")
+    assert cleaned is not None
+    assert len(cleaned) == 2
+    assert cleaned[0]["parent_cip"] == "14.10"
+    assert "parent_cip" not in cleaned[1]
+
+
+def test_promote_to_leaf_called_for_each_alternative() -> None:
+    """Each alternative CIP goes through _promote_to_leaf_cip inside
+    _sanitize_alternatives (indirectly, via the streaming path in
+    set_your_course._build_intent_result_from_tail).
+
+    We test the contract at the _sanitize_alternatives boundary: 4-digit
+    alternative CIPs that would fail the _CIP_PATTERN regex are dropped.
+    The streaming path calls _promote_to_leaf_cip BEFORE passing to
+    _sanitize_alternatives. So if promotion fails, the 4-digit CIP
+    reaches the sanitizer and gets dropped — which is the correct
+    behavior. We verify both: a valid 6-digit survives, a 4-digit
+    that cannot be promoted is dropped.
+    """
+    raw = [
+        # Valid 6-digit: passes regex, survives.
+        {"cip": "14.1001", "title": "Electrical Engineering", "why": "ok"},
+        # 4-digit (umbrella): fails the strict XX.XXXX regex, dropped.
+        {"cip": "14.19", "title": "Mechanical Umbrella", "why": "too broad"},
+        # Another valid 6-digit.
+        {"cip": "14.1901", "title": "Mechanical Engineering", "why": "ok"},
+    ]
+    cleaned = intent._sanitize_alternatives(raw, primary_cip="14.0901")
+    assert cleaned is not None
+    assert len(cleaned) == 2
+    assert [a["cip"] for a in cleaned] == ["14.1001", "14.1901"]
+    # The 4-digit "14.19" was dropped — it would need to go through
+    # _promote_to_leaf_cip in the streaming path before reaching here.

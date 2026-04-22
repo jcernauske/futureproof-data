@@ -31,6 +31,83 @@
       }
     ]
   },
+  "multi_cip_engineering": {
+    "matched_cip": "14.0901",
+    "matched_title": "Computer Engineering, General",
+    "confidence": "high",
+    "reasoning": "Closest semantic match for 'engineering'.",
+    "parent_cip": "14.09",
+    "alternatives": [
+      {
+        "cip": "14.1001",
+        "title": "Electrical and Electronics Engineering",
+        "why": "Also covers circuits and signals",
+        "parent_cip": "14.10"
+      },
+      {
+        "cip": "14.1901",
+        "title": "Mechanical Engineering",
+        "why": "Focuses on physical systems",
+        "parent_cip": "14.19"
+      }
+    ],
+    "remaining_count": 11,
+    "narrowing_hint": "Try 'civil engineering' or 'aerospace' to narrow it down",
+    "intent_keywords": ["engineering"]
+  },
+  "multi_cip_business": {
+    "matched_cip": "52.0201",
+    "matched_title": "Business Administration and Management, General",
+    "confidence": "high",
+    "reasoning": "Best overall match for 'business'.",
+    "parent_cip": "52.02",
+    "alternatives": [
+      {
+        "cip": "52.0801",
+        "title": "Finance, General",
+        "why": "Core markets and capital allocation",
+        "parent_cip": "52.08"
+      }
+    ],
+    "remaining_count": 0,
+    "narrowing_hint": "",
+    "intent_keywords": ["business"]
+  },
+  "single_cip_nursing": {
+    "matched_cip": "51.3801",
+    "matched_title": "Registered Nursing/Registered Nurse",
+    "confidence": "high",
+    "reasoning": "'nursing' resolves unambiguously to the BSN track.",
+    "parent_cip": "51.38",
+    "alternatives": [],
+    "remaining_count": 0,
+    "narrowing_hint": "",
+    "intent_keywords": ["nursing"]
+  },
+  "multi_cip_invalid_alt": {
+    "matched_cip": "14.0901",
+    "matched_title": "Computer Engineering, General",
+    "confidence": "high",
+    "reasoning": "Closest match for 'engineering'.",
+    "parent_cip": "14.09",
+    "alternatives": [
+      {
+        "cip": "14.1001",
+        "title": "Electrical and Electronics Engineering",
+        "why": "Also covers circuits",
+        "parent_cip": "14.10"
+      },
+      {
+        "cip": "INVALID",
+        "title": "Fake Program",
+        "why": "This should be dropped",
+        "parent_cip": "99.99"
+      }
+    ],
+    "remaining_count": 5,
+    "narrowing_hint": "Try 'mechanical engineering'",
+    "intent_keywords": ["engineering"]
+  },
   "low": {
     "matched_cip": "19.0101",
     "matched_title": "Family and Consumer Sciences/Human Sciences, General",
