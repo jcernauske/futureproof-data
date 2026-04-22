@@ -261,7 +261,7 @@ export async function commitResolution(
     initial_resolution: args.initialResolution,
     school_name: args.schoolName,
     unitid: args.unitid,
-    input_normalized: args.inputNormalized,
+    major_text: args.inputNormalized,
     clicked_soc: args.clickedSoc,
     clicked_career_title: args.clickedCareerTitle,
     feasibility_mode: args.feasibilityMode,
