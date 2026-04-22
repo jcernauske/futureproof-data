@@ -6,7 +6,9 @@
 !backend/
 !src/
 !data/catalog/
-!data/gold/iceberg_warehouse/
+!data/gold/
+!data/silver/
+!data/bronze/
 !data/reference/
 
 # Strip caches and local-only artifacts even inside allowed dirs
