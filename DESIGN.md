@@ -388,8 +388,79 @@ For effects that don't need spring physics. Defined in `index.css`:
 | `terminal-cursor-blink` | 1s steps(2, end) infinite | Canonical caret/cursor blink — terminal cursor, streaming cursor, input caret. Utility class `.animate-terminal-cursor`. Never add a second blink keyframe. |
 | `gemma-shimmer` | 320ms ease-out forwards | One-shot insight-gradient sweep across a *single* sentence the moment it arrives in a Reasoning Card. Fires per sentence, settles, does not loop. Paired with a text-opacity ramp 0.6 → 1.0 on the sentence element so the eye reads "this sentence just got real." Utility class `.animate-gemma-shimmer`. |
 | `chip-pulse-caution` | 1.6s ease-in-out infinite | Low-confidence pulse on a primary Chip. Smaller glow radius than `card-breathe-caution` — tuned for chip-sized surfaces. Utility class `.animate-chip-pulse-caution`. |
+| `heroFadeIn` | 0.8s ease-out | Campus Hero Banner fade-in on page load. Simple `opacity: 0 → 1`. |
+| `sealedPulse` | 2s ease-in-out infinite | Sealed boss portrait breathing — `opacity: 0.7 ↔ 0.85`. Signals "this fight is waiting." |
+| `sealedShimmer` | 0.6s ease-out forwards | One-shot light sweep across a sealed Boss Band on viewport entry. `translateX(-100%) → translateX(200%)`. Fires once, does not loop. |
+| `collisionSlam` | 0.4s bouncy, delay 0.18s | VS collision emoji (💥) — `scale(0) → 1.3 → 1.0 → 0.6`. Fires during VS overlay. |
+| `dustPuff1–5` | 0.6–0.7s ease-out, delays 0.25–0.35s | Five unique drift keyframes for VS dust puffs (💨). Each translates ±45–60px in a different direction, scales 0.3 → 1.2–1.6, fades out. |
+| `vsBurst` | 0.35s ease-out, delay 0.3s | Boss-colored energy burst during VS — `scale(0) → scale(2.5)`, fades out. 120px radial gradient in boss color. |
+| `winPulse` | 0.6s ease-in-out | Green glow pulse on win — `box-shadow: 0 → 32px → 0` at `rgba(125,212,163,0.25)`. Utility class `.anim-win-pulse`. |
+| `loseShake` | 0.4s ease-in-out | Horizontal shake on loss — `translateX(0, -3, 3, -2, 1, 0)`. Applied to `.result-word`. Utility class `.anim-lose-shake`. |
+| `drawWobble` | 0.4s ease-in-out | Rotation wobble on draw — `rotate(0° → 1.5° → -1.5° → 0°)`. Applied to `.result-word`. Utility class `.anim-draw-wobble`. |
+| `verdictScaleIn` | 0.5s bouncy | Verdict Badge entrance — `scale(0.85) → scale(1)`, `opacity: 0 → 1`. Bouncy cubic-bezier(0.34, 1.56, 0.64, 1). |
+| `popoverIn` | 180ms bouncy | Stat Info Popover entrance — `translateY(-6px) → 0`, `opacity: 0 → 1`. cubic-bezier(0.34, 1.4, 0.64, 1). |
+| `popoverOut` | 150ms ease-in | Stat Info Popover exit — reverse of `popoverIn`. |
 
 All animations respect `prefers-reduced-motion: reduce` — keyframes hold at their resting frame and background gradients collapse. New keyframes must include the reduced-motion override at the point of definition, not in a component.
+
+### VS Overlay
+
+Full-card overlay that plays a "player vs. boss" confrontation animation before revealing the boss fight result. Fires when a Boss Band enters the center third of the viewport.
+
+**Container:**
+```
+position: absolute, inset: 0, z-index: 10
+display: flex, align-items: center, justify-content: center, gap: 32px
+background: bg-void
+border-radius: radius-xl
+opacity: 0
+pointer-events: none
+transition: opacity 0.15s ease-out
+```
+
+**Portraits:** 96px square (mobile: 72px), `radius-xl` (mobile: `radius-lg`). Player uses info gradient, boss uses boss-color gradient. Same gradient pattern as Boss Portrait: `linear-gradient(135deg, rgba({color}, 0.30), rgba({color}, 0.12))` with 1px border and 20px glow.
+
+**Portrait entrances:**
+- Player slides from left: `translateX(-40px) scale(0.6)` → `translateX(0) scale(1)`, bouncy cubic-bezier
+- Boss slides from right: `translateX(40px) scale(0.6)` → `translateX(0) scale(1)`, bouncy cubic-bezier, 30ms delay
+
+**"VS" text:** `font-display`, 700, 32px (mobile: 26px), `text-primary`, `letter-spacing: 4px`, `text-shadow: 0 0 24px rgba(245,240,232,0.15)`. Scales from 0.8 → 1, 100ms delay.
+
+**Names:** `font-body`, 600, 13px (mobile: 12px), `text-secondary`, centered, truncated at 120px. Player shows full character name; boss shows `shortName` (see Boss Naming Pattern).
+
+**Collision (💥):** `collisionSlam` keyframe — `scale(0) → scale(1.3) → scale(1.0) → scale(0.6)`, 0.4s, delay 0.18s, bouncy cubic-bezier. Positioned absolute center.
+
+**Dust puffs (💨):** 5 particles, each with a unique drift keyframe:
+- Each drifts in a different direction: `translate(±45–60px, ±35–55px)`
+- Scale: 0.3 → 1.2–1.6
+- Duration: 0.6–0.7s, delays: 0.25–0.35s
+- Peak opacity: 0.5–0.7
+
+**Boss-colored energy burst:** `::before` pseudo-element, 120px radial gradient of boss color at 20% opacity. `vsBurst` keyframe: `scale(0) → scale(2.5)`, 0.35s ease-out, delay 0.3s.
+
+**Total sequence:** ~1.5s from VS-active to overlay fadeout. Overlay fades out via `opacity: 0` over 0.12s when `.vs-done` class is added.
+
+### Scroll-Snap Gauntlet
+
+The scroll-driven reveal system for Boss Bands. Cards are laid out vertically and animate sequentially as the user scrolls.
+
+**Container:**
+```
+display: flex
+flex-direction: column
+gap: 48px
+scroll-snap-type: y proximity
+```
+
+**Cards:** `scroll-snap-align: center`
+
+**Dual IntersectionObserver pattern:**
+1. **Visibility observer** (threshold: 0.1, rootMargin: '0px'): Fires the sealed shimmer animation when a card first enters the viewport edge. Adds `.sealed-visible` class.
+2. **Center-third observer** (threshold: 0.5, rootMargin: '-33% 0px -33% 0px'): Fires the VS trigger when a card reaches the middle third of the viewport. Calls `requestReveal()`.
+
+**Animation queue:** One animation plays at a time. If a card triggers while another is animating, it enters a `pendingQueue` and plays when the current animation completes. Sequential, never overlapping.
+
+**Fast-scroll protection:** If a card leaves the viewport while mid-animation (`.vs-active` or `.sealed-hold` but not `.revealed`), it immediately skips to the revealed state — classes `.sealed-triggered`, `.vs-done`, `.revealed` are applied synchronously, and the card is removed from the pending queue.
 
 ---
 
@@ -799,9 +870,9 @@ Custom range input for self-assessment.
 - **Current value:** `font-data`, 14px, weight 700, `accent-thrive`
 - **Stats preview:** ERN / ROI / RES values update in real-time. `font-data`, weight 700, 28px, stat colors.
 
-### Boss Cards
+### Boss Cards (Preview Grid)
 
-Grid of boss fight previews.
+Grid of boss fight previews shown before the gauntlet begins.
 
 ```
 background: bg-mid
@@ -817,6 +888,172 @@ Each boss card has a radial gradient overlay using its boss color at 8% opacity.
 - **Description:** 12px, `text-muted`
 
 Hover: `translateY(-3px)`, `border-default`
+
+### Boss Band (Battle Report Card)
+
+The full-width boss fight result card used in the Build Results gauntlet. Replaces the preview grid with detailed per-fight reporting. Each band scrolls into view, plays a VS animation, then reveals the result.
+
+**Container:**
+```
+background: bg-mid
+border-radius: radius-xl
+padding: 24px (mobile: 18px)
+min-height: 140px
+overflow: hidden
+position: relative
+scroll-snap-align: center
+```
+
+**Dual edge stripes** — `::before` (left) and `::after` (right), each 4px wide, absolute top-to-bottom:
+- Left stripe = boss color gradient: `rgba({boss-color}, 0.7)` at top → `rgba({boss-color}, 0.15)` at bottom
+- Right stripe = result color gradient: `rgba({result-color}, 0.5)` at top → `rgba({result-color}, 0.1)` at bottom, plus inward glow `box-shadow: -8px 0 24px rgba({result-color}, 0.12)`
+
+**Result-tinted borders** (applied after VS reveal):
+- Win: `1px solid rgba(125, 212, 163, 0.18)`
+- Lose: `1px solid rgba(244, 169, 126, 0.20)`
+- Draw: `1px solid rgba(242, 212, 119, 0.18)`
+
+**Result words:** `font-display`, 700, 22px, uppercase, letter-spacing 1px:
+- VICTORY: `accent-thrive` + `text-shadow: 0 0 20px rgba(125,212,163,0.3)`
+- DEFEATED: `accent-alert` + `text-shadow: 0 0 20px rgba(244,169,126,0.25)`
+- STANDOFF: `accent-caution` + `text-shadow: 0 0 20px rgba(242,212,119,0.25)`
+
+**Reveal stagger** (transition-delay after VS completes):
+- Portrait: 0ms
+- Info: 80ms
+- Result zone: 180ms
+- Narrative panel: 320ms
+- Reroll section: 460ms
+
+**Micro-animations** (fire after reveal):
+- `winPulse`: green glow `box-shadow 0 → 32px → 0` at `rgba(125,212,163,0.25)`, 0.6s
+- `loseShake`: horizontal shake `translateX(0, -3, 3, -2, 1, 0)`, 0.4s
+- `drawWobble`: rotation `0° → 1.5° → -1.5° → 0°`, 0.4s
+
+**Narrative panel** (Gemma's fight analysis):
+```
+background: rgba(27, 29, 48, 0.6)
+border-left: 3px solid {boss-color}
+border-radius: radius-lg
+padding: 20px
+margin-top: 16px
+font-size: 15px, line-height: 1.65, text-primary
+```
+
+#### Boss Naming Pattern
+
+Two name formats per boss — full name for the card header, short name for the VS overlay.
+
+| Boss | Full Name (card header) | Short Name (VS overlay) |
+|------|------------------------|------------------------|
+| Fight AI | "{FirstName} vs. AI" | "AI" |
+| Student Loans | "{FirstName} vs. Student Loans" | "Student Loans" |
+| The Market | "{FirstName} vs. the Market" | "The Market" |
+| Burnout | "{FirstName} vs. Burnout" | "Burnout" |
+| The Ceiling | "{FirstName} vs. the Ceiling" | "The Ceiling" |
+
+`{FirstName}` is the character's first name (e.g. "Snappy" from "Snappy Purple Turtle"). Articles ("the") appear in the full name only for bosses that read naturally with them. Short names omit the player name and article.
+
+#### Sealed State
+
+The pre-reveal state of a Boss Band before the VS animation triggers. Shows boss identity but hides the fight result.
+
+**Sealed overlay:**
+```
+position: absolute, inset: 0, z-index: 5
+display: flex, align-items: center, gap: 16px
+padding: 24px
+border-radius: radius-xl
+background: bg-mid
+transition: opacity 0.15s ease-out
+```
+
+**Sealed portrait:** 64px square, `radius-lg`, boss gradient background (`rgba({boss-color}, 0.30)` → `rgba({boss-color}, 0.12)` at 135deg), 1px boss-color border at 25% opacity. Filter: `saturate(0.3) brightness(0.7)`. Animation: `sealedPulse` — opacity oscillates `0.7 ↔ 0.85`, 2s ease-in-out infinite.
+
+**Sealed shimmer:** Light sweep gradient overlay, fires once when the card first enters the viewport (threshold 0.1). `sealedShimmer` keyframe: `translateX(-100%)` → `translateX(200%)`, 0.6s ease-out forwards. Gradient: `transparent → rgba(255,255,255,0.05) → rgba(255,255,255,0.08) → rgba(255,255,255,0.05) → transparent`.
+
+**Sealed hold:** Brief scale-up before VS fires. `transform: scale(1.02)`, 200ms transition with `cubic-bezier(0.34, 1, 0.64, 1)`. Also intensifies the left boss stripe via `filter: brightness(1.5)` on `::before`.
+
+**Pre-trigger:** neutral `border-subtle` border, dual edge stripes at `opacity: 0`. Stripes and result borders only appear after `.sealed-triggered` class is added.
+
+### Campus Hero Banner
+
+Full-bleed atmospheric banner showing the campus image at the top of the Build Results screen. Creates a sense of place before revealing the character.
+
+**Container:**
+```
+position: relative
+width: 100%
+height: 280px (mobile: 200px)
+overflow: hidden
+animation: heroFadeIn 0.8s ease-out both
+```
+
+**Image:**
+```
+width: 100%, height: 100%
+object-fit: cover
+object-position: center 40%
+display: block
+```
+
+**Gradient fade** (bottom overlay that blends into the page):
+```
+position: absolute
+bottom: 0, left: 0, right: 0
+height: 180px
+background: linear-gradient(
+  180deg,
+  transparent 0%,
+  rgba(27, 29, 48, 0.5) 35%,
+  #1B1D30 100%
+)
+pointer-events: none
+```
+
+### Character Identity Block
+
+Horizontal identity strip that overlaps the bottom of the Campus Hero Banner. Shows the character avatar, name, and program subtitle.
+
+**Container:**
+```
+position: relative, z-index: 2
+max-width: 1280px
+margin: -48px auto 0 (mobile: -32px)
+padding: 0 32px (mobile: 0 16px)
+display: flex
+align-items: center
+gap: 24px (mobile: 16px)
+```
+
+**Avatar:**
+```
+width: 120px, height: 120px (mobile: 80px)
+border-radius: 50%
+border: 2px solid border-default
+background: emoji-specific accent color (see EMOJI_BG lookup)
+display: flex, align-items: center, justify-content: center
+box-shadow:
+  0 0 30px 6px rgba(125, 212, 163, 0.15),
+  0 0 60px 12px rgba(184, 169, 232, 0.08)
+animation: emojiBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both
+```
+
+Emoji-to-background-color lookup:
+
+| Emoji | Background |
+|-------|-----------|
+| Bear | `accent-caution` |
+| Bunny | `accent-insight` |
+| Turtle | `accent-info` |
+| Chipmunk | `accent-thrive` |
+| Fox | `accent-insight` |
+| Owl | `accent-caution` |
+| Penguin | `accent-info` |
+| Cat | `accent-alert` |
+
+**Name:** `font-display`, 700, 40px (mobile: 28px), `text-primary`, `line-height: 1.2`
+**Subtitle:** `font-body`, 600, 18px (mobile: 16px), `text-secondary`, `text-shadow: 0 1px 3px rgba(18, 19, 31, 0.6)`
 
 ### Character Select Cards
 
@@ -872,6 +1109,233 @@ letter-spacing: 2px
 text-transform: uppercase
 color: accent-info
 margin-bottom: 8px
+```
+
+### Path Card
+
+Compact vertical card showing the student's program and primary career outcome with inline stat bars. Used in the Build Results screen alongside the Institution Card.
+
+**Container:**
+```
+background: bg-mid
+border: 1px solid border-subtle
+border-radius: radius-xl
+padding: 24px
+```
+
+**Label:** section-label pattern (`font-data`, 11px, 700, uppercase, `accent-info`, letter-spacing 2px, margin-bottom 16px)
+
+**Path entry row:**
+```
+display: flex
+align-items: flex-start
+gap: 12px
+padding: 12px 0
+border-bottom: 1px solid border-subtle (last entry: none)
+```
+
+- **Emoji:** 28px, `line-height: 1`, flex-shrink 0
+- **Title:** `font-display`, 600, 16px, `text-primary`, `line-height: 1.3`
+- **Code:** `font-data`, 11px, `text-muted`, `letter-spacing: 0.5px`
+- **Wage:** `font-data`, 14px, 700, `stat-ern`, margin-top 6px
+
+**Stat bars block:** 2-column grid (mobile: 1-column), `gap: 6px 16px`, `margin-top: 16px`, `padding-top: 16px`, `border-top: 1px solid border-subtle`
+
+### Stat Bar Row
+
+Compact horizontal stat indicator with label, track, fill, and value. Used inside Path Cards and anywhere a dense stat readout is needed.
+
+```
+display: flex
+align-items: center
+gap: 8px
+```
+
+- **Label:** `font-data`, 11px, 700, uppercase, stat color, `width: 28px`, flex-shrink 0
+- **Track:** `flex: 1`, `height: 4px`, `radius-full`, `background: bg-deep`, `overflow: hidden`
+- **Fill:** `height: 100%`, `radius-full`, stat color, `opacity: 0.8`, `transition: width 0.4s ease-out`
+- **Value:** `font-data`, 11px, `text-secondary`, `width: 16px`, `text-align: right`, flex-shrink 0
+
+### Institution Card
+
+Gemma-authored narrative card providing context about the student's school. Used in the Build Results screen alongside the Path Card.
+
+**Container:**
+```
+background: bg-mid
+border: 1px solid border-subtle
+border-radius: radius-xl
+padding: 24px
+```
+
+- **Label:** section-label pattern (`font-data`, 11px, 700, uppercase, `accent-info`, letter-spacing 2px, margin-bottom 12px)
+- **Name:** `font-display`, 700, 22px, `text-primary`, margin-bottom 16px
+- **Narrative:** `font-body`, 15px, `line-height: 1.65`, `text-secondary`. Paragraphs: `margin-bottom: 12px` (last: 0)
+- **Gemma tag:** inline-flex, gap 5px, `font-data`, 11px, `text-muted`, `letter-spacing: 0.5px`. Content: "✦ Written by Gemma"
+
+### Victory Bar
+
+Visual summary of gauntlet fight outcomes — 5 cells representing wins (decisive and skill-assisted), draws, and losses.
+
+**Container:**
+```
+display: flex
+gap: 6px
+max-width: 320px
+margin: 20px auto 0
+```
+
+**Cell:**
+```
+flex: 1
+height: 12px
+border-radius: radius-full
+transition: background, border-color, box-shadow (all 0.3s ease-out)
+```
+
+| Cell Type | Class | Background | Extra |
+|-----------|-------|-----------|-------|
+| Decisive win | `.raw` | `accent-thrive` | `box-shadow: 0 0 8px rgba(125,212,163,0.25)` |
+| Skill-assisted win | `.equipped` | `accent-insight` | `box-shadow: 0 0 8px rgba(184,169,232,0.25)` |
+| Draw | `.draw-cell` | `accent-caution` | `opacity: 0.4` |
+| Loss | `.loss` | `bg-deep` | `border: 1px solid border-default` |
+
+**Legend** (below bar):
+```
+display: flex, justify-content: center, gap: 16px, margin-top: 10px
+```
+
+Each item: 8px dot (`radius-full`, matching cell color) + label (`font-data`, 11px, `text-muted`). Labels: "Decisive", "Skill-assisted", "Unresolved". Only show types that appear in the current result.
+
+### Verdict Badge
+
+Career readiness summary shown after the gauntlet. Displays a tier word, victory bar, tally, and Gemma-authored narrative.
+
+**Container:**
+```
+background: bg-mid
+border-radius: radius-xl
+padding: 32px (mobile: 24px)
+text-align: center
+animation: verdictScaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both
+```
+
+**Tier variants** (border + glow):
+
+| Tier | Class | Border | Box Shadow | Color |
+|------|-------|--------|-----------|-------|
+| Dominant | `.dominant` | `rgba(125,212,163,0.3)` | `0 0 20px rgba(125,212,163,0.15)` | `accent-thrive` |
+| Solid | `.solid` | `rgba(125,212,163,0.25)` | `0 0 16px rgba(125,212,163,0.10)` | `accent-thrive` |
+| Mixed | `.mixed` | `rgba(242,212,119,0.25)` | `0 0 16px rgba(242,212,119,0.10)` | `accent-caution` |
+| Vulnerable | `.vulnerable` | `rgba(244,169,126,0.25)` | `0 0 16px rgba(244,169,126,0.10)` | `accent-alert` |
+
+**Anatomy:**
+- **Label:** "CAREER READINESS" — `font-data`, 11px, 700, letter-spacing 2px, uppercase, `text-muted`
+- **Word:** `font-display`, 700, 32px (mobile: 24px), tier color. Format: `"{TIER} BUILD"` — e.g. "DOMINANT BUILD", "SOLID BUILD", "MIXED BUILD", "VULNERABLE BUILD"
+- **Subtitle:** `font-body`, 16px, `text-secondary`
+- **Victory Bar:** (see Victory Bar component above)
+- **Tally:** `font-data`, 13px, `text-secondary`. Format: `"{X} of 5 victories (Y decisive + Z skill-assisted)"`. Win counts colored `accent-thrive`, equipped counts colored `accent-insight`.
+- **Narrative:** `font-body`, 15px, `text-secondary`, `line-height: 1.6`, `max-width: 520px`, auto-centered. Dynamic copy based on win/loss distribution.
+
+**Entrance:** `verdictScaleIn` — `scale(0.85) → scale(1)`, `opacity 0 → 1`, bouncy cubic-bezier.
+
+### Stat Info Popover
+
+Contextual explanation popover for pentagon stats. Triggered by a "?" button next to each stat name.
+
+**Trigger button:**
+```
+width: 18px, height: 18px
+border-radius: radius-full
+border: 1.5px solid border-default
+background: transparent
+color: text-muted
+font-family: font-body
+font-size: 11px
+font-weight: 700
+cursor: pointer
+opacity: 0.6
+content: "?"
+```
+
+**Trigger states:**
+- Hover: `opacity: 1`, `border-color: border-strong`, `color: text-secondary`, `background: rgba(255, 255, 255, 0.04)`
+- Active (`aria-expanded="true"`): `opacity: 1`, `border-color: accent-info`, `color: accent-info`, `background: rgba(123, 184, 224, 0.08)`
+
+**Popover:**
+```
+background: bg-raised
+border: 1px solid border-default
+border-left: 3px solid {stat-color}
+border-radius: radius-lg
+padding: 20px
+box-shadow: shadow-lg
+margin-top: 8px
+z-index: 50
+```
+
+- **Title:** `font-display`, 14px, 600, `text-primary`
+- **Body:** `font-body`, 14px, `line-height: 1.5`, `text-secondary`
+- **Source:** `font-data`, 11px, `text-muted`, `letter-spacing: 0.5px`, margin-top 10px
+
+**Entrance:** `popoverIn` — `translateY(-6px) → translateY(0)`, `opacity 0 → 1`, 180ms cubic-bezier(0.34, 1.4, 0.64, 1)
+**Exit:** `popoverOut` — reverse, 150ms ease-in
+**Close on:** click outside, Escape key, or clicking the same trigger again
+
+### Skill Card
+
+Interactive card for equipping skills during boss fight reroll. Shown in a 3-column grid (2-col at 680px, 1-col at 440px) inside the reroll section of a Boss Band.
+
+**Container:**
+```
+display: flex
+flex-direction: column
+gap: 6px
+padding: 12px 14px
+min-height: 72px
+background: bg-mid
+border: 1px solid border-default
+border-radius: radius-lg
+cursor: pointer
+transition: all 150ms ease-out
+user-select: none
+position: relative
+```
+
+**States:**
+- **Hover:** `border-color: border-strong`, `background: rgba(45, 48, 96, 0.5)`, `transform: translateY(-1px)`
+- **Selected:** `border-color: rgba(125, 212, 163, 0.5)`, `background: rgba(125, 212, 163, 0.06)`, dual glow: `box-shadow: 0 0 16px rgba(125,212,163,0.12), inset 0 0 12px rgba(125,212,163,0.04)`
+
+**EQUIPPED badge** (selected state, `::after`):
+```
+position: absolute
+top: 8px, right: 8px
+font-family: font-data
+font-size: 10px
+font-weight: 700
+letter-spacing: 0.05em
+color: accent-thrive
+background: rgba(125, 212, 163, 0.15)
+padding: 2px 8px
+border-radius: radius-full
+```
+
+**Title:** `font-display`, 600, 14px, `text-primary`, `padding-right: 60px` (room for badge)
+
+#### Skill Stat Badge
+
+Inline badge showing a stat bonus (e.g. "ERN +1"). Used inside Skill Cards.
+
+```
+font-family: font-data
+font-size: 11px
+font-weight: 700
+letter-spacing: 0.3px
+padding: 2px 8px
+border-radius: radius-full
+line-height: 1.4
+color: {stat-color}
+background: rgba({stat-color}, 0.15)
 ```
 
 ### Application Header

@@ -519,7 +519,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
         intentKeywords: currentResolution.intent_keywords ?? [],
       });
 
-      navigate("/reveal");
+      navigate("/my-build");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Commit failed");
     } finally {

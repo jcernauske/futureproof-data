@@ -12,6 +12,7 @@ import { SaveWrappedScreen } from "@/screens/SaveWrappedScreen";
 import { MenuScreen } from "@/screens/MenuScreen";
 import { MockupsShowcase } from "@/screens/MockupsShowcase";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
+import { BuildResultsScreen } from "@/screens/BuildResultsScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { GlobalChrome } from "@/components/ui/GlobalChrome";
 
@@ -28,6 +29,7 @@ export function AppRoutes() {
         <Route path="/set-your-course" element={<SetYourCourseScreen />} />
         <Route path="/career-pick" element={<CareerPickScreen />} />
         <Route path="/reveal" element={<RevealScreen />} />
+        <Route path="/my-build" element={<BuildResultsScreen />} />
         <Route path="/gauntlet" element={<GauntletScreen />} />
         <Route path="/branches" element={<BranchTreeScreen />} />
         <Route path="/save" element={<SaveWrappedScreen />} />
