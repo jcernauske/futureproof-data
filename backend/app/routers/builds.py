@@ -89,6 +89,15 @@ async def create_build(request: BuildRequest):
     if not career.program_name and request.cip_title:
         career.program_name = request.cip_title
 
+    if (
+        request.home_state
+        and request.school_state
+        and request.home_state != request.school_state
+        and career.institution_control
+        and career.institution_control.startswith("Public")
+    ):
+        career.is_out_of_state = True
+
     # Scoring is deterministic and cheap — stays on the event loop.
     gauntlet = boss_fights.score_gauntlet(career)
     branches = await asyncio.to_thread(branch_tree.get_branches, career.soc_code)

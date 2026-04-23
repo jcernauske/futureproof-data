@@ -78,15 +78,16 @@ class BuildRequest(BaseModel):
     student_cip: str | None = None
     intent_keywords: list[str] = Field(default_factory=list)
     home_state: str | None = None
+    school_state: str | None = None
 
-    @field_validator("home_state", mode="before")
+    @field_validator("home_state", "school_state", mode="before")
     @classmethod
-    def _normalize_home_state(cls, v: str | None) -> str | None:
+    def _normalize_state(cls, v: str | None) -> str | None:
         if v is None or v == "":
             return None
         v = v.strip().upper()
         if not re.fullmatch(r"[A-Z]{2}", v):
-            raise ValueError("home_state must be a 2-letter state abbreviation")
+            raise ValueError("must be a 2-letter state abbreviation")
         return v
 
 

@@ -121,6 +121,7 @@ class CareerOutcome(BaseModel):
     tuition_in_state: float | None = None
     tuition_out_of_state: float | None = None
     room_board_on_campus: float | None = None
+    is_out_of_state: bool = False
 
     stats: PentagonStats
     bosses: BossScores
