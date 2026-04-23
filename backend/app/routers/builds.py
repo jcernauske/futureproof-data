@@ -79,11 +79,15 @@ async def create_build(request: BuildRequest):
             effort=cast(EffortLevel, request.effort),
             loan_pct=request.loan_pct,
             intent_keywords=request.intent_keywords or None,
+            home_state=request.home_state,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+    if not career.program_name and request.cip_title:
+        career.program_name = request.cip_title
 
     # Scoring is deterministic and cheap — stays on the event loop.
     gauntlet = boss_fights.score_gauntlet(career)

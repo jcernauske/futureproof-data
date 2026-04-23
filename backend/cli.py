@@ -505,6 +505,7 @@ def _reroll_loss_flow(build: Build, fight: BossFightResult) -> None:
                     career=build.career,
                     fight=fight,
                     original_result=fight.original_result or starting_result,
+                    original_narrative=fight.narrative or "",
                     crafted_skill_titles=[
                         s.title for s in build.skills_crafted
                     ],

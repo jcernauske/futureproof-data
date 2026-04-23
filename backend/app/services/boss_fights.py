@@ -88,6 +88,15 @@ def stat_explainer(career: CareerOutcome) -> str:
                 f" The 4-year cost to attend is about {four_year_cost} "
                 f"vs. {earn} starting salary."
             )
+            if career.net_price_annual_reference is not None:
+                in_state_cost = fmt_dollars(
+                    career.net_price_annual_reference * 4
+                )
+                roi_ctx += (
+                    f" This reflects out-of-state tuition — the"
+                    f" in-state median net price would be about"
+                    f" {in_state_cost}."
+                )
         elif basis == "debt_median" and career.debt_median is not None and earn:
             # Institution-level cost data wasn't available for this
             # program row — fall back to median graduate debt as an
@@ -255,6 +264,15 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
                 f"School net price: "
                 f"{fmt_dollars(career.net_price_annual)}/year"
             )
+            if career.net_price_annual_reference is not None:
+                parts.append(
+                    f"Out-of-state adjustment applied: median in-state"
+                    f" net price is"
+                    f" {fmt_dollars(career.net_price_annual_reference)}"
+                    f"/year, but this student's projected cost is"
+                    f" {fmt_dollars(career.net_price_annual)}"
+                    f"/year due to out-of-state tuition"
+                )
             if career.modeled_total_debt is not None:
                 parts.append(
                     f"Student's modeled 4-year debt: "
@@ -444,10 +462,14 @@ def _score_ai(career: CareerOutcome) -> tuple[int | None, str]:
 
 
 def _score_loans(career: CareerOutcome) -> tuple[int | None, str]:
-    """Pure ROI — debt burden against earnings. Higher ROI = easier win."""
+    """Financing-aware debt burden. Uses the loan_pct-aware boss score
+    when available, falling back to the ROI stat for legacy rows."""
+    if career.bosses.loans is not None:
+        readiness = 11 - career.bosses.loans
+        return readiness, f"loans_boss {career.bosses.loans} → readiness {readiness}"
     if career.stats.roi is None:
         return None, "ROI unavailable"
-    return career.stats.roi, f"ROI {career.stats.roi}"
+    return career.stats.roi, f"ROI {career.stats.roi} (fallback)"
 
 
 def _score_market(career: CareerOutcome) -> tuple[int | None, str]:
@@ -582,6 +604,7 @@ def _reroll_prompt(
     career: CareerOutcome,
     fight: BossFightResult,
     original_result: str,
+    original_narrative: str,
     crafted_skills: list[str],
 ) -> str:
     stats_explained = stat_explainer(career)
@@ -601,15 +624,21 @@ def _reroll_prompt(
         "",
         f"Fight: {fight.label}",
         f"Original result: {original_result.upper()}",
-        f"New result after skills: {fight.result.upper()} — {fight.reason}",
+        f"Your original commentary: {original_narrative}",
         "",
+        f"New result after skills: {fight.result.upper()} — {fight.reason}",
         f"Skills the student chose to equip:\n{skills_block}",
         "",
-        "Write the coach's 3-4 sentence take on why these skills "
-        "flipped the outcome. Explain what specifically changed and "
-        "what this means for the student's path. Use actual dollar "
-        "figures if available. Reference the actual skills, school, "
-        "and career — not generic advice. "
+        "The student applied real skills to improve their position. "
+        "Write 3-4 sentences updating your original commentary to "
+        "reflect the new result. Reinforce that these skills matter — "
+        "the student will need to actually put in the work (courses, "
+        "projects, certifications) to earn this improved outcome in "
+        "real life. Reference the specific skills they chose and "
+        "explain why those skills make a difference for this career. "
+        "Be encouraging but honest: the skills shift the odds, they "
+        "don't guarantee anything without real effort. "
+        "Use actual dollar figures if available. "
         "Write at a 6th grade reading level. No jargon.",
     ])
     return "\n".join(parts)
@@ -619,23 +648,119 @@ def generate_reroll_commentary(
     career: CareerOutcome,
     fight: BossFightResult,
     original_result: str,
+    original_narrative: str,
     crafted_skill_titles: list[str],
 ) -> str:
-    """Generate Gemma coaching commentary for a successful reroll.
+    """Generate Gemma coaching commentary for a reroll.
 
-    Called only when a reroll flips the fight result (LOSE→WIN,
-    LOSE→DRAW, etc). Returns empty string on failure — the CLI can
-    proceed without it.
+    Returns empty string on failure — the CLI can proceed without it.
     """
     try:
         text = gemma_client.generate(
             system=_NARRATIVE_SYSTEM,
-            user=_reroll_prompt(career, fight, original_result, crafted_skill_titles),
+            user=_reroll_prompt(
+                career, fight, original_result, original_narrative,
+                crafted_skill_titles,
+            ),
             max_tokens=800,
             temperature=0.7,
         )
     except Exception as exc:
         logger.warning("reroll commentary gen failed: %s", exc)
+        return ""
+    return text or ""
+
+
+async def generate_reroll_commentary_async(
+    career: CareerOutcome,
+    fight: BossFightResult,
+    original_result: str,
+    original_narrative: str,
+    crafted_skill_titles: list[str],
+) -> str:
+    """Async variant of :func:`generate_reroll_commentary`."""
+    try:
+        text = await gemma_client.generate_async(
+            system=_NARRATIVE_SYSTEM,
+            user=_reroll_prompt(
+                career, fight, original_result, original_narrative,
+                crafted_skill_titles,
+            ),
+            max_tokens=800,
+            temperature=0.7,
+        )
+    except Exception as exc:
+        logger.warning("reroll commentary gen failed: %s", exc)
+        return ""
+    return text or ""
+
+
+def _wrapup_prompt(
+    career: CareerOutcome,
+    fight: BossFightResult,
+    original_result: str,
+    all_skill_titles: list[str],
+    all_narratives: list[str],
+) -> str:
+    stats_explained = stat_explainer(career)
+    context = _boss_context(career, fight.boss)
+    skills_block = "\n".join(f"- {s}" for s in all_skill_titles)
+    narrative_block = "\n\n".join(
+        f"Entry {i + 1}: {n}" for i, n in enumerate(all_narratives)
+    )
+
+    parts = [
+        f"Career: {career.occupation_title} (SOC {career.soc_code})",
+        f"School/major: {career.institution_name} — {career.program_name}",
+        "",
+        stats_explained,
+    ]
+    if context:
+        parts.append("")
+        parts.append(context)
+    parts.extend([
+        "",
+        f"Fight: {fight.label}",
+        f"Started at: {original_result.upper()}",
+        f"Ended at: {fight.result.upper()} — {fight.reason}",
+        "",
+        f"All skills the student equipped:\n{skills_block}",
+        "",
+        f"Previous commentary entries:\n{narrative_block}",
+        "",
+        "The student has now used all available skills for this "
+        "challenge. Write a 3-4 sentence final summary that ties "
+        "the whole arc together. Reference where they started, what "
+        "skills they chose, and where they ended up. Reinforce that "
+        "these skills represent real work they need to do — courses, "
+        "projects, certifications — not just checkboxes. Be "
+        "encouraging but honest: the path is better now, but only "
+        "if they follow through. Use actual dollar figures if "
+        "available. Write at a 6th grade reading level. No jargon.",
+    ])
+    return "\n".join(parts)
+
+
+async def generate_wrapup_async(
+    career: CareerOutcome,
+    fight: BossFightResult,
+    original_result: str,
+    all_skill_titles: list[str],
+    all_narratives: list[str],
+) -> str:
+    """Generate a final wrap-up narrative after all skills are used."""
+    try:
+        text = await gemma_client.generate_async(
+            system=_NARRATIVE_SYSTEM,
+            user=_wrapup_prompt(
+                career, fight, original_result, all_narratives=all_narratives,
+                all_skill_titles=all_skill_titles,
+            ),
+            max_tokens=800,
+            temperature=0.7,
+        )
+    except Exception as exc:
+        logger.warning("wrapup commentary gen failed: %s", exc)
         return ""
     return text or ""
 

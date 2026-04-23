@@ -229,6 +229,7 @@ def get_pcp_schema() -> Schema:
         NestedField(50, "tuition_in_state", DoubleType(), required=False),
         NestedField(51, "tuition_out_of_state", DoubleType(), required=False),
         NestedField(52, "room_board_on_campus", DoubleType(), required=False),
+        NestedField(53, "state_abbr", StringType(), required=False),
     )
 
 
@@ -330,6 +331,7 @@ joined AS (
         co.tuition_in_state,
         co.tuition_out_of_state,
         co.room_board_on_campus,
+        co.state_abbr,
         -- Occupation context (from occupation_profiles)
         op.median_annual_wage,
         op.wage_percentile_overall,

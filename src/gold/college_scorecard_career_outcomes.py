@@ -122,6 +122,7 @@ def get_gold_schema() -> Schema:
         #   'debt_median'        — debt_median fallback when net_price is null
         #   'none'               — neither input available (DTE is null)
         NestedField(38, "roi_cost_basis", StringType(), required=False),
+        NestedField(39, "state_abbr", StringType(), required=False),
     )
 
 
@@ -201,6 +202,7 @@ cip_bands AS (
 institution AS (
     SELECT
         unitid,
+        state_abbr,
         net_price_annual,
         cost_of_attendance_annual,
         net_price_4yr,
@@ -228,8 +230,9 @@ ranked AS (
 joined AS (
     SELECT
         b.*,
-        -- CSI enrichment (LEFT JOIN on unitid; 7 columns carried forward).
+        -- CSI enrichment (LEFT JOIN on unitid; columns carried forward).
         i.institution_control,
+        i.state_abbr,
         i.net_price_annual,
         i.cost_of_attendance_annual,
         i.net_price_4yr,
@@ -388,6 +391,7 @@ def derive_gold_rows(
 # source has many more columns; we only need these for the enrichment.
 _INSTITUTION_ARROW_SCHEMA = pa.schema([
     pa.field("unitid", pa.int64()),
+    pa.field("state_abbr", pa.string()),
     pa.field("net_price_annual", pa.float64()),
     pa.field("cost_of_attendance_annual", pa.float64()),
     pa.field("net_price_4yr", pa.float64()),

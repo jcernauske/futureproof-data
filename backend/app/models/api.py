@@ -5,9 +5,10 @@ Thin wrappers capturing what the frontend sends, not what services return.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.career import IntentResult
 
@@ -76,11 +77,33 @@ class BuildRequest(BaseModel):
     # Gemma's matched_cip so /build stays consistent with the preview.
     student_cip: str | None = None
     intent_keywords: list[str] = Field(default_factory=list)
+    home_state: str | None = None
+
+    @field_validator("home_state", mode="before")
+    @classmethod
+    def _normalize_home_state(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        v = v.strip().upper()
+        if not re.fullmatch(r"[A-Z]{2}", v):
+            raise ValueError("home_state must be a 2-letter state abbreviation")
+        return v
 
 
 class RerollRequest(BaseModel):
     boss_id: str
     skill_ids: list[str]
+
+
+class WrapupRequest(BaseModel):
+    boss_id: str
+    all_skill_titles: list[str]
+    all_narratives: list[str]
+
+
+class RescoreRequest(BaseModel):
+    effort: str = "balanced"
+    loan_pct: float = 1.0
 
 
 class ChatRequest(BaseModel):

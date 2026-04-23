@@ -619,3 +619,328 @@ class TestRoiWithCostOfAttendance:
         # New fields propagate.
         assert career.roi_cost_basis == "cost_of_attendance"
         assert career.financed_dte is not None
+
+
+class TestResidencyAwareTuition:
+    """Residency-aware tuition adjustment tests.
+
+    Feature: docs/specs/feature-residency-aware-tuition.md
+
+    When a student is out-of-state at a public school, net_price_annual
+    is adjusted upward by the tuition gap (out_of_state - in_state)
+    before computing ROI and the Student Loans Boss. Private schools,
+    in-state students, and missing home_state all skip adjustment.
+
+    _row_with_cost() defaults:
+        net_price_annual = 14,200  (blended average from College Scorecard)
+        tuition_in_state = 9,800
+        tuition_out_of_state = 21,400
+        gap = 11,600
+        net_price_annual (adjusted) = 25,800 (for out-of-state public)
+        earnings = 63,371
+    """
+
+    def _row_with_cost(self, **overrides):
+        row = {
+            **_RAW_ROW,
+            "net_price_annual": 14_200.0,
+            "cost_of_attendance_annual": 22_800.0,
+            "institution_control": "Public",
+            "state_abbr": "IN",
+            "tuition_in_state": 9_800.0,
+            "tuition_out_of_state": 21_400.0,
+            "room_board_on_campus": 11_500.0,
+            "debt_to_earnings_annual": (14_200.0 * 4.0) / 63_371.0,
+            "roi_cost_basis": "cost_of_attendance",
+        }
+        row.update(overrides)
+        return row
+
+    # ── P0: Out-of-state public adjusts net_price ──────────────────────
+
+    def test_out_of_state_public_adjusts_net_price(self, monkeypatch):
+        """Out-of-state at a public school: ROI, Loans Boss, and
+        modeled_debt all reflect the adjusted net_price (base + gap).
+
+        gap = 21,400 - 9,800 = 11,600
+        adjusted = 14,200 + 11,600 = 25,800
+        """
+        row = self._row_with_cost()  # Public, state_abbr="IN"
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            loan_pct=1.0,
+            home_state="OH",  # different from school's "IN"
+        )
+        career = outcomes[0]
+
+        # net_price_annual carries the student's actual cost (adjusted).
+        assert career.net_price_annual == 25_800.0
+        # raw institutional median preserved in reference field.
+        assert career.net_price_annual_reference == 14_200.0
+
+        # modeled_total_debt uses the adjusted net_price.
+        # 25,800 * 4 * 1.0 = 103,200
+        assert career.modeled_total_debt == 25_800.0 * 4.0 * 1.0
+
+        # ROI should be worse than the unadjusted baseline (DTE ~0.896 -> 6).
+        # Adjusted DTE = (25,800 * 4) / 63,371 = 1.629 -> ROI ~3.
+        assert career.stats.roi is not None
+        assert career.stats.roi < 6  # worse than unadjusted
+
+        # Loans Boss should be harder (higher score) than unadjusted.
+        # financed_dte = 103,200 / 63,371 = 1.629 -> equiv ROI 3 -> boss 8.
+        assert career.bosses.loans is not None
+        assert career.bosses.loans > 5  # harder than unadjusted (was 5)
+
+    # ── P0: Out-of-state ROI uses recomputed DTE ──────────────────────
+
+    def test_out_of_state_roi_uses_recomputed_dte(self, monkeypatch):
+        """ROI must NOT use the pre-baked Gold dte_f when residency
+        adjustment applies — it must recompute from
+        (adjusted_net_price * 4) / earnings.
+
+        If we accidentally pass the Gold DTE through, ROI would stay ~6
+        (the unadjusted value). The recomputed DTE is 1.629, giving ROI ~3.
+        """
+        row = self._row_with_cost()
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        # Without home_state: uses Gold DTE.
+        baseline = stat_engine.compute_pentagon(
+            unitid=151351, cipcode="52.14", student_major=None
+        )
+        baseline_roi = baseline[0].stats.roi
+
+        # With out-of-state: must recompute DTE.
+        adjusted = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            home_state="OH",
+        )
+        adjusted_roi = adjusted[0].stats.roi
+
+        # The adjusted ROI must be strictly worse (lower score) because
+        # the cost basis is higher.
+        assert adjusted_roi is not None
+        assert baseline_roi is not None
+        assert adjusted_roi < baseline_roi
+
+    # ── P0: In-state public → no adjustment ───────────────────────────
+
+    def test_in_state_public_no_adjustment(self, monkeypatch):
+        """When home_state matches school state_abbr, no adjustment."""
+        row = self._row_with_cost()  # state_abbr="IN"
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            home_state="IN",  # matches school state
+        )
+        career = outcomes[0]
+
+        # No adjustment applied — reference field is None.
+        assert career.net_price_annual_reference is None
+        # ROI unchanged from baseline.
+        gold_dte = (14_200.0 * 4.0) / 63_371.0
+        from gold.futureproof_engine import compute_stat_roi
+
+        expected_roi = compute_stat_roi(gold_dte)
+        assert career.stats.roi == expected_roi
+
+    # ── P0: Private school → no adjustment ────────────────────────────
+
+    def test_private_school_no_adjustment(self, monkeypatch):
+        """Private schools skip residency adjustment regardless of
+        home_state — they charge the same for everyone."""
+        row = self._row_with_cost(
+            institution_control="Private nonprofit",
+            tuition_in_state=35_000.0,
+            tuition_out_of_state=35_000.0,
+            debt_to_earnings_annual=(35_000.0 * 4.0) / 63_371.0,
+            net_price_annual=35_000.0,
+        )
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            home_state="OH",  # different state, but private school
+        )
+        career = outcomes[0]
+
+        assert career.net_price_annual_reference is None
+        assert career.institution_control == "Private nonprofit"
+
+    # ── P0: No home_state → no adjustment (backward compat) ───────────
+
+    def test_no_home_state_no_adjustment(self, monkeypatch):
+        """When home_state is None (user skipped state selection),
+        behavior is identical to pre-feature baseline."""
+        row = self._row_with_cost()
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            # home_state not passed → defaults to None
+        )
+        career = outcomes[0]
+
+        assert career.net_price_annual_reference is None
+        # Verify ROI matches the unadjusted Gold DTE.
+        gold_dte = (14_200.0 * 4.0) / 63_371.0
+        from gold.futureproof_engine import compute_stat_roi
+
+        assert career.stats.roi == compute_stat_roi(gold_dte)
+
+    # ── P1: Missing tuition values → no adjustment ────────────────────
+
+    def test_missing_tuition_values_no_adjustment(self, monkeypatch):
+        """When tuition_in_state or tuition_out_of_state is null,
+        adjustment is skipped even for out-of-state public."""
+        # Missing tuition_in_state
+        row_no_in = self._row_with_cost(tuition_in_state=None)
+        _patch_mcp(monkeypatch, {"data": [row_no_in], "substitution_applied": False})
+        career_no_in = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            home_state="OH",
+        )[0]
+        assert career_no_in.net_price_annual_reference is None
+
+        # Missing tuition_out_of_state
+        row_no_out = self._row_with_cost(tuition_out_of_state=None)
+        _patch_mcp(monkeypatch, {"data": [row_no_out], "substitution_applied": False})
+        career_no_out = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            home_state="OH",
+        )[0]
+        assert career_no_out.net_price_annual_reference is None
+
+        # Both missing
+        row_neither = self._row_with_cost(
+            tuition_in_state=None, tuition_out_of_state=None
+        )
+        _patch_mcp(
+            monkeypatch, {"data": [row_neither], "substitution_applied": False}
+        )
+        career_neither = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            home_state="OH",
+        )[0]
+        assert career_neither.net_price_annual_reference is None
+
+    # ── P1: Adjustment helper edge cases ──────────────────────────────
+
+    def test_adjustment_helper_edge_cases(self):
+        """Direct unit tests of _adjust_net_price_for_residency for
+        degenerate inputs: gap <= 0, missing school_state, missing
+        institution_control."""
+        adjust = stat_engine._adjust_net_price_for_residency
+
+        # Gap is zero (in-state == out-of-state) — no adjustment.
+        result = adjust(
+            net_price_annual=14_200.0,
+            tuition_in_state=20_000.0,
+            tuition_out_of_state=20_000.0,
+            institution_control="Public",
+            home_state="OH",
+            school_state="IN",
+        )
+        assert result == 14_200.0
+
+        # Negative gap (out-of-state < in-state, degenerate data).
+        result = adjust(
+            net_price_annual=14_200.0,
+            tuition_in_state=25_000.0,
+            tuition_out_of_state=20_000.0,
+            institution_control="Public",
+            home_state="OH",
+            school_state="IN",
+        )
+        assert result == 14_200.0
+
+        # Missing school_state — can't determine residency.
+        result = adjust(
+            net_price_annual=14_200.0,
+            tuition_in_state=9_800.0,
+            tuition_out_of_state=21_400.0,
+            institution_control="Public",
+            home_state="OH",
+            school_state=None,
+        )
+        assert result == 14_200.0
+
+        # Missing institution_control — can't determine public/private.
+        result = adjust(
+            net_price_annual=14_200.0,
+            tuition_in_state=9_800.0,
+            tuition_out_of_state=21_400.0,
+            institution_control=None,
+            home_state="OH",
+            school_state="IN",
+        )
+        assert result == 14_200.0
+
+        # net_price_annual is None — returns None.
+        result = adjust(
+            net_price_annual=None,
+            tuition_in_state=9_800.0,
+            tuition_out_of_state=21_400.0,
+            institution_control="Public",
+            home_state="OH",
+            school_state="IN",
+        )
+        assert result is None
+
+    # ── P1: recompute_for_sliders uses net_price_annual (now adjusted) ──
+
+    def test_recompute_for_sliders_uses_adjusted_net_price(self, monkeypatch):
+        """net_price_annual already carries the adjusted value, so
+        recompute_for_sliders just reads it directly — no sidecar check.
+        """
+        row = self._row_with_cost()
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        # Build with out-of-state adjustment.
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            loan_pct=1.0,
+            home_state="OH",
+        )
+        career = outcomes[0]
+        assert career.net_price_annual == 25_800.0
+
+        # Now rescore with a different loan_pct via the slider path.
+        rescored = stat_engine.recompute_for_sliders(
+            career,
+            original_effort="balanced",
+            new_effort="balanced",
+            new_loan_pct=0.5,
+        )
+
+        # modeled_total_debt should use adjusted net_price, not raw.
+        # adjusted: 25,800 * 4 * 0.5 = 51,600
+        # raw would be: 14,200 * 4 * 0.5 = 28,400
+        assert rescored.modeled_total_debt == 25_800.0 * 4.0 * 0.5
+
+        # Loans boss at 50% financing with adjusted cost should still
+        # reflect the out-of-state premium.
+        assert rescored.bosses.loans is not None
+        assert rescored.bosses.loans > 2  # proves it's NOT using raw net_price
