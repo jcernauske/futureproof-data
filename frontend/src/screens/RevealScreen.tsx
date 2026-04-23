@@ -20,7 +20,7 @@ const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 export function RevealScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
-  const { profileName, animalEmoji } = useProfileStore();
+  const { profileName, animalEmoji, homeState } = useProfileStore();
   const {
     selectedCareer,
     build,
@@ -94,6 +94,7 @@ export function RevealScreen() {
           selectedCareer.occupation_title,
           major.rawText,
           studentCip,
+          homeState ?? undefined,
         ),
         minDisplayTime,
       ]);
@@ -109,7 +110,7 @@ export function RevealScreen() {
       setError(err instanceof Error ? err.message : "Build failed");
       setIsBuilding(false);
     }
-  }, [selectedCareer, school, major, profileName, effort, loans, setBuild, setIsBuilding]);
+  }, [selectedCareer, school, major, profileName, effort, loans, homeState, setBuild, setIsBuilding]);
 
   useEffect(() => {
     if (!build && !isBuilding && selectedCareer) {

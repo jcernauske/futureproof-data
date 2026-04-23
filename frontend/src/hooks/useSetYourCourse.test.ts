@@ -102,8 +102,11 @@ function seedSchool() {
       unitid: 151351,
       name: "Indiana University",
       institutionControl: null,
+      stateAbbr: "IN",
       netPriceAnnual: null,
       costOfAttendanceAnnual: null,
+      tuitionInState: null,
+      tuitionOutOfState: null,
     },
     programs: [
       {

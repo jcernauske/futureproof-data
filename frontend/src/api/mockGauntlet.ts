@@ -32,6 +32,7 @@ export async function mockRerollFight(
     reroll_count: 1,
     original_result: "lose",
     original_raw_score: 2,
+    applied_skill_titles: ["Mock Skill"],
   };
 }
 

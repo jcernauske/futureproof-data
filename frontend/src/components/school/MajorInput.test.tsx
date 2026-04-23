@@ -59,8 +59,11 @@ const SCHOOL: SchoolSelection = {
   unitid: 123456,
   name: "University of Central Anywhere",
   institutionControl: "Public",
+  stateAbbr: null,
   netPriceAnnual: 14200,
   costOfAttendanceAnnual: 28000,
+  tuitionInState: null,
+  tuitionOutOfState: null,
 };
 
 const PROGRAMS: ProgramResult[] = [

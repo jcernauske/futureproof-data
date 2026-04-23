@@ -28,7 +28,7 @@ beforeEach(() => {
   sessionStorage.clear();
   // Seed a profile so the screen doesn't redirect to "/"
   useProfileStore.setState({
-    profileName: "dancing happy bear 🐻",
+    profileName: "dancing happy bear",
     animalEmoji: "🐻",
     animalName: "bear",
   });

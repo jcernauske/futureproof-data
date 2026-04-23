@@ -1,11 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { BossFightResult, AppliedSkill, BossOutcome } from "@/types/build";
-import { rerollFight } from "@/api/gauntlet";
+import { rerollFight, getFightWrapup } from "@/api/gauntlet";
 import { Button } from "@/components/ui/Button";
 import { BOSS_META, RESULT_COLORS } from "./bossData";
 import { SealedOverlay } from "./SealedOverlay";
 import { VSOverlay } from "./VSOverlay";
 import { SkillStatBadge } from "./SkillStatBadge";
+import { NarrativeTimeline } from "./NarrativeTimeline";
+import type { NarrativeEntry } from "./NarrativeTimeline";
 
 const MAX_REROLLS = 3;
 const RESULT_WORDS: Record<BossOutcome, string> = {
@@ -60,7 +62,6 @@ export function BossBand({
 }: BossBandProps) {
   const boss = BOSS_META[fight.boss];
   const [localResult, setLocalResult] = useState<BossOutcome>(fight.result);
-  const [localNarrative, setLocalNarrative] = useState(fight.narrative);
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
   const [isRescoring, setIsRescoring] = useState(false);
   const [rescored, setRescored] = useState(fight.rerolled);
@@ -69,15 +70,35 @@ export function BossBand({
   const [rerollError, setRerollError] = useState<string | null>(null);
   const bandRef = useRef<HTMLDivElement>(null);
 
+  const [narrativeEntries, setNarrativeEntries] = useState<NarrativeEntry[]>([
+    {
+      id: `${fight.boss}-initial`,
+      trigger: "initial",
+      narrative: fight.narrative,
+      result: fight.result,
+    },
+  ]);
+
   const availableSkills = skillPool.filter((s) => s.targets.includes(fight.boss));
   const canReroll = localResult !== "win" && availableSkills.length > 0 && rerollCount < MAX_REROLLS;
   const resultColors = RESULT_COLORS[localResult] ?? RESULT_COLORS.unknown;
   const firstName = playerName.split(" ")[0] ?? playerName;
 
+  // Only reset when a completely different fight mounts (boss change),
+  // NOT when the parent updates fight props from a reroll — we manage
+  // our own accumulated state after that.
   useEffect(() => {
     setLocalResult(fight.result);
-    setLocalNarrative(fight.narrative);
-  }, [fight.result, fight.narrative]);
+    setNarrativeEntries([
+      {
+        id: `${fight.boss}-initial`,
+        trigger: "initial",
+        narrative: fight.narrative,
+        result: fight.result,
+      },
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fight.boss]);
 
   const toggleSkill = useCallback((skillId: string) => {
     setSelectedSkills((prev) => {
@@ -93,16 +114,79 @@ export function BossBand({
     setIsRescoring(true);
     setRerollError(null);
 
+    const prevResult = localResult;
+
     try {
       const skillIds = Array.from(selectedSkills);
+      const selectedSkillNames = skillIds
+        .map((id) => skillPool.find((s) => s.id === id)?.title)
+        .filter(Boolean)
+        .join(" + ");
+
       const updated = await rerollFight(buildId, fight.boss, skillIds);
+
+      const skillEntry: NarrativeEntry = {
+        id: `${fight.boss}-reroll-${updated.reroll_count}`,
+        trigger: "skill",
+        skillName: selectedSkillNames,
+        narrative: updated.narrative,
+        result: updated.result,
+        previousResult: prevResult,
+      };
+
       setLocalResult(updated.result);
-      setLocalNarrative(updated.narrative);
       setRerollCount(updated.reroll_count);
-      if (updated.result === "win") {
-        setRescored(true);
+
+      const remainingSkills = availableSkills.filter(
+        (s) => !skillIds.includes(s.id),
+      );
+      const noMoreSkills = remainingSkills.length === 0;
+      const maxedRerolls = updated.reroll_count >= MAX_REROLLS;
+      const isWon = updated.result === "win";
+      const shouldWrapup = noMoreSkills || maxedRerolls || isWon;
+
+      if (shouldWrapup) {
+        setNarrativeEntries((prev) => [...prev, skillEntry]);
+        setIsRescoring(false);
+
+        // Collect all skill titles and narratives for the wrapup
+        const allEntries = [...narrativeEntries, skillEntry];
+        const allSkillTitles = allEntries
+          .filter((e) => e.trigger === "skill" && e.skillName)
+          .map((e) => e.skillName!);
+        const allNarratives = allEntries.map((e) => e.narrative);
+
+        setIsRescoring(true);
+        try {
+          const wrapupNarrative = await getFightWrapup(
+            buildId,
+            fight.boss,
+            allSkillTitles,
+            allNarratives,
+          );
+          if (wrapupNarrative) {
+            const wrapupEntry: NarrativeEntry = {
+              id: `${fight.boss}-wrapup`,
+              trigger: "wrapup",
+              narrative: wrapupNarrative,
+              result: updated.result,
+              previousResult: narrativeEntries[0]?.result,
+            };
+            setNarrativeEntries((prev) => [...prev, wrapupEntry]);
+          }
+        } catch {
+          // Wrapup is optional — fail silently
+        }
+        setIsRescoring(false);
+
+        if (isWon) {
+          setRescored(true);
+        }
         setShowReroll(false);
+      } else {
+        setNarrativeEntries((prev) => [...prev, skillEntry]);
       }
+
       onRerollComplete(updated);
       onSkillsConsumed(skillIds);
       setSelectedSkills(new Set());
@@ -111,7 +195,7 @@ export function BossBand({
     } finally {
       setIsRescoring(false);
     }
-  }, [selectedSkills, isRescoring, buildId, fight.boss, onRerollComplete, onSkillsConsumed]);
+  }, [selectedSkills, isRescoring, buildId, fight.boss, onRerollComplete, onSkillsConsumed, localResult, skillPool, availableSkills, narrativeEntries]);
 
   const handleAccept = useCallback(() => {
     setShowReroll(false);
@@ -253,21 +337,12 @@ export function BossBand({
           </div>
         </div>
 
-        {/* Narrative */}
-        <div
-          className="rounded-[14px] mt-4"
-          style={{
-            padding: 20,
-            background: "rgba(27,29,48,0.6)",
-            borderLeft: `3px solid ${boss.color}`,
-            opacity: isRescoring ? 0.6 : 1,
-            transition: "opacity 0.3s",
-          }}
-        >
-          <p className="font-body text-text-primary" style={{ fontSize: 15, lineHeight: 1.65 }}>
-            {localNarrative}
-          </p>
-        </div>
+        {/* Narrative Timeline */}
+        <NarrativeTimeline
+          entries={narrativeEntries}
+          bossColor={boss.color}
+          isLoading={isRescoring}
+        />
 
         {/* Reroll section */}
         {canReroll && showReroll && (
@@ -281,8 +356,8 @@ export function BossBand({
 
             {/* Skill grid */}
             <div
-              className="grid gap-2.5"
-              style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
+              className="skill-grid-responsive grid gap-2.5"
+              style={{ gridTemplateColumns: `repeat(${Math.min(availableSkills.length, 3)}, 1fr)` }}
             >
               {availableSkills.map((skill) => {
                 const isSelected = selectedSkills.has(skill.id);
@@ -305,48 +380,55 @@ export function BossBand({
                     <div className="font-display font-semibold text-text-primary pr-16" style={{ fontSize: 14 }}>
                       {skill.title}
                     </div>
+                    <div className="font-body text-text-secondary mt-1" style={{ fontSize: 13, lineHeight: 1.5 }}>
+                      {skill.rationale}
+                    </div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {STAT_DELTAS.map(({ key, field }) => {
                         const val = skill[field] as number;
                         return val !== 0 ? <SkillStatBadge key={key} stat={key} delta={val} /> : null;
                       })}
                     </div>
-                    {isSelected && (
-                      <span
-                        className="absolute top-2 right-2 font-data font-bold rounded-full text-accent-thrive"
-                        style={{
-                          fontSize: 10,
-                          padding: "2px 8px",
-                          background: "rgba(125,212,163,0.15)",
-                        }}
-                      >
-                        EQUIPPED
-                      </span>
-                    )}
+                    <div
+                      className="absolute top-3 right-3 flex-shrink-0 rounded-full flex items-center justify-center"
+                      style={{
+                        width: 24,
+                        height: 24,
+                        border: isSelected ? "2px solid var(--color-accent-thrive)" : "2px solid rgba(255,255,255,0.15)",
+                        background: isSelected ? "var(--color-accent-thrive)" : "transparent",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {isSelected && (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6L5 9L10 3" stroke="var(--color-bg-deep)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
                   </button>
                 );
               })}
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-between mt-3.5 gap-3">
+            <div className="flex items-stretch justify-between mt-3.5 gap-3">
               <Button variant="ghost" onClick={handleAccept}>
                 Accept Result
               </Button>
-              <div className="text-right">
-                <Button
-                  variant="primary"
-                  onClick={handleRescore}
-                  disabled={selectedSkills.size === 0}
-                  loading={isRescoring}
-                  aria-label="Rescore fight with equipped skills"
-                >
-                  Rescore Fight ✦
-                </Button>
-                <div className="font-data text-text-muted mt-2" style={{ fontSize: 12 }}>
-                  Attempt {rerollCount + 1}/{MAX_REROLLS}
-                </div>
-              </div>
+              <Button
+                variant="primary"
+                onClick={handleRescore}
+                disabled={selectedSkills.size === 0}
+                loading={isRescoring}
+                aria-label="Rescore fight with equipped skills"
+              >
+                Rescore Fight ✦
+                {selectedSkills.size > 0 && !isRescoring && (
+                  <span className="ml-1.5" style={{ fontSize: 12, opacity: 0.7 }}>
+                    ({selectedSkills.size} equipped)
+                  </span>
+                )}
+              </Button>
             </div>
             {rerollError && (
               <div className="font-body text-accent-alert mt-2" style={{ fontSize: 13 }}>

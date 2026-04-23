@@ -31,6 +31,7 @@ const isPostgrad = (c: CareerOutcome) =>
 export function SetYourCourseScreen() {
   const navigate = useNavigate();
   const profileName = useProfileStore((s) => s.profileName);
+  const homeState = useProfileStore((s) => s.homeState);
   const {
     school,
     effort,
@@ -72,6 +73,19 @@ export function SetYourCourseScreen() {
 
   const [confirmStartOver, setConfirmStartOver] = useState(false);
   const reducedMotion = useReducedMotion();
+
+  const effectiveNetPrice = useMemo(() => {
+    if (!school?.netPriceAnnual) return school?.netPriceAnnual ?? null;
+    if (!homeState || !school.stateAbbr) return school.netPriceAnnual;
+    if (!school.institutionControl?.startsWith("Public")) return school.netPriceAnnual;
+    if (homeState === school.stateAbbr) return school.netPriceAnnual;
+    const inState = school.tuitionInState;
+    const outState = school.tuitionOutOfState;
+    if (inState == null || outState == null) return school.netPriceAnnual;
+    const gap = outState - inState;
+    if (gap <= 0) return school.netPriceAnnual;
+    return school.netPriceAnnual + gap;
+  }, [school, homeState]);
 
   // Profile guard — bounce to /app if the profile isn't set. Stash this
   // route so ProfileScreen returns here after onboarding.
@@ -546,7 +560,7 @@ export function SetYourCourseScreen() {
                   profileName={profileName}
                   onSubmit={() => void commit()}
                   submitting={busy}
-                  netPriceAnnual={school?.netPriceAnnual}
+                  netPriceAnnual={effectiveNetPrice}
                 />
                 {softNudge && (
                   <p

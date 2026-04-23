@@ -106,6 +106,7 @@ export interface BossFightResult {
   reroll_count: number;
   original_result: BossOutcome | null;
   original_raw_score: number | null;
+  applied_skill_titles: string[];
 }
 
 export interface GauntletResult {

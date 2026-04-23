@@ -70,8 +70,11 @@ export function SchoolSearch({
       unitid: result.unitid,
       name: result.institution_name,
       institutionControl: result.institution_control,
+      stateAbbr: result.state_abbr,
       netPriceAnnual: result.net_price_annual,
       costOfAttendanceAnnual: result.cost_of_attendance_annual,
+      tuitionInState: result.tuition_in_state,
+      tuitionOutOfState: result.tuition_out_of_state,
     });
     setShowDropdown(false);
     setQuery("");

@@ -41,7 +41,7 @@ describe("LandingScreen", () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          profile_name: "dancing happy bear 🐻",
+          profile_name: "dancing happy bear",
           animal_emoji: "🐻",
           animal_name: "bear",
         }),
