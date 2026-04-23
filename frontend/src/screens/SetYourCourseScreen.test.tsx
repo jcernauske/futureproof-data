@@ -70,7 +70,7 @@ function renderScreen() {
 
 function seedState(overrides: Partial<ReturnType<typeof useBuildInputStore.getState>> = {}) {
   useProfileStore.setState({
-    profileName: "dancing happy bear 🐻",
+    profileName: "dancing happy bear",
     animalEmoji: "🐻",
     animalName: "bear",
   });
@@ -80,8 +80,11 @@ function seedState(overrides: Partial<ReturnType<typeof useBuildInputStore.getSt
       unitid: 151351,
       name: "Indiana University",
       institutionControl: null,
+      stateAbbr: "IN",
       netPriceAnnual: null,
       costOfAttendanceAnnual: null,
+      tuitionInState: null,
+      tuitionOutOfState: null,
     },
     programs: [],
     major: null,

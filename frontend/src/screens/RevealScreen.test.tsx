@@ -79,7 +79,7 @@ function makeCareer(soc = "15-1252"): CareerOutcome {
 function seedReady() {
   useBuildInputStore.setState({
     phase: "sliders",
-    school: { unitid: 110635, name: "UC Berkeley", institutionControl: "Public", netPriceAnnual: null, costOfAttendanceAnnual: null },
+    school: { unitid: 110635, name: "UC Berkeley", institutionControl: "Public", stateAbbr: "CA", netPriceAnnual: null, costOfAttendanceAnnual: null, tuitionInState: null, tuitionOutOfState: null },
     programs: [],
     major: {
       cipCode: "11.0701",
@@ -101,7 +101,7 @@ function seedReady() {
     hasSeenStatTutorial: true, // skip tutorial side-effect
   });
   useProfileStore.setState({
-    profileName: "dancing happy bear 🐻",
+    profileName: "dancing happy bear",
     animalEmoji: "🐻",
     animalName: "bear",
   });

@@ -6,18 +6,12 @@ interface PathCardProps {
   cipCode: string;
   careerName: string;
   socCode: string;
-  medianWage: number | null;
   stats: PentagonStats;
-}
-
-function formatWage(wage: number | null): string {
-  if (wage === null) return "N/A";
-  return `$${wage.toLocaleString()} / yr`;
 }
 
 const STAT_KEYS = ["ern", "roi", "res", "grw", "hmn"] as const;
 
-export function PathCard({ programName, cipCode, careerName, socCode, medianWage, stats }: PathCardProps) {
+export function PathCard({ programName, cipCode, careerName, socCode, stats }: PathCardProps) {
   return (
     <div
       className="rounded-[20px] border border-border-subtle bg-bp-mid"
@@ -53,9 +47,6 @@ export function PathCard({ programName, cipCode, careerName, socCode, medianWage
           </div>
           <div className="font-data text-text-muted" style={{ fontSize: 11, marginTop: 2 }}>
             SOC {socCode}
-          </div>
-          <div className="font-data font-bold text-stat-ern" style={{ fontSize: 14, marginTop: 4 }}>
-            {formatWage(medianWage)}
           </div>
         </div>
       </div>

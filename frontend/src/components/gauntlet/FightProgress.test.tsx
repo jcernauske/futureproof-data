@@ -32,6 +32,7 @@ function makeFight(
     reroll_count: 0,
     original_result: null,
     original_raw_score: null,
+    applied_skill_titles: [],
   };
 }
 

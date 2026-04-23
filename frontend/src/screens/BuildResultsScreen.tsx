@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { CampusHeroBanner } from "@/components/build-results/CampusHeroBanner";
 import { HeroIdentity } from "@/components/build-results/HeroIdentity";
 import { PathCard } from "@/components/build-results/PathCard";
+import { FinancesCard } from "@/components/build-results/FinancesCard";
 import { InstitutionCard } from "@/components/build-results/InstitutionCard";
 import { StatInfoPopover } from "@/components/build-results/StatInfoPopover";
 import { BossBand } from "@/components/build-results/BossBand";
@@ -23,7 +24,7 @@ const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 export function BuildResultsScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
-  const { profileName, animalEmoji } = useProfileStore();
+  const { profileName, animalEmoji, homeState } = useProfileStore();
   const { selectedCareer, build, setBuild, isBuilding, setIsBuilding } = useBuildStore();
 
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function BuildResultsScreen() {
   const [highlightStat, setHighlightStat] = useState<StatKey | null>(null);
   const [fights, setFights] = useState<BossFightResult[]>([]);
   const [consumedSkillIds, setConsumedSkillIds] = useState<Set<string>>(new Set());
+
   const cancelledRef = useRef(false);
 
   // Boss band reveal state
@@ -85,6 +87,7 @@ export function BuildResultsScreen() {
           selectedCareer.occupation_title,
           major.rawText,
           studentCip,
+          homeState ?? undefined,
         ),
         minDisplayTime,
       ]);
@@ -97,7 +100,7 @@ export function BuildResultsScreen() {
       setError(err instanceof Error ? err.message : "Build failed");
       setIsBuilding(false);
     }
-  }, [selectedCareer, school, major, profileName, effort, loans, setBuild, setIsBuilding]);
+  }, [selectedCareer, school, major, profileName, effort, loans, homeState, setBuild, setIsBuilding]);
 
   useEffect(() => {
     if (!build && !isBuilding && selectedCareer) {
@@ -202,7 +205,7 @@ export function BuildResultsScreen() {
           }
         });
       },
-      { threshold: 0.5, rootMargin: "-33% 0px -33% 0px" },
+      { threshold: 0.15, rootMargin: "-20% 0px -20% 0px" },
     );
 
     bandRefs.current.forEach((el) => {
@@ -370,23 +373,48 @@ export function BuildResultsScreen() {
       {/* Content column */}
       <div className="max-w-[1280px] mx-auto px-4 tablet:px-6 desktop:px-8">
 
+        {/* Adjust link */}
+        <div className="flex justify-end" style={{ marginTop: 16 }}>
+          <button
+            type="button"
+            className="font-body text-accent-info hover:underline hover:brightness-125 transition-colors duration-150 bg-transparent border-none cursor-pointer"
+            style={{ fontSize: 14 }}
+            onClick={() => {
+              useBuildStore.setState({ build: null });
+              navigate("/set-your-course");
+            }}
+          >
+            ← Adjust effort & loans
+          </button>
+        </div>
+
         {/* Section 2: Path + Institution grid */}
         <div
-          className="path-institution-grid grid gap-6 items-start"
+          className="path-institution-grid grid gap-6 items-stretch"
           style={{
             gridTemplateColumns: "1fr 1.6fr",
             marginTop: 32,
             animation: "sectionFadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) 0.2s both",
           }}
         >
-          <PathCard
-            programName={career.program_name}
-            cipCode={career.cipcode}
-            careerName={career.occupation_title}
-            socCode={career.soc_code}
-            medianWage={career.median_annual_wage}
-            stats={career.stats}
-          />
+          <div className="flex flex-col gap-6">
+            <PathCard
+              programName={career.program_name || major.cipTitle}
+              cipCode={career.cipcode}
+              careerName={career.occupation_title}
+              socCode={career.soc_code}
+              stats={career.stats}
+            />
+            <FinancesCard
+              startingSalary={career.earnings_1yr_median}
+              medianSalary={career.median_annual_wage}
+              tuitionInState={career.tuition_in_state}
+              tuitionOutOfState={career.tuition_out_of_state}
+              loanPct={career.loan_pct}
+              isInState={homeState && school.stateAbbr ? homeState === school.stateAbbr : null}
+              institutionControl={career.institution_control ?? null}
+            />
+          </div>
           <InstitutionCard
             schoolName={build.school_name}
             narrative={build.guidance}
@@ -403,9 +431,8 @@ export function BuildResultsScreen() {
             className="rounded-[20px] border border-border-subtle bg-bp-mid mt-4"
             style={{ padding: 32 }}
           >
-            <div className="flex gap-12 items-start flex-wrap">
-              {/* Pentagon (sticky on desktop) */}
-              <div className="self-start" style={{ position: "sticky", top: "calc(50vh - 160px)" }}>
+            <div className="flex gap-12 items-center flex-wrap">
+              <div>
                 <PentagonChart
                   stats={career.stats}
                   size={320}

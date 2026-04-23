@@ -1,6 +1,6 @@
 import { apiPost } from "@/api/client";
 import { mockRerollFight, mockGetNextSteps } from "@/api/mockGauntlet";
-import type { BossFightResult, BossId } from "@/types/build";
+import type { BossFightResult, BossId, PentagonStats, BossScores, GauntletResult } from "@/types/build";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_API === "true";
 
@@ -13,6 +13,40 @@ export async function rerollFight(
   return apiPost<BossFightResult>(`/build/${buildId}/reroll`, {
     boss_id: bossId,
     skill_ids: skillIds,
+  });
+}
+
+export async function getFightWrapup(
+  buildId: string,
+  bossId: BossId,
+  allSkillTitles: string[],
+  allNarratives: string[],
+): Promise<string> {
+  const res = await apiPost<{ narrative: string }>(`/build/${buildId}/wrapup`, {
+    boss_id: bossId,
+    all_skill_titles: allSkillTitles,
+    all_narratives: allNarratives,
+  });
+  return res.narrative;
+}
+
+export interface RescoreResult {
+  stats: PentagonStats;
+  bosses: BossScores;
+  loan_pct: number;
+  modeled_total_debt: number | null;
+  financed_dte: number | null;
+  gauntlet: GauntletResult;
+}
+
+export async function rescoreBuild(
+  buildId: string,
+  effort: string,
+  loanPct: number,
+): Promise<RescoreResult> {
+  return apiPost<RescoreResult>(`/build/${buildId}/rescore`, {
+    effort,
+    loan_pct: loanPct,
   });
 }
 

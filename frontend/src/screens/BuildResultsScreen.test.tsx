@@ -122,6 +122,7 @@ function makeFight(overrides: Partial<BossFightResult> = {}): BossFightResult {
     reroll_count: 0,
     original_result: null,
     original_raw_score: null,
+    applied_skill_titles: [],
     ...overrides,
   };
 }
@@ -188,8 +189,11 @@ function seedReady() {
       unitid: 110635,
       name: "UC Berkeley",
       institutionControl: "Public",
+      stateAbbr: "CA",
       netPriceAnnual: null,
       costOfAttendanceAnnual: null,
+      tuitionInState: null,
+      tuitionOutOfState: null,
     },
     programs: [],
     major: {
@@ -567,15 +571,18 @@ describe("BuildResultsScreen -- path card data (P1)", () => {
     expect(screen.getByText("Software Developers")).toBeInTheDocument();
     // SOC code.
     expect(screen.getByText(/SOC 15-1252/)).toBeInTheDocument();
-    // Median wage, formatted as "$127,260 / yr".
+    // Median salary in Finances card, formatted as "$127,260 / yr".
     expect(screen.getByText("$127,260 / yr")).toBeInTheDocument();
   });
 
-  it("path_card_shows_na_when_wage_null", () => {
+  it("finances_card_shows_dash_when_wage_null", () => {
     seedWithBuild({ career: makeCareer({ median_annual_wage: null }) });
     renderScreen();
 
-    expect(screen.getByText("N/A")).toBeInTheDocument();
+    expect(screen.getByText("Finances")).toBeInTheDocument();
+    // FinancesCard renders "—" for null values
+    const dashes = screen.getAllByText(/— \/ yr/);
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -839,6 +846,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       "Software Developers",   // selectedCareer.occupation_title
       "Computer Science",      // major.rawText (studentMajor)
       undefined,               // studentCip (undefined when no parentCip)
+      undefined,               // homeState (null → undefined)
     );
 
     // Clean up.
@@ -887,6 +895,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       expect.anything(),
       expect.anything(),
       "11.0701",               // studentCip = cipCode
+      undefined,               // homeState
     );
 
     await act(async () => {

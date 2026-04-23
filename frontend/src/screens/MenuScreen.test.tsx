@@ -289,7 +289,7 @@ describe("MenuScreen", () => {
     // Pollute build inputs first so we can prove the reset.
     useBuildInputStore.setState({
       phase: "sliders",
-      school: { unitid: 1, name: "Old School", institutionControl: "Public", netPriceAnnual: null, costOfAttendanceAnnual: null },
+      school: { unitid: 1, name: "Old School", institutionControl: "Public", stateAbbr: null, netPriceAnnual: null, costOfAttendanceAnnual: null, tuitionInState: null, tuitionOutOfState: null },
       programs: [],
       major: {
         cipCode: "99.99",

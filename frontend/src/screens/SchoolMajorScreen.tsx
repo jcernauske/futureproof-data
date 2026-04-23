@@ -20,6 +20,7 @@ import type {
 export function SchoolMajorScreen() {
   const navigate = useNavigate();
   const profileName = useProfileStore((s) => s.profileName);
+  const homeState = useProfileStore((s) => s.homeState);
   const {
     phase,
     school,
@@ -43,16 +44,33 @@ export function SchoolMajorScreen() {
   // back to career-scoped sources for older builds where SchoolSelection
   // hadn't captured it yet.
   const netPriceAnnual = useMemo<number | null>(() => {
-    if (school?.netPriceAnnual != null) return school.netPriceAnnual;
-    const fromSelected = selectedCareer?.net_price_annual ?? null;
-    if (fromSelected !== null) return fromSelected;
-    const sample =
-      tieredCareers?.common[0] ??
-      tieredCareers?.less_common[0] ??
-      tieredCareers?.stretch[0] ??
-      null;
-    return sample?.net_price_annual ?? null;
-  }, [school, selectedCareer, tieredCareers]);
+    let base: number | null = null;
+    if (school?.netPriceAnnual != null) {
+      base = school.netPriceAnnual;
+    } else {
+      const fromSelected = selectedCareer?.net_price_annual ?? null;
+      if (fromSelected !== null) {
+        base = fromSelected;
+      } else {
+        const sample =
+          tieredCareers?.common[0] ??
+          tieredCareers?.less_common[0] ??
+          tieredCareers?.stretch[0] ??
+          null;
+        base = sample?.net_price_annual ?? null;
+      }
+    }
+    if (base == null) return null;
+    if (!homeState || !school?.stateAbbr) return base;
+    if (!school.institutionControl?.startsWith("Public")) return base;
+    if (homeState === school.stateAbbr) return base;
+    const inState = school.tuitionInState;
+    const outState = school.tuitionOutOfState;
+    if (inState == null || outState == null) return base;
+    const gap = outState - inState;
+    if (gap <= 0) return base;
+    return base + gap;
+  }, [school, selectedCareer, tieredCareers, homeState]);
 
   const submitting = false;
   const [showSessionExpired, setShowSessionExpired] = useState(false);

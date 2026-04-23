@@ -25,7 +25,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   mockNavigate.mockReset();
   useProfileStore.setState({
-    profileName: "dancing happy bear 🐻",
+    profileName: "dancing happy bear",
     animalEmoji: "🐻",
     animalName: "bear",
   });
@@ -35,10 +35,7 @@ describe("ProfileScreen", () => {
   it("renders profile name", () => {
     renderProfile();
     expect(screen.getByText("We'll call you")).toBeInTheDocument();
-    // ProfileScreen.tsx:171 strips the emoji from the name display and
-    // renders it separately at L163 — assert on both pieces.
     expect(screen.getByText("dancing happy bear")).toBeInTheDocument();
-    expect(screen.getByText("🐻")).toBeInTheDocument();
   });
 
   it("reroll swaps name", async () => {
@@ -46,7 +43,7 @@ describe("ProfileScreen", () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          profile_name: "bold swift fox 🦊",
+          profile_name: "bold swift fox",
           animal_emoji: "🦊",
           animal_name: "fox",
         }),
@@ -58,9 +55,7 @@ describe("ProfileScreen", () => {
     );
 
     await waitFor(() => {
-      // Name + emoji render in separate elements (see ProfileScreen.tsx:163, 171).
       expect(screen.getByText("bold swift fox")).toBeInTheDocument();
-      expect(screen.getByText("🦊")).toBeInTheDocument();
     });
   });
 
@@ -70,7 +65,7 @@ describe("ProfileScreen", () => {
       json: () =>
         Promise.resolve({
           found: true,
-          profile_name: "calm true owl 🦉",
+          profile_name: "calm true owl",
           animal_emoji: "🦉",
           animal_name: "owl",
           builds: [],

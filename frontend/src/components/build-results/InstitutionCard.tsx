@@ -8,7 +8,7 @@ export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps)
 
   return (
     <div
-      className="rounded-[20px] border border-border-subtle bg-bp-mid"
+      className="flex flex-col rounded-[20px] border border-border-subtle bg-bp-mid h-full"
       style={{ padding: 24 }}
     >
       {/* Section label */}
@@ -23,7 +23,7 @@ export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps)
         {schoolName}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 flex-1">
         {paragraphs.map((p, i) => (
           <p
             key={i}
