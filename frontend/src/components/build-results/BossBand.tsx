@@ -123,12 +123,23 @@ export function BossBand({
         .filter(Boolean)
         .join(" + ");
 
+      const selectedSkillObjects = skillIds
+        .map((id) => skillPool.find((s) => s.id === id))
+        .filter(Boolean) as AppliedSkill[];
+      const aggregatedDeltas = STAT_DELTAS
+        .map(({ key, field }) => ({
+          stat: key,
+          delta: selectedSkillObjects.reduce((sum, s) => sum + (s[field] as number), 0),
+        }))
+        .filter((d) => d.delta !== 0);
+
       const updated = await rerollFight(buildId, fight.boss, skillIds);
 
       const skillEntry: NarrativeEntry = {
         id: `${fight.boss}-reroll-${updated.reroll_count}`,
         trigger: "skill",
         skillName: selectedSkillNames,
+        skillDeltas: aggregatedDeltas,
         narrative: updated.narrative,
         result: updated.result,
         previousResult: prevResult,
@@ -420,9 +431,9 @@ export function BossBand({
                 onClick={handleRescore}
                 disabled={selectedSkills.size === 0}
                 loading={isRescoring}
-                aria-label="Rescore fight with equipped skills"
+                aria-label="Rematch with equipped skills"
               >
-                Rescore Fight ✦
+                Rematch ✦
                 {selectedSkills.size > 0 && !isRescoring && (
                   <span className="ml-1.5" style={{ fontSize: 12, opacity: 0.7 }}>
                     ({selectedSkills.size} equipped)

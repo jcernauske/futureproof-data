@@ -93,9 +93,9 @@ export function RerollFlow({
           disabled={!hasSelection}
           loading={isRescoring}
           onClick={onRescore}
-          aria-label="Rescore fight with equipped skills"
+          aria-label="Rematch with equipped skills"
         >
-          {isRescoring ? "Rescoring..." : "Rescore Fight \u2726"}
+          {isRescoring ? "Rematching..." : "Rematch \u2726"}
           {hasSelection && !isRescoring && (
             <span className="ml-1.5 text-micro text-text-inverse/70">
               ({selectedSkillIds.size} equipped)
