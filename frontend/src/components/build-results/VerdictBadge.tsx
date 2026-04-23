@@ -15,27 +15,38 @@ function getVerdict(totalWins: number) {
   return VERDICT_TIERS[VERDICT_TIERS.length - 1]!;
 }
 
-function getNarrative(rawWins: number, equippedWins: number): string {
+function getNarrative(rawWins: number, equippedWins: number, draws: number, losses: number): string {
   const total = rawWins + equippedWins;
   if (total === 5 && equippedWins === 0) {
     return "You won every fight decisively. This path plays to your strengths.";
   }
+  if (total === 5 && equippedWins > 0) {
+    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively, ${equippedWins} more ${equippedWins === 1 ? "victory" : "victories"} came from skills you chose to invest in — that’s not a shortcut, that’s a plan.`;
+  }
+
+  const standoffNote = draws > 0
+    ? ` ${draws === 1 ? "One fight" : `${draws} fights`} ended in a standoff — close, but not a clear win.`
+    : "";
+  const defeatNote = losses > 0
+    ? ` ${losses === 1 ? "One real challenge remains" : `${losses} real challenges remain`} — but now you can see ${losses === 1 ? "it" : "them"}.`
+    : "";
+
   if (total > 0 && equippedWins === 0) {
-    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively. The remaining challenges might be worth exploring — equip skills above to see what’s possible.`;
+    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively.${standoffNote}${defeatNote}`;
   }
   if (rawWins > 0 && equippedWins > 0) {
-    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively. ${equippedWins} more ${equippedWins === 1 ? "victory" : "victories"} came from skills you chose to invest in — that’s not a shortcut, that’s a plan.`;
+    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively, ${equippedWins} more ${equippedWins === 1 ? "victory" : "victories"} came from skills you chose to invest in.${standoffNote}${defeatNote}`;
   }
   if (rawWins === 0 && equippedWins > 0) {
-    return "Every victory here came from skills you’d need to build. The path is absolutely doable — but it asks you to grow.";
+    return `Every victory here came from skills you’d need to build. The path is absolutely doable — but it asks you to grow.${standoffNote}${defeatNote}`;
   }
-  return "This path has real challenges — but now you can see them. That’s the first step to beating them.";
+  return `This path has real challenges — but now you can see them. That’s the first step to beating them.${standoffNote}`;
 }
 
 export function VerdictBadge({ rawWins, equippedWins, losses, draws }: VerdictBadgeProps) {
   const totalWins = rawWins + equippedWins;
   const verdict = getVerdict(totalWins);
-  const narrative = getNarrative(rawWins, equippedWins);
+  const narrative = getNarrative(rawWins, equippedWins, draws, losses);
 
   return (
     <div
@@ -75,6 +86,16 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws }: VerdictBa
         {equippedWins > 0 && (
           <span>
             {" "}({rawWins} decisive + <span className="text-accent-insight">{equippedWins}</span> skill-assisted)
+          </span>
+        )}
+        {draws > 0 && (
+          <span>
+            {" · "}<span className="text-accent-caution">{draws}</span> standoff{draws !== 1 ? "s" : ""}
+          </span>
+        )}
+        {losses > 0 && (
+          <span>
+            {" · "}<span className="text-text-muted">{losses}</span> defeat{losses !== 1 ? "s" : ""}
           </span>
         )}
       </div>

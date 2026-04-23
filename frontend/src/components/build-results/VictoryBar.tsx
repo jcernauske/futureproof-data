@@ -49,7 +49,8 @@ export function VictoryBar({ rawWins, equippedWins, draws, losses }: VictoryBarP
   const legendItems: { label: string; color: string; border?: string }[] = [];
   if (rawWins > 0) legendItems.push({ label: "Decisive", color: "var(--color-accent-thrive)" });
   if (equippedWins > 0) legendItems.push({ label: "Skill-assisted", color: "var(--color-accent-insight)" });
-  if (draws > 0 || losses > 0) legendItems.push({ label: "Unresolved", color: "var(--color-bg-deep)", border: "var(--color-border-default)" });
+  if (draws > 0) legendItems.push({ label: "Standoff", color: "var(--color-accent-caution)" });
+  if (losses > 0) legendItems.push({ label: "Defeat", color: "var(--color-bg-deep)", border: "var(--color-border-default)" });
 
   return (
     <div>
