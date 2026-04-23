@@ -513,6 +513,7 @@ class TestRerollCommentary:
             career=_career(res=5, hmn=9),
             fight=fight,
             original_result="lose",
+            original_narrative="The original coach note.",
             crafted_skill_titles=["Data Analytics Minor", "Design Thinking"],
         )
         assert "analytics minor" in text.lower()
@@ -539,6 +540,7 @@ class TestRerollCommentary:
             career=_career(res=8, hmn=8),
             fight=fight,
             original_result="lose",
+            original_narrative="",
             crafted_skill_titles=["Some Skill"],
         )
         assert text == ""
@@ -564,6 +566,7 @@ class TestRerollCommentary:
             career=_career(res=6, hmn=6),
             fight=fight,
             original_result="lose",
+            original_narrative="",
             crafted_skill_titles=["Some Skill"],
         )
         assert text == ""

@@ -134,10 +134,8 @@ SCHOOL_PROGRAMS_RESPONSE_FIELDS = [
     "has_earnings",
     "has_debt",
     "outcome_completeness",
-    # Institution-level cost fields (raw-ingest-college-scorecard-institution).
-    # Surfaced so callers (CLI receipts, frontend loan-slider context, ROI
-    # formula in stat_engine) can render the actual cost-of-attendance
-    # alongside the legacy median-debt reference.
+    # Institution-level fields (raw-ingest-college-scorecard-institution).
+    "state_abbr",
     "net_price_annual",
     "cost_of_attendance_annual",
     "net_price_4yr",

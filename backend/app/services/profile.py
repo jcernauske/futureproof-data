@@ -75,7 +75,7 @@ def generate_name(exclude: set[str] | None = None) -> ProfileResult:
             adj1 = random.choice(ADJECTIVES_1)
             adj2 = random.choice(ADJECTIVES_2)
             animal_name, animal_emoji = random.choice(ANIMALS)
-            display = f"{adj1} {adj2} {animal_name} {animal_emoji}"
+            display = f"{adj1} {adj2} {animal_name}".title()
             normalized = _normalize(display)
             if normalized not in _active_profiles and normalized not in excluded:
                 _active_profiles.add(normalized)
@@ -88,7 +88,7 @@ def generate_name(exclude: set[str] | None = None) -> ProfileResult:
         adj1 = random.choice(ADJECTIVES_1)
         adj2 = random.choice(ADJECTIVES_2) + str(random.randint(1, 9))
         animal_name, animal_emoji = random.choice(ANIMALS)
-        display = f"{adj1} {adj2} {animal_name} {animal_emoji}"
+        display = f"{adj1} {adj2} {animal_name}".title()
         _active_profiles.add(_normalize(display))
         return ProfileResult(
             profile_name=display,

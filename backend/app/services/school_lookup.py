@@ -63,8 +63,11 @@ def search_schools(query: str) -> list[SchoolMatch]:
                 unitid=unitid,
                 institution_name=str(name),
                 institution_control=row.get("institution_control"),
+                state_abbr=row.get("state_abbr"),
                 net_price_annual=row.get("net_price_annual"),
                 cost_of_attendance_annual=row.get("cost_of_attendance_annual"),
+                tuition_in_state=row.get("tuition_in_state"),
+                tuition_out_of_state=row.get("tuition_out_of_state"),
             )
         if len(seen) >= _SCHOOL_SEARCH_LIMIT:
             break

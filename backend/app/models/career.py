@@ -35,13 +35,11 @@ class SchoolMatch(BaseModel):
     unitid: int
     institution_name: str
     institution_control: str | None = None
-    # Institution-level cost (from raw-ingest-college-scorecard-institution).
-    # Surfaced on the school object so the loan slider can render
-    # "financing X% of $Y" as soon as the student picks a school — before
-    # any career data has been fetched. Same value for every program at
-    # the same UNITID, so it's a property of the school, not the program.
+    state_abbr: str | None = None
     net_price_annual: float | None = None
     cost_of_attendance_annual: float | None = None
+    tuition_in_state: float | None = None
+    tuition_out_of_state: float | None = None
 
 
 class Program(BaseModel):
@@ -118,6 +116,8 @@ class CareerOutcome(BaseModel):
     # ``debt_median`` field above stays populated for backward compat.
     debt_median_reference: float | None = None
     institution_control: str | None = None
+    state_abbr: str | None = None
+    net_price_annual_reference: float | None = None
     tuition_in_state: float | None = None
     tuition_out_of_state: float | None = None
     room_board_on_campus: float | None = None
@@ -193,6 +193,7 @@ class BossFightResult(BaseModel):
     reroll_count: int = 0
     original_result: BossOutcome | None = None
     original_raw_score: int | None = None
+    applied_skill_titles: list[str] = []
 
 
 class GauntletResult(BaseModel):

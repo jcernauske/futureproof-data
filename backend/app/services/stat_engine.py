@@ -148,6 +148,31 @@ def _derive_loans_boss(
     return boss_loans, modeled_debt, financed_dte
 
 
+def _adjust_net_price_for_residency(
+    *,
+    net_price_annual: float | None,
+    tuition_in_state: float | None,
+    tuition_out_of_state: float | None,
+    institution_control: str | None,
+    home_state: str | None,
+    school_state: str | None,
+) -> float | None:
+    if net_price_annual is None:
+        return None
+    if home_state is None or school_state is None:
+        return net_price_annual
+    if institution_control != "Public":
+        return net_price_annual
+    if home_state == school_state:
+        return net_price_annual
+    if tuition_in_state is None or tuition_out_of_state is None:
+        return net_price_annual
+    gap = tuition_out_of_state - tuition_in_state
+    if gap <= 0:
+        return net_price_annual
+    return net_price_annual + gap
+
+
 def _row_to_outcome(
     row: dict[str, Any],
     effort: EffortLevel,
@@ -157,6 +182,7 @@ def _row_to_outcome(
     reported_cipcode: str | None,
     substituted_cipcode: str | None,
     data_caveat: dict[str, Any] | None,
+    home_state: str | None = None,
 ) -> CareerOutcome:
     raw_stat_roi = as_int(row.get("stat_roi"))
     raw_boss_loans = as_int(row.get("boss_loans_score"))
@@ -179,14 +205,41 @@ def _row_to_outcome(
     earnings_f = _maybe_float(earnings_raw)
     dte_f = _maybe_float(dte)
 
+    tuition_in_f = _maybe_float(row.get("tuition_in_state"))
+    tuition_out_f = _maybe_float(row.get("tuition_out_of_state"))
+    inst_control = row.get("institution_control")
+    school_state = row.get("state_abbr")
+
+    adjusted_net_price = _adjust_net_price_for_residency(
+        net_price_annual=net_price_f,
+        tuition_in_state=tuition_in_f,
+        tuition_out_of_state=tuition_out_f,
+        institution_control=inst_control,
+        home_state=home_state,
+        school_state=school_state,
+    )
+
+    # When residency adjustment applies, recompute the DTE so ROI
+    # reflects the out-of-state cost basis (the Gold-level dte_f is
+    # pre-baked from the blended net_price_annual).
+    roi_dte = dte_f
+    if (
+        adjusted_net_price is not None
+        and net_price_f is not None
+        and adjusted_net_price != net_price_f
+        and earnings_f is not None
+        and earnings_f > 0
+    ):
+        roi_dte = (adjusted_net_price * 4.0) / earnings_f
+
     # ROI is loan_pct-independent — it reflects program cost vs earnings.
     adj_stat_roi = _derive_roi(
-        cost_based_dte=dte_f,
+        cost_based_dte=roi_dte,
         raw_stat_roi=raw_stat_roi,
     )
     # Student Loans Boss IS loan_pct-aware — it reflects financing choices.
     boss_loans_derived, modeled_total_debt, financed_dte = _derive_loans_boss(
-        net_price_annual=net_price_f,
+        net_price_annual=adjusted_net_price,
         debt_median=debt_median_f,
         earnings_1yr_median=earnings_f,
         loan_pct=loan_pct,
@@ -247,11 +300,21 @@ def _row_to_outcome(
         debt_to_earnings_annual=dte if isinstance(dte, (int, float)) else None,
         education_level_name=row.get("education_level_name"),
         growth_category=row.get("growth_category"),
-        net_price_annual=net_price_annual_raw,
+        net_price_annual=(
+            adjusted_net_price
+            if adjusted_net_price is not None
+            else net_price_annual_raw
+        ),
         cost_of_attendance_annual=row.get("cost_of_attendance_annual"),
         modeled_total_debt=modeled_total_debt,
         debt_median_reference=debt_median_reference,
-        institution_control=row.get("institution_control"),
+        institution_control=inst_control,
+        state_abbr=school_state,
+        net_price_annual_reference=(
+            net_price_f
+            if adjusted_net_price != net_price_f
+            else None
+        ),
         tuition_in_state=row.get("tuition_in_state"),
         tuition_out_of_state=row.get("tuition_out_of_state"),
         room_board_on_campus=row.get("room_board_on_campus"),
@@ -289,6 +352,61 @@ def _row_to_outcome(
     )
 
 
+def recompute_for_sliders(
+    career: CareerOutcome,
+    original_effort: EffortLevel,
+    new_effort: EffortLevel,
+    new_loan_pct: float,
+) -> CareerOutcome:
+    """Recompute stats and boss scores for new slider values.
+
+    Pure arithmetic — no DB query, no Gemma call. Used by the
+    ``/rescore`` endpoint to give instant feedback when the student
+    adjusts effort or loan percentage on the results page.
+    """
+    old_shift = EFFORT_SHIFT.get(original_effort, 0)
+    new_shift = EFFORT_SHIFT.get(new_effort, 0)
+
+    if career.stats.ern is not None:
+        base_ern = career.stats.ern - old_shift
+        new_ern = _clamp_stat(base_ern + new_shift)
+    else:
+        new_ern = career.stats.ern
+
+    boss_loans, modeled_debt, financed_dte = _derive_loans_boss(
+        net_price_annual=career.net_price_annual,
+        debt_median=career.debt_median,
+        earnings_1yr_median=career.earnings_1yr_median,
+        loan_pct=new_loan_pct,
+    )
+
+    return career.model_copy(
+        update={
+            "stats": PentagonStats(
+                ern=new_ern,
+                roi=career.stats.roi,
+                res=career.stats.res,
+                grw=career.stats.grw,
+                hmn=career.stats.hmn,
+            ),
+            "bosses": BossScores(
+                ai=career.bosses.ai,
+                loans=boss_loans if boss_loans is not None else career.bosses.loans,
+                market=career.bosses.market,
+                burnout=career.bosses.burnout,
+                ceiling=career.bosses.ceiling,
+            ),
+            "loan_pct": new_loan_pct,
+            "modeled_total_debt": (
+                modeled_debt
+                if modeled_debt is not None
+                else career.modeled_total_debt
+            ),
+            "financed_dte": financed_dte,
+        },
+    )
+
+
 def compute_pentagon(
     *,
     unitid: int,
@@ -298,6 +416,7 @@ def compute_pentagon(
     effort: EffortLevel = "balanced",
     loan_pct: float = 1.0,
     intent_keywords: list[str] | None = None,
+    home_state: str | None = None,
 ) -> list[CareerOutcome]:
     """Return every career outcome for a school+major combo.
 
@@ -346,6 +465,7 @@ def compute_pentagon(
             reported_cipcode=reported_cipcode,
             substituted_cipcode=substituted_cipcode,
             data_caveat=data_caveat,
+            home_state=home_state,
         )
         for row in rows
     ]
@@ -362,6 +482,7 @@ def compute_one(
     student_major: str | None = None,
     student_cip: str | None = None,
     intent_keywords: list[str] | None = None,
+    home_state: str | None = None,
 ) -> CareerOutcome:
     """Return a single ``CareerOutcome`` for the selected SOC.
 
@@ -383,6 +504,7 @@ def compute_one(
         effort=effort,
         loan_pct=loan_pct,
         intent_keywords=intent_keywords,
+        home_state=home_state,
     )
     for outcome in outcomes:
         if outcome.soc_code == soc_code:

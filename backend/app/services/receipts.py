@@ -77,13 +77,24 @@ def stats_receipt(
         cost_lines.append(
             f"Net price/yr: {_wage(career.net_price_annual)}"
         )
+        if career.net_price_annual_reference is not None:
+            cost_lines.append(
+                f"Out-of-state adjustment: median in-state"
+                f" {_wage(career.net_price_annual_reference)}/yr"
+                f" + tuition gap →"
+                f" {_wage(career.net_price_annual)}/yr"
+            )
         if career.cost_of_attendance_annual is not None:
             cost_lines.append(
                 f"COA/yr: {_wage(career.cost_of_attendance_annual)} (sticker)"
             )
+        label = (
+            "net price × 4, out-of-state adjusted"
+            if career.net_price_annual_reference
+            else "net price × 4"
+        )
         cost_lines.append(
-            f"4-year cost of attendance: {_wage(four_year_cost)} "
-            f"(net price × 4)"
+            f"4-year cost of attendance: {_wage(four_year_cost)} ({label})"
         )
     elif basis == "debt_median" and career.debt_median is not None:
         cost_lines.append(
