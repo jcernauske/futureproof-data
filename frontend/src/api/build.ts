@@ -109,6 +109,7 @@ export async function createBuild(
   studentMajor?: string,
   studentCip?: string,
   homeState?: string,
+  schoolState?: string,
 ): Promise<Build> {
   if (USE_MOCK) return mockCreateBuild(selectedSoc, profileName, schoolName);
   return apiPost<Build>("/build", {
@@ -125,5 +126,6 @@ export async function createBuild(
     student_major: studentMajor ?? null,
     student_cip: studentCip ?? null,
     home_state: homeState ?? null,
+    school_state: schoolState ?? null,
   });
 }

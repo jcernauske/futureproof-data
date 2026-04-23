@@ -95,7 +95,7 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws }: VerdictBa
         )}
         {losses > 0 && (
           <span>
-            {" · "}<span className="text-text-muted">{losses}</span> defeat{losses !== 1 ? "s" : ""}
+            {" · "}<span className="text-accent-alert">{losses}</span> defeat{losses !== 1 ? "s" : ""}
           </span>
         )}
       </div>

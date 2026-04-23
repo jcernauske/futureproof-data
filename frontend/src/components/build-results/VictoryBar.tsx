@@ -33,7 +33,7 @@ export function VictoryBar({ rawWins, equippedWins, draws, losses }: VictoryBarP
     cells.push({
       type: "loss",
       className: "loss",
-      style: { background: "var(--color-bg-deep)", border: "1px solid var(--color-border-default)" },
+      style: { background: "var(--color-accent-alert)", opacity: 0.5 },
     });
   }
 
@@ -50,7 +50,7 @@ export function VictoryBar({ rawWins, equippedWins, draws, losses }: VictoryBarP
   if (rawWins > 0) legendItems.push({ label: "Decisive", color: "var(--color-accent-thrive)" });
   if (equippedWins > 0) legendItems.push({ label: "Skill-assisted", color: "var(--color-accent-insight)" });
   if (draws > 0) legendItems.push({ label: "Standoff", color: "var(--color-accent-caution)" });
-  if (losses > 0) legendItems.push({ label: "Defeat", color: "var(--color-bg-deep)", border: "var(--color-border-default)" });
+  if (losses > 0) legendItems.push({ label: "Defeat", color: "var(--color-accent-alert)" });
 
   return (
     <div>

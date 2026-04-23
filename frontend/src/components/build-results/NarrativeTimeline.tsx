@@ -1,11 +1,18 @@
 import { useRef, useEffect } from "react";
 import { GemmaThinking } from "@/components/ui/GemmaThinking";
+import { SkillStatBadge } from "./SkillStatBadge";
 import type { BossOutcome } from "@/types/build";
+
+export interface SkillDelta {
+  stat: string;
+  delta: number;
+}
 
 export interface NarrativeEntry {
   id: string;
   trigger: "initial" | "skill" | "wrapup";
   skillName?: string;
+  skillDeltas?: SkillDelta[];
   narrative: string;
   result: BossOutcome;
   previousResult?: BossOutcome;
@@ -154,6 +161,13 @@ export function NarrativeTimeline({
                           {RESULT_LABELS[entry.result]}
                         </span>
                       </span>
+                    )}
+                    {entry.skillDeltas && entry.skillDeltas.length > 0 && (
+                      <div className="flex gap-1">
+                        {entry.skillDeltas.map((d) => (
+                          <SkillStatBadge key={d.stat} stat={d.stat} delta={d.delta} />
+                        ))}
+                      </div>
                     )}
                   </div>
                   <p

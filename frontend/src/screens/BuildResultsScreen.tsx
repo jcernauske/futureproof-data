@@ -88,6 +88,7 @@ export function BuildResultsScreen() {
           major.rawText,
           studentCip,
           homeState ?? undefined,
+          school.stateAbbr ?? undefined,
         ),
         minDisplayTime,
       ]);

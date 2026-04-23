@@ -408,9 +408,9 @@ describe("BuildResultsScreen -- reroll (P0)", () => {
     // Click the skill to select it.
     fireEvent.click(skillButton);
 
-    // Find and click the rescore button. BossBand renders a button for rescoring.
-    const rescoreButton = screen.getByText(/Rescore/i);
-    fireEvent.click(rescoreButton);
+    // Find and click the rematch button. BossBand renders a button for rematching.
+    const rematchButton = screen.getByText(/Rematch/i);
+    fireEvent.click(rematchButton);
 
     // Wait for the reroll to complete and the UI to update.
     await waitFor(() => {
@@ -458,9 +458,9 @@ describe("BuildResultsScreen -- verdict after reroll (P1)", () => {
     });
     mockRerollFight.mockResolvedValue(updatedFight);
 
-    // Click skill, then rescore.
+    // Click skill, then rematch.
     fireEvent.click(screen.getByText("Part-time Work"));
-    fireEvent.click(screen.getByText(/Rescore/i));
+    fireEvent.click(screen.getByText(/Rematch/i));
 
     // After reroll, 3 raw wins + 1 equipped win = 4 total.
     await waitFor(() => {
@@ -710,7 +710,7 @@ describe("BuildResultsScreen -- victory bar (P2)", () => {
 
     // Trigger the reroll.
     fireEvent.click(screen.getByText("Part-time Work"));
-    fireEvent.click(screen.getByText(/Rescore/i));
+    fireEvent.click(screen.getByText(/Rematch/i));
 
     // After reroll: 3 raw + 1 equipped + 1 draw = 5 cells.
     await waitFor(() => {
@@ -847,6 +847,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       "Computer Science",      // major.rawText (studentMajor)
       undefined,               // studentCip (undefined when no parentCip)
       undefined,               // homeState (null → undefined)
+      "CA",                    // schoolState from mock school
     );
 
     // Clean up.
@@ -896,6 +897,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       expect.anything(),
       "11.0701",               // studentCip = cipCode
       undefined,               // homeState
+      "CA",                    // schoolState from mock school
     );
 
     await act(async () => {
