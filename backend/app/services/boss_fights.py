@@ -39,6 +39,26 @@ def fmt_dollars(val: float | None) -> str:
     return f"${val:,.0f}"
 
 
+def _sticker_tuition_4yr(career: CareerOutcome) -> float | None:
+    """Return the 4-year sticker tuition appropriate for this student.
+
+    Uses ``is_out_of_state`` flag on the career (set by the build
+    endpoint from the frontend's home_state vs school state comparison).
+    Falls back to ``net_price_annual_reference`` as a signal when the
+    flag isn't set.
+    """
+    out_of_state = getattr(career, "is_out_of_state", False)
+    if not out_of_state and career.net_price_annual_reference is not None:
+        out_of_state = True
+    if out_of_state and career.tuition_out_of_state is not None:
+        return career.tuition_out_of_state * 4
+    if career.tuition_in_state is not None:
+        return career.tuition_in_state * 4
+    if career.cost_of_attendance_annual is not None:
+        return career.cost_of_attendance_annual * 4
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Stat explainer — plain-English descriptions for Gemma prompts
 # ---------------------------------------------------------------------------
@@ -83,20 +103,25 @@ def stat_explainer(career: CareerOutcome) -> str:
             and career.net_price_annual is not None
             and earn
         ):
-            four_year_cost = fmt_dollars(career.net_price_annual * 4)
-            roi_ctx = (
-                f" The 4-year cost to attend is about {four_year_cost} "
-                f"vs. {earn} starting salary."
+            roi_parts: list[str] = []
+            sticker = _sticker_tuition_4yr(career)
+            if sticker is not None:
+                roi_parts.append(
+                    f"Published tuition is {fmt_dollars(sticker)} over 4 years"
+                )
+            loan_pct = career.loan_pct
+            if loan_pct < 1.0 and sticker is not None:
+                financed = sticker * loan_pct
+                roi_parts.append(
+                    f"at {int(loan_pct * 100)}% loan coverage that's"
+                    f" {fmt_dollars(financed)} in student loans"
+                )
+            avg_net = fmt_dollars(career.net_price_annual * 4)
+            roi_parts.append(
+                f"the institutional average net price (after typical"
+                f" financial aid) is {avg_net}"
             )
-            if career.net_price_annual_reference is not None:
-                in_state_cost = fmt_dollars(
-                    career.net_price_annual_reference * 4
-                )
-                roi_ctx += (
-                    f" This reflects out-of-state tuition — the"
-                    f" in-state median net price would be about"
-                    f" {in_state_cost}."
-                )
+            roi_ctx = f" {'; '.join(roi_parts)} vs. {earn} starting salary."
         elif basis == "debt_median" and career.debt_median is not None and earn:
             # Institution-level cost data wasn't available for this
             # program row — fall back to median graduate debt as an
@@ -255,27 +280,43 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
 
     if boss_id == "loans":
         parts = []
-        # Cost-of-attendance block — only shown when institution-level
-        # net_price_annual is available. Gives Gemma the actual school
-        # cost so the narrative can talk about the student's modeled
-        # debt instead of just citing the median graduate's debt.
-        if career.net_price_annual is not None:
+        loan_pct = career.loan_pct
+        pct_label = f"{int(loan_pct * 100)}%"
+
+        sticker = _sticker_tuition_4yr(career)
+        if sticker is not None:
             parts.append(
-                f"School net price: "
-                f"{fmt_dollars(career.net_price_annual)}/year"
+                f"Published 4-year tuition (sticker price): "
+                f"{fmt_dollars(sticker)}"
+            )
+            if loan_pct < 1.0:
+                parts.append(
+                    f"Student is financing {pct_label} with loans: "
+                    f"{fmt_dollars(sticker * loan_pct)} in student debt"
+                )
+            elif loan_pct >= 1.0:
+                parts.append(
+                    f"Student is financing 100% with loans: "
+                    f"{fmt_dollars(sticker)} in student debt"
+                )
+
+        if career.net_price_annual is not None:
+            avg_net_4yr = fmt_dollars(career.net_price_annual * 4)
+            parts.append(
+                f"Institutional average net price after typical "
+                f"financial aid: {avg_net_4yr} over 4 years "
+                f"(this is an average — individual aid packages vary)"
             )
             if career.net_price_annual_reference is not None:
                 parts.append(
-                    f"Out-of-state adjustment applied: median in-state"
-                    f" net price is"
-                    f" {fmt_dollars(career.net_price_annual_reference)}"
-                    f"/year, but this student's projected cost is"
-                    f" {fmt_dollars(career.net_price_annual)}"
-                    f"/year due to out-of-state tuition"
+                    f"Out-of-state adjustment applied: in-state "
+                    f"average net price is "
+                    f"{fmt_dollars(career.net_price_annual_reference * 4)}"
+                    f" over 4 years"
                 )
-            if career.modeled_total_debt is not None:
+            if sticker is None and career.modeled_total_debt is not None:
                 parts.append(
-                    f"Student's modeled 4-year debt: "
+                    f"Student's modeled debt (net price × {pct_label}): "
                     f"{fmt_dollars(career.modeled_total_debt)}"
                 )
             ref_debt = (
@@ -290,8 +331,6 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
                 )
         elif career.debt_median is not None:
             debt = fmt_dollars(career.debt_median)
-            loan_pct = career.loan_pct
-            pct_label = f"{int(loan_pct * 100)}%"
             if loan_pct >= 1.0:
                 parts.append(f"Median graduate debt: {debt}.")
             elif loan_pct <= 0.0:

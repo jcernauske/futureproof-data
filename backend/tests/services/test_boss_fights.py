@@ -24,6 +24,9 @@ def _career(
     institution_control=None,
     roi_cost_basis=None,
     financed_dte=None,
+    tuition_in_state=None,
+    tuition_out_of_state=None,
+    loan_pct=1.0,
 ) -> CareerOutcome:
     return CareerOutcome(
         unitid=1,
@@ -41,6 +44,9 @@ def _career(
         institution_control=institution_control,
         roi_cost_basis=roi_cost_basis,
         financed_dte=financed_dte,
+        tuition_in_state=tuition_in_state,
+        tuition_out_of_state=tuition_out_of_state,
+        loan_pct=loan_pct,
         stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, hmn=hmn),
         bosses=BossScores(
             ai=None, loans=None, market=None, burnout=burnout, ceiling=ceiling
@@ -630,11 +636,13 @@ class TestNarrativePromptIncludesCostContext:
             roi=4,
             net_price_annual=14_200.0,
             cost_of_attendance_annual=22_800.0,
+            tuition_in_state=18_000.0,
             modeled_total_debt=14_200.0 * 4.0 * 0.75,
             debt_median_reference=19_500.0,
             debt_median=19_500.0,
             earnings_1yr_median=63_371.0,
             institution_control="Public",
+            loan_pct=0.75,
         )
         fight = BossFightResult(
             boss="loans",  # type: ignore[arg-type]
@@ -646,11 +654,13 @@ class TestNarrativePromptIncludesCostContext:
             reason="ROI 4",
         )
         prompt = bf._narrative_prompt(career, fight)
-        # School cost context must be present.
-        assert "$14,200" in prompt  # net_price_annual
-        assert "$42,600" in prompt  # modeled_total_debt 14200*4*0.75
+        assert "$72,000" in prompt  # sticker tuition 18000*4
+        assert "75%" in prompt  # loan coverage
+        assert "$54,000" in prompt  # sticker debt 72000*0.75
+        assert "$56,800" in prompt  # net price avg 14200*4
+        assert "average" in prompt.lower()  # net price labeled as average
+        assert "$42,600" not in prompt  # modeled_total_debt suppressed when sticker available
         assert "$19,500" in prompt  # debt_median_reference
-        # And the fight context still names the boss + result.
         assert "Fight Student Loans" in prompt
         assert "LOSE" in prompt
 
@@ -756,13 +766,10 @@ class TestStatExplainerRoiNarrative:
         )
         result = boss_fights.stat_explainer(career)
 
-        # 4-year cost = 14_200 × 4 = 56_800
+        # 4-year average net price = 14_200 × 4 = 56_800
         assert "$56,800" in result
-        assert "4-year cost" in result
+        assert "average net price" in result.lower()
         assert "$50,000" in result
-        # Loan-specific wording belongs to the Loans Boss narrative only.
-        assert "projected debt" not in result.lower()
-        assert "loan coverage" not in result.lower()
 
     def test_debt_median_fallback_narrative(self):
         career = _career(
