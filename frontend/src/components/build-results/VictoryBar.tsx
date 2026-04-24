@@ -3,9 +3,10 @@ interface VictoryBarProps {
   equippedWins: number;
   draws: number;
   losses: number;
+  unknowns: number;
 }
 
-export function VictoryBar({ rawWins, equippedWins, draws, losses }: VictoryBarProps) {
+export function VictoryBar({ rawWins, equippedWins, draws, losses, unknowns }: VictoryBarProps) {
   const cells: { type: string; className: string; style: React.CSSProperties }[] = [];
 
   for (let i = 0; i < rawWins; i++) {
@@ -36,12 +37,19 @@ export function VictoryBar({ rawWins, equippedWins, draws, losses }: VictoryBarP
       style: { background: "var(--color-accent-alert)", opacity: 0.5 },
     });
   }
+  for (let i = 0; i < unknowns; i++) {
+    cells.push({
+      type: "unknown",
+      className: "unknown",
+      style: { background: "var(--color-text-muted)", opacity: 0.25 },
+    });
+  }
 
   // Pad to 5 if needed
   while (cells.length < 5) {
     cells.push({
-      type: "loss",
-      className: "loss",
+      type: "empty",
+      className: "empty",
       style: { background: "var(--color-bg-deep)", border: "1px solid var(--color-border-default)" },
     });
   }
@@ -51,6 +59,7 @@ export function VictoryBar({ rawWins, equippedWins, draws, losses }: VictoryBarP
   if (equippedWins > 0) legendItems.push({ label: "Skill-assisted", color: "var(--color-accent-insight)" });
   if (draws > 0) legendItems.push({ label: "Standoff", color: "var(--color-accent-caution)" });
   if (losses > 0) legendItems.push({ label: "Defeat", color: "var(--color-accent-alert)" });
+  if (unknowns > 0) legendItems.push({ label: "Insufficient data", color: "var(--color-text-muted)" });
 
   return (
     <div>

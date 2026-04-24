@@ -6,6 +6,7 @@ interface VerdictBadgeProps {
   equippedWins: number;
   losses: number;
   draws: number;
+  unknowns: number;
 }
 
 function getVerdict(totalWins: number) {
@@ -15,7 +16,7 @@ function getVerdict(totalWins: number) {
   return VERDICT_TIERS[VERDICT_TIERS.length - 1]!;
 }
 
-function getNarrative(rawWins: number, equippedWins: number, draws: number, losses: number): string {
+function getNarrative(rawWins: number, equippedWins: number, draws: number, losses: number, unknowns: number): string {
   const total = rawWins + equippedWins;
   if (total === 5 && equippedWins === 0) {
     return "You won every fight decisively. This path plays to your strengths.";
@@ -30,23 +31,26 @@ function getNarrative(rawWins: number, equippedWins: number, draws: number, loss
   const defeatNote = losses > 0
     ? ` ${losses === 1 ? "One real challenge remains" : `${losses} real challenges remain`} — but now you can see ${losses === 1 ? "it" : "them"}.`
     : "";
+  const unknownNote = unknowns > 0
+    ? ` ${unknowns === 1 ? "One fight couldn't" : `${unknowns} fights couldn't`} be scored yet — not enough data.`
+    : "";
 
   if (total > 0 && equippedWins === 0) {
-    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively.${standoffNote}${defeatNote}`;
+    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively.${standoffNote}${defeatNote}${unknownNote}`;
   }
   if (rawWins > 0 && equippedWins > 0) {
-    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively, ${equippedWins} more ${equippedWins === 1 ? "victory" : "victories"} came from skills you chose to invest in.${standoffNote}${defeatNote}`;
+    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively, ${equippedWins} more ${equippedWins === 1 ? "victory" : "victories"} came from skills you chose to invest in.${standoffNote}${defeatNote}${unknownNote}`;
   }
   if (rawWins === 0 && equippedWins > 0) {
-    return `Every victory here came from skills you’d need to build. The path is absolutely doable — but it asks you to grow.${standoffNote}${defeatNote}`;
+    return `Every victory here came from skills you’d need to build. The path is absolutely doable — but it asks you to grow.${standoffNote}${defeatNote}${unknownNote}`;
   }
-  return `This path has real challenges — but now you can see them. That’s the first step to beating them.${standoffNote}`;
+  return `This path has real challenges — but now you can see them. That’s the first step to beating them.${standoffNote}${unknownNote}`;
 }
 
-export function VerdictBadge({ rawWins, equippedWins, losses, draws }: VerdictBadgeProps) {
+export function VerdictBadge({ rawWins, equippedWins, losses, draws, unknowns }: VerdictBadgeProps) {
   const totalWins = rawWins + equippedWins;
   const verdict = getVerdict(totalWins);
-  const narrative = getNarrative(rawWins, equippedWins, draws, losses);
+  const narrative = getNarrative(rawWins, equippedWins, draws, losses, unknowns);
 
   return (
     <div
@@ -78,11 +82,11 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws }: VerdictBa
       </div>
 
       {/* Victory bar */}
-      <VictoryBar rawWins={rawWins} equippedWins={equippedWins} draws={draws} losses={losses} />
+      <VictoryBar rawWins={rawWins} equippedWins={equippedWins} draws={draws} losses={losses} unknowns={unknowns} />
 
       {/* Tally */}
       <div className="font-data text-text-secondary" style={{ fontSize: 13, marginTop: 16 }}>
-        <span className="text-accent-thrive">{totalWins}</span> of 5 victories
+        <span className="text-accent-thrive">{totalWins}</span> of {5 - unknowns} victories
         {equippedWins > 0 && (
           <span>
             {" "}({rawWins} decisive + <span className="text-accent-insight">{equippedWins}</span> skill-assisted)
@@ -96,6 +100,11 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws }: VerdictBa
         {losses > 0 && (
           <span>
             {" · "}<span className="text-accent-alert">{losses}</span> defeat{losses !== 1 ? "s" : ""}
+          </span>
+        )}
+        {unknowns > 0 && (
+          <span>
+            {" · "}<span className="text-text-muted">{unknowns}</span> insufficient data
           </span>
         )}
       </div>
