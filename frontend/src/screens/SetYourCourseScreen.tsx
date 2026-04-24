@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiGet } from "@/api/client";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { SealedBuildContext } from "@/components/school/SealedBuildContext";
 import type {
   ProgramResult,
   SchoolSelection,
@@ -71,8 +72,26 @@ export function SetYourCourseScreen() {
     socReveal,
   } = useSetYourCourse(majorText);
 
+  const location = useLocation();
+  const isAdjustMode = Boolean(
+    (location.state as { adjustMode?: boolean } | null)?.adjustMode
+      && school
+      && currentResolution
+      && selectedCareer,
+  );
+
   const [confirmStartOver, setConfirmStartOver] = useState(false);
   const reducedMotion = useReducedMotion();
+  const slidersRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isAdjustMode) {
+      const timer = setTimeout(() => {
+        slidersRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isAdjustMode]);
 
   const effectiveNetPrice = useMemo(() => {
     if (!school?.netPriceAnnual) return school?.netPriceAnnual ?? null;
@@ -135,6 +154,9 @@ export function SetYourCourseScreen() {
     setSelectedCareer(null);
     reset();
     setConfirmStartOver(false);
+    if (isAdjustMode) {
+      navigate("/set-your-course", { replace: true });
+    }
   }
 
   const lowConfidence = currentResolution?.confidence === "low";
@@ -226,15 +248,28 @@ export function SetYourCourseScreen() {
               Set your course
             </p>
             <h1 className="font-display text-heading font-semibold text-text-primary leading-tight">
-              Where does this take you?
+              {isAdjustMode ? "Adjust your effort and loans" : "Where does this take you?"}
             </h1>
             <p className="font-body text-body text-text-secondary mt-3 max-w-[44ch]">
-              Pick a school and a field of study. The careers follow.
+              {isAdjustMode
+                ? "Your school, major, and career are locked in. Tweak the sliders below."
+                : "Pick a school and a field of study. The careers follow."}
             </p>
           </header>
 
+          {/* Sealed context badges (adjust mode) */}
+          {isAdjustMode && (
+            <SealedBuildContext
+              school={school!}
+              resolvedTitle={currentResolution!.matched_title}
+              cipCode={currentResolution!.matched_cip}
+              career={selectedCareer!}
+              onStartOver={handleStartOverRequest}
+            />
+          )}
+
           {/* ROW 1 — School/major inputs (left) + Gemma conversation (right) */}
-          <div className="grid grid-cols-1 desktop:grid-cols-2 gap-6 desktop:gap-8 items-start">
+          {!isAdjustMode && <div className="grid grid-cols-1 desktop:grid-cols-2 gap-6 desktop:gap-8 items-start">
             <section aria-label="Your inputs" className="flex flex-col gap-6">
               <div>
                 <label className="block font-body text-small font-bold text-text-secondary tracking-wide mb-2">
@@ -476,10 +511,10 @@ export function SetYourCourseScreen() {
                 )}
               </AnimatePresence>
             </section>
-          </div>
+          </div>}
 
           {/* ROW 2 — Career cards (full width) */}
-          {currentResolution && !streaming && !clarifierDiverged && (
+          {!isAdjustMode && currentResolution && !streaming && !clarifierDiverged && (
             <motion.section
               key={currentResolution.matched_cip}
               initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
@@ -525,7 +560,7 @@ export function SetYourCourseScreen() {
           )}
 
           {/* Community Suggestions */}
-          {school && suggestions.length > 0 && (
+          {!isAdjustMode && school && suggestions.length > 0 && (
             <CommunitySuggestions
               suggestions={suggestions}
               inputText={majorText}
@@ -542,8 +577,9 @@ export function SetYourCourseScreen() {
 
           {/* ROW 3 — Effort/loans sliders + actions (two-column) */}
           <AnimatePresence>
-            {hasOutcomes && currentResolution && !streaming && !clarifierDiverged && (
+            {(isAdjustMode || (hasOutcomes && currentResolution && !streaming && !clarifierDiverged)) && (
               <motion.section
+                ref={slidersRef}
                 key="effort-commit"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
