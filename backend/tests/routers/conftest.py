@@ -24,12 +24,12 @@ def isolated_builds_db(tmp_path, monkeypatch):
     is cleared before and after the test.
     """
     from app import state
-    from app.services import builds
+    from app.services import db
 
     target = tmp_path / "builds.duckdb"
-    monkeypatch.setattr(builds, "_db_path", lambda: target)
-    builds._conns.clear()
+    monkeypatch.setattr(db, "_db_path", lambda: target)
+    db._conns.clear()
     state._builds.clear()
     yield target
-    builds._conns.clear()
+    db._conns.clear()
     state._builds.clear()

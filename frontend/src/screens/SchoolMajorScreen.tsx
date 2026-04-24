@@ -11,6 +11,7 @@ import { MajorInput } from "@/components/school/MajorInput";
 import { EffortLoansPanel } from "@/components/school/EffortLoansPanel";
 import { BuildSummaryBar } from "@/components/ui/BuildSummaryBar";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { fireCheckpoint } from "@/lib/checkpoint";
 import type {
   MajorSelection,
   ProgramResult,
@@ -92,6 +93,7 @@ export function SchoolMajorScreen() {
 
   async function handleSchoolSelect(selected: SchoolSelection) {
     setSchool(selected);
+    fireCheckpoint("/school");
     try {
       const progs = await apiGet<ProgramResult[]>(
         `/schools/${selected.unitid}/programs`,
@@ -104,10 +106,12 @@ export function SchoolMajorScreen() {
 
   function handleMajorConfirm(majorSelection: MajorSelection) {
     setMajor(majorSelection);
+    fireCheckpoint("/school");
   }
 
   function handleSubmit() {
     if (!school || !major || !profileName) return;
+    fireCheckpoint("/set-your-course");
     navigate("/career-pick", {
       state: {
         school,

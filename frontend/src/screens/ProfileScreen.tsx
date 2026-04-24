@@ -7,6 +7,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { fireCheckpoint } from "@/lib/checkpoint";
 
 const US_STATES = [
   { abbr: "AL", name: "Alabama" }, { abbr: "AK", name: "Alaska" },
@@ -269,6 +270,7 @@ export function ProfileScreen() {
             onClick={() => {
               const after = sessionStorage.getItem("fp-after-profile");
               if (after) sessionStorage.removeItem("fp-after-profile");
+              fireCheckpoint(after || "/school");
               navigate(after || "/school");
             }}
             aria-label="Continue to school selection"

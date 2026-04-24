@@ -15,7 +15,7 @@ import { PageContainer } from "@/components/ui/PageContainer";
 
 type Mode = "list" | "select" | "compare";
 
-export function MenuScreen() {
+export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) {
   const navigate = useNavigate();
   const profileName = useProfileStore((s) => s.profileName);
   const animalEmoji = useProfileStore((s) => s.animalEmoji);
@@ -35,17 +35,16 @@ export function MenuScreen() {
   // and land at /reveal with the wrong build's payload.
   const navigatingRef = useRef<string | null>(null);
 
-  // Profile guard — bounce to landing if no profile.
   useEffect(() => {
-    if (!profileName) navigate("/app", { replace: true });
-  }, [profileName, navigate]);
+    if (!allBuilds && !profileName) navigate("/app", { replace: true });
+  }, [allBuilds, profileName, navigate]);
 
   useEffect(() => {
-    if (!profileName) return;
+    if (!allBuilds && !profileName) return;
     let cancelled = false;
     setLoadingList(true);
     setListError(null);
-    listBuilds(profileName)
+    listBuilds(allBuilds ? undefined : profileName!)
       .then((res) => {
         if (cancelled) return;
         setBuilds(res);
@@ -60,7 +59,7 @@ export function MenuScreen() {
     return () => {
       cancelled = true;
     };
-  }, [profileName]);
+  }, [allBuilds, profileName]);
 
   const mostRecentId = useMemo(() => {
     if (builds.length === 0) return null;
@@ -87,7 +86,7 @@ export function MenuScreen() {
       try {
         const full = await getBuild(build.build_id);
         setBuild(full);
-        navigate("/reveal");
+        navigate("/my-build");
       } catch (e) {
         setListError(e instanceof Error ? e.message : "Couldn't load build.");
         setNavigatingId(null);
@@ -137,7 +136,7 @@ export function MenuScreen() {
     setChatOpen(true);
   }, [builds]);
 
-  if (!profileName) return null;
+  if (!allBuilds && !profileName) return null;
 
   return (
     <PageContainer variant="centered" testId="screen-menu" className="pt-24 pb-16">
@@ -166,7 +165,9 @@ export function MenuScreen() {
                 Your builds
               </p>
               <h1 className="font-display text-display text-text-primary">
-                Welcome back, {profileName} {animalEmoji ?? ""}
+                {allBuilds
+                  ? "All Saved Builds"
+                  : `Welcome back, ${profileName} ${animalEmoji ?? ""}`}
               </h1>
               <p className="font-body text-body text-text-secondary">
                 Compare your futures, ask Gemma, or start a new build.

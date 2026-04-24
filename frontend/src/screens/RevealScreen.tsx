@@ -49,15 +49,13 @@ export function RevealScreen() {
     };
   }, []);
 
-  // Navigation guard — build state is session-scoped and not persisted,
-  // so refresh on /reveal kicks back to /career-pick. Hint so it can surface
-  // a "session expired" banner once it forwards to /school.
   useEffect(() => {
+    if (build) return;
     if (!selectedCareer || !school || !major) {
       sessionStorage.setItem("fp-nav-hint", "session-expired");
       navigate("/career-pick", { replace: true });
     }
-  }, [selectedCareer, school, major, navigate]);
+  }, [build, selectedCareer, school, major, navigate]);
 
   // Trigger build
   const runBuild = useCallback(async () => {
@@ -132,7 +130,7 @@ export function RevealScreen() {
     setHasSeenStatTutorial(true);
   }
 
-  if (!selectedCareer || !school || !major) return null;
+  if (!build && (!selectedCareer || !school || !major)) return null;
 
   // Loading state
   if (isBuilding || (!build && !error)) {

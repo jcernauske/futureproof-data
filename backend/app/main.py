@@ -14,6 +14,7 @@ from app.routers import (
     profile,
     reports,
     schools,
+    sessions,
     set_your_course,
     skills,
     wrapped,
@@ -52,6 +53,9 @@ def create_app() -> FastAPI:
     application.include_router(career_pick.router)
     application.include_router(skills.router, prefix="/build", tags=["Skills"])
     application.include_router(wrapped.router, prefix="/build", tags=["Wrapped"])
+    application.include_router(
+        sessions.router, prefix="/session", tags=["Session"]
+    )
     application.include_router(reports.router, tags=["Reports"])
 
     @application.on_event("startup")

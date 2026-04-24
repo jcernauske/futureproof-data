@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiPost } from "@/api/client";
+import { clearSession } from "@/api/session";
+import { useSessionResume } from "@/hooks/useSessionResume";
 import { useProfileStore } from "@/store/profileStore";
+import { useBuildInputStore } from "@/store/buildInputStore";
+import { useBuildStore } from "@/store/buildStore";
+import { useGauntletStore } from "@/store/gauntletStore";
 import { PentagonGlow } from "@/components/landing/PentagonGlow";
 import { Button } from "@/components/ui/Button";
 import { PageContainer } from "@/components/ui/PageContainer";
@@ -34,6 +39,8 @@ export function LandingScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { resumeScreen, isLoading: sessionLoading, session } = useSessionResume();
+
   async function handleStart() {
     setLoading(true);
     setError(null);
@@ -46,6 +53,100 @@ export function LandingScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleContinue() {
+    if (resumeScreen) {
+      navigate(resumeScreen);
+    }
+  }
+
+  async function handleStartOver() {
+    await clearSession().catch(console.warn);
+    useProfileStore.getState().clearProfile();
+    useBuildInputStore.getState().reset();
+    useBuildStore.getState().resetBuild();
+    useGauntletStore.getState().resetGauntlet();
+  }
+
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen relative overflow-hidden pt-14">
+        <PageContainer variant="centered">
+          <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
+            <div
+              className="rounded-full"
+              style={{
+                width: 32,
+                height: 32,
+                border: "3px solid var(--color-bg-surface)",
+                borderTopColor: "var(--color-accent-insight)",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+          </div>
+        </PageContainer>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (resumeScreen && session?.profile_data) {
+    const { profileName, animalEmoji } = session.profile_data;
+    return (
+      <div className="min-h-screen relative overflow-hidden pt-14">
+        <PageContainer variant="centered">
+          <motion.div
+            className="min-h-[calc(100vh-56px)] flex flex-col items-center justify-center relative"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.p
+              className="text-5xl mb-4"
+              variants={staggerItem}
+            >
+              {animalEmoji}
+            </motion.p>
+
+            <motion.h1
+              className="font-display text-display tablet:text-hero text-text-primary text-center leading-tight mb-2"
+              variants={staggerItem}
+            >
+              Welcome back, {profileName}
+            </motion.h1>
+
+            <motion.p
+              className="font-body text-body-sm text-text-secondary text-center mb-10"
+              variants={staggerItem}
+            >
+              Pick up where you left off.
+            </motion.p>
+
+            <motion.div
+              className="flex flex-col items-center gap-3 w-full max-w-xs"
+              variants={staggerItem}
+            >
+              <Button
+                onClick={handleContinue}
+                aria-label="Continue where you left off"
+                className="w-full"
+              >
+                Continue
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleStartOver}
+                aria-label="Start a new build from scratch"
+                className="w-full"
+              >
+                Start over
+              </Button>
+            </motion.div>
+          </motion.div>
+        </PageContainer>
+      </div>
+    );
   }
 
   return (

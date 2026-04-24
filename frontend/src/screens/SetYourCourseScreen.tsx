@@ -19,6 +19,7 @@ import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SealedBuildContext } from "@/components/school/SealedBuildContext";
+import { fireCheckpoint } from "@/lib/checkpoint";
 import type {
   ProgramResult,
   SchoolSelection,
@@ -141,6 +142,7 @@ export function SetYourCourseScreen() {
         title: career.occupation_title,
         feasibility: null,
       });
+      fireCheckpoint("/set-your-course");
     },
     [setSelectedCareer, setCommittedClick],
   );

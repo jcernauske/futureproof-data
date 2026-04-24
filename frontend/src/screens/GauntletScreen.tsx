@@ -12,6 +12,7 @@ import { FightProgress } from "@/components/gauntlet/FightProgress";
 import { FinalBoss } from "@/components/gauntlet/FinalBoss";
 import { NextSteps } from "@/components/gauntlet/NextSteps";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { fireCheckpoint } from "@/lib/checkpoint";
 import type { Build, BossFightResult, BossId, AppliedSkill } from "@/types/build";
 import type { FightPhase } from "@/store/gauntletStore";
 
@@ -209,6 +210,7 @@ export function GauntletScreen() {
       );
     } finally {
       setIsRescoring(false);
+      fireCheckpoint("/gauntlet");
     }
   }, [
     currentBossId,
@@ -225,6 +227,7 @@ export function GauntletScreen() {
 
   const handleAdvance = useCallback(() => {
     advanceFight();
+    fireCheckpoint("/gauntlet");
   }, [advanceFight]);
 
   const handleNextSteps = useCallback(async () => {
@@ -244,6 +247,7 @@ export function GauntletScreen() {
   }, [navigate]);
 
   const handleSave = useCallback(() => {
+    fireCheckpoint("/save");
     navigate("/save");
   }, [navigate]);
 

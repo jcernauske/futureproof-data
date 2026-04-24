@@ -25,6 +25,12 @@ interface BuildState {
 
   // Reset
   resetBuild: () => void;
+
+  hydrateFromSession: (data: {
+    build?: Build | null;
+    tieredCareers?: TieredCareers | null;
+    selectedCareer?: CareerOutcome | null;
+  }) => void;
 }
 
 export const useBuildStore = create<BuildState>()(
@@ -54,6 +60,15 @@ export const useBuildStore = create<BuildState>()(
           isBuilding: false,
           buildingStage: 0,
           build: null,
+        }),
+
+      hydrateFromSession: (data) =>
+        set({
+          build: data.build ?? null,
+          tieredCareers: data.tieredCareers ?? null,
+          selectedCareer: data.selectedCareer ?? null,
+          isBuilding: false,
+          buildingStage: 0,
         }),
     }),
     {

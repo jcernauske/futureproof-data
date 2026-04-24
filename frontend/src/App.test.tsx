@@ -1,8 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { AppRoutes } from "./App";
 import { useProfileStore } from "@/store/profileStore";
+
+vi.mock("@/api/session", () => ({
+  getSession: vi.fn().mockResolvedValue(null),
+  clearSession: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("App routes", () => {
   beforeEach(() => {
@@ -23,14 +28,14 @@ describe("App routes", () => {
     expect(document.getElementById("landing-hero-cta")).toBeInTheDocument();
   });
 
-  it("in-app LandingScreen is rendered at /app", () => {
+  it("in-app LandingScreen is rendered at /app", async () => {
     render(
       <MemoryRouter initialEntries={["/app"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
     expect(
-      screen.getByText(/A college degree isn't a destination/),
+      await screen.findByText(/A college degree isn't a destination/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Start building your future" }),
@@ -53,19 +58,17 @@ describe("AppHeader visibility by route", () => {
         <AppRoutes />
       </MemoryRouter>,
     );
-    // AppHeader renders a <header> with wordmark + buttons; on / it should return null.
     expect(document.querySelector("header")).not.toBeInTheDocument();
   });
 
-  it("renders Start ✦ affordance on in-app /app", () => {
+  it("renders Start ✦ affordance on in-app /app", async () => {
     render(
       <MemoryRouter initialEntries={["/app"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
-    // The header wordmark + Start ✦ button both render only on /app.
     expect(document.querySelector("header")).toBeInTheDocument();
-    expect(screen.getByText("Start ✦")).toBeInTheDocument();
+    expect(await screen.findByText("Start ✦")).toBeInTheDocument();
   });
 });
 
@@ -78,37 +81,36 @@ describe("Profile-guard redirects land on /app, not /", () => {
     });
   });
 
-  it("MenuScreen redirects to /app when no profile is set", () => {
+  it("MenuScreen redirects to /app when no profile is set", async () => {
     render(
       <MemoryRouter initialEntries={["/menu"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
-    // The redirect targets /app, which renders in-app LandingScreen copy.
     expect(
-      screen.getByText(/A college degree isn't a destination/),
+      await screen.findByText(/A college degree isn't a destination/),
     ).toBeInTheDocument();
   });
 
-  it("ProfileScreen redirects to /app when no profile is set", () => {
+  it("ProfileScreen redirects to /app when no profile is set", async () => {
     render(
       <MemoryRouter initialEntries={["/profile"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
     expect(
-      screen.getByText(/A college degree isn't a destination/),
+      await screen.findByText(/A college degree isn't a destination/),
     ).toBeInTheDocument();
   });
 
-  it("SchoolMajorScreen redirects to /app when no profile is set", () => {
+  it("SchoolMajorScreen redirects to /app when no profile is set", async () => {
     render(
       <MemoryRouter initialEntries={["/school"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
     expect(
-      screen.getByText(/A college degree isn't a destination/),
+      await screen.findByText(/A college degree isn't a destination/),
     ).toBeInTheDocument();
   });
 });

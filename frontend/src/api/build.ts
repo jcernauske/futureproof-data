@@ -95,6 +95,17 @@ export async function getBuild(buildId: string): Promise<Build> {
   return apiGet<Build>(`/build/${encodeURIComponent(buildId)}`);
 }
 
+export async function rebuildWithSliders(
+  buildId: string,
+  effort: string,
+  loanPct: number,
+): Promise<Build> {
+  return apiPost<Build>(`/build/${encodeURIComponent(buildId)}/rebuild`, {
+    effort,
+    loan_pct: loanPct,
+  });
+}
+
 export async function createBuild(
   profileName: string,
   schoolName: string,
@@ -110,6 +121,7 @@ export async function createBuild(
   studentCip?: string,
   homeState?: string,
   schoolState?: string,
+  animalEmoji?: string,
 ): Promise<Build> {
   if (USE_MOCK) return mockCreateBuild(selectedSoc, profileName, schoolName);
   return apiPost<Build>("/build", {
@@ -127,5 +139,6 @@ export async function createBuild(
     student_cip: studentCip ?? null,
     home_state: homeState ?? null,
     school_state: schoolState ?? null,
+    animal_emoji: animalEmoji ?? null,
   });
 }

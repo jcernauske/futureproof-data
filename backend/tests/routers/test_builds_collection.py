@@ -174,6 +174,9 @@ class TestListBuildsRouter:
             "wins",
             "losses",
             "draws",
+            "parent_build_id",
+            "effort",
+            "loan_pct",
         ):
             assert key in first, f"BuildSummary missing required field {key!r}"
 

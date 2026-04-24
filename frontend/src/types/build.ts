@@ -180,4 +180,7 @@ export interface Build {
   next_steps: string;
   horizonIndex?: number;    // 0..47 inclusive, locked at first /app/save view
   profile_name?: string;
+  parent_build_id?: string | null;
+  home_state?: string | null;
+  animal_emoji?: string | null;
 }
