@@ -3,6 +3,7 @@ interface FinancesCardProps {
   medianSalary: number | null;
   tuitionInState: number | null;
   tuitionOutOfState: number | null;
+  netPriceAnnual: number | null;
   loanPct: number;
   isInState: boolean | null;
   institutionControl: string | null;
@@ -23,24 +24,32 @@ interface RowProps {
   value: string;
   muted?: boolean;
   highlight?: boolean;
+  subtitle?: string;
 }
 
-function Row({ label, value, muted, highlight }: RowProps) {
+function Row({ label, value, muted, highlight, subtitle }: RowProps) {
   return (
     <div
       className="flex items-center justify-between py-3"
       style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
     >
-      <span
-        className={`font-body text-small ${highlight ? "text-text-primary font-semibold" : "text-text-secondary"}`}
-      >
-        {label}
-        {highlight && (
-          <span className="text-accent-thrive ml-1 text-micro">
-            ← yours
-          </span>
+      <div>
+        <span
+          className={`font-body text-small ${highlight ? "text-text-primary font-semibold" : "text-text-secondary"}`}
+        >
+          {label}
+          {highlight && (
+            <span className="text-accent-thrive ml-1 text-micro">
+              ← yours
+            </span>
+          )}
+        </span>
+        {subtitle && (
+          <div className="font-body text-text-muted" style={{ fontSize: 11, marginTop: 1 }}>
+            {subtitle}
+          </div>
         )}
-      </span>
+      </div>
       <span
         className={`font-data text-small font-bold ${muted ? "text-text-muted" : "text-text-primary"}`}
       >
@@ -55,6 +64,7 @@ export function FinancesCard({
   medianSalary,
   tuitionInState,
   tuitionOutOfState,
+  netPriceAnnual,
   loanPct,
   isInState,
   institutionControl,
@@ -91,6 +101,9 @@ export function FinancesCard({
             highlight={isInState === false}
           />
         </>
+      )}
+      {netPriceAnnual != null && (
+        <Row label="Avg. net price (4 yr)" value={fmt(netPriceAnnual, 4)} subtitle="After avg. grants & scholarships" />
       )}
       <Row label="Financing" value={pct(loanPct)} muted={loanPct === 1} />
     </div>

@@ -18,6 +18,7 @@ const BASE_PROPS = {
   medianSalary: 65_000,
   tuitionInState: 10_000,
   tuitionOutOfState: 25_000,
+  netPriceAnnual: 8_500,
   loanPct: 1.0,
   isInState: null as boolean | null,
   institutionControl: "Public" as string | null,

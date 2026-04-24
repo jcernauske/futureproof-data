@@ -36,6 +36,7 @@ interface BossBandProps {
   isVsActive: boolean;
   isVsDone: boolean;
   isSealedVisible: boolean;
+  onReveal?: () => void;
 }
 
 const STAT_DELTAS: { key: string; field: keyof AppliedSkill }[] = [
@@ -59,6 +60,7 @@ export function BossBand({
   isVsActive,
   isVsDone,
   isSealedVisible,
+  onReveal,
 }: BossBandProps) {
   const boss = BOSS_META[fight.boss];
   const [localResult, setLocalResult] = useState<BossOutcome>(fight.result);
@@ -269,6 +271,7 @@ export function BossBand({
           bossId={fight.boss}
           isVisible={isSealedVisible}
           isTriggered={isVsActive || isVsDone}
+          onReveal={onReveal}
         />
       )}
 
