@@ -45,10 +45,10 @@ def isolated_builds_dir(tmp_path, monkeypatch):
     cache is reset before and after the test so each run gets a fresh
     schema.
     """
-    from app.services import builds
+    from app.services import db
 
     target = tmp_path / "builds.duckdb"
-    monkeypatch.setattr(builds, "_db_path", lambda: target)
-    builds._conns.clear()
+    monkeypatch.setattr(db, "_db_path", lambda: target)
+    db._conns.clear()
     yield target
-    builds._conns.clear()
+    db._conns.clear()

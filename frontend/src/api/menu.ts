@@ -62,11 +62,12 @@ export interface ChatHistoryItem {
   content: string;
 }
 
-export async function listBuilds(profileName: string): Promise<BuildSummary[]> {
-  if (USE_MOCK) return mockListBuilds(profileName);
-  const res = await apiGet<{ builds: BuildSummary[] }>(
-    `/builds?profile_name=${encodeURIComponent(profileName)}`,
-  );
+export async function listBuilds(profileName?: string): Promise<BuildSummary[]> {
+  if (USE_MOCK) return mockListBuilds(profileName ?? "");
+  const query = profileName
+    ? `?profile_name=${encodeURIComponent(profileName)}`
+    : "";
+  const res = await apiGet<{ builds: BuildSummary[] }>(`/builds${query}`);
   return res.builds;
 }
 

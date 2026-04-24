@@ -4,6 +4,7 @@ import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import { createBuild } from "@/api/build";
+import { clearSession } from "@/api/session";
 import { PentagonChart } from "@/components/PentagonChart";
 import { Button } from "@/components/ui/Button";
 import { CampusHeroBanner } from "@/components/build-results/CampusHeroBanner";
@@ -17,6 +18,7 @@ import { VerdictBadge } from "@/components/build-results/VerdictBadge";
 import { STAT_COLORS } from "@/components/build-results/bossData";
 import type { StatKey } from "@/data/statExplanations";
 import { STAT_EXPLANATIONS } from "@/data/statExplanations";
+import { fireCheckpoint } from "@/lib/checkpoint";
 import type { BossFightResult } from "@/types/build";
 
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
@@ -50,13 +52,14 @@ export function BuildResultsScreen() {
   vsActiveBandsRef.current = vsActiveBands;
   const timeoutsRef = useRef<Map<string, number[]>>(new Map());
 
-  // Nav guard
+  // Nav guard — skip when a build is already loaded (e.g. from /builds menu)
   useEffect(() => {
+    if (build) return;
     if (!selectedCareer || !school || !major) {
       sessionStorage.setItem("fp-nav-hint", "session-expired");
       navigate("/set-your-course", { replace: true });
     }
-  }, [selectedCareer, school, major, navigate]);
+  }, [build, selectedCareer, school, major, navigate]);
 
   // Build trigger
   useEffect(() => {
@@ -89,6 +92,7 @@ export function BuildResultsScreen() {
           studentCip,
           homeState ?? undefined,
           school.stateAbbr ?? undefined,
+          animalEmoji ?? undefined,
         ),
         minDisplayTime,
       ]);
@@ -96,6 +100,7 @@ export function BuildResultsScreen() {
       setBuild(result);
       setFights(result.gauntlet.fights);
       setIsBuilding(false);
+      fireCheckpoint("/my-build");
     } catch (err) {
       if (cancelledRef.current) return;
       setError(err instanceof Error ? err.message : "Build failed");
@@ -271,7 +276,7 @@ export function BuildResultsScreen() {
   }, [fights]);
 
   // Guards
-  if (!selectedCareer || !school || !major) return null;
+  if (!build && (!selectedCareer || !school || !major)) return null;
 
   // Loading state
   if (isBuilding || !build) {
@@ -368,10 +373,10 @@ export function BuildResultsScreen() {
 
       {/* Hero Identity */}
       <HeroIdentity
-        profileName={profileName ?? "Adventurer"}
-        animalEmoji={animalEmoji ?? "🐻"}
-        schoolName={school.name}
-        programName={major.cipTitle}
+        profileName={build.profile_name || profileName || "Adventurer"}
+        animalEmoji={build.animal_emoji || animalEmoji || "🐻"}
+        schoolName={school?.name ?? build.school_name}
+        programName={major?.cipTitle ?? build.program_name}
       />
 
       {/* Content column */}
@@ -384,6 +389,7 @@ export function BuildResultsScreen() {
             className="font-body text-text-muted hover:text-text-secondary hover:underline transition-colors duration-150 bg-transparent border-none cursor-pointer"
             style={{ fontSize: 14 }}
             onClick={() => {
+              clearSession().catch(console.warn);
               useBuildInputStore.getState().reset();
               useBuildStore.setState({ build: null, selectedCareer: null });
               navigate("/set-your-course");
@@ -415,7 +421,7 @@ export function BuildResultsScreen() {
         >
           <div className="flex flex-col gap-6">
             <PathCard
-              programName={career.program_name || major.cipTitle}
+              programName={career.program_name || major?.cipTitle || build.program_name}
               cipCode={career.cipcode}
               careerName={career.occupation_title}
               socCode={career.soc_code}
@@ -428,7 +434,7 @@ export function BuildResultsScreen() {
               tuitionOutOfState={career.tuition_out_of_state}
               netPriceAnnual={career.net_price_annual}
               loanPct={career.loan_pct}
-              isInState={homeState && school.stateAbbr ? homeState === school.stateAbbr : null}
+              isInState={homeState && school?.stateAbbr ? homeState === school.stateAbbr : null}
               institutionControl={career.institution_control ?? null}
             />
           </div>

@@ -12,6 +12,8 @@ vi.mock("react-router-dom", async () => {
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
+const noSessionResponse = { ok: false, status: 404 } as Response;
+
 function renderLanding() {
   return render(
     <MemoryRouter>
@@ -20,14 +22,20 @@ function renderLanding() {
   );
 }
 
+async function renderLandingAndWait() {
+  fetchMock.mockResolvedValueOnce(noSessionResponse);
+  renderLanding();
+  await screen.findByRole("button", { name: "Start building your future" });
+}
+
 beforeEach(() => {
   fetchMock.mockReset();
   mockNavigate.mockReset();
 });
 
 describe("LandingScreen", () => {
-  it("renders tagline and CTA", () => {
-    renderLanding();
+  it("renders tagline and CTA", async () => {
+    await renderLandingAndWait();
     expect(
       screen.getByText(/A college degree isn't a destination/),
     ).toBeInTheDocument();
@@ -37,6 +45,8 @@ describe("LandingScreen", () => {
   });
 
   it("CTA calls API and navigates to /profile", async () => {
+    await renderLandingAndWait();
+
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: () =>
@@ -47,7 +57,6 @@ describe("LandingScreen", () => {
         }),
     });
 
-    renderLanding();
     fireEvent.click(
       screen.getByRole("button", { name: "Start building your future" }),
     );
@@ -58,13 +67,14 @@ describe("LandingScreen", () => {
   });
 
   it("shows error on API failure", async () => {
+    await renderLandingAndWait();
+
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 500,
       json: () => Promise.resolve({ detail: "Server error" }),
     });
 
-    renderLanding();
     fireEvent.click(
       screen.getByRole("button", { name: "Start building your future" }),
     );

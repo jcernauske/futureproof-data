@@ -284,6 +284,9 @@ class Build(BaseModel):
     skill_pool: list[AppliedSkill] = Field(default_factory=list)
     next_steps: str = ""
     profile_name: str = ""
+    parent_build_id: str | None = None
+    home_state: str | None = None
+    animal_emoji: str | None = None
 
 
 class BuildSummary(BaseModel):
@@ -301,6 +304,9 @@ class BuildSummary(BaseModel):
     losses: int
     draws: int = 0
     profile_name: str = ""
+    parent_build_id: str | None = None
+    effort: str = "balanced"
+    loan_pct: float = 1.0
 
 
 class WrappedFrameInfo(BaseModel):

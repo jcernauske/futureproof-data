@@ -34,6 +34,7 @@ export function AppRoutes() {
         <Route path="/branches" element={<BranchTreeScreen />} />
         <Route path="/save" element={<SaveWrappedScreen />} />
         <Route path="/menu" element={<MenuScreen />} />
+        <Route path="/builds" element={<MenuScreen allBuilds />} />
         <Route path="/mockups/horizon" element={<MockupsShowcase />} />
         <Route
           path="/build"

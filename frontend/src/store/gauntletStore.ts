@@ -36,6 +36,13 @@ interface GauntletState {
   setNextStepsError: (error: boolean) => void;
 
   resetGauntlet: () => void;
+
+  hydrateFromSession: (data: {
+    phase: string;
+    currentFightIndex: number;
+    fightPhase: string;
+    selectedSkillIds: string[];
+  }) => void;
 }
 
 export const useGauntletStore = create<GauntletState>()((set, get) => ({
@@ -88,5 +95,13 @@ export const useGauntletStore = create<GauntletState>()((set, get) => ({
       isRescoring: false,
       nextStepsContent: null,
       nextStepsError: false,
+    }),
+
+  hydrateFromSession: (data) =>
+    set({
+      phase: (data.phase as GauntletPhase) ?? "intro",
+      currentFightIndex: data.currentFightIndex ?? 0,
+      fightPhase: (data.fightPhase as FightPhase) ?? "entrance",
+      selectedSkillIds: new Set(data.selectedSkillIds ?? []),
     }),
 }));

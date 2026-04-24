@@ -848,6 +848,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       undefined,               // studentCip (undefined when no parentCip)
       undefined,               // homeState (null → undefined)
       "CA",                    // schoolState from mock school
+      "🐻",                    // animalEmoji
     );
 
     // Clean up.
@@ -898,6 +899,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       "11.0701",               // studentCip = cipCode
       undefined,               // homeState
       "CA",                    // schoolState from mock school
+      "🐻",                    // animalEmoji
     );
 
     await act(async () => {

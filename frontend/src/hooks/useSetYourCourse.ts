@@ -10,6 +10,7 @@ import {
   type FeasibilityMode,
 } from "@/api/intent";
 import { getOutcomes } from "@/api/build";
+import { fireCheckpoint } from "@/lib/checkpoint";
 import { useDebouncedTrigger } from "@/hooks/useDebouncedTrigger";
 import type { IntentResult, Suggestion } from "@/types/buildInput";
 import type { CareerOutcome } from "@/types/build";
@@ -519,6 +520,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
         intentKeywords: currentResolution.intent_keywords ?? [],
       });
 
+      fireCheckpoint("/my-build");
       navigate("/my-build");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Commit failed");

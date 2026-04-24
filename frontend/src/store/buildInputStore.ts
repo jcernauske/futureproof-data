@@ -43,6 +43,8 @@ interface BuildInputState {
   setCurrentResolution: (result: IntentResult | null) => void;
   setDebugTrace: (trace: string | null) => void;
   clearResolution: () => void;
+
+  hydrateFromSession: (data: Record<string, unknown>) => void;
 }
 
 const DEFAULT_EFFORT: EffortSelection = {
@@ -127,4 +129,20 @@ export const useBuildInputStore = create<BuildInputState>((set, get) => ({
     }),
   setDebugTrace: (trace) => set({ debugTrace: trace }),
   clearResolution: () => set({ ...EMPTY_RESOLUTION_SLICE }),
+
+  hydrateFromSession: (data) =>
+    set({
+      phase: (data.phase as Phase) ?? "school",
+      school: (data.school as SchoolSelection | null) ?? null,
+      programs: (data.programs as ProgramResult[]) ?? [],
+      major: (data.major as MajorSelection | null) ?? null,
+      effort: (data.effort as EffortSelection) ?? DEFAULT_EFFORT,
+      loans: (data.loans as LoanSelection) ?? DEFAULT_LOANS,
+      initialResolution: (data.initialResolution as IntentResult | null) ?? null,
+      currentResolution: (data.currentResolution as IntentResult | null) ?? null,
+      hasCorrected: deriveHasCorrected(
+        (data.initialResolution as IntentResult | null) ?? null,
+        (data.currentResolution as IntentResult | null) ?? null,
+      ),
+    }),
 }));

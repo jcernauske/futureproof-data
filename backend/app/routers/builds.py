@@ -5,8 +5,20 @@ from typing import cast
 from fastapi import APIRouter, HTTPException, Request
 
 from app import state
-from app.models.api import BuildRequest, OutcomesRequest, TierRequest
-from app.models.career import AppliedSkill, CareerOutcome, EffortLevel, SkillRec
+from app.models.api import (
+    BuildRequest,
+    OutcomesRequest,
+    RebuildRequest,
+    TierRequest,
+)
+from app.models.career import (
+    AppliedSkill,
+    CareerBranch,
+    CareerOutcome,
+    EffortLevel,
+    GauntletResult,
+    SkillRec,
+)
 from app.services import (
     boss_fights,
     branch_tree,
@@ -63,49 +75,16 @@ async def tier_outcomes(request: TierRequest, raw_request: Request):
     }
 
 
-@router.post("")
-async def create_build(request: BuildRequest):
-    # Pull the selected career first. PyIceberg metadata + scan is sync
-    # and can block the event loop for seconds on a cold call — offload
-    # to a thread so /health stays responsive.
-    try:
-        career = await asyncio.to_thread(
-            stat_engine.compute_one,
-            unitid=request.unitid,
-            cipcode=request.cipcode,
-            soc_code=request.selected_soc,
-            student_major=request.student_major,
-            student_cip=request.student_cip,
-            effort=cast(EffortLevel, request.effort),
-            loan_pct=request.loan_pct,
-            intent_keywords=request.intent_keywords or None,
-            home_state=request.home_state,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+async def _gemma_fanout(
+    career: CareerOutcome,
+    gauntlet: GauntletResult,
+    branches: list[CareerBranch],
+) -> tuple[list[SkillRec], list[AppliedSkill], str]:
+    """Fan out Gemma-bound calls (narratives + recs + pool + guidance).
 
-    if not career.program_name and request.cip_title:
-        career.program_name = request.cip_title
-
-    if (
-        request.home_state
-        and request.school_state
-        and request.home_state != request.school_state
-        and career.institution_control
-        and career.institution_control.startswith("Public")
-    ):
-        career.is_out_of_state = True
-
-    # Scoring is deterministic and cheap — stays on the event loop.
-    gauntlet = boss_fights.score_gauntlet(career)
-    branches = await asyncio.to_thread(branch_tree.get_branches, career.soc_code)
-
-    # Fan out the eight Gemma-bound calls in a single gather. Each
-    # coroutine owns its own semaphore acquisition via
-    # ``gemma_client.generate_async``; ``return_exceptions=True`` keeps
-    # one backend hiccup from taking down the whole build response.
+    Shared by ``create_build`` and ``rebuild_with_sliders``.
+    Returns (recs, pool, guidance_narrative).
+    """
     narrative_tasks = [
         boss_fights.narrate_one(career, fight) for fight in gauntlet.fights
     ]
@@ -160,6 +139,50 @@ async def create_build(request: BuildRequest):
     else:
         narrative = cast(str, guidance_result)
 
+    return recs, pool, narrative
+
+
+@router.post("")
+async def create_build(request: BuildRequest):
+    try:
+        career = await asyncio.to_thread(
+            stat_engine.compute_one,
+            unitid=request.unitid,
+            cipcode=request.cipcode,
+            soc_code=request.selected_soc,
+            student_major=request.student_major,
+            student_cip=request.student_cip,
+            effort=cast(EffortLevel, request.effort),
+            loan_pct=request.loan_pct,
+            intent_keywords=request.intent_keywords or None,
+            home_state=request.home_state,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    if not career.program_name and request.cip_title:
+        career.program_name = request.cip_title
+
+    if (
+        request.home_state
+        and request.school_state
+        and request.home_state != request.school_state
+        and career.institution_control
+        and career.institution_control.startswith("Public")
+    ):
+        career.is_out_of_state = True
+
+    gauntlet = boss_fights.score_gauntlet(career)
+    branches_list = await asyncio.to_thread(
+        branch_tree.get_branches, career.soc_code
+    )
+
+    recs, pool, narrative = await _gemma_fanout(
+        career, gauntlet, branches_list
+    )
+
     build = builds.build_from_parts(
         school_name=request.school_name,
         unitid=request.unitid,
@@ -170,11 +193,13 @@ async def create_build(request: BuildRequest):
         loan_pct=request.loan_pct,
         career=career,
         gauntlet=gauntlet,
-        branches=branches,
+        branches=branches_list,
         skill_recs=recs,
         guidance=narrative,
         skill_pool=pool,
         profile_name=request.profile_name,
+        home_state=request.home_state,
+        animal_emoji=request.animal_emoji,
     )
     state.store_build(build)
     builds.save_build(build)
@@ -204,6 +229,50 @@ async def get_build(build_id: str):
         return build
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
+
+
+@router.post("/{build_id}/rebuild")
+async def rebuild_with_sliders(build_id: str, request: RebuildRequest):
+    original = state.get_build(build_id)
+    if original is None:
+        raise HTTPException(
+            status_code=404, detail=f"Build {build_id} not found"
+        )
+
+    career = stat_engine.recompute_for_sliders(
+        career=original.career,
+        original_effort=original.effort,
+        new_effort=cast(EffortLevel, request.effort),
+        new_loan_pct=request.loan_pct,
+    )
+    gauntlet = boss_fights.score_gauntlet(career)
+
+    recs, pool, narrative = await _gemma_fanout(
+        career, gauntlet, original.branches
+    )
+
+    build = builds.build_from_parts(
+        school_name=original.school_name,
+        unitid=original.unitid,
+        major_text=original.major_text,
+        cipcode=original.cipcode,
+        program_name=original.program_name,
+        effort=request.effort,
+        loan_pct=request.loan_pct,
+        career=career,
+        gauntlet=gauntlet,
+        branches=original.branches,
+        skill_recs=recs,
+        guidance=narrative,
+        skill_pool=pool,
+        profile_name=original.profile_name,
+        parent_build_id=original.build_id,
+        home_state=original.home_state,
+        animal_emoji=original.animal_emoji,
+    )
+    state.store_build(build)
+    builds.save_build(build)
+    return build
 
 
 # Compare endpoint moved to `routers/builds_collection.py` so it lives

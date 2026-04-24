@@ -19,9 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
-import threading
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Callable
 
 import duckdb
@@ -36,53 +34,54 @@ from app.models.career import (
     GauntletResult,
     SkillRec,
 )
-from app.services.mcp_client import project_root
+from app.services import db as _db
 
 logger = logging.getLogger(__name__)
 
-_conns: dict[Path, duckdb.DuckDBPyConnection] = {}
-# RLock because _init_schema calls execute recursively while we already hold
-# the lock in _conn(). DuckDB's Python connection isn't thread-safe — every
-# SQL operation must hold this lock for the entire execute+fetch window.
-_conn_lock = threading.RLock()
+# Legacy aliases — kept so test fixtures that monkeypatch these still work.
+_conns = _db._conns
+_conn_lock = _db._conn_lock
 
 
-def _db_path() -> Path:
-    root = project_root() / "backend" / "data"
-    root.mkdir(parents=True, exist_ok=True)
-    return root / "futureproof.duckdb"
+def _db_path():  # type: ignore[override]
+    return _db._db_path()
 
 
 def _conn() -> duckdb.DuckDBPyConnection:
-    with _conn_lock:
-        path = _db_path()
-        if path not in _conns:
-            connection = duckdb.connect(str(path))
-            _init_schema(connection)
-            _conns[path] = connection
-        return _conns[path]
+    return _db.conn()
+
+
+_db.register_schema_initializer(lambda c: _init_schema(c))
 
 
 def _execute(
     sql: str, params: list[Any] | None = None
 ) -> list[tuple[Any, ...]]:
-    """Run a query and return all rows. Holds the connection lock."""
-    with _conn_lock:
-        return _conn().execute(sql, params or []).fetchall()
+    return _db.execute(sql, params)
 
 
 def _execute_one(
     sql: str, params: list[Any] | None = None
 ) -> tuple[Any, ...] | None:
-    """Run a query and return the first row, or None. Holds the connection lock."""
-    with _conn_lock:
-        return _conn().execute(sql, params or []).fetchone()
+    return _db.execute_one(sql, params)
 
 
 def _execute_write(sql: str, params: list[Any] | None = None) -> None:
-    """Run a write with no return. Holds the connection lock."""
-    with _conn_lock:
-        _conn().execute(sql, params or [])
+    _db.execute_write(sql, params)
+
+
+def _add_column_if_missing(
+    connection: duckdb.DuckDBPyConnection,
+    table: str,
+    column: str,
+    dtype: str,
+) -> None:
+    cols = connection.execute(
+        "SELECT column_name FROM information_schema.columns"
+        f" WHERE table_name = '{table}'"
+    ).fetchall()
+    if column not in {r[0] for r in cols}:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {dtype}")
 
 
 def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
@@ -103,10 +102,12 @@ def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
             wins INTEGER,
             losses INTEGER,
             draws INTEGER,
+            parent_build_id VARCHAR,
             data VARCHAR
         )
         """
     )
+    _add_column_if_missing(connection, "builds", "parent_build_id", "VARCHAR")
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS wrapped_frames (
@@ -158,6 +159,9 @@ def build_from_parts(
     skills_crafted: list[AppliedSkill] | None = None,
     skill_pool: list[AppliedSkill] | None = None,
     profile_name: str = "",
+    parent_build_id: str | None = None,
+    home_state: str | None = None,
+    animal_emoji: str | None = None,
 ) -> Build:
     base = _slug(f"{school_name}-{major_text}")
     build_id = _next_id_for(base)
@@ -179,6 +183,9 @@ def build_from_parts(
         skills_crafted=list(skills_crafted) if skills_crafted else [],
         skill_pool=list(skill_pool) if skill_pool else [],
         profile_name=profile_name,
+        parent_build_id=parent_build_id,
+        home_state=home_state,
+        animal_emoji=animal_emoji,
     )
 
 
@@ -192,8 +199,9 @@ def save_build(build: Build) -> None:
         """
         INSERT OR REPLACE INTO builds
             (build_id, profile_name, created_at, school_name, major_text,
-             career_title, ern, roi, res, grw, hmn, wins, losses, draws, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             career_title, ern, roi, res, grw, hmn, wins, losses, draws,
+             parent_build_id, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             build.build_id,
@@ -210,6 +218,7 @@ def save_build(build: Build) -> None:
             build.gauntlet.wins,
             build.gauntlet.losses,
             build.gauntlet.draws,
+            build.parent_build_id,
             build.model_dump_json(),
         ],
     )
@@ -244,7 +253,10 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
     """
     query = """
         SELECT build_id, profile_name, created_at, school_name, major_text,
-               career_title, ern, roi, res, grw, hmn, wins, losses, draws
+               career_title, ern, roi, res, grw, hmn, wins, losses, draws,
+               parent_build_id,
+               json_extract_string(data, '$.effort') AS effort,
+               json_extract(data, '$.loan_pct') AS loan_pct
         FROM builds
     """
     params: list[str] = []
@@ -269,6 +281,9 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
             wins=r[11] or 0,
             losses=r[12] or 0,
             draws=r[13] or 0,
+            parent_build_id=r[14],
+            effort=r[15] or "balanced",
+            loan_pct=float(r[16]) if r[16] is not None else 1.0,
         )
         for r in rows
     ]
@@ -337,8 +352,8 @@ def save_wrapped_frames(build_id: str, frames: list[tuple[int, bytes]]) -> None:
     is unambiguous.
     """
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    with _conn_lock:
-        connection = _conn()
+    with _db.get_lock():
+        connection = _db.conn()
         connection.execute("BEGIN TRANSACTION")
         try:
             connection.execute(

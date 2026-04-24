@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.models.career import IntentResult
+from app.models.career import Build, IntentResult
 
 
 class IntentRequest(BaseModel):
@@ -79,6 +79,7 @@ class BuildRequest(BaseModel):
     intent_keywords: list[str] = Field(default_factory=list)
     home_state: str | None = None
     school_state: str | None = None
+    animal_emoji: str | None = None
 
     @field_validator("home_state", "school_state", mode="before")
     @classmethod
@@ -204,6 +205,35 @@ class ChipResponse(BaseModel):
     cta_link: CtaLink | None = None
     bucket: ChipBucket | None = None
     confirmed_focus: str | None = None
+
+
+class CheckpointRequest(BaseModel):
+    screen: str
+    profile_data: dict | None = None
+    build_input_data: dict | None = None
+    build_id: str | None = None
+    gauntlet_data: dict | None = None
+    tiered_careers_data: dict | None = None
+    selected_career_data: dict | None = None
+
+
+class SessionResponse(BaseModel):
+    session_id: str
+    last_screen: str
+    profile_data: dict | None = None
+    build_input_data: dict | None = None
+    build_id: str | None = None
+    build: Build | None = None
+    gauntlet_data: dict | None = None
+    tiered_careers_data: dict | None = None
+    selected_career_data: dict | None = None
+    created_at: str
+    updated_at: str
+
+
+class RebuildRequest(BaseModel):
+    effort: str = "balanced"
+    loan_pct: float = 1.0
 
 
 class CommitRequest(BaseModel):

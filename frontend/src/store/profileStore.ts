@@ -8,6 +8,12 @@ interface ProfileState {
   setProfile: (name: string, emoji: string, animal: string) => void;
   setHomeState: (state: string) => void;
   clearProfile: () => void;
+  hydrateFromSession: (data: {
+    profileName: string;
+    animalEmoji: string;
+    animalName: string;
+    homeState: string | null;
+  }) => void;
 }
 
 export const useProfileStore = create<ProfileState>((set) => ({
@@ -20,4 +26,11 @@ export const useProfileStore = create<ProfileState>((set) => ({
   setHomeState: (state) => set({ homeState: state || null }),
   clearProfile: () =>
     set({ profileName: null, animalEmoji: null, animalName: null, homeState: null }),
+  hydrateFromSession: (data) =>
+    set({
+      profileName: data.profileName,
+      animalEmoji: data.animalEmoji,
+      animalName: data.animalName,
+      homeState: data.homeState,
+    }),
 }));
