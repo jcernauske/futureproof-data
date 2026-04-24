@@ -254,6 +254,7 @@ export function BuildResultsScreen() {
     let equippedWins = 0;
     let losses = 0;
     let draws = 0;
+    let unknowns = 0;
     fights.forEach((f) => {
       if (f.result === "win") {
         if (f.rerolled) equippedWins++;
@@ -262,9 +263,11 @@ export function BuildResultsScreen() {
         losses++;
       } else if (f.result === "draw") {
         draws++;
+      } else if (f.result === "unknown") {
+        unknowns++;
       }
     });
-    return { rawWins, equippedWins, losses, draws };
+    return { rawWins, equippedWins, losses, draws, unknowns };
   }, [fights]);
 
   // Guards
@@ -374,15 +377,27 @@ export function BuildResultsScreen() {
       {/* Content column */}
       <div className="max-w-[1280px] mx-auto px-4 tablet:px-6 desktop:px-8">
 
-        {/* Adjust link */}
-        <div className="flex justify-end" style={{ marginTop: 16 }}>
+        {/* Adjust / Start over links */}
+        <div className="flex justify-end gap-4" style={{ marginTop: 16 }}>
+          <button
+            type="button"
+            className="font-body text-text-muted hover:text-text-secondary hover:underline transition-colors duration-150 bg-transparent border-none cursor-pointer"
+            style={{ fontSize: 14 }}
+            onClick={() => {
+              useBuildInputStore.getState().reset();
+              useBuildStore.setState({ build: null, selectedCareer: null });
+              navigate("/set-your-course");
+            }}
+          >
+            Start over
+          </button>
           <button
             type="button"
             className="font-body text-accent-info hover:underline hover:brightness-125 transition-colors duration-150 bg-transparent border-none cursor-pointer"
             style={{ fontSize: 14 }}
             onClick={() => {
               useBuildStore.setState({ build: null });
-              navigate("/set-your-course");
+              navigate("/set-your-course", { state: { adjustMode: true } });
             }}
           >
             ← Adjust effort & loans
@@ -411,6 +426,7 @@ export function BuildResultsScreen() {
               medianSalary={career.median_annual_wage}
               tuitionInState={career.tuition_in_state}
               tuitionOutOfState={career.tuition_out_of_state}
+              netPriceAnnual={career.net_price_annual}
               loanPct={career.loan_pct}
               isInState={homeState && school.stateAbbr ? homeState === school.stateAbbr : null}
               institutionControl={career.institution_control ?? null}
@@ -563,6 +579,7 @@ export function BuildResultsScreen() {
                   isVsActive={vsActiveBands.has(fight.boss)}
                   isVsDone={vsDoneBands.has(fight.boss)}
                   isSealedVisible={visibleBands.has(fight.boss)}
+                  onReveal={() => triggerReveal(fight.boss)}
                 />
               </div>
             ))}
@@ -576,6 +593,7 @@ export function BuildResultsScreen() {
             equippedWins={verdictCounts.equippedWins}
             losses={verdictCounts.losses}
             draws={verdictCounts.draws}
+            unknowns={verdictCounts.unknowns}
           />
         </div>
 
