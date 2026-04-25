@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /Users/jcernauske/code/bright/futureproof-data && git *)",
+      "Bash(cd /Users/jcernauske/code/bright/futureproof-data/frontend && npx tsc *)",
+      "Bash(cd /Users/jcernauske/code/bright/futureproof-data/frontend && npx vitest *)",
+      "Bash(cd /Users/jcernauske/code/bright/futureproof-data/frontend && npm run dev *)",
+      "Bash(cd /Users/jcernauske/code/bright/futureproof-data/backend && uv run pytest *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)",
+      "Bash(npm run dev *)",
+      "Bash(curl -s *)",
+      "Bash(curl *)",
+      "Bash(open *)",
+      "Bash(lsof *)",
+      "Bash(pkill *)",
+      "Bash(kill *)"
+    ]
+  }
+}
