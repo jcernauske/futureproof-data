@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Landing } from "@/pages/Landing";
 import { LandingScreen } from "@/screens/LandingScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
@@ -33,8 +33,8 @@ export function AppRoutes() {
         <Route path="/gauntlet" element={<GauntletScreen />} />
         <Route path="/branches" element={<BranchTreeScreen />} />
         <Route path="/save" element={<SaveWrappedScreen />} />
-        <Route path="/menu" element={<MenuScreen />} />
-        <Route path="/builds" element={<MenuScreen allBuilds />} />
+        <Route path="/menu" element={<Navigate to="/builds" replace />} />
+        <Route path="/builds" element={<MenuScreen />} />
         <Route path="/mockups/horizon" element={<MockupsShowcase />} />
         <Route
           path="/build"

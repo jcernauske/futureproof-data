@@ -5,7 +5,6 @@ import { springs } from "@/styles/motion";
 import { apiPost } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
 import { Button } from "@/components/ui/Button";
-import { TextInput } from "@/components/ui/TextInput";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { fireCheckpoint } from "@/lib/checkpoint";
 
@@ -44,14 +43,6 @@ interface ProfileResponse {
   animal_name: string;
 }
 
-interface LookupResponse {
-  found: boolean;
-  profile_name?: string;
-  animal_emoji?: string;
-  animal_name?: string;
-  suggestion?: string;
-}
-
 const staggerContainer = {
   hidden: {},
   show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
@@ -70,14 +61,30 @@ export function ProfileScreen() {
   const navigate = useNavigate();
   const { profileName, animalEmoji, setProfile, homeState, setHomeState } = useProfileStore();
 
+  const [generating, setGenerating] = useState(true);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [rerolling, setRerolling] = useState(false);
   const [rerollError, setRerollError] = useState<string | null>(null);
-  const [showLookup, setShowLookup] = useState(false);
-  const [lookupQuery, setLookupQuery] = useState("");
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [nameKey, setNameKey] = useState(0);
+
+  useEffect(() => {
+    if (profileName) return;
+    let cancelled = false;
+    setGenerating(true);
+    apiPost<ProfileResponse>("/profile")
+      .then((res) => {
+        if (cancelled) return;
+        setProfile(res.profile_name, res.animal_emoji, res.animal_name);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setGenerateError("Couldn't generate a profile. Try refreshing.");
+      })
+      .finally(() => {
+        if (!cancelled) setGenerating(false);
+      });
+    return () => { cancelled = true; };
+  }, [profileName, setProfile]);
 
   async function handleReroll() {
     if (!profileName) return;
@@ -96,57 +103,21 @@ export function ProfileScreen() {
     }
   }
 
-  async function handleLookup() {
-    if (!lookupQuery.trim()) return;
-    setLookupLoading(true);
-    setLookupError(null);
-    setSuggestion(null);
-    try {
-      const res = await apiPost<LookupResponse>("/profile/lookup", {
-        name_query: lookupQuery,
-      });
-      if (res.found && res.profile_name && res.animal_emoji && res.animal_name) {
-        setProfile(res.profile_name, res.animal_emoji, res.animal_name);
-        const after = sessionStorage.getItem("fp-after-profile");
-        if (after) sessionStorage.removeItem("fp-after-profile");
-        navigate(after || "/school");
-      } else if (res.suggestion) {
-        setSuggestion(res.suggestion);
-      } else {
-        setLookupError("No profile found with that name.");
-      }
-    } catch {
-      setLookupError("Something went wrong. Try again.");
-    } finally {
-      setLookupLoading(false);
-    }
+  if (!profileName) {
+    return (
+      <div className="min-h-screen relative overflow-hidden pt-14">
+        <PageContainer variant="centered">
+          <div className="min-h-[calc(100vh-56px)] flex flex-col items-center justify-center">
+            {generateError ? (
+              <p className="font-body text-body text-accent-alert text-center">{generateError}</p>
+            ) : generating ? (
+              <p className="font-body text-body text-text-secondary">Generating your character...</p>
+            ) : null}
+          </div>
+        </PageContainer>
+      </div>
+    );
   }
-
-  async function handleConfirmSuggestion() {
-    if (!suggestion) return;
-    setLookupLoading(true);
-    try {
-      const res = await apiPost<LookupResponse>("/profile/lookup", {
-        name_query: suggestion,
-      });
-      if (res.found && res.profile_name && res.animal_emoji && res.animal_name) {
-        setProfile(res.profile_name, res.animal_emoji, res.animal_name);
-        const after = sessionStorage.getItem("fp-after-profile");
-        if (after) sessionStorage.removeItem("fp-after-profile");
-        navigate(after || "/school");
-      }
-    } catch {
-      setLookupError("Something went wrong. Try again.");
-    } finally {
-      setLookupLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!profileName) navigate("/app");
-  }, [profileName, navigate]);
-
-  if (!profileName) return null;
 
   return (
     <div className="min-h-screen relative overflow-hidden pt-14">
@@ -161,7 +132,7 @@ export function ProfileScreen() {
           className="font-body text-subheading text-text-secondary"
           variants={staggerItem}
         >
-          We'll call you
+          Meet your guide
         </motion.p>
 
         <div className="relative mt-4">
@@ -212,7 +183,7 @@ export function ProfileScreen() {
           className="font-body text-small text-text-muted mt-3"
           variants={staggerItem}
         >
-          No accounts. No passwords. Just you.
+          Every build gets a character.
         </motion.p>
 
         <motion.button
@@ -270,8 +241,8 @@ export function ProfileScreen() {
             onClick={() => {
               const after = sessionStorage.getItem("fp-after-profile");
               if (after) sessionStorage.removeItem("fp-after-profile");
-              fireCheckpoint(after || "/school");
-              navigate(after || "/school");
+              fireCheckpoint(after || "/set-your-course");
+              navigate(after || "/set-your-course");
             }}
             aria-label="Continue to school selection"
             className="w-full"
@@ -279,72 +250,7 @@ export function ProfileScreen() {
             Let's go →
           </Button>
 
-          <button
-            className="font-body text-small text-text-muted mt-2 cursor-pointer hover:text-text-secondary transition-colors duration-normal"
-            onClick={() => setShowLookup((v) => !v)}
-          >
-            Already have a name?
-          </button>
         </motion.div>
-
-        <AnimatePresence>
-          {showLookup && (
-            <motion.div
-              className="mt-4 w-full max-w-xs flex flex-col gap-3"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <div className="flex gap-2">
-                <TextInput
-                  value={lookupQuery}
-                  onChange={(e) => setLookupQuery(e.target.value)}
-                  placeholder="Type your name..."
-                  label="Enter your existing profile name"
-                  className="flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleLookup();
-                  }}
-                />
-                <Button
-                  variant="secondary"
-                  onClick={handleLookup}
-                  loading={lookupLoading}
-                  aria-label="Look up profile"
-                >
-                  Look up
-                </Button>
-              </div>
-
-              {suggestion && (
-                <div className="rounded-lg p-4 border bg-accent-caution/[0.08] border-accent-caution/[0.15]">
-                  <p className="font-body text-small text-text-secondary text-center">
-                    Did you mean{" "}
-                    <strong className="text-text-primary">{suggestion}</strong>?
-                  </p>
-                  <div className="flex justify-center mt-2">
-                    <Button
-                      variant="secondary"
-                      onClick={handleConfirmSuggestion}
-                      loading={lookupLoading}
-                    >
-                      Yes, that's me
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {lookupError && (
-                <div className="rounded-lg p-4 border bg-accent-alert/[0.08] border-accent-alert/[0.15]">
-                  <p className="font-body text-small text-accent-alert text-center">
-                    {lookupError}
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
       </PageContainer>
     </div>

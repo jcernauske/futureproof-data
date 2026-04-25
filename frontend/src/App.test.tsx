@@ -9,8 +9,12 @@ vi.mock("@/api/session", () => ({
   clearSession: vi.fn().mockResolvedValue(undefined),
 }));
 
+const fetchMock = vi.fn();
+vi.stubGlobal("fetch", fetchMock);
+
 describe("App routes", () => {
   beforeEach(() => {
+    fetchMock.mockReset();
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -28,23 +32,30 @@ describe("App routes", () => {
     expect(document.getElementById("landing-hero-cta")).toBeInTheDocument();
   });
 
-  it("in-app LandingScreen is rendered at /app", async () => {
+  it("/app redirects to /set-your-course which bounces to /profile for auto-generation", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          profile_name: "calm true owl",
+          animal_emoji: "🦉",
+          animal_name: "owl",
+        }),
+    });
     render(
       <MemoryRouter initialEntries={["/app"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
     expect(
-      await screen.findByText(/A college degree isn't a destination/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Start building your future" }),
+      await screen.findByText("calm true owl"),
     ).toBeInTheDocument();
   });
 });
 
 describe("AppHeader visibility by route", () => {
   beforeEach(() => {
+    fetchMock.mockReset();
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -61,19 +72,28 @@ describe("AppHeader visibility by route", () => {
     expect(document.querySelector("header")).not.toBeInTheDocument();
   });
 
-  it("renders Start ✦ affordance on in-app /app", async () => {
+  it("renders header on /profile", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          profile_name: "bold swift fox",
+          animal_emoji: "🦊",
+          animal_name: "fox",
+        }),
+    });
     render(
-      <MemoryRouter initialEntries={["/app"]}>
+      <MemoryRouter initialEntries={["/profile"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
     expect(document.querySelector("header")).toBeInTheDocument();
-    expect(await screen.findByText("Start ✦")).toBeInTheDocument();
   });
 });
 
-describe("Profile-guard redirects land on /app, not /", () => {
+describe("Profile-guard redirects", () => {
   beforeEach(() => {
+    fetchMock.mockReset();
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -81,36 +101,43 @@ describe("Profile-guard redirects land on /app, not /", () => {
     });
   });
 
-  it("MenuScreen redirects to /app when no profile is set", async () => {
+  it("/menu redirects to /builds", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          profile_name: "calm true owl",
+          animal_emoji: "🦉",
+          animal_name: "owl",
+        }),
+    });
     render(
       <MemoryRouter initialEntries={["/menu"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
     expect(
-      await screen.findByText(/A college degree isn't a destination/),
+      await screen.findByText("calm true owl"),
     ).toBeInTheDocument();
   });
 
-  it("ProfileScreen redirects to /app when no profile is set", async () => {
+  it("ProfileScreen auto-generates profile when none exists", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          profile_name: "dancing happy bear",
+          animal_emoji: "🐻",
+          animal_name: "bear",
+        }),
+    });
     render(
       <MemoryRouter initialEntries={["/profile"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
     expect(
-      await screen.findByText(/A college degree isn't a destination/),
-    ).toBeInTheDocument();
-  });
-
-  it("SchoolMajorScreen redirects to /app when no profile is set", async () => {
-    render(
-      <MemoryRouter initialEntries={["/school"]}>
-        <AppRoutes />
-      </MemoryRouter>,
-    );
-    expect(
-      await screen.findByText(/A college degree isn't a destination/),
+      await screen.findByText("dancing happy bear"),
     ).toBeInTheDocument();
   });
 });

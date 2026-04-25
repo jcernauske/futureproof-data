@@ -15,7 +15,7 @@ import { PageContainer } from "@/components/ui/PageContainer";
 
 type Mode = "list" | "select" | "compare";
 
-export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) {
+export function MenuScreen() {
   const navigate = useNavigate();
   const profileName = useProfileStore((s) => s.profileName);
   const animalEmoji = useProfileStore((s) => s.animalEmoji);
@@ -36,15 +36,15 @@ export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) 
   const navigatingRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!allBuilds && !profileName) navigate("/app", { replace: true });
-  }, [allBuilds, profileName, navigate]);
+    if (!profileName) navigate("/app", { replace: true });
+  }, [profileName, navigate]);
 
   useEffect(() => {
-    if (!allBuilds && !profileName) return;
+    if (!profileName) return;
     let cancelled = false;
     setLoadingList(true);
     setListError(null);
-    listBuilds(allBuilds ? undefined : profileName!)
+    listBuilds()
       .then((res) => {
         if (cancelled) return;
         setBuilds(res);
@@ -59,7 +59,7 @@ export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) 
     return () => {
       cancelled = true;
     };
-  }, [allBuilds, profileName]);
+  }, [profileName]);
 
   const mostRecentId = useMemo(() => {
     if (builds.length === 0) return null;
@@ -98,11 +98,6 @@ export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) 
 
   const handleNewBuild = useCallback(() => {
     resetInputs();
-    navigate("/school");
-  }, [navigate, resetInputs]);
-
-  const handleNewBuildSetCourse = useCallback(() => {
-    resetInputs();
     navigate("/set-your-course");
   }, [navigate, resetInputs]);
 
@@ -136,7 +131,7 @@ export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) 
     setChatOpen(true);
   }, [builds]);
 
-  if (!allBuilds && !profileName) return null;
+  if (!profileName) return null;
 
   return (
     <PageContainer variant="centered" testId="screen-menu" className="pt-24 pb-16">
@@ -165,9 +160,7 @@ export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) 
                 Your builds
               </p>
               <h1 className="font-display text-display text-text-primary">
-                {allBuilds
-                  ? "All Saved Builds"
-                  : `Welcome back, ${profileName} ${animalEmoji ?? ""}`}
+                Saved Builds
               </h1>
               <p className="font-body text-body text-text-secondary">
                 Compare your futures, ask Gemma, or start a new build.
@@ -201,7 +194,7 @@ export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) 
                     </Button>
                     <Button
                       variant="secondary"
-                      onClick={handleNewBuildSetCourse}
+                      onClick={handleNewBuild}
                       data-testid="btn-new-build-set-course"
                     >
                       Try the new flow ✦
@@ -261,7 +254,7 @@ export function MenuScreen({ allBuilds = false }: { allBuilds?: boolean } = {}) 
                   </Button>
                   <Button
                     variant="secondary"
-                    onClick={handleNewBuildSetCourse}
+                    onClick={handleNewBuild}
                     data-testid="btn-new-build-set-course"
                   >
                     Try the new flow ✦
