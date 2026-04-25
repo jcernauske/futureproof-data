@@ -432,9 +432,9 @@ Brightsmith processes each source through Bronze → Silver → Gold → MCP zon
 
 ## Technical Architecture
 
-### Current State: Backend Is Built
+### Current State: Web/API Is Canonical
 
-The spike produced a fully functional backend at `futureproof-data/backend/`. This is not a throwaway prototype — it's the production service layer. The entire core loop runs end-to-end today via `uv run python backend/cli.py` from the project root.
+The original CLI spike proved the Gemma + public-data workflow and has been archived under `archive/spikes/cli/`. The submitted product path is now the web/API stack: FastAPI services under `backend/app/` and the React frontend under `frontend/`.
 
 **What runs right now:**
 - School search → Gemma intent resolution for majors → effort + loan sliders → five-stat pentagon computation → Gemma career tiering → career pick → Gemma's Take narrative → boss gauntlet with interactive reroll → Next Steps checklist → dynamic branch tree → skill recommendations → save/load/compare builds → freeform Gemma chat → markdown report generation
@@ -445,11 +445,11 @@ The spike produced a fully functional backend at `futureproof-data/backend/`. Th
 3. Add Wrapped frame rendering endpoint (Puppeteer)
 4. Build the React frontend consuming the API
 
-### The Spike Codebase
+### Archived Spike Codebase
 
-**Location:** `~/code/bright/futureproof-data/backend/`
+**Location:** `~/code/bright/futureproof-data/archive/spikes/cli/`
 
-**Entry point:** `backend/cli.py` — interactive Rich CLI that walks through the full experience. This is the reference implementation for the frontend. Every screen in the UX flow maps to a function in this file.
+**Entry point:** `archive/spikes/cli/cli.py` — deprecated interactive Rich CLI that walked through the early proof of concept. It is historical context only; the web/API implementation is authoritative and has evolved beyond it.
 
 **CLI → Frontend mapping:**
 
@@ -767,7 +767,7 @@ Specs are written to `docs/specs/` and executed by Claude Code. This table track
 | `gold-futureproof-engine` | Engine tables with derived stats + boss scores | Week 2 |
 | `gold-futureproof-engine-backfill-ai` | RES stat + Fight AI boss backfill | Week 2 |
 | `mcp-futureproof-core` | MCP tool-use layer for Gemma | Week 2 |
-| Spike backend (`backend/cli.py`) | 16 services, 10 Gemma surfaces, full interactive loop | Week 2-3 |
+| Archived CLI spike (`archive/spikes/cli/cli.py`) | Early proof of concept for 16 services, 10 Gemma surfaces, full interactive loop | Week 2-3 |
 | `feature-onboarding-screens` | Design mockups for landing, school+major, character select | Week 2 |
 | Brightpath design system | CSS tokens, Tailwind config, design philosophy | Week 2 |
 

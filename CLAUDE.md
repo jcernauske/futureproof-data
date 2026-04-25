@@ -184,8 +184,8 @@ cd frontend && npm install         # Install frontend deps
 cd frontend && npx vitest run      # Run frontend tests
 cd frontend && npx tsc --noEmit    # Type check frontend
 
-# CLI (when built)
-cd backend && python cli.py        # Interactive CLI harness
+# Legacy CLI spike
+# Archived at archive/spikes/cli; web/API is canonical.
 ```
 
 ## Specs
