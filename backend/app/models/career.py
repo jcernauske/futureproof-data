@@ -307,6 +307,7 @@ class BuildSummary(BaseModel):
     parent_build_id: str | None = None
     effort: str = "balanced"
     loan_pct: float = 1.0
+    animal_emoji: str | None = None
 
 
 class WrappedFrameInfo(BaseModel):

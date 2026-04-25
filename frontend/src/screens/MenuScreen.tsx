@@ -222,7 +222,7 @@ export function MenuScreen() {
                     >
                       <BuildCard
                         build={build}
-                        emoji={animalEmoji ?? "✦"}
+                        emoji={build.animal_emoji ?? animalEmoji ?? "✦"}
                         isMostRecent={build.build_id === mostRecentId}
                         selectMode={mode === "select"}
                         selected={selectedIds.includes(build.build_id)}

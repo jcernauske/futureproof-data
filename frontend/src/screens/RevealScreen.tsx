@@ -93,6 +93,8 @@ export function RevealScreen() {
           major.rawText,
           studentCip,
           homeState ?? undefined,
+          school.stateAbbr ?? undefined,
+          animalEmoji ?? undefined,
         ),
         minDisplayTime,
       ]);

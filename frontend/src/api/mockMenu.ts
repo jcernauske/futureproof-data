@@ -25,6 +25,7 @@ const SUMMARIES: BuildSummary[] = [
     losses: 0,
     draws: 1,
     profile_name: "Wandering Otter",
+    animal_emoji: "🦦",
   },
   {
     build_id: "iu-bloom-mkt-001",
@@ -41,6 +42,7 @@ const SUMMARIES: BuildSummary[] = [
     losses: 1,
     draws: 1,
     profile_name: "Wandering Otter",
+    animal_emoji: "🦦",
   },
   {
     build_id: "purdue-nursing-001",
@@ -57,6 +59,7 @@ const SUMMARIES: BuildSummary[] = [
     losses: 0,
     draws: 0,
     profile_name: "Wandering Otter",
+    animal_emoji: "🦦",
   },
 ];
 

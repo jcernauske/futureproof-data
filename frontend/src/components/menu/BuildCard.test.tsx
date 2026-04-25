@@ -26,6 +26,7 @@ function makeSummary(overrides: Partial<BuildSummary> = {}): BuildSummary {
     losses: 1,
     draws: 2,
     profile_name: "Wandering Otter",
+    animal_emoji: "🦦",
     ...overrides,
   };
 }
