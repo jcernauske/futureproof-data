@@ -33,6 +33,7 @@ export interface BuildSummary {
   losses: number;
   draws: number;
   profile_name: string;
+  animal_emoji: string | null;
 }
 
 export interface CompareBuild {

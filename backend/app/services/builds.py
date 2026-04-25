@@ -84,6 +84,47 @@ def _add_column_if_missing(
         connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {dtype}")
 
 
+_ANIMAL_EMOJI_MAP = {
+    "bear": "\U0001f43b",
+    "bunny": "\U0001f430",
+    "turtle": "\U0001f422",
+    "chipmunk": "\U0001f43f️",
+    "fox": "\U0001f98a",
+    "owl": "\U0001f989",
+    "penguin": "\U0001f427",
+    "cat": "\U0001f431",
+}
+
+
+def _backfill_animal_emoji(connection: duckdb.DuckDBPyConnection) -> None:
+    """Patch builds whose JSON data is missing animal_emoji."""
+    try:
+        rows = connection.execute(
+            """SELECT build_id, profile_name, data FROM builds
+               WHERE json_extract_string(data, '$.animal_emoji') IS NULL"""
+        ).fetchall()
+    except duckdb.CatalogException:
+        return
+    if not rows:
+        return
+    import json
+    for build_id, profile_name, data_str in rows:
+        name_lower = (profile_name or "").lower()
+        emoji = None
+        for animal, em in _ANIMAL_EMOJI_MAP.items():
+            if animal in name_lower:
+                emoji = em
+                break
+        if emoji and data_str:
+            data = json.loads(data_str)
+            data["animal_emoji"] = emoji
+            connection.execute(
+                "UPDATE builds SET data = ? WHERE build_id = ?",
+                [json.dumps(data), build_id],
+            )
+    logger.info("Backfilled animal_emoji for %d builds", len(rows))
+
+
 def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
     connection.execute(
         """
@@ -108,6 +149,7 @@ def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
         """
     )
     _add_column_if_missing(connection, "builds", "parent_build_id", "VARCHAR")
+    _backfill_animal_emoji(connection)
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS wrapped_frames (
@@ -256,7 +298,8 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
                career_title, ern, roi, res, grw, hmn, wins, losses, draws,
                parent_build_id,
                json_extract_string(data, '$.effort') AS effort,
-               json_extract(data, '$.loan_pct') AS loan_pct
+               json_extract(data, '$.loan_pct') AS loan_pct,
+               json_extract_string(data, '$.animal_emoji') AS animal_emoji
         FROM builds
     """
     params: list[str] = []
@@ -284,6 +327,7 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
             parent_build_id=r[14],
             effort=r[15] or "balanced",
             loan_pct=float(r[16]) if r[16] is not None else 1.0,
+            animal_emoji=r[17],
         )
         for r in rows
     ]
