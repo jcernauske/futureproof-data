@@ -1,7 +1,7 @@
 """Gemma intent resolution — maps free-text major input to a CIP code.
 
-Extracted from cli.py._prompt_major_gemma_intent(). The CLI's Rich
-console output stays in the CLI; this module handles the data flow only.
+This service is part of the canonical web/API path. The original Rich CLI
+proof of concept lives in ``archive/spikes/cli`` and may be stale.
 """
 
 from __future__ import annotations
@@ -76,9 +76,8 @@ def _promote_to_leaf_cip(
             return descendants[0]
     return matched_cip
 
-# DUPLICATE: this prompt is mirrored in backend/cli.py:_INTENT_SYSTEM_PROMPT.
-# Edits here MUST be applied to the CLI copy (consolidation tracked as
-# follow-up in docs/specs/feature-gemma-tiered-matching.md §11).
+# NOTE: the archived CLI spike has an older copy of this prompt under
+# archive/spikes/cli/cli.py. The web/API path here is authoritative.
 _INTENT_SYSTEM_PROMPT = """\
 You map a student's free-text major to a CIP (Classification of \
 Instructional Programs) code. Pick the most specific CIP that matches \
