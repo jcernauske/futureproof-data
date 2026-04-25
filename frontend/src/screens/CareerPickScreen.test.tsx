@@ -379,7 +379,7 @@ describe("CareerPickScreen", () => {
     });
   });
 
-  it("redirects to /school and sets session-expired hint when school/major missing", async () => {
+  it("redirects to /set-your-course and sets session-expired hint when school/major missing", async () => {
     useBuildInputStore.setState({
       phase: "school",
       school: null,
@@ -393,7 +393,7 @@ describe("CareerPickScreen", () => {
     renderScreen();
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/school", { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith("/set-your-course", { replace: true });
     });
     expect(sessionStorage.getItem("fp-nav-hint")).toBe("session-expired");
     expect(mockGetOutcomes).not.toHaveBeenCalled();

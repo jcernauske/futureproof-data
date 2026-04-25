@@ -41,7 +41,7 @@ export function CareerPickScreen() {
   useEffect(() => {
     if (!school || !major) {
       sessionStorage.setItem("fp-nav-hint", "session-expired");
-      navigate("/school", { replace: true });
+      navigate("/set-your-course", { replace: true });
     }
   }, [school, major, navigate]);
 

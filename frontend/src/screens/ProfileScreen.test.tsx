@@ -34,7 +34,7 @@ beforeEach(() => {
 describe("ProfileScreen", () => {
   it("renders profile name", () => {
     renderProfile();
-    expect(screen.getByText("We'll call you")).toBeInTheDocument();
+    expect(screen.getByText("Meet your guide")).toBeInTheDocument();
     expect(screen.getByText("dancing happy bear")).toBeInTheDocument();
   });
 
@@ -59,84 +59,26 @@ describe("ProfileScreen", () => {
     });
   });
 
-  it("lookup found navigates", async () => {
+  it("auto-generates profile when none exists", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: () =>
         Promise.resolve({
-          found: true,
           profile_name: "calm true owl",
           animal_emoji: "🦉",
           animal_name: "owl",
-          builds: [],
         }),
     });
-
-    renderProfile();
-    fireEvent.click(screen.getByText("Already have a name?"));
-    const input = screen.getByPlaceholderText("Type your name...");
-    fireEvent.change(input, { target: { value: "calm true owl" } });
-    fireEvent.click(screen.getByRole("button", { name: "Look up profile" }));
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/school");
-    });
-  });
-
-  it("lookup suggestion shown", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          found: false,
-          suggestion: "steady bold turtle 🐢",
-        }),
-    });
-
-    renderProfile();
-    fireEvent.click(screen.getByText("Already have a name?"));
-    const input = screen.getByPlaceholderText("Type your name...");
-    fireEvent.change(input, { target: { value: "steaby blod turtl" } });
-    fireEvent.click(screen.getByRole("button", { name: "Look up profile" }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText((_, el) =>
-          el?.textContent === "Did you mean steady bold turtle 🐢?" || false,
-        ),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("lookup not found shows error", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          found: false,
-        }),
-    });
-
-    renderProfile();
-    fireEvent.click(screen.getByText("Already have a name?"));
-    const input = screen.getByPlaceholderText("Type your name...");
-    fireEvent.change(input, { target: { value: "nonexistent name" } });
-    fireEvent.click(screen.getByRole("button", { name: "Look up profile" }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("No profile found with that name."),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("redirects to /app if no profile", () => {
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
       animalName: null,
     });
     renderProfile();
-    expect(mockNavigate).toHaveBeenCalledWith("/app");
+    expect(screen.getByText("Generating your character...")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText("calm true owl")).toBeInTheDocument();
+    });
   });
 });

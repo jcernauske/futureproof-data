@@ -28,9 +28,9 @@ export function AppHeader() {
   const isMarketing = location.pathname === "/";
   const isLanding = location.pathname === "/app";
   const isSchool = location.pathname === "/school";
-  const isHub = location.pathname === "/menu";
+  const isHub = location.pathname === "/builds";
   const isGauntlet = location.pathname === "/gauntlet";
-  const isPostReveal = ["/build", "/reveal", "/bosses", "/gauntlet", "/branches", "/save", "/menu"].some((p) =>
+  const isPostReveal = ["/build", "/reveal", "/bosses", "/gauntlet", "/branches", "/save", "/builds"].some((p) =>
     location.pathname.startsWith(p),
   );
 
@@ -50,7 +50,7 @@ export function AppHeader() {
   }
 
   function handleHome() {
-    navigate("/menu");
+    navigate("/builds");
   }
 
   if (isMarketing) return null;
@@ -127,7 +127,7 @@ export function AppHeader() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ ...springs.smooth, delay: 0.5 }}
-                onClick={() => navigate("/school")}
+                onClick={() => navigate("/set-your-course")}
               >
                 + New
               </motion.button>

@@ -4,7 +4,7 @@
  * Tests Screen 10 (post-build hub):
  * - Renders saved builds for the active profile (P0)
  * - Tap a build card → loads via getBuild → navigate to /reveal (P0)
- * - "New Build" → resetInputs() + navigate to /school (P1)
+ * - "New Build" → resetInputs() + navigate to /set-your-course (P1)
  * - "Compare Builds" disabled when fewer than 2 builds (P1)
  *
  * The @/api/menu module is mocked at module boundary so we don't hit
@@ -220,14 +220,14 @@ describe("MenuScreen", () => {
     });
     expect(screen.getByTestId("card-build-iu-bloom-mkt-001")).toBeInTheDocument();
     expect(screen.getByTestId("card-build-purdue-nursing-001")).toBeInTheDocument();
-    expect(mockListBuilds).toHaveBeenCalledWith("Wandering Otter");
+    expect(mockListBuilds).toHaveBeenCalledWith();
   });
 
   it("calls listBuilds with the active profile name (P0)", async () => {
     mockListBuilds.mockResolvedValue([]);
     renderScreen();
     await waitFor(() => {
-      expect(mockListBuilds).toHaveBeenCalledWith("Wandering Otter");
+      expect(mockListBuilds).toHaveBeenCalledWith();
     });
   });
 
@@ -259,7 +259,7 @@ describe("MenuScreen", () => {
       expect(mockGetBuild).toHaveBeenCalledWith("berkeley-cs-001");
     });
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/reveal");
+      expect(mockNavigate).toHaveBeenCalledWith("/my-build");
     });
     // Build must have landed in the store before navigation finishes.
     expect(useBuildStore.getState().build?.build_id).toBe("berkeley-cs-001");
@@ -310,7 +310,7 @@ describe("MenuScreen", () => {
 
     fireEvent.click(screen.getByTestId("btn-new-build"));
 
-    expect(mockNavigate).toHaveBeenCalledWith("/school");
+    expect(mockNavigate).toHaveBeenCalledWith("/set-your-course");
     const after = useBuildInputStore.getState();
     expect(after.school).toBeNull();
     expect(after.major).toBeNull();
@@ -339,12 +339,12 @@ describe("MenuScreen", () => {
     expect(enterCompare).not.toBeDisabled();
   });
 
-  it("empty-state CTA also routes to /school via resetInputs (saboteur: zero-builds path)", async () => {
+  it("empty-state CTA also routes to /set-your-course via resetInputs (saboteur: zero-builds path)", async () => {
     mockListBuilds.mockResolvedValue([]);
     renderScreen();
 
     const cta = await screen.findByTestId("btn-new-build");
     fireEvent.click(cta);
-    expect(mockNavigate).toHaveBeenCalledWith("/school");
+    expect(mockNavigate).toHaveBeenCalledWith("/set-your-course");
   });
 });

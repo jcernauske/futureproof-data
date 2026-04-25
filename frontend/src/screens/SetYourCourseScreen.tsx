@@ -112,7 +112,7 @@ export function SetYourCourseScreen() {
   useEffect(() => {
     if (!profileName) {
       sessionStorage.setItem("fp-after-profile", "/set-your-course");
-      navigate("/app", { replace: true });
+      navigate("/profile", { replace: true });
     }
   }, [profileName, navigate]);
 
