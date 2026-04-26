@@ -1,5 +1,6 @@
 import type { PentagonStats } from "@/types/build";
 import { StatBarRow } from "./StatBarRow";
+import { useT } from "@/i18n/useT";
 
 interface PathCardProps {
   programName: string;
@@ -12,6 +13,7 @@ interface PathCardProps {
 const STAT_KEYS = ["ern", "roi", "res", "grw", "hmn"] as const;
 
 export function PathCard({ programName, cipCode, careerName, socCode, stats }: PathCardProps) {
+  const t = useT();
   return (
     <div
       className="rounded-[20px] border border-border-subtle bg-bp-mid"
@@ -22,7 +24,7 @@ export function PathCard({ programName, cipCode, careerName, socCode, stats }: P
         className="font-data font-bold uppercase text-accent-info"
         style={{ fontSize: 11, letterSpacing: 2, marginBottom: 16 }}
       >
-        Your Path
+        {t("build.yourPath")}
       </div>
 
       {/* Program entry */}

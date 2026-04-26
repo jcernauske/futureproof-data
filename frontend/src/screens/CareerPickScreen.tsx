@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { springs, staggerContainer, staggerItem, stagger } from "@/styles/motion";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
+import { useProfileStore } from "@/store/profileStore";
 import { getOutcomes, getTieredCareers } from "@/api/build";
-import { getCareerPickChips } from "@/api/careerPick";
+import { askCareerPickChip, getCareerPickChips } from "@/api/careerPick";
+import { AskGemmaChipRow } from "@/components/AskGemmaChipRow";
+import { AskGemmaResponseCard } from "@/components/AskGemmaResponseCard";
 import {
   CareerLineageSheet,
   type SheetDetent,
@@ -14,19 +17,16 @@ import { CareerTierSection } from "@/components/CareerTierSection";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { GemmaThinking } from "@/components/ui/GemmaThinking";
 import type { CareerOutcome } from "@/types/build";
+import { useT } from "@/i18n/useT";
 import type { CareerPickChip } from "@/types/careerPick";
-
-const TIER_DESCRIPTIONS = {
-  common: "Where most graduates from this program end up.",
-  less_common: "Realistic paths that take more intention.",
-  stretch: "Possible but atypical — these take extra work to reach.",
-} as const;
 
 export function CareerPickScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
+  const locale = useProfileStore((s) => s.locale);
   const { tieredCareers, selectedCareer, setTieredCareers, setSelectedCareer } =
     useBuildStore();
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -36,6 +36,10 @@ export function CareerPickScreen() {
   const [lineageCareer, setLineageCareer] = useState<CareerOutcome | null>(null);
   const [detent, setDetent] = useState<SheetDetent>("compact");
   const [chips, setChips] = useState<CareerPickChip[]>([]);
+  const [activeChipId, setActiveChipId] = useState<string | null>(null);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [answerLoading, setAnswerLoading] = useState(false);
+  const askElevationHintId = useId();
 
   // Navigation guard — school/major are session-scoped and not persisted.
   useEffect(() => {
@@ -107,6 +111,15 @@ export function CareerPickScreen() {
       ...tieredCareers.stretch,
     ].map((c) => c.soc_code);
   }, [tieredCareers]);
+  const displayedChips = useMemo(
+    () =>
+      chips.map((chip) => {
+        const key = `careerPick.chip.${chip.id}`;
+        const label = t(key);
+        return { ...chip, label: label === key ? chip.label : label };
+      }),
+    [chips, t],
+  );
 
   // Prefetch the chip set once the tier response lands, so the chips are
   // ready by the time the student clicks a card.
@@ -159,6 +172,47 @@ export function CareerPickScreen() {
     navigate("/reveal");
   }
 
+  function handleAskGemma(chip: CareerPickChip) {
+    if (!major) return;
+    setActiveChipId(chip.id);
+    setAnswer(null);
+    setAnswerLoading(true);
+
+    askCareerPickChip({
+      chipId: chip.id,
+      cipcode: major.parentCip || major.cipCode,
+      majorText: major.rawText,
+      socCodes,
+      selectedSoc: selectedCareer?.soc_code ?? lineageCareer?.soc_code ?? null,
+      terminalTitle: chip.terminal_title,
+      locale,
+    })
+      .then((response) => {
+        setAnswer(response.answer);
+      })
+      .catch((err: unknown) => {
+        const message =
+          err instanceof Error ? err.message : "Gemma couldn't answer.";
+        setAnswer(message);
+      })
+      .finally(() => {
+        setAnswerLoading(false);
+      });
+  }
+
+  function handleRegenerateAskGemma() {
+    if (!activeChipId) return;
+    const chip = displayedChips.find((candidate) => candidate.id === activeChipId);
+    if (!chip) return;
+    handleAskGemma(chip);
+  }
+
+  function handleCloseAskGemma() {
+    setActiveChipId(null);
+    setAnswer(null);
+    setAnswerLoading(false);
+  }
+
   if (!school || !major) return null;
 
   return (
@@ -175,7 +229,7 @@ export function CareerPickScreen() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
           >
-            CHOOSE YOUR PATH
+            {t("careerPick.kicker")}
           </motion.p>
           <motion.h1
             className="font-display font-bold text-display text-text-primary mb-3"
@@ -183,7 +237,7 @@ export function CareerPickScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springs.smooth, delay: 0.15 }}
           >
-            Where could this degree take you?
+            {t("careerPick.heading")}
           </motion.h1>
           <motion.p
             className="font-body text-body-lg text-text-secondary"
@@ -191,8 +245,7 @@ export function CareerPickScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springs.smooth, delay: 0.25 }}
           >
-            Gemma analyzed your program and grouped career paths by how common
-            they are for graduates like you.
+            {t("careerPick.subtitle")}
           </motion.p>
           {/* Persistent "You picked" chip — visible from anywhere on the page
               so the student never loses sight of their current commitment.
@@ -207,14 +260,14 @@ export function CareerPickScreen() {
             >
               <div className="inline-flex items-center gap-2 bg-accent-thrive/15 border border-accent-thrive/40 rounded-full pl-3 pr-1 py-1">
                 <span className="font-data text-micro font-bold uppercase tracking-[2px] text-accent-thrive">
-                  Picked
+                  {t("careerPick.picked")}
                 </span>
                 <span className="font-body text-small font-semibold text-text-primary">
                   {selectedCareer.occupation_title}
                 </span>
                 <button
                   type="button"
-                  aria-label="Clear pick"
+                  aria-label={t("careerPick.clearPick")}
                   onClick={handleUnpick}
                   className="ml-1 w-6 h-6 rounded-full inline-flex items-center justify-center text-accent-thrive hover:bg-accent-thrive/20 cursor-pointer transition-colors duration-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-focus-ring)]"
                 >
@@ -241,7 +294,7 @@ export function CareerPickScreen() {
         {/* Loading state */}
         {loading && (
           <div className="col-span-12 flex items-center justify-center py-20">
-            <GemmaThinking message="Gemma is analyzing career paths..." />
+            <GemmaThinking message={t("careerPick.analyzing")} />
           </div>
         )}
 
@@ -257,7 +310,7 @@ export function CareerPickScreen() {
               }}
               className="font-body font-semibold text-body px-6 py-3 rounded-lg bg-bp-surface border border-border-subtle text-text-primary cursor-pointer hover:bg-bp-raised transition-colors duration-normal"
             >
-              Try Again
+              {t("careerPick.tryAgain")}
             </button>
           </div>
         )}
@@ -270,11 +323,58 @@ export function CareerPickScreen() {
             initial="hidden"
             animate="visible"
           >
+            {displayedChips.length > 0 ? (
+              <motion.section
+                aria-labelledby="career-pick-ask-gemma-title"
+                className="
+                  bg-bp-mid/70 border border-border-subtle rounded-xl
+                  p-4 tablet:p-5 shadow-md
+                "
+                variants={staggerItem}
+              >
+                <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
+                  <div>
+                    <p className="font-data text-micro font-bold uppercase tracking-[2px] text-accent-insight mb-1">
+                      {t("careerPick.askGemma")}
+                    </p>
+                    <h2
+                      id="career-pick-ask-gemma-title"
+                      className="font-display font-semibold text-subheading text-text-primary"
+                    >
+                      {t("careerPick.makeSense")}
+                    </h2>
+                  </div>
+                  <AskGemmaChipRow
+                    chips={displayedChips}
+                    activeChipId={activeChipId}
+                    onChipClick={handleAskGemma}
+                    elevationHintId={askElevationHintId}
+                    ariaLabel="Ask Gemma about these career paths"
+                    className="py-1"
+                  />
+                </div>
+                <span id={askElevationHintId} className="sr-only">
+                  Gemma thinks this question might be relevant based on your
+                  program and career results.
+                </span>
+                <AnimatePresence initial={false}>
+                  {activeChipId !== null ? (
+                    <AskGemmaResponseCard
+                      key={activeChipId}
+                      loading={answerLoading}
+                      answer={answer}
+                      onRegenerate={handleRegenerateAskGemma}
+                      onClose={handleCloseAskGemma}
+                    />
+                  ) : null}
+                </AnimatePresence>
+              </motion.section>
+            ) : null}
             <motion.div variants={staggerItem}>
               <CareerTierSection
                 id="section-tier-common"
-                label="Common"
-                description={TIER_DESCRIPTIONS.common}
+                label={t("careerPick.common")}
+                description={t("careerPick.commonDesc")}
                 accent="common"
                 careers={tieredCareers.common}
                 pickedSoc={selectedCareer?.soc_code ?? null}
@@ -284,8 +384,8 @@ export function CareerPickScreen() {
             <motion.div variants={staggerItem}>
               <CareerTierSection
                 id="section-tier-less-common"
-                label="Less Common"
-                description={TIER_DESCRIPTIONS.less_common}
+                label={t("careerPick.lessCommon")}
+                description={t("careerPick.lessCommonDesc")}
                 accent="uncommon"
                 careers={tieredCareers.less_common}
                 pickedSoc={selectedCareer?.soc_code ?? null}
@@ -295,8 +395,8 @@ export function CareerPickScreen() {
             <motion.div variants={staggerItem}>
               <CareerTierSection
                 id="section-tier-stretch"
-                label="Stretch"
-                description={TIER_DESCRIPTIONS.stretch}
+                label={t("careerPick.stretch")}
+                description={t("careerPick.stretchDesc")}
                 accent="uncommon"
                 careers={tieredCareers.stretch}
                 pickedSoc={selectedCareer?.soc_code ?? null}
@@ -321,7 +421,7 @@ export function CareerPickScreen() {
           onDetentChange={setDetent}
           chips={chips}
           askContext={{
-            cipcode: major.cipCode,
+            cipcode: major.parentCip || major.cipCode,
             majorText: major.rawText,
             socCodes,
           }}

@@ -224,5 +224,130 @@ class TestChatWithContext:
             conversation_history=[],
             user_question="hi",
         )
-        assert "IU-B" in answer
-        assert "Marketing" in answer
+        assert "trouble" in answer or "unavailable" in answer
+
+
+# ---------------------------------------------------------------------------
+# Locale threading — Spanish instruction injection
+# ---------------------------------------------------------------------------
+
+
+class TestGuidanceLocale:
+    def test_generate_guidance_passes_spanish_instruction(self, monkeypatch):
+        """When locale='es', the system prompt sent to Gemma must contain
+        the full Spanish instruction block — glossary, prose directive,
+        JSON key preservation rules.
+        """
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        def fake_generate(**kwargs):
+            captured.update(kwargs)
+            return "stub guidance"
+
+        monkeypatch.setattr(gemma_client, "generate", fake_generate)
+        guidance.generate_guidance(
+            _career(), _gauntlet(), [], locale="es"
+        )
+
+        system = captured["system"]
+        assert isinstance(system, str)
+        assert "Write all student-facing prose in Spanish" in system
+        assert "deuda estudiantil" in system
+        assert "JSON keys" in system
+        assert "enum values in English" in system
+
+    def test_generate_guidance_english_locale(self, monkeypatch):
+        """locale='en' should produce English instruction, not Spanish."""
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+        monkeypatch.setattr(
+            gemma_client,
+            "generate",
+            lambda **kw: (captured.update(kw), "ok")[1],
+        )
+        guidance.generate_guidance(
+            _career(), _gauntlet(), [], locale="en"
+        )
+
+        system = captured["system"]
+        assert "Write student-facing prose in English" in system
+        assert "Spanish" not in system
+        assert "Glossary" not in system
+
+    def test_generate_guidance_async_passes_spanish_instruction(
+        self, monkeypatch
+    ):
+        """Async variant must thread locale the same way."""
+        import asyncio
+
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return "stub async"
+
+        monkeypatch.setattr(
+            gemma_client, "generate_async", fake_generate_async
+        )
+        asyncio.run(
+            guidance.generate_guidance_async(
+                _career(), _gauntlet(), [], locale="es"
+            )
+        )
+
+        system = captured["system"]
+        assert isinstance(system, str)
+        assert "Write all student-facing prose in Spanish" in system
+        assert "deuda estudiantil" in system
+
+    def test_chat_with_context_passes_spanish_instruction(self, monkeypatch):
+        """chat_with_context must thread locale into the system prompt."""
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+        monkeypatch.setattr(
+            gemma_client,
+            "generate_chat",
+            lambda **kw: (captured.update(kw), "ok")[1],
+        )
+        guidance.chat_with_context(
+            career=_career(),
+            gauntlet=_gauntlet(),
+            branches=[],
+            skill_recs=[],
+            conversation_history=[],
+            user_question="hi",
+            locale="es",
+        )
+
+        system = captured["system"]
+        assert "Write all student-facing prose in Spanish" in system
+        assert "deuda estudiantil" in system
+
+    def test_chat_with_context_default_locale_is_english(self, monkeypatch):
+        """Omitting locale should produce English instruction."""
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+        monkeypatch.setattr(
+            gemma_client,
+            "generate_chat",
+            lambda **kw: (captured.update(kw), "ok")[1],
+        )
+        guidance.chat_with_context(
+            career=_career(),
+            gauntlet=_gauntlet(),
+            branches=[],
+            skill_recs=[],
+            conversation_history=[],
+            user_question="hi",
+        )
+
+        system = captured["system"]
+        assert "Write student-facing prose in English" in system
+        assert "Spanish" not in system

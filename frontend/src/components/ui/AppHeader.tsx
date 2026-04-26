@@ -48,9 +48,9 @@ function truncateSchoolName(name: string, maxLen = 24): string {
 export function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profileName, animalEmoji, setProfile } = useProfileStore();
+  const { profileName, animalEmoji, setProfile, clearProfile } = useProfileStore();
   const [starting, setStarting] = useState(false);
-  const { phase, school, major, clearMajor, clearSchool } = useBuildInputStore();
+  const { phase, school, major, clearMajor, clearSchool, resetInputs } = useBuildInputStore();
   const selectedCareer = useBuildStore((s) => s.selectedCareer);
 
   // TODO (spec §11 post-hackathon): replace this pathname-based marketing gate
@@ -104,9 +104,9 @@ export function AppHeader() {
           {/* Left zone: wordmark (tappable home) + back chevron */}
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => navigate(profileName ? "/builds" : "/app")}
+              onClick={() => navigate("/")}
               className="cursor-pointer hover:opacity-80 transition-opacity duration-normal"
-              aria-label="Go to builds"
+              aria-label="Go to landing page"
             >
               <Wordmark size="sm" />
             </button>
@@ -246,7 +246,7 @@ export function AppHeader() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ ...springs.smooth, delay: 0.5 }}
-                onClick={() => navigate("/set-your-course")}
+                onClick={() => { clearProfile(); resetInputs(); navigate("/profile"); }}
               >
                 + New Build
               </motion.button>

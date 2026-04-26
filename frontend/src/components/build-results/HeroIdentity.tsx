@@ -1,4 +1,5 @@
 import { EMOJI_BG } from "./bossData";
+import { useT } from "@/i18n/useT";
 
 interface HeroIdentityProps {
   profileName: string;
@@ -8,6 +9,7 @@ interface HeroIdentityProps {
 }
 
 export function HeroIdentity({ profileName, animalEmoji, schoolName, programName }: HeroIdentityProps) {
+  const t = useT();
   const emojiBg = EMOJI_BG[animalEmoji] ?? "var(--color-accent-info)";
 
   return (
@@ -43,7 +45,7 @@ export function HeroIdentity({ profileName, animalEmoji, schoolName, programName
           className="hero-subtitle font-body text-text-secondary"
           style={{ fontSize: 18, fontWeight: 600, animation: "simpleFade 0.3s ease-out 0.75s both" }}
         >
-          Studying {programName} at {schoolName}
+          {t("build.studying").replace("{program}", programName).replace("{school}", schoolName)}
         </div>
       </div>
 

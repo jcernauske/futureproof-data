@@ -333,3 +333,63 @@ async def test_ask_writes_call_site_to_gemma_jsonl(
     assert extra["soc_codes"] == ["15-1252", "15-2051"]
     assert extra["cipcode"] == "26.0101"
     assert extra["major_text"] == "pre-med"
+
+
+# ---------------------------------------------------------------------------
+# Locale threading — Spanish instruction injection into ask()
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ask_passes_spanish_instruction_to_gemma(monkeypatch) -> None:
+    """ask(locale='es') must thread the Spanish instruction block into
+    the Gemma system prompt."""
+    captured: dict[str, object] = {}
+
+    async def _fake_generate_async(**kwargs):
+        captured.update(kwargs)
+        return "respuesta en espanol"
+
+    monkeypatch.setattr(gemma_client, "generate_async", _fake_generate_async)
+
+    resp = await career_pick_qna.ask(
+        request=_request(
+            chip_id="what_does_this_do",
+            major_text="pre-med",
+            selected_soc="15-1252",
+            soc_codes=["15-1252"],
+        ),
+        locale="es",
+    )
+
+    assert resp.answer == "respuesta en espanol"
+    system = captured["system"]
+    assert isinstance(system, str)
+    assert "Write all student-facing prose in Spanish" in system
+    assert "deuda estudiantil" in system
+    assert "JSON keys" in system
+
+
+@pytest.mark.asyncio
+async def test_ask_default_locale_is_english(monkeypatch) -> None:
+    """Omitting locale should produce English instruction."""
+    captured: dict[str, object] = {}
+
+    async def _fake_generate_async(**kwargs):
+        captured.update(kwargs)
+        return "english answer"
+
+    monkeypatch.setattr(gemma_client, "generate_async", _fake_generate_async)
+
+    await career_pick_qna.ask(
+        request=_request(
+            chip_id="what_does_this_do",
+            major_text="biology",
+            selected_soc="15-1252",
+            soc_codes=["15-1252"],
+        ),
+    )
+
+    system = captured["system"]
+    assert "Write student-facing prose in English" in system
+    assert "Spanish" not in system

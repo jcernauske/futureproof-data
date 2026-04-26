@@ -44,7 +44,7 @@ async def get_chips(
 @router.post("/ask", response_model=AskCareerPickResponse)
 async def post_ask(request: AskCareerPickRequest) -> AskCareerPickResponse:
     try:
-        return await career_pick_qna.ask(request=request)
+        return await career_pick_qna.ask(request=request, locale=request.locale)
     except ValueError as exc:
         # Unknown chip_id — Pydantic can't catch this since the id is a
         # free-form string in the request schema.

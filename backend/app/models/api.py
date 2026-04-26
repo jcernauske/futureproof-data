@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.career import Build, IntentResult
+from app.services.locale import AppLocale
 
 
 class IntentRequest(BaseModel):
@@ -80,6 +81,7 @@ class BuildRequest(BaseModel):
     home_state: str | None = None
     school_state: str | None = None
     animal_emoji: str | None = None
+    locale: AppLocale = "en"
 
     @field_validator("home_state", "school_state", mode="before")
     @classmethod
@@ -111,6 +113,7 @@ class RescoreRequest(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     history: list[dict] = []
+    locale: AppLocale | None = None
 
 
 class CompareRequest(BaseModel):
@@ -157,6 +160,7 @@ class IntentStreamRequest(BaseModel):
     school_name: str
     unitid: int
     programs: list[dict[str, Any]] = Field(default_factory=list)
+    locale: AppLocale = "en"
 
 
 class Suggestion(BaseModel):
@@ -186,6 +190,7 @@ class ChipRequest(BaseModel):
     school_name: str
     unitid: int
     programs: list[dict[str, Any]] = Field(default_factory=list)
+    locale: AppLocale = "en"
 
     @model_validator(mode="after")
     def _require_clarifier_for_not_expected(self) -> "ChipRequest":

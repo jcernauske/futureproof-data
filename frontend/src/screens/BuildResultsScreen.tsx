@@ -19,6 +19,7 @@ import { STAT_COLORS } from "@/components/build-results/bossData";
 import type { StatKey } from "@/data/statExplanations";
 import { STAT_EXPLANATIONS } from "@/data/statExplanations";
 import { fireCheckpoint } from "@/lib/checkpoint";
+import { useT } from "@/i18n/useT";
 import type { BossFightResult } from "@/types/build";
 
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
@@ -26,8 +27,9 @@ const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 export function BuildResultsScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
-  const { profileName, animalEmoji, homeState } = useProfileStore();
+  const { profileName, animalEmoji, homeState, locale } = useProfileStore();
   const { selectedCareer, build, setBuild, isBuilding, setIsBuilding } = useBuildStore();
+  const t = useT();
 
   const [error, setError] = useState<string | null>(null);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export function BuildResultsScreen() {
           homeState ?? undefined,
           school.stateAbbr ?? undefined,
           animalEmoji ?? undefined,
+          locale,
         ),
         minDisplayTime,
       ]);
@@ -106,7 +109,7 @@ export function BuildResultsScreen() {
       setError(err instanceof Error ? err.message : "Build failed");
       setIsBuilding(false);
     }
-  }, [selectedCareer, school, major, profileName, effort, loans, homeState, setBuild, setIsBuilding]);
+  }, [selectedCareer, school, major, profileName, effort, loans, homeState, locale, setBuild, setIsBuilding]);
 
   useEffect(() => {
     if (!build && !isBuilding && selectedCareer) {
@@ -296,7 +299,7 @@ export function BuildResultsScreen() {
             {animalEmoji ?? "🐻"}
           </span>
           <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16 }}>
-            Gemma is analyzing your build...
+            {t("build.analyzing")}
           </p>
           <div
             className="mt-4 rounded-full"
@@ -312,14 +315,14 @@ export function BuildResultsScreen() {
             <div className="mt-8 bg-bp-mid rounded-xl p-8 border border-border-subtle max-w-md mx-auto text-center">
               <div className="text-accent-alert" style={{ fontSize: 48 }}>⚠</div>
               <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16, lineHeight: 1.5 }}>
-                {error}
+                {t("build.error")}
               </p>
               <div className="flex gap-3 justify-center mt-6">
                 <Button variant="primary" onClick={runBuild}>
-                  Try Again
+                  {t("build.tryAgain")}
                 </Button>
                 <Button variant="ghost" onClick={() => navigate("/set-your-course")}>
-                  Go Back
+                  {t("build.goBack")}
                 </Button>
               </div>
             </div>
@@ -349,14 +352,14 @@ export function BuildResultsScreen() {
         <div className="bg-bp-mid rounded-xl p-8 border border-border-subtle max-w-md mx-auto text-center">
           <div className="text-accent-alert" style={{ fontSize: 48 }}>⚠</div>
           <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16, lineHeight: 1.5 }}>
-            {error}
+            {t("build.error")}
           </p>
           <div className="flex gap-3 justify-center mt-6">
             <Button variant="primary" onClick={runBuild}>
-              Try Again
+              {t("build.tryAgain")}
             </Button>
             <Button variant="ghost" onClick={() => navigate("/set-your-course")}>
-              Go Back
+              {t("build.goBack")}
             </Button>
           </div>
         </div>
@@ -395,7 +398,7 @@ export function BuildResultsScreen() {
               navigate("/set-your-course");
             }}
           >
-            Start over
+            {t("build.startOver")}
           </button>
           <button
             type="button"
@@ -406,7 +409,7 @@ export function BuildResultsScreen() {
               navigate("/set-your-course", { state: { adjustMode: true } });
             }}
           >
-            ← Adjust effort & loans
+            {t("build.adjustEffort")}
           </button>
         </div>
 
@@ -447,7 +450,7 @@ export function BuildResultsScreen() {
         {/* Section 3: Build Stats (Pentagon + Legend) */}
         <div style={{ marginTop: 48, animation: "sectionFadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) 0.4s both" }}>
           <h2 className="font-display font-bold text-text-primary" style={{ fontSize: 32 }}>
-            Build Stats
+            {t("build.buildStats")}
           </h2>
 
           <div
@@ -496,7 +499,7 @@ export function BuildResultsScreen() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-display font-semibold text-text-primary" style={{ fontSize: 15 }}>
-                              {stat.name}
+                              {t(stat.nameKey)}
                             </span>
                             {/* Info trigger */}
                             <button
@@ -522,7 +525,7 @@ export function BuildResultsScreen() {
                             </button>
                           </div>
                           <p className="font-body text-text-secondary" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>
-                            {stat.explanation}
+                            {t(stat.explanationKey)}
                           </p>
                         </div>
                         {/* Score */}
@@ -553,10 +556,10 @@ export function BuildResultsScreen() {
         {/* Section 4: Boss Fight Results (The Gauntlet) */}
         <div style={{ marginTop: 48, animation: "sectionFadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) 0.6s both" }}>
           <h2 className="font-display font-bold text-text-primary" style={{ fontSize: 32 }}>
-            The Gauntlet
+            {t("build.gauntlet")}
           </h2>
           <p className="font-body text-text-secondary" style={{ fontSize: 16, marginTop: 4 }}>
-            5 fights. Your stats vs. real-world threats.
+            {t("build.gauntletDesc")}
           </p>
 
           <div
@@ -614,7 +617,7 @@ export function BuildResultsScreen() {
             style={{ maxWidth: 480, height: 48, fontSize: 17 }}
             onClick={() => navigate("/save")}
           >
-            Save This Build
+            {t("build.saveBuild")}
           </Button>
           <div style={{ marginTop: 14 }}>
             <button
@@ -623,7 +626,7 @@ export function BuildResultsScreen() {
               style={{ fontSize: 14 }}
               onClick={() => navigate("/branches")}
             >
-              Want to explore career branches? See the Branch Tree →
+              {t("build.seeBranches")}
             </button>
           </div>
         </div>

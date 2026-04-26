@@ -122,6 +122,7 @@ export async function createBuild(
   homeState?: string,
   schoolState?: string,
   animalEmoji?: string,
+  locale?: string,
 ): Promise<Build> {
   if (USE_MOCK) return mockCreateBuild(selectedSoc, profileName, schoolName);
   return apiPost<Build>("/build", {
@@ -140,5 +141,6 @@ export async function createBuild(
     home_state: homeState ?? null,
     school_state: schoolState ?? null,
     animal_emoji: animalEmoji ?? null,
+    locale: locale ?? "en",
   });
 }

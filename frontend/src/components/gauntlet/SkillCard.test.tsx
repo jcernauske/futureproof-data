@@ -30,7 +30,7 @@ function makeSkill(overrides?: Partial<AppliedSkill>): AppliedSkill {
     delta_grw: 1,
     delta_hmn: 0,
     delta_burnout_raw: 0,
-    delta_ceiling_raw: -2,
+    delta_ceiling_raw: 2,
     ...overrides,
   };
 }
@@ -52,12 +52,14 @@ describe("SkillCard", () => {
       <SkillCard skill={makeSkill()} selected={false} onToggle={vi.fn()} />,
     );
 
-    // ERN +1 and GRW +1 should appear; ROI, RES, HMN are 0 and should not
+    // ERN +1, GRW +1, CEIL +2 should appear; ROI, RES, HMN, BRN are 0
     expect(screen.getByText(/ERN \+1/)).toBeInTheDocument();
     expect(screen.getByText(/GRW \+1/)).toBeInTheDocument();
+    expect(screen.getByText(/CEIL \+2/)).toBeInTheDocument();
     expect(screen.queryByText(/ROI/)).not.toBeInTheDocument();
     expect(screen.queryByText(/RES/)).not.toBeInTheDocument();
     expect(screen.queryByText(/HMN/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/BRN/)).not.toBeInTheDocument();
   });
 
   it("renders negative deltas with alert styling", () => {
@@ -94,13 +96,14 @@ describe("SkillCard", () => {
       delta_res: 0,
       delta_grw: 0,
       delta_hmn: 0,
+      delta_burnout_raw: 0,
+      delta_ceiling_raw: 0,
     });
     render(
       <SkillCard skill={skill} selected={false} onToggle={vi.fn()} />,
     );
 
-    // None of the stat labels should appear
-    for (const label of ["ERN", "ROI", "RES", "GRW", "HMN"]) {
+    for (const label of ["ERN", "ROI", "RES", "GRW", "HMN", "BRN", "CEIL"]) {
       expect(screen.queryByText(new RegExp(label))).not.toBeInTheDocument();
     }
   });
@@ -165,6 +168,43 @@ describe("SkillCard", () => {
     expect(label).toContain("Cloud Architecture");
     expect(label).toContain("ERN");
     expect(label).toContain("GRW");
+    expect(label).toContain("CEIL");
+  });
+
+  it("flips burnout sign so negative raw displays as positive", () => {
+    const skill = makeSkill({
+      delta_ern: 0,
+      delta_roi: 0,
+      delta_res: 0,
+      delta_grw: 0,
+      delta_hmn: 0,
+      delta_burnout_raw: -2,
+      delta_ceiling_raw: 0,
+    });
+    render(
+      <SkillCard skill={skill} selected={false} onToggle={vi.fn()} />,
+    );
+
+    const pill = screen.getByText(/BRN \+2/);
+    expect(pill).toBeInTheDocument();
+    expect(pill.className).toMatch(/accent-thrive/);
+  });
+
+  it("renders ceiling delta as CEIL badge", () => {
+    const skill = makeSkill({
+      delta_ern: 0,
+      delta_roi: 0,
+      delta_res: 0,
+      delta_grw: 0,
+      delta_hmn: 0,
+      delta_burnout_raw: 0,
+      delta_ceiling_raw: 3,
+    });
+    render(
+      <SkillCard skill={skill} selected={false} onToggle={vi.fn()} />,
+    );
+
+    expect(screen.getByText(/CEIL \+3/)).toBeInTheDocument();
   });
 
   it("includes boss-specific id attribute", () => {

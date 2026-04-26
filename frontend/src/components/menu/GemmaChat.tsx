@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
 import { sendChat, type ChatHistoryItem, type BuildSummary } from "@/api/menu";
 import { ChatMessage } from "@/components/menu/ChatMessage";
+import { useProfileStore } from "@/store/profileStore";
+import { useT } from "@/i18n/useT";
 
 interface GemmaChatProps {
   open: boolean;
@@ -17,6 +19,7 @@ const STARTERS = [
 ];
 
 export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
+  const t = useT();
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -73,7 +76,10 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
       // Pass the explicit prior-history snapshot rather than relying on
       // the closure-captured `history`, which would be stale if the user
       // races two submissions before the first await resolves.
-      const response = await sendChat(build.build_id, trimmed, priorHistory);
+      const response = await sendChat(
+        build.build_id, trimmed, priorHistory,
+        useProfileStore.getState().locale,
+      );
       if (sessionRef.current !== session) return;
       setHistory([...nextHistory, { role: "assistant", content: response }]);
     } catch (e) {
@@ -153,7 +159,7 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
                   }}
                 >
                   <p className="font-body text-small text-text-secondary">
-                    Try one of these:
+                    {t("chat.tryOne")}
                   </p>
                   <div className="flex flex-col gap-2 items-start">
                     {STARTERS.map((q, i) => (
@@ -225,7 +231,7 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
                 type="text"
                 data-testid="input-chat"
                 aria-label="Type a question"
-                placeholder="Ask anything about your build..."
+                placeholder={t("chat.placeholder")}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 disabled={!build || sending}

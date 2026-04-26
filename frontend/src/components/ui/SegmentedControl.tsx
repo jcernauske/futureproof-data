@@ -60,7 +60,7 @@ export function SegmentedControl<T extends string | number>({
             role="radio"
             aria-checked={isSelected}
             tabIndex={isSelected ? 0 : -1}
-            className={`relative flex-1 flex flex-col items-center gap-0.5 py-2.5 px-2 rounded-sm z-10 transition-colors duration-fast cursor-pointer ${
+            className={`relative flex-1 flex flex-col items-center gap-0.5 py-3 px-2 rounded-sm z-10 transition-colors duration-fast cursor-pointer ${
               isSelected
                 ? "text-text-primary font-semibold"
                 : "text-text-secondary"
@@ -75,11 +75,11 @@ export function SegmentedControl<T extends string | number>({
                 style={{ zIndex: -1 }}
               />
             )}
-            <span className="text-sm mobile:hidden">{segment.shortLabel ?? segment.label}</span>
-            <span className="text-sm hidden mobile:inline">{segment.label}</span>
+            <span className="text-small mobile:hidden">{segment.shortLabel ?? segment.label}</span>
+            <span className="text-small hidden mobile:inline">{segment.label}</span>
             {segment.subtext && (
               <span
-                className={`text-xs ${isSelected ? "text-text-primary/70" : "text-text-muted"}`}
+                className={`text-micro ${isSelected ? "text-text-primary/70" : "text-text-muted"}`}
               >
                 {segment.subtext}
               </span>

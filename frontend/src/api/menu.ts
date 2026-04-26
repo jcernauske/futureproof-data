@@ -81,11 +81,12 @@ export async function sendChat(
   buildId: string,
   message: string,
   history: ChatHistoryItem[],
+  locale?: string,
 ): Promise<string> {
   if (USE_MOCK) return mockChat(message, history);
   const res = await apiPost<{ response: string }>(
     `/build/${encodeURIComponent(buildId)}/chat`,
-    { message, history },
+    { message, history, locale: locale ?? undefined },
   );
   return res.response;
 }

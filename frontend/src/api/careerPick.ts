@@ -7,6 +7,7 @@ import type {
   AskCareerPickResponse,
   CareerPickChip,
 } from "@/types/careerPick";
+import type { AppLocale } from "@/i18n/locales";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_API === "true";
 
@@ -34,6 +35,7 @@ export interface AskChipArgs {
   socCodes: string[];
   selectedSoc?: string | null;
   terminalTitle?: string | null;
+  locale?: AppLocale;
 }
 
 export async function askCareerPickChip(
@@ -47,5 +49,6 @@ export async function askCareerPickChip(
     soc_codes: args.socCodes,
     selected_soc: args.selectedSoc ?? null,
     terminal_title: args.terminalTitle ?? null,
+    locale: args.locale ?? "en",
   });
 }

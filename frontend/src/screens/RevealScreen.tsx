@@ -13,6 +13,7 @@ import { GemmaTake } from "@/components/GemmaTake";
 import { StatDetailCard } from "@/components/StatDetailCard";
 import { CareerDetail } from "@/components/CareerDetail";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { useT } from "@/i18n/useT";
 import type { StatKey } from "@/data/statExplanations";
 
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
@@ -20,7 +21,8 @@ const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 export function RevealScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
-  const { profileName, animalEmoji, homeState } = useProfileStore();
+  const { profileName, animalEmoji, homeState, locale } = useProfileStore();
+  const t = useT();
   const {
     selectedCareer,
     build,
@@ -95,6 +97,7 @@ export function RevealScreen() {
           homeState ?? undefined,
           school.stateAbbr ?? undefined,
           animalEmoji ?? undefined,
+          locale,
         ),
         minDisplayTime,
       ]);
@@ -110,7 +113,7 @@ export function RevealScreen() {
       setError(err instanceof Error ? err.message : "Build failed");
       setIsBuilding(false);
     }
-  }, [selectedCareer, school, major, profileName, effort, loans, homeState, setBuild, setIsBuilding]);
+  }, [selectedCareer, school, major, profileName, effort, loans, homeState, locale, setBuild, setIsBuilding]);
 
   useEffect(() => {
     if (!build && !isBuilding && selectedCareer) {
@@ -205,11 +208,11 @@ export function RevealScreen() {
               {career.occupation_title}
             </h1>
             <p className="font-body text-body text-text-secondary mt-1">
-              at {build.school_name}
+              {t("reveal.at")} {build.school_name}
             </p>
             {career.median_annual_wage !== null && (
               <p className="font-data font-bold text-data-lg text-stat-ern mt-3">
-                ${career.median_annual_wage.toLocaleString()}/yr median
+                ${career.median_annual_wage.toLocaleString()}/yr {t("reveal.median")}
               </p>
             )}
           </motion.div>
@@ -278,10 +281,10 @@ export function RevealScreen() {
               onClick={() => navigate("/gauntlet")}
               className="font-display font-semibold text-cta h-12 px-7 rounded-lg bg-accent-thrive text-text-inverse cursor-pointer hover:brightness-110 shadow-glow-thrive transition-all duration-normal"
             >
-              Fight the Bosses →
+              {t("reveal.fightBosses")}
             </button>
             <p className="font-body text-small text-text-muted mt-3">
-              5 bosses stand between you and your future.
+              {t("reveal.fiveStand")}
             </p>
           </motion.div>
         )}

@@ -29,6 +29,7 @@ from app.services import (
     skill_recs,
     stat_engine,
 )
+from app.services.locale import AppLocale
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ async def _gemma_fanout(
     career: CareerOutcome,
     gauntlet: GauntletResult,
     branches: list[CareerBranch],
+    locale: AppLocale = "en",
 ) -> tuple[list[SkillRec], list[AppliedSkill], str]:
     """Fan out Gemma-bound calls (narratives + recs + pool + guidance).
 
@@ -86,12 +88,13 @@ async def _gemma_fanout(
     Returns (recs, pool, guidance_narrative).
     """
     narrative_tasks = [
-        boss_fights.narrate_one(career, fight) for fight in gauntlet.fights
+        boss_fights.narrate_one(career, fight, locale=locale)
+        for fight in gauntlet.fights
     ]
-    recs_task = skill_recs.generate_recs_async(career, gauntlet)
-    pool_task = skill_pool.generate_pool_async(career, gauntlet)
+    recs_task = skill_recs.generate_recs_async(career, gauntlet, locale=locale)
+    pool_task = skill_pool.generate_pool_async(career, gauntlet, locale=locale)
     guidance_task = guidance.generate_guidance_async(
-        career, gauntlet, branches
+        career, gauntlet, branches, locale=locale,
     )
 
     results = await asyncio.gather(
@@ -160,7 +163,11 @@ async def create_build(request: BuildRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        logger.warning("Career lookup failed: %s", exc)
+        raise HTTPException(
+            status_code=404,
+            detail="We don't have enough data for that career at this school. Try a different career or school.",
+        )
 
     if not career.program_name and request.cip_title:
         career.program_name = request.cip_title
@@ -180,7 +187,7 @@ async def create_build(request: BuildRequest):
     )
 
     recs, pool, narrative = await _gemma_fanout(
-        career, gauntlet, branches_list
+        career, gauntlet, branches_list, locale=request.locale,
     )
 
     build = builds.build_from_parts(
@@ -200,6 +207,7 @@ async def create_build(request: BuildRequest):
         profile_name=request.profile_name,
         home_state=request.home_state,
         animal_emoji=request.animal_emoji,
+        locale=request.locale,
     )
     state.store_build(build)
     builds.save_build(build)
@@ -248,7 +256,7 @@ async def rebuild_with_sliders(build_id: str, request: RebuildRequest):
     gauntlet = boss_fights.score_gauntlet(career)
 
     recs, pool, narrative = await _gemma_fanout(
-        career, gauntlet, original.branches
+        career, gauntlet, original.branches, locale=original.locale,
     )
 
     build = builds.build_from_parts(
@@ -269,6 +277,7 @@ async def rebuild_with_sliders(build_id: str, request: RebuildRequest):
         parent_build_id=original.build_id,
         home_state=original.home_state,
         animal_emoji=original.animal_emoji,
+        locale=original.locale,
     )
     state.store_build(build)
     builds.save_build(build)

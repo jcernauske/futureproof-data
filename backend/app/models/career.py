@@ -10,6 +10,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.services.locale import AppLocale
+
 EffortLevel = Literal["working_hard", "working", "balanced", "focused", "all_in"]
 BossOutcome = Literal["win", "lose", "draw", "unknown"]
 BossId = Literal["ai", "loans", "market", "burnout", "ceiling"]
@@ -287,6 +289,7 @@ class Build(BaseModel):
     parent_build_id: str | None = None
     home_state: str | None = None
     animal_emoji: str | None = None
+    locale: AppLocale = "en"
 
 
 class BuildSummary(BaseModel):

@@ -1,5 +1,6 @@
 import { VERDICT_TIERS } from "./bossData";
 import { VictoryBar } from "./VictoryBar";
+import { useT } from "@/i18n/useT";
 
 interface VerdictBadgeProps {
   rawWins: number;
@@ -16,41 +17,65 @@ function getVerdict(totalWins: number) {
   return VERDICT_TIERS[VERDICT_TIERS.length - 1]!;
 }
 
-function getNarrative(rawWins: number, equippedWins: number, draws: number, losses: number, unknowns: number): string {
+function getNarrative(rawWins: number, equippedWins: number, draws: number, losses: number, unknowns: number, t: (key: string) => string): string {
   const total = rawWins + equippedWins;
-  if (total === 5 && equippedWins === 0) {
-    return "You won every fight decisively. This path plays to your strengths.";
-  }
-  if (total === 5 && equippedWins > 0) {
-    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively, ${equippedWins} more ${equippedWins === 1 ? "victory" : "victories"} came from skills you chose to invest in — that’s not a shortcut, that’s a plan.`;
-  }
 
   const standoffNote = draws > 0
-    ? ` ${draws === 1 ? "One fight" : `${draws} fights`} ended in a standoff — close, but not a clear win.`
+    ? t("build.noteStandoff")
+        .replace("{count}", draws === 1 ? "One" : String(draws))
+        .replace("{fights}", draws === 1 ? "fight" : "fights")
     : "";
   const defeatNote = losses > 0
-    ? ` ${losses === 1 ? "One real challenge remains" : `${losses} real challenges remain`} — but now you can see ${losses === 1 ? "it" : "them"}.`
+    ? t("build.noteDefeat")
+        .replace("{count}", losses === 1 ? "One" : String(losses))
+        .replace("{challenges}", losses === 1 ? "challenge" : "challenges")
+        .replace("{es}", losses === 1 ? "" : "es")
+        .replace("{remains}", losses === 1 ? "remains" : "remain")
+        .replace("{them}", losses === 1 ? "it" : "them")
+        .replace("{verlos}", losses === 1 ? "verlo" : "verlos")
     : "";
   const unknownNote = unknowns > 0
-    ? ` ${unknowns === 1 ? "One fight couldn't" : `${unknowns} fights couldn't`} be scored yet — not enough data.`
+    ? t("build.noteUnknown")
+        .replace("{count}", unknowns === 1 ? "One" : String(unknowns))
+        .replace("{fights}", unknowns === 1 ? "fight" : "fights")
     : "";
 
+  if (total === 5 && equippedWins === 0) {
+    return t("build.narrativeAllDecisive");
+  }
+  if (total === 5 && equippedWins > 0) {
+    return t("build.narrativeAllWithSkills")
+      .replace("{raw}", String(rawWins))
+      .replace("{s}", rawWins !== 1 ? "s" : "")
+      .replace("{equipped}", String(equippedWins))
+      .replace("{victories}", equippedWins === 1 ? "victory" : "victories");
+  }
+
   if (total > 0 && equippedWins === 0) {
-    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively.${standoffNote}${defeatNote}${unknownNote}`;
+    return t("build.narrativePartialRaw")
+      .replace("{raw}", String(rawWins))
+      .replace("{s}", rawWins !== 1 ? "s" : "")
+      + standoffNote + defeatNote + unknownNote;
   }
   if (rawWins > 0 && equippedWins > 0) {
-    return `You won ${rawWins} fight${rawWins !== 1 ? "s" : ""} decisively, ${equippedWins} more ${equippedWins === 1 ? "victory" : "victories"} came from skills you chose to invest in.${standoffNote}${defeatNote}${unknownNote}`;
+    return t("build.narrativePartialMixed")
+      .replace("{raw}", String(rawWins))
+      .replace("{s}", rawWins !== 1 ? "s" : "")
+      .replace("{equipped}", String(equippedWins))
+      .replace("{victories}", equippedWins === 1 ? "victory" : "victories")
+      + standoffNote + defeatNote + unknownNote;
   }
   if (rawWins === 0 && equippedWins > 0) {
-    return `Every victory here came from skills you’d need to build. The path is absolutely doable — but it asks you to grow.${standoffNote}${defeatNote}${unknownNote}`;
+    return t("build.narrativeAllEquipped") + standoffNote + defeatNote + unknownNote;
   }
-  return `This path has real challenges — but now you can see them. That’s the first step to beating them.${standoffNote}${unknownNote}`;
+  return t("build.narrativeNone") + standoffNote + unknownNote;
 }
 
 export function VerdictBadge({ rawWins, equippedWins, losses, draws, unknowns }: VerdictBadgeProps) {
+  const t = useT();
   const totalWins = rawWins + equippedWins;
   const verdict = getVerdict(totalWins);
-  const narrative = getNarrative(rawWins, equippedWins, draws, losses, unknowns);
+  const narrative = getNarrative(rawWins, equippedWins, draws, losses, unknowns, t);
 
   return (
     <div
@@ -67,7 +92,7 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws, unknowns }:
         className="font-data font-bold uppercase text-text-muted"
         style={{ fontSize: 11, letterSpacing: 2, marginBottom: 12 }}
       >
-        CAREER READINESS
+        {t("build.careerReadiness")}
       </div>
 
       {/* Verdict word */}
@@ -75,10 +100,10 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws, unknowns }:
         className={`font-display font-bold ${verdict.accentClass}`}
         style={{ fontSize: 32 }}
       >
-        {verdict.word}
+        {t(verdict.wordKey)}
       </div>
       <div className="font-body text-text-secondary" style={{ fontSize: 16, marginTop: 4 }}>
-        {verdict.subtitle}
+        {t(verdict.subtitleKey)}
       </div>
 
       {/* Victory bar */}
@@ -86,25 +111,25 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws, unknowns }:
 
       {/* Tally */}
       <div className="font-data text-text-secondary" style={{ fontSize: 13, marginTop: 16 }}>
-        <span className="text-accent-thrive">{totalWins}</span> of {5 - unknowns} victories
+        <span className="text-accent-thrive">{totalWins}</span> of {5 - unknowns} {t("build.victories")}
         {equippedWins > 0 && (
           <span>
-            {" "}({rawWins} decisive + <span className="text-accent-insight">{equippedWins}</span> skill-assisted)
+            {" "}({rawWins} {t("build.decisive").replace("{s}", "")} + <span className="text-accent-insight">{equippedWins}</span> {t("build.skillAssisted")})
           </span>
         )}
         {draws > 0 && (
           <span>
-            {" · "}<span className="text-accent-caution">{draws}</span> standoff{draws !== 1 ? "s" : ""}
+            {" · "}<span className="text-accent-caution">{draws}</span> {t("build.standoffs").replace("{s}", draws !== 1 ? "s" : "")}
           </span>
         )}
         {losses > 0 && (
           <span>
-            {" · "}<span className="text-accent-alert">{losses}</span> defeat{losses !== 1 ? "s" : ""}
+            {" · "}<span className="text-accent-alert">{losses}</span> {t("build.defeats").replace("{s}", losses !== 1 ? "s" : "")}
           </span>
         )}
         {unknowns > 0 && (
           <span>
-            {" · "}<span className="text-text-muted">{unknowns}</span> insufficient data
+            {" · "}<span className="text-text-muted">{unknowns}</span> {t("build.insufficientData")}
           </span>
         )}
       </div>

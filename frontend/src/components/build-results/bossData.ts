@@ -5,6 +5,7 @@ export interface BossMeta {
   emoji: string;
   shortName: string;
   subtitle: string;
+  subtitleKey: string;
   color: string;
   gradient: string;
 }
@@ -15,6 +16,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     emoji: "\u{1F916}",
     shortName: "AI",
     subtitle: "How safe is this career from automation?",
+    subtitleKey: "build.boss.ai.subtitle",
     color: "var(--color-boss-ai)",
     gradient: "linear-gradient(135deg, rgba(184,169,232,0.30) 0%, rgba(184,169,232,0.12) 100%)",
   },
@@ -23,6 +25,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     emoji: "\u{1F4B8}",
     shortName: "Student Loans",
     subtitle: "Can your earnings handle the debt?",
+    subtitleKey: "build.boss.loans.subtitle",
     color: "var(--color-boss-loans)",
     gradient: "linear-gradient(135deg, rgba(244,169,126,0.30) 0%, rgba(244,169,126,0.12) 100%)",
   },
@@ -31,6 +34,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     emoji: "\u{1F4C8}",
     shortName: "The Market",
     subtitle: "Is this field growing or shrinking?",
+    subtitleKey: "build.boss.market.subtitle",
     color: "var(--color-boss-market)",
     gradient: "linear-gradient(135deg, rgba(123,184,224,0.30) 0%, rgba(123,184,224,0.12) 100%)",
   },
@@ -39,6 +43,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     emoji: "\u{1F525}",
     shortName: "Burnout",
     subtitle: "How sustainable is this work long-term?",
+    subtitleKey: "build.boss.burnout.subtitle",
     color: "var(--color-boss-burnout)",
     gradient: "linear-gradient(135deg, rgba(232,139,169,0.30) 0%, rgba(232,139,169,0.12) 100%)",
   },
@@ -47,6 +52,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     emoji: "\u{1F4CA}",
     shortName: "The Ceiling",
     subtitle: "How high can your earnings go?",
+    subtitleKey: "build.boss.ceiling.subtitle",
     color: "var(--color-boss-ceiling)",
     gradient: "linear-gradient(135deg, rgba(196,191,176,0.30) 0%, rgba(196,191,176,0.12) 100%)",
   },
@@ -69,6 +75,8 @@ export const STAT_COLORS: Record<string, { text: string; bg: string }> = {
   res: { text: "var(--color-stat-res)", bg: "rgba(184,169,232,0.15)" },
   grw: { text: "var(--color-stat-grw)", bg: "rgba(123,184,224,0.15)" },
   hmn: { text: "var(--color-stat-hmn)", bg: "rgba(232,139,169,0.15)" },
+  brn: { text: "var(--color-boss-burnout)", bg: "rgba(232,139,169,0.15)" },
+  ceil: { text: "var(--color-boss-ceiling)", bg: "rgba(196,191,176,0.15)" },
 };
 
 export const STAT_INFO: Record<string, { title: string; definition: string; source: string }> = {
@@ -107,8 +115,8 @@ export const RESULT_COLORS = {
 };
 
 export const VERDICT_TIERS = [
-  { min: 5, word: "DOMINANT BUILD", subtitle: "Unstoppable", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.3)", glow: "0 0 20px rgba(125,212,163,0.15)" },
-  { min: 3, word: "SOLID BUILD", subtitle: "Strong across the board", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.25)", glow: "0 0 16px rgba(125,212,163,0.10)" },
-  { min: 2, word: "MIXED BUILD", subtitle: "Real strengths, real challenges", accentClass: "text-accent-caution", border: "rgba(242,212,119,0.25)", glow: "0 0 16px rgba(242,212,119,0.10)" },
-  { min: 0, word: "VULNERABLE BUILD", subtitle: "Eyes open", accentClass: "text-accent-alert", border: "rgba(244,169,126,0.25)", glow: "0 0 16px rgba(244,169,126,0.10)" },
+  { min: 5, word: "DOMINANT BUILD", wordKey: "build.verdictDominant", subtitle: "Unstoppable", subtitleKey: "build.verdictSubDominant", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.3)", glow: "0 0 20px rgba(125,212,163,0.15)" },
+  { min: 3, word: "SOLID BUILD", wordKey: "build.verdictSolid", subtitle: "Strong across the board", subtitleKey: "build.verdictSubSolid", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.25)", glow: "0 0 16px rgba(125,212,163,0.10)" },
+  { min: 2, word: "MIXED BUILD", wordKey: "build.verdictMixed", subtitle: "Real strengths, real challenges", subtitleKey: "build.verdictSubMixed", accentClass: "text-accent-caution", border: "rgba(242,212,119,0.25)", glow: "0 0 16px rgba(242,212,119,0.10)" },
+  { min: 0, word: "VULNERABLE BUILD", wordKey: "build.verdictVulnerable", subtitle: "Eyes open", subtitleKey: "build.verdictSubVulnerable", accentClass: "text-accent-alert", border: "rgba(244,169,126,0.25)", glow: "0 0 16px rgba(244,169,126,0.10)" },
 ] as const;

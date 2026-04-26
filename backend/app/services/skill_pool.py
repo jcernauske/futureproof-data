@@ -33,6 +33,7 @@ from app.models.career import (
     PentagonStats,
 )
 from app.services import gemma_client
+from app.services.locale import AppLocale, gemma_language_instruction, normalize_locale
 
 logger = logging.getLogger(__name__)
 
@@ -584,6 +585,7 @@ def _finalize_pool(
 def generate_pool(
     career: CareerOutcome,
     gauntlet: GauntletResult,
+    locale: AppLocale = "en",
 ) -> list[AppliedSkill]:
     """Pre-compute a personalized reroll skill pool for this build.
 
@@ -600,12 +602,14 @@ def generate_pool(
     skill's ``targets`` identifies the boss it applies to. The CLI
     reroll flow filters with ``get_skills_for_boss(boss, pool)``.
     """
+    locale = normalize_locale(locale)
     rerollable = _rerollable_from(gauntlet)
     if not rerollable:
         return []
 
+    system = f"{_POOL_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     text = gemma_client.generate(
-        system=_POOL_SYSTEM,
+        system=system,
         user=_pool_prompt(career, rerollable),
         # 3-5 skills × up to 5 bosses = ~25 lines at ~30 tokens each.
         # Gemma preamble usually burns another 200-400. 2000 is the
@@ -619,17 +623,20 @@ def generate_pool(
 async def generate_pool_async(
     career: CareerOutcome,
     gauntlet: GauntletResult,
+    locale: AppLocale = "en",
 ) -> list[AppliedSkill]:
     """Async variant — short-circuits to ``[]`` when no fights are
     rerollable, otherwise fans out the single Gemma call via
     ``gemma_client.generate_async``.
     """
+    locale = normalize_locale(locale)
     rerollable = _rerollable_from(gauntlet)
     if not rerollable:
         return []
 
+    system = f"{_POOL_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     text = await gemma_client.generate_async(
-        system=_POOL_SYSTEM,
+        system=system,
         user=_pool_prompt(career, rerollable),
         max_tokens=2000,
         temperature=0.5,

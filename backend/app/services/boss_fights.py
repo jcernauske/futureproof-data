@@ -24,6 +24,12 @@ from app.models.career import (
     GauntletResult,
 )
 from app.services import gemma_client
+from app.services.locale import (
+    AppLocale,
+    fallback_text,
+    gemma_language_instruction,
+    normalize_locale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -689,14 +695,17 @@ def generate_reroll_commentary(
     original_result: str,
     original_narrative: str,
     crafted_skill_titles: list[str],
+    locale: AppLocale = "en",
 ) -> str:
     """Generate Gemma coaching commentary for a reroll.
 
     Returns empty string on failure — the CLI can proceed without it.
     """
+    locale = normalize_locale(locale)
+    system = f"{_NARRATIVE_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     try:
         text = gemma_client.generate(
-            system=_NARRATIVE_SYSTEM,
+            system=system,
             user=_reroll_prompt(
                 career, fight, original_result, original_narrative,
                 crafted_skill_titles,
@@ -716,11 +725,14 @@ async def generate_reroll_commentary_async(
     original_result: str,
     original_narrative: str,
     crafted_skill_titles: list[str],
+    locale: AppLocale = "en",
 ) -> str:
     """Async variant of :func:`generate_reroll_commentary`."""
+    locale = normalize_locale(locale)
+    system = f"{_NARRATIVE_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     try:
         text = await gemma_client.generate_async(
-            system=_NARRATIVE_SYSTEM,
+            system=system,
             user=_reroll_prompt(
                 career, fight, original_result, original_narrative,
                 crafted_skill_titles,
@@ -786,11 +798,14 @@ async def generate_wrapup_async(
     original_result: str,
     all_skill_titles: list[str],
     all_narratives: list[str],
+    locale: AppLocale = "en",
 ) -> str:
     """Generate a final wrap-up narrative after all skills are used."""
+    locale = normalize_locale(locale)
+    system = f"{_NARRATIVE_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     try:
         text = await gemma_client.generate_async(
-            system=_NARRATIVE_SYSTEM,
+            system=system,
             user=_wrapup_prompt(
                 career, fight, original_result, all_narratives=all_narratives,
                 all_skill_titles=all_skill_titles,
@@ -856,8 +871,13 @@ _DEGRADED_FALLBACKS: dict[BossOutcome, str] = {
 }
 
 
-def _fallback_narrative(fight: BossFightResult) -> str:
+def _fallback_narrative(
+    fight: BossFightResult, locale: AppLocale = "en",
+) -> str:
     if fight.result == "unknown":
+        localized = fallback_text(f"boss_unknown_{fight.boss}", locale)
+        if localized:
+            return localized
         return _UNKNOWN_FALLBACKS.get(
             fight.boss,
             "There isn't enough data here yet to make a call.",
@@ -914,7 +934,7 @@ def score_gauntlet(career: CareerOutcome) -> GauntletResult:
 
 
 async def narrate_one(
-    career: CareerOutcome, fight: BossFightResult
+    career: CareerOutcome, fight: BossFightResult, locale: AppLocale = "en",
 ) -> str:
     """Generate a single boss narrative via Gemma, async.
 
@@ -932,21 +952,24 @@ async def narrate_one(
     # asking Gemma to narrate an UNKNOWN result just gets us a prompt
     # echo ("Please provide the WIN, DRAW, or LOSE result..."). Skip
     # Gemma entirely and use the deterministic no-data fallback.
+    locale = normalize_locale(locale)
     if fight.result == "unknown":
-        return _fallback_narrative(fight)
+        return _fallback_narrative(fight, locale)
+    system = f"{_NARRATIVE_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     narrative = await gemma_client.generate_async(
-        system=_NARRATIVE_SYSTEM,
+        system=system,
         user=_narrative_prompt(career, fight),
         max_tokens=800,
         temperature=0.7,
     )
-    return narrative or _fallback_narrative(fight)
+    return narrative or _fallback_narrative(fight, locale)
 
 
 def run_gauntlet(
     career: CareerOutcome,
     *,
     with_narratives: bool = True,
+    locale: AppLocale = "en",
 ) -> GauntletResult:
     """Run all 5 boss fights + compute the Final Boss verdict.
 
@@ -955,31 +978,28 @@ def run_gauntlet(
     directly so the Gemma narratives fan out in parallel with the other
     build-time Gemma calls.
     """
+    locale = normalize_locale(locale)
     gauntlet = score_gauntlet(career)
 
     if with_narratives:
+        system = (
+            f"{_NARRATIVE_SYSTEM}\n\n{gemma_language_instruction(locale)}"
+        )
         for fight in gauntlet.fights:
             if fight.result == "unknown":
-                # Same reasoning as narrate_one: the prompt has no
-                # UNKNOWN register, so skip Gemma and use the no-data
-                # fallback directly.
-                fight.narrative = _fallback_narrative(fight)
+                fight.narrative = _fallback_narrative(fight, locale)
                 continue
             try:
                 narrative = gemma_client.generate(
-                    system=_NARRATIVE_SYSTEM,
+                    system=system,
                     user=_narrative_prompt(career, fight),
-                    # 3-4 sentences is ~150 tokens of real content,
-                    # but Gemma 4 burns plenty on preamble — 800 keeps
-                    # narratives from getting clipped mid-thought on
-                    # the paced gauntlet screens.
                     max_tokens=800,
                     temperature=0.7,
                 )
             except Exception as exc:
                 logger.warning("boss narrative gen failed: %s", exc)
                 narrative = ""
-            fight.narrative = narrative or _fallback_narrative(fight)
+            fight.narrative = narrative or _fallback_narrative(fight, locale)
 
     return gauntlet
 

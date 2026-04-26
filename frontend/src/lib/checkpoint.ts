@@ -17,6 +17,7 @@ export function fireCheckpoint(screen: string) {
       animalEmoji: profile.animalEmoji,
       animalName: profile.animalName,
       homeState: profile.homeState,
+      locale: profile.locale,
     },
     build_input_data: {
       phase: buildInput.phase,

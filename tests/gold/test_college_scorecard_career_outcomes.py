@@ -155,8 +155,10 @@ class TestGoldSchema:
         # 31 original career-outcomes columns + 6 CSI enrichment columns
         # (field IDs 32-37) + 1 roi_cost_basis column (field ID 38, added
         # by plan ~/.claude/plans/why-are-we-still-jaunty-curry.md so
-        # downstream can tell which numerator drove the cost-based DTE).
-        assert len(schema.fields) == 38
+        # downstream can tell which numerator drove the cost-based DTE)
+        # + 1 state_abbr column (field ID 39, added for regional price
+        # parity lookups).
+        assert len(schema.fields) == 39
 
     def test_required_fields(self):
         schema = get_gold_schema()

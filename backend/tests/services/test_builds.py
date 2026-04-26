@@ -315,13 +315,13 @@ class _FanoutHarness:
         # can be validated.
         self.narrate_call_order: list[str] = []
 
-    async def narrate_one(self, career, fight):
+    async def narrate_one(self, career, fight, locale="en"):
         self.started_at.append((f"narrate:{fight.boss}", time.perf_counter()))
         self.narrate_call_order.append(fight.boss)
         await asyncio.sleep(self.per_call_sleep_s)
         return f"narrative-for-{fight.boss}"
 
-    async def generate_recs_async(self, career, gauntlet):
+    async def generate_recs_async(self, career, gauntlet, locale="en"):
         self.started_at.append(("recs", time.perf_counter()))
         await asyncio.sleep(self.per_call_sleep_s)
         return [
@@ -332,12 +332,12 @@ class _FanoutHarness:
             )
         ]
 
-    async def generate_pool_async(self, career, gauntlet):
+    async def generate_pool_async(self, career, gauntlet, locale="en"):
         self.started_at.append(("pool", time.perf_counter()))
         await asyncio.sleep(self.per_call_sleep_s)
         return []  # empty pool is a valid response
 
-    async def generate_guidance_async(self, career, gauntlet, branches):
+    async def generate_guidance_async(self, career, gauntlet, branches, locale="en"):
         self.started_at.append(("guidance", time.perf_counter()))
         await asyncio.sleep(self.per_call_sleep_s)
         return "async guidance"
@@ -378,6 +378,59 @@ def _install_fanout_harness(
     )
 
     return h
+
+
+class TestBuildLocalePersistence:
+    """Locale field must survive build_from_parts → save → load round-trip."""
+
+    def test_create_build_with_spanish_locale(self, isolated_builds_dir):
+        build = builds.build_from_parts(
+            school_name="IU-B",
+            unitid=151351,
+            major_text="Marketing",
+            cipcode="52.14",
+            program_name="Marketing",
+            effort="balanced",
+            career=_career(),
+            gauntlet=_gauntlet(),
+            branches=[],
+            skill_recs=[],
+            guidance="test",
+            locale="es",
+        )
+        assert build.locale == "es"
+
+        builds.save_build(build)
+        loaded = builds.load_build(build.build_id)
+        assert loaded.locale == "es"
+
+    def test_create_build_default_locale_is_english(self, isolated_builds_dir):
+        build = _make_build()
+        assert build.locale == "en"
+
+        builds.save_build(build)
+        loaded = builds.load_build(build.build_id)
+        assert loaded.locale == "en"
+
+    def test_locale_survives_json_round_trip(self, isolated_builds_dir):
+        """Pydantic model_dump_json → model_validate_json must preserve locale."""
+        build = builds.build_from_parts(
+            school_name="Purdue",
+            unitid=99999,
+            major_text="Engineering",
+            cipcode="14.01",
+            program_name="Engineering",
+            effort="all_in",
+            career=_career(),
+            gauntlet=_gauntlet(),
+            branches=[],
+            skill_recs=[],
+            guidance="",
+            locale="es",
+        )
+        json_str = build.model_dump_json()
+        restored = Build.model_validate_json(json_str)
+        assert restored.locale == "es"
 
 
 class TestCreateBuildParallelFanout:
@@ -443,7 +496,7 @@ class TestCreateBuildPartialFailureFallback:
         self, isolated_builds_dir, monkeypatch
     ):
         class _PartialHarness(_FanoutHarness):
-            async def narrate_one(self, career, fight):
+            async def narrate_one(self, career, fight, locale="en"):
                 self.started_at.append(
                     (f"narrate:{fight.boss}", time.perf_counter())
                 )
@@ -507,7 +560,7 @@ class TestCreateBuildPartialFailureFallback:
         the canonical fallback set instead of losing the section."""
 
         class _RecsFailHarness(_FanoutHarness):
-            async def generate_recs_async(self, career, gauntlet):
+            async def generate_recs_async(self, career, gauntlet, locale="en"):
                 self.started_at.append(("recs", time.perf_counter()))
                 await asyncio.sleep(self.per_call_sleep_s)
                 raise RuntimeError("boom")
@@ -534,7 +587,9 @@ class TestCreateBuildPartialFailureFallback:
         string, NOT leave the build with an empty narrative."""
 
         class _GuidanceFailHarness(_FanoutHarness):
-            async def generate_guidance_async(self, career, gauntlet, branches):
+            async def generate_guidance_async(
+                self, career, gauntlet, branches, locale="en"
+            ):
                 self.started_at.append(("guidance", time.perf_counter()))
                 await asyncio.sleep(self.per_call_sleep_s)
                 raise RuntimeError("OpenRouter outage")
@@ -573,7 +628,7 @@ class TestCreateBuildPreservesFightOrder:
         }
 
         class _OutOfOrderHarness(_FanoutHarness):
-            async def narrate_one(self, career, fight):
+            async def narrate_one(self, career, fight, locale="en"):
                 self.started_at.append(
                     (f"narrate:{fight.boss}", time.perf_counter())
                 )

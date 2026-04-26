@@ -1,9 +1,12 @@
+import { useT } from "@/i18n/useT";
+
 interface InstitutionCardProps {
   schoolName: string;
   narrative: string;
 }
 
 export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps) {
+  const t = useT();
   const paragraphs = narrative.split("\n").filter((p) => p.trim());
 
   return (
@@ -16,7 +19,7 @@ export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps)
         className="font-data font-bold uppercase text-accent-info"
         style={{ fontSize: 11, letterSpacing: 2, marginBottom: 16 }}
       >
-        About the School
+        {t("build.aboutSchool")}
       </div>
 
       <div className="font-display font-bold text-text-primary" style={{ fontSize: 22 }}>
@@ -39,7 +42,7 @@ export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps)
         className="font-data text-text-muted mt-4"
         style={{ fontSize: 11, letterSpacing: "0.5px" }}
       >
-        ✦ Written by Gemma
+        {t("build.writtenByGemma")}
       </div>
     </div>
   );

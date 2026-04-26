@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ambient, transitions } from "@/styles/motion";
+import { useT } from "@/i18n/useT";
 
 interface LoadingScreenProps {
   profileName: string;
@@ -9,17 +10,18 @@ interface LoadingScreenProps {
   onRetry: () => void;
 }
 
-const MESSAGES = [
-  (name: string, emoji: string) => `Specing ${name} ${emoji}...`,
-  () => "Crunching salary data...",
-  () => "Sizing up the bosses...",
-  () => "Mapping your branches...",
-  () => "Asking Gemma for advice...",
-  () => "Almost there...",
-];
-
 export function LoadingScreen({ profileName, emoji, error, onRetry }: LoadingScreenProps) {
+  const t = useT();
   const [msgIndex, setMsgIndex] = useState(0);
+
+  const MESSAGES = [
+    t("build.speccing").replace("{name}", profileName).replace("{emoji}", emoji),
+    t("build.loading1"),
+    t("build.loading2"),
+    t("build.loading3"),
+    t("build.loading4"),
+    t("build.loading5"),
+  ];
 
   useEffect(() => {
     if (error) return;
@@ -27,11 +29,11 @@ export function LoadingScreen({ profileName, emoji, error, onRetry }: LoadingScr
       setMsgIndex((prev) => (prev < MESSAGES.length - 1 ? prev + 1 : prev));
     }, 2000);
     return () => clearInterval(interval);
-  }, [error]);
+  }, [error, MESSAGES.length]);
 
   const message = error
-    ? "Something went wrong — let's try again"
-    : MESSAGES[msgIndex]!(profileName, emoji);
+    ? t("build.loadingFallback")
+    : MESSAGES[msgIndex]!;
 
   return (
     <div
@@ -106,7 +108,7 @@ export function LoadingScreen({ profileName, emoji, error, onRetry }: LoadingScr
           animate={{ opacity: 1, y: 0 }}
           onClick={onRetry}
         >
-          Try Again
+          {t("build.tryAgain")}
         </motion.button>
       )}
     </div>

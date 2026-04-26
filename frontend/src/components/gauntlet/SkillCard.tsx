@@ -7,20 +7,23 @@ interface SkillCardProps {
   onToggle: () => void;
 }
 
-const STAT_LABELS: Record<string, string> = {
-  delta_ern: "ERN",
-  delta_roi: "ROI",
-  delta_res: "RES",
-  delta_grw: "GRW",
-  delta_hmn: "HMN",
+const STAT_LABELS: Record<string, { label: string; signMultiplier?: number }> = {
+  delta_ern: { label: "ERN" },
+  delta_roi: { label: "ROI" },
+  delta_res: { label: "RES" },
+  delta_grw: { label: "GRW" },
+  delta_hmn: { label: "HMN" },
+  delta_burnout_raw: { label: "BRN", signMultiplier: -1 },
+  delta_ceiling_raw: { label: "CEIL" },
 };
 
 function getStatDeltas(skill: AppliedSkill): Array<{ label: string; value: number }> {
   const deltas: Array<{ label: string; value: number }> = [];
-  for (const [key, label] of Object.entries(STAT_LABELS)) {
-    const value = skill[key as keyof AppliedSkill] as number;
+  for (const [key, config] of Object.entries(STAT_LABELS)) {
+    const raw = skill[key as keyof AppliedSkill] as number;
+    const value = raw * (config.signMultiplier ?? 1);
     if (value !== 0) {
-      deltas.push({ label, value });
+      deltas.push({ label: config.label, value });
     }
   }
   return deltas;

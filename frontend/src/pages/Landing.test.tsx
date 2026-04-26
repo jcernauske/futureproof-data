@@ -51,11 +51,4 @@ describe("Landing page", () => {
     expect(main).not.toBeNull();
     expect(main?.tagName).toBe("MAIN");
   });
-
-  // P2 — axe accessibility check is deferred to Lighthouse verification in §9.
-  // @axe-core/react is not a project dependency; installing it here would
-  // introduce a new devDependency for a P2 test. Skipping per spec guidance.
-  it.skip("axe accessibility check passes with zero violations (deferred to Lighthouse §9)", () => {
-    // Intentionally empty — tracked in spec §9 Verification (Lighthouse a11y ≥95).
-  });
 });

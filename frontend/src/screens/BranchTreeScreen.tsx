@@ -8,6 +8,7 @@ import { BranchTreeFlow } from "@/components/tree/BranchTreeFlow";
 import { TreeNodeDetailPanel } from "@/components/tree/TreeNodeDetailPanel";
 import { TreeFallback } from "@/components/tree/TreeFallback";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { useT } from "@/i18n/useT";
 import { computeLayout } from "@/data/treeLayout";
 import { treeToFlow } from "@/data/treeFlowLayout";
 import type { TreeResponse } from "@/types/tree";
@@ -19,6 +20,7 @@ export function BranchTreeScreen() {
   const navigate = useNavigate();
   const build = useBuildStore((s) => s.build);
   const animalEmoji = useProfileStore((s) => s.animalEmoji);
+  const t = useT();
 
   const [screenState, setScreenState] = useState<ScreenState>("loading");
   const [treeData, setTreeData] = useState<TreeResponse | null>(null);
@@ -132,10 +134,10 @@ export function BranchTreeScreen() {
               {emoji}
             </motion.span>
             <h2 className="font-display font-semibold text-heading text-text-primary mb-2 text-center">
-              Mapping your branches...
+              {t("tree.mapping")}
             </h2>
             <p className="font-body text-body text-text-secondary text-center">
-              Tracing career paths from O*NET pathway data.
+              {t("tree.tracing")}
             </p>
           </motion.div>
         )}
@@ -188,20 +190,20 @@ export function BranchTreeScreen() {
                   aria-label="Save and share your build"
                   data-testid="btn-save-share"
                 >
-                  Save & Share &rarr;
+                  {t("tree.saveShare")}
                 </button>
                 <div className="flex gap-4">
                   <button
                     className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
                     onClick={() => navigate("/gauntlet")}
                   >
-                    Back to Gauntlet
+                    {t("tree.backGauntlet")}
                   </button>
                   <button
                     className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
                     onClick={() => navigate("/reveal")}
                   >
-                    Back to My Build
+                    {t("tree.backBuild")}
                   </button>
                 </div>
               </div>
@@ -246,7 +248,7 @@ export function BranchTreeScreen() {
                 onClick={() => navigate("/save")}
                 data-testid="btn-save-share"
               >
-                Save & Share &rarr;
+                {t("tree.saveShare")}
               </button>
             </div>
           </motion.div>
@@ -263,7 +265,7 @@ export function BranchTreeScreen() {
             transition={{ duration: 0.3 }}
           >
             <p className="font-body text-body-lg text-text-secondary mb-6 text-center">
-              Couldn't load the branch tree right now.
+              {t("tree.loadError")}
             </p>
             {error && (
               <p className="font-body text-small text-text-muted mb-4 text-center">{error}</p>
@@ -273,13 +275,13 @@ export function BranchTreeScreen() {
                 className="font-body text-cta text-text-secondary border border-border px-6 py-2.5 rounded-lg transition-all duration-normal hover:text-text-primary hover:bg-bp-surface"
                 onClick={handleRetry}
               >
-                Try Again
+                {t("tree.tryAgain")}
               </button>
               <button
                 className="font-body text-cta font-bold text-text-inverse bg-accent-thrive px-6 py-2.5 rounded-lg transition-all duration-normal hover:brightness-110"
                 onClick={() => navigate("/save")}
               >
-                Continue &rarr;
+                {t("tree.continue")}
               </button>
             </div>
           </motion.div>
