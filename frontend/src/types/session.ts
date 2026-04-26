@@ -7,6 +7,7 @@ export interface CheckpointPayload {
     animalEmoji: string | null;
     animalName: string | null;
     homeState: string | null;
+    locale?: string;
   } | null;
   build_input_data: Record<string, unknown> | null;
   build_id: string | null;
@@ -28,6 +29,7 @@ export interface SessionResponse {
     animalEmoji: string;
     animalName: string;
     homeState: string | null;
+    locale?: string;
   } | null;
   build_input_data: Record<string, unknown> | null;
   build_id: string | null;

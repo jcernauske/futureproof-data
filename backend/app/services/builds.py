@@ -35,6 +35,7 @@ from app.models.career import (
     SkillRec,
 )
 from app.services import db as _db
+from app.services.locale import AppLocale, normalize_locale
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +205,7 @@ def build_from_parts(
     parent_build_id: str | None = None,
     home_state: str | None = None,
     animal_emoji: str | None = None,
+    locale: AppLocale = "en",
 ) -> Build:
     base = _slug(f"{school_name}-{major_text}")
     build_id = _next_id_for(base)
@@ -228,6 +230,7 @@ def build_from_parts(
         parent_build_id=parent_build_id,
         home_state=home_state,
         animal_emoji=animal_emoji,
+        locale=normalize_locale(locale),
     )
 
 

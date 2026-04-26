@@ -4,7 +4,7 @@
  * Tests Screen 10 (post-build hub):
  * - Renders saved builds for the active profile (P0)
  * - Tap a build card → loads via getBuild → navigate to /reveal (P0)
- * - "New Build" → resetInputs() + navigate to /set-your-course (P1)
+ * - "New Build" → clearProfile() + resetInputs() + navigate to /profile (P1)
  * - "Compare Builds" disabled when fewer than 2 builds (P1)
  *
  * The @/api/menu module is mocked at module boundary so we don't hit
@@ -311,7 +311,7 @@ describe("MenuScreen", () => {
 
     fireEvent.click(screen.getByTestId("btn-new-build"));
 
-    expect(mockNavigate).toHaveBeenCalledWith("/set-your-course");
+    expect(mockNavigate).toHaveBeenCalledWith("/profile");
     const after = useBuildInputStore.getState();
     expect(after.school).toBeNull();
     expect(after.major).toBeNull();
@@ -340,12 +340,12 @@ describe("MenuScreen", () => {
     expect(enterCompare).not.toBeDisabled();
   });
 
-  it("empty-state CTA also routes to /set-your-course via resetInputs (saboteur: zero-builds path)", async () => {
+  it("empty-state CTA also routes to /profile via resetInputs (saboteur: zero-builds path)", async () => {
     mockListBuilds.mockResolvedValue([]);
     renderScreen();
 
     const cta = await screen.findByTestId("btn-new-build");
     fireEvent.click(cta);
-    expect(mockNavigate).toHaveBeenCalledWith("/set-your-course");
+    expect(mockNavigate).toHaveBeenCalledWith("/profile");
   });
 });

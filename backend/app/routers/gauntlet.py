@@ -79,6 +79,7 @@ async def reroll_fight(build_id: str, request: RerollRequest):
             original_result,
             original_narrative,
             skill_titles,
+            locale=build.locale,
         )
         new_fight.narrative = updated_narrative or original_narrative
         new_fight.applied_skill_titles = skill_titles
@@ -118,5 +119,6 @@ async def fight_wrapup(build_id: str, request: WrapupRequest):
         original_result,
         request.all_skill_titles,
         request.all_narratives,
+        locale=build.locale,
     )
     return {"narrative": narrative}

@@ -71,6 +71,7 @@ describe("GemmaChat", () => {
       "berkeley-cs-001",
       "What internships?",
       [],
+      "en",
     );
   });
 

@@ -6,6 +6,11 @@ import { apiPost } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
 import { Button } from "@/components/ui/Button";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import type { Segment } from "@/components/ui/SegmentedControl";
+import type { AppLocale } from "@/i18n/locales";
+import { localizeProfileName } from "@/i18n/profileName";
+import { useT } from "@/i18n/useT";
 import { fireCheckpoint } from "@/lib/checkpoint";
 
 const US_STATES = [
@@ -43,6 +48,11 @@ interface ProfileResponse {
   animal_name: string;
 }
 
+const LANGUAGE_SEGMENTS: Segment<AppLocale>[] = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Español" },
+];
+
 const staggerContainer = {
   hidden: {},
   show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
@@ -59,7 +69,8 @@ const staggerItem = {
 
 export function ProfileScreen() {
   const navigate = useNavigate();
-  const { profileName, animalEmoji, setProfile, homeState, setHomeState } = useProfileStore();
+  const { profileName, animalEmoji, setProfile, homeState, setHomeState, locale, setLocale } = useProfileStore();
+  const t = useT();
 
   const [generating, setGenerating] = useState(true);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -78,7 +89,7 @@ export function ProfileScreen() {
       })
       .catch(() => {
         if (cancelled) return;
-        setGenerateError("Couldn't generate a profile. Try refreshing.");
+        setGenerateError(t("profile.generateError"));
       })
       .finally(() => {
         if (!cancelled) setGenerating(false);
@@ -97,7 +108,7 @@ export function ProfileScreen() {
       setProfile(res.profile_name, res.animal_emoji, res.animal_name);
       setNameKey((k) => k + 1);
     } catch {
-      setRerollError("Couldn't generate a new name. Try again.");
+      setRerollError(t("profile.rerollError"));
     } finally {
       setRerolling(false);
     }
@@ -111,7 +122,7 @@ export function ProfileScreen() {
             {generateError ? (
               <p className="font-body text-body text-accent-alert text-center">{generateError}</p>
             ) : generating ? (
-              <p className="font-body text-body text-text-secondary">Generating your character...</p>
+              <p className="font-body text-body text-text-secondary">{t("profile.generating")}</p>
             ) : null}
           </div>
         </PageContainer>
@@ -132,7 +143,7 @@ export function ProfileScreen() {
           className="font-body text-subheading text-text-secondary"
           variants={staggerItem}
         >
-          Meet your guide
+          {t("profile.meetGuide")}
         </motion.p>
 
         <div className="relative mt-4">
@@ -146,7 +157,7 @@ export function ProfileScreen() {
               transform: "translate(-50%, -50%)",
               background:
                 "radial-gradient(circle, var(--color-state-active) 0%, transparent 70%)",
-              animation: "ambient-breathe 4s ease-in-out infinite",
+              animation: "ambient-breathe 6s ease-in-out infinite",
             }}
           />
 
@@ -173,7 +184,7 @@ export function ProfileScreen() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ ...springs.bouncy, delay: 0.5 }}
               >
-                {profileName}
+                {localizeProfileName(profileName, locale)}
               </motion.h1>
             </motion.div>
           </AnimatePresence>
@@ -183,7 +194,7 @@ export function ProfileScreen() {
           className="font-body text-small text-text-muted mt-3"
           variants={staggerItem}
         >
-          Every build gets a character.
+          {t("profile.everyBuild")}
         </motion.p>
 
         <motion.button
@@ -201,7 +212,7 @@ export function ProfileScreen() {
           >
             🎲
           </motion.span>
-          New name
+          {t("profile.newName")}
         </motion.button>
 
         {rerollError && (
@@ -215,18 +226,36 @@ export function ProfileScreen() {
           variants={staggerItem}
         >
           <label
+            className="block font-body text-small text-text-secondary mb-2 text-center"
+          >
+            {t("profile.language")}
+          </label>
+          <SegmentedControl
+            segments={LANGUAGE_SEGMENTS}
+            value={locale}
+            onChange={setLocale}
+            activeColor="bg-accent-info"
+            ariaLabel={locale === "es" ? "Elegir idioma" : "Choose language"}
+          />
+        </motion.div>
+
+        <motion.div
+          className="mt-6 w-full max-w-xs"
+          variants={staggerItem}
+        >
+          <label
             htmlFor="home-state"
             className="block font-body text-small text-text-secondary mb-2 text-center"
           >
-            What state do you live in?
+            {t("profile.stateLabel")}
           </label>
           <select
             id="home-state"
             value={homeState ?? ""}
             onChange={(e) => setHomeState(e.target.value)}
-            className="w-full rounded-md border border-border bg-bp-deep text-text-primary font-body px-4 py-3 text-base appearance-none cursor-pointer focus:outline-none focus:border-accent-info focus:shadow-[0_0_0_3px_rgba(123,184,224,0.15)] transition-colors duration-normal"
+            className="w-full rounded-md border border-border bg-bp-deep text-text-primary font-body px-4 py-3 text-body appearance-none cursor-pointer focus:outline-none focus:border-accent-info focus:shadow-[0_0_0_3px_rgba(123,184,224,0.15)] transition-colors duration-normal"
           >
-            <option value="" disabled>Select your state</option>
+            <option value="" disabled>{t("profile.statePlaceholder")}</option>
             {US_STATES.map((s) => (
               <option key={s.abbr} value={s.abbr}>{s.name}</option>
             ))}
@@ -247,7 +276,7 @@ export function ProfileScreen() {
             aria-label="Continue to school selection"
             className="w-full"
           >
-            Let's go →
+            {t("profile.start")}
           </Button>
 
         </motion.div>

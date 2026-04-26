@@ -16,6 +16,7 @@ import re
 
 from app.models.career import CareerOutcome, GauntletResult, SkillRec
 from app.services import gemma_client
+from app.services.locale import AppLocale, gemma_language_instruction, normalize_locale
 
 logger = logging.getLogger(__name__)
 
@@ -187,10 +188,12 @@ def _parse_recs(text: str, career: CareerOutcome) -> list[SkillRec]:
 
 
 def generate_recs(
-    career: CareerOutcome, gauntlet: GauntletResult
+    career: CareerOutcome, gauntlet: GauntletResult, locale: AppLocale = "en",
 ) -> list[SkillRec]:
+    locale = normalize_locale(locale)
+    system = f"{_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     text = gemma_client.generate(
-        system=_SYSTEM,
+        system=system,
         user=_prompt(career, gauntlet),
         # 4 pipe-delimited lines at ~25 tokens each = ~100, plus
         # Gemma preamble; 800 keeps every rec intact.
@@ -201,14 +204,16 @@ def generate_recs(
 
 
 async def generate_recs_async(
-    career: CareerOutcome, gauntlet: GauntletResult
+    career: CareerOutcome, gauntlet: GauntletResult, locale: AppLocale = "en",
 ) -> list[SkillRec]:
     """Async variant — same behavior, fans out through
     ``gemma_client.generate_async`` so the /build router can gather it
     alongside the boss narratives and guidance call.
     """
+    locale = normalize_locale(locale)
+    system = f"{_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     text = await gemma_client.generate_async(
-        system=_SYSTEM,
+        system=system,
         user=_prompt(career, gauntlet),
         max_tokens=800,
         temperature=0.6,

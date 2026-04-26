@@ -11,6 +11,8 @@ never a float, regardless of how it looks.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -45,6 +47,7 @@ class AskCareerPickRequest(BaseModel):
     soc_codes: list[str] = Field(default_factory=list)
     selected_soc: str | None = None
     terminal_title: str | None = None
+    locale: Literal["en", "es"] = "en"
 
 
 class AskCareerPickResponse(BaseModel):

@@ -8,18 +8,19 @@ import { VSOverlay } from "./VSOverlay";
 import { SkillStatBadge } from "./SkillStatBadge";
 import { NarrativeTimeline } from "./NarrativeTimeline";
 import type { NarrativeEntry } from "./NarrativeTimeline";
+import { useT } from "@/i18n/useT";
 
 const MAX_REROLLS = 3;
-const RESULT_WORDS: Record<BossOutcome, string> = {
-  win: "VICTORY",
-  lose: "DEFEATED",
-  draw: "STANDOFF",
-  unknown: "UNKNOWN",
+const RESULT_WORD_KEYS: Record<BossOutcome, string> = {
+  win: "build.resultVictory",
+  lose: "build.resultDefeated",
+  draw: "build.resultStandoff",
+  unknown: "build.resultUnknown",
 };
-const RESULT_FLAVOR: Record<BossOutcome, string> = {
-  win: "Your stats held strong",
-  lose: "This one got you",
-  draw: "A narrow escape",
+const RESULT_FLAVOR_KEYS: Record<BossOutcome, string> = {
+  win: "build.flavorWin",
+  lose: "build.flavorLose",
+  draw: "build.flavorDraw",
   unknown: "",
 };
 
@@ -39,12 +40,14 @@ interface BossBandProps {
   onReveal?: () => void;
 }
 
-const STAT_DELTAS: { key: string; field: keyof AppliedSkill }[] = [
+const STAT_DELTAS: { key: string; field: keyof AppliedSkill; signMultiplier?: number }[] = [
   { key: "ern", field: "delta_ern" },
   { key: "roi", field: "delta_roi" },
   { key: "res", field: "delta_res" },
   { key: "grw", field: "delta_grw" },
   { key: "hmn", field: "delta_hmn" },
+  { key: "brn", field: "delta_burnout_raw", signMultiplier: -1 },
+  { key: "ceil", field: "delta_ceiling_raw" },
 ];
 
 export function BossBand({
@@ -62,6 +65,7 @@ export function BossBand({
   isSealedVisible,
   onReveal,
 }: BossBandProps) {
+  const t = useT();
   const boss = BOSS_META[fight.boss];
   const [localResult, setLocalResult] = useState<BossOutcome>(fight.result);
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
@@ -129,9 +133,9 @@ export function BossBand({
         .map((id) => skillPool.find((s) => s.id === id))
         .filter(Boolean) as AppliedSkill[];
       const aggregatedDeltas = STAT_DELTAS
-        .map(({ key, field }) => ({
+        .map(({ key, field, signMultiplier }) => ({
           stat: key,
-          delta: selectedSkillObjects.reduce((sum, s) => sum + (s[field] as number), 0),
+          delta: selectedSkillObjects.reduce((sum, s) => sum + (s[field] as number), 0) * (signMultiplier ?? 1),
         }))
         .filter((d) => d.delta !== 0);
 
@@ -204,7 +208,7 @@ export function BossBand({
       onSkillsConsumed(skillIds);
       setSelectedSkills(new Set());
     } catch (err) {
-      setRerollError(err instanceof Error ? err.message : "Rescore failed — try again");
+      setRerollError(err instanceof Error ? err.message : t("build.rescoreFailed"));
     } finally {
       setIsRescoring(false);
     }
@@ -241,7 +245,7 @@ export function BossBand({
       data-result={localResult}
       data-rescored={rescored ? "true" : undefined}
       role="region"
-      aria-label={`${boss.shortName}: ${RESULT_WORDS[localResult]}`}
+      aria-label={`${boss.shortName}: ${t(RESULT_WORD_KEYS[localResult])}`}
     >
       {/* Dual edge stripes */}
       {isRevealed && (
@@ -314,7 +318,7 @@ export function BossBand({
               {firstName} vs. {boss.shortName}
             </div>
             <div className="font-body text-text-muted" style={{ fontSize: 14, marginTop: 2 }}>
-              {boss.subtitle}
+              {t(boss.subtitleKey)}
             </div>
             {canReroll && showReroll && (
               <span
@@ -326,7 +330,7 @@ export function BossBand({
                   padding: "2px 10px",
                 }}
               >
-                {availableSkills.length} skill{availableSkills.length !== 1 ? "s" : ""} available
+                {t("build.skillsAvailable").replace("{count}", String(availableSkills.length)).replace("{s}", availableSkills.length !== 1 ? "s" : "")}
               </span>
             )}
           </div>
@@ -343,10 +347,10 @@ export function BossBand({
                 animation: isRevealed ? resultAnimation : undefined,
               }}
             >
-              {RESULT_WORDS[localResult]}
+              {t(RESULT_WORD_KEYS[localResult])}
             </div>
             <div className="font-body text-text-muted" style={{ fontSize: 12, marginTop: 2 }}>
-              {RESULT_FLAVOR[localResult]}
+              {RESULT_FLAVOR_KEYS[localResult] ? t(RESULT_FLAVOR_KEYS[localResult]) : ""}
             </div>
           </div>
         </div>
@@ -365,7 +369,7 @@ export function BossBand({
             style={{ padding: 16, background: "rgba(45,48,96,0.35)" }}
           >
             <div className="font-display font-semibold text-text-secondary" style={{ fontSize: 15, marginBottom: 12 }}>
-              Equip Skills
+              {t("build.equipSkills")}
             </div>
 
             {/* Skill grid */}
@@ -398,8 +402,8 @@ export function BossBand({
                       {skill.rationale}
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {STAT_DELTAS.map(({ key, field }) => {
-                        const val = skill[field] as number;
+                      {STAT_DELTAS.map(({ key, field, signMultiplier }) => {
+                        const val = (skill[field] as number) * (signMultiplier ?? 1);
                         return val !== 0 ? <SkillStatBadge key={key} stat={key} delta={val} /> : null;
                       })}
                     </div>
@@ -427,7 +431,7 @@ export function BossBand({
             {/* Actions */}
             <div className="flex items-stretch justify-between mt-3.5 gap-3">
               <Button variant="ghost" onClick={handleAccept}>
-                Accept Result
+                {t("build.acceptResult")}
               </Button>
               <Button
                 variant="primary"
@@ -436,10 +440,10 @@ export function BossBand({
                 loading={isRescoring}
                 aria-label="Rematch with equipped skills"
               >
-                Rematch ✦
+                {t("build.rematch")}
                 {selectedSkills.size > 0 && !isRescoring && (
                   <span className="ml-1.5" style={{ fontSize: 12, opacity: 0.7 }}>
-                    ({selectedSkills.size} equipped)
+                    {t("build.equipped").replace("{count}", String(selectedSkills.size)).replace("{s}", selectedSkills.size !== 1 ? "s" : "")}
                   </span>
                 )}
               </Button>

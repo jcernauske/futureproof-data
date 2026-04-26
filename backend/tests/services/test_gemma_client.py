@@ -156,7 +156,7 @@ async def test_generate_async_logs_to_jsonl(monkeypatch, tmp_path):
             self.chat = _Chat()
 
     cfg = gemma_client.InferenceConfig(
-        backend="ollama",
+        backend="openrouter",
         base_url="http://stub",
         api_key="stub",
         model="gemma4:e4b",
@@ -190,7 +190,7 @@ async def test_generate_async_logs_to_jsonl(monkeypatch, tmp_path):
     users_seen: list[str] = []
     for line in lines:
         record = json.loads(line)
-        assert record["backend"] == "ollama"
+        assert record["backend"] == "openrouter"
         assert record["model"] == "gemma4:e4b"
         assert record["response"] == "hello from stub"
         assert "duration_ms" in record
@@ -261,7 +261,7 @@ async def test_generate_async_jsonl_integrity_under_gather(monkeypatch, tmp_path
             self.chat = _Chat()
 
     cfg = gemma_client.InferenceConfig(
-        backend="ollama",
+        backend="openrouter",
         base_url="http://stub",
         api_key="stub",
         model="gemma4:e4b",
@@ -313,7 +313,7 @@ async def test_generate_async_jsonl_integrity_under_gather(monkeypatch, tmp_path
                 f"line {idx} is not valid JSON (concurrent-write "
                 f"corruption?): {exc}: {line[:200]!r}"
             )
-        assert record["backend"] == "ollama"
+        assert record["backend"] == "openrouter"
         assert record["response"] == bulky_body
 
     gemma_client.reset_cache()
@@ -348,7 +348,7 @@ def _make_stub_client_for_tools(monkeypatch, tmp_path, response_factory):
             self.chat = _Chat()
 
     cfg = gemma_client.InferenceConfig(
-        backend="ollama",
+        backend="openrouter",
         base_url="http://stub",
         api_key="stub",
         model="gemma4:e4b",
@@ -672,7 +672,7 @@ def test_generate_with_tools_logs_to_jsonl(monkeypatch, tmp_path):
     assert record["call_site"] == "soc_expansion"
     assert record["tool_call_made"] is True
     assert record["tool_name"] == "expand_socs"
-    assert record["backend"] == "ollama"
+    assert record["backend"] == "openrouter"
     assert "duration_ms" in record
 
     gemma_client.reset_cache()

@@ -24,6 +24,7 @@ from app.models.career_pick import (
     CareerPickChip,
 )
 from app.services import gemma_client
+from app.services.locale import AppLocale, gemma_language_instruction, normalize_locale
 
 logger = logging.getLogger(__name__)
 
@@ -388,6 +389,7 @@ def _build_user_prompt(
 async def ask(
     *,
     request: AskCareerPickRequest,
+    locale: AppLocale = "en",
 ) -> AskCareerPickResponse:
     """Resolve the canned prompt for ``request.chip_id`` and call Gemma.
 
@@ -403,8 +405,9 @@ async def ask(
     audit trail is inspectable without the prompt payload duplicating
     between two records.
     """
+    locale = normalize_locale(locale)
     question = _question_by_id(request.chip_id)
-    system = GEMMA_SYSTEM_PROMPT
+    system = f"{GEMMA_SYSTEM_PROMPT}\n\n{gemma_language_instruction(locale)}"
     user = _build_user_prompt(question, request)
 
     extra: dict[str, object] = {

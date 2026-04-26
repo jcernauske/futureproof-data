@@ -50,6 +50,7 @@ async def _stream_events(
             school_name=request.school_name,
             unitid=request.unitid,
             programs=request.programs,
+            locale=request.locale,
         ):
             name = event.get("event", "delta")
             data = event.get("data", {})

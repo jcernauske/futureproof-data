@@ -659,7 +659,8 @@ class TestNarrativePromptIncludesCostContext:
         assert "$54,000" in prompt  # sticker debt 72000*0.75
         assert "$56,800" in prompt  # net price avg 14200*4
         assert "average" in prompt.lower()  # net price labeled as average
-        assert "$42,600" not in prompt  # modeled_total_debt suppressed when sticker available
+        # modeled_total_debt suppressed when sticker available
+        assert "$42,600" not in prompt
         assert "$19,500" in prompt  # debt_median_reference
         assert "Fight Student Loans" in prompt
         assert "LOSE" in prompt
@@ -814,3 +815,128 @@ class TestStatExplainerRoiNarrative:
         assert "$56,800" not in result
         assert "projected debt" not in result.lower()
         assert "median graduate debt" not in result.lower()
+
+
+# ---------------------------------------------------------------------------
+# Locale threading — narrate_one + generate_reroll_commentary
+# ---------------------------------------------------------------------------
+
+
+class TestBossFightsLocale:
+    def test_narrate_one_passes_spanish_instruction(self, monkeypatch):
+        """narrate_one with locale='es' must thread the Spanish instruction
+        block into the Gemma system prompt."""
+        import asyncio
+
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return "stub narrative"
+
+        monkeypatch.setattr(
+            gemma_client, "generate_async", fake_generate_async
+        )
+
+        career = _career(res=3, hmn=7)
+        gauntlet = boss_fights.score_gauntlet(career)
+        # Pick a fight that is NOT unknown so narrate_one calls Gemma.
+        fight = next(f for f in gauntlet.fights if f.result != "unknown")
+
+        result = asyncio.run(
+            boss_fights.narrate_one(career, fight, locale="es")
+        )
+
+        assert result == "stub narrative"
+        system = captured["system"]
+        assert isinstance(system, str)
+        assert "Write all student-facing prose in Spanish" in system
+        assert "deuda estudiantil" in system
+
+    def test_narrate_one_default_locale_is_english(self, monkeypatch):
+        import asyncio
+
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return "stub"
+
+        monkeypatch.setattr(
+            gemma_client, "generate_async", fake_generate_async
+        )
+
+        career = _career(res=3, hmn=7)
+        gauntlet = boss_fights.score_gauntlet(career)
+        fight = next(f for f in gauntlet.fights if f.result != "unknown")
+
+        asyncio.run(boss_fights.narrate_one(career, fight))
+
+        system = captured["system"]
+        assert "Write student-facing prose in English" in system
+        assert "Spanish" not in system
+
+    def test_narrate_one_unknown_fight_skips_gemma(self, monkeypatch):
+        """When fight.result == 'unknown', narrate_one returns the
+        deterministic fallback without calling Gemma at all."""
+        import asyncio
+
+        from app.services import gemma_client
+
+        called = False
+
+        async def fake_generate_async(**kwargs):
+            nonlocal called
+            called = True
+            return "should not be called"
+
+        monkeypatch.setattr(
+            gemma_client, "generate_async", fake_generate_async
+        )
+
+        career = _career(res=None, hmn=None)
+        gauntlet = boss_fights.score_gauntlet(career)
+        fight = next(f for f in gauntlet.fights if f.boss == "ai")
+        assert fight.result == "unknown"
+
+        result = asyncio.run(
+            boss_fights.narrate_one(career, fight, locale="es")
+        )
+
+        assert not called, "Gemma should not be called for unknown fights"
+        assert result  # Should still return the fallback text
+
+    def test_generate_reroll_commentary_passes_spanish(self, monkeypatch):
+        from app.models.career import BossFightResult
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        def fake_generate(**kwargs):
+            captured.update(kwargs)
+            return "reroll commentary"
+
+        monkeypatch.setattr(gemma_client, "generate", fake_generate)
+
+        career = _career(res=5, hmn=7)
+        fight = BossFightResult(
+            boss="ai",
+            label="Fight AI",
+            result="draw",
+            raw_score=12,
+            threshold_win=14,
+            threshold_draw=10,
+            reason="test",
+        )
+        boss_fights.generate_reroll_commentary(
+            career, fight, "lose", "original narrative",
+            ["Data Analytics Minor"],
+            locale="es",
+        )
+
+        system = captured["system"]
+        assert "Write all student-facing prose in Spanish" in system

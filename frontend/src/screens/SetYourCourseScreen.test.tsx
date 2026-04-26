@@ -12,7 +12,7 @@
  *   - 4fr_8fr grid renders at desktop viewport, collapses to 1-col below 1200px.
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -37,6 +37,12 @@ vi.mock("@/api/build", () => ({
     less_common: [],
     stretch: [],
   }),
+}));
+const mockGetCareerPickChips = vi.fn();
+const mockAskCareerPickChip = vi.fn();
+vi.mock("@/api/careerPick", () => ({
+  getCareerPickChips: (...args: unknown[]) => mockGetCareerPickChips(...args),
+  askCareerPickChip: (...args: unknown[]) => mockAskCareerPickChip(...args),
 }));
 vi.mock("@/api/client", () => ({
   apiGet: vi.fn().mockResolvedValue([]),
@@ -102,7 +108,14 @@ function seedState(overrides: Partial<ReturnType<typeof useBuildInputStore.getSt
 }
 
 beforeEach(() => {
+  window.scrollTo = vi.fn();
   mockNavigate.mockReset();
+  mockGetCareerPickChips.mockReset().mockResolvedValue([]);
+  mockAskCareerPickChip.mockReset().mockResolvedValue({
+    chip_id: "why_these_tiers",
+    answer: "Gemma explains these paths.",
+    fallback_fired: false,
+  });
   vi.mocked(commitResolution).mockReset();
   vi.mocked(commitResolution).mockResolvedValue({
     committed: true,
@@ -344,6 +357,82 @@ describe("TestSocRevealStates", () => {
     const section = await screen.findByTestId("effort-commit-section");
     expect(section).toBeInTheDocument();
     expect(screen.getByText(/Spec my build/)).toBeInTheDocument();
+  });
+
+  it("renders Ask Gemma chips above Where this leads when outcomes load", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
+    mockGetCareerPickChips.mockResolvedValueOnce([
+      {
+        id: "why_these_tiers",
+        label: "Why are some careers 'Common' and some 'Stretch'?",
+        elevated: false,
+        terminal_title: null,
+      },
+    ]);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    const group = await screen.findByRole("group", {
+      name: "Ask Gemma about these career paths",
+    });
+    expect(
+      within(group).getByRole("button", {
+        name: "Why are some careers 'Common' and some 'Stretch'?",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Make sense of these paths")).toBeInTheDocument();
+    expect(mockGetCareerPickChips).toHaveBeenCalledWith({
+      cipcode: "52.1401",
+      majorText: "Marketing",
+      socCodes: ["19-4021", "11-9121"],
+    });
+  });
+
+  it("asks Gemma from the Set Your Course chip row with rendered SOC context", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
+    mockGetCareerPickChips.mockResolvedValueOnce([
+      {
+        id: "why_these_tiers",
+        label: "Why are some careers 'Common' and some 'Stretch'?",
+        elevated: false,
+        terminal_title: null,
+      },
+    ]);
+    mockAskCareerPickChip.mockResolvedValueOnce({
+      chip_id: "why_these_tiers",
+      answer: "Gemma explains how these paths relate to the program.",
+      fallback_fired: false,
+    });
+    seedWithResolvedMajor();
+    renderScreen();
+
+    const group = await screen.findByRole("group", {
+      name: "Ask Gemma about these career paths",
+    });
+    fireEvent.click(
+      within(group).getByRole("button", {
+        name: "Why are some careers 'Common' and some 'Stretch'?",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockAskCareerPickChip).toHaveBeenCalledWith({
+        chipId: "why_these_tiers",
+        cipcode: "52.1401",
+        majorText: "Marketing",
+        socCodes: ["19-4021", "11-9121"],
+        selectedSoc: null,
+        terminalTitle: null,
+        locale: "en",
+      });
+    });
+    expect(
+      await screen.findByText(
+        "Gemma explains how these paths relate to the program.",
+      ),
+    ).toBeInTheDocument();
   });
 });
 

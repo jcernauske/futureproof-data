@@ -628,9 +628,9 @@ describe("BuildResultsScreen -- error state (P2)", () => {
 
     renderScreen();
 
-    // Wait for the error to appear.
+    // Wait for the user-friendly error to appear (raw error is never shown).
     await waitFor(() => {
-      expect(screen.getByText("Network timeout")).toBeInTheDocument();
+      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
     });
 
     // "Try Again" and "Go Back" buttons should be present.
@@ -849,6 +849,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       undefined,               // homeState (null → undefined)
       "CA",                    // schoolState from mock school
       "🐻",                    // animalEmoji
+      "en",                    // locale (default)
     );
 
     // Clean up.
@@ -900,6 +901,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       undefined,               // homeState
       "CA",                    // schoolState from mock school
       "🐻",                    // animalEmoji
+      "en",                    // locale (default)
     );
 
     await act(async () => {

@@ -21,6 +21,12 @@ from app.models.career import (
 )
 from app.services import gemma_client
 from app.services.boss_fights import fmt_dollars, stat_explainer
+from app.services.locale import (
+    AppLocale,
+    fallback_text,
+    gemma_language_instruction,
+    normalize_locale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +159,9 @@ def _prompt(
 
 
 def _fallback_narrative(
-    career: CareerOutcome, gauntlet: GauntletResult
+    career: CareerOutcome,
+    gauntlet: GauntletResult,
+    locale: AppLocale = "en",
 ) -> str:
     """Degraded fallback — shown only when Gemma is unreachable.
 
@@ -162,6 +170,7 @@ def _fallback_narrative(
     terms and point the student at the weak spots in their build as
     something they can act on, without ranking them as wins or losses.
     """
+    body = fallback_text("guidance_unavailable", locale)
     weak_labels = _weak_spot_phrases(gauntlet)
     if weak_labels:
         weak_clause = (
@@ -176,8 +185,7 @@ def _fallback_narrative(
         )
     return (
         f"{career.institution_name}'s {career.program_name} program "
-        f"points toward {career.occupation_title}. The full write-up "
-        f"didn't load this time — you can come back to it.{weak_clause}"
+        f"points toward {career.occupation_title}. {body}{weak_clause}"
     )
 
 
@@ -211,11 +219,14 @@ def generate_guidance(
     career: CareerOutcome,
     gauntlet: GauntletResult,
     branches: list[CareerBranch],
+    locale: AppLocale = "en",
 ) -> str:
     """Generate the 'Gemma's Take' narrative. Falls back to a template
     string if Gemma is unreachable so the CLI still renders the block."""
+    locale = normalize_locale(locale)
+    system = f"{_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     text = gemma_client.generate(
-        system=_SYSTEM,
+        system=system,
         user=_prompt(career, gauntlet, branches),
         # 4-6 sentences of coaching averages ~180 words, but Gemma 4
         # frequently prefaces with a sentence or two; 1200 gives it
@@ -227,17 +238,20 @@ def generate_guidance(
         return text
 
     logger.warning("guidance gen failed; using deterministic fallback")
-    return _fallback_narrative(career, gauntlet)
+    return _fallback_narrative(career, gauntlet, locale)
 
 
 async def generate_guidance_async(
     career: CareerOutcome,
     gauntlet: GauntletResult,
     branches: list[CareerBranch],
+    locale: AppLocale = "en",
 ) -> str:
     """Async variant — same fallback contract as :func:`generate_guidance`."""
+    locale = normalize_locale(locale)
+    system = f"{_SYSTEM}\n\n{gemma_language_instruction(locale)}"
     text = await gemma_client.generate_async(
-        system=_SYSTEM,
+        system=system,
         user=_prompt(career, gauntlet, branches),
         max_tokens=1200,
         temperature=0.7,
@@ -246,7 +260,7 @@ async def generate_guidance_async(
         return text
 
     logger.warning("guidance gen failed; using deterministic fallback")
-    return _fallback_narrative(career, gauntlet)
+    return _fallback_narrative(career, gauntlet, locale)
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +349,7 @@ def chat_with_context(
     skill_recs: list[SkillRec],
     conversation_history: list[dict],
     user_question: str,
+    locale: AppLocale = "en",
 ) -> str:
     """Freeform Q&A with full build context loaded.
 
@@ -342,8 +357,12 @@ def chat_with_context(
     grounded in the student's actual numbers. ``conversation_history``
     holds prior user/assistant turns and accumulates across the session.
     """
+    locale = normalize_locale(locale)
     context_block = _build_context_block(career, gauntlet, branches, skill_recs)
-    system_with_context = f"{_CHAT_SYSTEM}\n\n{context_block}"
+    lang_block = gemma_language_instruction(locale)
+    system_with_context = (
+        f"{_CHAT_SYSTEM}\n\n{lang_block}\n\n{context_block}"
+    )
     messages: list[dict] = [
         *conversation_history,
         {"role": "user", "content": user_question},
@@ -358,8 +377,4 @@ def chat_with_context(
         return text
 
     logger.warning("chat_with_context failed; using fallback")
-    return (
-        "I'm having trouble reaching Gemma right now. Your build at "
-        f"{career.institution_name} in {career.program_name} is still "
-        "loaded — try the question again in a moment."
-    )
+    return fallback_text("chat_unavailable", locale)

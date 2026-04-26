@@ -11,6 +11,7 @@ import {
 } from "@/api/intent";
 import { getOutcomes } from "@/api/build";
 import { fireCheckpoint } from "@/lib/checkpoint";
+import { useProfileStore } from "@/store/profileStore";
 import { useDebouncedTrigger } from "@/hooks/useDebouncedTrigger";
 import type { IntentResult, Suggestion } from "@/types/buildInput";
 import type { CareerOutcome } from "@/types/build";
@@ -333,6 +334,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
             unitid: school.unitid,
             programs: programDicts,
             signal: controller.signal,
+            locale: useProfileStore.getState().locale,
           })) {
             if (controller.signal.aborted) break;
             if (event.type === "delta") {
@@ -418,6 +420,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
           unitid: school.unitid,
           programs: programDicts,
           signal: controller.signal,
+          locale: useProfileStore.getState().locale,
         });
         if (controller.signal.aborted) return;
 

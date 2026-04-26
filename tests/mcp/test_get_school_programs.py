@@ -62,6 +62,7 @@ def _make_row(
         "tuition_in_state": 9_800.0,
         "tuition_out_of_state": 21_400.0,
         "room_board_on_campus": 11_500.0,
+        "state_abbr": "IN",
     }
     row.update(overrides)
     return row

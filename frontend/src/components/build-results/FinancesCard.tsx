@@ -1,3 +1,5 @@
+import { useT } from "@/i18n/useT";
+
 interface FinancesCardProps {
   startingSalary: number | null;
   medianSalary: number | null;
@@ -24,10 +26,11 @@ interface RowProps {
   value: string;
   muted?: boolean;
   highlight?: boolean;
+  highlightLabel?: string;
   subtitle?: string;
 }
 
-function Row({ label, value, muted, highlight, subtitle }: RowProps) {
+function Row({ label, value, muted, highlight, highlightLabel, subtitle }: RowProps) {
   return (
     <div
       className="flex items-center justify-between py-3"
@@ -38,9 +41,9 @@ function Row({ label, value, muted, highlight, subtitle }: RowProps) {
           className={`font-body text-small ${highlight ? "text-text-primary font-semibold" : "text-text-secondary"}`}
         >
           {label}
-          {highlight && (
+          {highlight && highlightLabel && (
             <span className="text-accent-thrive ml-1 text-micro">
-              ← yours
+              {highlightLabel}
             </span>
           )}
         </span>
@@ -69,43 +72,47 @@ export function FinancesCard({
   isInState,
   institutionControl,
 }: FinancesCardProps) {
+  const t = useT();
   const isPrivate = institutionControl?.startsWith("Private") ?? false;
+  const yoursLabel = t("build.yours");
 
   return (
     <div
       className="rounded-[20px] border border-border-subtle bg-bp-mid shadow-md p-6"
       role="region"
-      aria-label="Finances"
+      aria-label={t("build.finances")}
     >
       <div
         className="font-data font-bold uppercase text-accent-info mb-4"
         style={{ fontSize: 11, letterSpacing: 2 }}
       >
-        Finances
+        {t("build.finances")}
       </div>
 
-      <Row label="Starting salary" value={`${fmt(startingSalary)} / yr`} />
-      <Row label="Median salary" value={`${fmt(medianSalary)} / yr`} />
+      <Row label={t("build.startingSalary")} value={`${fmt(startingSalary)} / yr`} />
+      <Row label={t("build.medianSalary")} value={`${fmt(medianSalary)} / yr`} />
       {isPrivate ? (
-        <Row label="Tuition (4 yr)" value={fmt(tuitionInState, 4)} />
+        <Row label={t("build.tuition4yr")} value={fmt(tuitionInState, 4)} />
       ) : (
         <>
           <Row
-            label="In-state tuition (4 yr)"
+            label={t("build.inStateTuition")}
             value={fmt(tuitionInState, 4)}
             highlight={isInState === true}
+            highlightLabel={yoursLabel}
           />
           <Row
-            label="Out-of-state tuition (4 yr)"
+            label={t("build.outStateTuition")}
             value={fmt(tuitionOutOfState, 4)}
             highlight={isInState === false}
+            highlightLabel={yoursLabel}
           />
         </>
       )}
       {netPriceAnnual != null && (
-        <Row label="Avg. net price (4 yr)" value={fmt(netPriceAnnual, 4)} subtitle="After avg. grants & scholarships" />
+        <Row label={t("build.avgNetPrice")} value={fmt(netPriceAnnual, 4)} subtitle={t("build.afterGrants")} />
       )}
-      <Row label="Financing" value={pct(loanPct)} muted={loanPct === 1} />
+      <Row label={t("build.financing")} value={pct(loanPct)} muted={loanPct === 1} />
     </div>
   );
 }

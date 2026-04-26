@@ -235,6 +235,12 @@ class TestStreamInitial:
             "generate_stream_async",
             _stream_raises(RuntimeError("boom")),
         )
+        # Also stub the sync generate so _fallback_resolve returns None
+        # and we get the low-confidence placeholder instead of a real
+        # Gemma response.
+        monkeypatch.setattr(
+            gemma_client, "generate", lambda **kwargs: "",
+        )
 
         events: list[dict[str, Any]] = []
         async for event in set_your_course.stream_initial_resolution(
@@ -1035,9 +1041,12 @@ class TestResolverIntentKeywords:
         ]
         assert result.student_major_text == "deaf ed"
 
-    def test_student_major_text_set_on_fallback_path(self):
+    def test_student_major_text_set_on_fallback_path(self, monkeypatch):
         """When parsed is None (unparseable tail), student_major_text
         should still be set on the fallback IntentResult."""
+        # Stub generate so _fallback_resolve returns None and we get the
+        # hardcoded low-confidence placeholder.
+        monkeypatch.setattr(gemma_client, "generate", lambda **kwargs: "")
         result = set_your_course._build_intent_result_from_tail(
             major_text="deaf ed",
             prose="",

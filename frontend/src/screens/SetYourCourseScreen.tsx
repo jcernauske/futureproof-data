@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiGet } from "@/api/client";
+import { askCareerPickChip, getCareerPickChips } from "@/api/careerPick";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
@@ -10,6 +11,8 @@ import { useSetYourCourse } from "@/hooks/useSetYourCourse";
 import { SchoolSearch } from "@/components/school/SchoolSearch";
 import { EffortLoansPanel } from "@/components/school/EffortLoansPanel";
 import { AskGemmaChip } from "@/components/school/AskGemmaChip";
+import { AskGemmaChipRow } from "@/components/AskGemmaChipRow";
+import { AskGemmaResponseCard } from "@/components/AskGemmaResponseCard";
 import { CareerListSkeleton } from "@/components/school/CareerListSkeleton";
 import { CareerTierSection } from "@/components/CareerTierSection";
 import { CipPicker } from "@/components/school/CipPicker";
@@ -20,11 +23,13 @@ import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SealedBuildContext } from "@/components/school/SealedBuildContext";
 import { fireCheckpoint } from "@/lib/checkpoint";
+import { useT } from "@/i18n/useT";
 import type {
   ProgramResult,
   SchoolSelection,
 } from "@/types/buildInput";
 import type { CareerOutcome } from "@/types/build";
+import type { CareerPickChip } from "@/types/careerPick";
 
 const isPostgrad = (c: CareerOutcome) =>
   c.education_level_name != null &&
@@ -34,6 +39,8 @@ export function SetYourCourseScreen() {
   const navigate = useNavigate();
   const profileName = useProfileStore((s) => s.profileName);
   const homeState = useProfileStore((s) => s.homeState);
+  const locale = useProfileStore((s) => s.locale);
+  const t = useT();
   const {
     school,
     effort,
@@ -52,6 +59,11 @@ export function SetYourCourseScreen() {
   const setSelectedCareer = useBuildStore((s) => s.setSelectedCareer);
 
   const [majorText, setMajorText] = useState("");
+  const [careerPickChips, setCareerPickChips] = useState<CareerPickChip[]>([]);
+  const [activeCareerPickChipId, setActiveCareerPickChipId] = useState<string | null>(null);
+  const [careerPickAnswer, setCareerPickAnswer] = useState<string | null>(null);
+  const [careerPickAnswerLoading, setCareerPickAnswerLoading] = useState(false);
+  const careerPickElevationHintId = useId();
 
   const {
     resolve,
@@ -162,9 +174,7 @@ export function SetYourCourseScreen() {
   }
 
   const lowConfidence = currentResolution?.confidence === "low";
-  const softNudge = lowConfidence
-    ? "Gemma wasn't sure on this one. Worth a sanity check?"
-    : null;
+  const softNudge = lowConfidence ? t("syc.softNudge") : null;
 
   const normalizedInput = useMemo(
     () => majorText.trim().toLowerCase().replace(/\s+/g, " "),
@@ -238,6 +248,81 @@ export function SetYourCourseScreen() {
   );
 
   const hasOutcomes = careerPaths.length > 0 || postgradCareers.length > 0;
+  const renderedSocCodes = useMemo(
+    () => [...careerPaths, ...postgradCareers].map((career) => career.soc_code),
+    [careerPaths, postgradCareers],
+  );
+  const displayedCareerPickChips = useMemo(
+    () =>
+      careerPickChips.map((chip) => {
+        const key = `careerPick.chip.${chip.id}`;
+        const label = t(key);
+        return { ...chip, label: label === key ? chip.label : label };
+      }),
+    [careerPickChips, t],
+  );
+
+  useEffect(() => {
+    if (!currentResolution || renderedSocCodes.length === 0) {
+      setCareerPickChips((current) => (current.length === 0 ? current : []));
+      return;
+    }
+    let cancelled = false;
+    getCareerPickChips({
+      cipcode: currentResolution.parent_cip || currentResolution.matched_cip,
+      majorText: majorText || currentResolution.matched_title,
+      socCodes: renderedSocCodes,
+    })
+      .then((result) => {
+        if (!cancelled) setCareerPickChips(result);
+      })
+      .catch(() => {
+        if (!cancelled) setCareerPickChips([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentResolution, majorText, renderedSocCodes]);
+
+  function handleCareerPickChip(chip: CareerPickChip) {
+    if (!currentResolution) return;
+    setActiveCareerPickChipId(chip.id);
+    setCareerPickAnswer(null);
+    setCareerPickAnswerLoading(true);
+    askCareerPickChip({
+      chipId: chip.id,
+      cipcode: currentResolution.parent_cip || currentResolution.matched_cip,
+      majorText: majorText || currentResolution.matched_title,
+      socCodes: renderedSocCodes,
+      selectedSoc: selectedCareer?.soc_code ?? null,
+      terminalTitle: chip.terminal_title,
+      locale,
+    })
+      .then((response) => {
+        setCareerPickAnswer(response.answer);
+      })
+      .catch((err: unknown) => {
+        const message =
+          err instanceof Error ? err.message : "Gemma couldn't answer.";
+        setCareerPickAnswer(message);
+      })
+      .finally(() => {
+        setCareerPickAnswerLoading(false);
+      });
+  }
+
+  function handleRegenerateCareerPickAnswer() {
+    if (!activeCareerPickChipId) return;
+    const chip = displayedCareerPickChips.find((candidate) => candidate.id === activeCareerPickChipId);
+    if (!chip) return;
+    handleCareerPickChip(chip);
+  }
+
+  function handleCloseCareerPickAnswer() {
+    setActiveCareerPickChipId(null);
+    setCareerPickAnswer(null);
+    setCareerPickAnswerLoading(false);
+  }
 
   if (!profileName) return null;
 
@@ -247,15 +332,13 @@ export function SetYourCourseScreen() {
         <div className="flex flex-col gap-8">
           <header className="max-w-[560px]">
             <p className="font-data text-micro font-bold uppercase tracking-[2px] text-accent-info mb-2">
-              Set your course
+              {t("syc.kicker")}
             </p>
             <h1 className="font-display text-heading font-semibold text-text-primary leading-tight">
-              {isAdjustMode ? "Adjust your effort and loans" : "Where does this take you?"}
+              {isAdjustMode ? t("syc.headingAdjust") : t("syc.heading")}
             </h1>
             <p className="font-body text-body text-text-secondary mt-3 max-w-[44ch]">
-              {isAdjustMode
-                ? "Your school, major, and career are locked in. Tweak the sliders below."
-                : "Pick a school and a field of study. The careers follow."}
+              {isAdjustMode ? t("syc.subtitleAdjust") : t("syc.subtitle")}
             </p>
           </header>
 
@@ -275,7 +358,7 @@ export function SetYourCourseScreen() {
             <section aria-label="Your inputs" className="flex flex-col gap-6">
               <div>
                 <label className="block font-body text-small font-bold text-text-secondary tracking-wide mb-2">
-                  Your school
+                  {t("syc.schoolLabel")}
                 </label>
                 <SchoolSearch
                   selected={school}
@@ -300,14 +383,14 @@ export function SetYourCourseScreen() {
                       htmlFor="set-your-course-major"
                       className="block font-body text-small font-bold text-text-secondary tracking-wide mb-2"
                     >
-                      Your field of study
+                      {t("syc.majorLabel")}
                     </label>
                     <input
                       id="set-your-course-major"
                       type="text"
                       value={majorText}
                       onChange={handleMajorChange}
-                      placeholder="What are you studying?"
+                      placeholder={t("syc.majorPlaceholder")}
                       autoComplete="off"
                       data-testid="major-input"
                       className="w-full h-14 bg-bp-deep text-text-primary font-body text-body rounded-lg border border-border px-5 focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-all duration-normal placeholder:text-text-muted placeholder:italic"
@@ -345,11 +428,11 @@ export function SetYourCourseScreen() {
                     <div className="flex items-center gap-3 mb-3">
                       <GemmaSpinner size={20} />
                       <span className="font-body text-small text-text-secondary">
-                        Gemma is thinking
+                        {t("syc.gemmaThinking")}
                       </span>
                     </div>
                     <p className="font-body text-body text-text-primary leading-relaxed whitespace-pre-wrap animate-gemma-shimmer-loop">
-                      {streamingText || "Reading your input..."}
+                      {streamingText || t("syc.gemmaReading")}
                       <span
                         aria-hidden="true"
                         className="inline-block w-2 h-[1.1em] bg-accent-insight align-text-bottom ml-[2px] animate-terminal-cursor"
@@ -371,7 +454,7 @@ export function SetYourCourseScreen() {
                   >
                     <div className="flex items-center gap-[6px] font-body text-small text-text-muted">
                       <GemmaStar size={18} />
-                      <span>Gemma matched</span>
+                      <span>{t("syc.gemmaMatched")}</span>
                       <span
                         className={`font-bold ${lowConfidence ? "text-accent-caution" : "text-accent-insight"}`}
                       >
@@ -379,7 +462,7 @@ export function SetYourCourseScreen() {
                       </span>
                       {currentResolution.matched_cip && (
                         <>
-                          <span>to CIP</span>
+                          <span>{t("syc.toCip")}</span>
                           <span className="font-data font-semibold text-text-secondary">
                             {currentResolution.matched_cip}
                           </span>
@@ -403,7 +486,7 @@ export function SetYourCourseScreen() {
                         className="pl-[22px] mt-2 font-body text-small text-text-muted leading-relaxed"
                         data-testid="taxonomy-receipt"
                       >
-                        <span>Reported by the school as </span>
+                        <span>{t("syc.reportedAs")} </span>
                         <span className="font-semibold text-accent-insight">
                           {taxonomyReceipt.fieldOfStudy}
                         </span>
@@ -466,7 +549,7 @@ export function SetYourCourseScreen() {
                           ].join(" ")}
                         >
                           {busy
-                            ? "Gemma is reasoning about your clarifier…"
+                            ? t("syc.gemmaReasoning")
                             : revealedTrace}
                           {(busy || !revealDone) && (
                             <span
@@ -492,7 +575,7 @@ export function SetYourCourseScreen() {
                                 data-testid="btn-try-clarifier"
                               >
                                 <span className="opacity-60">→</span>
-                                Try &ldquo;{suggestedMajor || lastClarifier}&rdquo; as the field of study
+                                Try &ldquo;{suggestedMajor || lastClarifier}&rdquo; {t("syc.tryAs")}
                               </button>
                               <span
                                 aria-disabled="true"
@@ -500,9 +583,9 @@ export function SetYourCourseScreen() {
                                 className="cursor-not-allowed inline-flex items-center gap-2 font-body text-small text-text-muted/70"
                                 data-testid="btn-search-schools"
                               >
-                                Search schools that offer this program
+                                {t("syc.searchSchools")}
                                 <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-text-muted/60">
-                                  Soon
+                                  {t("syc.soon")}
                                 </span>
                               </span>
                             </div>
@@ -526,8 +609,51 @@ export function SetYourCourseScreen() {
               className="flex flex-col gap-6"
             >
               <p className="font-body text-small italic text-text-muted">
-                Showing Standard Occupational Classification (SOC) codes related to CIP {currentResolution.matched_cip.slice(0, 5)}.
+                {t("syc.showingSoc")} {currentResolution.matched_cip.slice(0, 5)}.
               </p>
+              {displayedCareerPickChips.length > 0 && (
+                <div
+                  aria-labelledby="set-your-course-ask-gemma-title"
+                  className="flex flex-col gap-2"
+                >
+                  <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
+                    <div>
+                      <p className="font-data text-micro font-bold uppercase tracking-[2px] text-accent-insight mb-1">
+                        {t("careerPick.askGemma")}
+                      </p>
+                      <h2
+                        id="set-your-course-ask-gemma-title"
+                        className="font-display font-semibold text-subheading text-text-primary"
+                      >
+                        {t("careerPick.makeSense")}
+                      </h2>
+                    </div>
+                    <AskGemmaChipRow
+                      chips={displayedCareerPickChips}
+                      activeChipId={activeCareerPickChipId}
+                      onChipClick={handleCareerPickChip}
+                      elevationHintId={careerPickElevationHintId}
+                      ariaLabel="Ask Gemma about these career paths"
+                      className="py-1"
+                    />
+                  </div>
+                  <span id={careerPickElevationHintId} className="sr-only">
+                    Gemma thinks this question might be relevant based on your
+                    program and career results.
+                  </span>
+                  <AnimatePresence initial={false}>
+                    {activeCareerPickChipId !== null ? (
+                      <AskGemmaResponseCard
+                        key={activeCareerPickChipId}
+                        loading={careerPickAnswerLoading}
+                        answer={careerPickAnswer}
+                        onRegenerate={handleRegenerateCareerPickAnswer}
+                        onClose={handleCloseCareerPickAnswer}
+                      />
+                    ) : null}
+                  </AnimatePresence>
+                </div>
+              )}
               {socReveal.kind === "outcomes-loading" && <CareerListSkeleton />}
               {socReveal.kind === "error" && (
                 <p className="font-body text-small text-accent-alert">
@@ -537,8 +663,8 @@ export function SetYourCourseScreen() {
               {careerPaths.length > 0 && (
                 <CareerTierSection
                   id="tier-careers"
-                  label="Where this leads"
-                  description="Career paths graduates from this program pursue."
+                  label={t("syc.whereLeads")}
+                  description={t("syc.whereLeadsDesc")}
                   accent="common"
                   careers={careerPaths}
                   pickedSoc={selectedCareer?.soc_code ?? null}
@@ -549,8 +675,8 @@ export function SetYourCourseScreen() {
               {postgradCareers.length > 0 && (
                 <CareerTierSection
                   id="tier-postgrad"
-                  label="Requires postgraduate education"
-                  description="These paths typically need a master's or doctoral degree."
+                  label={t("syc.postgradLabel")}
+                  description={t("syc.postgradDesc")}
                   accent="postgrad"
                   careers={postgradCareers}
                   pickedSoc={selectedCareer?.soc_code ?? null}
@@ -616,7 +742,7 @@ export function SetYourCourseScreen() {
                     data-testid="btn-start-over"
                     className="w-full h-12"
                   >
-                    Start over
+                    {t("syc.startOver")}
                   </Button>
                   <motion.button
                     onClick={() => void commit()}
@@ -626,7 +752,7 @@ export function SetYourCourseScreen() {
                     transition={springs.snappy}
                     data-testid="btn-spec-build-bottom"
                   >
-                    {busy ? `Specing ${profileName}...` : "Spec my build →"}
+                    {busy ? `Specing ${profileName}...` : t("syc.specBuild")}
                   </motion.button>
                 </div>
               </motion.section>
@@ -657,11 +783,10 @@ export function SetYourCourseScreen() {
               data-testid="confirm-start-over"
             >
               <p className="font-display text-subheading text-text-primary">
-                This clears your progress. Sure?
+                {t("syc.confirmClear")}
               </p>
               <p className="font-body text-small text-text-secondary">
-                Your school, field of study, and any chip corrections will reset.
-                Effort and loans go back to defaults.
+                {t("syc.confirmClearBody")}
               </p>
               <div className="flex items-center justify-end gap-2 pt-2">
                 <Button
@@ -669,14 +794,14 @@ export function SetYourCourseScreen() {
                   onClick={() => setConfirmStartOver(false)}
                   data-testid="btn-keep-going"
                 >
-                  Keep going
+                  {t("syc.keepGoing")}
                 </Button>
                 <Button
                   variant="primary"
                   onClick={handleStartOverConfirm}
                   data-testid="btn-confirm-start-over"
                 >
-                  Yes, start over
+                  {t("syc.yesStartOver")}
                 </Button>
               </div>
             </motion.div>

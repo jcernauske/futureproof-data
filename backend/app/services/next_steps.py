@@ -12,6 +12,12 @@ import logging
 from app.models.career import AppliedSkill, Build
 from app.services import gemma_client
 from app.services.boss_fights import fmt_dollars, stat_explainer
+from app.services.locale import (
+    AppLocale,
+    fallback_text,
+    gemma_language_instruction,
+    normalize_locale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -148,9 +154,11 @@ def _build_prompt(build: Build) -> str:
     )
 
 
-def generate_next_steps(build: Build) -> str:
+def generate_next_steps(build: Build, locale: AppLocale | None = None) -> str:
+    effective_locale = normalize_locale(locale or build.locale)
+    system = f"{_SYSTEM}\n\n{gemma_language_instruction(effective_locale)}"
     text = gemma_client.generate(
-        system=_SYSTEM,
+        system=system,
         user=_build_prompt(build),
         max_tokens=2000,
         temperature=0.7,
@@ -159,22 +167,4 @@ def generate_next_steps(build: Build) -> str:
         return text
 
     logger.warning("next_steps gen failed; using fallback")
-    career = build.career
-    return (
-        f"## Questions to Ask Your Guidance Counselor\n\n"
-        f"1. Ask whether {career.institution_name} offers minors or "
-        f"electives that would strengthen the weakest part of this "
-        f"career path.\n\n"
-        f"## Questions to Ask College Recruiters\n\n"
-        f"1. Ask what share of {career.program_name} graduates actually "
-        f"end up in {career.occupation_title} roles within a year of "
-        f"graduating.\n\n"
-        f"## Things to Verify on Your Own\n\n"
-        f"1. Search {career.institution_name}'s course catalog for the "
-        f"courses and minors that came up in your suggestions.\n\n"
-        f"## Points to Discuss with Your Parents\n\n"
-        f"1. Walk through what the starting salary and debt would look "
-        f"like for this program, and talk about the parts of the career "
-        f"path that look weakest so you can decide together how to "
-        f"handle them."
-    )
+    return fallback_text("next_steps_unavailable", effective_locale)

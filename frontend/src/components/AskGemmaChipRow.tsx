@@ -8,6 +8,8 @@ interface AskGemmaChipRowProps {
   onChipClick: (chip: CareerPickChip) => void;
   /** DOM id of the visually-hidden elevation hint. Rendered by parent. */
   elevationHintId: string;
+  ariaLabel?: string;
+  className?: string;
 }
 
 interface ChipProps {
@@ -134,6 +136,8 @@ export function AskGemmaChipRow({
   activeChipId,
   onChipClick,
   elevationHintId,
+  ariaLabel = "Ask Gemma about this screen",
+  className = "py-1 px-6 tablet:px-8",
 }: AskGemmaChipRowProps) {
   const reducedMotion = useReducedMotion() ?? false;
 
@@ -142,8 +146,8 @@ export function AskGemmaChipRow({
   return (
     <div
       role="group"
-      aria-label="Ask Gemma about this screen"
-      className="flex items-center gap-3 overflow-x-auto py-1 px-6 tablet:px-8"
+      aria-label={ariaLabel}
+      className={`flex items-center gap-3 overflow-x-auto ${className}`}
     >
       {chips.map((chip) => (
         <Chip

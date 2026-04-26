@@ -1,4 +1,11 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { CareerPickScreen } from "./CareerPickScreen";
@@ -28,9 +35,10 @@ vi.mock("@/api/build", () => ({
 }));
 
 const mockGetCareerPickChips = vi.fn();
+const mockAskCareerPickChip = vi.fn();
 vi.mock("@/api/careerPick", () => ({
   getCareerPickChips: (...args: unknown[]) => mockGetCareerPickChips(...args),
-  askCareerPickChip: vi.fn(),
+  askCareerPickChip: (...args: unknown[]) => mockAskCareerPickChip(...args),
 }));
 
 const mockGetBranchesForSoc = vi.fn();
@@ -90,10 +98,16 @@ const TIERS: TieredCareers = {
 };
 
 beforeEach(() => {
+  window.scrollTo = vi.fn();
   mockNavigate.mockReset();
   mockGetOutcomes.mockReset();
   mockGetTieredCareers.mockReset();
   mockGetCareerPickChips.mockReset().mockResolvedValue([]);
+  mockAskCareerPickChip.mockReset().mockResolvedValue({
+    chip_id: "why_these_tiers",
+    answer: "Gemma explains why these paths appear here.",
+    fallback_fired: false,
+  });
   mockGetBranchesForSoc.mockReset().mockResolvedValue([]);
   useBuildInputStore.setState({
     phase: "sliders",
@@ -345,7 +359,9 @@ describe("CareerPickScreen", () => {
 
     // Simulate the sheet having committed a pick (the sheet's CTA calls
     // onPick which sets selectedCareer in the store).
-    useBuildStore.setState({ selectedCareer: TIERS.common[0]! });
+    act(() => {
+      useBuildStore.setState({ selectedCareer: TIERS.common[0]! });
+    });
 
     await waitFor(() => {
       expect(
@@ -424,5 +440,76 @@ describe("CareerPickScreen", () => {
         socCodes: ["15-1252", "15-1211", "15-2051", "15-1221"],
       });
     });
+  });
+
+  it("renders prefetched Ask Gemma chips inline above the career tiers", async () => {
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+    mockGetCareerPickChips.mockResolvedValueOnce([
+      {
+        id: "why_these_tiers",
+        label: "Why are some careers 'Common' and some 'Stretch'?",
+        elevated: false,
+        terminal_title: null,
+      },
+    ]);
+
+    renderScreen();
+
+    const group = await screen.findByRole("group", {
+      name: "Ask Gemma about these career paths",
+    });
+    expect(
+      within(group).getByRole("button", {
+        name: "Why are some careers 'Common' and some 'Stretch'?",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Make sense of these paths")).toBeInTheDocument();
+  });
+
+  it("asks Gemma from the inline chip row with the career-pick screen context", async () => {
+    mockGetOutcomes.mockResolvedValueOnce([]);
+    mockGetTieredCareers.mockResolvedValueOnce(TIERS);
+    mockGetCareerPickChips.mockResolvedValueOnce([
+      {
+        id: "why_these_tiers",
+        label: "Why are some careers 'Common' and some 'Stretch'?",
+        elevated: false,
+        terminal_title: null,
+      },
+    ]);
+    mockAskCareerPickChip.mockResolvedValueOnce({
+      chip_id: "why_these_tiers",
+      answer: "Gemma explains why common paths differ from stretch paths.",
+      fallback_fired: false,
+    });
+
+    renderScreen();
+
+    const group = await screen.findByRole("group", {
+      name: "Ask Gemma about these career paths",
+    });
+    fireEvent.click(
+      within(group).getByRole("button", {
+        name: "Why are some careers 'Common' and some 'Stretch'?",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockAskCareerPickChip).toHaveBeenCalledWith({
+        chipId: "why_these_tiers",
+        cipcode: "11.0701",
+        majorText: "Computer Science",
+        socCodes: ["15-1252", "15-1211", "15-2051", "15-1221"],
+        selectedSoc: null,
+        terminalTitle: null,
+        locale: "en",
+      });
+    });
+    expect(
+      await screen.findByText(
+        "Gemma explains why common paths differ from stretch paths.",
+      ),
+    ).toBeInTheDocument();
   });
 });

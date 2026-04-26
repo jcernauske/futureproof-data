@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiGet } from "@/api/client";
+import { useT } from "@/i18n/useT";
 import type { SchoolSearchResult, SchoolSelection } from "@/types/buildInput";
 
 interface SchoolSearchProps {
@@ -15,6 +16,7 @@ export function SchoolSearch({
   selected,
   onClear,
 }: SchoolSearchProps) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SchoolSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -135,11 +137,11 @@ export function SchoolSearch({
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         onFocus={() => results.length > 0 && setShowDropdown(true)}
-        placeholder="Search for your school..."
+        placeholder={t("syc.schoolPlaceholder")}
         className={`w-full bg-bp-deep text-text-primary font-body text-body px-4 py-3 h-14 rounded-lg border border-border focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-colors duration-normal placeholder:text-text-muted ${
           loading ? "animate-pulse border-accent-info/50" : ""
         }`}
-        aria-label="Search for your school"
+        aria-label={t("syc.schoolAriaLabel")}
         aria-expanded={showDropdown}
         aria-controls="school-results"
         role="combobox"

@@ -34,6 +34,7 @@ from app.services import (
     mcp_client,
 )
 from app.services.correction_log import CorrectionLogRecord
+from app.services.locale import AppLocale, gemma_language_instruction, normalize_locale
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +327,7 @@ async def stream_initial_resolution(
     school_name: str,
     unitid: int,
     programs: Sequence[Mapping[str, Any]],
+    locale: AppLocale = "en",
 ) -> AsyncIterator[dict[str, Any]]:
     """Stream the initial major-resolution.
 
@@ -364,12 +366,14 @@ async def stream_initial_resolution(
         )
     ) or "(no crosswalk data)"
 
+    locale = normalize_locale(locale)
     system = _STREAM_INTENT_SYSTEM_PROMPT.format(
         student_input=major_text,
         school_name=school_name,
         school_cip_list=school_cip_list,
         crosswalk_cip_list=crosswalk_cip_list,
     )
+    system = f"{system}\n\n{gemma_language_instruction(locale)}"
     user = f'Match this student input to a program: "{major_text}"'
 
     extra = {
@@ -777,6 +781,7 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
 
     tile_titles = ", ".join(current.careers_preview[:6]) or "(none)"
 
+    chip_locale = normalize_locale(request.locale)
     system = _CHIP_ROUTING_SYSTEM_PROMPT.format(
         clarifier=(request.clarifier or "(empty)"),
         school_name=request.school_name,
@@ -791,6 +796,7 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
         current_tile_titles=tile_titles,
         sources_for_prompt_context=_SOURCES_PROMPT_CONTEXT,
     )
+    system = f"{system}\n\n{gemma_language_instruction(chip_locale)}"
 
     user_msg = (
         f'Student tapped "not expected" with clarifier: '
@@ -905,7 +911,7 @@ def _parse_chip_response(
     confirmed_focus = _parse_confirmed_focus(confirmed_body)
 
     # Invariants.
-    if bucket == "semantic_drift":
+    if bucket in ("semantic_drift", "intent_divergence"):
         confirmed_focus = None
     if not tool_call_made:
         confirmed_focus = None

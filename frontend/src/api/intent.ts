@@ -54,6 +54,7 @@ interface StreamIntentArgs {
   unitid: number;
   programs: Array<Record<string, unknown>>;
   signal?: AbortSignal;
+  locale?: string;
 }
 
 /**
@@ -83,6 +84,7 @@ export async function* streamIntent({
   unitid,
   programs,
   signal,
+  locale,
 }: StreamIntentArgs): AsyncIterableIterator<StreamEvent> {
   let response: Response;
   try {
@@ -97,6 +99,7 @@ export async function* streamIntent({
         school_name: schoolName,
         unitid,
         programs,
+        locale: locale ?? "en",
       }),
       signal,
     });
@@ -200,6 +203,7 @@ interface DispatchChipArgs {
   unitid: number;
   programs: Array<Record<string, unknown>>;
   signal?: AbortSignal;
+  locale?: string;
 }
 
 export async function dispatchChip({
@@ -211,6 +215,7 @@ export async function dispatchChip({
   unitid,
   programs,
   signal,
+  locale,
 }: DispatchChipArgs): Promise<ChipResponse> {
   // apiPost does not accept an AbortSignal, so we call fetch directly for
   // the chip path — aborts are load-bearing per the spec's chip-stream
@@ -226,6 +231,7 @@ export async function dispatchChip({
       school_name: schoolName,
       unitid,
       programs,
+      locale: locale ?? "en",
     }),
     signal,
   });

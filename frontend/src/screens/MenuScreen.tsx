@@ -21,6 +21,7 @@ export function MenuScreen() {
   const animalEmoji = useProfileStore((s) => s.animalEmoji);
   const setBuild = useBuildStore((s) => s.setBuild);
   const resetInputs = useBuildInputStore((s) => s.resetInputs);
+  const clearProfile = useProfileStore((s) => s.clearProfile);
 
   const [builds, setBuilds] = useState<BuildSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -97,9 +98,10 @@ export function MenuScreen() {
   );
 
   const handleNewBuild = useCallback(() => {
+    clearProfile();
     resetInputs();
-    navigate("/set-your-course");
-  }, [navigate, resetInputs]);
+    navigate("/profile");
+  }, [clearProfile, navigate, resetInputs]);
 
   const handleEnterSelect = useCallback(() => {
     if (builds.length < 2) return;
