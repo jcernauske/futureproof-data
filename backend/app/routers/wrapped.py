@@ -89,9 +89,18 @@ async def render_wrapped(build_id: str) -> RenderResponse:
                 profile_name=build.profile_name,
                 animal_emoji=emoji,
             )
-        except RuntimeError as exc:
+        except Exception as exc:
+            # Catch broadly: Playwright raises non-RuntimeError types
+            # (TimeoutError, BrowserType errors, ConnectionResetError on
+            # Chromium OOM). Re-raising as HTTPException ensures the 500
+            # flows through CORSMiddleware — Starlette's bare-500 path
+            # skips user middleware and the browser blocks the response
+            # with "NetworkError when attempting to fetch resource".
             logger.exception("Wrapped render failed for build %s", build_id)
-            raise HTTPException(status_code=500, detail=str(exc))
+            raise HTTPException(
+                status_code=500,
+                detail=f"Wrapped render failed: {type(exc).__name__}: {exc}",
+            )
 
         builds_service.save_wrapped_frames(build_id, frames)
         return RenderResponse(status="ok", frame_count=len(frames))
