@@ -8,9 +8,9 @@
  *   POST /build           → Build (full orchestration)
  */
 
-import { apiDelete, apiGet, apiPost } from "@/api/client";
+import { apiDelete, apiGet, apiPost, formatErrorDetail } from "@/api/client";
 import { mockGetTieredCareers, mockCreateBuild, mockGetOutcomes } from "@/api/mockBuild";
-import type { Build, CareerOutcome, TieredCareers } from "@/types/build";
+import type { Build, CareerOutcome, SkillRec, AppliedSkill, TieredCareers } from "@/types/build";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_API === "true";
 
@@ -137,4 +137,121 @@ export async function createBuild(
 export async function deleteBuild(buildId: string): Promise<void> {
   if (USE_MOCK) return;
   await apiDelete(`/build/${encodeURIComponent(buildId)}`);
+}
+
+// --- Streaming build creation ---
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+export interface BuildParams {
+  profile_name: string;
+  school_name: string;
+  unitid: number;
+  cipcode: string;
+  cip_title: string;
+  major_text: string;
+  effort: string;
+  loan_pct: number;
+  selected_soc: string;
+  selected_title: string;
+  student_major: string | null;
+  student_cip: string | null;
+  home_state: string | null;
+  school_state: string | null;
+  animal_emoji: string | null;
+  locale: string;
+}
+
+export type BuildStreamEvent =
+  | { type: "skeleton"; build: Build }
+  | { type: "boss_narrative"; boss_id: string; narrative: string }
+  | { type: "skill_recs"; recs: SkillRec[] }
+  | { type: "skill_pool"; pool: AppliedSkill[] }
+  | { type: "guidance"; narrative: string }
+  | { type: "done"; build_id: string }
+  | { type: "error"; detail: string };
+
+export async function createBuildStream(
+  params: BuildParams,
+  onEvent: (event: BuildStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (USE_MOCK) {
+    const build = await mockCreateBuild(
+      params.selected_soc, params.profile_name, params.school_name,
+    );
+    onEvent({ type: "skeleton", build });
+    onEvent({ type: "done", build_id: build.build_id });
+    return;
+  }
+
+  const res = await fetch(`${API_BASE}/build/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+    signal,
+  });
+
+  if (!res.ok) {
+    const parsed = await res.json().catch(() => ({}));
+    throw new Error(formatErrorDetail(parsed, res.status));
+  }
+
+  if (!res.body) {
+    throw new Error("Build stream produced no body");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop()!;
+
+      for (const frame of frames) {
+        if (!frame.trim()) continue;
+        const eventMatch = frame.match(/^event:\s*(.+)$/m);
+        const dataMatch = frame.match(/^data:\s*(.+)$/m);
+        if (!eventMatch || !dataMatch) continue;
+
+        const eventType = eventMatch[1]!;
+        const data = JSON.parse(dataMatch[1]!);
+
+        switch (eventType) {
+          case "skeleton":
+            onEvent({ type: "skeleton", build: data as Build });
+            break;
+          case "boss_narrative":
+            onEvent({ type: "boss_narrative", boss_id: data.boss_id, narrative: data.narrative });
+            break;
+          case "skill_recs":
+            onEvent({ type: "skill_recs", recs: data as SkillRec[] });
+            break;
+          case "skill_pool":
+            onEvent({ type: "skill_pool", pool: data as AppliedSkill[] });
+            break;
+          case "guidance":
+            onEvent({ type: "guidance", narrative: data.narrative });
+            break;
+          case "done":
+            onEvent({ type: "done", build_id: data.build_id });
+            break;
+          case "error":
+            throw new Error(data.detail);
+        }
+      }
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // reader may already be closed
+    }
+  }
 }

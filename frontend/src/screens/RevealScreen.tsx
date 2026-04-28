@@ -5,7 +5,9 @@ import { ambient, springs, stage2Reveal } from "@/styles/motion";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
-import { createBuild } from "@/api/build";
+import { createBuild, createBuildStream } from "@/api/build";
+import type { BuildParams, BuildStreamEvent } from "@/api/build";
+import type { Build } from "@/types/build";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PentagonChart } from "@/components/PentagonChart";
 import { StatTutorial } from "@/components/StatTutorial";
@@ -18,6 +20,18 @@ import type { StatKey } from "@/data/statExplanations";
 
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 
+function mergeBossNarrative(build: Build, bossId: string, narrative: string): Build {
+  return {
+    ...build,
+    gauntlet: {
+      ...build.gauntlet,
+      fights: build.gauntlet.fights.map((f) =>
+        f.boss === bossId ? { ...f, narrative } : f,
+      ),
+    },
+  };
+}
+
 export function RevealScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
@@ -27,6 +41,7 @@ export function RevealScreen() {
     selectedCareer,
     build,
     setBuild,
+    updateBuild,
     isBuilding,
     setIsBuilding,
     hasSeenStatTutorial,
@@ -65,55 +80,84 @@ export function RevealScreen() {
     setIsBuilding(true);
     setError(null);
 
-    const minDisplayTime = new Promise<void>((r) => setTimeout(r, 1000));
+    const lookupCip = major.parentCip || major.cipCode;
+    const studentCip = major.parentCip ? major.cipCode : undefined;
+
+    const params: BuildParams = {
+      profile_name: profileName,
+      school_name: school.name,
+      unitid: school.unitid,
+      cipcode: lookupCip,
+      cip_title: major.cipTitle,
+      major_text: major.rawText,
+      effort: effort.level,
+      loan_pct: loans.percentage / 100,
+      selected_soc: selectedCareer.soc_code,
+      selected_title: selectedCareer.occupation_title,
+      student_major: major.rawText,
+      student_cip: studentCip ?? null,
+      home_state: homeState ?? null,
+      school_state: school.stateAbbr ?? null,
+      animal_emoji: animalEmoji ?? null,
+      locale: locale ?? "en",
+    };
+
+    const t0 = performance.now();
+    const onEvent = (event: BuildStreamEvent) => {
+      if (cancelledRef.current) return;
+      console.log(`[stream] ${event.type} +${Math.round(performance.now() - t0)}ms`);
+      switch (event.type) {
+        case "skeleton":
+          setBuild(event.build);
+          setIsBuilding(false);
+          navigate("/my-build");
+          break;
+        case "boss_narrative":
+          updateBuild((prev) => mergeBossNarrative(prev, event.boss_id, event.narrative));
+          break;
+        case "skill_recs":
+          updateBuild((prev) => ({ ...prev, skill_recs: event.recs }));
+          break;
+        case "skill_pool":
+          updateBuild((prev) => ({ ...prev, skill_pool: event.pool }));
+          break;
+        case "guidance":
+          updateBuild((prev) => ({ ...prev, guidance: event.narrative }));
+          break;
+        case "done":
+          break;
+      }
+    };
 
     try {
-      // Match CareerPickScreen's lookup-cip rule: send the school's
-      // reported broad cip when substitution applies so POST /build
-      // runs through the same substituted-career path as /build/outcomes.
-      // Otherwise the finalized build would stat-engine against the
-      // broaden-fallback's wrong SOC set.
-      const lookupCip = major.parentCip || major.cipCode;
-      // When parentCip is set, major.cipCode is Gemma's resolved
-      // specific leaf — pass it as student_cip so the MCP handler
-      // drives substitution from our resolution instead of the
-      // YAML-backed _find_major_intent lookup. When parentCip is
-      // empty, student_cip is redundant with cipcode but harmless.
-      const studentCip = major.parentCip ? major.cipCode : undefined;
-      const [result] = await Promise.all([
-        createBuild(
-          profileName,
-          school.name,
-          school.unitid,
-          lookupCip,
-          major.cipTitle,
-          major.rawText,
-          effort.level,
-          loans.percentage / 100,
-          selectedCareer.soc_code,
-          selectedCareer.occupation_title,
-          major.rawText,
-          studentCip,
-          homeState ?? undefined,
-          school.stateAbbr ?? undefined,
-          animalEmoji ?? undefined,
-          locale,
-        ),
-        minDisplayTime,
-      ]);
+      await createBuildStream(params, onEvent);
+    } catch {
       if (cancelledRef.current) return;
-      setBuild(result);
-      setIsBuilding(false);
-      revealTimerRef.current = setTimeout(() => {
-        if (!cancelledRef.current) setRevealReady(true);
-        revealTimerRef.current = null;
-      }, 400);
-    } catch (err) {
-      if (cancelledRef.current) return;
-      setError(err instanceof Error ? err.message : "Build failed");
-      setIsBuilding(false);
+      // SSE failed — fall back to blocking build
+      try {
+        const minDisplayTime = new Promise<void>((r) => setTimeout(r, 1000));
+        const [result] = await Promise.all([
+          createBuild(
+            profileName, school.name, school.unitid, lookupCip,
+            major.cipTitle, major.rawText, effort.level,
+            loans.percentage / 100, selectedCareer.soc_code,
+            selectedCareer.occupation_title, major.rawText, studentCip,
+            homeState ?? undefined, school.stateAbbr ?? undefined,
+            animalEmoji ?? undefined, locale,
+          ),
+          minDisplayTime,
+        ]);
+        if (cancelledRef.current) return;
+        setBuild(result);
+        setIsBuilding(false);
+        navigate("/my-build");
+      } catch (fallbackErr) {
+        if (cancelledRef.current) return;
+        setError(fallbackErr instanceof Error ? fallbackErr.message : "Build failed");
+        setIsBuilding(false);
+      }
     }
-  }, [selectedCareer, school, major, profileName, effort, loans, homeState, locale, setBuild, setIsBuilding]);
+  }, [selectedCareer, school, major, profileName, effort, loans, homeState, locale, animalEmoji, navigate, setBuild, updateBuild, setIsBuilding]);
 
   useEffect(() => {
     if (!build && !isBuilding && selectedCareer) {

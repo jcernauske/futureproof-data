@@ -18,6 +18,7 @@ interface BuildState {
   // Screen 6 — Reveal
   build: Build | null;
   setBuild: (build: Build) => void;
+  updateBuild: (fn: (prev: Build) => Build) => void;
 
   // Tutorial
   hasSeenStatTutorial: boolean;
@@ -48,6 +49,8 @@ export const useBuildStore = create<BuildState>()(
 
       build: null,
       setBuild: (build) => set({ build }),
+      updateBuild: (fn) =>
+        set((state) => ({ build: state.build ? fn(state.build) : state.build })),
 
       hasSeenStatTutorial: false,
       setHasSeenStatTutorial: (hasSeenStatTutorial) =>

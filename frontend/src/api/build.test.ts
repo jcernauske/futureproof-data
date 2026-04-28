@@ -276,6 +276,291 @@ describe("build.ts — AbortSignal forwarding", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Streaming build creation (P2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Helper: encode an SSE event string into a Uint8Array chunk.
+ * The backend emits: "event: <type>\ndata: <json>\n\n"
+ */
+function sseFrame(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+/**
+ * Create a mock ReadableStream reader that yields Uint8Array chunks
+ * from the provided SSE frames. Each frame string is encoded as a
+ * separate chunk, simulating network delivery.
+ */
+function mockReader(frames: string[]) {
+  const encoder = new TextEncoder();
+  let idx = 0;
+  return {
+    read: vi.fn(async () => {
+      if (idx < frames.length) {
+        return { done: false, value: encoder.encode(frames[idx++]) };
+      }
+      return { done: true, value: undefined };
+    }),
+    releaseLock: vi.fn(),
+  };
+}
+
+function mockStreamResponse(frames: string[]) {
+  const reader = mockReader(frames);
+  return {
+    ok: true,
+    body: { getReader: () => reader },
+    json: () => Promise.resolve({}),
+  };
+}
+
+const SKELETON_BUILD = {
+  build_id: "iu-marketing-001",
+  created_at: "2026-04-27T12:00:00Z",
+  school_name: "Indiana University",
+  unitid: 151351,
+  major_text: "Marketing",
+  cipcode: "52.14",
+  program_name: "Marketing",
+  effort: "balanced",
+  loan_pct: 1.0,
+  career: {
+    unitid: 151351,
+    institution_name: "Indiana University",
+    cipcode: "52.14",
+    program_name: "Marketing",
+    soc_code: "13-1161",
+    occupation_title: "Market Research Analysts",
+    stats: { ern: 7, roi: 8, res: 5, grw: 6, hmn: 7 },
+    bosses: { ai: 6, loans: 8, market: 7, burnout: 5, ceiling: 4 },
+    median_annual_wage: 68230,
+  },
+  gauntlet: {
+    fights: [
+      {
+        boss: "ai", label: "Fight AI", result: "win",
+        raw_score: 16, threshold_win: 14, threshold_draw: 10,
+        reason: "Strong", narrative: "",
+      },
+    ],
+    wins: 1, losses: 0, draws: 0, unknown: 0, verdict: "SOLID",
+  },
+  branches: [],
+  skill_recs: [],
+  guidance: "",
+  skills_crafted: [],
+  skill_pool: [],
+};
+
+const STREAM_PARAMS = {
+  profile_name: "bold bear",
+  school_name: "Indiana University",
+  unitid: 151351,
+  cipcode: "52.14",
+  cip_title: "Marketing",
+  major_text: "Marketing",
+  effort: "balanced",
+  loan_pct: 1.0,
+  selected_soc: "13-1161",
+  selected_title: "Market Research Analysts",
+  student_major: null,
+  student_cip: null,
+  home_state: null,
+  school_state: null,
+  animal_emoji: null,
+  locale: "en",
+};
+
+describe("build.ts — createBuildStream SSE parsing", () => {
+  it("parses a single-event-per-chunk stream correctly", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    const frames = [
+      sseFrame("skeleton", SKELETON_BUILD),
+      sseFrame("boss_narrative", { boss_id: "ai", narrative: "You won." }),
+      sseFrame("skill_recs", [{ title: "R", stat_impact: "ERN+1", rationale: "R" }]),
+      sseFrame("skill_pool", [{ id: "s1", title: "S", rationale: "S", targets: ["ai"] }]),
+      sseFrame("guidance", { narrative: "Your guidance." }),
+      sseFrame("done", { build_id: "iu-marketing-001" }),
+    ];
+
+    fetchMock.mockResolvedValueOnce(mockStreamResponse(frames));
+
+    const events: Array<{ type: string; [key: string]: unknown }> = [];
+    await createBuildStream(STREAM_PARAMS, (e) => events.push(e));
+
+    expect(events).toHaveLength(6);
+    expect(events[0]!.type).toBe("skeleton");
+    expect((events[0] as { type: string; build: typeof SKELETON_BUILD }).build.build_id).toBe("iu-marketing-001");
+    expect(events[1]!.type).toBe("boss_narrative");
+    expect((events[1] as unknown as { boss_id: string }).boss_id).toBe("ai");
+    expect(events[2]!.type).toBe("skill_recs");
+    expect(events[3]!.type).toBe("skill_pool");
+    expect(events[4]!.type).toBe("guidance");
+    expect((events[4] as unknown as { narrative: string }).narrative).toBe("Your guidance.");
+    expect(events[5]!.type).toBe("done");
+    expect((events[5] as unknown as { build_id: string }).build_id).toBe("iu-marketing-001");
+  });
+
+  it("handles multi-event buffer (two events in one chunk)", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    // Two SSE frames concatenated into a single network chunk.
+    // This simulates TCP coalescing — the reader delivers both events
+    // in one read() call, so the parser must split on \n\n.
+    const combined =
+      sseFrame("skeleton", SKELETON_BUILD) +
+      sseFrame("boss_narrative", { boss_id: "ai", narrative: "Win!" });
+
+    const frames = [
+      combined,
+      sseFrame("done", { build_id: "iu-marketing-001" }),
+    ];
+
+    fetchMock.mockResolvedValueOnce(mockStreamResponse(frames));
+
+    const events: Array<{ type: string }> = [];
+    await createBuildStream(STREAM_PARAMS, (e) => events.push(e));
+
+    expect(events).toHaveLength(3);
+    expect(events[0]!.type).toBe("skeleton");
+    expect(events[1]!.type).toBe("boss_narrative");
+    expect(events[2]!.type).toBe("done");
+  });
+
+  it("handles split frame across two chunks", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    // An SSE frame split across two network reads. The first chunk
+    // has the event: line but the data: line arrives in the second chunk.
+    const full = sseFrame("skeleton", SKELETON_BUILD);
+    const splitPoint = Math.floor(full.length / 2);
+    const chunk1 = full.slice(0, splitPoint);
+    const chunk2 = full.slice(splitPoint);
+
+    const frames = [
+      chunk1,
+      chunk2 + sseFrame("done", { build_id: "iu-marketing-001" }),
+    ];
+
+    fetchMock.mockResolvedValueOnce(mockStreamResponse(frames));
+
+    const events: Array<{ type: string }> = [];
+    await createBuildStream(STREAM_PARAMS, (e) => events.push(e));
+
+    expect(events).toHaveLength(2);
+    expect(events[0]!.type).toBe("skeleton");
+    expect(events[1]!.type).toBe("done");
+  });
+
+  it("throws on error event", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    const frames = [
+      sseFrame("error", { detail: "No data for this career" }),
+    ];
+
+    fetchMock.mockResolvedValueOnce(mockStreamResponse(frames));
+
+    await expect(
+      createBuildStream(STREAM_PARAMS, () => {}),
+    ).rejects.toThrow("No data for this career");
+  });
+
+  it("throws on HTTP error response", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: () => Promise.resolve({ detail: "Validation failed" }),
+    });
+
+    await expect(
+      createBuildStream(STREAM_PARAMS, () => {}),
+    ).rejects.toThrow();
+  });
+
+  it("throws when response body is null", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      body: null,
+      json: () => Promise.resolve({}),
+    });
+
+    await expect(
+      createBuildStream(STREAM_PARAMS, () => {}),
+    ).rejects.toThrow("no body");
+  });
+
+  it("calls releaseLock in finally block", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    const frames = [
+      sseFrame("skeleton", SKELETON_BUILD),
+      sseFrame("done", { build_id: "iu-marketing-001" }),
+    ];
+
+    const reader = mockReader(frames);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      body: { getReader: () => reader },
+      json: () => Promise.resolve({}),
+    });
+
+    await createBuildStream(STREAM_PARAMS, () => {});
+
+    expect(reader.releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls releaseLock even when error event throws", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "false");
+    const { createBuildStream } = await import("./build");
+
+    const frames = [
+      sseFrame("error", { detail: "Something broke" }),
+    ];
+
+    const reader = mockReader(frames);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      body: { getReader: () => reader },
+      json: () => Promise.resolve({}),
+    });
+
+    await expect(
+      createBuildStream(STREAM_PARAMS, () => {}),
+    ).rejects.toThrow("Something broke");
+
+    expect(reader.releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("in mock mode, emits skeleton + done without fetch", async () => {
+    vi.stubEnv("VITE_USE_MOCK_API", "true");
+    const { createBuildStream } = await import("./build");
+
+    const events: Array<{ type: string }> = [];
+    await createBuildStream(STREAM_PARAMS, (e) => events.push(e));
+
+    expect(events).toHaveLength(2);
+    expect(events[0]!.type).toBe("skeleton");
+    expect(events[1]!.type).toBe("done");
+    // Mock mode must not call fetch
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("build.ts — mock fixtures", () => {
   it("mockGetTieredCareers returns shape-compatible tiers with all three keys", async () => {
     vi.stubEnv("VITE_USE_MOCK_API", "true");
