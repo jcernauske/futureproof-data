@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
 import { Button } from "@/components/ui/Button";
@@ -7,7 +7,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { listBuilds, type BuildSummary } from "@/api/menu";
-import { getBuild } from "@/api/build";
+import { deleteBuild, getBuild } from "@/api/build";
 import { BuildCard } from "@/components/menu/BuildCard";
 import { CompareView } from "@/components/menu/CompareView";
 import { GemmaChat } from "@/components/menu/GemmaChat";
@@ -75,7 +75,7 @@ export function MenuScreen() {
           if (current.includes(build.build_id)) {
             return current.filter((id) => id !== build.build_id);
           }
-          if (current.length >= 3) return current;
+          if (current.length >= 4) return current;
           return [...current, build.build_id];
         });
         return;
@@ -114,16 +114,30 @@ export function MenuScreen() {
     setSelectedIds([]);
   }, []);
 
+  const [, setSearchParams] = useSearchParams();
+
   const handleCompareGo = useCallback(() => {
-    if (selectedIds.length < 2 || selectedIds.length > 3) return;
+    if (selectedIds.length < 2 || selectedIds.length > 4) return;
     setCompareIds(selectedIds);
     setMode("compare");
-  }, [selectedIds]);
+    setSearchParams({ view: "compare" }, { replace: true });
+  }, [selectedIds, setSearchParams]);
 
   const handleBackFromCompare = useCallback(() => {
     setMode("list");
     setSelectedIds([]);
     setCompareIds([]);
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
+
+  const handleDeleteBuild = useCallback(async (buildId: string) => {
+    try {
+      await deleteBuild(buildId);
+      setBuilds((prev) => prev.filter((b) => b.build_id !== buildId));
+      setSelectedIds((prev) => prev.filter((id) => id !== buildId));
+    } catch (e) {
+      setListError(e instanceof Error ? e.message : "Couldn't delete build.");
+    }
   }, []);
 
   const handleAskGemma = useCallback(() => {
@@ -136,27 +150,31 @@ export function MenuScreen() {
   if (!profileName) return null;
 
   return (
-    <PageContainer variant="centered" testId="screen-menu" className="pt-24 pb-16">
+    <>
       <AnimatePresence mode="wait">
         {mode === "compare" && compareIds.length > 0 ? (
-          <motion.div
-            key="compare"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-          >
-            <CompareView buildIds={compareIds} onBack={handleBackFromCompare} />
-          </motion.div>
+          <PageContainer variant="grid" testId="screen-menu" className="pt-24 pb-16" key="compare-container">
+            <motion.div
+              key="compare"
+              className="col-span-12 desktop:col-span-10 desktop:col-start-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <CompareView buildIds={compareIds} onBack={handleBackFromCompare} />
+            </motion.div>
+          </PageContainer>
         ) : (
-          <motion.div
-            key="list"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={springs.smooth}
-            className="flex flex-col gap-8"
-          >
+          <PageContainer variant="centered" testId="screen-menu" className="pt-24 pb-16" key="list-container">
+            <motion.div
+              key="list"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={springs.smooth}
+              className="flex flex-col gap-8"
+            >
             <header className="flex flex-col gap-2">
               <p className="font-data text-micro uppercase tracking-[2px] text-text-muted">
                 Your builds
@@ -229,6 +247,7 @@ export function MenuScreen() {
                         selectMode={mode === "select"}
                         selected={selectedIds.includes(build.build_id)}
                         onTap={() => handleViewBuild(build)}
+                        onDelete={handleDeleteBuild}
                       />
                       {navigatingId === build.build_id && (
                         <p className="px-5 mt-1 font-body text-micro text-text-muted">
@@ -268,10 +287,10 @@ export function MenuScreen() {
                       <Button
                         variant="primary"
                         onClick={handleCompareGo}
-                        disabled={selectedIds.length < 2 || selectedIds.length > 3}
+                        disabled={selectedIds.length < 2 || selectedIds.length > 4}
                         data-testid="btn-compare"
                       >
-                        Compare {selectedIds.length}/3
+                        Compare {selectedIds.length}/4
                       </Button>
                       <Button variant="ghost" onClick={handleCancelSelect}>
                         Cancel
@@ -299,7 +318,8 @@ export function MenuScreen() {
                 </div>
               </section>
             )}
-          </motion.div>
+            </motion.div>
+          </PageContainer>
         )}
       </AnimatePresence>
 
@@ -308,6 +328,6 @@ export function MenuScreen() {
         build={chatBuild}
         onClose={() => setChatOpen(false)}
       />
-    </PageContainer>
+    </>
   );
 }

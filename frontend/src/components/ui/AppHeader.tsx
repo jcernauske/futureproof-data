@@ -15,7 +15,7 @@ interface ProfileResponse {
 }
 
 function getPhaseAccent(pathname: string): string {
-  if (pathname.startsWith("/school") || pathname.startsWith("/set-your-course"))
+  if (pathname.startsWith("/set-your-course"))
     return "bg-accent-info";
   if (pathname.startsWith("/career-pick") || pathname.startsWith("/reveal") || pathname.startsWith("/my-build"))
     return "bg-accent-thrive";
@@ -50,7 +50,7 @@ export function AppHeader() {
   const location = useLocation();
   const { profileName, animalEmoji, setProfile, clearProfile } = useProfileStore();
   const [starting, setStarting] = useState(false);
-  const { phase, school, major, clearMajor, clearSchool, resetInputs } = useBuildInputStore();
+  const { school, major, resetInputs } = useBuildInputStore();
   const selectedCareer = useBuildStore((s) => s.selectedCareer);
 
   // TODO (spec §11 post-hackathon): replace this pathname-based marketing gate
@@ -60,29 +60,14 @@ export function AppHeader() {
   // §11 Follow-ups + staff-engineer Finding 5.
   const isMarketing = location.pathname === "/";
   const isLanding = location.pathname === "/app";
-  const isSchool = location.pathname === "/school";
-  const isHub = location.pathname === "/builds";
+  const isHubList = location.pathname === "/builds" && !location.search.includes("view=compare");
   const isGauntlet = location.pathname === "/gauntlet";
-  const showBack = !isLanding && !isHub;
-  const isInBuildFlow = ["/reveal", "/my-build", "/bosses", "/gauntlet", "/branches", "/save", "/career-pick"].some(
-    (p) => location.pathname.startsWith(p),
-  );
-
+  const showBack = !isLanding && !isHubList;
   const phaseAccent = getPhaseAccent(location.pathname);
   const hasContext = school || major || selectedCareer;
 
   function handleBack() {
-    if (isSchool) {
-      if (phase === "sliders") {
-        clearMajor();
-      } else if (phase === "major") {
-        clearSchool();
-      } else {
-        navigate(-1);
-      }
-    } else {
-      navigate(-1);
-    }
+    navigate(-1);
   }
 
   if (isMarketing) return null;
@@ -181,7 +166,7 @@ export function AppHeader() {
                     </>
                   )}
                 </motion.div>
-              ) : isHub && profileName ? (
+              ) : isHubList && profileName ? (
                 <motion.span
                   key="profile-hub"
                   className="font-body text-small font-semibold text-text-muted"
@@ -198,7 +183,7 @@ export function AppHeader() {
 
           {/* Right zone: contextual actions */}
           <div className="shrink-0 flex items-center gap-2">
-            {isInBuildFlow && !isGauntlet && (
+            {!isHubList && !isGauntlet && (
               <motion.button
                 className="font-body text-small text-text-muted px-3 py-1.5 rounded-full cursor-pointer transition-all duration-normal hover:text-text-primary hover:bg-bp-surface flex items-center gap-1.5"
                 initial={{ opacity: 0, x: 20 }}
@@ -239,7 +224,7 @@ export function AppHeader() {
                 Start ✦
               </motion.button>
             )}
-            {isHub && (
+            {location.pathname === "/builds" && (
               <motion.button
                 className="font-body text-small font-semibold text-accent-info px-3.5 py-1.5 rounded-full cursor-pointer transition-all duration-normal hover:text-text-primary hover:bg-bp-surface"
                 style={{ background: "rgba(123, 184, 224, 0.08)" }}

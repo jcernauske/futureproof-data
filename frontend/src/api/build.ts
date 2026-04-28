@@ -8,7 +8,7 @@
  *   POST /build           → Build (full orchestration)
  */
 
-import { apiGet, apiPost } from "@/api/client";
+import { apiDelete, apiGet, apiPost } from "@/api/client";
 import { mockGetTieredCareers, mockCreateBuild, mockGetOutcomes } from "@/api/mockBuild";
 import type { Build, CareerOutcome, TieredCareers } from "@/types/build";
 
@@ -95,17 +95,6 @@ export async function getBuild(buildId: string): Promise<Build> {
   return apiGet<Build>(`/build/${encodeURIComponent(buildId)}`);
 }
 
-export async function rebuildWithSliders(
-  buildId: string,
-  effort: string,
-  loanPct: number,
-): Promise<Build> {
-  return apiPost<Build>(`/build/${encodeURIComponent(buildId)}/rebuild`, {
-    effort,
-    loan_pct: loanPct,
-  });
-}
-
 export async function createBuild(
   profileName: string,
   schoolName: string,
@@ -143,4 +132,9 @@ export async function createBuild(
     animal_emoji: animalEmoji ?? null,
     locale: locale ?? "en",
   });
+}
+
+export async function deleteBuild(buildId: string): Promise<void> {
+  if (USE_MOCK) return;
+  await apiDelete(`/build/${encodeURIComponent(buildId)}`);
 }

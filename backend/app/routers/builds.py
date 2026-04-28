@@ -166,7 +166,10 @@ async def create_build(request: BuildRequest):
         logger.warning("Career lookup failed: %s", exc)
         raise HTTPException(
             status_code=404,
-            detail="We don't have enough data for that career at this school. Try a different career or school.",
+            detail=(
+                "We don't have enough data for that career at this school."
+                " Try a different career or school."
+            ),
         )
 
     if not career.program_name and request.cip_title:
@@ -224,6 +227,13 @@ async def save_build(build_id: str):
             raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
     builds.save_build(build)
     return {"build_id": build.build_id}
+
+
+@router.delete("/{build_id}")
+async def delete_build(build_id: str):
+    builds.delete_build(build_id)
+    state.remove_build(build_id)
+    return {"deleted": build_id}
 
 
 @router.get("/{build_id}")

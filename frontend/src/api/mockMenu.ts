@@ -68,15 +68,42 @@ export async function mockListBuilds(_profileName: string): Promise<BuildSummary
   return SUMMARIES;
 }
 
+const MOCK_EXTRA: Record<string, { soc_code: string; wage: number | null; cost: number | null; debt: number | null }> = {
+  "berkeley-cs-001": { soc_code: "15-1252", wage: 130000, cost: 16200, debt: 32400 },
+  "iu-bloom-mkt-001": { soc_code: "11-2021", wage: 140040, cost: 11400, debt: 22800 },
+  "purdue-nursing-001": { soc_code: "29-1141", wage: 86070, cost: 9800, debt: 19600 },
+};
+
+const MOCK_SKILL_COUNTS: Record<string, Record<string, number>> = {
+  "berkeley-cs-001": { ai: 0, loans: 0, market: 0, burnout: 1, ceiling: 0 },
+  "iu-bloom-mkt-001": { ai: 1, loans: 0, market: 0, burnout: 0, ceiling: 2 },
+  "purdue-nursing-001": { ai: 0, loans: 0, market: 0, burnout: 0, ceiling: 0 },
+};
+
 export async function mockCompareBuilds(buildIds: string[]): Promise<CompareResult> {
   await delay(450);
   const picks = SUMMARIES.filter((s) => buildIds.includes(s.build_id));
   return {
-    builds: picks.map((b) => ({
-      build_id: b.build_id,
-      label: `${b.school_name} — ${b.major_text}`,
-      career: b.career_title,
-    })),
+    builds: picks.map((b) => {
+      const extra = MOCK_EXTRA[b.build_id] ?? { soc_code: "00-0000", wage: null, cost: null, debt: null };
+      return {
+        build_id: b.build_id,
+        label: `${b.school_name} — ${b.major_text}`,
+        career: b.career_title,
+        soc_code: extra.soc_code,
+        profile_name: b.profile_name,
+        animal_emoji: b.animal_emoji,
+        school_name: b.school_name,
+        major_text: b.major_text,
+        effort: "balanced",
+        loan_pct: 0.5,
+        median_annual_wage: extra.wage,
+        net_price_annual: extra.cost,
+        modeled_total_debt: extra.debt,
+        tuition_annual: extra.cost,
+        is_out_of_state: false,
+      };
+    }),
     stats: [
       { label: "ERN", values: picks.map((b) => b.ern) },
       { label: "ROI", values: picks.map((b) => b.roi) },
@@ -85,13 +112,25 @@ export async function mockCompareBuilds(buildIds: string[]): Promise<CompareResu
       { label: "HMN", values: picks.map((b) => b.hmn) },
     ],
     bosses: [
-      { label: "AI", values: bossOutcomes(picks, "ai") },
-      { label: "Loans", values: bossOutcomes(picks, "loans") },
-      { label: "Market", values: bossOutcomes(picks, "market") },
-      { label: "Burnout", values: bossOutcomes(picks, "burnout") },
-      { label: "Ceiling", values: bossOutcomes(picks, "ceiling") },
+      { label: "AI", boss_id: "ai", values: bossOutcomes(picks, "ai"), skill_counts: skillCounts(picks, "ai"), original_values: bossOutcomes(picks, "ai") },
+      { label: "Loans", boss_id: "loans", values: bossOutcomes(picks, "loans"), skill_counts: skillCounts(picks, "loans"), original_values: bossOutcomes(picks, "loans") },
+      { label: "Market", boss_id: "market", values: bossOutcomes(picks, "market"), skill_counts: skillCounts(picks, "market"), original_values: bossOutcomes(picks, "market") },
+      { label: "Burnout", boss_id: "burnout", values: bossOutcomes(picks, "burnout"), skill_counts: skillCounts(picks, "burnout"), original_values: bossOutcomes(picks, "burnout") },
+      { label: "Ceiling", boss_id: "ceiling", values: bossOutcomes(picks, "ceiling"), skill_counts: skillCounts(picks, "ceiling"), original_values: bossOutcomes(picks, "ceiling") },
     ],
+    branches: picks.map((b) => ({
+      build_id: b.build_id,
+      career: b.career_title,
+      destinations: [
+        { to_title: "Senior " + b.career_title, to_soc: "00-0001", delta_ern: 2, delta_grw: -1 },
+        { to_title: "Director", to_soc: "00-0002", delta_ern: 3, delta_grw: 0 },
+      ],
+    })),
   };
+}
+
+function skillCounts(builds: BuildSummary[], boss: string): number[] {
+  return builds.map((b) => MOCK_SKILL_COUNTS[b.build_id]?.[boss] ?? 0);
 }
 
 const FIXED_BOSS_RESULTS: Record<string, Record<string, string>> = {

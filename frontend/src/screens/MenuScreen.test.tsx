@@ -36,6 +36,7 @@ vi.mock("react-router-dom", async () => {
 
 const mockListBuilds = vi.fn();
 const mockCompareBuilds = vi.fn();
+const mockCompareInsights = vi.fn();
 const mockSendChat = vi.fn();
 vi.mock("@/api/menu", async () => {
   const actual =
@@ -44,6 +45,7 @@ vi.mock("@/api/menu", async () => {
     ...actual,
     listBuilds: (...args: unknown[]) => mockListBuilds(...args),
     compareBuilds: (...args: unknown[]) => mockCompareBuilds(...args),
+    compareInsights: (...args: unknown[]) => mockCompareInsights(...args),
     sendChat: (...args: unknown[]) => mockSendChat(...args),
   };
 });
@@ -162,10 +164,12 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockListBuilds.mockReset();
   mockCompareBuilds.mockReset();
+  mockCompareInsights.mockReset();
   mockSendChat.mockReset();
   mockGetBuild.mockReset();
   // Sane defaults — individual tests can override.
   mockCompareBuilds.mockReturnValue(new Promise(() => {}));
+  mockCompareInsights.mockReturnValue(new Promise(() => {}));
   mockSendChat.mockReturnValue(new Promise(() => {}));
   useProfileStore.setState({
     profileName: "Wandering Otter",
@@ -284,7 +288,7 @@ describe("MenuScreen", () => {
 
   // --- P1: New Build clears inputs and navigates ---
 
-  it('"New Build" calls resetInputs() then navigates to /school (P1)', async () => {
+  it('"New Build" calls resetInputs() then navigates to /profile (P1)', async () => {
     mockListBuilds.mockResolvedValue([makeSummary()]);
 
     // Pollute build inputs first so we can prove the reset.
@@ -338,6 +342,75 @@ describe("MenuScreen", () => {
 
     const enterCompare = await screen.findByTestId("btn-enter-compare");
     expect(enterCompare).not.toBeDisabled();
+  });
+
+  // --- P1: select mode caps at 4 builds (Party Select) ---
+
+  it("allows selecting up to 4 builds in select mode; rejects the 5th (P1)", async () => {
+    const fiveBuilds = [
+      makeSummary({ build_id: "build-a", school_name: "School A" }),
+      makeSummary({ build_id: "build-b", school_name: "School B" }),
+      makeSummary({ build_id: "build-c", school_name: "School C" }),
+      makeSummary({ build_id: "build-d", school_name: "School D" }),
+      makeSummary({ build_id: "build-e", school_name: "School E" }),
+    ];
+    mockListBuilds.mockResolvedValue(fiveBuilds);
+    renderScreen();
+
+    // Wait for builds to render.
+    await screen.findByTestId("card-build-build-a");
+
+    // Enter select mode.
+    fireEvent.click(screen.getByTestId("btn-enter-compare"));
+
+    // Select 4 builds — all should succeed.
+    fireEvent.click(screen.getByTestId("card-build-build-a"));
+    fireEvent.click(screen.getByTestId("card-build-build-b"));
+    fireEvent.click(screen.getByTestId("card-build-build-c"));
+    fireEvent.click(screen.getByTestId("card-build-build-d"));
+
+    // Button should show "Compare 4/4" and be enabled.
+    const compareBtn = screen.getByTestId("btn-compare");
+    expect(compareBtn).toHaveTextContent("Compare 4/4");
+    expect(compareBtn).not.toBeDisabled();
+
+    // Click a 5th build — must be silently rejected (cap at 4).
+    fireEvent.click(screen.getByTestId("card-build-build-e"));
+
+    // Still "Compare 4/4" — the 5th selection was dropped.
+    expect(compareBtn).toHaveTextContent("Compare 4/4");
+  });
+
+  it("deselecting a build in select mode allows re-selecting another (P1)", async () => {
+    const fourBuilds = [
+      makeSummary({ build_id: "build-a", school_name: "School A" }),
+      makeSummary({ build_id: "build-b", school_name: "School B" }),
+      makeSummary({ build_id: "build-c", school_name: "School C" }),
+      makeSummary({ build_id: "build-d", school_name: "School D" }),
+      makeSummary({ build_id: "build-e", school_name: "School E" }),
+    ];
+    mockListBuilds.mockResolvedValue(fourBuilds);
+    renderScreen();
+
+    await screen.findByTestId("card-build-build-a");
+    fireEvent.click(screen.getByTestId("btn-enter-compare"));
+
+    // Select 4.
+    fireEvent.click(screen.getByTestId("card-build-build-a"));
+    fireEvent.click(screen.getByTestId("card-build-build-b"));
+    fireEvent.click(screen.getByTestId("card-build-build-c"));
+    fireEvent.click(screen.getByTestId("card-build-build-d"));
+
+    const compareBtn = screen.getByTestId("btn-compare");
+    expect(compareBtn).toHaveTextContent("Compare 4/4");
+
+    // Deselect build-b (toggle off).
+    fireEvent.click(screen.getByTestId("card-build-build-b"));
+    expect(compareBtn).toHaveTextContent("Compare 3/4");
+
+    // Now build-e can be selected.
+    fireEvent.click(screen.getByTestId("card-build-build-e"));
+    expect(compareBtn).toHaveTextContent("Compare 4/4");
   });
 
   it("empty-state CTA also routes to /profile via resetInputs (saboteur: zero-builds path)", async () => {

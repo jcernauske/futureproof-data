@@ -36,13 +36,13 @@ const DATASETS: DatasetRow[] = [
     identifier: "landing-data-row-karpathy",
     source: "Karpathy AI Exposure",
     rows: "815",
-    powers: "RES, Fight AI",
+    powers: "RES baseline",
   },
   {
     identifier: "landing-data-row-anthropic",
     source: "Anthropic Economic Index",
     rows: "587",
-    powers: "AI velocity",
+    powers: "RES confidence, velocity",
   },
   {
     identifier: "landing-data-row-bea",

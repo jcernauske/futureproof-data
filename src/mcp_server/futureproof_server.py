@@ -1743,7 +1743,7 @@ class FutureProofMCPServer(BaseMCPServer):
         """
         join_sql = """
         WITH socs AS (
-            SELECT DISTINCT soc_code
+            SELECT DISTINCT soc_code, soc_title
             FROM base_cip_soc_crosswalk
             WHERE SUBSTR(cipcode, 1, 5) = $cip4
               AND soc_code IS NOT NULL
@@ -1751,6 +1751,7 @@ class FutureProofMCPServer(BaseMCPServer):
         )
         SELECT
             socs.soc_code,
+            socs.soc_title AS crosswalk_title,
             op.occupation_title,
             op.soc_major_group_name,
             op.median_annual_wage,
@@ -1937,11 +1938,61 @@ class FutureProofMCPServer(BaseMCPServer):
         # against any occupation source, matching the fan-out's
         # "{} fallback" behavior).
         by_soc = {r["soc_code"]: r for r in joined if r.get("soc_code")}
+
+        # Expanded SOCs (from Gemma) aren't in the crosswalk CTE, so
+        # they won't appear in by_soc. Fetch their data directly from
+        # occupation_profiles to avoid blank titles.
+        expanded_missing = [s for s in socs if s not in by_soc]
+        if expanded_missing:
+            engine = self._get_query_engine()
+            valid_expanded = [
+                s for s in expanded_missing if _SOC_CODE_PATTERN.match(s)
+            ]
+            if valid_expanded:
+                values_sql = ", ".join(f"('{s}')" for s in valid_expanded)
+                try:
+                    extra = engine.query_sql(
+                        f"""
+                        SELECT
+                            socs.soc_code,
+                            op.occupation_title,
+                            op.soc_major_group_name,
+                            op.median_annual_wage,
+                            op.wage_percentile_overall,
+                            op.grw_score_rounded,
+                            op.market_score_rounded,
+                            op.growth_category,
+                            op.employment_current,
+                            op.education_level_name,
+                            onet.primary_title,
+                            onet.hmn_score_rounded,
+                            onet.burnout_score_rounded,
+                            onet.top_5_activities,
+                            onet.top_human_activities,
+                            onet.burnout_drivers,
+                            ai.stat_res,
+                            ai.boss_ai_score
+                        FROM (VALUES {values_sql}) AS socs(soc_code)
+                        LEFT JOIN consumable_occupation_profiles op
+                            ON op.soc_code = socs.soc_code
+                        LEFT JOIN consumable_onet_work_profiles onet
+                            ON onet.bls_soc_code = socs.soc_code
+                        LEFT JOIN consumable_ai_exposure ai
+                            ON ai.soc_code = socs.soc_code
+                        """,
+                        {},
+                    )
+                    for r in extra:
+                        if r.get("soc_code"):
+                            by_soc[r["soc_code"]] = r
+                except Exception:
+                    logger.debug("Expanded SOC fetch failed", exc_info=True)
         rows: list[dict] = []
         for soc in socs:
             j = by_soc.get(soc, {})
             op_title = j.get("occupation_title")
             onet_primary = j.get("primary_title")
+            xw_title = j.get("crosswalk_title")
 
             stat_ern = compute_stat_ern(cip_fam_rank, j.get("wage_percentile_overall"))
             stat_roi = compute_stat_roi(adj_dte)
@@ -1975,7 +2026,7 @@ class FutureProofMCPServer(BaseMCPServer):
                 "program_name": substituted_program_name,
                 "cip_family_name": school.get("cip_family_name"),
                 "soc_code": soc,
-                "occupation_title": (op_title or onet_primary or None),
+                "occupation_title": (op_title or onet_primary or xw_title or "Unknown"),
                 "soc_major_group_name": j.get("soc_major_group_name"),
                 "stat_ern": stat_ern,
                 "stat_roi": stat_roi,
@@ -2171,7 +2222,7 @@ class FutureProofMCPServer(BaseMCPServer):
                 "program_name": template.get("program_name"),
                 "cip_family_name": template.get("cip_family_name"),
                 "soc_code": soc,
-                "occupation_title": (op_title or onet_primary or None),
+                "occupation_title": (op_title or onet_primary or "Unknown"),
                 "soc_major_group_name": j.get("soc_major_group_name"),
                 "stat_ern": stat_ern,
                 "stat_roi": stat_roi,

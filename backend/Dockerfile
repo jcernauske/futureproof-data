@@ -29,7 +29,7 @@ COPY backend/pyproject.toml backend/pyproject.toml
 RUN git config --global "url.https://${GITHUB_TOKEN}@github.com/.insteadOf" "https://github.com/" \
     && pip install --upgrade pip \
     && pip install fastapi 'uvicorn[standard]' pydantic duckdb playwright jinja2 \
-       openai python-dotenv rich pyyaml \
+       openai python-dotenv pyyaml \
        'brightsmith @ git+https://github.com/jcernauske/brightsmith.git'
 
 # Copy the bits the backend actually needs at runtime

@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 
 from app.models.career import (
+    Build,
     CareerBranch,
     CareerOutcome,
     GauntletResult,
@@ -378,3 +379,187 @@ def chat_with_context(
 
     logger.warning("chat_with_context failed; using fallback")
     return fallback_text("chat_unavailable", locale)
+
+
+# ---------------------------------------------------------------------------
+# Party Select comparison prompts
+# ---------------------------------------------------------------------------
+
+_MONEY_INSIGHT_SYSTEM = (
+    "You are Gemma. A student is comparing 2-4 college options side by "
+    "side. You are looking at the cost and salary data for each option. "
+    "Your job is to surface the single most important money insight — "
+    "the relationship between cost and earnings that the student might "
+    "miss scanning the numbers alone.\n\n"
+    "Voice: candid, factual, warm. Short, clear sentences. Use the "
+    "actual dollar figures. Express debt differences in concrete terms "
+    "(months of salary, not just dollar deltas).\n\n"
+    "Never use these words or framings:\n"
+    "- stat codes: ERN, ROI, RES, GRW, HMN\n"
+    "- SOC codes: never mention SOC codes like '11-2011' or '13-1161'\n"
+    "- score fractions: never '7/10'\n"
+    "- outcome labels: never WIN, DRAW, LOSE\n"
+    "- game framing: never 'fight', 'boss', 'gauntlet', 'battle'\n"
+    "- filler: no exclamation points, bullet points, 'as an AI', "
+    "'amazing', 'journey', 'unfortunately'\n"
+    "- Never recommend a school or declare a winner\n\n"
+    "Structure: 2-4 sentences of plain prose. Lead with the most "
+    "surprising relationship. End with a one-sentence takeaway. "
+    "Write at a 7th-grade reading level."
+)
+
+
+def _money_insight_prompt(builds: list[Build]) -> str:
+    lines = ["The student is comparing these options:\n"]
+    for b in builds:
+        wage = fmt_dollars(b.career.median_annual_wage)
+        cost = fmt_dollars(b.career.net_price_annual)
+        debt = fmt_dollars(b.career.modeled_total_debt)
+        loans_fight = next(
+            (f for f in b.gauntlet.fights if f.boss == "loans"),
+            None,
+        )
+        loans_result = loans_fight.result.upper() if loans_fight else "unknown"
+        lines.append(
+            f"- {b.school_name} ({b.major_text}) → {b.career.occupation_title}\n"
+            f"  Median salary: {wage}\n"
+            f"  Annual cost: {cost}\n"
+            f"  Total modeled debt: {debt}\n"
+            f"  Student Loans outcome: {loans_result}"
+        )
+
+    soc_codes = [b.career.soc_code for b in builds]
+    if len(soc_codes) != len(set(soc_codes)):
+        lines.append(
+            "\nNote: Some of these options lead to the SAME career "
+            "(same SOC code). If two options produce the same job at "
+            "the same salary, the cost difference is pure premium — "
+            "call that out explicitly."
+        )
+
+    lines.append(
+        "\nWrite 2-4 sentences about the cost vs. salary picture. "
+        "Use actual dollar figures. Express debt gaps as months of "
+        "median salary when that makes it more concrete. "
+        "Never recommend a school."
+    )
+    return "\n".join(lines)
+
+
+async def generate_money_insight_async(
+    builds: list[Build],
+    locale: AppLocale = "en",
+) -> str | None:
+    locale = normalize_locale(locale)
+    system = f"{_MONEY_INSIGHT_SYSTEM}\n\n{gemma_language_instruction(locale)}"
+    text = await gemma_client.generate_async(
+        system=system,
+        user=_money_insight_prompt(builds),
+        max_tokens=600,
+        temperature=0.7,
+    )
+    if text:
+        return text
+    logger.warning("money insight gen failed; returning None")
+    return None
+
+
+_COMPARE_SYSTEM = (
+    "You are Gemma. A student has built 2-4 career paths and is "
+    "comparing them to decide which college to attend. Your job is to "
+    "name the tradeoffs clearly — what each path optimizes for and "
+    "what it sacrifices.\n\n"
+    "Voice: candid, factual, warm. Talk the way a calm older sibling "
+    "with honest answers would talk. You are the interpretation layer, "
+    "not a judge. Never declare a winner. Never recommend a school.\n\n"
+    "Never use these words or framings:\n"
+    "- stat codes: ERN, ROI, RES, GRW, HMN\n"
+    "- SOC codes: never mention SOC codes like '11-2011' or '13-1161'\n"
+    "- score fractions: never '7/10'\n"
+    "- outcome labels: never WIN, DRAW, LOSE\n"
+    "- game framing: never 'fight', 'boss', 'gauntlet', 'battle'\n"
+    "- filler: no exclamation points, bullet points, 'as an AI', "
+    "'amazing', 'journey', 'unfortunately'\n\n"
+    "Structure: one paragraph per build (3-4 sentences each), then a "
+    "closing sentence about what the decision comes down to. "
+    "Name each build by school name. "
+    "Write at a 7th-grade reading level."
+)
+
+
+def _compare_summary_prompt(builds: list[Build]) -> str:
+    schools = {b.school_name for b in builds}
+    soc_codes = {b.career.soc_code for b in builds}
+
+    if len(schools) == 1:
+        frame = (
+            "These are different majors at the SAME school. "
+            "Focus on how the career paths differ, not the school."
+        )
+    elif len(soc_codes) == 1:
+        frame = (
+            "These are different schools leading to the SAME career. "
+            "Focus on cost, risk profile, and which branches open up."
+        )
+    else:
+        frame = (
+            "These are different schools and different careers. "
+            "Focus on what each path optimizes for and what it sacrifices."
+        )
+
+    lines = [f"Comparison context: {frame}\n"]
+
+    for b in builds:
+        wage = fmt_dollars(b.career.median_annual_wage)
+        cost = fmt_dollars(b.career.net_price_annual)
+        debt = fmt_dollars(b.career.modeled_total_debt)
+        stats_block = stat_explainer(b.career)
+        boss_summary = ", ".join(
+            f"{f.label}={f.result.upper()}"
+            + (
+                f" (needed {f.reroll_count} skill{'s' if f.reroll_count != 1 else ''})"
+                if f.reroll_count > 0
+                else ""
+            )
+            for f in b.gauntlet.fights
+        )
+        branch_summary = (
+            "; ".join(br.to_title for br in (b.branches or [])[:3]) or "(none)"
+        )
+
+        lines.append(
+            f"BUILD: {b.school_name} — {b.major_text}\n"
+            f"Career: {b.career.occupation_title}\n"
+            f"Median salary: {wage} | Annual cost: {cost} | "
+            f"Total debt: {debt}\n"
+            f"{stats_block}\n"
+            f"Risk results: {boss_summary}\n"
+            f"Branches to: {branch_summary}\n"
+        )
+
+    lines.append(
+        "Write one paragraph per build (3-4 sentences each), then a "
+        "closing sentence. Name each build by school name. Translate "
+        "stats into plain words — talk about earnings, debt, job "
+        "growth, AI risk, burnout, and ceiling in real-world terms. "
+        "Never declare a winner. Name the tradeoffs."
+    )
+    return "\n".join(lines)
+
+
+async def generate_compare_summary_async(
+    builds: list[Build],
+    locale: AppLocale = "en",
+) -> str | None:
+    locale = normalize_locale(locale)
+    system = f"{_COMPARE_SYSTEM}\n\n{gemma_language_instruction(locale)}"
+    text = await gemma_client.generate_async(
+        system=system,
+        user=_compare_summary_prompt(builds),
+        max_tokens=1200,
+        temperature=0.7,
+    )
+    if text:
+        return text
+    logger.warning("compare summary gen failed; returning None")
+    return None

@@ -40,6 +40,7 @@ function makeCareer(soc: string, title: string): CareerOutcome {
     reported_cipcode: null,
     substituted_cipcode: null,
     data_caveat: null,
+    is_out_of_state: false,
     loan_pct: 0.5,
   };
 }

@@ -93,7 +93,7 @@ export const STAT_INFO: Record<string, { title: string; definition: string; sour
   res: {
     title: "AI Resilience",
     definition: "Estimates how resistant this career is to AI automation, based on task-level analysis of which job activities current AI systems can perform.",
-    source: "Karpathy AI Exposure Index",
+    source: "Composite AI Exposure (Gemma 4 + Karpathy + Anthropic)",
   },
   grw: {
     title: "Growth Potential",

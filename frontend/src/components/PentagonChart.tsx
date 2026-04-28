@@ -3,6 +3,12 @@ import { springs } from "@/styles/motion";
 import type { PentagonStats } from "@/types/build";
 import type { StatKey } from "@/data/statExplanations";
 
+export interface PentagonOverlayShape {
+  stats: PentagonStats;
+  color: string;
+  dimmed?: boolean;
+}
+
 interface PentagonChartProps {
   stats: PentagonStats;
   size?: number;
@@ -10,6 +16,7 @@ interface PentagonChartProps {
   delay?: number;
   highlightStat?: StatKey | null;
   dimOpacity?: number;
+  overlays?: PentagonOverlayShape[];
 }
 
 const AXES: { key: StatKey; label: string; color: string }[] = [
@@ -51,7 +58,9 @@ export function PentagonChart({
   delay = 0,
   highlightStat = null,
   dimOpacity = 1,
+  overlays,
 }: PentagonChartProps) {
+  const isOverlayMode = overlays && overlays.length > 0;
   return (
     <motion.div
       id="svg-pentagon"
@@ -101,37 +110,82 @@ export function PentagonChart({
           );
         })}
 
-        {/* Data shape */}
-        <motion.polygon
-          points={dataPolygon(stats)}
-          fill="url(#data-grad)"
-          stroke="var(--color-border-strong)"
-          strokeWidth="1.5"
-          initial={animated ? { opacity: 0 } : undefined}
-          animate={{ opacity: 0.85 }}
-          transition={animated ? { duration: 2, delay: delay + 0.3 } : undefined}
-        />
+        {isOverlayMode ? (
+          <>
+            {/* Render dimmed shapes first, highlighted last so it's on top */}
+            {[...overlays.entries()]
+              .sort(([, a], [, b]) => (a.dimmed ? 0 : 1) - (b.dimmed ? 0 : 1))
+              .map(([idx, overlay]) => {
+                const dimmed = overlay.dimmed ?? false;
+                const shapeOpacity = dimmed ? 0.15 : 0.85;
+                const drawDelay = delay + idx * 0.2;
+                return (
+                  <motion.g key={`overlay-${idx}`} data-testid={`overlay-shape-${idx}`}>
+                    <motion.polygon
+                      points={dataPolygon(overlay.stats)}
+                      fill={overlay.color}
+                      fillOpacity={dimmed ? 0.05 : 0.15}
+                      stroke={overlay.color}
+                      strokeOpacity={dimmed ? 0.2 : 0.6}
+                      strokeWidth="1.5"
+                      initial={animated ? { opacity: 0 } : undefined}
+                      animate={{ opacity: shapeOpacity }}
+                      transition={{ duration: 0.2, delay: animated ? drawDelay : 0 }}
+                    />
+                    {AXES.map((axis, i) => {
+                      const val = Math.max(0, Math.min(10, overlay.stats[axis.key] ?? 0));
+                      const [cx, cy] = vertexPos(i, RADIUS * (val / 10));
+                      return (
+                        <motion.g
+                          key={`dot-${idx}-${i}`}
+                          initial={animated ? { opacity: 0, scale: 0 } : undefined}
+                          animate={{ opacity: dimmed ? 0.2 : 1, scale: 1 }}
+                          transition={animated
+                            ? { ...springs.bouncy, delay: drawDelay + 0.3 + i * 0.08 }
+                            : { duration: 0.2 }}
+                          style={{ transformOrigin: `${cx}px ${cy}px` }}
+                        >
+                          <circle cx={cx} cy={cy} r="10" fill={overlay.color} opacity="0.12" />
+                          <circle cx={cx} cy={cy} r="5" fill={overlay.color} opacity="0.9" />
+                        </motion.g>
+                      );
+                    })}
+                  </motion.g>
+                );
+              })}
+          </>
+        ) : (
+          <>
+            <motion.polygon
+              points={dataPolygon(stats)}
+              fill="url(#data-grad)"
+              stroke="var(--color-border-strong)"
+              strokeWidth="1.5"
+              initial={animated ? { opacity: 0 } : undefined}
+              animate={{ opacity: 0.85 }}
+              transition={animated ? { duration: 2, delay: delay + 0.3 } : undefined}
+            />
+            {AXES.map((axis, i) => {
+              const val = Math.max(0, Math.min(10, stats[axis.key] ?? 0));
+              const [cx, cy] = vertexPos(i, RADIUS * (val / 10));
+              const isHighlighted = highlightStat === null || highlightStat === axis.key;
+              const dotOpacity = isHighlighted ? 1 : dimOpacity;
 
-        {/* Vertex dots */}
-        {AXES.map((axis, i) => {
-          const val = Math.max(0, Math.min(10, stats[axis.key] ?? 0));
-          const [cx, cy] = vertexPos(i, RADIUS * (val / 10));
-          const isHighlighted = highlightStat === null || highlightStat === axis.key;
-          const dotOpacity = isHighlighted ? 1 : dimOpacity;
-
-          return (
-            <motion.g
-              key={`dot-${i}`}
-              initial={animated ? { opacity: 0, scale: 0 } : undefined}
-              animate={{ opacity: dotOpacity, scale: 1 }}
-              transition={animated ? { ...springs.bouncy, delay: delay + 0.5 + i * 0.15 } : undefined}
-              style={{ transformOrigin: `${cx}px ${cy}px` }}
-            >
-              <circle cx={cx} cy={cy} r="10" fill={axis.color} opacity="0.12" />
-              <circle cx={cx} cy={cy} r="5" fill={axis.color} opacity="0.9" />
-            </motion.g>
-          );
-        })}
+              return (
+                <motion.g
+                  key={`dot-${i}`}
+                  initial={animated ? { opacity: 0, scale: 0 } : undefined}
+                  animate={{ opacity: dotOpacity, scale: 1 }}
+                  transition={animated ? { ...springs.bouncy, delay: delay + 0.5 + i * 0.15 } : undefined}
+                  style={{ transformOrigin: `${cx}px ${cy}px` }}
+                >
+                  <circle cx={cx} cy={cy} r="10" fill={axis.color} opacity="0.12" />
+                  <circle cx={cx} cy={cy} r="5" fill={axis.color} opacity="0.9" />
+                </motion.g>
+              );
+            })}
+          </>
+        )}
       </svg>
 
       {/* Stat labels */}
@@ -157,9 +211,11 @@ export function PentagonChart({
             transition={animated ? { duration: 1, delay: delay + 0.8 + i * 0.1 } : undefined}
           >
             {axis.label}
-            <div className="font-data text-data-sm font-bold mt-0.5" style={{ color: axis.color }}>
-              {stats[axis.key] ?? "—"}
-            </div>
+            {!isOverlayMode && (
+              <div className="font-data text-data-sm font-bold mt-0.5" style={{ color: axis.color }}>
+                {stats[axis.key] ?? "—"}
+              </div>
+            )}
           </motion.div>
         );
       })}

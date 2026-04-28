@@ -10,7 +10,6 @@ from app.routers import (
     gauntlet,
     guidance_router,
     health,
-    intent,
     profile,
     reports,
     schools,
@@ -39,7 +38,6 @@ def create_app() -> FastAPI:
     application.include_router(health.router)
     application.include_router(profile.router, prefix="/profile", tags=["Profile"])
     application.include_router(schools.router, prefix="/schools", tags=["Schools"])
-    application.include_router(intent.router, prefix="/intent", tags=["Intent"])
     application.include_router(
         set_your_course.router, prefix="/intent", tags=["SetYourCourse"]
     )

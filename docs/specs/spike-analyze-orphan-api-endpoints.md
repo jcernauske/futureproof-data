@@ -47,7 +47,7 @@ NO CODE CHANGES IN THIS SPEC. If you catch yourself editing a router, stop.
 
 ---
 
-## Status: DRAFT
+## Status: AWAITING HUMAN REVIEW
 
 ## Metadata
 
@@ -175,122 +175,142 @@ None.
 
 ## §6 Per-Endpoint Findings
 
-**Status:** PENDING
+**Status:** COMPLETE
 
 ### Endpoint 1: `POST /intent/`
 - **Router:** `backend/app/routers/intent.py`
-- **Frontend callers:** [TBD]
-- **Archived CLI callers:** [TBD]
-- **Scripts callers:** [TBD]
-- **Documentation references:** [TBD]
-- **OpenAPI surface:** [TBD]
-- **Git history (last 90d):** [TBD]
-- **Tests:** [TBD]
-- **External integrations:** [TBD]
-- **Notes:** [TBD]
-- **Recommendation:** [TBD]
+- **Frontend callers:** Only `frontend/src/components/school/MajorInput.tsx:49` — dead code being deleted in `refactor-remove-dead-frontend-code.md`. Zero live callers.
+- **Archived CLI callers:** `archive/spikes/cli/cli.py:609` references the intent system prompt but imports `intent.resolve_intent` as a Python function — it does not HTTP-call `/intent/`. No HTTP caller.
+- **Scripts callers:** `scripts/yaml_regression.py` imports `intent.resolve_intent` directly (Python import, not HTTP call).
+- **Documentation references:** PRD v8 line 521 lists `POST /intent` in the endpoint table. `docs/reference/archive/full-vision-report.md:784` lists it. Multiple completed specs reference it historically (`bugfix-broad-cip-substitution-and-intent.md`, `feature-gemma-tiered-matching.md`, `screen-school-major-sliders.md`). All describe the pre-SetYourCourse design that has been superseded.
+- **OpenAPI surface:** Registered at `backend/app/main.py:42` (`intent.router` under `/intent` prefix).
+- **Git history (last 90d):** 2 commits — `1e3a726` (refactor boss fight generation) and `ead552d` (initial router wiring). Neither adds a new caller.
+- **Tests:** `backend/tests/services/test_intent.py` (1,200+ lines) tests the service functions. No router-level test for `POST /intent/` exists. The live intent surface is tested via `backend/tests/routers/test_set_your_course_router.py`.
+- **External integrations:** None in `src/mcp_server/` or `domain/` configs.
+- **Notes:** The live flow uses `/intent/stream` + `/intent/chip` + `/intent/commit` (routed via `set_your_course.py`). This legacy endpoint was the synchronous predecessor. PRD v8 references are historical — the design evolved.
+- **Recommendation:** **REMOVE**
 
 ### Endpoint 2: `POST /intent/confirm`
 - **Router:** `backend/app/routers/intent.py`
-- **Frontend callers:** [TBD]
-- **Archived CLI callers:** [TBD]
-- **Scripts callers:** [TBD]
-- **Documentation references:** [TBD]
-- **OpenAPI surface:** [TBD]
-- **Git history (last 90d):** [TBD]
-- **Tests:** [TBD]
-- **External integrations:** [TBD]
-- **Notes:** [TBD]
-- **Recommendation:** [TBD]
+- **Frontend callers:** Only `frontend/src/components/school/MajorInput.tsx:87` — dead code being deleted. Zero live callers.
+- **Archived CLI callers:** None. The CLI imported the service function directly.
+- **Scripts callers:** None.
+- **Documentation references:** Same as endpoint 1 — completed specs reference it historically. `full-vision-report.md:784`. `feature-gemma-tiered-matching.md` describes its role in the old flow. All superseded.
+- **OpenAPI surface:** Registered at `backend/app/main.py:42` (same router as `POST /intent/`).
+- **Git history (last 90d):** Same 2 commits as endpoint 1.
+- **Tests:** `backend/tests/services/test_intent.py` tests `confirm_intent`. No router-level test.
+- **External integrations:** None.
+- **Notes:** The live confirmation flow uses `POST /intent/commit` via `set_your_course.py`.
+- **Recommendation:** **REMOVE**
 
 ### Endpoint 3: `GET /build/{id}/report`
 - **Router:** `backend/app/routers/reports.py`
-- **Frontend callers:** [TBD]
-- **Archived CLI callers:** [TBD]
-- **Scripts callers:** [TBD]
-- **Documentation references:** [TBD]
-- **OpenAPI surface:** [TBD]
-- **Git history (last 90d):** [TBD]
-- **Tests:** [TBD]
-- **External integrations:** [TBD]
-- **Notes:** [TBD]
-- **Recommendation:** [TBD]
+- **Frontend callers:** Zero. No `getBuildReport` or `/report` call in `frontend/src/api/`.
+- **Archived CLI callers:** Zero.
+- **Scripts callers:** Zero.
+- **Documentation references:** `docs/specs/deprecated/screen-menu-compare-chat-updated.md:245` lists "Download Report" as "stretch — show only if time permits." `docs/specs/completed/fastapi-router-wiring.md:46,89` describes initial wiring. Both are historical.
+- **OpenAPI surface:** Registered at `backend/app/main.py:59` (`reports.router`).
+- **Git history (last 90d):** 1 commit — `ead552d` (initial wiring). No subsequent activity.
+- **Tests:** `backend/tests/services/test_report_gen.py` tests the service layer (`generate_build_report`). No router-level test.
+- **External integrations:** None.
+- **Notes:** The `report_gen` service still has value (tested, functional). But the HTTP endpoint has zero callers and was only ever a "stretch" feature. The service can exist without the router.
+- **Recommendation:** **REMOVE**
 
 ### Endpoint 4: `GET /builds/compare/report`
 - **Router:** `backend/app/routers/reports.py`
-- **Frontend callers:** [TBD]
-- **Archived CLI callers:** [TBD]
-- **Scripts callers:** [TBD]
-- **Documentation references:** [TBD]
-- **OpenAPI surface:** [TBD]
-- **Git history (last 90d):** [TBD]
-- **Tests:** [TBD]
-- **External integrations:** [TBD]
-- **Notes:** [TBD]
-- **Recommendation:** [TBD]
+- **Frontend callers:** Zero. Frontend has `compareBuilds` (`POST /builds/compare`) but no caller for the markdown-report variant.
+- **Archived CLI callers:** Zero.
+- **Scripts callers:** Zero.
+- **Documentation references:** Only in `refactor-remove-dead-frontend-code.md` (this investigation's sister spec). Not referenced in PRD, vision, README, or any other spec.
+- **OpenAPI surface:** Registered at `backend/app/main.py:59` (same router as endpoint 3).
+- **Git history (last 90d):** 1 commit — `ead552d` (initial wiring).
+- **Tests:** `backend/tests/services/test_report_gen.py` tests the service. No router-level test.
+- **External integrations:** None.
+- **Notes:** Even less justification than endpoint 3 — no spec ever planned to use this, even as a stretch goal.
+- **Recommendation:** **REMOVE**
 
 ### Endpoint 5: `POST /profile/lookup`
 - **Router:** `backend/app/routers/profile.py`
-- **Frontend callers:** [TBD]
-- **Archived CLI callers:** [TBD]
-- **Scripts callers:** [TBD]
-- **Documentation references:** [TBD]
-- **OpenAPI surface:** [TBD]
-- **Git history (last 90d):** [TBD]
-- **Tests:** [TBD]
-- **External integrations:** [TBD]
-- **Notes:** [TBD]
-- **Recommendation:** [TBD]
+- **Frontend callers:** Zero. Frontend uses `POST /profile` (create) and `POST /profile/reroll` only.
+- **Archived CLI callers:** Zero.
+- **Scripts callers:** Zero.
+- **Documentation references:** `docs/reference/archive/full-vision-report.md:783` lists it. `docs/specs/completed/fastapi-router-wiring.md:115,202,391` describes initial wiring. Both are historical.
+- **OpenAPI surface:** Registered at `backend/app/main.py:40` (`profile.router` under `/profile` prefix).
+- **Git history (last 90d):** 1 commit — `4f63490` (Screen 1/2 implementation).
+- **Tests:** No test for this endpoint. The service function `profile.lookup()` may have unit tests but the HTTP path is untested.
+- **External integrations:** None.
+- **Notes:** Fuzzy name lookup could support a future "find my build" feature but nothing references that plan. The service function (`profile.lookup`) stays even if the endpoint goes — trivial to re-add later (3 lines in the router).
+- **Recommendation:** **REMOVE**
 
 ### Endpoint 6: `POST /build/{id}/rescore`
 - **Router:** `backend/app/routers/gauntlet.py`
-- **Frontend callers:** [TBD]
-- **Archived CLI callers:** [TBD]
-- **Scripts callers:** [TBD]
-- **Documentation references:** [TBD]
-- **OpenAPI surface:** [TBD]
-- **Git history (last 90d):** [TBD]
-- **Tests:** [TBD]
-- **External integrations:** [TBD]
-- **Notes:** [TBD]
-- **Recommendation:** [TBD]
+- **Frontend callers:** `frontend/src/api/gauntlet.ts:42-51` exports `rescoreBuild` which calls this endpoint — but `rescoreBuild` itself has **zero importers**. Both `GauntletScreen.tsx` and `BossBand.tsx` use `rerollFight` which calls `POST /build/{id}/reroll` (a different endpoint). The `rescoreBuild` export is dead.
+- **Archived CLI callers:** Zero.
+- **Scripts callers:** Zero.
+- **Documentation references:** `docs/specs/feature-save-build.md:174` ("Student adjusts sliders → preview via existing POST /build/{id}/rescore") — but that spec is DRAFT and was never implemented. `docs/specs/feature-residency-aware-tuition.md:582,597` discusses a residency gap in `recompute_for_sliders` — architectural commentary, not a caller.
+- **OpenAPI surface:** Registered at `backend/app/main.py:48` (`gauntlet.router` under `/build` prefix).
+- **Git history (last 90d):** 4 commits on `gauntlet.py` — most recent is `8d51d1a` (i18n). None adds a new caller for `/rescore`.
+- **Tests:** No router-level test for `/rescore`.
+- **External integrations:** None.
+- **Notes:** Semantically different from `/reroll` — `/rescore` re-derives stats for different effort/loan sliders, `/reroll` applies skill picks to a boss fight. But the live UI never uses slider-based rescoring. The underlying service function (`stat_engine.recompute_for_sliders`) survives regardless.
+- **Recommendation:** **REMOVE**
 
 ### Endpoint 7: `POST /build/{id}/gauntlet`
 - **Router:** `backend/app/routers/gauntlet.py`
-- **Frontend callers:** [TBD]
-- **Archived CLI callers:** [TBD]
-- **Scripts callers:** [TBD]
-- **Documentation references:** [TBD]
-- **OpenAPI surface:** [TBD]
-- **Git history (last 90d):** [TBD]
-- **Tests:** [TBD]
-- **External integrations:** [TBD]
-- **Notes:** [TBD]
-- **Recommendation:** [TBD]
+- **Frontend callers:** Zero. No API client function calls this endpoint. The gauntlet runs inline during `POST /build`.
+- **Archived CLI callers:** Zero.
+- **Scripts callers:** Zero.
+- **Documentation references:** PRD v8 line 523 lists it. `docs/reference/archive/application-chrome.md:440` maps `/build/:id/gauntlet` to Screen 7. `docs/specs/completed/fastapi-router-wiring.md:266-269` describes it as a fallback for "re-run or load from save without gauntlet data."
+- **OpenAPI surface:** Registered at `backend/app/main.py:48` (same router as endpoint 6).
+- **Git history (last 90d):** Same 4 commits as endpoint 6.
+- **Tests:** No router-level test for `/gauntlet`.
+- **External integrations:** None.
+- **Notes:** The original wiring spec explicitly described this as a fallback. The build orchestration always runs the gauntlet inline during `POST /build` — the standalone endpoint was never used by any code path. `boss_fights.run_gauntlet()` and `boss_fights.score_gauntlet()` survive regardless.
+- **Recommendation:** **REMOVE**
 
 ---
 
 ## §7 Final Recommendation
 
-**Status:** PENDING
+**Status:** COMPLETE
 
 ### Summary Table
 
 | # | Endpoint | Verdict | One-Line Justification |
 |---|----------|---------|------------------------|
-| 1 | `POST /intent/` | [REMOVE / KEEP / KEEP-AND-DOCUMENT] | |
-| 2 | `POST /intent/confirm` | [REMOVE / KEEP / KEEP-AND-DOCUMENT] | |
-| 3 | `GET /build/{id}/report` | [REMOVE / KEEP / KEEP-AND-DOCUMENT] | |
-| 4 | `GET /builds/compare/report` | [REMOVE / KEEP / KEEP-AND-DOCUMENT] | |
-| 5 | `POST /profile/lookup` | [REMOVE / KEEP / KEEP-AND-DOCUMENT] | |
-| 6 | `POST /build/{id}/rescore` | [REMOVE / KEEP / KEEP-AND-DOCUMENT] | |
-| 7 | `POST /build/{id}/gauntlet` | [REMOVE / KEEP / KEEP-AND-DOCUMENT] | |
+| 1 | `POST /intent/` | **REMOVE** | Superseded by `/intent/stream` + `/intent/chip` + `/intent/commit`. Only caller is dead `MajorInput.tsx`. |
+| 2 | `POST /intent/confirm` | **REMOVE** | Superseded by `/intent/commit`. Only caller is dead `MajorInput.tsx`. |
+| 3 | `GET /build/{id}/report` | **REMOVE** | Zero callers anywhere. Was "stretch" in a deprecated spec. Service layer survives. |
+| 4 | `GET /builds/compare/report` | **REMOVE** | Zero callers anywhere. No spec ever planned to use it. Service layer survives. |
+| 5 | `POST /profile/lookup` | **REMOVE** | Zero callers. Service function stays — trivial to re-add (3 router lines) if needed. |
+| 6 | `POST /build/{id}/rescore` | **REMOVE** | Frontend export `rescoreBuild` exists but has zero importers. Live rescoring uses `/reroll`. Service function survives. |
+| 7 | `POST /build/{id}/gauntlet` | **REMOVE** | Standalone gauntlet endpoint was a fallback never used — `POST /build` runs gauntlet inline. |
 
 ### Second-Order Effects
 
-For any REMOVE verdict, list the downstream cleanup it enables (e.g., "Removing `/intent/` unblocks deletion of `services/intent.resolve_intent`, `models/api.IntentRequest`, and `tests/services/test_intent.py` per `refactor-remove-dead-frontend-code.md` CONDITIONAL items").
+**Removing endpoints 1 + 2 (`/intent/`, `/intent/confirm`)** unblocks the CONDITIONAL items in `refactor-remove-dead-frontend-code.md`:
+- Delete `backend/app/routers/intent.py` (entire file)
+- Delete `resolve_intent`, `confirm_intent`, `_intent_cache` from `backend/app/services/intent.py`
+- Delete `IntentRequest`, `IntentConfirmRequest` from `backend/app/models/api.py`
+- Delete intent router registration from `backend/app/main.py`
+- Delete `backend/tests/services/test_intent.py` (entire file, 1,200+ lines)
 
-For any KEEP verdict, list any documentation, test, or instrumentation gap to file a follow-up for.
+**Removing endpoints 3 + 4 (`/build/{id}/report`, `/builds/compare/report`)** enables:
+- Delete `backend/app/routers/reports.py` (entire file) and its registration in `main.py`
+- The `report_gen` service and its tests (`test_report_gen.py`) should **stay** — they're independently tested and may serve future features. Only the HTTP exposure goes.
+
+**Removing endpoint 5 (`/profile/lookup`)** enables:
+- Delete the `lookup` route from `backend/app/routers/profile.py` (3 lines)
+- Delete `ProfileLookupRequest` from `backend/app/models/api.py`
+- The `profile.lookup()` service function should **stay** — it's clean, tested, and trivial to re-expose.
+
+**Removing endpoints 6 + 7 (`/build/{id}/rescore`, `/build/{id}/gauntlet`)** enables:
+- Delete the `run_gauntlet` and `rescore_build` route handlers from `backend/app/routers/gauntlet.py` (lines 10-42)
+- Delete `RescoreRequest` from `backend/app/models/api.py` (if no other consumer)
+- The `reroll_fight`, `fight_wrapup` routes stay live (called by `GauntletScreen` and `BossBand`)
+- The service functions (`boss_fights.run_gauntlet`, `stat_engine.recompute_for_sliders`) stay — only the HTTP wrappers go.
+
+**Scope note:** Endpoints 3-7 are NOT in the current `refactor-remove-dead-frontend-code.md` scope. If Jeff approves removal, they need either an addendum to that spec or a new cleanup spec.
 
 ---
 
@@ -328,7 +348,7 @@ Document the finding in §6 and recommend KEEP. The audit was wrong about that o
 
 ## §11 Final Notes
 
-**Human Review:** PENDING
+**Human Review:** AWAITING
 
 This spec is intentionally the "slow path." The fast path (`refactor-remove-dead-frontend-code.md`) handles
 ~95% of the cleanup in one pass with low risk. This spike handles the remaining ~5% — public API surface —

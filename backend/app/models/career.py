@@ -55,18 +55,6 @@ class Program(BaseModel):
     confidence_tier: str | None = None
 
 
-class MajorMatch(BaseModel):
-    method: Literal[
-        "exact", "substring", "yaml", "gemma", "gemma_intent", "unmatched"
-    ]
-    cipcode: str | None = None
-    program_name: str | None = None
-    substitution_applied: bool = False
-    reported_cipcode: str | None = None
-    substituted_cipcode: str | None = None
-    note: str | None = None
-
-
 class PentagonStats(BaseModel):
     ern: int | None
     roi: int | None

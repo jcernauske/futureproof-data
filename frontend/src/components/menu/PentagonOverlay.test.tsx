@@ -10,11 +10,31 @@ import { render, screen } from "@testing-library/react";
 import { PentagonOverlay } from "./PentagonOverlay";
 import type { CompareResult } from "@/api/menu";
 
+function makeBuild(id: string, label: string) {
+  return {
+    build_id: id,
+    label,
+    career: `Career ${id.toUpperCase()}`,
+    soc_code: "00-0000",
+    profile_name: label,
+    animal_emoji: null,
+    school_name: label,
+    major_text: "Test",
+    effort: "balanced",
+    loan_pct: 0.5,
+    median_annual_wage: null,
+    net_price_annual: null,
+    modeled_total_debt: null,
+    tuition_annual: null,
+    is_out_of_state: false,
+  };
+}
+
 function makeResult(buildCount: 2 | 3): CompareResult {
   const builds = [
-    { build_id: "a", label: "Build A", career: "Career A" },
-    { build_id: "b", label: "Build B", career: "Career B" },
-    { build_id: "c", label: "Build C", career: "Career C" },
+    makeBuild("a", "Build A"),
+    makeBuild("b", "Build B"),
+    makeBuild("c", "Build C"),
   ].slice(0, buildCount);
 
   const valuesFor = (n: number) =>
@@ -30,6 +50,7 @@ function makeResult(buildCount: 2 | 3): CompareResult {
       { label: "HMN", values: valuesFor(4) },
     ],
     bosses: [],
+    branches: [],
   };
 }
 

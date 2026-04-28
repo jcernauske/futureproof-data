@@ -51,6 +51,7 @@ export interface CareerOutcome {
   institution_control: string | null;
   tuition_in_state: number | null;
   tuition_out_of_state: number | null;
+  is_out_of_state: boolean;
   room_board_on_campus: number | null;
 
   // Cost-based ROI provenance.

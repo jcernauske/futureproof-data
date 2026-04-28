@@ -92,8 +92,8 @@ describe("DataSourcesSection", () => {
       "landing-data-row-scorecard": "ERN, ROI, Loans",
       "landing-data-row-bls": "Growth, Ceiling",
       "landing-data-row-onet": "HMN, Burnout",
-      "landing-data-row-karpathy": "RES, Fight AI",
-      "landing-data-row-anthropic": "AI velocity",
+      "landing-data-row-karpathy": "RES baseline",
+      "landing-data-row-anthropic": "RES confidence, velocity",
       "landing-data-row-bea": "Geo adjustment",
       "landing-data-row-cipsoc": "The core query",
     };
