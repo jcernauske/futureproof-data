@@ -274,7 +274,7 @@ export function CareerDetail({ career, loanPct }: CareerDetailProps) {
               AI Exposure
             </h3>
             <ReceiptPanel id="ai-exposure" label="AI Exposure">
-              <p>Source: Karpathy AI Exposure Scores + O*NET task analysis</p>
+              <p>Source: Composite AI Exposure (Gemma 4 + Karpathy + Anthropic)</p>
               <p className="mt-1">RES stat: {resScore}/10</p>
             </ReceiptPanel>
           </div>

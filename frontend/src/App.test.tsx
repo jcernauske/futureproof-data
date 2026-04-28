@@ -5,7 +5,6 @@ import { AppRoutes } from "./App";
 import { useProfileStore } from "@/store/profileStore";
 
 vi.mock("@/api/session", () => ({
-  getSession: vi.fn().mockResolvedValue(null),
   clearSession: vi.fn().mockResolvedValue(undefined),
 }));
 

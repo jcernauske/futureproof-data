@@ -24,9 +24,8 @@ futureproof-data/
 │   ├── silver/             #   Silver zone transformers
 │   ├── gold/               #   Gold zone transformers
 │   └── mcp_server/         #   MCP server (Gemma-callable tools)
-├── backend/                # FastAPI app + CLI
+├── backend/                # FastAPI app
 │   ├── app/                #   main.py, routers/, services/, models/
-│   ├── cli.py              #   Interactive CLI harness (when built)
 │   ├── pyproject.toml      #   Backend-specific dependencies
 │   └── tests/              #   Backend tests (pytest)
 ├── frontend/               # React app
@@ -89,7 +88,7 @@ Source-level spec status lives in `docs/specs/completed/` (completed) and `docs/
 
 ## Gold Zone Tables
 
-The backend and CLI read these from `data/futureproof.duckdb`:
+The backend reads these from `data/futureproof.duckdb`:
 
 ```python
 import duckdb

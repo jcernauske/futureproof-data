@@ -240,11 +240,17 @@ class TestCompareBuildsRouter:
         resp = client.post("/builds/compare", json={})
         assert resp.status_code == 422
 
-    def test_compare_with_empty_build_ids_does_not_500(self, client):
-        """Edge case — empty list. Service returns {builds: [], rows: []};
-        router must still respond 200, not 500. (Frontend should never
-        send this, but we don't want a server crash either way.)"""
+    def test_compare_with_empty_build_ids_returns_422(self, client):
+        """Empty list rejected by Pydantic min_length=2 validation."""
         resp = client.post("/builds/compare", json={"build_ids": []})
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body.get("builds") == []
+        assert resp.status_code == 422
+
+    def test_compare_with_single_build_id_returns_422(self, client):
+        """Single build rejected — need at least 2 to compare."""
+        b1 = _make_build(
+            profile_name="bold bear", school_name="IU", major_text="Marketing"
+        )
+        resp = client.post(
+            "/builds/compare", json={"build_ids": [b1.build_id]}
+        )
+        assert resp.status_code == 422

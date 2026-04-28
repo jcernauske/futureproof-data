@@ -437,7 +437,7 @@ export function BuildResultsScreen() {
               tuitionOutOfState={career.tuition_out_of_state}
               netPriceAnnual={career.net_price_annual}
               loanPct={career.loan_pct}
-              isInState={homeState && school?.stateAbbr ? homeState === school.stateAbbr : null}
+              isInState={career.is_out_of_state != null ? !career.is_out_of_state : (homeState && school?.stateAbbr ? homeState === school.stateAbbr : null)}
               institutionControl={career.institution_control ?? null}
             />
           </div>

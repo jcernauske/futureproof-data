@@ -6,12 +6,20 @@ because that router is mounted under `/build` (singular) and we need
 clean `/builds/...` paths for these collection operations.
 """
 
+import asyncio
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
 from app.models.api import CompareRequest
 from app.services import builds
+from app.services.guidance import (
+    generate_compare_summary_async,
+    generate_money_insight_async,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -30,3 +38,34 @@ async def compare_builds(request: CompareRequest) -> dict[str, Any]:
         return builds.compare_builds(request.build_ids)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/builds/compare-insights")
+async def compare_insights(request: CompareRequest) -> dict[str, Any]:
+    """Generate Gemma insights for the Party Select comparison screen.
+
+    Fires both Gemma calls in parallel. Either can fail independently —
+    the frontend renders whatever arrives.
+    """
+    try:
+        loaded = [builds.load_build(bid) for bid in request.build_ids]
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    results = await asyncio.gather(
+        generate_money_insight_async(loaded),
+        generate_compare_summary_async(loaded),
+        return_exceptions=True,
+    )
+
+    for i, r in enumerate(results):
+        if isinstance(r, BaseException):
+            logger.error("compare-insights task %d failed: %s", i, r, exc_info=r)
+
+    money_insight = results[0] if not isinstance(results[0], BaseException) else None
+    compare_summary = results[1] if not isinstance(results[1], BaseException) else None
+
+    return {
+        "money_insight": money_insight,
+        "compare_summary": compare_summary,
+    }

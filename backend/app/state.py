@@ -37,6 +37,10 @@ def get_build(build_id: str) -> Build | None:
         return None
 
 
+def remove_build(build_id: str) -> None:
+    _builds.pop(build_id, None)
+
+
 def update_build(build_id: str, build: Build) -> None:
     _builds[build_id] = build
 

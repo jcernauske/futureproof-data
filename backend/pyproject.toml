@@ -24,7 +24,6 @@ dependencies = [
     # archived under archive/spikes/cli and is not a backend entry point.
     "openai>=1.40",
     "python-dotenv>=1.0",
-    "rich>=13.7",
     "pyyaml>=6.0",
     "brightsmith @ git+https://github.com/jcernauske/brightsmith.git",
 ]

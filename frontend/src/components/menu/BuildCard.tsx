@@ -10,6 +10,7 @@ interface BuildCardProps {
   selectMode?: boolean;
   selected?: boolean;
   onTap: () => void;
+  onDelete?: (buildId: string) => void;
 }
 
 function formatDate(iso: string): string {
@@ -30,6 +31,7 @@ export function BuildCard({
   selectMode = false,
   selected = false,
   onTap,
+  onDelete,
 }: BuildCardProps) {
   const labelColor = isMostRecent ? "text-accent-thrive" : "text-text-primary";
   const borderClass = selected
@@ -45,7 +47,7 @@ export function BuildCard({
       whileHover={{ x: 4 }}
       whileTap={{ scale: 0.98 }}
       transition={springs.snappy}
-      className={`w-full flex items-center gap-4 px-5 py-4 rounded-lg border bg-bp-mid hover:bg-bp-surface transition-colors duration-normal text-left cursor-pointer ${borderClass}`}
+      className={`group w-full flex items-center gap-4 px-5 py-4 rounded-lg border bg-bp-mid hover:bg-bp-surface transition-colors duration-normal text-left cursor-pointer ${borderClass}`}
     >
       {selectMode && (
         <span
@@ -92,6 +94,23 @@ export function BuildCard({
           </div>
         </div>
       </div>
+
+      {onDelete && !selectMode && (
+        <button
+          type="button"
+          data-testid={`btn-delete-${build.build_id}`}
+          aria-label={`Delete build for ${build.school_name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(build.build_id);
+          }}
+          className="shrink-0 ml-1 w-7 h-7 rounded-md flex items-center justify-center text-text-muted opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:bg-accent-alert/20 hover:text-accent-alert transition-all duration-normal"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5.25 1.75h3.5M1.75 3.5h10.5m-1.167 0-.411 6.17c-.062.926-.092 1.389-.306 1.74a1.75 1.75 0 0 1-.762.685c-.37.155-.835.155-1.764.155H6.16c-.93 0-1.394 0-1.764-.155a1.75 1.75 0 0 1-.762-.686c-.214-.35-.244-.813-.306-1.74L2.917 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      )}
     </motion.button>
   );
 }

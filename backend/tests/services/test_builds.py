@@ -272,6 +272,164 @@ class TestBuildCrud:
         ern_row = next(r for r in comparison["stats"] if r["label"] == "ERN")
         assert ern_row["values"] == [8, 8]
 
+    # --- P2: Party Select expanded fields (spec: feature-party-select) ---
+
+    def test_compare_builds_returns_expanded_build_fields(
+        self, isolated_builds_dir
+    ):
+        """compare_builds must return soc_code, profile_name, animal_emoji,
+        school_name, major_text, effort, loan_pct, and financial fields
+        per build — the Party Select character card depends on these."""
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        build_a = comparison["builds"][0]
+
+        # Identity fields.
+        assert build_a["soc_code"] == "13-1131"
+        assert build_a["school_name"] == "IU-B"
+        assert build_a["major_text"] == "Marketing"
+        assert build_a["label"] == "IU-B — Marketing"
+        assert build_a["career"] == "Fundraisers"
+        assert build_a["effort"] == "balanced"
+        assert build_a["loan_pct"] == 1.0
+
+        # Financial fields (median_annual_wage comes from _career fixture).
+        assert build_a["median_annual_wage"] == 66490.0
+        # _career does not set net_price_annual or modeled_total_debt.
+        assert build_a["net_price_annual"] is None
+        assert build_a["modeled_total_debt"] is None
+
+        # profile_name and animal_emoji.
+        assert "profile_name" in build_a
+        assert "animal_emoji" in build_a
+
+    def test_compare_builds_returns_boss_skill_counts_and_original_values(
+        self, isolated_builds_dir
+    ):
+        """Boss rows must include skill_counts and original_values for the
+        Party Select skill badge UI."""
+        a = _make_build(school="IU-B", major="Marketing")
+        # Simulate a reroll on the AI fight: flipped from lose to win.
+        ai_fight = next(
+            f for f in a.gauntlet.fights if f.boss == "ai"
+        )
+        ai_fight.original_result = "lose"
+        ai_fight.result = "win"
+        ai_fight.rerolled = True
+        ai_fight.reroll_count = 2
+        builds.save_build(a)
+
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        ai_boss = next(
+            r for r in comparison["bosses"] if r["boss_id"] == "ai"
+        )
+
+        # Build A had a reroll; Build B did not.
+        assert ai_boss["skill_counts"] == [2, 0]
+        assert ai_boss["original_values"] == ["LOSE", "LOSE"]
+        assert ai_boss["values"] == ["WIN", "LOSE"]
+
+    def test_compare_builds_returns_branch_data(self, isolated_builds_dir):
+        """branches key must include top-3 destinations per build."""
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        assert "branches" in comparison
+        assert len(comparison["branches"]) == 2
+
+        branch_a = comparison["branches"][0]
+        assert branch_a["build_id"] == a.build_id
+        assert branch_a["career"] == "Fundraisers"
+        assert len(branch_a["destinations"]) == 1
+        assert branch_a["destinations"][0]["to_title"] == "Advertising Managers"
+        assert branch_a["destinations"][0]["to_soc"] == "11-2011"
+        assert branch_a["destinations"][0]["delta_ern"] == 2
+
+    def test_compare_builds_handles_four_builds(self, isolated_builds_dir):
+        """4-build comparison must not error — Party Select supports 2-4."""
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+        c = _make_build(school="UC Berkeley", major="Finance")
+        builds.save_build(c)
+        d = _make_build(school="Ohio State", major="Accounting")
+        builds.save_build(d)
+
+        comparison = builds.compare_builds(
+            [a.build_id, b.build_id, c.build_id, d.build_id]
+        )
+        assert len(comparison["builds"]) == 4
+        assert all(len(r["values"]) == 4 for r in comparison["stats"])
+        assert all(len(r["values"]) == 4 for r in comparison["bosses"])
+        assert all(
+            len(r["skill_counts"]) == 4 for r in comparison["bosses"]
+        )
+        assert len(comparison["branches"]) == 4
+
+    def test_compare_builds_branches_limited_to_three(
+        self, isolated_builds_dir
+    ):
+        """Branch destinations must be capped at 3 per build even when
+        the build has more."""
+        five_branches = [
+            CareerBranch(
+                from_soc="13-1131", to_soc=f"11-{i:04d}", to_title=f"Branch {i}"
+            )
+            for i in range(5)
+        ]
+        a = builds.build_from_parts(
+            school_name="IU-B",
+            unitid=151351,
+            major_text="Marketing",
+            cipcode="52.14",
+            program_name="Marketing",
+            effort="balanced",
+            career=_career(),
+            gauntlet=_gauntlet(),
+            branches=five_branches,
+            skill_recs=[],
+            guidance="test",
+        )
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        branch_a = comparison["branches"][0]
+        assert len(branch_a["destinations"]) == 3
+
+    def test_compare_builds_missing_fight_shows_dash_and_zero_skills(
+        self, isolated_builds_dir
+    ):
+        """When a build has no fight for a boss_id (e.g. the gauntlet
+        fixture only has ai + loans), the comparison row must show '—'
+        for the value, 0 for skill_counts, and '—' for original_values."""
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        # Our gauntlet only has "ai" and "loans" fights, so "market",
+        # "burnout", and "ceiling" are missing.
+        market_boss = next(
+            r for r in comparison["bosses"] if r["boss_id"] == "market"
+        )
+        assert market_boss["values"] == ["—", "—"]
+        assert market_boss["skill_counts"] == [0, 0]
+        assert market_boss["original_values"] == ["—", "—"]
+
 
 # ---------------------------------------------------------------------------
 # /build async fan-out tests (spec: docs/specs/perf-reveal-loading-screen.md)

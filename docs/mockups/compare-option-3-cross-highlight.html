@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compare — Option 3: Cross-Highlight on Hover</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ============================================================
+       BRIGHTPATH DESIGN TOKENS
+       ============================================================ */
+    :root {
+      --bg-void: #12131F;
+      --bg-deep: #1B1D30;
+      --bg-mid: #232545;
+      --bg-surface: #2D3060;
+      --bg-raised: #3A3D75;
+
+      --accent-thrive: #7DD4A3;
+      --accent-alert: #F4A97E;
+      --accent-caution: #F2D477;
+      --accent-insight: #B8A9E8;
+      --accent-info: #7BB8E0;
+      --accent-empathy: #E88BA9;
+
+      --stat-ern: #F2D477;
+      --stat-roi: #7DD4A3;
+      --stat-res: #B8A9E8;
+      --stat-grw: #7BB8E0;
+      --stat-hmn: #E88BA9;
+
+      --text-primary: #F5F0E8;
+      --text-secondary: #C4BFB0;
+      --text-muted: #8A8595;
+      --text-inverse: #1B1D30;
+
+      --boss-ai: #B8A9E8;
+      --boss-loans: #F4A97E;
+      --boss-market: #7BB8E0;
+      --boss-burnout: #E88BA9;
+      --boss-ceiling: #C4BFB0;
+
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-default: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.2);
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --radius-full: 9999px;
+
+      --shadow-md: 0 4px 16px rgba(27, 29, 48, 0.6);
+      --shadow-lg: 0 8px 32px rgba(27, 29, 48, 0.7);
+
+      --color-result-win: #7DD4A3;
+      --color-result-lose: #F4A97E;
+      --color-result-draw: #F2D477;
+    }
+
+    body {
+      background: var(--bg-void);
+      color: var(--text-primary);
+      font-family: 'Nunito', sans-serif;
+      min-height: 100vh;
+      padding: 40px 24px;
+      line-height: 1.5;
+    }
+
+    /* ============================================================
+       PAGE HEADER
+       ============================================================ */
+    .page-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .page-title {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1.15;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .page-subtitle {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 16px;
+    }
+
+    .interaction-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-full);
+      padding: 8px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent-info);
+    }
+
+    .interaction-hint .icon {
+      font-size: 18px;
+    }
+
+    /* ============================================================
+       MAIN COMPARE CONTAINER
+       All column-aligned content lives here.
+       ============================================================ */
+    .compare-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ============================================================
+       SECTION LABELS
+       ============================================================ */
+    .section-label {
+      font-family: 'Nunito', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      padding-left: 4px;
+    }
+
+    /* ============================================================
+       SCHOOL CARDS ROW
+       ============================================================ */
+    .cards-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .school-card {
+      background: var(--bg-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 24px 20px;
+      transition: opacity 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      cursor: pointer;
+    }
+
+    .school-card .school-name {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+
+    .school-card .major-name {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .stat-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      width: 32px;
+      flex-shrink: 0;
+    }
+
+    .stat-bar-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      transition: width 0.4s ease;
+    }
+
+    .stat-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      width: 24px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .card-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin-bottom: 12px;
+    }
+
+    .net-price-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .net-price-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .net-price-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent-caution);
+    }
+
+    /* ============================================================
+       BOSS GRID
+       ============================================================ */
+    .boss-section {
+      margin-bottom: 32px;
+    }
+
+    .boss-grid {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .boss-row {
+      display: grid;
+      grid-template-columns: 140px repeat(4, 1fr);
+      gap: 0;
+      align-items: center;
+      padding: 10px 0;
+    }
+
+    .boss-row + .boss-row {
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .boss-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 12px;
+    }
+
+    .boss-icon {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      flex-shrink: 0;
+    }
+
+    .boss-name {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .boss-result-cell {
+      display: flex;
+      justify-content: center;
+      padding: 4px 8px;
+      transition: opacity 0.25s ease;
+    }
+
+    .result-pill {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: var(--radius-full);
+      letter-spacing: 0.5px;
+    }
+
+    .result-pill.win {
+      background: rgba(125, 212, 163, 0.15);
+      color: var(--color-result-win);
+    }
+
+    .result-pill.lose {
+      background: rgba(244, 169, 126, 0.15);
+      color: var(--color-result-lose);
+    }
+
+    .result-pill.draw {
+      background: rgba(242, 212, 119, 0.12);
+      color: var(--color-result-draw);
+    }
+
+    /* ============================================================
+       MONEY ROW
+       ============================================================ */
+    .money-section {
+      margin-bottom: 32px;
+    }
+
+    .money-row {
+      display: grid;
+      grid-template-columns: 140px repeat(4, 1fr);
+      gap: 0;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 20px;
+      align-items: center;
+    }
+
+    .money-label {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .money-label .icon-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--stat-ern);
+    }
+
+    .money-cell {
+      display: flex;
+      justify-content: center;
+      transition: opacity 0.25s ease;
+    }
+
+    .salary-figure {
+      font-family: 'Space Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--stat-ern);
+    }
+
+    /* ============================================================
+       CROSS-HIGHLIGHT SYSTEM
+
+       The core interaction. When ANY element with a [data-col] is
+       hovered, JS adds class "highlight-active" to the parent and
+       "highlighted" to all elements sharing that data-col value.
+
+       Non-highlighted elements dim to 0.25 opacity.
+       The boss name column never dims (it's shared context).
+       ============================================================ */
+
+    /* When highlight is active, dim everything that's column-targetable */
+    .compare-container.highlight-active [data-col] {
+      opacity: 0.2;
+      transition: opacity 0.25s ease;
+    }
+
+    /* The highlighted column stays bright */
+    .compare-container.highlight-active [data-col].highlighted {
+      opacity: 1;
+      transition: opacity 0.15s ease;
+    }
+
+    /* Boss names and money labels never dim — they're row context */
+    .compare-container.highlight-active .boss-name-cell,
+    .compare-container.highlight-active .money-label {
+      opacity: 1 !important;
+    }
+
+    /* Give the highlighted school card a subtle glow */
+    .compare-container.highlight-active .school-card.highlighted {
+      border-color: var(--border-strong);
+      box-shadow: 0 0 24px rgba(123, 184, 224, 0.12), var(--shadow-md);
+    }
+
+    /* Default transition on everything */
+    [data-col] {
+      transition: opacity 0.25s ease;
+    }
+
+    /* ============================================================
+       COLUMN GUIDE LINES (subtle vertical alignment indicators)
+       ============================================================ */
+    .column-guides {
+      position: relative;
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       FOOTER / EXPLANATION
+       ============================================================ */
+    .explanation {
+      max-width: 700px;
+      margin: 48px auto 0;
+      text-align: center;
+    }
+
+    .explanation h3 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .explanation p {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+
+    .explanation .tag {
+      display: inline-block;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border-default);
+      color: var(--accent-info);
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      margin-top: 8px;
+    }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 900px) {
+      .cards-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .boss-row,
+      .money-row {
+        grid-template-columns: 100px repeat(4, 1fr);
+      }
+      .boss-name {
+        font-size: 12px;
+      }
+      .salary-figure {
+        font-size: 18px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .cards-row {
+        grid-template-columns: 1fr;
+      }
+      body {
+        padding: 24px 12px;
+      }
+      .page-title {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       PAGE HEADER
+       ============================================================ -->
+  <div class="page-header">
+    <h1 class="page-title">Compare Builds</h1>
+    <p class="page-subtitle">Four paths. One future. Hover any build to spotlight it across every metric.</p>
+    <div class="interaction-hint">
+      <span class="icon">&#9758;</span>
+      Hover any card to cross-highlight
+    </div>
+  </div>
+
+  <!-- ============================================================
+       COMPARE CONTAINER — All column-aligned content
+       ============================================================ -->
+  <div class="compare-container" id="compareContainer">
+
+    <!-- ========== SCHOOL CARDS ========== -->
+    <div class="section-label">Builds</div>
+    <div class="cards-row">
+
+      <!-- Column 1: U of Illinois -->
+      <div class="school-card" data-col="1">
+        <div class="school-name">U of Illinois</div>
+        <div class="major-name">Finance, B.S.</div>
+        <div class="stat-bars">
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-ern)">ERN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 72%; background: var(--stat-ern)"></div></div>
+            <span class="stat-value" style="color: var(--stat-ern)">72</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-roi)">ROI</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 68%; background: var(--stat-roi)"></div></div>
+            <span class="stat-value" style="color: var(--stat-roi)">68</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-res)">RES</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 45%; background: var(--stat-res)"></div></div>
+            <span class="stat-value" style="color: var(--stat-res)">45</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-grw)">GRW</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 60%; background: var(--stat-grw)"></div></div>
+            <span class="stat-value" style="color: var(--stat-grw)">60</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-hmn)">HMN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 38%; background: var(--stat-hmn)"></div></div>
+            <span class="stat-value" style="color: var(--stat-hmn)">38</span>
+          </div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="net-price-row">
+          <span class="net-price-label">Net Price</span>
+          <span class="net-price-value">$18,200</span>
+        </div>
+      </div>
+
+      <!-- Column 2: UW-Madison -->
+      <div class="school-card" data-col="2">
+        <div class="school-name">UW-Madison</div>
+        <div class="major-name">Economics, B.A.</div>
+        <div class="stat-bars">
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-ern)">ERN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 78%; background: var(--stat-ern)"></div></div>
+            <span class="stat-value" style="color: var(--stat-ern)">78</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-roi)">ROI</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 65%; background: var(--stat-roi)"></div></div>
+            <span class="stat-value" style="color: var(--stat-roi)">65</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-res)">RES</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 42%; background: var(--stat-res)"></div></div>
+            <span class="stat-value" style="color: var(--stat-res)">42</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-grw)">GRW</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 70%; background: var(--stat-grw)"></div></div>
+            <span class="stat-value" style="color: var(--stat-grw)">70</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-hmn)">HMN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 35%; background: var(--stat-hmn)"></div></div>
+            <span class="stat-value" style="color: var(--stat-hmn)">35</span>
+          </div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="net-price-row">
+          <span class="net-price-label">Net Price</span>
+          <span class="net-price-value">$22,400</span>
+        </div>
+      </div>
+
+      <!-- Column 3: Indiana U (Marketing) -->
+      <div class="school-card" data-col="3">
+        <div class="school-name">Indiana U</div>
+        <div class="major-name">Marketing, B.S.</div>
+        <div class="stat-bars">
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-ern)">ERN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 65%; background: var(--stat-ern)"></div></div>
+            <span class="stat-value" style="color: var(--stat-ern)">65</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-roi)">ROI</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 71%; background: var(--stat-roi)"></div></div>
+            <span class="stat-value" style="color: var(--stat-roi)">71</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-res)">RES</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 52%; background: var(--stat-res)"></div></div>
+            <span class="stat-value" style="color: var(--stat-res)">52</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-grw)">GRW</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 55%; background: var(--stat-grw)"></div></div>
+            <span class="stat-value" style="color: var(--stat-grw)">55</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-hmn)">HMN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 58%; background: var(--stat-hmn)"></div></div>
+            <span class="stat-value" style="color: var(--stat-hmn)">58</span>
+          </div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="net-price-row">
+          <span class="net-price-label">Net Price</span>
+          <span class="net-price-value">$16,800</span>
+        </div>
+      </div>
+
+      <!-- Column 4: Indiana U (Accounting) -->
+      <div class="school-card" data-col="4">
+        <div class="school-name">Indiana U</div>
+        <div class="major-name">Accounting, B.S.</div>
+        <div class="stat-bars">
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-ern)">ERN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 58%; background: var(--stat-ern)"></div></div>
+            <span class="stat-value" style="color: var(--stat-ern)">58</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-roi)">ROI</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 74%; background: var(--stat-roi)"></div></div>
+            <span class="stat-value" style="color: var(--stat-roi)">74</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-res)">RES</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 30%; background: var(--stat-res)"></div></div>
+            <span class="stat-value" style="color: var(--stat-res)">30</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-grw)">GRW</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 40%; background: var(--stat-grw)"></div></div>
+            <span class="stat-value" style="color: var(--stat-grw)">40</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label" style="color: var(--stat-hmn)">HMN</span>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width: 48%; background: var(--stat-hmn)"></div></div>
+            <span class="stat-value" style="color: var(--stat-hmn)">48</span>
+          </div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="net-price-row">
+          <span class="net-price-label">Net Price</span>
+          <span class="net-price-value">$16,800</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========== BOSS GAUNTLET GRID ========== -->
+    <div class="boss-section">
+      <div class="section-label">Boss Gauntlet</div>
+      <div class="boss-grid">
+
+        <!-- Header Row -->
+        <div class="boss-row" style="border-bottom: 1px solid var(--border-default); padding-bottom: 8px; margin-bottom: 4px;">
+          <div class="boss-name-cell">
+            <span class="boss-name" style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Boss</span>
+          </div>
+          <div class="boss-result-cell" data-col="1"><span style="font-size: 11px; color: var(--text-muted); font-family: 'Nunito', sans-serif; font-weight: 700;">UIUC</span></div>
+          <div class="boss-result-cell" data-col="2"><span style="font-size: 11px; color: var(--text-muted); font-family: 'Nunito', sans-serif; font-weight: 700;">UW</span></div>
+          <div class="boss-result-cell" data-col="3"><span style="font-size: 11px; color: var(--text-muted); font-family: 'Nunito', sans-serif; font-weight: 700;">IU Mkt</span></div>
+          <div class="boss-result-cell" data-col="4"><span style="font-size: 11px; color: var(--text-muted); font-family: 'Nunito', sans-serif; font-weight: 700;">IU Acct</span></div>
+        </div>
+
+        <!-- Fight AI -->
+        <div class="boss-row">
+          <div class="boss-name-cell">
+            <div class="boss-icon" style="background: var(--boss-ai)"></div>
+            <span class="boss-name">Fight AI</span>
+          </div>
+          <div class="boss-result-cell" data-col="1"><span class="result-pill draw">Draw</span></div>
+          <div class="boss-result-cell" data-col="2"><span class="result-pill lose">Lose</span></div>
+          <div class="boss-result-cell" data-col="3"><span class="result-pill lose">Lose</span></div>
+          <div class="boss-result-cell" data-col="4"><span class="result-pill lose">Lose</span></div>
+        </div>
+
+        <!-- Student Loans -->
+        <div class="boss-row">
+          <div class="boss-name-cell">
+            <div class="boss-icon" style="background: var(--boss-loans)"></div>
+            <span class="boss-name">Student Loans</span>
+          </div>
+          <div class="boss-result-cell" data-col="1"><span class="result-pill win">Win</span></div>
+          <div class="boss-result-cell" data-col="2"><span class="result-pill win">Win</span></div>
+          <div class="boss-result-cell" data-col="3"><span class="result-pill win">Win</span></div>
+          <div class="boss-result-cell" data-col="4"><span class="result-pill win">Win</span></div>
+        </div>
+
+        <!-- The Market -->
+        <div class="boss-row">
+          <div class="boss-name-cell">
+            <div class="boss-icon" style="background: var(--boss-market)"></div>
+            <span class="boss-name">The Market</span>
+          </div>
+          <div class="boss-result-cell" data-col="1"><span class="result-pill draw">Draw</span></div>
+          <div class="boss-result-cell" data-col="2"><span class="result-pill draw">Draw</span></div>
+          <div class="boss-result-cell" data-col="3"><span class="result-pill draw">Draw</span></div>
+          <div class="boss-result-cell" data-col="4"><span class="result-pill draw">Draw</span></div>
+        </div>
+
+        <!-- Burnout -->
+        <div class="boss-row">
+          <div class="boss-name-cell">
+            <div class="boss-icon" style="background: var(--boss-burnout)"></div>
+            <span class="boss-name">Burnout</span>
+          </div>
+          <div class="boss-result-cell" data-col="1"><span class="result-pill draw">Draw</span></div>
+          <div class="boss-result-cell" data-col="2"><span class="result-pill draw">Draw</span></div>
+          <div class="boss-result-cell" data-col="3"><span class="result-pill draw">Draw</span></div>
+          <div class="boss-result-cell" data-col="4"><span class="result-pill draw">Draw</span></div>
+        </div>
+
+        <!-- The Ceiling -->
+        <div class="boss-row">
+          <div class="boss-name-cell">
+            <div class="boss-icon" style="background: var(--boss-ceiling)"></div>
+            <span class="boss-name">The Ceiling</span>
+          </div>
+          <div class="boss-result-cell" data-col="1"><span class="result-pill lose">Lose</span></div>
+          <div class="boss-result-cell" data-col="2"><span class="result-pill lose">Lose</span></div>
+          <div class="boss-result-cell" data-col="3"><span class="result-pill win">Win</span></div>
+          <div class="boss-result-cell" data-col="4"><span class="result-pill draw">Draw</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========== MONEY ROW ========== -->
+    <div class="money-section">
+      <div class="section-label">Median Early Salary</div>
+      <div class="money-row">
+        <div class="money-label">
+          <div class="icon-dot"></div>
+          Salary
+        </div>
+        <div class="money-cell" data-col="1"><span class="salary-figure">$52K</span></div>
+        <div class="money-cell" data-col="2"><span class="salary-figure">$58K</span></div>
+        <div class="money-cell" data-col="3"><span class="salary-figure">$55K</span></div>
+        <div class="money-cell" data-col="4"><span class="salary-figure">$48K</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================
+       EXPLANATION
+       ============================================================ -->
+  <div class="explanation">
+    <h3>Option 3: Cross-Highlight on Hover</h3>
+    <p>
+      Hovering any school card dims every other column across the entire page — cards, boss results, and salary figures all respond as a unified vertical stripe. The student's eye is drawn to a single build's complete story without losing the surrounding context entirely.
+    </p>
+    <p>
+      Non-hovered columns fade to 20% opacity. The hovered column stays at full brightness with a subtle border glow. Boss names and row labels never dim — they provide the shared axis that makes the comparison meaningful.
+    </p>
+    <span class="tag">CSS transitions + minimal JS for data-col targeting</span>
+  </div>
+
+  <!-- ============================================================
+       CROSS-HIGHLIGHT JAVASCRIPT
+
+       Strategy: Hovering any [data-col] element triggers highlighting
+       of ALL elements sharing that data-col value. The parent container
+       gets a class that activates the dimming CSS rules.
+
+       Why JS instead of pure CSS? Because the "column" spans across
+       non-sibling DOM nodes (cards row, boss grid, money row). CSS
+       :hover can only affect siblings/children, not cousins. A tiny
+       bit of JS with data attributes bridges the gap cleanly.
+       ============================================================ -->
+  <script>
+    (function() {
+      const container = document.getElementById('compareContainer');
+      const allColElements = container.querySelectorAll('[data-col]');
+
+      // Track current highlighted column to avoid redundant DOM ops
+      let activeCol = null;
+
+      function highlightColumn(colId) {
+        if (activeCol === colId) return;
+        activeCol = colId;
+        container.classList.add('highlight-active');
+        allColElements.forEach(el => {
+          if (el.getAttribute('data-col') === colId) {
+            el.classList.add('highlighted');
+          } else {
+            el.classList.remove('highlighted');
+          }
+        });
+      }
+
+      function clearHighlight() {
+        activeCol = null;
+        container.classList.remove('highlight-active');
+        allColElements.forEach(el => el.classList.remove('highlighted'));
+      }
+
+      // Attach listeners to every [data-col] element
+      allColElements.forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          highlightColumn(el.getAttribute('data-col'));
+        });
+      });
+
+      // Clear when mouse leaves the entire container
+      container.addEventListener('mouseleave', clearHighlight);
+
+      // Also clear if hovering a non-column area within the container
+      // (e.g., boss name cells, section labels, gaps)
+      container.addEventListener('mouseover', (e) => {
+        // If the hovered element or any of its parents has data-col, let
+        // the mouseenter handler deal with it. Otherwise, clear.
+        let target = e.target;
+        while (target && target !== container) {
+          if (target.hasAttribute && target.hasAttribute('data-col')) return;
+          target = target.parentElement;
+        }
+        clearHighlight();
+      });
+    })();
+  </script>
+
+</body>
+</html>

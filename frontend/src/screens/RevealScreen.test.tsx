@@ -72,6 +72,7 @@ function makeCareer(soc = "15-1252"): CareerOutcome {
     reported_cipcode: null,
     substituted_cipcode: null,
     data_caveat: null,
+    is_out_of_state: false,
     loan_pct: 0.5,
   };
 }

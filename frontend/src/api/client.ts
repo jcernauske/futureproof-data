@@ -36,6 +36,15 @@ export async function apiPost<T>(
   return res.json() as Promise<T>;
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
+  if (!res.ok) {
+    const parsed = await res.json().catch(() => ({}));
+    throw new Error(formatErrorDetail(parsed, res.status));
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {

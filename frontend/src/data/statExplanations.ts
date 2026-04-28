@@ -55,7 +55,7 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
     explanation:
       "How exposed is this career to AI automation? Higher means the work needs humans.",
     explanationKey: "stat.res.explanation",
-    source: "Karpathy AI Exposure + O*NET",
+    source: "Composite AI Exposure (Gemma 4 + Karpathy + Anthropic)",
     color: "var(--color-stat-res)",
     textClass: "text-stat-res",
     bgClass: "bg-stat-res",

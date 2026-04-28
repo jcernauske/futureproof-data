@@ -80,12 +80,20 @@ export function LandingTopNav() {
           })}
         </ul>
 
-        <a
-          href="/app"
-          className="font-body font-bold text-small bg-accent-thrive text-text-inverse rounded-full h-9 px-4 inline-flex items-center justify-center transition-all duration-normal hover:brightness-95 active:scale-[0.97] shrink-0"
-        >
-          Live app
-        </a>
+        <div className="flex items-center gap-3 shrink-0">
+          <a
+            href="/builds"
+            className="font-body text-small text-text-muted hover:text-text-secondary transition-colors duration-normal"
+          >
+            My Builds
+          </a>
+          <a
+            href="/app"
+            className="font-body font-bold text-small bg-accent-thrive text-text-inverse rounded-full h-9 px-4 inline-flex items-center justify-center transition-all duration-normal hover:brightness-95 active:scale-[0.97] shrink-0"
+          >
+            Live app
+          </a>
+        </div>
       </div>
     </nav>
   );

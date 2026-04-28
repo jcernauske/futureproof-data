@@ -289,6 +289,15 @@ def load_build(build_id: str) -> Build:
     return Build.model_validate_json(row[0])
 
 
+def delete_build(build_id: str) -> None:
+    with _db.get_lock():
+        connection = _db.conn()
+        connection.execute("DELETE FROM wrapped_frames WHERE build_id = ?", [build_id])
+        result = connection.execute("DELETE FROM builds WHERE build_id = ?", [build_id])
+        if result.fetchone() is None:
+            pass
+
+
 def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
     """List build summaries, newest first.
 
@@ -337,10 +346,10 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
 
 
 def compare_builds(build_ids: list[str]) -> dict[str, Any]:
-    """Return a dict with per-stat side-by-side for 2-3 builds."""
+    """Return comparison data for 2-4 builds."""
     builds = [load_build(bid) for bid in build_ids]
     if not builds:
-        return {"builds": [], "rows": []}
+        return {"builds": [], "stats": [], "bosses": [], "branches": []}
 
     def _stat_values(getter: Callable[[Build], int | None]) -> list[int | None]:
         return [getter(b) for b in builds]
@@ -364,13 +373,44 @@ def compare_builds(build_ids: list[str]) -> dict[str, Any]:
     }
     for boss_id in boss_ids:
         row_values: list[str] = []
+        skill_counts: list[int] = []
+        original_values: list[str] = []
         for build in builds:
             match = next(
                 (f for f in build.gauntlet.fights if f.boss == boss_id),
                 None,
             )
             row_values.append(match.result.upper() if match else "—")
-        boss_rows.append({"label": boss_labels[boss_id], "values": row_values})
+            skill_counts.append(match.reroll_count if match else 0)
+            original_values.append(
+                (match.original_result or match.result).upper()
+                if match
+                else "—"
+            )
+        boss_rows.append({
+            "label": boss_labels[boss_id],
+            "boss_id": boss_id,
+            "values": row_values,
+            "skill_counts": skill_counts,
+            "original_values": original_values,
+        })
+
+    branch_data: list[dict[str, Any]] = []
+    for build in builds:
+        destinations = [
+            {
+                "to_title": br.to_title,
+                "to_soc": br.to_soc,
+                "delta_ern": br.delta_ern,
+                "delta_grw": br.delta_grw,
+            }
+            for br in (build.branches or [])[:3]
+        ]
+        branch_data.append({
+            "build_id": build.build_id,
+            "career": build.career.occupation_title,
+            "destinations": destinations,
+        })
 
     return {
         "builds": [
@@ -378,11 +418,28 @@ def compare_builds(build_ids: list[str]) -> dict[str, Any]:
                 "build_id": b.build_id,
                 "label": f"{b.school_name} — {b.major_text}",
                 "career": b.career.occupation_title,
+                "soc_code": b.career.soc_code,
+                "profile_name": b.profile_name,
+                "animal_emoji": b.animal_emoji,
+                "school_name": b.school_name,
+                "major_text": b.major_text,
+                "effort": b.effort,
+                "loan_pct": b.loan_pct,
+                "median_annual_wage": b.career.median_annual_wage,
+                "net_price_annual": b.career.net_price_annual,
+                "modeled_total_debt": b.career.modeled_total_debt,
+                "tuition_annual": (
+                    b.career.tuition_out_of_state
+                    if b.career.is_out_of_state
+                    else b.career.tuition_in_state
+                ),
+                "is_out_of_state": b.career.is_out_of_state,
             }
             for b in builds
         ],
         "stats": stat_rows,
         "bosses": boss_rows,
+        "branches": branch_data,
     }
 
 

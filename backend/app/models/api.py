@@ -14,30 +14,6 @@ from app.models.career import Build, IntentResult
 from app.services.locale import AppLocale
 
 
-class IntentRequest(BaseModel):
-    school_name: str
-    unitid: int
-    major_text: str
-    programs: list[dict]
-
-
-class IntentConfirmRequest(BaseModel):
-    school_name: str
-    unitid: int
-    major_text: str
-    matched_cip: str
-    matched_title: str
-    # School's reported broad same-family CIP when substitution applies
-    # (empty string otherwise). Cached alongside the match so the next
-    # cache hit for the same (major_text, unitid) returns the same
-    # parent_cip the first intent resolution produced — without it, the
-    # frontend's lookupCip routing silently degrades to matched_cip and
-    # the backend falls into the broaden fallback (see IU+Marketing
-    # regression). Default empty for backward-compat with any client
-    # that hasn't been updated yet.
-    parent_cip: str = ""
-
-
 class OutcomesRequest(BaseModel):
     unitid: int
     cipcode: str
@@ -117,7 +93,7 @@ class ChatRequest(BaseModel):
 
 
 class CompareRequest(BaseModel):
-    build_ids: list[str]
+    build_ids: list[str] = Field(min_length=2, max_length=4)
 
 
 class ProfileLookupRequest(BaseModel):
