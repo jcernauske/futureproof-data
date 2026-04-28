@@ -31,8 +31,10 @@ vi.mock("react-router-dom", async () => {
 });
 
 const mockCreateBuild = vi.fn();
+const mockCreateBuildStream = vi.fn();
 vi.mock("@/api/build", () => ({
   createBuild: (...args: unknown[]) => mockCreateBuild(...args),
+  createBuildStream: (...args: unknown[]) => mockCreateBuildStream(...args),
 }));
 
 function makeCareer(soc = "15-1252"): CareerOutcome {
@@ -111,6 +113,7 @@ function seedReady() {
 beforeEach(() => {
   mockNavigate.mockReset();
   mockCreateBuild.mockReset();
+  mockCreateBuildStream.mockReset();
   sessionStorage.clear();
   resetReducedMotion();
   // Fresh fake timers — this screen schedules multiple setTimeouts.
@@ -144,20 +147,18 @@ describe("RevealScreen — nav guard", () => {
 });
 
 describe("RevealScreen — unmount race safety", () => {
-  it("does NOT fire setState on unmounted component after in-flight build resolves", async () => {
+  it("does NOT fire setState on unmounted component after in-flight stream resolves", async () => {
     seedReady();
 
-    // Hold createBuild in pending state until we release it.
-    let resolveBuild!: (value: unknown) => void;
-    mockCreateBuild.mockImplementation(
+    // Hold createBuildStream in pending state until we release it.
+    let resolveStream!: () => void;
+    mockCreateBuildStream.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolveBuild = resolve;
+        new Promise<void>((resolve) => {
+          resolveStream = resolve;
         }),
     );
 
-    // React logs the "can't perform state update on unmounted" warning via
-    // console.error. Spy so we can assert it never fires.
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { unmount } = render(
@@ -166,47 +167,25 @@ describe("RevealScreen — unmount race safety", () => {
       </MemoryRouter>,
     );
 
-    // Wait for the fetch to have kicked off.
+    // Wait for the stream to have kicked off.
     await waitFor(() => {
-      expect(mockCreateBuild).toHaveBeenCalledTimes(1);
+      expect(mockCreateBuildStream).toHaveBeenCalledTimes(1);
     });
 
     // Unmount mid-flight.
     unmount();
 
-    // Now resolve the promise AFTER unmount. Without the `cancelled` ref
-    // guard, setBuild/setIsBuilding would fire on an unmounted tree and
-    // React would log a warning.
+    // Now resolve the stream AFTER unmount. The cancelledRef guard
+    // prevents the onEvent callback from firing setBuild/navigate.
     await act(async () => {
-      resolveBuild({
-        build_id: "late-arrival",
-        created_at: "2026-04-15T00:00:00Z",
-        school_name: "UC Berkeley",
-        unitid: 110635,
-        major_text: "Computer Science",
-        cipcode: "11.0701",
-        program_name: "CS",
-        effort: "balanced",
-        loan_pct: 0.5,
-        career: makeCareer(),
-        gauntlet: { fights: [], wins: 0, losses: 0, draws: 0, unknown: 0, verdict: "" },
-        branches: [],
-        skill_recs: [],
-        guidance: "",
-        skills_crafted: [],
-        skill_pool: [],
-        next_steps: "",
-      });
-      // Drain microtasks AND the 2s minDisplayTime + 400ms revealTimer.
-      await vi.advanceTimersByTimeAsync(3000);
+      resolveStream();
+      await vi.advanceTimersByTimeAsync(1000);
     });
 
-    // The minDisplayTime Promise.all gate would normally also call setBuild.
-    // With the cancelledRef guard, neither setBuild nor setIsBuilding should
-    // run. The store's build should remain null (we never set it).
+    // Build should remain null — the cancelled guard prevented the write.
     expect(useBuildStore.getState().build).toBeNull();
 
-    // Crucial: no unmount warnings should have been logged.
+    // No unmount warnings.
     const unmountWarnings = errSpy.mock.calls.filter((args) =>
       args.some(
         (a) =>
@@ -273,100 +252,13 @@ describe("RevealScreen — grid layout", () => {
   });
 });
 
-describe("RevealScreen — relaxed pacing floor", () => {
-  /**
-   * Spec: docs/specs/perf-reveal-loading-screen.md §3 / §6 — the
-   * minDisplayTime floor dropped from 2000ms to 1000ms so fast backend
-   * responses surface faster on screens 6→7. This test locks the new
-   * floor in.
-   *
-   * Setup: createBuild resolves in 200ms. The LoadingScreen must stay
-   * mounted past the 1000ms floor (still showing at t=1001) but must
-   * give way to the reveal before t=1500 — i.e. the floor is 1000ms,
-   * not the old 2000ms.
-   */
-  it("holds LoadingScreen for at least 1000ms then reveals by 1500ms", async () => {
+describe("RevealScreen — streaming build", () => {
+  it("shows loading while streaming, navigates on skeleton event", async () => {
     seedReady();
 
-    mockCreateBuild.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          // Use the real setTimeout so fake-timer advances drive it.
-          setTimeout(() => {
-            resolve({
-              build_id: "fast-build",
-              created_at: "2026-04-18T00:00:00Z",
-              school_name: "UC Berkeley",
-              unitid: 110635,
-              major_text: "Computer Science",
-              cipcode: "11.0701",
-              program_name: "CS",
-              effort: "balanced",
-              loan_pct: 0.5,
-              career: makeCareer(),
-              gauntlet: {
-                fights: [],
-                wins: 0,
-                losses: 0,
-                draws: 0,
-                unknown: 0,
-                verdict: "",
-              },
-              branches: [],
-              skill_recs: [],
-              guidance: "You have strong alignment.",
-              skills_crafted: [],
-              skill_pool: [],
-              next_steps: "",
-              profile_name: "",
-            });
-          }, 200);
-        }),
-    );
-
-    render(
-      <MemoryRouter>
-        <RevealScreen />
-      </MemoryRouter>,
-    );
-
-    // Wait for the fetch to have kicked off so we know the component
-    // mounted and hit its initial useEffect.
-    await waitFor(() => {
-      expect(mockCreateBuild).toHaveBeenCalledTimes(1);
-    });
-
-    // At t=500 (well past the 200ms build resolve but well before the
-    // 1000ms floor) the LoadingScreen must still be mounted. Promise.all
-    // is gated on the slower minDisplayTime promise, so setBuild hasn't
-    // run yet and the reveal content is withheld.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(500);
-    });
-    expect(screen.queryByRole("status")).not.toBeNull();
-    expect(screen.queryByText("Software Developer")).toBeNull();
-
-    // Advance past the 1000ms floor. minDisplayTime resolves, Promise.all
-    // completes, setBuild fires, then a 400ms revealTimer flips
-    // revealReady so the career title enters the DOM.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000); // now at t=1500 total
-    });
-
-    // Reveal is showing by t=1500 at the latest — the hard upper
-    // bound the spec sets after the floor relaxation.
-    expect(screen.getByText("Software Developer")).toBeInTheDocument();
-    // And the loading overlay is gone.
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("does NOT reveal before the 1000ms floor even when build resolves instantly", async () => {
-    seedReady();
-
-    // createBuild resolves on microtask queue — immediately available.
-    mockCreateBuild.mockResolvedValue({
-      build_id: "instant-build",
-      created_at: "2026-04-18T00:00:00Z",
+    const skeletonBuild = {
+      build_id: "stream-build",
+      created_at: "2026-04-27T00:00:00Z",
       school_name: "UC Berkeley",
       unitid: 110635,
       major_text: "Computer Science",
@@ -375,14 +267,7 @@ describe("RevealScreen — relaxed pacing floor", () => {
       effort: "balanced",
       loan_pct: 0.5,
       career: makeCareer(),
-      gauntlet: {
-        fights: [],
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        unknown: 0,
-        verdict: "",
-      },
+      gauntlet: { fights: [], wins: 0, losses: 0, draws: 0, unknown: 0, verdict: "" },
       branches: [],
       skill_recs: [],
       guidance: "",
@@ -390,7 +275,16 @@ describe("RevealScreen — relaxed pacing floor", () => {
       skill_pool: [],
       next_steps: "",
       profile_name: "",
-    });
+    };
+
+    // createBuildStream calls onEvent with skeleton after a delay.
+    mockCreateBuildStream.mockImplementation(
+      async (_params: unknown, onEvent: (e: unknown) => void) => {
+        await new Promise<void>((r) => setTimeout(r, 200));
+        onEvent({ type: "skeleton", build: skeletonBuild });
+        onEvent({ type: "done", build_id: "stream-build" });
+      },
+    );
 
     render(
       <MemoryRouter>
@@ -398,17 +292,78 @@ describe("RevealScreen — relaxed pacing floor", () => {
       </MemoryRouter>,
     );
 
+    // Stream kicks off.
     await waitFor(() => {
-      expect(mockCreateBuild).toHaveBeenCalledTimes(1);
+      expect(mockCreateBuildStream).toHaveBeenCalledTimes(1);
     });
 
-    // At t=500 (halfway through the floor), reveal content is still
-    // withheld.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(500);
-    });
-    expect(screen.queryByText("Software Developer")).toBeNull();
+    // Loading screen shows before skeleton arrives.
     expect(screen.queryByRole("status")).not.toBeNull();
+
+    // Advance past the 200ms delay.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    // After skeleton event, navigate to /my-build was called.
+    expect(mockNavigate).toHaveBeenCalledWith("/my-build");
+    // Build was stored.
+    expect(useBuildStore.getState().build).not.toBeNull();
+    expect(useBuildStore.getState().build!.build_id).toBe("stream-build");
+  });
+
+  it("falls back to blocking createBuild when streaming fails", async () => {
+    seedReady();
+
+    // createBuildStream rejects.
+    mockCreateBuildStream.mockRejectedValue(new Error("SSE failed"));
+
+    // createBuild resolves with a full build.
+    const fullBuild = {
+      build_id: "fallback-build",
+      created_at: "2026-04-27T00:00:00Z",
+      school_name: "UC Berkeley",
+      unitid: 110635,
+      major_text: "Computer Science",
+      cipcode: "11.0701",
+      program_name: "CS",
+      effort: "balanced",
+      loan_pct: 0.5,
+      career: makeCareer(),
+      gauntlet: { fights: [], wins: 0, losses: 0, draws: 0, unknown: 0, verdict: "" },
+      branches: [],
+      skill_recs: [],
+      guidance: "Fallback guidance.",
+      skills_crafted: [],
+      skill_pool: [],
+      next_steps: "",
+      profile_name: "",
+    };
+    mockCreateBuild.mockResolvedValue(fullBuild);
+
+    render(
+      <MemoryRouter>
+        <RevealScreen />
+      </MemoryRouter>,
+    );
+
+    // Streaming was attempted.
+    await waitFor(() => {
+      expect(mockCreateBuildStream).toHaveBeenCalledTimes(1);
+    });
+
+    // Advance past minDisplayTime (1000ms) in the fallback path.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+
+    // Fallback createBuild was called.
+    expect(mockCreateBuild).toHaveBeenCalledTimes(1);
+    // Navigation happened.
+    expect(mockNavigate).toHaveBeenCalledWith("/my-build");
+    // Build was stored.
+    expect(useBuildStore.getState().build).not.toBeNull();
+    expect(useBuildStore.getState().build!.build_id).toBe("fallback-build");
   });
 });
 

@@ -7,7 +7,7 @@ interface InstitutionCardProps {
 
 export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps) {
   const t = useT();
-  const paragraphs = narrative.split("\n").filter((p) => p.trim());
+  const paragraphs = narrative ? narrative.split("\n").filter((p) => p.trim()) : [];
 
   return (
     <div
@@ -27,15 +27,51 @@ export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps)
       </div>
 
       <div className="mt-4 flex-1">
-        {paragraphs.map((p, i) => (
-          <p
-            key={i}
-            className="font-body text-text-secondary"
-            style={{ fontSize: 15, lineHeight: 1.65, marginBottom: 12 }}
-          >
-            {p}
-          </p>
-        ))}
+        {paragraphs.length > 0 ? (
+          paragraphs.map((p, i) => (
+            <p
+              key={i}
+              className="font-body text-text-secondary"
+              style={{ fontSize: 15, lineHeight: 1.65, marginBottom: 12 }}
+            >
+              {p}
+            </p>
+          ))
+        ) : (
+          <div data-testid="guidance-loading" aria-label="Loading guidance">
+            <div className="flex items-center gap-2 mb-4">
+              <div
+                className="rounded-full flex-shrink-0"
+                style={{
+                  width: 16,
+                  height: 16,
+                  border: "2px solid rgba(255,255,255,0.08)",
+                  borderTopColor: "var(--color-accent-insight)",
+                  animation: "guidanceSpin 0.8s linear infinite",
+                }}
+              />
+              <span
+                className="font-body text-text-muted"
+                style={{ fontSize: 14, animation: "guidancePulse 2s ease-in-out infinite" }}
+              >
+                Gemma is writing...
+              </span>
+            </div>
+            {[85, 100, 70].map((w, i) => (
+              <div
+                key={i}
+                className="rounded"
+                style={{
+                  height: 12,
+                  width: `${w}%`,
+                  background: "rgba(255,255,255,0.04)",
+                  marginBottom: 10,
+                  animation: `guidancePulse 2s ease-in-out ${i * 0.3}s infinite`,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div
@@ -44,6 +80,16 @@ export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps)
       >
         {t("build.writtenByGemma")}
       </div>
+
+      <style>{`
+        @keyframes guidancePulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.7; }
+        }
+        @keyframes guidanceSpin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

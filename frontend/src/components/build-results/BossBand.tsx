@@ -106,6 +106,24 @@ export function BossBand({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fight.boss]);
 
+  // Pick up streaming narrative when it arrives (empty → non-empty).
+  // Only fires when the initial entry has no narrative and no rerolls
+  // have happened, so it's safe against reroll state.
+  useEffect(() => {
+    if (!fight.narrative) return;
+    setNarrativeEntries((prev) => {
+      const first = prev[0];
+      if (prev.length !== 1 || !first || first.narrative) return prev;
+      return [{
+        id: first.id,
+        trigger: first.trigger,
+        narrative: fight.narrative,
+        result: first.result,
+        previousResult: first.previousResult,
+      }];
+    });
+  }, [fight.narrative, fight.boss]);
+
   const toggleSkill = useCallback((skillId: string) => {
     setSelectedSkills((prev) => {
       const next = new Set(prev);
@@ -355,12 +373,40 @@ export function BossBand({
           </div>
         </div>
 
-        {/* Narrative Timeline */}
-        <NarrativeTimeline
-          entries={narrativeEntries}
-          bossColor={boss.color}
-          isLoading={isRescoring}
-        />
+        {/* Narrative Timeline (or streaming placeholder) */}
+        {narrativeEntries[0]?.narrative ? (
+          <NarrativeTimeline
+            entries={narrativeEntries}
+            bossColor={boss.color}
+            isLoading={isRescoring}
+          />
+        ) : (
+          <div
+            data-testid={`boss-narrative-loading-${fight.boss}`}
+            aria-label={`Loading analysis for ${boss.shortName}`}
+            className="mt-3"
+            style={{ padding: "12px 0" }}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="rounded-full flex-shrink-0"
+                style={{
+                  width: 14,
+                  height: 14,
+                  border: `2px solid rgba(255,255,255,0.08)`,
+                  borderTopColor: boss.color,
+                  animation: "narrativeSpin 0.8s linear infinite",
+                }}
+              />
+              <span
+                className="font-body text-text-muted"
+                style={{ fontSize: 13, animation: "narrativePulse 2s ease-in-out infinite" }}
+              >
+                Gemma is analyzing...
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Reroll section */}
         {canReroll && showReroll && (
@@ -458,6 +504,13 @@ export function BossBand({
       </div>
 
       <style>{`
+        @keyframes narrativePulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.7; }
+        }
+        @keyframes narrativeSpin {
+          to { transform: rotate(360deg); }
+        }
         @keyframes winPulse {
           0% { box-shadow: 0 0 0 transparent; }
           50% { box-shadow: 0 0 32px rgba(125,212,163,0.25); }

@@ -2,7 +2,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 type FastAPIValidationError = { loc: (string | number)[]; msg: string; type: string };
 
-function formatErrorDetail(body: unknown, status: number): string {
+export function formatErrorDetail(body: unknown, status: number): string {
   const detail = (body as { detail?: unknown })?.detail;
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {

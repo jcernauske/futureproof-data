@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
-import { createBuild } from "@/api/build";
+import { createBuild, createBuildStream } from "@/api/build";
+import type { BuildParams, BuildStreamEvent } from "@/api/build";
+import type { Build } from "@/types/build";
 import { clearSession } from "@/api/session";
 import { PentagonChart } from "@/components/PentagonChart";
 import { Button } from "@/components/ui/Button";
@@ -28,7 +30,7 @@ export function BuildResultsScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
   const { profileName, animalEmoji, homeState, locale } = useProfileStore();
-  const { selectedCareer, build, setBuild, isBuilding, setIsBuilding } = useBuildStore();
+  const { selectedCareer, build, setBuild, updateBuild, isBuilding, setIsBuilding } = useBuildStore();
   const t = useT();
 
   const [error, setError] = useState<string | null>(null);
@@ -69,47 +71,101 @@ export function BuildResultsScreen() {
     return () => { cancelledRef.current = true; };
   }, []);
 
+  function mergeBossNarrative(prev: Build, bossId: string, narrative: string): Build {
+    return {
+      ...prev,
+      gauntlet: {
+        ...prev.gauntlet,
+        fights: prev.gauntlet.fights.map((f) =>
+          f.boss === bossId ? { ...f, narrative } : f,
+        ),
+      },
+    };
+  }
+
   const runBuild = useCallback(async () => {
     if (!selectedCareer || !school || !major || !profileName) return;
     setIsBuilding(true);
     setError(null);
 
-    const minDisplayTime = new Promise<void>((r) => setTimeout(r, 1000));
+    const lookupCip = major.parentCip || major.cipCode;
+    const studentCip = major.parentCip ? major.cipCode : undefined;
+
+    const params: BuildParams = {
+      profile_name: profileName,
+      school_name: school.name,
+      unitid: school.unitid,
+      cipcode: lookupCip,
+      cip_title: major.cipTitle,
+      major_text: major.rawText,
+      effort: effort.level,
+      loan_pct: loans.percentage / 100,
+      selected_soc: selectedCareer.soc_code,
+      selected_title: selectedCareer.occupation_title,
+      student_major: major.rawText,
+      student_cip: studentCip ?? null,
+      home_state: homeState ?? null,
+      school_state: school.stateAbbr ?? null,
+      animal_emoji: animalEmoji ?? null,
+      locale: locale ?? "en",
+    };
+
+    const onEvent = (event: BuildStreamEvent) => {
+      if (cancelledRef.current) return;
+      switch (event.type) {
+        case "skeleton":
+          setBuild(event.build);
+          setFights(event.build.gauntlet.fights);
+          setIsBuilding(false);
+          fireCheckpoint("/my-build");
+          break;
+        case "boss_narrative":
+          updateBuild((prev) => mergeBossNarrative(prev, event.boss_id, event.narrative));
+          break;
+        case "skill_recs":
+          updateBuild((prev) => ({ ...prev, skill_recs: event.recs }));
+          break;
+        case "skill_pool":
+          updateBuild((prev) => ({ ...prev, skill_pool: event.pool }));
+          break;
+        case "guidance":
+          updateBuild((prev) => ({ ...prev, guidance: event.narrative }));
+          break;
+        case "done":
+          break;
+      }
+    };
+
     try {
-      const lookupCip = major.parentCip || major.cipCode;
-      const studentCip = major.parentCip ? major.cipCode : undefined;
-      const [result] = await Promise.all([
-        createBuild(
-          profileName,
-          school.name,
-          school.unitid,
-          lookupCip,
-          major.cipTitle,
-          major.rawText,
-          effort.level,
-          loans.percentage / 100,
-          selectedCareer.soc_code,
-          selectedCareer.occupation_title,
-          major.rawText,
-          studentCip,
-          homeState ?? undefined,
-          school.stateAbbr ?? undefined,
-          animalEmoji ?? undefined,
-          locale,
-        ),
-        minDisplayTime,
-      ]);
+      await createBuildStream(params, onEvent);
+    } catch {
       if (cancelledRef.current) return;
-      setBuild(result);
-      setFights(result.gauntlet.fights);
-      setIsBuilding(false);
-      fireCheckpoint("/my-build");
-    } catch (err) {
-      if (cancelledRef.current) return;
-      setError(err instanceof Error ? err.message : "Build failed");
-      setIsBuilding(false);
+      // SSE failed — fall back to blocking build
+      try {
+        const minDisplayTime = new Promise<void>((r) => setTimeout(r, 1000));
+        const [result] = await Promise.all([
+          createBuild(
+            profileName, school.name, school.unitid, lookupCip,
+            major.cipTitle, major.rawText, effort.level,
+            loans.percentage / 100, selectedCareer.soc_code,
+            selectedCareer.occupation_title, major.rawText, studentCip,
+            homeState ?? undefined, school.stateAbbr ?? undefined,
+            animalEmoji ?? undefined, locale,
+          ),
+          minDisplayTime,
+        ]);
+        if (cancelledRef.current) return;
+        setBuild(result);
+        setFights(result.gauntlet.fights);
+        setIsBuilding(false);
+        fireCheckpoint("/my-build");
+      } catch (fallbackErr) {
+        if (cancelledRef.current) return;
+        setError(fallbackErr instanceof Error ? fallbackErr.message : "Build failed");
+        setIsBuilding(false);
+      }
     }
-  }, [selectedCareer, school, major, profileName, effort, loans, homeState, locale, setBuild, setIsBuilding]);
+  }, [selectedCareer, school, major, profileName, effort, loans, homeState, locale, animalEmoji, setBuild, updateBuild, setIsBuilding]);
 
   useEffect(() => {
     if (!build && !isBuilding && selectedCareer) {
@@ -118,6 +174,20 @@ export function BuildResultsScreen() {
       setFights(build.gauntlet.fights);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync streaming narrative updates from store into local fights state.
+  // Rerolled fights keep local state; non-rerolled fights take store version.
+  useEffect(() => {
+    if (!build) return;
+    setFights((prev) => {
+      if (prev.length === 0) return build.gauntlet.fights;
+      return prev.map((f) => {
+        if (f.rerolled) return f;
+        const storeFight = build.gauntlet.fights.find((sf) => sf.boss === f.boss);
+        return storeFight ?? f;
+      });
+    });
+  }, [build]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reveal queue system
   const clearBandTimeouts = useCallback((bossId: string) => {

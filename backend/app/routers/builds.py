@@ -1,8 +1,11 @@
 import asyncio
+import json
 import logging
-from typing import cast
+from collections.abc import AsyncIterator
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from app import state
 from app.models.api import (
@@ -148,7 +151,7 @@ async def _gemma_fanout(
 @router.post("")
 async def create_build(request: BuildRequest):
     try:
-        career = await asyncio.to_thread(
+        career_task = asyncio.to_thread(
             stat_engine.compute_one,
             unitid=request.unitid,
             cipcode=request.cipcode,
@@ -159,6 +162,12 @@ async def create_build(request: BuildRequest):
             loan_pct=request.loan_pct,
             intent_keywords=request.intent_keywords or None,
             home_state=request.home_state,
+        )
+        branches_task = asyncio.to_thread(
+            branch_tree.get_branches, request.selected_soc,
+        )
+        career, branches_list = await asyncio.gather(
+            career_task, branches_task,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -185,9 +194,6 @@ async def create_build(request: BuildRequest):
         career.is_out_of_state = True
 
     gauntlet = boss_fights.score_gauntlet(career)
-    branches_list = await asyncio.to_thread(
-        branch_tree.get_branches, career.soc_code
-    )
 
     recs, pool, narrative = await _gemma_fanout(
         career, gauntlet, branches_list, locale=request.locale,
@@ -215,6 +221,160 @@ async def create_build(request: BuildRequest):
     state.store_build(build)
     builds.save_build(build)
     return build
+
+
+def _sse_event(event: str, data: Any) -> str:
+    payload = json.dumps(data, default=str, ensure_ascii=False)
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+@router.post("/stream")
+async def create_build_stream(request: BuildRequest) -> StreamingResponse:
+    return StreamingResponse(
+        _build_stream(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
+    career_task = asyncio.to_thread(
+        stat_engine.compute_one,
+        unitid=request.unitid,
+        cipcode=request.cipcode,
+        soc_code=request.selected_soc,
+        student_major=request.student_major,
+        student_cip=request.student_cip,
+        effort=cast(EffortLevel, request.effort),
+        loan_pct=request.loan_pct,
+        intent_keywords=request.intent_keywords or None,
+        home_state=request.home_state,
+    )
+    branches_task = asyncio.to_thread(
+        branch_tree.get_branches, request.selected_soc,
+    )
+
+    try:
+        career, branches_list = await asyncio.gather(
+            career_task, branches_task,
+        )
+    except ValueError as exc:
+        yield _sse_event("error", {"detail": str(exc)})
+        return
+    except LookupError:
+        yield _sse_event(
+            "error",
+            {"detail": "We don't have enough data for that career at this school."},
+        )
+        return
+
+    if not career.program_name and request.cip_title:
+        career.program_name = request.cip_title
+    if (
+        request.home_state
+        and request.school_state
+        and request.home_state != request.school_state
+        and career.institution_control
+        and career.institution_control.startswith("Public")
+    ):
+        career.is_out_of_state = True
+
+    gauntlet = boss_fights.score_gauntlet(career)
+
+    skeleton = builds.build_from_parts(
+        school_name=request.school_name,
+        unitid=request.unitid,
+        major_text=request.major_text,
+        cipcode=request.cipcode,
+        program_name=request.cip_title,
+        effort=request.effort,
+        loan_pct=request.loan_pct,
+        career=career,
+        gauntlet=gauntlet,
+        branches=branches_list,
+        skill_recs=[],
+        guidance="",
+        skill_pool=[],
+        profile_name=request.profile_name,
+        home_state=request.home_state,
+        animal_emoji=request.animal_emoji,
+        locale=request.locale,
+    )
+
+    yield _sse_event("skeleton", skeleton.model_dump(mode="json"))
+
+    locale = request.locale or "en"
+
+    async def _narrate(fight: Any) -> tuple[str, dict[str, str]]:
+        try:
+            text = await boss_fights.narrate_one(career, fight, locale=locale)
+            fight.narrative = text or boss_fights._fallback_narrative(fight)
+        except Exception:
+            fight.narrative = boss_fights._fallback_narrative(fight)
+        return ("boss_narrative", {"boss_id": fight.boss, "narrative": fight.narrative})
+
+    async def _recs() -> tuple[str, list[dict[str, Any]]]:
+        try:
+            r = await skill_recs.generate_recs_async(career, gauntlet, locale=locale)
+        except Exception:
+            r = skill_recs._fallback_recs(career)
+        return ("skill_recs", [rec.model_dump(mode="json") for rec in r])
+
+    async def _pool() -> tuple[str, list[dict[str, Any]]]:
+        try:
+            p = await skill_pool.generate_pool_async(career, gauntlet, locale=locale)
+        except Exception:
+            p = []
+        return ("skill_pool", [s.model_dump(mode="json") for s in p])
+
+    async def _guide() -> tuple[str, dict[str, str]]:
+        try:
+            g = await guidance.generate_guidance_async(
+                career, gauntlet, branches_list, locale=locale,
+            )
+        except Exception:
+            g = guidance._fallback_narrative(career, gauntlet)
+        return ("guidance", {"narrative": g})
+
+    tasks = [
+        *[asyncio.create_task(_narrate(f)) for f in gauntlet.fights],
+        asyncio.create_task(_recs()),
+        asyncio.create_task(_pool()),
+        asyncio.create_task(_guide()),
+    ]
+
+    recs_result: list[SkillRec] = []
+    pool_result: list[AppliedSkill] = []
+    guidance_result = ""
+
+    try:
+        for coro in asyncio.as_completed(tasks):
+            event_name, event_data = await coro
+            yield _sse_event(event_name, event_data)
+
+            if event_name == "skill_recs":
+                recs_result = [SkillRec.model_validate(r) for r in event_data]
+            elif event_name == "skill_pool":
+                pool_result = [AppliedSkill.model_validate(s) for s in event_data]
+            elif event_name == "guidance":
+                guidance_result = event_data["narrative"]
+    except (asyncio.CancelledError, GeneratorExit):
+        for t in tasks:
+            t.cancel()
+        return
+
+    final_build = skeleton.model_copy(update={
+        "skill_recs": recs_result,
+        "skill_pool": pool_result,
+        "guidance": guidance_result,
+    })
+    state.store_build(final_build)
+    builds.save_build(final_build)
+
+    yield _sse_event("done", {"build_id": final_build.build_id})
 
 
 @router.post("/{build_id}/save")

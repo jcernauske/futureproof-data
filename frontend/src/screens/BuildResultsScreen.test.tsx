@@ -815,6 +815,44 @@ describe("BuildResultsScreen -- institution card", () => {
     // The "Written by Gemma" attribution is present.
     expect(screen.getByText(/Written by Gemma/)).toBeInTheDocument();
   });
+
+  it("shows placeholder when guidance is empty (streaming skeleton)", () => {
+    seedWithBuild({ guidance: "" });
+    renderScreen();
+
+    // The InstitutionCard renders an "Analyzing..." placeholder.
+    expect(screen.getByTestId("guidance-loading")).toBeInTheDocument();
+    expect(screen.getByTestId("guidance-loading")).toHaveAttribute(
+      "aria-label", "Loading guidance",
+    );
+  });
+});
+
+describe("BuildResultsScreen -- empty Gemma fields (streaming skeleton)", () => {
+  it("renders boss bands with empty narratives showing Analyzing placeholder", () => {
+    seedWithBuild({
+      gauntlet: {
+        fights: [
+          makeFight({ boss: "ai", result: "win", narrative: "" }),
+          makeFight({ boss: "loans", label: "Fight Loans", result: "lose", raw_score: 4, narrative: "" }),
+          makeFight({ boss: "market", label: "Fight Market", result: "win", raw_score: 9, narrative: "" }),
+          makeFight({ boss: "burnout", label: "Fight Burnout", result: "draw", raw_score: 5, narrative: "" }),
+          makeFight({ boss: "ceiling", label: "Fight Ceiling", result: "win", raw_score: 8, narrative: "" }),
+        ],
+        wins: 3,
+        losses: 1,
+        draws: 1,
+        unknown: 0,
+        verdict: "SOLID BUILD",
+      },
+    });
+    renderScreen();
+
+    // All 5 boss bands render with placeholder loading states.
+    for (const bossId of ["ai", "loans", "market", "burnout", "ceiling"]) {
+      expect(screen.getByTestId(`boss-narrative-loading-${bossId}`)).toBeInTheDocument();
+    }
+  });
 });
 
 describe("BuildResultsScreen -- createBuild is called with correct params", () => {
