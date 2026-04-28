@@ -396,7 +396,13 @@ async def render_frames(
 
     results: list[tuple[int, bytes]] = []
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch()
+        # --disable-dev-shm-usage: containers (incl. Railway) ship with a 64 MB
+        # /dev/shm by default, which Chrome will exhaust on a 1080×1920 screenshot
+        # and crash with "Target page, context or browser has been closed". Forcing
+        # /tmp avoids the shared-memory cliff.
+        browser = await pw.chromium.launch(
+            args=["--disable-dev-shm-usage", "--no-sandbox"],
+        )
         try:
             context = await browser.new_context(
                 viewport={"width": 1080, "height": 1920},
