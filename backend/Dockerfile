@@ -1,4 +1,7 @@
-FROM mcr.microsoft.com/playwright/python:v1.48.0-noble
+# Base image version MUST match the playwright Python package version in
+# backend/pyproject.toml. Microsoft ships paired Chromium binaries — drift
+# yields a runtime "Executable doesn't exist at /ms-playwright/..." crash.
+FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
 
 # Iceberg metadata files store absolute paths from the host build machine
 # (e.g. /Users/jcernauske/.../data/gold/iceberg_warehouse/...). Install the
@@ -28,7 +31,8 @@ ARG GITHUB_TOKEN
 COPY backend/pyproject.toml backend/pyproject.toml
 RUN git config --global "url.https://${GITHUB_TOKEN}@github.com/.insteadOf" "https://github.com/" \
     && pip install --upgrade pip \
-    && pip install fastapi 'uvicorn[standard]' pydantic duckdb playwright jinja2 \
+    && pip install fastapi 'uvicorn[standard]' pydantic duckdb \
+       'playwright>=1.58.0,<1.59.0' jinja2 \
        openai python-dotenv pyyaml \
        'brightsmith @ git+https://github.com/jcernauske/brightsmith.git'
 

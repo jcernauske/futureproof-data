@@ -18,7 +18,11 @@ dependencies = [
     # Wrapped frame rendering (screen 9). Requires one-time
     # `playwright install chromium` after `pip install` — documented
     # in README. Hard dep per spec §2 (no graceful degradation).
-    "playwright>=1.48.0",
+    # Pinned to a narrow range: the Python package and the Microsoft
+    # base image (backend/Dockerfile) ship paired Chromium binaries
+    # and drift produces a "Executable doesn't exist" runtime crash.
+    # Bump both together.
+    "playwright>=1.58.0,<1.59.0",
     "jinja2>=3.1.0",
     # Gemma/API dependencies. The old Rich CLI proof of concept was
     # archived under archive/spikes/cli and is not a backend entry point.
