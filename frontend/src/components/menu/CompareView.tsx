@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
@@ -7,6 +7,7 @@ import { useBuildStore } from "@/store/buildStore";
 import {
   compareBuilds,
   compareInsights,
+  type AskScope,
   type CompareResult,
   type CompareInsights,
 } from "@/api/menu";
@@ -16,6 +17,8 @@ import { CharacterCard } from "@/components/menu/CharacterCard";
 import { MoneySection } from "@/components/menu/MoneySection";
 import { BranchPreview } from "@/components/menu/BranchPreview";
 import { Button } from "@/components/ui/Button";
+import { GemmaChat } from "@/components/menu/GemmaChat";
+import { useT } from "@/i18n/useT";
 
 interface CompareViewProps {
   buildIds: string[];
@@ -34,12 +37,35 @@ const BUILD_COLORS = [
 export function CompareView({ buildIds, onBack }: CompareViewProps) {
   const navigate = useNavigate();
   const setBuild = useBuildStore((s) => s.setBuild);
+  const t = useT();
   const [phase, setPhase] = useState<Phase>("loading");
   const [result, setResult] = useState<CompareResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [insights, setInsights] = useState<CompareInsights | null>(null);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Compare-scope chip text per docs/specs/feature-ask-gemma.md §3.
+  // School names truncated at 24 chars; N≥3 uses summary form.
+  const compareChipText = useMemo(() => {
+    if (!result?.builds || result.builds.length === 0) return "";
+    const names = result.builds.map((b) =>
+      b.school_name.length > 24
+        ? b.school_name.slice(0, 23).trimEnd() + "…"
+        : b.school_name,
+    );
+    if (names.length === 2) return `Comparing: ${names[0]} vs ${names[1]}`;
+    return `Comparing ${names.length} builds`;
+  }, [result?.builds]);
+
+  const compareScope: AskScope | undefined = useMemo(() => {
+    if (!buildIds || buildIds.length < 2) return undefined;
+    return {
+      kind: "compare",
+      build_ids: buildIds,
+    };
+  }, [buildIds]);
 
   const handleMouseOver = useCallback((e: React.MouseEvent) => {
     let target = e.target as HTMLElement | null;
@@ -278,7 +304,41 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
             </motion.p>
           )}
         </div>
+
+        {insights?.compare_summary && compareScope && (
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            disabled={chatOpen}
+            data-testid="btn-ask-compare"
+            aria-label={t("chat.compareEntry")}
+            className={[
+              "w-full max-w-[420px] mx-auto mt-5 block",
+              "inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg",
+              "bg-accent-thrive text-text-inverse font-body text-cta",
+              "hover:bg-[#6bc494]",
+              "active:scale-[0.97]",
+              "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
+              "disabled:bg-bp-surface disabled:text-text-muted disabled:cursor-not-allowed",
+              "transition-colors duration-fast",
+              "cursor-pointer",
+            ].join(" ")}
+          >
+            <span aria-hidden className="text-text-inverse text-[16px] leading-none">
+              ✦
+            </span>
+            {t("chat.compareEntry")}
+          </button>
+        )}
       </section>
+
+      <GemmaChat
+        open={chatOpen}
+        build={null}
+        scope={compareScope}
+        chipText={compareChipText}
+        onClose={() => setChatOpen(false)}
+      />
     </motion.article>
   );
 }

@@ -1,13 +1,28 @@
 import { useEffect, useRef } from "react";
+import { useT } from "@/i18n/useT";
 import { STAT_INFO, STAT_COLORS } from "./bossData";
 
 interface StatInfoPopoverProps {
   stat: string;
   isOpen: boolean;
   onClose: () => void;
+  /** When set, renders the "Ask Gemma about this" inline CTA at the
+   * bottom of the popover. The stat code is forwarded back so the
+   * parent can dispatch the right scope payload. */
+  onAsk?: (stat: string) => void;
+  /** When the chat is already open, the CTA is disabled (opacity 40)
+   * to prevent double-open. */
+  chatOpen?: boolean;
 }
 
-export function StatInfoPopover({ stat, isOpen, onClose }: StatInfoPopoverProps) {
+export function StatInfoPopover({
+  stat,
+  isOpen,
+  onClose,
+  onAsk,
+  chatOpen = false,
+}: StatInfoPopoverProps) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const info = STAT_INFO[stat];
   const colors = STAT_COLORS[stat];
@@ -57,6 +72,31 @@ export function StatInfoPopover({ stat, isOpen, onClose }: StatInfoPopoverProps)
       <div className="font-data text-text-muted" style={{ fontSize: 11, letterSpacing: "0.5px", marginTop: 10 }}>
         Source: {info.source}
       </div>
+
+      {onAsk && (
+        <div className="mt-3 pt-3 border-t border-border-subtle">
+          <button
+            type="button"
+            onClick={() => onAsk(stat)}
+            disabled={chatOpen}
+            data-testid={`btn-ask-stat-${stat}`}
+            aria-label={`Ask Gemma about ${info.title}`}
+            className={[
+              "inline-flex items-center gap-1.5 px-2 py-1.5 -mx-2 rounded-md",
+              "font-body text-small font-semibold text-accent-insight",
+              "hover:bg-state-loading hover:text-text-primary",
+              "active:scale-[0.97]",
+              "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
+              "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
+              "transition-colors duration-fast",
+              "cursor-pointer",
+            ].join(" ")}
+          >
+            <span aria-hidden>✦</span>
+            {t("chat.askAboutThis")}
+          </button>
+        </div>
+      )}
 
       <style>{`
         @keyframes popoverIn {

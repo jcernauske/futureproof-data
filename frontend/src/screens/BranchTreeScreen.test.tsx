@@ -1,4 +1,5 @@
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { BranchTreeScreen } from "./BranchTreeScreen";
@@ -6,6 +7,77 @@ import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import type { TreeResponse } from "@/types/tree";
 import type { Build } from "@/types/build";
+
+// Mock the Ask Gemma client at the module boundary. The embedded
+// GemmaChat fires askGemma() on mount with the auto-opener; the screen
+// tests need full control over the response shape and timing.
+const mockAskGemma = vi.fn();
+vi.mock("@/api/menu", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
+  return {
+    ...actual,
+    askGemma: (...args: unknown[]) => mockAskGemma(...args),
+  };
+});
+
+// React Flow's pointer-event-driven click handler does not fire reliably
+// in jsdom. Replace BranchTreeFlow with a thin test double that exposes
+// a real DOM button per node so fireEvent.click drives onSelectNode
+// through the screen's actual selection wiring. The double also renders
+// any branch-flash className so the highlight test can find it.
+//
+// Node ids match the production shape from treeFlowLayout:
+//   - root:        `root-${soc_code}`
+//   - direct branch (no grand-children): `career-${branch.soc_code}-${branchIdx}`
+vi.mock("@/components/tree/BranchTreeFlow", () => ({
+  BranchTreeFlow: ({
+    tree,
+    onSelectNode,
+    selectedNodeId,
+    highlightedNodeId,
+  }: {
+    tree: {
+      soc_code: string;
+      title: string;
+      children?: { soc_code: string; title: string }[];
+    };
+    onSelectNode: (id: string | null) => void;
+    selectedNodeId: string | null;
+    highlightedNodeId: string | null;
+  }) => {
+    return (
+      <div data-testid="region-branch-tree">
+        <button
+          type="button"
+          data-testid={`node-root-${tree.soc_code}`}
+          data-selected={selectedNodeId === `root-${tree.soc_code}`}
+          className={
+            highlightedNodeId === `root-${tree.soc_code}` ? "branch-flash" : ""
+          }
+          onClick={() => onSelectNode(`root-${tree.soc_code}`)}
+        >
+          {tree.title}
+        </button>
+        {(tree.children ?? []).map((child, idx) => {
+          const id = `career-${child.soc_code}-${idx}`;
+          return (
+            <button
+              key={id}
+              type="button"
+              data-testid={`node-${id}`}
+              data-selected={selectedNodeId === id}
+              className={highlightedNodeId === id ? "branch-flash" : ""}
+              onClick={() => onSelectNode(id)}
+            >
+              {child.title}
+            </button>
+          );
+        })}
+      </div>
+    );
+  },
+}));
 
 /**
  * BranchTreeScreen.test.tsx
@@ -172,6 +244,7 @@ const SETTLE_TIMEOUT = 3000;
 beforeEach(() => {
   mockNavigate.mockReset();
   mockGetTree.mockReset();
+  mockAskGemma.mockReset();
   useBuildStore.setState({ build: makeBuild() });
   useProfileStore.setState({ animalEmoji: "\uD83D\uDC3B", animalName: "bear", profileName: "bold bear" });
 });
@@ -418,8 +491,12 @@ describe("BranchTreeScreen", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/reveal");
   });
 
-  it("wraps content in PageContainer grid with tree col-span-8 and sidebar col-span-4 at desktop", async () => {
+  // Re-baselined for feature-tree-as-map.md §3 layout: tree at
+  // tablet:col-span-5 + chat at tablet:col-span-7. The previous
+  // tree:col-span-8 + sidebar:col-span-4 split is no longer correct.
+  it("wraps tree+chat in PageContainer grid with tree col-span-5 and chat col-span-7 at tablet+", async () => {
     mockGetTree.mockResolvedValue(makeTreeResponse(2));
+    mockAskGemma.mockReturnValue(new Promise(() => {})); // never resolves
     renderScreen();
 
     await waitFor(
@@ -429,17 +506,344 @@ describe("BranchTreeScreen", () => {
       { timeout: SETTLE_TIMEOUT },
     );
 
-    // Tree cell carries desktop:col-span-8 on mobile-default col-span-12.
-    const treeCell = document.querySelector("[class*='desktop:col-span-8']");
+    // Tree column — col-span-5 at tablet+, hidden on mobile.
+    const treeCell = document.querySelector("[class*='tablet:col-span-5']");
     expect(treeCell).not.toBeNull();
-    expect(treeCell!.className).toContain("col-span-12");
+    expect(treeCell!.className).toContain("hidden");
+    expect(treeCell!.className).toContain("tablet:block");
 
-    // Sidebar cell carries desktop:col-span-4 and is hidden on mobile.
-    const sidebarCell = document.querySelector(
-      "[class*='desktop:col-span-4']",
-    );
-    expect(sidebarCell).not.toBeNull();
-    expect(sidebarCell!.className).toContain("hidden");
-    expect(sidebarCell!.className).toContain("desktop:block");
+    // Chat column — col-span-7 at tablet+, full-width on mobile.
+    const chatCell = document.querySelector("[class*='tablet:col-span-7']");
+    expect(chatCell).not.toBeNull();
+    expect(chatCell!.className).toContain("col-span-12");
+  });
+
+  // ===========================================================================
+  // feature-tree-as-map.md §4 — chat-as-guide bidirectional binding tests.
+  // ===========================================================================
+
+  // The tree-fetch path uses real timers and waits ~1500ms for the
+  // minDisplay setTimeout (settle below). Once we reach the tree state,
+  // the embedded chat fires askGemma. Some scope-binding tests need to
+  // assert on debounce timing — those use vi.useFakeTimers() locally.
+
+  describe("first load: chat-as-guide auto-opener (P0)", () => {
+    it("test_first_load_fires_chat_ask_with_root_branch_scope", async () => {
+      mockGetTree.mockResolvedValue(makeTreeResponse(2));
+      mockAskGemma.mockResolvedValue({
+        response: "Welcome to your branches.",
+        tool_calls: [],
+      });
+      renderScreen();
+
+      // Wait for the screen to enter the tree state and for the embedded
+      // chat to auto-fire its opener call.
+      await waitFor(
+        () => {
+          expect(mockAskGemma).toHaveBeenCalled();
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+
+      // First call: scope.kind === "branch", target_id === root SOC,
+      // build_ids === [build.build_id], history === [].
+      const firstCall = mockAskGemma.mock.calls[0]!;
+      const scope = firstCall[0];
+      const history = firstCall[2];
+      expect(scope.kind).toBe("branch");
+      expect(scope.target_id).toBe("13-2051"); // root SOC from fixture
+      expect(scope.build_ids).toEqual(["build-test-123"]);
+      expect(history).toEqual([]);
+    });
+
+    it("test_parent_rerender_without_selection_change_does_not_refire", async () => {
+      mockGetTree.mockResolvedValue(makeTreeResponse(2));
+      mockAskGemma.mockResolvedValue({
+        response: "Initial opener.",
+        tool_calls: [],
+      });
+
+      // Wrap BranchTreeScreen in a parent whose state we can flip. Bumping
+      // ``forceTick`` triggers a parent re-render without unmounting
+      // BranchTreeScreen — so the screen's effects run only when their
+      // (primitive) dependencies actually change.
+      let setForceTick: ((n: number) => void) | null = null;
+      function Wrapper() {
+        const [tick, setTick] = useState(0);
+        setForceTick = setTick;
+        return (
+          <MemoryRouter>
+            <div data-tick={tick}>
+              <BranchTreeScreen />
+            </div>
+          </MemoryRouter>
+        );
+      }
+      render(<Wrapper />);
+
+      await waitFor(
+        () => {
+          expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+
+      // Force two parent re-renders without changing selectedNodeId. If
+      // chatScope is not memoized on primitive deps OR the opener-fire
+      // useEffect depends on object identity, a new chatScope object on
+      // each render would re-fire the opener.
+      await act(async () => {
+        setForceTick!(1);
+      });
+      await act(async () => {
+        setForceTick!(2);
+      });
+      // Give any async re-firing a chance to land.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(mockAskGemma).toHaveBeenCalledTimes(1);
+    });
+
+    it("test_gemma_unavailable_renders_fallback_string", async () => {
+      mockGetTree.mockResolvedValue(makeTreeResponse(2));
+      // The askGemma client surfaces transport failures as thrown
+      // errors; the embedded chat's catch path renders the message
+      // (current behavior matches the legacy slide-in failure path).
+      mockAskGemma.mockRejectedValue(
+        new Error("I'm having trouble reaching Gemma right now. Try the question again in a moment."),
+      );
+      renderScreen();
+
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText(/having trouble reaching Gemma/i),
+          ).toBeInTheDocument();
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+    });
+  });
+
+  describe("node click + scope binding (P0)", () => {
+    it("test_node_click_updates_scope_and_clears_history", async () => {
+      mockGetTree.mockResolvedValue(makeTreeResponse(3));
+      mockAskGemma.mockResolvedValue({
+        response: "Scoped opener.",
+        tool_calls: [],
+      });
+      renderScreen();
+
+      await waitFor(
+        () => {
+          expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+
+      // First call should be at root.
+      expect(mockAskGemma.mock.calls[0]![0].target_id).toBe("13-2051");
+
+      // Click the first child node. Test double exposes a button per
+      // node with the production-shape testid.
+      const node = await screen.findByTestId("node-career-11-3000-0");
+      await act(async () => {
+        fireEvent.click(node);
+      });
+
+      // After 300ms debounce + opener fire, askGemma fires again with
+      // the new target_id (Career 0 in the fixture has soc_code 11-3000).
+      await waitFor(
+        () => {
+          expect(mockAskGemma.mock.calls.length).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 2000 },
+      );
+      const lastCall =
+        mockAskGemma.mock.calls[mockAskGemma.mock.calls.length - 1]!;
+      // Scope updated to the clicked node.
+      expect(lastCall[0].kind).toBe("branch");
+      expect(lastCall[0].target_id).toBe("11-3000");
+      // History cleared (sessionRef bumped on scope change).
+      expect(lastCall[2]).toEqual([]);
+    });
+
+    it("test_node_click_debounce_300ms: two rapid selectedNodeId changes produce one askGemma call after debounce", async () => {
+      // Use real timers for the tree-fetch settle; once we have the
+      // tree state, switch to fake timers to control the debounce.
+      mockGetTree.mockResolvedValue(makeTreeResponse(3));
+      mockAskGemma.mockResolvedValue({
+        response: "Scoped opener.",
+        tool_calls: [],
+      });
+      renderScreen();
+
+      await waitFor(
+        () => {
+          expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+
+      const callsBefore = mockAskGemma.mock.calls.length;
+
+      // Click two different nodes within the 300ms debounce window.
+      const node0 = await screen.findByTestId("node-career-11-3000-0");
+      const node1 = await screen.findByTestId("node-career-11-3001-1");
+
+      // Rapid double-click — well within 300ms.
+      await act(async () => {
+        fireEvent.click(node0);
+        fireEvent.click(node1);
+      });
+
+      // Settle past the debounce window and let any pending opener fire.
+      await waitFor(
+        () => {
+          expect(mockAskGemma.mock.calls.length).toBeGreaterThan(callsBefore);
+        },
+        { timeout: 2000 },
+      );
+
+      // Exactly ONE additional opener fired (debounced). The two rapid
+      // clicks collapse into a single askGemma call against the LAST
+      // selection.
+      const callsAfter = mockAskGemma.mock.calls.length;
+      expect(callsAfter - callsBefore).toBe(1);
+
+      // The single call resolves to Career 1 (the LAST click within the
+      // debounce window).
+      const lastCall = mockAskGemma.mock.calls[callsAfter - 1]!;
+      expect(lastCall[0].target_id).toBe("11-3001");
+    });
+
+    it("test_stale_opener_dropped_on_rapid_branch_switch", async () => {
+      mockGetTree.mockResolvedValue(makeTreeResponse(2));
+
+      // First call: pending forever (mock the slow opener).
+      let resolveFirst: (value: { response: string; tool_calls: [] }) => void =
+        () => {};
+      const firstPromise = new Promise<{
+        response: string;
+        tool_calls: [];
+      }>((resolve) => {
+        resolveFirst = resolve;
+      });
+      mockAskGemma.mockReturnValueOnce(firstPromise);
+      // Second call: resolves immediately.
+      mockAskGemma.mockResolvedValueOnce({
+        response: "New-branch opener.",
+        tool_calls: [],
+      });
+
+      renderScreen();
+
+      await waitFor(
+        () => {
+          expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+
+      // Click a node → switches scope. The pending root-opener becomes
+      // stale; the embedded chat's sessionRef bumps and the stale
+      // setHistory write is dropped on resolution.
+      const node = await screen.findByTestId("node-career-11-3000-0");
+      await act(async () => {
+        fireEvent.click(node);
+      });
+
+      await waitFor(
+        () => {
+          expect(mockAskGemma.mock.calls.length).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 2000 },
+      );
+
+      // New-branch opener has rendered.
+      await waitFor(() => {
+        expect(screen.getByText("New-branch opener.")).toBeInTheDocument();
+      });
+
+      // NOW the stale first call resolves with a "stale-root" response.
+      // Because sessionRef bumped on scope change, the stale resolution
+      // must be dropped — the prior-branch text must NOT splice into
+      // the conversation.
+      await act(async () => {
+        resolveFirst({
+          response: "Stale root opener.",
+          tool_calls: [],
+        });
+      });
+
+      // Give the async resolution a chance to land.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // The stale text never renders — only the current-branch opener.
+      expect(screen.queryByText("Stale root opener.")).toBeNull();
+      expect(screen.getByText("New-branch opener.")).toBeInTheDocument();
+    });
+  });
+
+  describe("branch flash (P0)", () => {
+    it("test_branch_name_in_response_flashes_node: response containing a node title sets highlightedNodeId", async () => {
+      mockGetTree.mockResolvedValue(makeTreeResponse(2));
+      mockAskGemma.mockResolvedValue({
+        // Response names "Career 0" verbatim — should fire highlight on
+        // its node id.
+        response:
+          "From here, the Career 0 path keeps you closest to your numbers focus. Worth a closer look.",
+        tool_calls: [],
+      });
+      renderScreen();
+
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText("From here,", { exact: false }),
+          ).toBeInTheDocument();
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+
+      // Wait for BranchHighlightDriver to fire and the screen to apply
+      // the className to the matching React Flow node.
+      await waitFor(
+        () => {
+          const flashing = document.querySelector(".branch-flash");
+          expect(flashing).not.toBeNull();
+        },
+        { timeout: 1500 },
+      );
+    });
+  });
+
+  describe("fallback (P0)", () => {
+    it("test_fallback_career_renders_chat_at_root: zero-children tree still mounts chat at root SOC", async () => {
+      mockGetTree.mockResolvedValue(makeTreeResponse(0));
+      mockAskGemma.mockResolvedValue({
+        response: "This is a specialized career — what would you like to know?",
+        tool_calls: [],
+      });
+      renderScreen();
+
+      await waitFor(
+        () => {
+          expect(screen.getByTestId("region-fallback")).toBeInTheDocument();
+        },
+        { timeout: SETTLE_TIMEOUT },
+      );
+
+      // Chat fires at the root SOC even in fallback.
+      await waitFor(
+        () => {
+          expect(mockAskGemma).toHaveBeenCalled();
+        },
+        { timeout: 2000 },
+      );
+      const firstCall = mockAskGemma.mock.calls[0]!;
+      expect(firstCall[0].kind).toBe("branch");
+      expect(firstCall[0].target_id).toBe("13-2051");
+    });
   });
 });

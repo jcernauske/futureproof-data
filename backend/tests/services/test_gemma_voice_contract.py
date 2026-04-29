@@ -33,6 +33,7 @@ from app.models.career import (
     PentagonStats,
 )
 from app.services import (
+    ask_gemma,
     boss_fights,
     career_pick_qna,
     guidance,
@@ -75,6 +76,7 @@ SYSTEM_PROMPTS: list[tuple[str, str]] = [
     ("skill_pool._POOL_SYSTEM", skill_pool._POOL_SYSTEM),
     ("next_steps._SYSTEM", next_steps_svc._SYSTEM),
     ("career_pick_qna.GEMMA_SYSTEM_PROMPT", career_pick_qna.GEMMA_SYSTEM_PROMPT),
+    ("ask_gemma._SYSTEM_BASE", ask_gemma._SYSTEM_BASE),
 ]
 
 
