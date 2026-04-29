@@ -44,6 +44,19 @@ vi.mock("@/api/gauntlet", () => ({
   rerollFight: (...args: unknown[]) => mockRerollFight(...args),
 }));
 
+// Ask Gemma — patch the askGemma client at the module boundary so we
+// can assert which scope payload reaches the API when the user clicks
+// each entry point. Other @/api/menu exports remain real.
+const mockAskGemma = vi.fn();
+vi.mock("@/api/menu", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
+  return {
+    ...actual,
+    askGemma: (...args: unknown[]) => mockAskGemma(...args),
+  };
+});
+
 // CampusHeroBanner calls useHorizonPick which relies on sessionStorage
 // bag-walk and crypto. Mock the hook to return a deterministic pick.
 vi.mock("@/hooks/useHorizonPick", () => ({
@@ -245,6 +258,7 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockCreateBuild.mockReset();
   mockRerollFight.mockReset();
+  mockAskGemma.mockReset();
   sessionStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
@@ -800,6 +814,213 @@ describe("BuildResultsScreen -- stat legend", () => {
     // Verify each stat has a "/10" suffix rendered next to its score.
     const tenSuffixes = screen.getAllByText("/10");
     expect(tenSuffixes.length).toBe(5);
+  });
+});
+
+// ===========================================================================
+// Ask Gemma — per-element entry points dispatch the right scope (P0).
+// docs/specs/feature-ask-gemma.md §4 New Tests Required.
+// ===========================================================================
+
+describe("BuildResultsScreen -- per-stat ask dispatches stat scope (P0)", () => {
+  it("opens the chat with kind=stat and target_id=ERN when the popover CTA is clicked", async () => {
+    seedWithBuild();
+    mockAskGemma.mockResolvedValue({
+      response: "Earnings start strong here.",
+      tool_calls: [],
+    });
+    renderScreen();
+
+    // Open the Earning Power popover by clicking its "?" info button.
+    const infoButton = screen.getByRole("button", {
+      name: /What is Earning Power/,
+    });
+    fireEvent.click(infoButton);
+
+    // Click the "Ask Gemma about this" CTA inside the popover (testid:
+    // btn-ask-stat-ern).
+    const askCta = screen.getByTestId("btn-ask-stat-ern");
+    fireEvent.click(askCta);
+
+    // Chat dialog opens.
+    await waitFor(() => {
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+    });
+
+    // The scope chip carries the alias "Earning Power".
+    const chip = screen.getByTestId("chip-chat-scope");
+    expect(chip.textContent).toContain("Earning Power");
+
+    // Send a message to capture the scope payload that reaches askGemma.
+    fireEvent.change(screen.getByTestId("input-chat"), {
+      target: { value: "Why is this so low?" },
+    });
+    fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+    await waitFor(() => {
+      expect(mockAskGemma).toHaveBeenCalledTimes(1);
+    });
+    const scope = mockAskGemma.mock.calls[0]![0] as {
+      kind: string;
+      target_id: string;
+      build_ids: string[];
+    };
+    expect(scope.kind).toBe("stat");
+    expect(scope.target_id).toBe("ERN");
+    expect(scope.build_ids).toEqual(["test-build-1"]);
+  });
+});
+
+describe("BuildResultsScreen -- per-boss ask dispatches boss scope (P0)", () => {
+  it("opens the chat with kind=boss and target_id=burnout when btn-ask-boss-burnout is clicked", async () => {
+    // The btn-ask-boss-{id} button is gated on the boss band's
+    // ``isRevealed`` state, which the screen flips when the band
+    // intersects the viewport. jsdom's IntersectionObserver stub
+    // doesn't fire callbacks, so we install a one-shot stub that
+    // immediately reports every observed band as intersecting.
+    const originalIO = globalThis.IntersectionObserver;
+    class IOImmediate {
+      readonly root: Element | null = null;
+      readonly rootMargin: string = "";
+      readonly thresholds: ReadonlyArray<number> = [];
+      private cb: IntersectionObserverCallback;
+      constructor(cb: IntersectionObserverCallback) {
+        this.cb = cb;
+      }
+      observe(target: Element) {
+        // Fire intersection synchronously so the screen's
+        // triggerReveal queues every band immediately.
+        this.cb(
+          [{ isIntersecting: true, target } as unknown as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+    }
+    globalThis.IntersectionObserver =
+      IOImmediate as unknown as typeof IntersectionObserver;
+
+    try {
+      seedWithBuild();
+      mockAskGemma.mockResolvedValue({
+        response: "Burnout depends on the work mix.",
+        tool_calls: [],
+      });
+      renderScreen();
+
+      // Advance fake timers so the reveal queue can flush. The screen's
+      // VS animation chain uses setTimeout under the hood; the queue
+      // marks bands revealed shortly after intersect.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      // Look for the burnout boss-ask button. It only renders after the
+      // burnout band has been revealed.
+      const askButton = await screen.findByTestId(
+        "btn-ask-boss-burnout",
+        {},
+        { timeout: 4000 },
+      );
+      fireEvent.click(askButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "What drives burnout here?" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      await waitFor(() => {
+        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      });
+      const scope = mockAskGemma.mock.calls[0]![0] as {
+        kind: string;
+        target_id: string;
+      };
+      expect(scope.kind).toBe("boss");
+      expect(scope.target_id).toBe("burnout");
+    } finally {
+      globalThis.IntersectionObserver = originalIO;
+    }
+  });
+});
+
+describe("BuildResultsScreen -- per-skill ask dispatches skill scope (P0)", () => {
+  it("opens the chat with kind=skill and target_id=<skill.id> when btn-ask-skill-{id} is clicked", async () => {
+    // Use a build with the loans loss so the skill grid renders for
+    // selection. The default fixture's skill_pool has id=sk1.
+    seedWithBuild();
+    mockAskGemma.mockResolvedValue({
+      response: "Part-time work shifts the math by year 2.",
+      tool_calls: [],
+    });
+    renderScreen();
+
+    // Skill ask buttons live inside the boss band's reroll panel, which
+    // is only rendered for non-win results. The Loans boss has result
+    // "lose", so the skill grid renders. Wait for the button to appear.
+    const askButton = await screen.findByTestId("btn-ask-skill-sk1");
+    fireEvent.click(askButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId("input-chat"), {
+      target: { value: "Why this skill?" },
+    });
+    fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+    await waitFor(() => {
+      expect(mockAskGemma).toHaveBeenCalledTimes(1);
+    });
+    const scope = mockAskGemma.mock.calls[0]![0] as {
+      kind: string;
+      target_id: string;
+    };
+    expect(scope.kind).toBe("skill");
+    expect(scope.target_id).toBe("sk1");
+  });
+});
+
+describe("BuildResultsScreen -- FAB dispatches build scope (P0)", () => {
+  it("opens the chat with kind=build when the sticky FAB is clicked", async () => {
+    seedWithBuild();
+    mockAskGemma.mockResolvedValue({
+      response: "Berkeley CS works out on cost over 10 years.",
+      tool_calls: [],
+    });
+    renderScreen();
+
+    // The FAB renders once a build is loaded. data-testid=btn-ask-build.
+    const fab = screen.getByTestId("btn-ask-build");
+    fireEvent.click(fab);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId("input-chat"), {
+      target: { value: "Walk me through the whole thing." },
+    });
+    fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+    await waitFor(() => {
+      expect(mockAskGemma).toHaveBeenCalledTimes(1);
+    });
+    const scope = mockAskGemma.mock.calls[0]![0] as {
+      kind: string;
+      build_ids: string[];
+    };
+    expect(scope.kind).toBe("build");
+    expect(scope.build_ids).toEqual(["test-build-1"]);
   });
 });
 

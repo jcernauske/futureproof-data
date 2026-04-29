@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.routers import (
+    ask_gemma_router,
     branches,
     builds,
     builds_collection,
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
         sessions.router, prefix="/session", tags=["Session"]
     )
     application.include_router(reports.router, tags=["Reports"])
+    application.include_router(ask_gemma_router.router, tags=["AskGemma"])
 
     @application.on_event("startup")
     async def startup():

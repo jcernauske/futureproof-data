@@ -191,6 +191,32 @@ const STRINGS: Record<AppLocale, Record<string, string>> = {
     // Chat
     "chat.tryOne": "Try one of these:",
     "chat.placeholder": "Ask anything about your build...",
+    "chat.askAboutThis": "Ask Gemma about this",
+    "chat.askAboutBuild": "Ask Gemma about your whole build",
+    "chat.compareEntry": "Chat with Gemma about this comparison",
+    "chat.opener.skeleton.reading": "Gemma is reading your career path…",
+    "chat.opener.skeleton.thinking": "Gemma is thinking about {branch}…",
+    "tree.showMap": "Show map",
+    "tree.hideMap": "Hide map",
+    "tree.seeData": "See the data for {branch}",
+    "tree.hideData": "Hide the data for {branch}",
+    "tree.starterRoot.safest": "What's the safest path?",
+    "tree.starterRoot.bestPay": "Which branch pays best long-term?",
+    "tree.starterRoot.management": "What if I went into management?",
+    "tree.starterRoot.aiChange": "What if AI changes everything?",
+    "tree.starterBranch.risky": "Why is this branch risky for me?",
+    "tree.starterBranch.learn": "What would I need to learn?",
+    "tree.starterBranch.timeline": "How long until I'd see the upside?",
+    "tree.starterBranch.wrong": "What if I'm wrong about this?",
+
+    // Per-boss "Ask why" button labels (voice-contract clean —
+    // never "boss", never "fight", never "won/lost").
+    "boss.askWhy.passed": "✦ Why this passed",
+    "boss.askWhy.didntPass": "✦ Why this didn't pass",
+    "boss.askWhy.borderline": "✦ Why this is borderline",
+    "boss.askWhy.aria.passed": "Ask Gemma why this risk passed",
+    "boss.askWhy.aria.didntPass": "Ask Gemma why this risk did not pass",
+    "boss.askWhy.aria.borderline": "Ask Gemma why this risk is borderline",
   },
   es: {
     // Profile
@@ -382,6 +408,30 @@ const STRINGS: Record<AppLocale, Record<string, string>> = {
     // Chat
     "chat.tryOne": "Prueba una de estas:",
     "chat.placeholder": "Pregunta lo que quieras sobre tu perfil...",
+    "chat.askAboutThis": "Pregúntale a Gemma sobre esto",
+    "chat.askAboutBuild": "Pregúntale a Gemma sobre tu perfil completo",
+    "chat.compareEntry": "Conversa con Gemma sobre esta comparación",
+    "chat.opener.skeleton.reading": "Gemma está leyendo tu camino…",
+    "chat.opener.skeleton.thinking": "Gemma está pensando en {branch}…",
+    "tree.showMap": "Ver el mapa",
+    "tree.hideMap": "Ocultar el mapa",
+    "tree.seeData": "Ver los datos de {branch}",
+    "tree.hideData": "Ocultar los datos de {branch}",
+    "tree.starterRoot.safest": "¿Cuál es el camino más seguro?",
+    "tree.starterRoot.bestPay": "¿Qué rama paga mejor a largo plazo?",
+    "tree.starterRoot.management": "¿Y si me dirijo a la gerencia?",
+    "tree.starterRoot.aiChange": "¿Y si la IA lo cambia todo?",
+    "tree.starterBranch.risky": "¿Por qué esta rama es arriesgada para mí?",
+    "tree.starterBranch.learn": "¿Qué necesitaría aprender?",
+    "tree.starterBranch.timeline": "¿Cuánto hasta ver el beneficio?",
+    "tree.starterBranch.wrong": "¿Y si me equivoco con esto?",
+
+    "boss.askWhy.passed": "✦ Por qué pasó",
+    "boss.askWhy.didntPass": "✦ Por qué no pasó",
+    "boss.askWhy.borderline": "✦ Por qué quedó en el límite",
+    "boss.askWhy.aria.passed": "Pregúntale a Gemma por qué pasó este riesgo",
+    "boss.askWhy.aria.didntPass": "Pregúntale a Gemma por qué no pasó este riesgo",
+    "boss.askWhy.aria.borderline": "Pregúntale a Gemma por qué este riesgo quedó en el límite",
   },
 } as const;
 

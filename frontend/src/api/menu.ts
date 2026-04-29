@@ -96,6 +96,32 @@ export interface ChatHistoryItem {
   content: string;
 }
 
+// ---------------------------------------------------------------------------
+// Ask Gemma — scope-aware chat (POST /chat/ask).
+// Mirrors the backend AskScope discriminated union (models/api.py).
+// ---------------------------------------------------------------------------
+
+export type AskStatTarget = "ERN" | "ROI" | "RES" | "GRW" | "HMN";
+export type AskBossTarget =
+  | "ai"
+  | "loans"
+  | "market"
+  | "burnout"
+  | "ceiling";
+
+export type AskScope =
+  | { kind: "stat"; build_ids: [string]; target_id: AskStatTarget }
+  | { kind: "boss"; build_ids: [string]; target_id: AskBossTarget }
+  | { kind: "skill"; build_ids: [string]; target_id: string }
+  | { kind: "build"; build_ids: [string]; target_id?: null }
+  | { kind: "compare"; build_ids: string[]; target_id?: null }
+  | { kind: "branch"; build_ids: [string]; target_id: string };
+
+export interface AskResponse {
+  response: string;
+  tool_calls: { tool: string; ok: boolean; duration_ms: number }[];
+}
+
 export async function listBuilds(profileName?: string): Promise<BuildSummary[]> {
   if (USE_MOCK) return mockListBuilds(profileName ?? "");
   const query = profileName
@@ -127,4 +153,22 @@ export async function sendChat(
     { message, history, locale: locale ?? undefined },
   );
   return res.response;
+}
+
+export async function askGemma(
+  scope: AskScope,
+  message: string,
+  history: ChatHistoryItem[],
+  locale?: string,
+): Promise<AskResponse> {
+  if (USE_MOCK) {
+    const text = await mockChat(message, history);
+    return { response: text, tool_calls: [] };
+  }
+  return apiPost<AskResponse>("/chat/ask", {
+    scope,
+    message,
+    history,
+    locale: locale ?? undefined,
+  });
 }

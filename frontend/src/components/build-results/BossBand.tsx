@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { BossFightResult, AppliedSkill, BossOutcome } from "@/types/build";
+import type { BossFightResult, AppliedSkill, BossOutcome, BossId } from "@/types/build";
 import { rerollFight, getFightWrapup } from "@/api/gauntlet";
 import { Button } from "@/components/ui/Button";
 import { BOSS_META, RESULT_COLORS } from "./bossData";
@@ -24,6 +24,29 @@ const RESULT_FLAVOR_KEYS: Record<BossOutcome, string> = {
   unknown: "",
 };
 
+// Voice-contract-clean i18n keys for the per-boss "Ask why" button.
+// See docs/specs/feature-ask-gemma.md §3 entry point #2.
+const ASK_BOSS_LABEL_KEYS: Record<BossOutcome, string> = {
+  win: "boss.askWhy.passed",
+  lose: "boss.askWhy.didntPass",
+  draw: "boss.askWhy.borderline",
+  unknown: "boss.askWhy.borderline",
+};
+const ASK_BOSS_ARIA_KEYS: Record<BossOutcome, string> = {
+  win: "boss.askWhy.aria.passed",
+  lose: "boss.askWhy.aria.didntPass",
+  draw: "boss.askWhy.aria.borderline",
+  unknown: "boss.askWhy.aria.borderline",
+};
+// Result-aware border tint (8% alpha — reads as warmth, not signal).
+// Uses the existing --shadow-glow-* RGB triplets from DESIGN.md.
+const RESULT_BORDER_TINT: Record<BossOutcome, string> = {
+  win: "rgba(125, 212, 163, 0.08)",
+  lose: "rgba(244, 169, 126, 0.08)",
+  draw: "rgba(242, 212, 119, 0.08)",
+  unknown: "rgba(255, 255, 255, 0.08)",
+};
+
 interface BossBandProps {
   fight: BossFightResult;
   buildId: string;
@@ -38,6 +61,13 @@ interface BossBandProps {
   isVsDone: boolean;
   isSealedVisible: boolean;
   onReveal?: () => void;
+  /** When set, renders the per-boss "Ask why" button in the result
+   * column and the per-skill ask icon-buttons in the reroll grid. */
+  onAskBoss?: (bossId: BossId) => void;
+  onAskSkill?: (skillId: string) => void;
+  /** When the chat is already open, ask buttons are disabled
+   * (opacity reduced) to prevent double-fire. */
+  chatOpen?: boolean;
 }
 
 const STAT_DELTAS: { key: string; field: keyof AppliedSkill; signMultiplier?: number }[] = [
@@ -64,6 +94,9 @@ export function BossBand({
   isVsDone,
   isSealedVisible,
   onReveal,
+  onAskBoss,
+  onAskSkill,
+  chatOpen = false,
 }: BossBandProps) {
   const t = useT();
   const boss = BOSS_META[fight.boss];
@@ -354,7 +387,7 @@ export function BossBand({
           </div>
 
           {/* Result zone */}
-          <div className="flex-shrink-0 text-right">
+          <div className="flex-shrink-0 flex flex-col items-end gap-1.5 text-right">
             <div
               className="font-display font-bold uppercase"
               style={{
@@ -370,6 +403,29 @@ export function BossBand({
             <div className="font-body text-text-muted" style={{ fontSize: 12, marginTop: 2 }}>
               {RESULT_FLAVOR_KEYS[localResult] ? t(RESULT_FLAVOR_KEYS[localResult]) : ""}
             </div>
+            {isRevealed && onAskBoss && (
+              <button
+                type="button"
+                onClick={() => onAskBoss(fight.boss)}
+                disabled={chatOpen}
+                data-testid={`btn-ask-boss-${fight.boss}`}
+                aria-label={t(ASK_BOSS_ARIA_KEYS[localResult])}
+                className={[
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+                  "bg-bp-raised/60 border font-body text-small font-semibold text-text-secondary",
+                  "hover:bg-bp-surface hover:border-border hover:text-text-primary",
+                  "active:scale-[0.97]",
+                  "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                  "transition-all duration-fast",
+                  "cursor-pointer",
+                ].join(" ")}
+                style={{ borderColor: RESULT_BORDER_TINT[localResult] }}
+              >
+                <span aria-hidden className="text-accent-insight">✦</span>
+                {t(ASK_BOSS_LABEL_KEYS[localResult])}
+              </button>
+            )}
           </div>
         </div>
 
@@ -425,11 +481,18 @@ export function BossBand({
             >
               {availableSkills.map((skill) => {
                 const isSelected = selectedSkills.has(skill.id);
+                // The skill card is the selection target. We use a
+                // div role=button (instead of <button>) so we can nest
+                // a real ask icon-button inside without violating
+                // button-in-button HTML semantics. Keyboard activation
+                // (Enter/Space → toggleSkill) is wired explicitly.
                 return (
-                  <button
+                  <div
                     key={skill.id}
-                    type="button"
-                    className="relative text-left rounded-[14px] border cursor-pointer select-none transition-all duration-150"
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    className="relative text-left rounded-[14px] border cursor-pointer select-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     style={{
                       padding: "12px 14px",
                       minHeight: 72,
@@ -440,6 +503,12 @@ export function BossBand({
                         : undefined,
                     }}
                     onClick={() => toggleSkill(skill.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleSkill(skill.id);
+                      }
+                    }}
                   >
                     <div className="font-display font-semibold text-text-primary pr-16" style={{ fontSize: 14 }}>
                       {skill.title}
@@ -453,6 +522,31 @@ export function BossBand({
                         return val !== 0 ? <SkillStatBadge key={key} stat={key} delta={val} /> : null;
                       })}
                     </div>
+                    {onAskSkill && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAskSkill(skill.id);
+                        }}
+                        disabled={chatOpen}
+                        data-testid={`btn-ask-skill-${skill.id}`}
+                        aria-label={`Ask Gemma about ${skill.title}`}
+                        className={[
+                          "absolute top-3 right-10 -m-2 p-2",
+                          "w-6 h-6 box-content flex items-center justify-center rounded-full",
+                          "bg-bp-deep/80 border border-border-subtle",
+                          "hover:bg-state-loading hover:border-accent-insight/40 hover:scale-110",
+                          "active:scale-100",
+                          "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
+                          "disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100",
+                          "transition-all duration-fast",
+                          "cursor-pointer",
+                        ].join(" ")}
+                      >
+                        <span aria-hidden className="text-accent-insight text-[12px]">✦</span>
+                      </button>
+                    )}
                     <div
                       className="absolute top-3 right-3 flex-shrink-0 rounded-full flex items-center justify-center"
                       style={{
@@ -469,7 +563,7 @@ export function BossBand({
                         </svg>
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

@@ -313,3 +313,32 @@ export const branchTree = {
   /** Endpoint glow pulse duration. */
   endpointPulseDuration: 0.15,
 } as const;
+
+/**
+ * Branch tree node highlight pulse — fires when Gemma names a branch in
+ * chat. Attentional, not celebratory; the metaphor is a soft pulse like
+ * a nav reveal, not a victory burst. ~600ms total: bloom (0→0.42s) +
+ * settle (0.42→1.0s). Color is ``accent-info`` so the flash reads as
+ * "Gemma pointing" — same identity as the chat send button.
+ *
+ * Reduced motion: consumer must gate on ``useReducedMotion()`` and
+ * substitute an 80ms opacity blink (no scale, no glow).
+ */
+export const branchFlash = {
+  animate: {
+    scale: [1, 1.06, 1] as number[],
+    boxShadow: [
+      "0 0 0 rgba(123, 184, 224, 0)",
+      "0 0 24px rgba(123, 184, 224, 0.55)",
+      "0 0 0 rgba(123, 184, 224, 0)",
+    ] as string[],
+  },
+  transition: {
+    duration: 0.6,
+    times: [0, 0.42, 1] as number[],
+    ease: "easeInOut" as const,
+  },
+} as const;
+
+/** Stagger between multi-match highlights (one Gemma response naming several branches). */
+export const branchFlashStagger = 0.2;

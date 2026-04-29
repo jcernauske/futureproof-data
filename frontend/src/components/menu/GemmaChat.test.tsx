@@ -14,15 +14,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { GemmaChat } from "./GemmaChat";
-import type { BuildSummary } from "@/api/menu";
+import type { AskScope, BuildSummary } from "@/api/menu";
 
 const mockSendChat = vi.fn();
+const mockAskGemma = vi.fn();
 vi.mock("@/api/menu", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
   return {
     ...actual,
     sendChat: (...args: unknown[]) => mockSendChat(...args),
+    askGemma: (...args: unknown[]) => mockAskGemma(...args),
   };
 });
 
@@ -49,6 +51,7 @@ function makeBuild(overrides: Partial<BuildSummary> = {}): BuildSummary {
 
 beforeEach(() => {
   mockSendChat.mockReset();
+  mockAskGemma.mockReset();
 });
 
 describe("GemmaChat", () => {
@@ -177,6 +180,341 @@ describe("GemmaChat", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Gemma is napping")).toBeInTheDocument();
+    });
+  });
+
+  // ===========================================================================
+  // Ask Gemma — scope-aware path (docs/specs/feature-ask-gemma.md §4 P0).
+  // ===========================================================================
+
+  describe("scope prop routes to askGemma() instead of sendChat() (P0)", () => {
+    it("calls askGemma with the scope when scope is set", async () => {
+      const scope: AskScope = {
+        kind: "stat",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "ERN",
+      };
+      mockAskGemma.mockResolvedValue({
+        response: "Earnings start strong here.",
+        tool_calls: [],
+      });
+
+      render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scope}
+          chipText="Asking about: Earning Power"
+          onClose={() => {}}
+        />,
+      );
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "Why is this so low?" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      await waitFor(() => {
+        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      });
+      // sendChat must NOT have been called when scope is set.
+      expect(mockSendChat).not.toHaveBeenCalled();
+
+      // Args: (scope, message, history, locale)
+      expect(mockAskGemma).toHaveBeenCalledWith(
+        scope,
+        "Why is this so low?",
+        [],
+        "en",
+      );
+
+      // Render the response.
+      await waitFor(() => {
+        expect(screen.getByText("Earnings start strong here.")).toBeInTheDocument();
+      });
+    });
+
+    it("works for compare scope without a build prop", async () => {
+      const scope: AskScope = {
+        kind: "compare",
+        build_ids: ["berkeley-cs-001", "iu-bloom-mkt-001"],
+      };
+      mockAskGemma.mockResolvedValue({
+        response: "Side-by-side, the cost gap is real.",
+        tool_calls: [],
+      });
+
+      // No build prop — compare scope is the only one with N>1 build_ids.
+      render(
+        <GemmaChat
+          open={true}
+          build={null}
+          scope={scope}
+          chipText="Comparing: UC Berkeley vs IU Bloomington"
+          onClose={() => {}}
+        />,
+      );
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "Which one wins on cost?" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      await waitFor(() => {
+        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      });
+      expect(mockAskGemma.mock.calls[0]![0]).toEqual(scope);
+    });
+  });
+
+  describe("scope chip renders per kind (P0)", () => {
+    const cases: Array<{ kind: AskScope["kind"]; chipText: string; scope: AskScope }> = [
+      {
+        kind: "stat",
+        chipText: "Asking about: AI Resilience",
+        scope: { kind: "stat", build_ids: ["b1"], target_id: "RES" },
+      },
+      {
+        kind: "boss",
+        chipText: "Asking why this risk did not pass: AI",
+        scope: { kind: "boss", build_ids: ["b1"], target_id: "ai" },
+      },
+      {
+        kind: "skill",
+        chipText: "Asking about: AI/ML elective track",
+        scope: { kind: "skill", build_ids: ["b1"], target_id: "sk1" },
+      },
+      {
+        kind: "build",
+        chipText: "Asking about your whole build",
+        scope: { kind: "build", build_ids: ["b1"] },
+      },
+      {
+        kind: "compare",
+        chipText: "Comparing: UC Berkeley vs IU Bloomington",
+        scope: { kind: "compare", build_ids: ["b1", "b2"] },
+      },
+    ];
+
+    it.each(cases)(
+      "renders chip-chat-scope with the chip text for kind=$kind",
+      ({ kind, chipText, scope }) => {
+        render(
+          <GemmaChat
+            open={true}
+            build={makeBuild()}
+            scope={scope}
+            chipText={chipText}
+            onClose={() => {}}
+          />,
+        );
+
+        const chip = screen.getByTestId("chip-chat-scope");
+        expect(chip).toBeInTheDocument();
+        expect(chip).toHaveTextContent(chipText);
+        // The legacy "Context: …" line must not also render — the chip
+        // replaces it (the spec is binding here, voice-contract aligned).
+        expect(chip.textContent ?? "").not.toMatch(/^Context:/);
+        // Sanity check: the chip is present for every kind.
+        expect(kind).toBeTruthy();
+      },
+    );
+  });
+
+  // ===========================================================================
+  // variant prop — feature-tree-as-map.md §4. Embedded variant for
+  // /branch-tree, slide-in variant (default) for /menu and /my-build.
+  // ===========================================================================
+
+  describe("variant prop (feature-tree-as-map.md §4)", () => {
+    it("test_variant_embedded_no_slide_in_no_backdrop: embedded renders inline, no dialog, no backdrop", () => {
+      const scope: AskScope = {
+        kind: "branch",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "15-1252",
+      };
+      mockAskGemma.mockReturnValue(new Promise(() => {}));
+
+      const { container } = render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scope}
+          chipText="branch · root"
+          variant="embedded"
+          openerPrompt="Tell me about my career path."
+        />,
+      );
+
+      // Embedded variant uses panel-branch-chat region; slide-in uses
+      // dialog-chat. The two are mutually exclusive.
+      expect(screen.getByTestId("panel-branch-chat")).toBeInTheDocument();
+      expect(screen.queryByTestId("dialog-chat")).toBeNull();
+
+      // No close-button affordance in embedded mode (chat is always
+      // visible, owned by the surrounding screen).
+      expect(screen.queryByLabelText("Close chat")).toBeNull();
+
+      // No backdrop element. The slide-in variant mounts a
+      // ``fixed inset-0 ... bg-bp-void/60`` backdrop that the embedded
+      // variant deliberately omits — the chat lives inside the page
+      // grid, not over it.
+      const backdrop = container.querySelector(
+        "[class*='bg-bp-void/60'][class*='fixed inset-0']",
+      );
+      expect(backdrop).toBeNull();
+    });
+
+    it("test_variant_slide_in_default_unchanged: undefined and explicit 'slide-in' both render the legacy panel", () => {
+      // Default (no variant prop).
+      const { unmount: unmountA } = render(
+        <GemmaChat open={true} build={makeBuild()} onClose={() => {}} />,
+      );
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+      expect(screen.queryByTestId("panel-branch-chat")).toBeNull();
+      unmountA();
+
+      // Explicit "slide-in".
+      render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          variant="slide-in"
+          onClose={() => {}}
+        />,
+      );
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+      expect(screen.queryByTestId("panel-branch-chat")).toBeNull();
+    });
+
+    it("embedded variant auto-fires the opener via askGemma when scope is set", async () => {
+      const scope: AskScope = {
+        kind: "branch",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "15-1252",
+      };
+      mockAskGemma.mockResolvedValue({
+        response: "You're at the root of your career path.",
+        tool_calls: [],
+      });
+
+      render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scope}
+          chipText="branch · root"
+          variant="embedded"
+          openerPrompt="Give me a 3-sentence orientation."
+          skeletonHint="Gemma is reading your career path…"
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      });
+      // The opener fires with the openerPrompt as the user message and
+      // empty history (this is what triggers the backend's tools-disabled
+      // opener path).
+      const args = mockAskGemma.mock.calls[0]!;
+      expect(args[0]).toEqual(scope);
+      expect(args[1]).toBe("Give me a 3-sentence orientation.");
+      expect(args[2]).toEqual([]);
+
+      // The opener response renders.
+      await waitFor(() => {
+        expect(
+          screen.getByText("You're at the root of your career path."),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("embedded variant: scope.target_id change re-fires the opener and clears prior history", async () => {
+      const scopeRoot: AskScope = {
+        kind: "branch",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "15-1252",
+      };
+      const scopeBranch: AskScope = {
+        kind: "branch",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "11-3021",
+      };
+
+      mockAskGemma.mockResolvedValueOnce({
+        response: "Root opener text.",
+        tool_calls: [],
+      });
+
+      const { rerender } = render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scopeRoot}
+          chipText="branch · root"
+          variant="embedded"
+          openerPrompt="orient me"
+        />,
+      );
+      await waitFor(() => {
+        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      });
+      await waitFor(() => {
+        expect(screen.getByText("Root opener text.")).toBeInTheDocument();
+      });
+
+      // Switch branches → second opener fires; prior history clears.
+      mockAskGemma.mockResolvedValueOnce({
+        response: "Manager-branch opener text.",
+        tool_calls: [],
+      });
+      rerender(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scopeBranch}
+          chipText="branch · Computer and Information Systems Managers"
+          variant="embedded"
+          openerPrompt="orient me on this branch"
+        />,
+      );
+
+      await waitFor(() => {
+        expect(mockAskGemma).toHaveBeenCalledTimes(2);
+      });
+      await waitFor(() => {
+        expect(screen.getByText("Manager-branch opener text.")).toBeInTheDocument();
+      });
+      // Prior-branch text is gone (history cleared on scope change).
+      expect(screen.queryByText("Root opener text.")).toBeNull();
+    });
+  });
+
+  describe("legacy no-scope path is unchanged (P0)", () => {
+    it("calls sendChat (not askGemma) when scope is undefined", async () => {
+      mockSendChat.mockResolvedValue("legacy response");
+
+      render(<GemmaChat open={true} build={makeBuild()} onClose={() => {}} />);
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "legacy question" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      await waitFor(() => {
+        expect(mockSendChat).toHaveBeenCalledTimes(1);
+      });
+      expect(mockAskGemma).not.toHaveBeenCalled();
+    });
+
+    it("renders the legacy contextLine chip (not chip-chat-scope) when scope is undefined", () => {
+      render(<GemmaChat open={true} build={makeBuild()} onClose={() => {}} />);
+
+      // The legacy chip carries the "Context: SCHOOL · CAREER · W/L" line.
+      // The new scope chip (data-testid=chip-chat-scope) must be absent.
+      expect(screen.queryByTestId("chip-chat-scope")).toBeNull();
+      // The legacy chip text contains the school name from the build.
+      expect(screen.getByText(/UC Berkeley/)).toBeInTheDocument();
     });
   });
 });

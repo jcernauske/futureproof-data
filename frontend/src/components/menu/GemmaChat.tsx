@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
-import { sendChat, type ChatHistoryItem, type BuildSummary } from "@/api/menu";
+import {
+  askGemma,
+  sendChat,
+  type AskScope,
+  type ChatHistoryItem,
+  type BuildSummary,
+} from "@/api/menu";
 import { ChatMessage } from "@/components/menu/ChatMessage";
 import { useProfileStore } from "@/store/profileStore";
 import { useT } from "@/i18n/useT";
@@ -9,7 +15,47 @@ import { useT } from "@/i18n/useT";
 interface GemmaChatProps {
   open: boolean;
   build: BuildSummary | null;
-  onClose: () => void;
+  /**
+   * When set, the chat routes to POST /chat/ask with this discriminated
+   * scope. When undefined, falls back to the legacy POST /build/{id}/chat
+   * path (preserving the MenuScreen "Ask Gemma" entry point's behavior).
+   */
+  scope?: AskScope;
+  /**
+   * Pre-computed scope-chip text to render in the header (replaces the
+   * legacy contextLine when present). The parent screen owns the
+   * mapping per the §3 alias table so the chip never breaches the
+   * voice contract.
+   */
+  chipText?: string;
+  /**
+   * Presentation variant. ``"slide-in"`` (default) renders the existing
+   * right-side panel with backdrop and close button. ``"embedded"``
+   * renders inline with no slide-in animation, no backdrop, no close
+   * button — chat is always visible inside the parent column.
+   */
+  variant?: "slide-in" | "embedded";
+  /**
+   * Optional skeleton hint rendered beneath the typing dots while a
+   * response is in flight. Used by the embedded variant on first paint
+   * to surface the "Gemma is reading your career path…" line.
+   */
+  skeletonHint?: string;
+  /**
+   * Optional opener message — when set and the scope changes, the
+   * embedded chat auto-fires this message as the first user turn so the
+   * screen can drive the bidirectional binding (BranchTreeScreen).
+   * Ignored in slide-in mode.
+   */
+  openerPrompt?: string;
+  /**
+   * Notified after every assistant response resolves (success or
+   * fallback). Lets the parent screen subscribe to chat output for
+   * presentational side-channels like BranchHighlightDriver.
+   */
+  onAssistantResponse?: (text: string) => void;
+  /** Optional close handler. Required for slide-in; ignored in embedded mode. */
+  onClose?: () => void;
 }
 
 const STARTERS = [
@@ -18,7 +64,17 @@ const STARTERS = [
   "What if I add a minor?",
 ];
 
-export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
+export function GemmaChat({
+  open,
+  build,
+  scope,
+  chipText,
+  variant = "slide-in",
+  skeletonHint,
+  openerPrompt,
+  onAssistantResponse,
+  onClose,
+}: GemmaChatProps) {
   const t = useT();
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [draft, setDraft] = useState("");
@@ -27,10 +83,25 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // Bumps on every panel close (and unmount) so in-flight sendChat
   // resolutions know they're stale and skip their state writes.
+  // In embedded mode, also bumps on every ``scope.target_id`` change
+  // so a stale opener for the prior branch is dropped on arrival
+  // (fp-architect Concerns: latency budget on the rapid-click path).
   const sessionRef = useRef(0);
+  const embedded = variant === "embedded";
+  const scopeTargetKey = scope ? `${scope.kind}:${scope.target_id ?? ""}` : "";
 
   // Reset conversation when the panel closes (chat is ephemeral by spec).
+  // In embedded mode the panel is always "open" — bump on scope change
+  // instead so rapid branch switches drop stale openers.
   useEffect(() => {
+    if (embedded) {
+      sessionRef.current += 1;
+      setHistory([]);
+      setDraft("");
+      setError(null);
+      setSending(false);
+      return;
+    }
     if (!open) {
       sessionRef.current += 1;
       setHistory([]);
@@ -38,7 +109,7 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
       setError(null);
       setSending(false);
     }
-  }, [open]);
+  }, [open, embedded, scopeTargetKey]);
 
   useEffect(() => {
     return () => {
@@ -59,8 +130,49 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
     ? `Context: ${build.school_name} · ${build.career_title} · ${wlcd}`
     : "";
 
+  // Auto-fire the opener in embedded mode when scope changes. The
+  // opener prompt is sent over the wire but never shown to the
+  // student — only the assistant response renders. The screen owns
+  // debouncing, so we fire on every scopeTargetKey change without
+  // a delay here.
+  useEffect(() => {
+    if (!embedded || !scope || !openerPrompt) return;
+    let cancelled = false;
+    const session = sessionRef.current;
+    setSending(true);
+    setError(null);
+    (async () => {
+      try {
+        const locale = useProfileStore.getState().locale;
+        const result = await askGemma(scope, openerPrompt, [], locale);
+        if (cancelled || sessionRef.current !== session) return;
+        setHistory([{ role: "assistant", content: result.response }]);
+        onAssistantResponse?.(result.response);
+      } catch (e) {
+        if (cancelled || sessionRef.current !== session) return;
+        setError(
+          e instanceof Error ? e.message : "Gemma couldn't respond.",
+        );
+      } finally {
+        if (!cancelled && sessionRef.current === session) {
+          setSending(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // scopeTargetKey re-fires on every scope.target_id change.
+    // openerPrompt is included so the screen can re-trigger by passing
+    // a new prompt without changing scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedded, scopeTargetKey, openerPrompt]);
+
   async function submit(message: string) {
-    if (!build || !message.trim() || sending) return;
+    if (!message.trim() || sending) return;
+    // The legacy sendChat path needs a build; the scoped askGemma path
+    // does not (compare scope has N build_ids).
+    if (!scope && !build) return;
     const trimmed = message.trim();
     setDraft("");
     setError(null);
@@ -76,18 +188,143 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
       // Pass the explicit prior-history snapshot rather than relying on
       // the closure-captured `history`, which would be stale if the user
       // races two submissions before the first await resolves.
-      const response = await sendChat(
-        build.build_id, trimmed, priorHistory,
-        useProfileStore.getState().locale,
-      );
+      const locale = useProfileStore.getState().locale;
+      let response: string;
+      if (scope) {
+        const result = await askGemma(scope, trimmed, priorHistory, locale);
+        response = result.response;
+      } else if (build) {
+        response = await sendChat(build.build_id, trimmed, priorHistory, locale);
+      } else {
+        return;
+      }
       if (sessionRef.current !== session) return;
       setHistory([...nextHistory, { role: "assistant", content: response }]);
+      onAssistantResponse?.(response);
     } catch (e) {
       if (sessionRef.current !== session) return;
       setError(e instanceof Error ? e.message : "Gemma couldn't respond.");
     } finally {
       if (sessionRef.current === session) setSending(false);
     }
+  }
+
+  if (embedded) {
+    return (
+      <section
+        role="region"
+        aria-label="Career path conversation with Gemma"
+        data-testid="panel-branch-chat"
+        className="bg-bp-mid border border-border-subtle rounded-xl flex flex-col h-[70vh] min-h-[400px]"
+      >
+        <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-subtle">
+          <div className="flex flex-col gap-1 min-w-0">
+            <h3 className="font-display font-semibold text-subheading text-text-primary">
+              Ask Gemma
+            </h3>
+            {scope && chipText ? (
+              <span
+                data-testid="chip-chat-scope"
+                aria-hidden="true"
+                title={chipText}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bp-surface border border-border-subtle font-body text-micro text-text-secondary self-start max-w-full"
+              >
+                <span aria-hidden className="text-accent-insight text-micro mr-0.5">
+                  ✦
+                </span>
+                <span className="truncate">{chipText}</span>
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
+        >
+          {history.map((m, i) => (
+            <ChatMessage key={i} message={m} />
+          ))}
+
+          {sending && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={springs.smooth}
+              className="flex flex-col"
+            >
+              <div className="flex items-start gap-2" data-testid="chat-loading">
+                <span
+                  aria-hidden
+                  className="shrink-0 mt-2 w-6 h-6 rounded-full bg-accent-insight/15 text-accent-insight flex items-center justify-center text-micro"
+                >
+                  ✦
+                </span>
+                <div className="px-4 py-3 bg-bp-deep rounded-lg rounded-tl-sm flex items-center gap-1.5">
+                  {[0, 1, 2].map((i) => (
+                    <motion.span
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-text-secondary"
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{
+                        duration: 1.2,
+                        repeat: Infinity,
+                        delay: i * 0.15,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              {skeletonHint && (
+                <p
+                  data-testid="skel-chat-opener"
+                  aria-label="Loading Gemma's read on your career path"
+                  className="font-body text-small text-text-muted mt-2 ml-9"
+                >
+                  {skeletonHint}
+                </p>
+              )}
+            </motion.div>
+          )}
+
+          {error && (
+            <p className="font-body text-small text-accent-alert">{error}</p>
+          )}
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit(draft);
+          }}
+          className="border-t border-border-subtle px-5 py-4 flex items-center gap-2"
+        >
+          <input
+            type="text"
+            data-testid="input-chat"
+            aria-label="Type a question"
+            placeholder={t("chat.placeholder")}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            disabled={(!build && !scope) || sending}
+            className="flex-1 h-11 px-4 bg-bp-deep border border-border rounded-md font-body text-body text-text-primary placeholder:text-text-muted focus:border-accent-info focus:outline-none focus:shadow-[0_0_0_3px_rgba(123,184,224,0.15)] transition-all duration-normal"
+          />
+          <button
+            type="submit"
+            data-testid="btn-chat-send"
+            aria-label="Send message"
+            disabled={!draft.trim() || sending || (!build && !scope)}
+            className={`shrink-0 w-11 h-11 rounded-md flex items-center justify-center font-body text-body-lg transition-colors duration-normal cursor-pointer disabled:cursor-not-allowed ${
+              draft.trim() && !sending
+                ? "bg-accent-thrive text-text-inverse hover:bg-[#6bc494]"
+                : "bg-bp-surface text-text-muted"
+            }`}
+          >
+            ↑
+          </button>
+        </form>
+      </section>
+    );
   }
 
   return (
@@ -125,14 +362,26 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
                 <h3 className="font-display font-semibold text-subheading text-text-primary">
                   Ask Gemma
                 </h3>
-                {build && (
+                {scope && chipText ? (
+                  <span
+                    data-testid="chip-chat-scope"
+                    aria-hidden="true"
+                    title={chipText}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-bp-surface border border-border-subtle font-body text-micro text-text-secondary self-start max-w-full"
+                  >
+                    <span aria-hidden className="text-accent-insight text-micro mr-0.5">
+                      ✦
+                    </span>
+                    <span className="truncate">{chipText}</span>
+                  </span>
+                ) : build ? (
                   <span
                     className="font-body text-micro text-text-muted px-2.5 py-1 rounded-sm bg-bp-surface inline-block self-start truncate max-w-full"
                     title={contextLine}
                   >
                     {contextLine}
                   </span>
-                )}
+                ) : null}
               </div>
               <button
                 type="button"
@@ -234,14 +483,14 @@ export function GemmaChat({ open, build, onClose }: GemmaChatProps) {
                 placeholder={t("chat.placeholder")}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                disabled={!build || sending}
+                disabled={(!build && !scope) || sending}
                 className="flex-1 h-11 px-4 bg-bp-deep border border-border rounded-md font-body text-body text-text-primary placeholder:text-text-muted focus:border-accent-info focus:outline-none focus:shadow-[0_0_0_3px_rgba(123,184,224,0.15)] transition-all duration-normal"
               />
               <button
                 type="submit"
                 data-testid="btn-chat-send"
                 aria-label="Send message"
-                disabled={!draft.trim() || sending || !build}
+                disabled={!draft.trim() || sending || (!build && !scope)}
                 className={`shrink-0 w-11 h-11 rounded-md flex items-center justify-center font-body text-body-lg transition-colors duration-normal cursor-pointer disabled:cursor-not-allowed ${
                   draft.trim() && !sending
                     ? "bg-accent-thrive text-text-inverse hover:bg-[#6bc494]"

@@ -92,6 +92,84 @@ class ChatRequest(BaseModel):
     locale: AppLocale | None = None
 
 
+# ---------------------------------------------------------------------------
+# Ask Gemma — scope-aware chat surface (POST /chat/ask).
+# See docs/specs/feature-ask-gemma.md §4.
+# ---------------------------------------------------------------------------
+
+AskScopeKind = Literal["stat", "boss", "skill", "build", "compare", "branch"]
+
+
+class AskScope(BaseModel):
+    """Scope discriminator for POST /chat/ask.
+
+    - kind="stat": 1 build_id, target_id in ERN/ROI/RES/GRW/HMN
+    - kind="boss": 1 build_id, target_id in ai/loans/market/burnout/ceiling
+    - kind="skill": 1 build_id, target_id is the AppliedSkill.id
+    - kind="build": 1 build_id, target_id is None
+    - kind="compare": 2-4 build_ids, target_id is None
+    - kind="branch": 1 build_id, target_id is the branch's to_soc (or
+      the build's root soc_code for the anchor-at-root case). No
+      whitelist on the value — open-ended SOC codes; existence is
+      checked at the service layer.
+    """
+
+    kind: AskScopeKind
+    build_ids: list[str] = Field(min_length=1, max_length=4)
+    target_id: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_cardinality(self) -> "AskScope":
+        if self.kind == "compare":
+            if not (2 <= len(self.build_ids) <= 4):
+                raise ValueError("compare scope requires 2-4 build_ids")
+            if self.target_id is not None:
+                raise ValueError("compare scope must not set target_id")
+        else:
+            if len(self.build_ids) != 1:
+                raise ValueError(
+                    f"{self.kind} scope requires exactly 1 build_id"
+                )
+        if self.kind in ("stat", "boss", "skill", "branch"):
+            if not self.target_id:
+                raise ValueError(
+                    f"{self.kind} scope requires target_id"
+                )
+        if self.kind == "stat":
+            valid_stats = {"ERN", "ROI", "RES", "GRW", "HMN"}
+            if self.target_id not in valid_stats:
+                raise ValueError(
+                    f"stat target_id must be one of {sorted(valid_stats)}"
+                )
+        if self.kind == "boss":
+            valid_bosses = {"ai", "loans", "market", "burnout", "ceiling"}
+            if self.target_id not in valid_bosses:
+                raise ValueError(
+                    f"boss target_id must be one of {sorted(valid_bosses)}"
+                )
+        return self
+
+
+class AskRequest(BaseModel):
+    """POST /chat/ask request body."""
+
+    scope: AskScope
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[dict[str, Any]] = Field(default_factory=list)
+    locale: AppLocale | None = None
+
+
+class AskResponse(BaseModel):
+    """POST /chat/ask response body. ``tool_calls`` may be non-empty
+    even when ``response`` is the chat_unavailable fallback string —
+    e.g. when one tool call succeeded before Gemma's final turn failed.
+    The frontend ignores ``tool_calls``; it exists for telemetry and
+    the routing/E2E test that asserts dispatch fired."""
+
+    response: str
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class CompareRequest(BaseModel):
     build_ids: list[str] = Field(min_length=2, max_length=4)
 

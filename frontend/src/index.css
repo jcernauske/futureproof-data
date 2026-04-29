@@ -119,6 +119,24 @@
   50% { box-shadow: 0 0 36px rgba(123, 184, 224, 0.22); }
 }
 
+/* Ask Gemma FAB — heartbeat glow at slightly higher amplitude than
+ * card-breathe so the 56pt FAB reads at the same emotional register
+ * as the card glow despite the larger surface. See
+ * docs/specs/feature-ask-gemma.md §3 entry point #4. */
+@keyframes gemma-fab-breathe {
+  0%, 100% { box-shadow: 0 0 24px rgba(184, 169, 232, 0.30); }
+  50%      { box-shadow: 0 0 36px rgba(184, 169, 232, 0.45); }
+}
+.animate-gemma-fab-breathe {
+  animation: gemma-fab-breathe 4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-gemma-fab-breathe {
+    animation: none;
+    box-shadow: var(--shadow-glow-insight);
+  }
+}
+
 /* Marketing surface — Screenshot-pending pentagon dot pulse */
 @keyframes landing-pending-dot {
   0%, 100% { opacity: 0.35; transform: scale(1); }

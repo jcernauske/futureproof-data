@@ -371,6 +371,14 @@ All meaningful animations use Framer Motion spring physics, not CSS timing funct
 6. Particles begin drifting (t=3.0s)
 7. Total duration: 3.5s
 
+**Branch Flash (tree-as-map):**
+- `branchFlash` preset (`frontend/src/styles/motion.ts`) and matching CSS keyframe `branchFlashPulse` in `reactflow-dark.css`. Fires when Gemma names a branch in chat on `/branch-tree`.
+- Scale `1 → 1.06 → 1` over 600ms, glow `accent-info` rgba(123, 184, 224, 0 → 0.55 → 0). Times `[0, 0.42, 1]`. Attentional, not celebratory — the metaphor is a soft pulse like a nav reveal.
+- `branchFlashStagger = 0.2` (200ms) between multi-match highlights when one Gemma response names several branches.
+- Reduced-motion: 80ms opacity blink (no scale, no glow). Defined inline at the keyframe in `reactflow-dark.css`.
+
+**Tree-as-map node scale:** the `--branch-flow-node-scale` CSS variable in `reactflow-dark.css` controls the React Flow node scale when the tree is rendered as a context rail (the `/branch-tree` tree-as-map view). Default `1.0`; the screen wrapper sets `0.85` to dial down visual weight without forking the flow-node components. Activated by `data-compact="true"` on the `BranchTreeFlow` wrapper.
+
 ### CSS Keyframe Animations
 
 For effects that don't need spring physics. Defined in `index.css`:

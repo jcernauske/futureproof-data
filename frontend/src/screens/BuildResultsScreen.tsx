@@ -17,12 +17,24 @@ import { InstitutionCard } from "@/components/build-results/InstitutionCard";
 import { StatInfoPopover } from "@/components/build-results/StatInfoPopover";
 import { BossBand } from "@/components/build-results/BossBand";
 import { VerdictBadge } from "@/components/build-results/VerdictBadge";
-import { STAT_COLORS } from "@/components/build-results/bossData";
+import { BOSS_META, STAT_COLORS, STAT_INFO } from "@/components/build-results/bossData";
+import { GemmaChat } from "@/components/menu/GemmaChat";
+import { AskGemmaFab } from "@/components/menu/AskGemmaFab";
+import type { AskScope, AskStatTarget } from "@/api/menu";
 import type { StatKey } from "@/data/statExplanations";
 import { STAT_EXPLANATIONS } from "@/data/statExplanations";
 import { fireCheckpoint } from "@/lib/checkpoint";
 import { useT } from "@/i18n/useT";
-import type { BossFightResult } from "@/types/build";
+import type { BossFightResult, BossId, BossOutcome } from "@/types/build";
+
+// Voice-contract-clean chip text for the per-boss scope. Mirrors the
+// alias table in docs/specs/feature-ask-gemma.md §3.
+const BOSS_CHIP_PREFIX: Record<BossOutcome, string> = {
+  win: "Asking why this risk passed",
+  lose: "Asking why this risk did not pass",
+  draw: "Asking about a borderline risk",
+  unknown: "Asking about a borderline risk",
+};
 
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
 
@@ -38,6 +50,73 @@ export function BuildResultsScreen() {
   const [highlightStat, setHighlightStat] = useState<StatKey | null>(null);
   const [fights, setFights] = useState<BossFightResult[]>([]);
   const [consumedSkillIds, setConsumedSkillIds] = useState<Set<string>>(new Set());
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatScope, setChatScope] = useState<AskScope | null>(null);
+  const [chatChipText, setChatChipText] = useState<string>("");
+
+  const openChat = useCallback((scope: AskScope, chipText: string) => {
+    setChatScope(scope);
+    setChatChipText(chipText);
+    setChatOpen(true);
+  }, []);
+  const closeChat = useCallback(() => {
+    setChatOpen(false);
+  }, []);
+
+  const handleAskStat = useCallback(
+    (statLowercase: string) => {
+      if (!build) return;
+      const target = statLowercase.toUpperCase() as AskStatTarget;
+      const info = STAT_INFO[statLowercase];
+      const label = info?.title ?? statLowercase.toUpperCase();
+      openChat(
+        { kind: "stat", build_ids: [build.build_id], target_id: target },
+        `Asking about: ${label}`,
+      );
+    },
+    [build, openChat],
+  );
+
+  const handleAskBoss = useCallback(
+    (bossId: BossId) => {
+      if (!build) return;
+      const fight = fights.find((f) => f.boss === bossId);
+      const result: BossOutcome = fight?.result ?? "unknown";
+      const meta = BOSS_META[bossId];
+      const prefix = BOSS_CHIP_PREFIX[result];
+      openChat(
+        { kind: "boss", build_ids: [build.build_id], target_id: bossId },
+        `${prefix}: ${meta.shortName}`,
+      );
+    },
+    [build, fights, openChat],
+  );
+
+  const handleAskSkill = useCallback(
+    (skillId: string) => {
+      if (!build) return;
+      const allSkills = [
+        ...(build.skills_crafted ?? []),
+        ...(build.skill_pool ?? []),
+      ];
+      const skill = allSkills.find((s) => s.id === skillId);
+      const title = skill?.title ?? "this skill";
+      const truncated = title.length > 40 ? title.slice(0, 39).trimEnd() + "…" : title;
+      openChat(
+        { kind: "skill", build_ids: [build.build_id], target_id: skillId },
+        `Asking about: ${truncated}`,
+      );
+    },
+    [build, openChat],
+  );
+
+  const handleAskBuild = useCallback(() => {
+    if (!build) return;
+    openChat(
+      { kind: "build", build_ids: [build.build_id] },
+      "Asking about your whole build",
+    );
+  }, [build, openChat]);
 
   const cancelledRef = useRef(false);
 
@@ -614,6 +693,11 @@ export function BuildResultsScreen() {
                         stat={key}
                         isOpen={openPopover === key}
                         onClose={() => setOpenPopover(null)}
+                        onAsk={(statKey) => {
+                          setOpenPopover(null);
+                          handleAskStat(statKey);
+                        }}
+                        chatOpen={chatOpen}
                       />
                     </div>
                   );
@@ -659,6 +743,9 @@ export function BuildResultsScreen() {
                   isVsDone={vsDoneBands.has(fight.boss)}
                   isSealedVisible={visibleBands.has(fight.boss)}
                   onReveal={() => triggerReveal(fight.boss)}
+                  onAskBoss={handleAskBoss}
+                  onAskSkill={handleAskSkill}
+                  chatOpen={chatOpen}
                 />
               </div>
             ))}
@@ -718,6 +805,18 @@ export function BuildResultsScreen() {
           .save-section { margin-top: 32px !important; margin-bottom: 48px !important; }
         }
       `}</style>
+
+      {/* Ask Gemma — sticky FAB and the scope-aware chat panel.
+          The FAB is hidden when the chat is open (per §3 entry point #4).
+          GemmaChat handles its own AnimatePresence; we just toggle `open`. */}
+      <AskGemmaFab visible={!chatOpen && build !== null} onOpen={handleAskBuild} />
+      <GemmaChat
+        open={chatOpen}
+        build={null}
+        scope={chatScope ?? undefined}
+        chipText={chatChipText}
+        onClose={closeChat}
+      />
     </div>
   );
 }

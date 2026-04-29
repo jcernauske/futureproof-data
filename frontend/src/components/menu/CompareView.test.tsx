@@ -11,12 +11,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { CompareView } from "./CompareView";
 import type { CompareResult, CompareInsights } from "@/api/menu";
 
 const mockCompareBuilds = vi.fn();
 const mockCompareInsights = vi.fn();
+const mockAskGemma = vi.fn();
 vi.mock("@/api/menu", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
@@ -24,6 +26,7 @@ vi.mock("@/api/menu", async () => {
     ...actual,
     compareBuilds: (...args: unknown[]) => mockCompareBuilds(...args),
     compareInsights: (...args: unknown[]) => mockCompareInsights(...args),
+    askGemma: (...args: unknown[]) => mockAskGemma(...args),
   };
 });
 
@@ -96,6 +99,7 @@ function makeInsights(overrides: Partial<CompareInsights> = {}): CompareInsights
 beforeEach(() => {
   mockCompareBuilds.mockReset();
   mockCompareInsights.mockReset();
+  mockAskGemma.mockReset();
   mockCompareInsights.mockReturnValue(new Promise(() => {}));
 });
 
@@ -306,5 +310,106 @@ describe("CompareView", () => {
 
     await screen.findByTestId("region-gemma-compare");
     expect(screen.getByText(/Reading the tradeoffs/i)).toBeInTheDocument();
+  });
+
+  // ===========================================================================
+  // Ask Gemma — compare-screen entry point (P0).
+  // docs/specs/feature-ask-gemma.md §4 New Tests Required.
+  // ===========================================================================
+
+  describe("Ask Gemma compare entry button (P0)", () => {
+    it("dispatches a compare scope with all build_ids when btn-ask-compare is clicked", async () => {
+      mockCompareBuilds.mockResolvedValue(makeCompareResult());
+      // The button only renders when compare_summary is non-null.
+      mockCompareInsights.mockResolvedValue(
+        makeInsights({
+          compare_summary: "The trade-off is real but workable.",
+        }),
+      );
+      mockAskGemma.mockResolvedValue({
+        response: "DePaul costs more per year, but earnings catch up by year 5.",
+        tool_calls: [],
+      });
+
+      render(
+        <MemoryRouter>
+          <CompareView
+            buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]}
+            onBack={() => {}}
+          />
+        </MemoryRouter>,
+      );
+
+      // The summary must resolve before the button renders.
+      await waitFor(() => {
+        expect(
+          screen.getByText(/trade-off is real but workable/),
+        ).toBeInTheDocument();
+      });
+
+      // Chat dialog is hidden initially.
+      expect(screen.queryByTestId("dialog-chat")).toBeNull();
+
+      // Click the entry button.
+      const askButton = screen.getByTestId("btn-ask-compare");
+      fireEvent.click(askButton);
+
+      // Chat dialog opens.
+      await waitFor(() => {
+        expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+      });
+
+      // Submit a question — verify the scope routed through askGemma is
+      // a compare scope with all build_ids.
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "Which one wins on cost?" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      await waitFor(() => {
+        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      });
+      const scope = mockAskGemma.mock.calls[0]![0] as {
+        kind: string;
+        build_ids: string[];
+      };
+      expect(scope.kind).toBe("compare");
+      expect(scope.build_ids).toEqual([
+        "berkeley-cs-001",
+        "iu-bloom-mkt-001",
+      ]);
+    });
+
+    it("renders the compare scope chip in the chat header when opened", async () => {
+      mockCompareBuilds.mockResolvedValue(makeCompareResult());
+      mockCompareInsights.mockResolvedValue(
+        makeInsights({ compare_summary: "Tradeoffs are real." }),
+      );
+
+      render(
+        <MemoryRouter>
+          <CompareView
+            buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]}
+            onBack={() => {}}
+          />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Tradeoffs are real.")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId("btn-ask-compare"));
+
+      // The chat scope chip carries the "Comparing: …" prefix per the
+      // §3 alias table. School names are passed through.
+      await waitFor(() => {
+        const chip = screen.getByTestId("chip-chat-scope");
+        expect(chip).toBeInTheDocument();
+        expect(chip.textContent).toContain("Comparing");
+        expect(chip.textContent).toContain("UC Berkeley");
+        expect(chip.textContent).toContain("IU Bloomington");
+      });
+    });
   });
 });
