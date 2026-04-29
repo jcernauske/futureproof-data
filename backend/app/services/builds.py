@@ -434,6 +434,7 @@ def compare_builds(build_ids: list[str]) -> dict[str, Any]:
                     else b.career.tuition_in_state
                 ),
                 "is_out_of_state": b.career.is_out_of_state,
+                "institution_control": b.career.institution_control,
             }
             for b in builds
         ],

@@ -53,6 +53,7 @@ function makeBuild(
     modeled_total_debt: debt,
     tuition_annual: cost,
     is_out_of_state: false,
+    institution_control: null,
   };
 }
 
