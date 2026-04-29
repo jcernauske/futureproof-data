@@ -102,6 +102,7 @@ export async function mockCompareBuilds(buildIds: string[]): Promise<CompareResu
         modeled_total_debt: extra.debt,
         tuition_annual: extra.cost,
         is_out_of_state: false,
+        institution_control: null,
       };
     }),
     stats: [

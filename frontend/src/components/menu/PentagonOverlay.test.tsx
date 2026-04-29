@@ -27,6 +27,7 @@ function makeBuild(id: string, label: string) {
     modeled_total_debt: null,
     tuition_annual: null,
     is_out_of_state: false,
+    institution_control: null,
   };
 }
 

@@ -52,6 +52,7 @@ export interface CompareBuild {
   modeled_total_debt: number | null;
   tuition_annual: number | null;
   is_out_of_state: boolean;
+  institution_control: string | null;
 }
 
 export interface CompareStatRow {

@@ -88,7 +88,11 @@ export function CharacterCard({ build, stats, buildIndex, highlighted = true, on
       <div className="border-t border-border-subtle mt-auto" />
       <div className="flex justify-between items-baseline pt-3">
         <span className="text-xs text-text-muted">
-          {build.is_out_of_state ? "Out-of-state tuition (4 yr)" : "In-state tuition (4 yr)"}
+          {build.institution_control?.startsWith("Private")
+            ? "Tuition (4 yr)"
+            : build.is_out_of_state
+              ? "Out-of-state tuition (4 yr)"
+              : "In-state tuition (4 yr)"}
         </span>
         <span className="font-data text-base font-bold text-accent-caution">
           {formatCost(build.tuition_annual != null ? build.tuition_annual * 4 : null)}
