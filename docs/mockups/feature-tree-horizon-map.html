@@ -1,0 +1,2466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tree-as-Horizon-Map · /branch-tree · Brightpath Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     Brightpath tokens — single source: DESIGN.md §Color Tokens
+     ============================================================ */
+  :root {
+    /* Backgrounds */
+    --bp-void:       #12131F;
+    --bp-deep:       #1B1D30;
+    --bp-mid:        #232545;
+    --bp-surface:    #2D3060;
+    --bp-raised:     #3A3D75;
+
+    /* Accents */
+    --accent-thrive:  #7DD4A3;
+    --accent-alert:   #F4A97E;
+    --accent-caution: #F2D477;
+    --accent-insight: #B8A9E8;
+    --accent-info:    #7BB8E0;
+    --accent-empathy: #E88BA9;
+
+    /* Stat colors */
+    --stat-ern: #F2D477;
+    --stat-roi: #7DD4A3;
+    --stat-res: #B8A9E8;
+    --stat-grw: #7BB8E0;
+    --stat-hmn: #E88BA9;
+
+    /* Text */
+    --text-primary:   #F5F0E8;
+    --text-secondary: #C4BFB0;
+    --text-muted:     #8A8595;
+    --text-inverse:   #1B1D30;
+
+    /* Borders (soft white) */
+    --border-subtle:  rgba(255, 255, 255, 0.06);
+    --border-default: rgba(255, 255, 255, 0.10);
+    --border-strong:  rgba(255, 255, 255, 0.20);
+
+    /* States */
+    --state-loading: rgba(184, 169, 232, 0.15);
+    --state-success: rgba(125, 212, 163, 0.15);
+    --state-active:  rgba(125, 212, 163, 0.10);
+    --focus-ring:    rgba(123, 184, 224, 0.40);
+
+    /* Shadows */
+    --shadow-md:        0 4px 16px rgba(27, 29, 48, 0.6);
+    --shadow-lg:        0 8px 32px rgba(27, 29, 48, 0.7);
+    --glow-thrive:      0 0 20px rgba(125, 212, 163, 0.30);
+    --glow-info:        0 0 20px rgba(123, 184, 224, 0.30);
+    --glow-insight:     0 0 20px rgba(184, 169, 232, 0.30);
+
+    /* Radii */
+    --radius-sm:   6px;
+    --radius-md:   10px;
+    --radius-lg:   14px;
+    --radius-xl:   20px;
+    --radius-full: 9999px;
+
+    /* Type */
+    --font-display: 'Fredoka', system-ui, sans-serif;
+    --font-body:    'Nunito', system-ui, sans-serif;
+    --font-data:    'Space Mono', ui-monospace, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background-color: var(--bp-void);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(45, 48, 96, 0.5) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 35%, rgba(58, 61, 117, 0.35) 0%, transparent 65%),
+      radial-gradient(ellipse 70% 40% at 50% 70%, rgba(35, 37, 69, 0.6) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 10% 90%, rgba(58, 61, 117, 0.25) 0%, transparent 55%),
+      linear-gradient(180deg, #12131F 0%, #1B1D30 30%, #181A2E 60%, #12131F 100%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Subtle noise overlay — fixed, low opacity */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.9'/%3E%3C/svg%3E");
+  }
+
+  /* Twinkling stars */
+  .star {
+    position: absolute;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    opacity: 0.18;
+    animation: twinkle 4s ease-in-out infinite;
+  }
+  @keyframes twinkle { 0%, 100% { opacity: 0.05; } 50% { opacity: 0.45; } }
+
+  /* ----------- Page chrome ----------- */
+  .design-board {
+    position: relative;
+    z-index: 2;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 64px 32px 128px;
+  }
+
+  .board-header { margin-bottom: 48px; }
+  .board-eyebrow {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--accent-info);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .board-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1.1;
+    margin: 0 0 12px;
+    color: var(--text-primary);
+  }
+  .board-sub {
+    font-family: var(--font-body);
+    font-size: 17px;
+    color: var(--text-secondary);
+    max-width: 760px;
+    line-height: 1.55;
+    margin: 0;
+  }
+  .board-meta {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-top: 24px;
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .board-meta span {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    padding: 6px 12px;
+    background: rgba(45, 48, 96, 0.35);
+  }
+
+  /* ----------- State block ----------- */
+  .state-block { margin-bottom: 96px; }
+  .state-header {
+    display: flex; align-items: baseline; gap: 16px;
+    margin-bottom: 4px;
+  }
+  .state-num {
+    font-family: var(--font-data);
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+  }
+  .state-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 26px;
+    color: var(--text-primary);
+    margin: 0;
+  }
+  .state-desc {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    max-width: 920px;
+    margin: 4px 0 24px;
+  }
+  .state-decisions {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 24px;
+  }
+  .decision-tag {
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--accent-insight);
+    background: rgba(184, 169, 232, 0.10);
+    border: 1px solid rgba(184, 169, 232, 0.25);
+    border-radius: var(--radius-full);
+    padding: 4px 10px;
+    letter-spacing: 0.04em;
+  }
+
+  /* =================================================================
+     SCREEN — the actual /branch-tree composite
+     12-column grid: tree col-span-5, chat col-span-7 (desktop)
+     ================================================================= */
+  .screen-frame {
+    position: relative;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-subtle);
+    background: linear-gradient(180deg, rgba(35, 37, 69, 0.30) 0%, rgba(27, 29, 48, 0.55) 100%);
+    padding: 24px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .screen-frame::after {
+    content: '';
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 40% at 25% 0%, rgba(123, 184, 224, 0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 80% 100%, rgba(184, 169, 232, 0.05) 0%, transparent 70%);
+  }
+
+  .screen-titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 0 4px;
+  }
+  .screen-titlebar .crumbs {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .screen-titlebar .crumbs strong {
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+  .build-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: rgba(45, 48, 96, 0.5);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    padding: 6px 12px;
+  }
+  .build-pill .bear { font-size: 16px; }
+
+  .grid-12 {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 24px;
+    align-items: stretch;
+  }
+  .col-tree { grid-column: span 5; }
+  .col-chat { grid-column: span 7; }
+
+  /* =================================================================
+     TREE COLUMN — the new horizon map
+     ================================================================= */
+  .horizon-col {
+    background: var(--bp-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    display: flex; flex-direction: column;
+    height: 70vh;
+    min-height: 620px;
+    max-height: 760px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Column header — title, subtitle, source, hide-supplemental toggle */
+  .horizon-header {
+    display: flex; flex-direction: column;
+    gap: 10px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: linear-gradient(180deg, rgba(58, 61, 117, 0.15) 0%, transparent 100%);
+  }
+  .horizon-header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .horizon-eyebrow {
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--accent-info);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .horizon-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 20px;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+  }
+  .horizon-anchor {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.45;
+  }
+  .horizon-anchor strong { color: var(--text-primary); font-weight: 700; }
+
+  /* Hide-supplemental toggle (shadcn-style switch) */
+  .toggle-row {
+    display: inline-flex; align-items: center; gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle-label {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .switch {
+    position: relative;
+    width: 38px; height: 22px;
+    border-radius: var(--radius-full);
+    background: var(--bp-surface);
+    border: 1px solid var(--border-subtle);
+    transition: background 200ms ease-out;
+    flex-shrink: 0;
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    transition: all 200ms ease-out;
+  }
+  .switch.on { background: var(--accent-info); border-color: var(--accent-info); box-shadow: 0 0 12px rgba(123, 184, 224, 0.35); }
+  .switch.on::after { left: 18px; background: var(--text-inverse); }
+
+  /* Lanes container — vertical stack inside the column */
+  .lanes {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 16px;
+    display: flex; flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Single lane */
+  .lane {
+    display: flex; flex-direction: column;
+    gap: 10px;
+    padding: 14px 14px 14px 16px;
+    background: rgba(45, 48, 96, 0.30);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    position: relative;
+  }
+  /* Lane left-edge accent — subtle vertical bar */
+  .lane::before {
+    content: '';
+    position: absolute;
+    top: 12px; bottom: 12px; left: 0;
+    width: 3px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: linear-gradient(180deg, var(--accent-thrive), rgba(125, 212, 163, 0));
+    opacity: 0.5;
+  }
+  .lane[data-lane="step-up"]::before { background: linear-gradient(180deg, var(--accent-info), rgba(123, 184, 224, 0)); }
+  .lane[data-lane="long-climb"]::before { background: linear-gradient(180deg, var(--accent-insight), rgba(184, 169, 232, 0)); }
+
+  .lane-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px;
+  }
+  .lane-header-left { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .lane-label {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .lane-icon {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    color: var(--accent-thrive);
+  }
+  .lane[data-lane="step-up"] .lane-icon { color: var(--accent-info); }
+  .lane[data-lane="long-climb"] .lane-icon { color: var(--accent-insight); }
+
+  .lane-subtitle {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+  .lane-count {
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  /* Chip row — flex-wrap, gap-2.5, with overflow chip */
+  .chip-row {
+    display: flex; flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ---- The chip itself ---- */
+  .chip {
+    position: relative;
+    flex: 1 1 calc(33.333% - 8px);
+    min-width: 130px;
+    max-width: 100%;
+    background: var(--bp-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 10px 10px 10px 14px;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font-family: inherit;
+    transition: background 180ms ease-out, transform 150ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out;
+    overflow: hidden;
+  }
+  .chip:hover { background: var(--bp-raised); border-color: var(--border-default); transform: translateY(-1px); }
+
+  /* Left-edge relatedness color bar */
+  .chip::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 3px;
+    background: var(--text-muted);
+  }
+  .chip[data-tier="primary-short"]::before { background: var(--accent-thrive); box-shadow: 0 0 12px rgba(125, 212, 163, 0.5); }
+  .chip[data-tier="primary-long"]::before  { background: var(--accent-info);   box-shadow: 0 0 10px rgba(123, 184, 224, 0.4); }
+  .chip[data-tier="supplemental"]::before  { background: var(--text-muted); }
+
+  .chip-title {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.3;
+    margin: 0 0 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chip-row-meta {
+    display: flex; align-items: center; gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* Stat-delta badge */
+  .stat-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-data);
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+  .stat-badge[data-stat="ern"]  { color: var(--stat-ern); background: rgba(242, 212, 119, 0.12); }
+  .stat-badge[data-stat="grw"]  { color: var(--stat-grw); background: rgba(123, 184, 224, 0.12); }
+  .stat-badge[data-stat="hmn"]  { color: var(--stat-hmn); background: rgba(232, 139, 169, 0.12); }
+  .stat-badge[data-stat="res"]  { color: var(--stat-res); background: rgba(184, 169, 232, 0.12); }
+  .stat-badge[data-sign="neg"] { opacity: 0.85; }
+
+  /* Experience badge — small chip in bottom-right */
+  .exp-badge {
+    display: inline-flex; align-items: center;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 10px;
+    color: var(--accent-caution);
+    background: rgba(242, 212, 119, 0.10);
+    border: 1px solid rgba(242, 212, 119, 0.25);
+    border-radius: var(--radius-full);
+    padding: 1px 7px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .exp-badge[data-tier="senior"] {
+    color: var(--accent-alert);
+    background: rgba(244, 169, 126, 0.10);
+    border-color: rgba(244, 169, 126, 0.25);
+  }
+
+  /* Unlock footer */
+  .chip-unlock {
+    display: flex; align-items: center; gap: 5px;
+    margin-top: 6px;
+    font-family: var(--font-body);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chip-unlock svg { width: 10px; height: 10px; flex-shrink: 0; }
+
+  /* Level-unknown muted treatment (null edu → Lateral) */
+  .chip[data-level-unknown="true"] {
+    background: rgba(45, 48, 96, 0.5);
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+  .chip[data-level-unknown="true"] .chip-title { color: var(--text-secondary); }
+  .chip[data-level-unknown="true"]::before { background: var(--text-muted); opacity: 0.6; }
+
+  /* Selected chip — accent-thrive ring + glow */
+  .chip[data-selected="true"] {
+    background: var(--bp-raised);
+    border-color: var(--accent-thrive);
+    box-shadow: 0 0 0 1px var(--accent-thrive), var(--glow-thrive);
+  }
+  .chip[data-selected="true"] .chip-title { color: var(--text-primary); }
+
+  /* When something is selected, dim siblings — but only one tier of dim */
+  .lane[data-has-selection="true"] .chip:not([data-selected="true"]) {
+    opacity: 0.55;
+    filter: saturate(0.85);
+  }
+
+  /* Branch flash — exact branchFlashPulse keyframe from feature-tree-as-map.md */
+  @keyframes branchFlashPulse {
+    0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(123, 184, 224, 0); border-color: var(--border-subtle); }
+    42%  { transform: scale(1.06); box-shadow: 0 0 22px 6px rgba(123, 184, 224, 0.55); border-color: var(--accent-info); }
+    100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(123, 184, 224, 0); border-color: var(--border-subtle); }
+  }
+  .chip.branch-flash {
+    animation: branchFlashPulse 600ms ease-out forwards;
+    z-index: 2;
+  }
+  .chip.branch-flash[data-stagger="1"] { animation-delay: 200ms; }
+  .chip.branch-flash[data-stagger="2"] { animation-delay: 400ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chip.branch-flash {
+      animation: none;
+      transition: opacity 80ms ease-out;
+      opacity: 0.6;
+    }
+  }
+
+  /* +N more affordance — chip-shaped, lives at end of row */
+  .chip-more {
+    flex: 1 1 calc(33.333% - 8px);
+    min-width: 130px;
+    background: rgba(58, 61, 117, 0.35);
+    border: 1px dashed var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 13px;
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+    gap: 2px;
+    transition: background 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out;
+    line-height: 1.2;
+  }
+  .chip-more:hover { background: var(--bp-raised); color: var(--text-primary); border-color: var(--border-strong); }
+  .chip-more .more-count {
+    font-family: var(--font-data);
+    font-size: 13px;
+    color: var(--accent-info);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .chip-more .more-hint {
+    font-family: var(--font-body);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Show-fewer (when expanded) */
+  .chip-collapse {
+    flex: 1 1 calc(33.333% - 8px);
+    min-width: 130px;
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .chip-collapse:hover { color: var(--text-secondary); border-color: var(--border-default); }
+
+  /* Empty-lane state */
+  .lane-empty {
+    padding: 14px 12px;
+    border-radius: var(--radius-md);
+    background: rgba(27, 29, 48, 0.4);
+    border: 1px dashed var(--border-subtle);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .lane-empty-icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(138, 133, 149, 0.12);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .lane-empty-text {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .lane-empty-title {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .lane-empty-sub {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* =================================================================
+     CHAT COLUMN — INHERITED from feature-tree-as-map.md (do not redesign)
+     ================================================================= */
+  .chat-col {
+    background: var(--bp-mid);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    display: flex; flex-direction: column;
+    height: 70vh;
+    min-height: 620px;
+    max-height: 760px;
+    overflow: hidden;
+  }
+  .chat-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    gap: 12px;
+  }
+  .chat-header-title {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .chat-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-insight), var(--accent-info));
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-inverse);
+    box-shadow: 0 0 14px rgba(184, 169, 232, 0.35);
+  }
+  .chat-h-text { display: flex; flex-direction: column; gap: 1px; }
+  .chat-h-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+  .chat-h-sub {
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .scope-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--accent-info);
+    background: rgba(123, 184, 224, 0.10);
+    border: 1px solid rgba(123, 184, 224, 0.25);
+    border-radius: var(--radius-full);
+    padding: 5px 11px;
+    letter-spacing: 0.04em;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .scope-chip .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent-info);
+    box-shadow: 0 0 6px var(--accent-info);
+    flex-shrink: 0;
+  }
+
+  .chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex; flex-direction: column;
+    gap: 16px;
+  }
+  .msg-row { display: flex; gap: 10px; align-items: flex-start; }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-mini-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-insight), var(--accent-info));
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--text-inverse);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .msg-bubble {
+    background: var(--bp-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.55;
+    max-width: 88%;
+  }
+  .msg-row.user .msg-bubble {
+    background: rgba(123, 184, 224, 0.12);
+    border-color: rgba(123, 184, 224, 0.20);
+    color: var(--text-primary);
+  }
+  .msg-bubble em.branch-mention {
+    font-style: normal;
+    color: var(--accent-info);
+    font-weight: 700;
+    background: rgba(123, 184, 224, 0.08);
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Starter chips beneath opener */
+  .starter-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-left: 36px;
+    margin-top: -4px;
+  }
+  .starter-chip {
+    background: var(--bp-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 180ms ease-out;
+    line-height: 1.3;
+  }
+  .starter-chip:hover { background: var(--bp-raised); color: var(--text-primary); border-color: var(--border-default); }
+
+  /* Chat input bar */
+  .chat-input-wrap {
+    border-top: 1px solid var(--border-subtle);
+    padding: 14px 16px 14px;
+    background: rgba(27, 29, 48, 0.35);
+  }
+  .chat-input {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bp-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 10px 12px;
+  }
+  .chat-input-text {
+    flex: 1;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+  .send-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--accent-insight);
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text-inverse);
+    box-shadow: 0 0 12px rgba(184, 169, 232, 0.35);
+    transition: transform 150ms ease-out;
+  }
+  .send-btn:hover { transform: scale(1.04); }
+
+  /* "See the data" drawer pill — closed state */
+  .data-drawer-pill {
+    margin-top: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bp-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .data-drawer-pill .label { display: flex; align-items: center; gap: 8px; }
+  .data-drawer-pill .chev {
+    width: 14px; height: 14px;
+    color: var(--text-muted);
+    transition: transform 200ms ease-out;
+  }
+
+  /* =================================================================
+     MOBILE — drawer chrome
+     ================================================================= */
+  .mobile-frame {
+    width: 380px;
+    margin: 0 auto;
+    border-radius: 32px;
+    border: 8px solid #0c0d18;
+    background: var(--bp-void);
+    padding: 12px;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    height: 760px;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .mobile-statusbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 14px 10px;
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .mobile-statusbar .right { display: flex; gap: 6px; align-items: center; }
+  .mobile-screenheader {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px 12px;
+  }
+  .mobile-screenheader .title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--text-primary);
+  }
+  .mobile-screenheader .crumb {
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .mobile-show-map {
+    margin: 0 14px 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bp-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 10px 14px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .mobile-show-map .chev {
+    transition: transform 220ms ease-out;
+    color: var(--text-muted);
+  }
+  .mobile-show-map.expanded .chev { transform: rotate(180deg); }
+
+  .mobile-drawer-body {
+    margin: 0 14px 10px;
+    border-radius: var(--radius-lg);
+    background: var(--bp-mid);
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+    max-height: 52vh;
+  }
+
+  .mobile-chat-area {
+    flex: 1;
+    background: var(--bp-mid);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    margin: 0 14px 14px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  .mobile-row { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+  /* Annotation callouts (between states) */
+  .callout {
+    display: flex; gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: rgba(184, 169, 232, 0.06);
+    border: 1px solid rgba(184, 169, 232, 0.18);
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-top: 18px;
+  }
+  .callout strong { color: var(--accent-insight); font-weight: 700; }
+  .callout .ico {
+    color: var(--accent-insight);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* Section divider */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-subtle) 20%, var(--border-subtle) 80%, transparent);
+    margin: 0 0 64px;
+  }
+
+  /* Lane chip-row variant: 4 across when expanded (post-+N) so 21 fits */
+  .chip-row.expanded .chip { flex: 1 1 calc(25% - 8px); min-width: 110px; }
+
+  /* Inline data tag for stat-anchor sub-line */
+  .meta-data {
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--accent-info);
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<!-- Twinkling stars scattered behind everything -->
+<div style="position:fixed;inset:0;z-index:0;pointer-events:none;">
+  <div class="star" style="top:8%;left:18%;animation-delay:.3s;"></div>
+  <div class="star" style="top:14%;left:62%;animation-delay:1.1s;"></div>
+  <div class="star" style="top:22%;left:88%;animation-delay:.7s;"></div>
+  <div class="star" style="top:36%;left:8%;animation-delay:1.9s;"></div>
+  <div class="star" style="top:48%;left:44%;animation-delay:.4s;"></div>
+  <div class="star" style="top:54%;left:78%;animation-delay:2.4s;"></div>
+  <div class="star" style="top:68%;left:24%;animation-delay:.9s;"></div>
+  <div class="star" style="top:74%;left:54%;animation-delay:1.6s;"></div>
+  <div class="star" style="top:82%;left:84%;animation-delay:.2s;"></div>
+  <div class="star" style="top:92%;left:30%;animation-delay:2.8s;"></div>
+</div>
+
+<div class="design-board">
+
+  <!-- ============================================================
+       BOARD HEADER
+       ============================================================ -->
+  <header class="board-header">
+    <div class="board-eyebrow">SPEC · feature-tree-horizon-map.md · v1.0</div>
+    <h1 class="board-title">Tree-as-Horizon-Map</h1>
+    <p class="board-sub">
+      Replaces the React Flow dendrogram on <code style="font-family:var(--font-data);color:var(--accent-info);">/branch-tree</code> with a 3-lane subway-map of clickable chips, bucketed by how much more education each branch requires relative to the student's current build. The chat column from <code style="font-family:var(--font-data);color:var(--accent-info);">feature-tree-as-map.md</code> is unchanged. This board stacks all 9 required states top-to-bottom for review.
+    </p>
+    <div class="board-meta">
+      <span>Build: ISU · Business Marketing → Marketing Manager (SOC 11-9199)</span>
+      <span>Build edu: Bachelor's degree</span>
+      <span>Branches in dataset: 34</span>
+      <span>Lateral 21 · Step Up 10 · Long Climb 3</span>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       STATE 1 — DEFAULT
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 01</span>
+      <h2 class="state-title">Default — all 3 lanes painted</h2>
+    </div>
+    <p class="state-desc">
+      First load on <code style="font-family:var(--font-data);color:var(--accent-info);">/branch-tree</code>. Tree-fetch resolves, lanes paint, chat opener has just landed. "Hide supplemental" toggle is off. The horizon map sits in the col-span-5 slot; the embedded GemmaChat occupies col-span-7 unchanged.
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">D#1 lane logic</span>
+      <span class="decision-tag">D#5 sort: tier ASC, relatedness DESC</span>
+      <span class="decision-tag">D#6 cap-at-6</span>
+      <span class="decision-tag">D#9 L1 only — no L2/L3</span>
+    </div>
+
+    <div class="screen-frame">
+      <div class="screen-titlebar">
+        <div class="crumbs">My Build &nbsp;›&nbsp; <strong>Branch tree</strong></div>
+        <div class="build-pill">
+          <span class="bear">🐻</span>
+          <span><strong style="color:var(--text-primary);font-weight:700;">Skylar</strong> · Marketing Manager · ISU</span>
+        </div>
+      </div>
+
+      <div class="grid-12">
+        <!-- TREE COLUMN — HORIZON MAP -->
+        <div class="col-tree">
+          <div class="horizon-col" data-testid="region-branch-horizon" role="region" aria-label="Career path map by education effort">
+
+            <!-- HEADER -->
+            <div class="horizon-header">
+              <div class="horizon-header-row">
+                <div>
+                  <div class="horizon-eyebrow">CAREER MAP</div>
+                  <h3 class="horizon-title">Where you can go from here</h3>
+                </div>
+                <label class="toggle-row" data-testid="toggle-hide-supplemental" role="switch" aria-checked="false">
+                  <span class="toggle-label">Hide supplemental</span>
+                  <span class="switch"></span>
+                </label>
+              </div>
+              <p class="horizon-anchor">Anchored on <strong>Marketing Manager</strong>, the role you build into · <span class="meta-data">Bachelor's-anchored</span></p>
+            </div>
+
+            <!-- LANES -->
+            <div class="lanes">
+              <!-- LATERAL (delta ≤ 0) — 6 of 21 shown -->
+              <div class="lane" data-lane="lateral">
+                <header class="lane-header" data-testid="lane-header-lateral">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label">
+                      <svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+                      Lateral
+                    </h4>
+                    <span class="lane-subtitle">same degree, different role</span>
+                  </div>
+                  <span class="lane-count">6 of 21 shown</span>
+                </header>
+                <div class="chip-row">
+
+                  <button class="chip" data-testid="chip-branch-11-3061" data-tier="primary-short">
+                    <div class="chip-title">Administrative Services Mgrs</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="ern">+8 ERN</span>
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-11-9121" data-tier="primary-short">
+                    <div class="chip-title">Natural Sciences Managers</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="ern">+12 ERN</span>
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-13-1041" data-tier="primary-long">
+                    <div class="chip-title">Compliance Officers</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="grw">+6 GRW</span>
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-13-2054" data-tier="primary-long">
+                    <div class="chip-title">Financial Risk Specialists</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="ern">+15 ERN</span>
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-13-1111" data-tier="primary-short">
+                    <div class="chip-title">Management Analysts</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="grw">+9 GRW</span>
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-15-2051" data-tier="supplemental">
+                    <div class="chip-title">Data Scientists</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="res">+18 RES</span>
+                    </div>
+                  </button>
+
+                  <button class="chip-more" data-testid="btn-lane-expand-lateral" aria-label="Show 15 more lateral paths">
+                    <span class="more-count">+15 more</span>
+                    <span class="more-hint">Lateral paths</span>
+                  </button>
+
+                </div>
+              </div>
+
+              <!-- STEP UP (delta = 1) — 6 of 10 shown -->
+              <div class="lane" data-lane="step-up">
+                <header class="lane-header" data-testid="lane-header-step-up">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label">
+                      <svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h6l3-4 3 4h6"/><path d="m9 13 3-4 3 4"/><path d="m15 9 3-4"/></svg>
+                      Step Up
+                    </h4>
+                    <span class="lane-subtitle">one credential more (master's)</span>
+                  </div>
+                  <span class="lane-count">6 of 10 shown</span>
+                </header>
+                <div class="chip-row">
+
+                  <button class="chip" data-testid="chip-branch-11-2022" data-tier="primary-short">
+                    <div class="chip-title">Sales Managers</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="ern">+22 ERN</span>
+                      <span class="exp-badge" data-tier="mid">mid-career</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires master's
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-11-2032" data-tier="primary-short">
+                    <div class="chip-title">PR &amp; Fundraising Mgrs</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="hmn">+14 HMN</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires master's
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-13-1071" data-tier="primary-long">
+                    <div class="chip-title">HR Managers</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="hmn">+11 HMN</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires master's
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-11-3031" data-tier="primary-long">
+                    <div class="chip-title">Financial Managers</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="ern">+28 ERN</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires master's
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-11-9111" data-tier="supplemental">
+                    <div class="chip-title">Med &amp; Health Svc Mgrs</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="grw">+16 GRW</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires master's
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-25-9031" data-tier="supplemental">
+                    <div class="chip-title">Instructional Coordinators</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="hmn">+8 HMN</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires master's
+                    </div>
+                  </button>
+
+                  <button class="chip-more" data-testid="btn-lane-expand-step-up" aria-label="Show 4 more step-up paths">
+                    <span class="more-count">+4 more</span>
+                    <span class="more-hint">Step-up paths</span>
+                  </button>
+
+                </div>
+              </div>
+
+              <!-- LONG CLIMB (delta ≥ 2) — all 3 fit -->
+              <div class="lane" data-lane="long-climb">
+                <header class="lane-header" data-testid="lane-header-long-climb">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label">
+                      <svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 19 4-7 5 4 4-9"/><path d="M3 21h18"/></svg>
+                      Long Climb
+                    </h4>
+                    <span class="lane-subtitle">two or more credentials more (doctoral / professional)</span>
+                  </div>
+                  <span class="lane-count">3 of 3 shown</span>
+                </header>
+                <div class="chip-row">
+
+                  <button class="chip" data-testid="chip-branch-19-3094" data-tier="primary-long">
+                    <div class="chip-title">Political Scientists</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="res">+12 RES</span>
+                      <span class="exp-badge" data-tier="senior">senior</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires doctorate
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-25-1011" data-tier="supplemental">
+                    <div class="chip-title">Business Teachers, Postsec</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="hmn">+19 HMN</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires doctorate
+                    </div>
+                  </button>
+
+                  <button class="chip" data-testid="chip-branch-23-1011" data-tier="supplemental">
+                    <div class="chip-title">Lawyers</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="ern">+38 ERN</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires JD / professional
+                    </div>
+                  </button>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAT COLUMN -->
+        <div class="col-chat">
+          <div class="chat-col">
+            <header class="chat-header">
+              <div class="chat-header-title">
+                <div class="chat-avatar">G</div>
+                <div class="chat-h-text">
+                  <div class="chat-h-name">Ask Gemma</div>
+                  <div class="chat-h-sub">Powered by your real data</div>
+                </div>
+              </div>
+              <div class="scope-chip">
+                <span class="dot"></span>
+                <span>branch · Marketing Manager</span>
+              </div>
+            </header>
+
+            <div class="chat-body">
+              <div class="msg-row">
+                <div class="msg-mini-avatar">G</div>
+                <div class="msg-bubble">
+                  Marketing Manager is your anchor — solid earnings, decent growth, and real human-edge work. From here, you can move into <em class="branch-mention">Administrative Services Managers</em> or <em class="branch-mention">Natural Sciences Managers</em> without more school. If you go back for a master's, doors like <em class="branch-mention">Sales Managers</em> open up with a meaningful pay bump. The long climb to a doctorate isn't your strongest path right now.
+                </div>
+              </div>
+              <div class="starter-chips">
+                <button class="starter-chip">What's the safest path?</button>
+                <button class="starter-chip">Which branch pays best long-term?</button>
+                <button class="starter-chip">What if I went into management?</button>
+                <button class="starter-chip">What if AI changes everything?</button>
+              </div>
+            </div>
+
+            <div class="chat-input-wrap">
+              <div class="chat-input">
+                <span class="chat-input-text">Ask Gemma anything about your career path…</span>
+                <button class="send-btn" aria-label="Send">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>
+                </button>
+              </div>
+              <div class="data-drawer-pill">
+                <span class="label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-6"/></svg>
+                  See the data for Marketing Manager
+                </span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Why three lanes?</strong> They map to how a student actually thinks: <em>"can I do this with what I'm already doing, or do I need more school?"</em> Anchoring on the build's education level (not absolute education) makes the same role read differently to a HS-bound vs Bachelor's-bound student — that's the personalization. Within each lane, sort by <em>relatedness_tier</em> ASC then <em>relatedness</em> DESC so the most-similar paths surface first.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       STATE 2 — CHIP SELECTED
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 02</span>
+      <h2 class="state-title">Chip selected — current chat scope</h2>
+    </div>
+    <p class="state-desc">
+      The student clicked <em>Sales Managers</em> in the Step Up lane. <code style="font-family:var(--font-data);color:var(--accent-info);">selectedNodeId</code> set to <code style="font-family:var(--font-data);color:var(--accent-info);">chip-11-2022</code>, <code style="font-family:var(--font-data);color:var(--accent-info);">chatScope.target_id</code> bumps to <code style="font-family:var(--font-data);color:var(--accent-info);">11-2022</code>, chat history clears, opener re-fires (300ms debounce + sessionRef bump inherited unchanged from feature-tree-as-map).
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">Q#9 selected = thrive ring + glow</span>
+      <span class="decision-tag">siblings dim only within selected lane</span>
+      <span class="decision-tag">scope chip mirrors</span>
+    </div>
+
+    <div class="screen-frame">
+      <div class="screen-titlebar">
+        <div class="crumbs">My Build &nbsp;›&nbsp; <strong>Branch tree</strong></div>
+        <div class="build-pill">
+          <span class="bear">🐻</span>
+          <span><strong style="color:var(--text-primary);font-weight:700;">Skylar</strong> · Marketing Manager · ISU</span>
+        </div>
+      </div>
+
+      <div class="grid-12">
+        <div class="col-tree">
+          <div class="horizon-col">
+            <div class="horizon-header">
+              <div class="horizon-header-row">
+                <div>
+                  <div class="horizon-eyebrow">CAREER MAP</div>
+                  <h3 class="horizon-title">Where you can go from here</h3>
+                </div>
+                <label class="toggle-row" role="switch" aria-checked="false">
+                  <span class="toggle-label">Hide supplemental</span>
+                  <span class="switch"></span>
+                </label>
+              </div>
+              <p class="horizon-anchor">Anchored on <strong>Marketing Manager</strong>, the role you build into · <span class="meta-data">Bachelor's-anchored</span></p>
+            </div>
+
+            <div class="lanes">
+              <!-- LATERAL — collapsed (others), no selection -->
+              <div class="lane" data-lane="lateral">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label">
+                      <svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+                      Lateral
+                    </h4>
+                    <span class="lane-subtitle">same degree, different role</span>
+                  </div>
+                  <span class="lane-count">6 of 21 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">Administrative Services Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+8 ERN</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">Natural Sciences Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+12 ERN</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Compliance Officers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+6 GRW</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Financial Risk Specialists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+15 ERN</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">Management Analysts</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+9 GRW</span></div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Data Scientists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="res">+18 RES</span></div>
+                  </button>
+                  <button class="chip-more"><span class="more-count">+15 more</span><span class="more-hint">Lateral paths</span></button>
+                </div>
+              </div>
+
+              <!-- STEP UP — Sales Managers selected -->
+              <div class="lane" data-lane="step-up" data-has-selection="true">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label">
+                      <svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h6l3-4 3 4h6"/><path d="m9 13 3-4 3 4"/><path d="m15 9 3-4"/></svg>
+                      Step Up
+                    </h4>
+                    <span class="lane-subtitle">one credential more (master's)</span>
+                  </div>
+                  <span class="lane-count">6 of 10 shown</span>
+                </header>
+                <div class="chip-row">
+
+                  <button class="chip" data-tier="primary-short" data-selected="true">
+                    <div class="chip-title">Sales Managers</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="ern">+22 ERN</span>
+                      <span class="exp-badge" data-tier="mid">mid-career</span>
+                    </div>
+                    <div class="chip-unlock">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Requires master's
+                    </div>
+                  </button>
+
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">PR &amp; Fundraising Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+14 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">HR Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+11 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Financial Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+28 ERN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Med &amp; Health Svc Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+16 GRW</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Instructional Coordinators</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+8 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+
+                  <button class="chip-more"><span class="more-count">+4 more</span><span class="more-hint">Step-up paths</span></button>
+                </div>
+              </div>
+
+              <!-- LONG CLIMB -->
+              <div class="lane" data-lane="long-climb">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label">
+                      <svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 19 4-7 5 4 4-9"/><path d="M3 21h18"/></svg>
+                      Long Climb
+                    </h4>
+                    <span class="lane-subtitle">two or more credentials more</span>
+                  </div>
+                  <span class="lane-count">3 of 3 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Political Scientists</div>
+                    <div class="chip-row-meta">
+                      <span class="stat-badge" data-stat="res">+12 RES</span>
+                      <span class="exp-badge" data-tier="senior">senior</span>
+                    </div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires doctorate</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Business Teachers, Postsec</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+19 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires doctorate</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Lawyers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+38 ERN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires JD / professional</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAT — scope updated to Sales Managers, history cleared, opener re-firing (skeleton) -->
+        <div class="col-chat">
+          <div class="chat-col">
+            <header class="chat-header">
+              <div class="chat-header-title">
+                <div class="chat-avatar">G</div>
+                <div class="chat-h-text">
+                  <div class="chat-h-name">Ask Gemma</div>
+                  <div class="chat-h-sub">Powered by your real data</div>
+                </div>
+              </div>
+              <div class="scope-chip">
+                <span class="dot"></span>
+                <span>branch · Sales Managers</span>
+              </div>
+            </header>
+
+            <div class="chat-body">
+              <div class="msg-row">
+                <div class="msg-mini-avatar">G</div>
+                <div class="msg-bubble">
+                  Sales Managers is a real step up — a master's plus 5+ years of mid-career experience. The pay bump is the largest in your Step Up lane (+22 ERN), but the climb costs you another credential and a few years on the floor first. Want me to compare the trade-off vs staying lateral?
+                </div>
+              </div>
+              <div class="starter-chips">
+                <button class="starter-chip">Why is this branch risky for me?</button>
+                <button class="starter-chip">What would I need to learn?</button>
+                <button class="starter-chip">How long until I'd see the upside?</button>
+                <button class="starter-chip">What if I'm wrong about this?</button>
+              </div>
+            </div>
+
+            <div class="chat-input-wrap">
+              <div class="chat-input">
+                <span class="chat-input-text">Ask about Sales Managers…</span>
+                <button class="send-btn" aria-label="Send"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg></button>
+              </div>
+              <div class="data-drawer-pill">
+                <span class="label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-6"/></svg>
+                  See the data for Sales Managers
+                </span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Selection treatment — answering Q#9.</strong> The dim-siblings pattern from the dendrogram was load-bearing for orientation in a forest of nodes; on a 3-lane grid where every chip is in viewport, dimming everything across all lanes feels heavy. The pick: <em>only dim siblings within the selected chip's own lane.</em> Other lanes stay full opacity — they're separate semantic groups. The selected chip itself gets a 1px <code style="font-family:var(--font-data);color:var(--accent-thrive);">accent-thrive</code> ring + soft glow.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       STATE 3 — BRANCH FLASHING
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 03</span>
+      <h2 class="state-title">Branch flashing — Gemma named two branches</h2>
+    </div>
+    <p class="state-desc">
+      Gemma's response (left bubble below) verbatim-quoted <em>Administrative Services Managers</em> and <em>Natural Sciences Managers</em>. <code style="font-family:var(--font-data);color:var(--accent-info);">BranchHighlightDriver</code> matched both, fired highlight events, and the matching chips are mid-pulse. Stagger 200ms preserved (chip 1 starts at t=0, chip 2 at t=200ms). The 600ms <code style="font-family:var(--font-data);color:var(--accent-info);">branchFlashPulse</code> keyframe is the same one that ships in <code style="font-family:var(--font-data);color:var(--accent-info);">reactflow-dark.css</code> today — it just applies to chip elements now.
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">D#10 flash binding preserved</span>
+      <span class="decision-tag">id schema: chip-{to_soc}</span>
+      <span class="decision-tag">stagger 200ms multi-match</span>
+    </div>
+
+    <div class="screen-frame">
+      <div class="screen-titlebar">
+        <div class="crumbs">My Build &nbsp;›&nbsp; <strong>Branch tree</strong></div>
+        <div class="build-pill"><span class="bear">🐻</span><span><strong style="color:var(--text-primary);font-weight:700;">Skylar</strong> · Marketing Manager · ISU</span></div>
+      </div>
+
+      <div class="grid-12">
+        <div class="col-tree">
+          <div class="horizon-col">
+            <div class="horizon-header">
+              <div class="horizon-header-row">
+                <div>
+                  <div class="horizon-eyebrow">CAREER MAP</div>
+                  <h3 class="horizon-title">Where you can go from here</h3>
+                </div>
+                <label class="toggle-row" role="switch" aria-checked="false">
+                  <span class="toggle-label">Hide supplemental</span>
+                  <span class="switch"></span>
+                </label>
+              </div>
+              <p class="horizon-anchor">Anchored on <strong>Marketing Manager</strong> · <span class="meta-data">Bachelor's-anchored</span></p>
+            </div>
+
+            <div class="lanes">
+              <div class="lane" data-lane="lateral">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg> Lateral</h4>
+                    <span class="lane-subtitle">same degree, different role</span>
+                  </div>
+                  <span class="lane-count">6 of 21 shown</span>
+                </header>
+                <div class="chip-row">
+
+                  <button class="chip branch-flash" data-stagger="0" data-tier="primary-short">
+                    <div class="chip-title">Administrative Services Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+8 ERN</span></div>
+                  </button>
+
+                  <button class="chip branch-flash" data-stagger="1" data-tier="primary-short">
+                    <div class="chip-title">Natural Sciences Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+12 ERN</span></div>
+                  </button>
+
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Compliance Officers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+6 GRW</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Financial Risk Specialists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+15 ERN</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">Management Analysts</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+9 GRW</span></div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Data Scientists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="res">+18 RES</span></div>
+                  </button>
+                  <button class="chip-more"><span class="more-count">+15 more</span><span class="more-hint">Lateral paths</span></button>
+                </div>
+              </div>
+
+              <div class="lane" data-lane="step-up">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h6l3-4 3 4h6"/><path d="m9 13 3-4 3 4"/><path d="m15 9 3-4"/></svg> Step Up</h4>
+                    <span class="lane-subtitle">one credential more</span>
+                  </div>
+                  <span class="lane-count">6 of 10 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">Sales Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+22 ERN</span><span class="exp-badge" data-tier="mid">mid-career</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">PR &amp; Fundraising Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+14 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">HR Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+11 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Financial Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+28 ERN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Med &amp; Health Svc Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+16 GRW</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Instructional Coordinators</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+8 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip-more"><span class="more-count">+4 more</span><span class="more-hint">Step-up paths</span></button>
+                </div>
+              </div>
+
+              <div class="lane" data-lane="long-climb">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 19 4-7 5 4 4-9"/><path d="M3 21h18"/></svg> Long Climb</h4>
+                    <span class="lane-subtitle">doctoral / professional</span>
+                  </div>
+                  <span class="lane-count">3 of 3 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Political Scientists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="res">+12 RES</span><span class="exp-badge" data-tier="senior">senior</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires doctorate</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Business Teachers, Postsec</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+19 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires doctorate</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Lawyers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+38 ERN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires JD / professional</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-chat">
+          <div class="chat-col">
+            <header class="chat-header">
+              <div class="chat-header-title">
+                <div class="chat-avatar">G</div>
+                <div class="chat-h-text"><div class="chat-h-name">Ask Gemma</div><div class="chat-h-sub">Powered by your real data</div></div>
+              </div>
+              <div class="scope-chip"><span class="dot"></span><span>branch · Marketing Manager</span></div>
+            </header>
+
+            <div class="chat-body">
+              <div class="msg-row">
+                <div class="msg-mini-avatar">G</div>
+                <div class="msg-bubble">
+                  Marketing Manager is your anchor — solid earnings, decent growth, and real human-edge work. From here, you can move into <em class="branch-mention">Administrative Services Managers</em> or <em class="branch-mention">Natural Sciences Managers</em> without more school. If you go back for a master's, doors like Sales Managers open up with a meaningful pay bump.
+                </div>
+              </div>
+              <div class="msg-row user">
+                <div class="msg-bubble">What's the safest path?</div>
+              </div>
+              <div class="msg-row">
+                <div class="msg-mini-avatar">G</div>
+                <div class="msg-bubble">
+                  Honestly? Staying lateral. <em class="branch-mention">Administrative Services Managers</em> is the closest sibling to what you already do — same Bachelor's, same management track, marginally higher earnings. <em class="branch-mention">Natural Sciences Managers</em> is the same shape with a science-org twist if that fits your background. Both keep your education sunk-cost intact.
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-wrap">
+              <div class="chat-input">
+                <span class="chat-input-text">Ask Gemma anything…</span>
+                <button class="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg></button>
+              </div>
+              <div class="data-drawer-pill">
+                <span class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-6"/></svg> See the data for Marketing Manager</span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Why the flash matters here.</strong> On the dendrogram, a flash on an off-screen node was invisible — the bidirectional link silently failed. With the cap-at-6 horizon map, every chip that could be flashed is in viewport. The flash is now what it was always meant to be: a soft pulse that says <em>"the thing Gemma just named is right here."</em> No pan, no scroll, no hunt. Resolved by architecture, not by adding a pan-to-flash mechanism.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       STATE 4 — +N MORE PRE-EXPAND
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 04</span>
+      <h2 class="state-title">"+N more" pre-expand — overflow indicator</h2>
+    </div>
+    <p class="state-desc">
+      Same default state, but isolating the <em>Lateral</em> lane so the <code style="font-family:var(--font-data);color:var(--accent-info);">btn-lane-expand-lateral</code> affordance reads clearly. The "+15 more" chip sits in the natural overflow position at the end of the row — chip-shaped placeholder, dashed border, accent-info count, micro hint underneath. Hover state brightens to <code style="font-family:var(--font-data);color:var(--accent-info);">bp-raised</code>.
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">Q#4 chip-shaped at end-of-row</span>
+      <span class="decision-tag">expand grows lane vertically (doesn't scroll)</span>
+      <span class="decision-tag">no nav, no scope change</span>
+    </div>
+
+    <!-- Just the lane (focused), no full-screen frame -->
+    <div class="screen-frame" style="max-width: 540px;">
+      <div class="horizon-col" style="height:auto;min-height:0;max-height:none;">
+        <div class="horizon-header">
+          <div class="horizon-header-row">
+            <div>
+              <div class="horizon-eyebrow">CAREER MAP</div>
+              <h3 class="horizon-title">Lateral lane (focused)</h3>
+            </div>
+            <label class="toggle-row" role="switch" aria-checked="false">
+              <span class="toggle-label">Hide supplemental</span>
+              <span class="switch"></span>
+            </label>
+          </div>
+          <p class="horizon-anchor"><span class="meta-data">21 total · cap-at-6 active</span></p>
+        </div>
+        <div class="lanes">
+          <div class="lane" data-lane="lateral">
+            <header class="lane-header">
+              <div class="lane-header-left">
+                <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg> Lateral</h4>
+                <span class="lane-subtitle">same degree, different role</span>
+              </div>
+              <span class="lane-count">6 of 21 shown</span>
+            </header>
+            <div class="chip-row">
+              <button class="chip" data-tier="primary-short"><div class="chip-title">Administrative Services Mgrs</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+8 ERN</span></div></button>
+              <button class="chip" data-tier="primary-short"><div class="chip-title">Natural Sciences Managers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+12 ERN</span></div></button>
+              <button class="chip" data-tier="primary-long"><div class="chip-title">Compliance Officers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+6 GRW</span></div></button>
+              <button class="chip" data-tier="primary-long"><div class="chip-title">Financial Risk Specialists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+15 ERN</span></div></button>
+              <button class="chip" data-tier="primary-short"><div class="chip-title">Management Analysts</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+9 GRW</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Data Scientists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="res">+18 RES</span></div></button>
+              <button class="chip-more">
+                <span class="more-count">+15 more</span>
+                <span class="more-hint">Lateral paths</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       STATE 5 — +N MORE POST-EXPAND
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 05</span>
+      <h2 class="state-title">"+N more" post-expand — all 21 chips visible inline</h2>
+    </div>
+    <p class="state-desc">
+      Click on the "+15 more" chip. The lane grows vertically in place — no navigation, no scope change, no chat-history clear. All 21 Lateral chips render at once, with the affordance replaced by a small "Show fewer" pill at the very end. Chip width relaxes from 3-up to 4-up to keep the visual rhythm tight. State is per-lane, ephemeral, resets on screen unmount.
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">grow vertically, not scroll</span>
+      <span class="decision-tag">collapse affordance bottom-right</span>
+      <span class="decision-tag">other lanes unchanged</span>
+    </div>
+
+    <div class="screen-frame" style="max-width: 540px;">
+      <div class="horizon-col" style="height:auto;min-height:0;max-height:none;">
+        <div class="horizon-header">
+          <div class="horizon-header-row">
+            <div>
+              <div class="horizon-eyebrow">CAREER MAP</div>
+              <h3 class="horizon-title">Lateral lane — expanded</h3>
+            </div>
+            <label class="toggle-row" role="switch" aria-checked="false">
+              <span class="toggle-label">Hide supplemental</span>
+              <span class="switch"></span>
+            </label>
+          </div>
+          <p class="horizon-anchor"><span class="meta-data">21 of 21 shown</span></p>
+        </div>
+        <div class="lanes">
+          <div class="lane" data-lane="lateral">
+            <header class="lane-header">
+              <div class="lane-header-left">
+                <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg> Lateral</h4>
+                <span class="lane-subtitle">same degree, different role</span>
+              </div>
+              <span class="lane-count">21 of 21 shown</span>
+            </header>
+            <div class="chip-row expanded">
+              <!-- Top 6 (Primary-Short / Primary-Long) -->
+              <button class="chip" data-tier="primary-short"><div class="chip-title">Administrative Services Mgrs</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+8 ERN</span></div></button>
+              <button class="chip" data-tier="primary-short"><div class="chip-title">Natural Sciences Managers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+12 ERN</span></div></button>
+              <button class="chip" data-tier="primary-short"><div class="chip-title">Management Analysts</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+9 GRW</span></div></button>
+              <button class="chip" data-tier="primary-long"><div class="chip-title">Compliance Officers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+6 GRW</span></div></button>
+              <button class="chip" data-tier="primary-long"><div class="chip-title">Financial Risk Specialists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+15 ERN</span></div></button>
+              <button class="chip" data-tier="primary-long"><div class="chip-title">Operations Research Analysts</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+11 GRW</span></div></button>
+              <!-- Supplemental tier -->
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Data Scientists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="res">+18 RES</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Market Research Analysts</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+7 GRW</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Logisticians</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+4 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Project Mgmt Specialists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+10 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Training &amp; Dev Specialists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+6 HMN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Cost Estimators</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+3 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Buyers &amp; Purchasing Agts</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern" data-sign="neg">-2 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Wholesale Sales Reps</div><div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+5 HMN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Insurance Underwriters</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw" data-sign="neg">-4 GRW</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Loan Officers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+2 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">Real Estate Brokers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+8 ERN</span></div></button>
+              <!-- Three null-edu rows -->
+              <button class="chip" data-tier="supplemental" data-level-unknown="true"><div class="chip-title">Property Mgrs (assoc.)</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+1 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental" data-level-unknown="true"><div class="chip-title">Bookkeeping Clerks</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern" data-sign="neg">-9 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental" data-level-unknown="true"><div class="chip-title">Customer Service Reps</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern" data-sign="neg">-12 ERN</span></div></button>
+              <button class="chip" data-tier="supplemental"><div class="chip-title">First-line Sales Supervisors</div><div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+3 HMN</span></div></button>
+
+              <button class="chip-collapse">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m18 15-6-6-6 6"/></svg>
+                Show fewer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Note the level-unknown chips.</strong> The last three rows (Property Mgrs, Bookkeeping Clerks, Customer Service Reps) have <code style="font-family:var(--font-data);color:var(--accent-info);">related_education_level == null</code>. Per Decision #2 they fall into Lateral with a muted dashed-border treatment — the chip is dimmed but visible, signalling <em>"the data is real, the precise edu requirement isn't pinned down."</em> The student can still click them; chat will surface what's known.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       STATE 6 — HIDE SUPPLEMENTAL ON
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 06</span>
+      <h2 class="state-title">"Hide supplemental" on — Supplemental-tier chips removed</h2>
+    </div>
+    <p class="state-desc">
+      Toggle flipped on. <code style="font-family:var(--font-data);color:var(--accent-info);">relatedness_tier == "Supplemental"</code> chips (49.4% of all rows, the long-tail similarity matches) are filtered out across all three lanes. <code style="font-family:var(--font-data);color:var(--accent-info);">totalBeforeCap</code> recomputes against the post-filter set, so "+N more" counts shrink. Default is off, per-session, resets on screen mount — the toggle is a power-user de-noise affordance.
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">D#7 default off</span>
+      <span class="decision-tag">column-level toggle (not per-lane)</span>
+      <span class="decision-tag">cap-at-6 + +N math respected</span>
+    </div>
+
+    <div class="screen-frame">
+      <div class="screen-titlebar">
+        <div class="crumbs">My Build &nbsp;›&nbsp; <strong>Branch tree</strong></div>
+        <div class="build-pill"><span class="bear">🐻</span><span><strong style="color:var(--text-primary);font-weight:700;">Skylar</strong> · Marketing Manager · ISU</span></div>
+      </div>
+
+      <div class="grid-12">
+        <div class="col-tree">
+          <div class="horizon-col">
+            <div class="horizon-header">
+              <div class="horizon-header-row">
+                <div>
+                  <div class="horizon-eyebrow">CAREER MAP</div>
+                  <h3 class="horizon-title">Where you can go from here</h3>
+                </div>
+                <label class="toggle-row" role="switch" aria-checked="true">
+                  <span class="toggle-label">Hide supplemental</span>
+                  <span class="switch on"></span>
+                </label>
+              </div>
+              <p class="horizon-anchor">Anchored on <strong>Marketing Manager</strong> · <span class="meta-data" style="color:var(--accent-info)">filter active · 17 hidden</span></p>
+            </div>
+
+            <div class="lanes">
+              <!-- LATERAL — supplemental gone, was 21, now 5 (all visible) -->
+              <div class="lane" data-lane="lateral">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg> Lateral</h4>
+                    <span class="lane-subtitle">same degree, different role</span>
+                  </div>
+                  <span class="lane-count">5 of 5 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-short"><div class="chip-title">Administrative Services Mgrs</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+8 ERN</span></div></button>
+                  <button class="chip" data-tier="primary-short"><div class="chip-title">Natural Sciences Managers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+12 ERN</span></div></button>
+                  <button class="chip" data-tier="primary-short"><div class="chip-title">Management Analysts</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+9 GRW</span></div></button>
+                  <button class="chip" data-tier="primary-long"><div class="chip-title">Compliance Officers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="grw">+6 GRW</span></div></button>
+                  <button class="chip" data-tier="primary-long"><div class="chip-title">Financial Risk Specialists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+15 ERN</span></div></button>
+                </div>
+              </div>
+
+              <!-- STEP UP — was 10, now 4 -->
+              <div class="lane" data-lane="step-up">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h6l3-4 3 4h6"/><path d="m9 13 3-4 3 4"/><path d="m15 9 3-4"/></svg> Step Up</h4>
+                    <span class="lane-subtitle">one credential more (master's)</span>
+                  </div>
+                  <span class="lane-count">4 of 4 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">Sales Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+22 ERN</span><span class="exp-badge" data-tier="mid">mid-career</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="primary-short">
+                    <div class="chip-title">PR &amp; Fundraising Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+14 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">HR Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+11 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Financial Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+28 ERN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires master's</div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- LONG CLIMB — was 3, now 1 -->
+              <div class="lane" data-lane="long-climb">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 19 4-7 5 4 4-9"/><path d="M3 21h18"/></svg> Long Climb</h4>
+                    <span class="lane-subtitle">doctoral / professional</span>
+                  </div>
+                  <span class="lane-count">1 of 1 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Political Scientists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="res">+12 RES</span><span class="exp-badge" data-tier="senior">senior</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires doctorate</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-chat">
+          <div class="chat-col">
+            <header class="chat-header">
+              <div class="chat-header-title">
+                <div class="chat-avatar">G</div>
+                <div class="chat-h-text"><div class="chat-h-name">Ask Gemma</div><div class="chat-h-sub">Powered by your real data</div></div>
+              </div>
+              <div class="scope-chip"><span class="dot"></span><span>branch · Marketing Manager</span></div>
+            </header>
+            <div class="chat-body">
+              <div class="msg-row">
+                <div class="msg-mini-avatar">G</div>
+                <div class="msg-bubble">
+                  Marketing Manager is your anchor — solid earnings, decent growth, and real human-edge work. From here, you can move into <em class="branch-mention">Administrative Services Managers</em> or <em class="branch-mention">Natural Sciences Managers</em> without more school. If you go back for a master's, doors like <em class="branch-mention">Sales Managers</em> open up with a meaningful pay bump.
+                </div>
+              </div>
+              <div class="starter-chips">
+                <button class="starter-chip">What's the safest path?</button>
+                <button class="starter-chip">Which branch pays best long-term?</button>
+                <button class="starter-chip">What if I went into management?</button>
+                <button class="starter-chip">What if AI changes everything?</button>
+              </div>
+            </div>
+            <div class="chat-input-wrap">
+              <div class="chat-input">
+                <span class="chat-input-text">Ask Gemma anything…</span>
+                <button class="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg></button>
+              </div>
+              <div class="data-drawer-pill">
+                <span class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-6"/></svg> See the data for Marketing Manager</span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Filter math watch.</strong> The toggle nukes 17 chips (16 lateral supplemental + 1 step-up supplemental + 2 long-climb supplemental, post-bucketing). Importantly, no "+N more" affordance survives — every remaining chip fits within cap-at-6 in its lane. The horizon-anchor sub-line picks up the filter status as <code style="font-family:var(--font-data);color:var(--accent-info);">filter active · 17 hidden</code> so the student knows data is being suppressed, not missing.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       STATE 7 — EMPTY LONG CLIMB LANE
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 07</span>
+      <h2 class="state-title">Empty Long Climb lane — Master's-level build</h2>
+    </div>
+    <p class="state-desc">
+      A different build: <em>Nurse Practitioner (SOC 29-1171)</em> from a Master's of Nursing program. Build edu rank = 4 (Master's). Anything Doctoral-level → Long Climb (delta = 1, wait — Doctoral is rank 5, so delta = 1 → Step Up; only "professional" maps to delta ≥ 2 here). For this build the dataset has no professional-degree destinations. Per spec: <em>render the lane header + a muted empty-state line. Do NOT hide the lane.</em> Keeping the empty lane visible preserves the 3-lane mental model — the student learns "no doctoral path here" not "the page broke."
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">D#1 lane logic — Master's anchor</span>
+      <span class="decision-tag">empty-lane never hidden</span>
+      <span class="decision-tag">Q#5 muted text-text-muted placeholder</span>
+    </div>
+
+    <div class="screen-frame">
+      <div class="screen-titlebar">
+        <div class="crumbs">My Build &nbsp;›&nbsp; <strong>Branch tree</strong></div>
+        <div class="build-pill">
+          <span class="bear">🐻</span>
+          <span><strong style="color:var(--text-primary);font-weight:700;">Avery</strong> · Nurse Practitioner · IUPUI MSN</span>
+        </div>
+      </div>
+
+      <div class="grid-12">
+        <div class="col-tree">
+          <div class="horizon-col">
+            <div class="horizon-header">
+              <div class="horizon-header-row">
+                <div>
+                  <div class="horizon-eyebrow">CAREER MAP</div>
+                  <h3 class="horizon-title">Where you can go from here</h3>
+                </div>
+                <label class="toggle-row" role="switch" aria-checked="false">
+                  <span class="toggle-label">Hide supplemental</span>
+                  <span class="switch"></span>
+                </label>
+              </div>
+              <p class="horizon-anchor">Anchored on <strong>Nurse Practitioner</strong> · <span class="meta-data">Master's-anchored</span></p>
+            </div>
+
+            <div class="lanes">
+              <div class="lane" data-lane="lateral">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg> Lateral</h4>
+                    <span class="lane-subtitle">same degree or less</span>
+                  </div>
+                  <span class="lane-count">6 of 14 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-short"><div class="chip-title">Nurse Anesthetists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+24 ERN</span></div></button>
+                  <button class="chip" data-tier="primary-short"><div class="chip-title">Nurse Midwives</div><div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+16 HMN</span></div></button>
+                  <button class="chip" data-tier="primary-long"><div class="chip-title">Physician Assistants</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+18 ERN</span></div></button>
+                  <button class="chip" data-tier="primary-long"><div class="chip-title">Clinical Nurse Specialists</div><div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+12 HMN</span></div></button>
+                  <button class="chip" data-tier="primary-short"><div class="chip-title">Registered Nurses</div><div class="chip-row-meta"><span class="stat-badge" data-stat="ern" data-sign="neg">-15 ERN</span></div></button>
+                  <button class="chip" data-tier="supplemental"><div class="chip-title">Healthcare Social Workers</div><div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+9 HMN</span></div></button>
+                  <button class="chip-more"><span class="more-count">+8 more</span><span class="more-hint">Lateral paths</span></button>
+                </div>
+              </div>
+
+              <div class="lane" data-lane="step-up">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h6l3-4 3 4h6"/><path d="m9 13 3-4 3 4"/><path d="m15 9 3-4"/></svg> Step Up</h4>
+                    <span class="lane-subtitle">one credential more (doctoral)</span>
+                  </div>
+                  <span class="lane-count">3 of 3 shown</span>
+                </header>
+                <div class="chip-row">
+                  <button class="chip" data-tier="primary-long">
+                    <div class="chip-title">Physicians, General</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+58 ERN</span><span class="exp-badge" data-tier="mid">mid-career</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires MD / DO</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Pharmacists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern">+22 ERN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires PharmD</div>
+                  </button>
+                  <button class="chip" data-tier="supplemental">
+                    <div class="chip-title">Nursing Instructors, Postsec</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="hmn">+7 HMN</span></div>
+                    <div class="chip-unlock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requires PhD</div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- LONG CLIMB — empty -->
+              <div class="lane" data-lane="long-climb">
+                <header class="lane-header">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label"><svg class="lane-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 19 4-7 5 4 4-9"/><path d="M3 21h18"/></svg> Long Climb</h4>
+                    <span class="lane-subtitle">two or more credentials more</span>
+                  </div>
+                  <span class="lane-count">none in data</span>
+                </header>
+                <div class="lane-empty" data-testid="lane-empty-long-climb" role="status">
+                  <div class="lane-empty-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                  </div>
+                  <div class="lane-empty-text">
+                    <span class="lane-empty-title">No long-climb paths in this data</span>
+                    <span class="lane-empty-sub">From a Master's, the climb is one more credential — those paths are in <em style="color:var(--text-secondary);font-style:normal;font-weight:600;">Step Up</em>.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-chat">
+          <div class="chat-col">
+            <header class="chat-header">
+              <div class="chat-header-title">
+                <div class="chat-avatar">G</div>
+                <div class="chat-h-text"><div class="chat-h-name">Ask Gemma</div><div class="chat-h-sub">Powered by your real data</div></div>
+              </div>
+              <div class="scope-chip"><span class="dot"></span><span>branch · Nurse Practitioner</span></div>
+            </header>
+            <div class="chat-body">
+              <div class="msg-row">
+                <div class="msg-mini-avatar">G</div>
+                <div class="msg-bubble">
+                  Nurse Practitioner is already a high-leverage Master's role — strong human-edge work, real autonomy, and earnings that are hard to top without going to medical school. Most of your nearby paths sit lateral or step up to a doctorate. There's no "third ladder" past that — the climb caps out at MD/PhD, which is why the Long Climb lane is empty for you.
+                </div>
+              </div>
+              <div class="starter-chips">
+                <button class="starter-chip">Is med school worth the climb?</button>
+                <button class="starter-chip">What's the highest-paying lateral?</button>
+                <button class="starter-chip">Where does NP burn out?</button>
+                <button class="starter-chip">What if I want to teach instead?</button>
+              </div>
+            </div>
+            <div class="chat-input-wrap">
+              <div class="chat-input">
+                <span class="chat-input-text">Ask about your Nurse Practitioner build…</span>
+                <button class="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg></button>
+              </div>
+              <div class="data-drawer-pill">
+                <span class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-6"/></svg> See the data for Nurse Practitioner</span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Empty-lane copy choice.</strong> Generic "no paths here" copy reads as a bug. The empty-state subtitle gestures at <em>why</em> the lane is empty in plain English ("from a Master's, the climb is one more credential — those are in Step Up"), so the student understands the lane structure rather than wondering if the data dropped a row. Lane label, lane subtitle, and the muted icon all stay — the lane keeps its slot in the 3-lane mental model.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       STATE 8 + 9 — MOBILE
+       ============================================================ -->
+  <section class="state-block">
+    <div class="state-header">
+      <span class="state-num">STATE 08 + 09</span>
+      <h2 class="state-title">Mobile — drawer expanded · drawer collapsed</h2>
+    </div>
+    <p class="state-desc">
+      Inherits the "Show map" drawer pattern from <code style="font-family:var(--font-data);color:var(--accent-info);">feature-tree-as-map.md</code> §3 unchanged. Default collapsed: chat owns the viewport; the map is opt-in. Expanded: the horizon map renders inside the drawer body, lanes stack as before, chips wrap to 2-up at 380px width. Toggle button is full-width, <code style="font-family:var(--font-data);color:var(--accent-info);">bp-surface</code>, chevron rotates 180° on open via <code style="font-family:var(--font-data);color:var(--accent-info);">springs.snappy</code>.
+    </p>
+    <div class="state-decisions">
+      <span class="decision-tag">no new mobile pattern</span>
+      <span class="decision-tag">drawer body = horizon map</span>
+      <span class="decision-tag">chat input pinned bottom</span>
+    </div>
+
+    <div class="mobile-row">
+
+      <!-- MOBILE — drawer expanded -->
+      <div>
+        <div style="font-family:var(--font-data);font-size:11px;color:var(--text-muted);letter-spacing:.12em;margin-bottom:12px;text-transform:uppercase;">State 08 · Drawer expanded</div>
+        <div class="mobile-frame">
+          <div class="mobile-statusbar">
+            <span>9:41</span>
+            <span class="right">●●●● ⚡ 87%</span>
+          </div>
+          <div class="mobile-screenheader">
+            <div>
+              <div class="crumb">My build · Branch tree</div>
+              <div class="title">Where you can go</div>
+            </div>
+          </div>
+
+          <div class="mobile-show-map expanded">
+            <span style="display:flex;align-items:center;gap:8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6.75 3 9.75v9l6-3 6 3 6-3v-9l-6 3-6-3z"/><path d="M9 6.75v12"/><path d="M15 9.75v9"/></svg>
+              Hide map
+            </span>
+            <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+
+          <div class="mobile-drawer-body">
+            <div style="padding:12px 12px 6px;border-bottom:1px solid var(--border-subtle);">
+              <div style="font-family:var(--font-data);font-size:10px;color:var(--accent-info);letter-spacing:.16em;text-transform:uppercase;">CAREER MAP</div>
+              <p style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);margin:2px 0 0;line-height:1.4;">Anchored on <strong style="color:var(--text-primary);font-weight:700;">Marketing Manager</strong></p>
+            </div>
+
+            <div style="padding:8px 12px 12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;max-height:38vh;">
+              <!-- Lateral lane (compressed) -->
+              <div class="lane" data-lane="lateral" style="padding:8px 8px 8px 10px;">
+                <header class="lane-header" style="margin-bottom:6px;">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label" style="font-size:13px;"><svg class="lane-icon" style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg> Lateral</h4>
+                  </div>
+                  <span class="lane-count" style="font-size:9px;">21</span>
+                </header>
+                <div class="chip-row" style="gap:6px;">
+                  <button class="chip" data-tier="primary-short" style="flex:1 1 calc(50% - 6px);min-width:120px;padding:8px 8px 8px 12px;">
+                    <div class="chip-title" style="font-size:12px;">Admin Services Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern" style="font-size:10px;padding:1px 5px;">+8 ERN</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-short" style="flex:1 1 calc(50% - 6px);min-width:120px;padding:8px 8px 8px 12px;">
+                    <div class="chip-title" style="font-size:12px;">Natural Sci Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern" style="font-size:10px;padding:1px 5px;">+12 ERN</span></div>
+                  </button>
+                  <button class="chip-more" style="flex:1 1 100%;padding:6px 10px;">
+                    <span class="more-count" style="font-size:11px;">+19 more</span>
+                    <span class="more-hint" style="font-size:9px;">Lateral paths</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Step Up -->
+              <div class="lane" data-lane="step-up" style="padding:8px 8px 8px 10px;">
+                <header class="lane-header" style="margin-bottom:6px;">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label" style="font-size:13px;"><svg class="lane-icon" style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h6l3-4 3 4h6"/><path d="m9 13 3-4 3 4"/><path d="m15 9 3-4"/></svg> Step Up</h4>
+                  </div>
+                  <span class="lane-count" style="font-size:9px;">10</span>
+                </header>
+                <div class="chip-row" style="gap:6px;">
+                  <button class="chip" data-tier="primary-short" style="flex:1 1 calc(50% - 6px);min-width:120px;padding:8px 8px 8px 12px;">
+                    <div class="chip-title" style="font-size:12px;">Sales Managers</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern" style="font-size:10px;padding:1px 5px;">+22 ERN</span></div>
+                  </button>
+                  <button class="chip" data-tier="primary-long" style="flex:1 1 calc(50% - 6px);min-width:120px;padding:8px 8px 8px 12px;">
+                    <div class="chip-title" style="font-size:12px;">Financial Mgrs</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="ern" style="font-size:10px;padding:1px 5px;">+28 ERN</span></div>
+                  </button>
+                  <button class="chip-more" style="flex:1 1 100%;padding:6px 10px;">
+                    <span class="more-count" style="font-size:11px;">+8 more</span>
+                    <span class="more-hint" style="font-size:9px;">Step-up paths</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Long Climb -->
+              <div class="lane" data-lane="long-climb" style="padding:8px 8px 8px 10px;">
+                <header class="lane-header" style="margin-bottom:6px;">
+                  <div class="lane-header-left">
+                    <h4 class="lane-label" style="font-size:13px;"><svg class="lane-icon" style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 19 4-7 5 4 4-9"/><path d="M3 21h18"/></svg> Long Climb</h4>
+                  </div>
+                  <span class="lane-count" style="font-size:9px;">3</span>
+                </header>
+                <div class="chip-row" style="gap:6px;">
+                  <button class="chip" data-tier="primary-long" style="flex:1 1 100%;padding:8px 8px 8px 12px;">
+                    <div class="chip-title" style="font-size:12px;">Political Scientists</div>
+                    <div class="chip-row-meta"><span class="stat-badge" data-stat="res" style="font-size:10px;padding:1px 5px;">+12 RES</span><span class="exp-badge" data-tier="senior" style="font-size:9px;">senior</span></div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mobile-chat-area" style="height:200px;">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="chat-avatar" style="width:24px;height:24px;font-size:11px;">G</div>
+                <div style="font-family:var(--font-display);font-weight:600;font-size:13px;">Ask Gemma</div>
+              </div>
+              <div class="scope-chip" style="font-size:10px;padding:3px 8px;"><span class="dot"></span><span>Marketing Mgr</span></div>
+            </div>
+            <div style="padding:10px;flex:1;overflow:hidden;">
+              <div class="msg-row">
+                <div class="msg-mini-avatar" style="width:20px;height:20px;font-size:10px;">G</div>
+                <div class="msg-bubble" style="font-size:12px;padding:8px 10px;">
+                  From here you can move into <em class="branch-mention" style="font-size:12px;">Administrative Services Managers</em> or <em class="branch-mention" style="font-size:12px;">Natural Sciences Managers</em> without more school…
+                </div>
+              </div>
+            </div>
+            <div style="padding:8px 10px;border-top:1px solid var(--border-subtle);">
+              <div class="chat-input" style="padding:7px 9px;">
+                <span class="chat-input-text" style="font-size:12px;">Ask Gemma…</span>
+                <button class="send-btn" style="width:24px;height:24px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOBILE — drawer collapsed -->
+      <div>
+        <div style="font-family:var(--font-data);font-size:11px;color:var(--text-muted);letter-spacing:.12em;margin-bottom:12px;text-transform:uppercase;">State 09 · Drawer collapsed</div>
+        <div class="mobile-frame">
+          <div class="mobile-statusbar">
+            <span>9:41</span>
+            <span class="right">●●●● ⚡ 87%</span>
+          </div>
+          <div class="mobile-screenheader">
+            <div>
+              <div class="crumb">My build · Branch tree</div>
+              <div class="title">Where you can go</div>
+            </div>
+          </div>
+
+          <div class="mobile-show-map">
+            <span style="display:flex;align-items:center;gap:8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6.75 3 9.75v9l6-3 6 3 6-3v-9l-6 3-6-3z"/><path d="M9 6.75v12"/><path d="M15 9.75v9"/></svg>
+              Show map
+            </span>
+            <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+
+          <div class="mobile-chat-area" style="flex:1;">
+            <div style="padding:12px 14px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="chat-avatar">G</div>
+                <div>
+                  <div style="font-family:var(--font-display);font-weight:600;font-size:14px;">Ask Gemma</div>
+                  <div style="font-family:var(--font-body);font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Powered by your data</div>
+                </div>
+              </div>
+              <div class="scope-chip" style="font-size:10px;padding:3px 8px;"><span class="dot"></span><span>Marketing Mgr</span></div>
+            </div>
+
+            <div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+              <div class="msg-row">
+                <div class="msg-mini-avatar">G</div>
+                <div class="msg-bubble" style="font-size:13px;">
+                  Marketing Manager is your anchor. From here, you can move into <em class="branch-mention">Administrative Services Managers</em> or <em class="branch-mention">Natural Sciences Managers</em> without more school. A master's opens up Sales Managers and Financial Managers.
+                </div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-left:32px;">
+                <button class="starter-chip" style="font-size:11.5px;padding:6px 10px;">Safest path?</button>
+                <button class="starter-chip" style="font-size:11.5px;padding:6px 10px;">Pays best long-term?</button>
+                <button class="starter-chip" style="font-size:11.5px;padding:6px 10px;">What if I went into management?</button>
+                <button class="starter-chip" style="font-size:11.5px;padding:6px 10px;">What if AI changes everything?</button>
+              </div>
+            </div>
+
+            <div style="padding:10px 12px 12px;border-top:1px solid var(--border-subtle);">
+              <div class="chat-input">
+                <span class="chat-input-text">Ask Gemma anything…</span>
+                <button class="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Mobile is inherited, not redesigned.</strong> The "Show map" drawer pattern (collapsed by default, full-width pill, <code style="font-family:var(--font-data);color:var(--accent-info);">chipResponseExpand</code> motion preset) ships today as part of feature-tree-as-map. The only change: the drawer body now hosts the horizon map's three lanes instead of a React Flow canvas. Lanes stack vertically as before; chips wrap to 2-up at 380px width with smaller padding to match thumb-reach. The chat input pins to the bottom of the viewport regardless of drawer state.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider" style="margin-bottom: 32px;"></div>
+
+  <!-- ============================================================
+       FOOTER NOTE
+       ============================================================ -->
+  <footer style="padding: 24px 32px; border-radius: var(--radius-lg); background: rgba(35, 37, 69, 0.4); border: 1px solid var(--border-subtle); font-family: var(--font-body); font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+    <div style="font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:8px;">Spec answers, in summary</div>
+    <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;">
+      <li><strong style="color:var(--text-primary);">Q1 — Vertical lane stacking.</strong> Three rows inside the col-span-5. The horizontal axis within each lane is the chip row (left-to-right).</li>
+      <li><strong style="color:var(--text-primary);">Q2 — Chip is a vertical card</strong> (title on top, badges below, optional unlock footer). Title gets the most vertical real estate and truncates at 32 chars with ellipsis.</li>
+      <li><strong style="color:var(--text-primary);">Q3 — Toggle lives in the column header, top-right.</strong> Single column-level switch — not repeated per lane. The horizon-anchor sub-line surfaces filter status when active.</li>
+      <li><strong style="color:var(--text-primary);">Q4 — "+N more" is a chip-shaped placeholder at row end.</strong> Click expands the lane vertically in place. No scroll, no nav. Replaced with "Show fewer" when expanded.</li>
+      <li><strong style="color:var(--text-primary);">Q5 — Empty-lane:</strong> dashed-border container, muted icon, <code style="font-family:var(--font-data);color:var(--text-secondary);">font-body text-small text-text-muted</code>, two-line copy (title + plain-English why).</li>
+      <li><strong style="color:var(--text-primary);">Q6 — Relatedness color bar</strong> on chip's left edge, 3px wide. Primary-Short = <code style="font-family:var(--font-data);color:var(--accent-thrive);">accent-thrive</code> with subtle glow; Primary-Long = <code style="font-family:var(--font-data);color:var(--accent-info);">accent-info</code>; Supplemental = <code style="font-family:var(--font-data);color:var(--text-muted);">text-muted</code>.</li>
+      <li><strong style="color:var(--text-primary);">Q7 — Stat-delta badge:</strong> uppercase stat code (ERN/GRW/HMN/RES/ROI), signed integer, stat-tinted background at 12% opacity. Convention from pentagon overlay holds: stat codes in UI affordances are fine; voice contract bans them in Gemma's prose.</li>
+      <li><strong style="color:var(--text-primary);">Q8 — Experience badge:</strong> tiny pill, <code style="font-family:var(--font-data);color:var(--accent-caution);">accent-caution</code> for "mid-career", <code style="font-family:var(--font-data);color:var(--accent-alert);">accent-alert</code> for "senior", uppercase, micro-sized. Renders only when tier is mid or senior — a 7.6% / 0.2% slice signal.</li>
+      <li><strong style="color:var(--text-primary);">Q9 — Selected chip:</strong> 1px <code style="font-family:var(--font-data);color:var(--accent-thrive);">accent-thrive</code> ring + soft glow. Siblings dim only within the selected chip's lane (other lanes stay full opacity).</li>
+      <li><strong style="color:var(--text-primary);">Q10 — Branch-flash keyframe</strong> reads great at chip scale: 1 → 1.06 → 1, accent-info glow, 600ms. Chip border picks up <code style="font-family:var(--font-data);color:var(--accent-info);">accent-info</code> mid-pulse for extra read. Stagger 200ms on multi-match preserved.</li>
+    </ol>
+  </footer>
+
+</div>
+
+</body>
+</html>
