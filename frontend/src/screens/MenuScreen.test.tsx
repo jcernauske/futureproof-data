@@ -187,7 +187,6 @@ beforeEach(() => {
     isBuilding: false,
     buildingStage: 0,
     build: null,
-    hasSeenStatTutorial: false,
   });
   useBuildInputStore.getState().reset();
 });

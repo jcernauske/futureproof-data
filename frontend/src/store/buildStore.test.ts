@@ -5,10 +5,9 @@ import type { Build, CareerOutcome, TieredCareers } from "@/types/build";
 /**
  * buildStore tests
  *
- * Covers the three contracts that matter:
+ * Covers the two contracts that matter:
  *   1. setTieredCareers accepts null (regression guard — used to be non-null)
- *   2. resetBuild clears build state but preserves hasSeenStatTutorial
- *   3. hasSeenStatTutorial persists to localStorage
+ *   2. resetBuild clears build state
  */
 
 function makeCareer(soc = "15-1252"): CareerOutcome {
@@ -61,7 +60,6 @@ beforeEach(() => {
     isBuilding: false,
     buildingStage: 0,
     build: null,
-    hasSeenStatTutorial: false,
   });
   localStorage.clear();
 });
@@ -127,33 +125,14 @@ describe("buildStore", () => {
       expect(after.isBuilding).toBe(false);
       expect(after.buildingStage).toBe(0);
     });
-
-    it("preserves hasSeenStatTutorial across resetBuild", () => {
-      const store = useBuildStore.getState();
-      store.setHasSeenStatTutorial(true);
-      expect(useBuildStore.getState().hasSeenStatTutorial).toBe(true);
-
-      store.resetBuild();
-
-      // Critical: resetBuild is called on every "new build" flow — if it
-      // wiped hasSeenStatTutorial, returning students would be re-tutored
-      // on every build.
-      expect(useBuildStore.getState().hasSeenStatTutorial).toBe(true);
-    });
   });
 
-  describe("hasSeenStatTutorial localStorage persistence", () => {
-    it("writes hasSeenStatTutorial=true to localStorage when set", () => {
-      useBuildStore.getState().setHasSeenStatTutorial(true);
-
-      const raw = localStorage.getItem("futureproof-build");
-      expect(raw).not.toBeNull();
-      const parsed = JSON.parse(raw!);
-      // Zustand persist shape: { state: {...}, version: N }
-      expect(parsed.state.hasSeenStatTutorial).toBe(true);
-    });
-
-    it("does NOT persist transient state (tieredCareers/build) to localStorage", () => {
+  describe("localStorage", () => {
+    it("does not carry the legacy hasSeenStatTutorial key after store mutations", () => {
+      // Regression guard: hasSeenStatTutorial was previously the sole
+      // partialized field on this store. After removing the persist
+      // middleware, no buildStore mutation should write the legacy key
+      // back into localStorage under the old "futureproof-build" name.
       const store = useBuildStore.getState();
       store.setTieredCareers({
         common: [makeCareer()],
@@ -161,14 +140,14 @@ describe("buildStore", () => {
         stretch: [],
       });
       store.setBuild({ build_id: "b-persist-test" } as Build);
-      store.setHasSeenStatTutorial(true);
 
-      const parsed = JSON.parse(localStorage.getItem("futureproof-build")!);
-      // partialize() should filter to ONLY hasSeenStatTutorial.
-      // Persisting tieredCareers/build would stale-fill the store on refresh.
-      expect(parsed.state.tieredCareers).toBeUndefined();
-      expect(parsed.state.build).toBeUndefined();
-      expect(parsed.state.hasSeenStatTutorial).toBe(true);
+      const raw = localStorage.getItem("futureproof-build");
+      if (raw === null) {
+        expect(raw).toBeNull();
+        return;
+      }
+      const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+      expect(parsed.state ?? {}).not.toHaveProperty("hasSeenStatTutorial");
     });
   });
 });

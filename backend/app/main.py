@@ -1,3 +1,8 @@
+import logging
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,17 +26,82 @@ from app.routers import (
     wrapped,
 )
 
+DEFAULT_DEV_ORIGINS = "http://localhost:5173,http://localhost:4173"
+
+
+def _parse_cors_origins() -> list[str]:
+    """Parse the CORS allowlist env var. Empty/whitespace-only values fall
+    back to the dev defaults so a stray ``CORS_ALLOWED_ORIGINS=`` in a
+    Railway env doesn't silently deny every preflight (audit-flagged
+    demo-killer shape — see spec §2 Decision #3).
+    """
+    raw = os.environ.get("CORS_ALLOWED_ORIGINS", DEFAULT_DEV_ORIGINS).strip()
+    if not raw:
+        raw = DEFAULT_DEV_ORIGINS
+    parsed = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    if not parsed:
+        # raw was non-empty but every entry stripped to empty (e.g. ",,")
+        # — log and fall back so the app still talks to local dev.
+        logging.getLogger("startup").warning(
+            "CORS_ALLOWED_ORIGINS parsed to empty list; falling back to dev defaults"
+        )
+        parsed = [
+            origin.strip()
+            for origin in DEFAULT_DEV_ORIGINS.split(",")
+            if origin.strip()
+        ]
+    return parsed
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    from app.services.mcp_client import get_server
+    from app.services.profile import _load_existing_profiles
+
+    log = logging.getLogger("startup")
+    try:
+        _load_existing_profiles()
+    except Exception as exc:
+        log.warning("profile preload failed: %s", exc, exc_info=True)
+
+    # Warm the Iceberg catalog so the first /build/outcomes request
+    # doesn't pay metadata-load latency that can exceed Railway's
+    # liveness window. Each load_table() reads only metadata.json,
+    # not data files — cheap.
+    warm_tables = [
+        "consumable.program_career_paths",
+        "consumable.career_outcomes",
+        "consumable.occupation_profiles",
+        "consumable.onet_work_profiles",
+        "consumable.ai_exposure",
+        "consumable.career_branches",
+        "consumable.regional_price_parities",
+    ]
+    try:
+        server = get_server()
+        for table_name in warm_tables:
+            try:
+                server.catalog.load_table(table_name)
+                log.info("warmed iceberg metadata: %s", table_name)
+            except Exception as exc:
+                log.warning("warmup skipped %s: %s", table_name, exc)
+    except Exception as exc:
+        log.warning("MCP server warmup failed: %s", exc)
+
+    yield
+
 
 def create_app() -> FastAPI:
     application = FastAPI(
         title="FutureProof API",
         version=__version__,
         description="RPG-style college decision engine",
+        lifespan=lifespan,
     )
 
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_parse_cors_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -59,40 +129,6 @@ def create_app() -> FastAPI:
     )
     application.include_router(reports.router, tags=["Reports"])
     application.include_router(ask_gemma_router.router, tags=["AskGemma"])
-
-    @application.on_event("startup")
-    async def startup():
-        import logging
-
-        from app.services.mcp_client import get_server
-        from app.services.profile import _load_existing_profiles
-
-        log = logging.getLogger("startup")
-        _load_existing_profiles()
-
-        # Warm the Iceberg catalog so the first /build/outcomes request
-        # doesn't pay metadata-load latency that can exceed Railway's
-        # liveness window. Each load_table() reads only metadata.json,
-        # not data files — cheap.
-        warm_tables = [
-            "consumable.program_career_paths",
-            "consumable.career_outcomes",
-            "consumable.occupation_profiles",
-            "consumable.onet_work_profiles",
-            "consumable.ai_exposure",
-            "consumable.career_branches",
-            "consumable.regional_price_parities",
-        ]
-        try:
-            server = get_server()
-            for table_name in warm_tables:
-                try:
-                    server.catalog.load_table(table_name)
-                    log.info("warmed iceberg metadata: %s", table_name)
-                except Exception as exc:
-                    log.warning("warmup skipped %s: %s", table_name, exc)
-        except Exception as exc:
-            log.warning("MCP server warmup failed: %s", exc)
 
     return application
 

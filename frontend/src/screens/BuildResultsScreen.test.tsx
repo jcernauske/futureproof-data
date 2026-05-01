@@ -65,6 +65,14 @@ vi.mock("@/api/menu", async () => {
   };
 });
 
+// `clearSession` is fire-and-forget on Start Over. Tests below mock it
+// at the module boundary so we can assert that navigation proceeds even
+// when the network call rejects.
+const mockClearSession = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/api/session", () => ({
+  clearSession: (...args: unknown[]) => mockClearSession(...args),
+}));
+
 // CampusHeroBanner calls useHorizonPick which relies on sessionStorage
 // bag-walk and crypto. Mock the hook to return a deterministic pick.
 vi.mock("@/hooks/useHorizonPick", () => ({
@@ -235,7 +243,6 @@ function seedReady() {
     isBuilding: false,
     buildingStage: 0,
     build: null,
-    hasSeenStatTutorial: true,
   });
   useProfileStore.setState({
     profileName: "dancing happy bear",
@@ -269,6 +276,8 @@ beforeEach(() => {
   mockAskGemma.mockReset();
   mockListBuilds.mockReset();
   mockListBuilds.mockResolvedValue([]);
+  mockClearSession.mockReset();
+  mockClearSession.mockResolvedValue(undefined);
   useBuildsCountStore.setState({ count: null, loading: false, error: null });
   sessionStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -794,6 +803,39 @@ describe("BuildResultsScreen -- unmount race safety", () => {
     );
     expect(unmountWarnings).toEqual([]);
 
+    errSpy.mockRestore();
+  });
+});
+
+// ===========================================================================
+// Start Over fire-and-forget contract
+// ===========================================================================
+
+describe("BuildResultsScreen -- Start Over (P2)", () => {
+  it("navigates_when_clearSession_rejects -- fire-and-forget contract", async () => {
+    seedWithBuild();
+    // Suppress the console.warn the catch handler emits so the test
+    // reflects the user-visible contract: navigation happens regardless.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    mockClearSession.mockRejectedValue(new Error("network down"));
+
+    renderScreen();
+
+    fireEvent.click(screen.getByText("Start over"));
+
+    expect(mockClearSession).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith("/set-your-course");
+
+    // Let the rejected promise's .catch settle so we can assert no
+    // unhandled-rejection error reached console.error.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(errSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
     errSpy.mockRestore();
   });
 });

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import type { Build, CareerOutcome, TieredCareers } from "@/types/build";
 
 interface BuildState {
@@ -20,10 +19,6 @@ interface BuildState {
   setBuild: (build: Build) => void;
   updateBuild: (fn: (prev: Build) => Build) => void;
 
-  // Tutorial
-  hasSeenStatTutorial: boolean;
-  setHasSeenStatTutorial: (seen: boolean) => void;
-
   // Reset
   resetBuild: () => void;
 
@@ -34,51 +29,37 @@ interface BuildState {
   }) => void;
 }
 
-export const useBuildStore = create<BuildState>()(
-  persist(
-    (set) => ({
+export const useBuildStore = create<BuildState>()((set) => ({
+  tieredCareers: null,
+  selectedCareer: null,
+  setTieredCareers: (tieredCareers) => set({ tieredCareers }),
+  setSelectedCareer: (selectedCareer) => set({ selectedCareer }),
+
+  isBuilding: false,
+  buildingStage: 0,
+  setIsBuilding: (isBuilding) => set({ isBuilding }),
+  setBuildingStage: (buildingStage) => set({ buildingStage }),
+
+  build: null,
+  setBuild: (build) => set({ build }),
+  updateBuild: (fn) =>
+    set((state) => ({ build: state.build ? fn(state.build) : state.build })),
+
+  resetBuild: () =>
+    set({
       tieredCareers: null,
       selectedCareer: null,
-      setTieredCareers: (tieredCareers) => set({ tieredCareers }),
-      setSelectedCareer: (selectedCareer) => set({ selectedCareer }),
-
       isBuilding: false,
       buildingStage: 0,
-      setIsBuilding: (isBuilding) => set({ isBuilding }),
-      setBuildingStage: (buildingStage) => set({ buildingStage }),
-
       build: null,
-      setBuild: (build) => set({ build }),
-      updateBuild: (fn) =>
-        set((state) => ({ build: state.build ? fn(state.build) : state.build })),
-
-      hasSeenStatTutorial: false,
-      setHasSeenStatTutorial: (hasSeenStatTutorial) =>
-        set({ hasSeenStatTutorial }),
-
-      resetBuild: () =>
-        set({
-          tieredCareers: null,
-          selectedCareer: null,
-          isBuilding: false,
-          buildingStage: 0,
-          build: null,
-        }),
-
-      hydrateFromSession: (data) =>
-        set({
-          build: data.build ?? null,
-          tieredCareers: data.tieredCareers ?? null,
-          selectedCareer: data.selectedCareer ?? null,
-          isBuilding: false,
-          buildingStage: 0,
-        }),
     }),
-    {
-      name: "futureproof-build",
-      partialize: (state) => ({
-        hasSeenStatTutorial: state.hasSeenStatTutorial,
-      }),
-    },
-  ),
-);
+
+  hydrateFromSession: (data) =>
+    set({
+      build: data.build ?? null,
+      tieredCareers: data.tieredCareers ?? null,
+      selectedCareer: data.selectedCareer ?? null,
+      isBuilding: false,
+      buildingStage: 0,
+    }),
+}));

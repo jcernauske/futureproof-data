@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 _CIP_PATTERN = re.compile(r"^\d{2}\.\d{4}$")
 _CIP_FAMILY_PATTERN = re.compile(r"^\d{2}\.\d{2}$")
+_CIP_FAMILY_PREFIX_PATTERN = re.compile(r"^\d{2}$")
 
 
 def _derive_intent_seed(prompt_input: str) -> int:
@@ -187,6 +188,10 @@ def _get_school_cips(unitid: int) -> list[dict[str, str]]:
     try:
         rows = server.query_iceberg(sql)
     except Exception:
+        logger.warning(
+            "intent._get_school_cips query failed; returning empty",
+            exc_info=True,
+        )
         return []
     return [
         {"cipcode": str(r["cipcode"]), "program_name": str(r.get("program_name", ""))}
@@ -200,9 +205,21 @@ def _get_crosswalk_cips_for_families(
 ) -> list[dict[str, str]]:
     if not family_prefixes:
         return []
+    valid_prefixes: list[str] = []
+    for p in family_prefixes:
+        head = p[:2]
+        if _CIP_FAMILY_PREFIX_PATTERN.fullmatch(head):
+            valid_prefixes.append(head)
+        else:
+            logger.debug(
+                "intent._get_crosswalk_cips_for_families: dropping malformed prefix %r",
+                p,
+            )
+    if not valid_prefixes:
+        return []
     server = mcp_client.get_server()
     conditions = " OR ".join(
-        f"SUBSTR(cipcode, 1, 2) = '{p[:2]}'" for p in family_prefixes
+        f"SUBSTR(cipcode, 1, 2) = '{p}'" for p in valid_prefixes
     )
     sql = (
         f"SELECT DISTINCT cipcode, cip_title "
@@ -213,6 +230,10 @@ def _get_crosswalk_cips_for_families(
     try:
         rows = server.query_iceberg(sql)
     except Exception:
+        logger.warning(
+            "intent._get_crosswalk_cips_for_families query failed; returning empty",
+            exc_info=True,
+        )
         return []
     return [
         {"cipcode": str(r["cipcode"]), "cip_title": str(r.get("cip_title", ""))}
@@ -296,6 +317,10 @@ def _get_career_titles_for_cip(cipcode: str) -> list[str]:
     try:
         rows = server.query_iceberg(sql)
     except Exception:
+        logger.warning(
+            "intent._get_career_titles_for_cip query failed; returning empty",
+            exc_info=True,
+        )
         return []
     return [str(r["soc_title"]) for r in rows if r.get("soc_title")]
 
