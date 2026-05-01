@@ -1,0 +1,92 @@
+# IPEDS Finance Survey (F1A / F2 / F3 + EFIA + HD)
+# National Center for Education Statistics (NCES), IPEDS
+#
+# Five-source ingest: UNIONs the three IPEDS finance forms keyed by
+# institutional control (F1A public/GASB, F2 private NFP/FASB, F3
+# private FP), LEFT JOINs EFIA (12-Month Instructional Activity) for
+# total FTE, and LEFT JOINs HD (Header) for institution_name + the
+# IPEDS-native 4-year-bachelor's-or-above filter (ICLEVEL=1 AND
+# HLOFFER>=5).  Lands ~2,600 rows after the HD filter on FY2022
+# (the most-recent fully-published cycle as of 2026-04-30; FY24 is
+# not yet published by NCES).
+
+name: ipeds_finance
+namespace: bronze
+table: ipeds_finance
+
+# Fetch config
+fetch:
+  ipeds_finance:
+    landing_url: https://nces.ed.gov/ipeds/datacenter/
+    bulk_zip_url_template: https://nces.ed.gov/ipeds/datacenter/data/{filename}.zip
+    fallback_path: data/raw/ipeds_finance_cache/fy2022
+    user_agent: "FutureProof/0.1 (jeff@hyenastudios.com)"
+    fiscal_year: 2022
+    format: csv
+    size_estimate: "~5MB total (5 zips)"
+
+# Single logical entity representing the joined 5-source IPEDS Finance dataset
+entities:
+  ipeds_finance: "IPEDS Finance Survey — F1A + F2 + F3 + EFIA + HD, FY2022"
+
+# Dedup grain — one row per institution per fiscal year
+dedup_grain:
+  - unitid
+
+# Cache directory for the staged source zips (per fiscal year)
+cache_dir: data/raw/ipeds_finance_cache/fy2022
+
+# --- Domain Documentation (not consumed by loader) ---
+
+# Source metadata
+# authority: National Center for Education Statistics (NCES), IPEDS
+# dataset: IPEDS Finance Survey + EFIA (12-Month Instructional Activity) + HD (Header)
+# forms:
+#   F1A — Public institutions (GASB), Part C functional expenses
+#   F2  — Private nonprofits (FASB), Section E functional expenses
+#   F3  — Private for-profits (post-2014-15 schedule)
+#   EFIA — 12-Month Instructional Activity (FTE source — NOT EFFY headcount)
+#   HD  — Header file (institution_name + ICLEVEL/HLOFFER filter columns)
+# url: https://nces.ed.gov/ipeds/datacenter/
+# license: U.S. Government Work — public domain
+# update_cadence: annual (Finance + EFIA + HD released as part of each cycle)
+
+# Cycle year decision (v1.3, 2026-04-30):
+#   Default fiscal_year is 2022 because the §3-narrative target FY24
+#   (academic year 2023-24, files F2324_*) is not yet published by NCES
+#   — the IPEDS Data Center returns HTTP 200 with a 1.2KB 404-error
+#   HTML page for those filenames.  FY2022 is the most-recent fully-
+#   published cycle and the year the pre-flight verified column codes
+#   against (governance/eda/raw-ingest-ipeds-finance-preflight.md).
+#   The ingestor's `fiscal_year=` constructor argument supports any
+#   cycle, so promoting to FY24 once published is a parameter change.
+
+# Grain description: One row per institution (UNITID) per fiscal year
+
+# Key fields:
+#   Identity: unitid (long, IPEDS 6-digit institution ID)
+#   Identity: institution_name (string, from HD)
+#   Identity: report_form (string, F1A | F2 | F3 — institution's accounting basis)
+#   Identity: fiscal_year (int, e.g. 2022)
+#   Measure: institutional_support_expenses (double, NULL on suppression)
+#   Measure: instruction_expenses (double, NULL on suppression)
+#   Measure: endowment_value (double, NULL — and N/A for F3 by schedule)
+#   Measure: total_fte_enrollment (double, NULL-safe sum from EFIA)
+#   Metadata: source_url, source_method, ingested_at, load_date
+
+# LOCKED column codes (v1.3 pre-flight report):
+#   F1A: instruction=F1C011, institutional_support=F1C071, endowment=F1H02
+#   F2 : instruction=F2E011, institutional_support=F2E061, endowment=F2H02
+#   F3 : instruction=F3E011, institutional_support=F3E03C1, endowment=N/A (no F3H family)
+#   EFIA total FTE: COALESCE(FTEUG,0) + COALESCE(FTEGD,0) + COALESCE(FTEDPP,0),
+#                   NULL only when all three components are NULL
+#   HD filter: ICLEVEL = 1 AND HLOFFER >= 5
+
+# Data quality notes:
+#   - Expected row count: ~2,600 after the HD 4-year filter (FY2022)
+#   - Form mix on FY2022: F1A=803 / F2=1,593 / F3=287 (verified smoke run)
+#   - IPEDS sentinels {-1, -2, ".", "", "PrivacySuppressed"} → NULL before coercion
+#   - Bureau-imputed values are accepted as raw values (X* flag columns not stored)
+#   - Cross-form invariant: a UNITID should appear in exactly ONE of F1A/F2/F3
+#   - F3 endowment is genuinely N/A (for-profits do not maintain endowments)
+#   - 5-file source means source_url is a pipe-delimited list of all 5 file URLs

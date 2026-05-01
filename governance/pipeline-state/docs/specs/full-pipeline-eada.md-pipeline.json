@@ -1,0 +1,200 @@
+{
+  "spec": "docs/specs/full-pipeline-eada.md",
+  "zone": "bronze",
+  "mode": "greenfield",
+  "started": "2026-05-01T03:12:55.042280+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T03:21:03.251989+00:00",
+      "output": "docs/specs/full-pipeline-eada.md",
+      "output_hash": "sha256:1bbcb26109cc68c543675577b914055b029396b1f166a3ca325c78f6b29aff8a"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T03:39:26.112348+00:00",
+      "output": "src/raw/eada_ingestor.py",
+      "output_hash": "sha256:106d184ab6e8bdab92bc47bd0692e6d9045264264b13a8e4b508cd7efd293fdf"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T03:56:26.848879+00:00",
+      "output": "governance/eda/full-pipeline-eada-raw-eda.md",
+      "output_hash": "sha256:85d24f0df746ea1af24f33d5145fca00f145d0fb3bb1b6dc9836db181919a70a"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:00:43.366471+00:00",
+      "output": "governance/domain-context.md",
+      "output_hash": "sha256:ca6cf565a78da3b7daa0e65540d8302d0aeea1b78ed142b4c5b3c7a1e4f93d37"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:00:45.307121+00:00",
+      "output": "governance/dq-rules/raw-eada.json",
+      "output_hash": "sha256:c9eb22a5ce754715a21cde405e0212b758a289d9df822788be5b7e66396bb265"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:05:40.545978+00:00",
+      "output": "governance/dq-scorecards/raw-eada-20260501T040238Z.md",
+      "output_hash": "sha256:df919c34fe173e70a5477b91647a43c0ec1ba5519a35fcf970dd2c43d1f79cdc"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:05:42.517156+00:00",
+      "output": "governance/chaos-reports/raw-eada-chaos.md",
+      "output_hash": "sha256:566757225fe89eaf6b24278137c8e4c330d4ea90778db11bdf6c189c9b10f615"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:12:24.002444+00:00",
+      "output": "governance/entity-resolution/raw-eada-er-assessment.md",
+      "output_hash": "sha256:6dc636b5c03420390ac5a267985147019d0e2508cdbdf03091b15645637c54ca"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:12:25.955075+00:00",
+      "output": "governance/pii-scans/raw-eada-pii-scan.md",
+      "output_hash": "sha256:735164f4dffac61b421edab6d21bbcfb75392adae510b6c3588dd99ef975d4ee"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:12:27.875524+00:00",
+      "output": "governance/temporal-models/raw-eada-temporal-assessment.md",
+      "output_hash": "sha256:82a1e36bba44055ecf1674fed86984221c086ec51bfeb57cd2213ef28ae58f8f"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:21:06.227691+00:00",
+      "output": "governance/lineage/full-pipeline-eada-20260501T040238Z.json",
+      "output_hash": "sha256:a72202201ea56e5851531a104675326ed0029632a47524188b8c58724a02f311"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:21:08.142691+00:00",
+      "output": "governance/cde-tagging/raw-eada.md",
+      "output_hash": "sha256:d3d29c5f9ce375a65f9100a16bcf9898bb7162e91280b0556bf74eb2bc3d647d"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:21:10.039797+00:00",
+      "output": "governance/data-dictionaries/raw-eada.md",
+      "output_hash": "sha256:61afe31bac4c1b9fb6c4469241e99c9acde2ff78f9a8c8420364d74c33034d72"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:12:29.812420+00:00",
+      "output": "governance/adversarial-audits/raw-eada-bronze-audit.md",
+      "output_hash": "sha256:57d7c3c5bdb008a18c0265915ac96dd2fff1a298f10a4a3f679807279724ab29"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:23:28.972934+00:00",
+      "output": "docs/specs/full-pipeline-eada.md",
+      "output_hash": "sha256:b5f4794e03ea27bd23c52163313fd8ef45907b72bacab20753f098db71535c7a"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T04:27:20.514101+00:00",
+      "output": "docs/specs/full-pipeline-eada.md",
+      "output_hash": "sha256:2bff1fea26ec6008a04b2d57b11a05a92c53af34d187caf40254496b7a97e497"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

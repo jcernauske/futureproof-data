@@ -1,0 +1,215 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-04-30T22:00:00.000000Z",
+    "run": {
+      "runId": "f4a7c3d2-9b18-4e6a-8c52-1d7f5a9e2b34",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/full-pipeline-eada.md",
+          "specVersion": "1.0",
+          "specZone": "bronze",
+          "amendmentNotes": "Per spec §8 amendment, this lineage file uses the spec basename (`full-pipeline-eada-*`) rather than a table basename. This event covers ONLY the bronze zone (`bronze.eada`) for now; silver (`base.eada`) and consumable (`consumable.institution_aura`) lineage events are future appends. The multi-zone consumable lineage event will list both `base.ipeds_finance` and `base.eada` as inputs per §8 line 747."
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@bs:lineage-tracker",
+          "reasoning": "Bronze-zone landing of the EADA Athletics Disclosure Survey institution-totals file (InstLevel.xlsx, 2022-2023 academic cycle) into Iceberg table bronze.eada. The EadaIngestor reads the EDA-pre-converted CSV cache at data/raw/eada_cache/eada_2022.csv (2,040 rows × 168 columns), filters to institution-total rows (no-op for InstLevel.xlsx — already one-row-per-UNITID by construction; INSTITUTION_TOTAL_FILTER_COLUMN=None short-circuits to True), applies suppression-sentinel scrubbing ('', '-1', '-2' -> NULL) BEFORE numeric coercion across all three monetary fields, coerces UNITID to Iceberg long (handles int / float / quoted-string / leading-zero variants; rows with unparseable UNITID dropped with WARNING), coerces the three monetary fields (GRND_TOTAL_EXPENSE, GRND_TOTAL_REVENUE, RECRUITEXP_TOTAL) to Iceberg double, stamps reporting_year=2022 from DEFAULT_REPORTING_YEAR (academic-year-start convention; EADA file has no in-row year column), and lets BaseIngestor.ingest() append the framework metadata fields (source_url, source_method, ingested_at, load_date). source_method is fixed up post-hoc to reflect the actual fetch path ('csv_cache' for the cache-first default, 'bulk_csv_download' when bulk_url is supplied). All 12 P0/P1 DQ rules from raw-eada-20260501T040238Z.json passed (10 P0 + 2 P1, zero violations).",
+          "reasoningContinued": "EDA pin (governance/eda/full-pipeline-eada-raw-eda.md, 2026-04-30) overrode the spec's working-assumption column names — actual InstLevel.xlsx columns are GRND_TOTAL_EXPENSE / GRND_TOTAL_REVENUE / RECRUITEXP_TOTAL (NOT *_TOTAL_TOTAL variants) and identity columns are lowercase unitid / institution_name (NOT UNITID / INSTNM). These pins are encoded as class constants on EadaIngestor and overridable via __init__ kwargs without code changes. No transformation of values beyond null-sentinel scrubbing and type coercion — bronze is a faithful capture of the EADA payload."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 2040,
+          "rowsWritten": 2040,
+          "perTeamFiltered": 0,
+          "unparseableUnitidDropped": 0,
+          "snapshotId": "5935703872733658125",
+          "sourceMethod": "csv_cache",
+          "reportingYear": 2022,
+          "dqOverallPass": true,
+          "dqP0Pass": 10,
+          "dqP0Fail": 0,
+          "dqP1Pass": 2,
+          "dqP1Fail": 0
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-eada",
+      "facets": {
+        "documentation": {
+          "description": "Land the EADA Athletics Disclosure Survey institution-totals file (InstLevel.xlsx) into Iceberg table bronze.eada. Single entity, one row per UNITID per academic reporting year. Cache-first reads from data/raw/eada_cache/eada_<year>.csv with the live SPA backend at https://ope.ed.gov/athletics/api/dataFiles/file?fileName=EADA_<YYYY-YYYY>.zip as the refresh path. Filters to institution-total rows (no-op for InstLevel.xlsx by construction), scrubs EADA suppression sentinels ('', '-1', '-2') to NULL before numeric coercion, coerces UNITID to Iceberg long with explicit handling of int/float/quoted-string/leading-zero variants, coerces monetary fields to Iceberg double, and stamps reporting_year=2022 from DEFAULT_REPORTING_YEAR (academic-year-start convention; EADA has no in-row year column). Framework metadata (source_url, source_method, ingested_at, load_date) is appended by BaseIngestor.ingest() post-flatten. source_method is corrected post-hoc to the actual fetch path."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/eada_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "external.eada_instlevel_2022_csv_cache",
+        "facets": {
+          "dataSource": {
+            "name": "EADA 2022-2023 InstLevel.xlsx (CSV cache)",
+            "uri": "file://data/raw/eada_cache/eada_2022.csv",
+            "originUri": "https://ope.ed.gov/athletics/api/dataFiles/file?fileName=EADA_2022-2023.zip",
+            "landingPageUri": "https://ope.ed.gov/athletics/",
+            "spaBackendEndpoints": [
+              "https://ope.ed.gov/athletics/api/dataFiles/years",
+              "https://ope.ed.gov/athletics/api/dataFiles/fileList",
+              "https://ope.ed.gov/athletics/api/dataFiles/file?fileName=<FileName>"
+            ],
+            "provider": "U.S. Department of Education, Office of Postsecondary Education",
+            "license": "Public domain (U.S. federal government data)",
+            "discoveryReport": "governance/eda/full-pipeline-eada-raw-eda.md"
+          },
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "STRING", "description": "EADA identity column — lowercase in InstLevel.xlsx (NOT 'UNITID'). EDA-pinned 2026-04-30. May arrive as int, float, quoted string, or leading-zero string."},
+              {"name": "institution_name", "type": "STRING", "description": "EADA identity column — lowercase in InstLevel.xlsx (NOT 'INSTNM'). EDA-pinned 2026-04-30."},
+              {"name": "GRND_TOTAL_EXPENSE", "type": "STRING", "description": "Total athletic expenses for the institution. EDA-pinned 2026-04-30 — actual column name in InstLevel.xlsx (NOT 'EXP_TOTAL_TOTAL'). May contain EADA suppression sentinels ('', '-1', '-2')."},
+              {"name": "GRND_TOTAL_REVENUE", "type": "STRING", "description": "Total athletic revenue for the institution. EDA-pinned 2026-04-30 — actual column name in InstLevel.xlsx (NOT 'REV_TOTAL_TOTAL'). May contain EADA suppression sentinels."},
+              {"name": "RECRUITEXP_TOTAL", "type": "STRING", "description": "Recruiting expenses for the institution. EDA-pinned 2026-04-30 — actual column name in InstLevel.xlsx (NOT 'RECRUITEXP_TOTAL_TOTAL'). May contain EADA suppression sentinels."}
+            ],
+            "totalSourceColumns": 168,
+            "consumedColumns": 5,
+            "note": "InstLevel.xlsx has 168 columns total; only the 5 fields listed above are read by EadaIngestor. The remaining 163 columns (per-sport breakdowns, demographic splits) are intentionally not ingested at bronze."
+          }
+        },
+        "inputFacets": {
+          "rowCount": 2040,
+          "fileFormat": "CSV (utf-8-sig BOM-tolerant)",
+          "fileSourceFormat": "Excel (InstLevel.xlsx) pre-converted to CSV during EDA"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.eada",
+        "facets": {
+          "dataSource": {
+            "name": "Bronze Iceberg warehouse",
+            "uri": "file://data/bronze/iceberg_warehouse/bronze/eada/"
+          },
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG", "required": true, "description": "IPEDS institution ID. Iceberg field id 1, grain field. Coerced from any of int/float/quoted-string/leading-zero variants in the source CSV."},
+              {"name": "institution_name", "type": "STRING", "required": true, "description": "Institution name. Iceberg field id 2."},
+              {"name": "reporting_year", "type": "INTEGER", "required": true, "description": "EADA reporting cycle (academic-year-start convention; 2022 = the 2022-2023 cycle). Iceberg field id 3. Pinned per ingest from DEFAULT_REPORTING_YEAR; the EADA file has no in-row year column."},
+              {"name": "total_athletic_expenses", "type": "DOUBLE", "required": false, "description": "GRND_TOTAL_EXPENSE coerced to double after suppression-sentinel scrub. Iceberg field id 4."},
+              {"name": "total_athletic_revenue", "type": "DOUBLE", "required": false, "description": "GRND_TOTAL_REVENUE coerced to double after suppression-sentinel scrub. Iceberg field id 5."},
+              {"name": "recruiting_expenses", "type": "DOUBLE", "required": false, "description": "RECRUITEXP_TOTAL coerced to double after suppression-sentinel scrub. Iceberg field id 6."},
+              {"name": "source_url", "type": "STRING", "required": true, "description": "EADA landing page URL stamped on every row by EadaIngestor.get_source_url() — points at https://ope.ed.gov/athletics/ rather than a transient bulk URL so audit trails remain stable across runs. Iceberg field id 7."},
+              {"name": "source_method", "type": "STRING", "required": true, "description": "Fetch-path provenance: 'csv_cache' (default cache-first path) or 'bulk_csv_download' (when bulk_url kwarg supplied). Set post-hoc by EadaIngestor.ingest() to reflect the actual fetch path. Iceberg field id 8."},
+              {"name": "ingested_at", "type": "TIMESTAMP", "required": true, "description": "Bronze write timestamp stamped by BaseIngestor.ingest(). Iceberg field id 9."},
+              {"name": "load_date", "type": "DATE", "required": true, "description": "Date of bronze load stamped by BaseIngestor.ingest(). Iceberg field id 10."}
+            ]
+          },
+          "version": {
+            "datasetVersion": "5935703872733658125",
+            "snapshotId": "5935703872733658125",
+            "snapshotTimestamp": "2026-04-30T22:00:00.000000Z"
+          },
+          "columnLineage": {
+            "fields": {
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.eada_instlevel_2022_csv_cache", "field": "unitid"}
+                ],
+                "transformationDescription": "EadaIngestor._coerce_long(row['unitid']): coerces the lowercase 'unitid' EADA column to int (Iceberg long). Handles all observed source variants — int, float (truncated), quoted string (strips single/double quotes), and leading-zero string. Returns None on failure; rows with None UNITID are dropped with a WARNING log line (none observed in the 2022 run). NaN floats are also rejected. bool values are explicitly excluded (bool is a subclass of int in Python).",
+                "transformationType": "DERIVED"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.eada_instlevel_2022_csv_cache", "field": "institution_name"}
+                ],
+                "transformationDescription": "EadaIngestor._coerce_string(row['institution_name']): str() then .strip(). Empty strings collapse to None, but the bronze schema marks institution_name required=true — DQ rule RAW-EAD-002 (P0) enforces 100% non-null on the grain.",
+                "transformationType": "DIRECT"
+              },
+              "reporting_year": {
+                "inputFields": [],
+                "transformationDescription": "Stamped from EadaIngestor.reporting_year (defaults to DEFAULT_REPORTING_YEAR=2022) on every row. The EADA file does not carry an in-row year column — reporting_year is encoded only in the cache filename (eada_<year>.csv). Academic-year-start convention: 2022 = the 2022-2023 cycle. DQ rule RAW-EAD-010 (P0) verifies single-value invariant across all 2,040 rows.",
+                "transformationType": "DERIVED"
+              },
+              "total_athletic_expenses": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.eada_instlevel_2022_csv_cache", "field": "GRND_TOTAL_EXPENSE"}
+                ],
+                "transformationDescription": "EadaIngestor._coerce_double(_strip_sentinel(row['GRND_TOTAL_EXPENSE'])): two-stage transform. (1) _strip_sentinel maps EADA suppression sentinels ('', '-1', '-2' as stripped strings) to None — applied BEFORE coercion so the sentinel '-1' does not survive as numeric -1 and trigger RAW-EAD-004. (2) _coerce_double strips currency formatting (',' and '$'), parses to float, rejects NaN. Zero sentinel hits observed in 2022 (per EDA).",
+                "transformationType": "DERIVED"
+              },
+              "total_athletic_revenue": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.eada_instlevel_2022_csv_cache", "field": "GRND_TOTAL_REVENUE"}
+                ],
+                "transformationDescription": "EadaIngestor._coerce_double(_strip_sentinel(row['GRND_TOTAL_REVENUE'])): same two-stage sentinel-then-coerce pattern as total_athletic_expenses. Zero sentinel hits observed in 2022.",
+                "transformationType": "DERIVED"
+              },
+              "recruiting_expenses": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.eada_instlevel_2022_csv_cache", "field": "RECRUITEXP_TOTAL"}
+                ],
+                "transformationDescription": "EadaIngestor._coerce_double(_strip_sentinel(row['RECRUITEXP_TOTAL'])): same two-stage sentinel-then-coerce pattern as the other monetary fields. Zero sentinel hits observed in 2022.",
+                "transformationType": "DERIVED"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Stamped from EadaIngestor.get_source_url() = BULK_URL_TEMPLATE = 'https://ope.ed.gov/athletics/' on every row. Deliberately points at the human-facing landing page rather than the SPA-backend bulk download URL so audit trails remain stable across runs (the SPA fileName parameter changes per cycle).",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Set post-hoc by EadaIngestor.ingest() override to the actual fetch path: 'csv_cache' (cache-first default; what this 2026-04-30 run used) or 'bulk_csv_download' (when bulk_url kwarg supplied). The framework's default behavior of stamping the method string passed to ingest() is overridden because the actual path is determined inside fetch().",
+                "transformationType": "DERIVED"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected by BaseIngestor.ingest() — UTC timestamp at bronze write time.",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected by BaseIngestor.ingest() — date component of the bronze write timestamp.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "dataQualityAssertions": {
+            "scorecard": "governance/dq-scorecards/raw-eada-20260501T040238Z.json",
+            "rulesFile": "governance/dq-rules/raw-eada.json",
+            "executedAt": "2026-05-01T04:02:38.998128+00:00",
+            "executedBy": "@dq-engineer",
+            "overallPass": true,
+            "p0GateBlocking": false,
+            "ruleCount": 12,
+            "p0Total": 10,
+            "p0Pass": 10,
+            "p0Fail": 0,
+            "p1Total": 2,
+            "p1Pass": 2,
+            "p1Fail": 0,
+            "assertions": [
+              {"ruleId": "RAW-EAD-001", "name": "Row count between 1,800 and 2,300", "priority": "P0", "dimension": "volume", "column": null, "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-EAD-002", "name": "unitid non-null (100%)", "priority": "P0", "dimension": "completeness", "column": "unitid", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-EAD-003", "name": "unitid uniqueness (dedup grain)", "priority": "P0", "dimension": "uniqueness", "column": "unitid", "status": "PASS", "actual": 0, "threshold": "duplicate_rows = 0"},
+              {"ruleId": "RAW-EAD-004", "name": "total_athletic_expenses >= 0 where non-null", "priority": "P0", "dimension": "validity", "column": "total_athletic_expenses", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-EAD-005", "name": "total_athletic_revenue >= 0 where non-null", "priority": "P0", "dimension": "validity", "column": "total_athletic_revenue", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-EAD-006", "name": "recruiting_expenses >= 0 where non-null", "priority": "P0", "dimension": "validity", "column": "recruiting_expenses", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-EAD-007", "name": "total_athletic_expenses non-null >= 99%", "priority": "P0", "dimension": "completeness", "column": "total_athletic_expenses", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-EAD-008", "name": "total_athletic_revenue non-null >= 99%", "priority": "P0", "dimension": "completeness", "column": "total_athletic_revenue", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-EAD-009", "name": "recruiting_expenses non-null >= 99%", "priority": "P1", "dimension": "completeness", "column": "recruiting_expenses", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-EAD-010", "name": "reporting_year is single value across all rows", "priority": "P0", "dimension": "consistency", "column": "reporting_year", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-EAD-011", "name": "Spot check: at least one row total_athletic_expenses > $100M (D1 anchor)", "priority": "P1", "dimension": "validity", "column": "total_athletic_expenses", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-EAD-012", "name": "Row count within 1% of distinct UNITIDs (filter regression tripwire)", "priority": "P0", "dimension": "consistency", "column": "unitid", "status": "PASS", "actual": 0, "threshold": "violations = 0"}
+            ]
+          }
+        },
+        "outputFacets": {
+          "rowCount": 2040,
+          "snapshotId": "5935703872733658125"
+        }
+      }
+    ]
+  }
+]

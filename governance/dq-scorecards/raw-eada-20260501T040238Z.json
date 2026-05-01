@@ -1,0 +1,253 @@
+{
+  "spec": "full-pipeline-eada",
+  "table": "bronze.eada",
+  "rules_file": "governance/dq-rules/raw-eada.json",
+  "executed_at": "2026-05-01T04:02:38.998128+00:00",
+  "executed_by": "@dq-engineer",
+  "rule_count": 12,
+  "summary": {
+    "overall_pass": true,
+    "p0_total": 10,
+    "p0_pass": 10,
+    "p0_fail": 0,
+    "p1_total": 2,
+    "p1_pass": 2,
+    "p1_fail": 0,
+    "p0_gate_blocking": false
+  },
+  "results": [
+    {
+      "rule_id": "RAW-EAD-001",
+      "name": "Row count between 1,800 and 2,300",
+      "priority": "P0",
+      "dimension": "volume",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "RAW-EAD-002",
+      "name": "unitid non-null (100%)",
+      "priority": "P0",
+      "dimension": "completeness",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "source_url",
+        "source_method",
+        "ingested_at",
+        "load_date"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "RAW-EAD-003",
+      "name": "unitid uniqueness (dedup grain)",
+      "priority": "P0",
+      "dimension": "uniqueness",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "unitid",
+        "cnt"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "RAW-EAD-004",
+      "name": "total_athletic_expenses >= 0 where non-null",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "source_url",
+        "source_method",
+        "ingested_at",
+        "load_date"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "RAW-EAD-005",
+      "name": "total_athletic_revenue >= 0 where non-null",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "source_url",
+        "source_method",
+        "ingested_at",
+        "load_date"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "RAW-EAD-006",
+      "name": "recruiting_expenses >= 0 where non-null",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "source_url",
+        "source_method",
+        "ingested_at",
+        "load_date"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "RAW-EAD-007",
+      "name": "total_athletic_expenses non-null >= 99%",
+      "priority": "P0",
+      "dimension": "completeness",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "RAW-EAD-008",
+      "name": "total_athletic_revenue non-null >= 99%",
+      "priority": "P0",
+      "dimension": "completeness",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "RAW-EAD-009",
+      "name": "recruiting_expenses non-null >= 99%",
+      "priority": "P1",
+      "dimension": "completeness",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "RAW-EAD-010",
+      "name": "reporting_year is single value across all rows",
+      "priority": "P0",
+      "dimension": "consistency",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "RAW-EAD-011",
+      "name": "Spot check: at least one row total_athletic_expenses > $100M (D1 anchor)",
+      "priority": "P1",
+      "dimension": "validity",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "RAW-EAD-012",
+      "name": "Row count within 1% of distinct UNITIDs (filter regression tripwire)",
+      "priority": "P0",
+      "dimension": "consistency",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    }
+  ]
+}

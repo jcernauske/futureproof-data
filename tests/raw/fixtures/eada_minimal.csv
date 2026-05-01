@@ -1,0 +1,10 @@
+unitid,institution_name,GRND_TOTAL_EXPENSE,GRND_TOTAL_REVENUE,RECRUITEXP_TOTAL,EFTotalCount,filter_marker
+100654,Alabama A & M University,2789771,2789771,228,5196,
+"00123456",Quoted UNITID University,150000000,150000000,500000,42000,
+1.2345e5,Float UNITID College,12345678,12345678,0,1850,
+234567,Sentinel Negative One U,-1,,5000,-1,
+345678,Sentinel Negative Two U,-2,-2,-2,-2,
+456789,Blank Cells U,,,,,
+not_a_number,Bad UNITID Drop Me,1000,2000,300,1000,
+,No UNITID Drop Me,1000,2000,300,1000,
+567890,Per Team Row Should Drop,9999999,9999999,9999,12345,TEAM
