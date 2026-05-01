@@ -237,7 +237,7 @@ async def chat_ask(
         context_block = _context_for_build(builds[0])
     elif scope.kind == "branch":
         assert scope.target_id is not None
-        context_block = _context_for_branch(builds[0], scope.target_id)
+        context_block = await _context_for_branch(builds[0], scope.target_id)
     else:  # compare
         context_block = _context_for_compare(builds)
 
@@ -930,7 +930,7 @@ def _context_for_build(build: Build) -> str:
     return "\n".join(lines)
 
 
-def _context_for_branch(build: Build, target_id: str) -> str:
+async def _context_for_branch(build: Build, target_id: str) -> str:
     """Branch scope: the career-path branch (or root career anchor)
     the student is asking about, with stat deltas + education
     requirement + relatedness signal.
@@ -1165,7 +1165,83 @@ def _context_for_branch(build: Build, target_id: str) -> str:
 
         return "\n".join(lines)
 
-    # Case 3: target_id resolves to nothing — thin-data block.
+    # Case 3: target_id is not on build.branches and isn't the root.
+    # Hits when /future selects an L2 endpoint (branch-of-branch via
+    # career_transitions, never materialized into build.branches). Try
+    # an inline get_occupation_data lookup so Gemma can speak to the
+    # role the student clicked on instead of refusing.
+    occ_row: dict[str, Any] | None = None
+    try:
+        occ_result = await mcp_client.call_async(
+            "get_occupation_data", {"soc_code": target_id}
+        )
+        candidate = occ_result.get("data") if isinstance(occ_result, dict) else None
+        if isinstance(candidate, dict):
+            occ_row = candidate
+    except Exception:  # noqa: BLE001 — MCP outage falls through to stub
+        logger.warning(
+            "get_occupation_data lookup failed for %s in branch context",
+            target_id,
+            exc_info=True,
+        )
+        occ_row = None
+
+    if occ_row is not None:
+        title = occ_row.get("occupation_title") or "this role"
+        lines.append(
+            f'The student is asking about a downstream career, "{title}" '
+            f"({target_id}), reachable as a 2-step path from their current "
+            f"career, {career.occupation_title}."
+        )
+        lines.append(
+            "It isn't a direct branch on the build; treat this as an "
+            "occupation-level question."
+        )
+
+        wage = occ_row.get("median_annual_wage")
+        if isinstance(wage, (int, float)):
+            lines.append(f"- Median annual wage: {fmt_dollars(wage)}")
+        edu_level = occ_row.get("education_level_name")
+        if edu_level:
+            lines.append(_helper(f"typical education required: {edu_level}"))
+        growth_cat = occ_row.get("growth_category")
+        if growth_cat:
+            lines.append(_helper(f"BLS growth outlook: {growth_cat}"))
+        change_pct = occ_row.get("employment_change_pct")
+        if isinstance(change_pct, (int, float)):
+            lines.append(
+                _helper(
+                    f"projected 10-year employment change: "
+                    f"{change_pct:+.1f}%"
+                )
+            )
+        openings = occ_row.get("openings_annual_avg")
+        if isinstance(openings, (int, float)):
+            lines.append(
+                _helper(f"average annual openings nationwide: {int(openings):,}")
+            )
+
+        # Wage anchor for delta translation.
+        if career.median_annual_wage is not None:
+            lines.append("")
+            lines.append(
+                f"Current career wage reference: "
+                f"{fmt_dollars(career.median_annual_wage)} "
+                f"({career.occupation_title})"
+            )
+
+        lines.append("")
+        lines.append(
+            _helper(
+                "this is a 2-step transition, not a direct branch — frame "
+                "answers honestly about what's required to get there. If "
+                "you need task-level detail, call get_task_breakdown for "
+                f"SOC {target_id}."
+            )
+        )
+        return "\n".join(lines)
+
+    # No occupation row either — true thin-data fallback.
     lines.append(
         f"The student is asking about a branch with SOC {target_id}, but "
         f"that branch isn't loaded on this build."

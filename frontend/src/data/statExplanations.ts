@@ -1,6 +1,9 @@
 /**
  * Plain-English stat explanations and data sources from PRD v8.
- * Used by StatTutorial overlay and persistent StatHelpTooltip.
+ *
+ * Stat metadata used by the build-results pentagon legend
+ * (`BuildResultsScreen`), `PentagonChart`, `CareerCard`, and the horizon
+ * mockups for stat colors and abbreviations.
  */
 
 export type StatKey = "ern" | "roi" | "res" | "grw" | "hmn";

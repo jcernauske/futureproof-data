@@ -10,6 +10,19 @@ interface CareerCardProps {
   picked: boolean;
   onSelect: () => void;
   ernShift?: number;
+  /**
+   * Optional education label rendered under the wage (e.g.
+   * "Bachelor's degree"). Used by /future where education is part of
+   * the card's at-a-glance summary; pick-your-career flow leaves it
+   * undefined so the card stays compact.
+   */
+  educationLabel?: string | null;
+  /**
+   * When true, stat bars whose value is null are omitted entirely
+   * instead of rendering with "—". /future uses this to drop ERN on L1
+   * and L2 nodes (program-specific data only available at the root).
+   */
+  hideNullStats?: boolean;
 }
 
 const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
@@ -88,7 +101,14 @@ function StatBar({
   );
 }
 
-export function CareerCard({ career, picked, onSelect, ernShift = 0 }: CareerCardProps) {
+export function CareerCard({
+  career,
+  picked,
+  onSelect,
+  ernShift = 0,
+  educationLabel,
+  hideNullStats = false,
+}: CareerCardProps) {
   const wage = career.median_annual_wage;
   const reducedMotion = useReducedMotion() ?? false;
 
@@ -133,6 +153,11 @@ export function CareerCard({ career, picked, onSelect, ernShift = 0 }: CareerCar
               ${wage.toLocaleString()}/yr median
             </p>
           )}
+          {educationLabel && (
+            <p className="font-body text-small text-text-secondary mt-1">
+              {educationLabel}
+            </p>
+          )}
         </div>
       </div>
 
@@ -142,6 +167,7 @@ export function CareerCard({ career, picked, onSelect, ernShift = 0 }: CareerCar
           const shifted = key === "ern" && base != null
             ? clamp(base + ernShift, 1, 10)
             : base;
+          if (hideNullStats && shifted == null) return null;
           return (
             <StatBar
               key={key}

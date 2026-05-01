@@ -4,11 +4,13 @@ import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SetYourCourseScreen } from "@/screens/SetYourCourseScreen";
 import { GauntletScreen } from "@/screens/GauntletScreen";
 import { BranchTreeScreen } from "@/screens/BranchTreeScreen";
+import { FutureScreen } from "@/screens/FutureScreen";
 import { SaveWrappedScreen } from "@/screens/SaveWrappedScreen";
 import { MenuScreen } from "@/screens/MenuScreen";
 import { MockupsShowcase } from "@/screens/MockupsShowcase";
 import { BuildResultsScreen } from "@/screens/BuildResultsScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { GlobalChrome } from "@/components/ui/GlobalChrome";
 import { useDocumentLocale } from "@/i18n/useDocumentLocale";
 
@@ -26,6 +28,7 @@ export function AppRoutes() {
         <Route path="/my-build" element={<BuildResultsScreen />} />
         <Route path="/gauntlet" element={<GauntletScreen />} />
         <Route path="/branches" element={<BranchTreeScreen />} />
+        <Route path="/future" element={<FutureScreen />} />
         <Route path="/save" element={<SaveWrappedScreen />} />
         <Route path="/menu" element={<Navigate to="/builds" replace />} />
         <Route path="/builds" element={<MenuScreen />} />
@@ -37,9 +40,11 @@ export function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

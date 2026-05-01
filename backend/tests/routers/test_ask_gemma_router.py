@@ -608,8 +608,51 @@ def test_post_chat_ask_kind_branch_with_history_uses_tool_loop(
             },
             "branch scope requires exactly 1 build_id",
         ),
+        # Non-SOC-shape target_id → 422 (audit 2026-05-01 §S3).
+        # The unauthenticated /chat/ask endpoint must not accept
+        # arbitrary strings into the DuckDB lookup path.
+        (
+            {
+                "kind": "branch",
+                "build_ids": ["x"],
+                "target_id": "definitely not a soc",
+            },
+            "branch target_id must match SOC pattern",
+        ),
+        (
+            {
+                "kind": "branch",
+                "build_ids": ["x"],
+                "target_id": "113021",  # Missing the hyphen.
+            },
+            "branch target_id must match SOC pattern",
+        ),
+        (
+            {
+                "kind": "branch",
+                "build_ids": ["x"],
+                "target_id": "1-3021",  # Three-char prefix, not two.
+            },
+            "branch target_id must match SOC pattern",
+        ),
+        (
+            {
+                "kind": "branch",
+                "build_ids": ["x"],
+                "target_id": "11-3021; DROP TABLE careers;",
+            },
+            "branch target_id must match SOC pattern",
+        ),
     ],
-    ids=["branch_no_target", "branch_empty_target", "branch_two_builds"],
+    ids=[
+        "branch_no_target",
+        "branch_empty_target",
+        "branch_two_builds",
+        "branch_target_freeform_string",
+        "branch_target_no_hyphen",
+        "branch_target_short_prefix",
+        "branch_target_injection_shape",
+    ],
 )
 def test_branch_scope_validation(
     client: TestClient,

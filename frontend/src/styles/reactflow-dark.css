@@ -1,0 +1,69 @@
+/* React Flow dark theme overrides for Brightpath */
+
+.react-flow__background {
+  background-color: var(--color-bg-void) !important;
+}
+
+.react-flow__controls button {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+  fill: var(--color-text-primary);
+}
+
+.react-flow__controls button:hover {
+  background: var(--color-bg-raised);
+}
+
+.react-flow__minimap {
+  background: var(--color-bg-deep) !important;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(18, 19, 31, 0.85);
+}
+
+.react-flow__attribution {
+  background: transparent !important;
+}
+
+.react-flow__attribution a {
+  color: rgba(138, 133, 149, 0.4) !important;
+}
+
+.react-flow__edge-path {
+  stroke-linecap: round;
+}
+
+/* Node-level flash — reuse the same animation token shape as the
+ * horizon-map's branchFlashPulse so Gemma name-drops feel consistent
+ * across both /branches and /future. */
+@keyframes flowNodeFlashPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(123, 184, 224, 0);
+  }
+  42% {
+    transform: scale(1.06);
+    box-shadow: 0 0 22px 6px rgba(123, 184, 224, 0.55);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(123, 184, 224, 0);
+  }
+}
+
+.flow-node-flash {
+  animation: flowNodeFlashPulse 600ms ease-out;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-node-flash {
+    animation: none;
+    opacity: 0.6;
+    transition: opacity 80ms ease-out;
+  }
+}
