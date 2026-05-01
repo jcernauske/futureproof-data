@@ -156,7 +156,10 @@ class AskScope(BaseModel):
                     f"boss target_id must be one of {sorted(valid_bosses)}"
                 )
         if self.kind == "branch":
-            if not _SOC_PATTERN.match(self.target_id or ""):
+            # fullmatch (not match): Python's `$` in re.match allows a
+            # trailing newline, so "11-3021\n" would otherwise slip
+            # through this security-critical validator.
+            if not _SOC_PATTERN.fullmatch(self.target_id or ""):
                 raise ValueError(
                     "branch target_id must match SOC pattern \\d{2}-\\d{4}"
                 )
