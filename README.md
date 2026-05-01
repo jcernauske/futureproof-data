@@ -16,6 +16,18 @@ uv sync
 uv run pytest
 ```
 
+## Security & Deployment
+
+The FastAPI surface (`backend/app/main.py`) is **unauthenticated by design**. FutureProof has no logged-in user concept: a "profile" is a build identity (name + animal emoji) generated client-side and persisted by build, not a credentialed account. There is no login, no password, no session token, and no per-user authorization layer. Adding one would contradict the product model.
+
+This shapes how the API may be deployed:
+
+- **Local development** — bind to `localhost`. Default `CORS_ALLOWED_ORIGINS` is `http://localhost:5173,http://localhost:4173` (Vite dev + preview).
+- **Public-internet deployment** — every endpoint is reachable to anyone who knows the URL. Deploy behind a reverse proxy (Cloudflare, nginx, Railway's edge, etc.) that enforces whatever access posture the operator needs (rate limiting, IP allowlisting, basic auth, geo-fencing). The application will not enforce these itself.
+- **CORS** — production deployments must override `CORS_ALLOWED_ORIGINS` (comma-separated) to the actual frontend origin. The default permits localhost only; `["*"]` is never used because `allow_credentials=True` would silently break under that combination.
+- **DuckDB / Iceberg surface** — the MCP server reads only from gold-zone consumable tables. It does not expose write endpoints. Pipeline data refresh runs out-of-band via the Brightsmith CLI, not via the FastAPI surface.
+- **Logging hygiene** — `logs/gemma.jsonl` captures every Gemma exchange (system + user message + response) for demo/debug visibility. The directory is gitignored, but operators sharing logs externally (bug reports, hackathon submissions, support tickets) should rotate or scrub the file first — anything a student typed is in there. Set `GEMMA_LOG_DISABLED=1` to suppress writes when needed.
+
 ## MCP Server
 
 This project ships one MCP (Model Context Protocol) server: `src/mcp_server/futureproof_server.py`. It exposes the Gold-zone consumable tables as eight callable tools any MCP-aware LLM client can use — Claude Desktop, ChatGPT with MCP, Cursor, or your own application.

@@ -12,6 +12,7 @@ tell them what to do about the weak spots.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.models.career import (
     Build,
@@ -713,8 +714,10 @@ _COMPARE_PIVOTAL_SYSTEM = (
     "'principal', 'amortization', 'lifestyle delta'.\n\n"
     "Output ONLY a single JSON object — no prose, no markdown fences. Schema:\n"
     "{\n"
-    '  "meta_tradeoff": "<3-5 word label using kid words, e.g. \'Pay Now or Pay Later\'>",\n'
-    '  "meta_explanation": "<one sentence, ≤22 words, must reference one specific datum>",\n'
+    '  "meta_tradeoff": "<3-5 word label using kid words, '
+    "e.g. 'Pay Now or Pay Later'>\",\n"
+    '  "meta_explanation": "<one sentence, ≤22 words, '
+    'must reference one specific datum>",\n'
     '  "decade_projection": "<2-3 sentences projecting age 30: cumulative earnings, '
     "when debt is paid off, what the day-to-day feels like, branch destinations. "
     "Must compound real numbers.>\",\n"
@@ -870,10 +873,18 @@ async def generate_compare_pivotal_async(
         logger.warning("compare pivotal JSON parse failed: %s", exc)
         return None
 
-    required = ("meta_tradeoff", "meta_explanation", "decade_projection", "pivot_question")
+    required = (
+        "meta_tradeoff",
+        "meta_explanation",
+        "decade_projection",
+        "pivot_question",
+    )
     if not isinstance(parsed, dict):
         return None
-    if any(not isinstance(parsed.get(k), str) or not parsed[k].strip() for k in required):
+    if any(
+        not isinstance(parsed.get(k), str) or not parsed[k].strip()
+        for k in required
+    ):
         logger.warning("compare pivotal missing required field(s)")
         return None
 
