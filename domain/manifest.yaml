@@ -31,6 +31,10 @@ sources:
   source_config: domain/sources/bea_rpp.yaml
   zone: raw
   status: active
+- name: ipeds_finance
+  source_config: domain/sources/ipeds_finance.yaml
+  zone: raw
+  status: active
 pipeline:
   zones:
     silver:

@@ -1,0 +1,331 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-01T20:31:28.715297Z",
+    "run": {
+      "runId": "c41d8e0b-c5ba-4db7-8ac2-4d99e454ab46",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/full-pipeline-ipeds-finance.md",
+          "specVersion": "1.3",
+          "specZone": "bronze",
+          "versionNote": "v1.3 (2026-04-30) locked all §3 column-code TBDs via @bs:data-analyst pre-flight discovery: F3 institutional support → F3E03C1 (post-2014-15 schedule, 100% non-null on FY2022); F3 instruction → F3E011 (carries the trailing '1' suffix for 'Total amount' that v1.0 omitted); FTE source → EFIA{YYYY} file with NULL-safe COALESCE(FTEUG,0)+COALESCE(FTEGD,0)+COALESCE(FTEDPP,0) — explicitly NOT EFFY (headcount) and NOT EF Part A EFTOTLT (fall-snapshot headcount). Pre-flight evidence at governance/eda/raw-ingest-ipeds-finance-preflight.md. v1.0/v1.1/v1.2 lineage events are NOT preserved (no predecessor snapshot) — this is the first ingest at the v1.3-locked column codes."
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@bs:lineage-tracker",
+          "reasoning": "Bronze ingest of IPEDS Finance for FY2023 (publication f2223_*; EFIA2023; HD2023) into Iceberg table bronze.ipeds_finance per spec v1.3. The IpedsFinanceIngestor performs a 5-input fan-in: (1) F2223_F1A.zip — public/government institutions reporting under GASB, (2) F2223_F2.zip — private nonprofit institutions reporting under FASB, (3) F2223_F3.zip — for-profit institutions, (4) EFIA2023.zip — 12-Month Instructional Activity FTE source (NOT EFFY, which is headcount), (5) HD2023.csv — Header file for institution_name lookup and the 4-year bachelor's-or-above filter (ICLEVEL=1 AND HLOFFER>=5). The three finance forms are read with form-specific column codes (F1A: F1C011/F1C071/F1H02; F2: F2E011/F2E061/F2H02; F3: F3E011/F3E03C1/N-A) per §3 v1.3-locked codes, harmonized into the four canonical raw fields (institutional_support_expenses, instruction_expenses, endowment_value), then UNION'd with a report_form discriminator. EFIA is LEFT JOIN'd on UNITID (no WHERE filter — EFIA publishes one row per UNITID, verified 6,036/6,036 distinct on FY2022 in pre-flight) and total_fte_enrollment computed as the NULL-safe sum COALESCE(FTEUG,0)+COALESCE(FTEGD,0)+COALESCE(FTEDPP,0) returning NULL only when all three components are NULL. HD2023 is LEFT JOIN'd on UNITID for institution_name and the ICLEVEL/HLOFFER filter. IPEDS sentinels (-1, -2, '.', blank, 'PrivacySuppressed') are scrubbed to NULL across all numeric fields before double coercion per §4 implementation note 4. Bureau-imputed values (X*-prefixed flag columns) are accepted as raw values per §2 Decision #8 — flag columns are not stored. fiscal_year=2023 is stamped from the publication tag.",
+          "reasoningContinued": "Output: 2,675 rows / 12 columns / snapshot 2955168649587464831 — within the §4 expected range (~6,500 expected pre-filter; 2,675 post-4-year-bachelor's-or-above filter is consistent with the IPEDS universe of 4-year accredited institutions). Row count comfortably within RAW-IPF-001's 2,500–3,200 P0 band. All 14 DQ rules from governance/dq-rules/raw-ipeds-finance.json (12 P0 + 2 P1) PASS with zero violations against this snapshot per the scorecard at governance/dq-scorecards/raw-ipeds-finance-20260501T202737Z.json — overall_pass=true, p0_gate_blocking=false. The endowment_value ≥60% P1 threshold (RAW-IPF-012) passes despite F3 NULL-cascade because F3 is a small share of the 4-year universe (most for-profits are 2-year or non-degree). The fiscal_year single-value invariant (RAW-IPF-013) is preserved by the FY2023-only ingest. The $100M instruction-expenses spot-check (RAW-IPF-014) passes via large R1 anchors (e.g., UCB, UGA, UNC-CH from §3 spot-check institutions). No new chaos run is required at bronze — DQ pass is the regression check per Brightsmith convention."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {
+            "F2223_F1A": "varies — public/government institutions",
+            "F2223_F2": "varies — private nonprofit institutions",
+            "F2223_F3": "varies — for-profit institutions",
+            "EFIA2023": "~6,036 (one row per UNITID, no dedup needed)",
+            "HD2023": "varies — IPEDS Header file universe"
+          },
+          "rowsWritten": 2675,
+          "fourYearBachelorFilterApplied": true,
+          "snapshotId": "2955168649587464831",
+          "sourceMethod": "bulk_csv_download",
+          "fiscalYear": 2023,
+          "schemaColumnCount": 12,
+          "dqOverallPass": true,
+          "dqP0Total": 12,
+          "dqP0Pass": 12,
+          "dqP0Fail": 0,
+          "dqP1Total": 2,
+          "dqP1Pass": 2,
+          "dqP1Fail": 0
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-ipeds-finance",
+      "facets": {
+        "documentation": {
+          "description": "Land the IPEDS Finance survey for FY2023 into Iceberg table bronze.ipeds_finance. Five-input fan-in: three form-specific finance CSVs (F1A for GASB public, F2 for FASB nonprofit, F3 for-profit), the EFIA 12-Month Instructional Activity CSV for FTE, and HD2023 for institution_name and the 4-year bachelor's-or-above filter (ICLEVEL=1 AND HLOFFER>=5). Per §3 v1.3-locked codes, the form-specific monetary columns are coalesced into four canonical raw fields: institutional_support_expenses (F1C071 / F2E061 / F3E03C1), instruction_expenses (F1C011 / F2E011 / F3E011), endowment_value (F1H02 / F2H02 / NULL on F3 — for-profits have no F3H family). The three finance forms are UNION'd with a report_form discriminator (F1A/F2/F3). EFIA is LEFT JOIN'd on UNITID (no WHERE filter — EFIA is one row per UNITID by construction) and total_fte_enrollment computed as NULL-safe COALESCE(FTEUG,0)+COALESCE(FTEGD,0)+COALESCE(FTEDPP,0) using the *reported* FTE columns (which default to NCES estimated values when institutions did not provide a reported figure — so reported preserves institution-confirmed values where present). IPEDS sentinels (-1, -2, single-period '.', blank, 'PrivacySuppressed') are scrubbed to NULL across all numeric fields before double coercion. fiscal_year=2023 stamped from the publication tag. CSV chunked-read at 50,000 rows per §4. Framework metadata (source_url, source_method, ingested_at, load_date) appended by BaseIngestor.ingest() post-flatten."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/ipeds_finance_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_f2223_f1a",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS Finance F1A FY2023 (GASB public/government institutions)",
+            "uri": "file://data/raw/ipeds_finance_cache/F2223_F1A.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/F2223_F1A.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "form": "F1A",
+            "reportingFramework": "GASB",
+            "preflightReport": "governance/eda/raw-ingest-ipeds-finance-preflight.md"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key. May arrive as int/float/quoted-string/leading-zero variants in the source CSV."},
+              {"name": "F1C011", "type": "STRING", "description": "F1A Part C (functional expenses) — Instruction, Total amount. v1.3-locked. May contain IPEDS sentinels ('', '-1', '-2', '.', 'PrivacySuppressed')."},
+              {"name": "F1C071", "type": "STRING", "description": "F1A Part C (functional expenses) — Institutional support, Total amount. v1.3-locked (corrects v1.0's F1B07 which pointed at Part B revenues)."},
+              {"name": "F1H02", "type": "STRING", "description": "F1A Part H — Endowment assets, end-of-year. v1.3-locked."}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_f2223_f2",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS Finance F2 FY2023 (FASB private nonprofit institutions)",
+            "uri": "file://data/raw/ipeds_finance_cache/F2223_F2.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/F2223_F2.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "form": "F2",
+            "reportingFramework": "FASB"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "F2E011", "type": "STRING", "description": "F2 Section E (functional expenses) — Instruction, Total amount. v1.3-locked. May contain IPEDS sentinels."},
+              {"name": "F2E061", "type": "STRING", "description": "F2 Section E (functional expenses) — Institutional support, Total amount. v1.3-locked."},
+              {"name": "F2H02", "type": "STRING", "description": "F2 Section H — Endowment assets, end-of-year. v1.3-locked."}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_f2223_f3",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS Finance F3 FY2023 (for-profit institutions)",
+            "uri": "file://data/raw/ipeds_finance_cache/F2223_F3.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/F2223_F3.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "form": "F3"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "F3E011", "type": "STRING", "description": "F3 — Instruction, Total amount. v1.3-locked (was provisionally F3E01 in v1.0; the actual code carries the trailing '1' suffix for 'Total amount'). May contain IPEDS sentinels."},
+              {"name": "F3E03C1", "type": "STRING", "description": "F3 — Institutional support, Total amount. v1.3-locked from pre-flight discovery (post-2014-15 schedule revision; 100% non-null on FY2022 verified). Pre-v1.3 belief that F3 omitted institutional support was incorrect."},
+              {"name": "F3H02", "type": "STRING", "description": "GENUINELY ABSENT on F3 — for-profit institutions do not maintain endowments and F3 has no F3H family in the IPEDS Finance schema. v1.3-locked from pre-flight varlist scan. Coalesced to NULL for all F3 rows."}
+            ],
+            "f3SparsenessNote": "F3 is sparse on the endowment axis only: F3 has no F3H family. Institutional support IS reported on the post-2014-15 F3 schedule at F3E03C1, populated for 100% of FY2022 F3 institutions — so F3 rows correctly land at data_completeness_tier=medium (one missing field of four — endowment) rather than the lower tier v1.2 anticipated."
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_efia2023",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS EFIA 2023 (12-Month Instructional Activity — the FTE source)",
+            "uri": "file://data/raw/ipeds_finance_cache/EFIA2023.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/EFIA2023.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "survey": "EFIA — 12-Month Instructional Activity",
+            "criticalNote": "This is the FTE source per §3 v1.3-locked. NOT EFFY (the unduplicated 12-month *headcount* file, broken out by EFFYALEV/LSTUDY at the wrong grain) and NOT EF Part A's EFTOTLT (a fall-snapshot *headcount*). Earlier spec text using 'EFFY/E12' shorthand resolved to the EFIA file in v1.3 lock-down."
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key. EFIA is one row per UNITID by construction (verified 6,036 rows / 6,036 distinct UNITIDs on FY2022 in pre-flight) — no dedup filter required."},
+              {"name": "FTEUG", "type": "STRING", "description": "Reported undergraduate FTE. May contain IPEDS sentinels. Per the EFIA dictionary: 'If the institution did not provide an FTE then the reported FTE was set to the estimated FTE' — so reported preserves institution-confirmed values where given and falls back to NCES's estimate (EFTEUG) elsewhere."},
+              {"name": "FTEGD", "type": "STRING", "description": "Reported graduate FTE. Same reported-defaults-to-estimated semantics as FTEUG."},
+              {"name": "FTEDPP", "type": "STRING", "description": "Reported doctor's-professional-practice FTE. Same reported-defaults-to-estimated semantics. May be NULL for institutions without DPP programs."}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_hd2023",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS HD 2023 (Header — institution lookup + 4-year filter)",
+            "uri": "file://data/raw/ipeds_finance_cache/HD2023.csv",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/HD2023.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "INSTNM", "type": "STRING", "description": "Institution name. Source for raw.ipeds_finance.institution_name."},
+              {"name": "ICLEVEL", "type": "STRING", "description": "Institutional level. Filter: ICLEVEL=1 selects 4-year-or-above. IPEDS-native — do NOT substitute College Scorecard's PREDDEG per §4 implementation note 5."},
+              {"name": "HLOFFER", "type": "STRING", "description": "Highest level of offering. Filter: HLOFFER>=5 selects bachelor's-or-above. IPEDS-native."}
+            ],
+            "filterApplied": "ICLEVEL=1 AND HLOFFER>=5 (4-year bachelor's-or-above), per §4 implementation note 5"
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.ipeds_finance",
+        "facets": {
+          "dataSource": {
+            "name": "Bronze Iceberg warehouse",
+            "uri": "file://data/bronze/iceberg_warehouse/bronze/ipeds_finance/"
+          },
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG", "required": true, "description": "IPEDS 6-digit institution ID. Iceberg field id 1, grain field. Coerced from any of int/float/quoted-string/leading-zero variants in the source CSVs."},
+              {"name": "institution_name", "type": "STRING", "required": true, "description": "From IPEDS HD2023 lookup (INSTNM), LEFT JOIN'd on UNITID. Iceberg field id 2."},
+              {"name": "report_form", "type": "STRING", "required": true, "description": "F1A / F2 / F3 — discriminator stamped during the three-form UNION. Iceberg field id 3. Enforced by RAW-IPF-004 (P0)."},
+              {"name": "fiscal_year", "type": "INTEGER", "required": true, "description": "IPEDS fiscal year (2023 for this ingest). Iceberg field id 4. Single-value invariant enforced by RAW-IPF-013 (P0)."},
+              {"name": "institutional_support_expenses", "type": "DOUBLE", "required": false, "description": "Coalesced per §3 v1.3 from F1C071 (F1A) / F2E061 (F2) / F3E03C1 (F3 — post-2014-15 schedule, populated). Iceberg field id 5. Sentinel-scrubbed before double coercion. RAW-IPF-006 (>=0) and RAW-IPF-010 (non-null >=90%) P0 gates."},
+              {"name": "instruction_expenses", "type": "DOUBLE", "required": false, "description": "Coalesced per §3 v1.3 from F1C011 (F1A) / F2E011 (F2) / F3E011 (F3 — note trailing '1' for Total amount). Iceberg field id 6. RAW-IPF-005 (>=0) and RAW-IPF-009 (non-null >=90%) P0 gates."},
+              {"name": "endowment_value", "type": "DOUBLE", "required": false, "description": "End-of-year endowment from F1H02 (F1A) / F2H02 (F2) / NULL on F3 (no F3H family — for-profits do not maintain endowments). Iceberg field id 7. RAW-IPF-007 (>=0; underwater funds report 0, never negative) P0 + RAW-IPF-012 (non-null >=60%) P1 gates."},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "required": false, "description": "From EFIA2023 LEFT JOIN on UNITID, computed as NULL-safe COALESCE(FTEUG,0)+COALESCE(FTEGD,0)+COALESCE(FTEDPP,0) — NULL only when all three components are NULL. v1.3-locked: NOT EFFY (headcount), NOT EF Part A EFTOTLT (fall-snapshot headcount). Iceberg field id 8. RAW-IPF-008 (>0) and RAW-IPF-011 (non-null >=95%) P0 gates."},
+              {"name": "source_url", "type": "STRING", "required": true, "description": "Per-file source URL list (pipe-delimited, all 5 files: F2223_F1A.zip | F2223_F2.zip | F2223_F3.zip | EFIA2023.zip | HD2023.zip). Iceberg field id 9. Stamped on every row by IpedsFinanceIngestor.get_source_url()."},
+              {"name": "source_method", "type": "STRING", "required": true, "description": "Fetch-path provenance: 'bulk_csv_download' per §4 schema. Iceberg field id 10. Set post-hoc by BaseIngestor.ingest()."},
+              {"name": "ingested_at", "type": "TIMESTAMP", "required": true, "description": "Bronze write timestamp stamped by BaseIngestor.ingest(). Iceberg field id 11."},
+              {"name": "load_date", "type": "DATE", "required": true, "description": "Date of bronze load stamped by BaseIngestor.ingest(). Iceberg field id 12."}
+            ],
+            "fieldCount": 12
+          },
+          "version": {
+            "datasetVersion": "2955168649587464831",
+            "snapshotId": "2955168649587464831",
+            "snapshotTimestamp": "2026-05-01T20:31:28.715297Z"
+          },
+          "columnLineage": {
+            "fields": {
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f1a", "field": "UNITID"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f2", "field": "UNITID"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f3", "field": "UNITID"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_hd2023", "field": "UNITID"}
+                ],
+                "transformationDescription": "UNION of UNITID across F1A/F2/F3 forms (one row per UNITID per form before UNION; in practice each institution appears on exactly one form per FY by IPEDS construction). Coerced to Iceberg long via IpedsFinanceIngestor._coerce_long, handling int/float/quoted-string/leading-zero variants. HD2023.UNITID is the LEFT JOIN key for institution_name and the 4-year filter, not a UNION input. EFIA2023.UNITID is the LEFT JOIN key for total_fte_enrollment.",
+                "transformationType": "DERIVED"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.ipeds_hd2023", "field": "INSTNM"}
+                ],
+                "transformationDescription": "LEFT JOIN HD2023 on UNITID, project INSTNM as institution_name. .strip() applied; empty strings collapse to None but RAW-IPF-002 (P0) enforces 100% non-null on the grain.",
+                "transformationType": "DIRECT"
+              },
+              "report_form": {
+                "inputFields": [],
+                "transformationDescription": "Discriminator stamped during the three-form UNION: 'F1A' for rows from F2223_F1A, 'F2' for F2223_F2, 'F3' for F2223_F3. Not sourced from any input column — a UNION-time literal per source form. RAW-IPF-004 (P0) enforces the {F1A, F2, F3} domain.",
+                "transformationType": "DERIVED"
+              },
+              "fiscal_year": {
+                "inputFields": [],
+                "transformationDescription": "Stamped from the IpedsFinanceIngestor publication tag (FY2023 — derived from the f2223_* / EFIA2023 / HD2023 file family). The IPEDS Finance CSVs do not carry an in-row fiscal-year column — fiscal_year is encoded only in the file family. RAW-IPF-013 (P0) verifies single-value invariant across all rows.",
+                "transformationType": "DERIVED"
+              },
+              "institutional_support_expenses": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f1a", "field": "F1C071"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f2", "field": "F2E061"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f3", "field": "F3E03C1"}
+                ],
+                "transformationDescription": "Per-form COALESCE: F1A rows take F1C071 (Part C functional expenses, Institutional support — Total amount); F2 rows take F2E061 (Section E, Institutional support — Total amount); F3 rows take F3E03C1 (post-2014-15 schedule, locked v1.3 from pre-flight — populated for 100% of FY2022 F3 institutions, correcting the pre-v1.3 belief that F3 omitted institutional support). Two-stage transform per row: (1) IPEDS sentinel scrub maps '', '-1', '-2', '.' (single period — legacy 'not applicable' marker), 'PrivacySuppressed' to None BEFORE coercion so '-1' does not survive as numeric -1 and trigger RAW-IPF-006; (2) IpedsFinanceIngestor._coerce_double strips currency formatting and parses to float, rejecting NaN. Bureau-imputed values (XF1C071 / XF2E061 / XF3E03C1 flag columns) are accepted as raw values per §2 Decision #8 — flag columns are not stored.",
+                "transformationType": "DERIVED"
+              },
+              "instruction_expenses": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f1a", "field": "F1C011"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f2", "field": "F2E011"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f3", "field": "F3E011"}
+                ],
+                "transformationDescription": "Per-form COALESCE: F1A rows take F1C011 (Part C, Instruction — Total amount; v1.1 corrected from v1.0's F1B01 which pointed at Part B revenues); F2 rows take F2E011 (Section E, Instruction — Total amount); F3 rows take F3E011 (locked v1.3 — was provisionally F3E01 in v1.0; the actual code carries the trailing '1' suffix for 'Total amount'). Same two-stage sentinel-scrub-then-_coerce_double pipeline as institutional_support_expenses. Bureau-imputed values accepted per §2 Decision #8.",
+                "transformationType": "DERIVED"
+              },
+              "endowment_value": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f1a", "field": "F1H02"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f2", "field": "F2H02"}
+                ],
+                "transformationDescription": "Per-form COALESCE with a deliberate F3 NULL-cascade: F1A rows take F1H02 (Part H, end-of-year endowment); F2 rows take F2H02 (Section H, end-of-year endowment); F3 rows coalesce to NULL because for-profit institutions do not maintain endowments and F3 has no F3H family in the IPEDS Finance schema (locked v1.3 from pre-flight varlist scan — never imputed to 0). Same sentinel-scrub-then-_coerce_double pipeline as the other monetary fields. RAW-IPF-007 (P0) enforces >=0 where non-null (underwater funds report 0, never negative). Downstream data_completeness_tier classifies F3 rows as 'medium' (one missing field of four — endowment) rather than 'high' to prevent false data-quality flags on legitimate F3 NULLs.",
+                "transformationType": "DERIVED"
+              },
+              "total_fte_enrollment": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.ipeds_efia2023", "field": "FTEUG"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_efia2023", "field": "FTEGD"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_efia2023", "field": "FTEDPP"}
+                ],
+                "transformationDescription": "LEFT JOIN EFIA2023 on UNITID (no WHERE filter — EFIA is one row per UNITID by construction, verified 6,036/6,036 distinct on FY2022 in pre-flight), then NULL-safe sum: total_fte_enrollment = COALESCE(FTEUG,0) + COALESCE(FTEGD,0) + COALESCE(FTEDPP,0) returning NULL ONLY when all three components are NULL. Each component is sentinel-scrubbed (-1, -2, '.', blank, 'PrivacySuppressed' → None) and _coerce_double'd before the sum. Reported FTE columns are used (NOT EFTEUG/EFTEGD estimates) because the EFIA dictionary states 'If the institution did not provide an FTE then the reported FTE was set to the estimated FTE' — reported preserves institution-confirmed values where given and falls back to NCES's estimate elsewhere. Critical non-substitution: NOT EFFY (the unduplicated 12-month *headcount* file at the wrong grain) and NOT EF Part A EFTOTLT (a fall-snapshot *headcount*). RAW-IPF-008 (>0 where non-null) and RAW-IPF-011 (non-null >=95%) P0 gates.",
+                "transformationType": "AGGREGATION"
+              },
+              "source_url": {
+                "inputFields": [],
+                "transformationDescription": "Stamped from IpedsFinanceIngestor.get_source_url() = pipe-delimited list of all 5 source URLs ('https://nces.ed.gov/ipeds/datacenter/data/F2223_F1A.zip | https://nces.ed.gov/ipeds/datacenter/data/F2223_F2.zip | https://nces.ed.gov/ipeds/datacenter/data/F2223_F3.zip | https://nces.ed.gov/ipeds/datacenter/data/EFIA2023.zip | https://nces.ed.gov/ipeds/datacenter/data/HD2023.zip') on every row, per §4 schema.",
+                "transformationType": "DERIVED"
+              },
+              "source_method": {
+                "inputFields": [],
+                "transformationDescription": "Set to 'bulk_csv_download' per §4 schema by BaseIngestor.ingest() override.",
+                "transformationType": "DERIVED"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected by BaseIngestor.ingest() — UTC timestamp at bronze write time.",
+                "transformationType": "DERIVED"
+              },
+              "load_date": {
+                "inputFields": [],
+                "transformationDescription": "Framework-injected by BaseIngestor.ingest() — date component of the bronze write timestamp.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "dataQualityAssertions": {
+            "scorecard": "governance/dq-scorecards/raw-ipeds-finance-20260501T202737Z.json",
+            "rulesFile": "governance/dq-rules/raw-ipeds-finance.json",
+            "executedAt": "2026-05-01T20:27:37.062247+00:00",
+            "executedBy": "@dq-engineer",
+            "overallPass": true,
+            "p0GateBlocking": false,
+            "ruleCount": 14,
+            "p0Total": 12,
+            "p0Pass": 12,
+            "p0Fail": 0,
+            "p1Total": 2,
+            "p1Pass": 2,
+            "p1Fail": 0,
+            "assertions": [
+              {"ruleId": "RAW-IPF-001", "name": "Row count between 2,500 and 3,200", "priority": "P0", "dimension": "volume", "column": null, "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-IPF-002", "name": "unitid non-null (100%)", "priority": "P0", "dimension": "completeness", "column": "unitid", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-IPF-003", "name": "unitid uniqueness (dedup grain)", "priority": "P0", "dimension": "uniqueness", "column": "unitid", "status": "PASS", "actual": 0, "threshold": "duplicate_rows = 0"},
+              {"ruleId": "RAW-IPF-004", "name": "report_form in {F1A, F2, F3}", "priority": "P0", "dimension": "validity", "column": "report_form", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-IPF-005", "name": "instruction_expenses >= 0 where non-null", "priority": "P0", "dimension": "validity", "column": "instruction_expenses", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-IPF-006", "name": "institutional_support_expenses >= 0 where non-null", "priority": "P0", "dimension": "validity", "column": "institutional_support_expenses", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-IPF-007", "name": "endowment_value >= 0 where non-null (underwater funds report 0, never negative)", "priority": "P0", "dimension": "validity", "column": "endowment_value", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-IPF-008", "name": "total_fte_enrollment > 0 where non-null", "priority": "P0", "dimension": "validity", "column": "total_fte_enrollment", "status": "PASS", "actual": 0, "threshold": "violation_rows = 0"},
+              {"ruleId": "RAW-IPF-009", "name": "instruction_expenses non-null >= 90%", "priority": "P0", "dimension": "completeness", "column": "instruction_expenses", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-IPF-010", "name": "institutional_support_expenses non-null >= 90%", "priority": "P0", "dimension": "completeness", "column": "institutional_support_expenses", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-IPF-011", "name": "total_fte_enrollment non-null >= 95%", "priority": "P0", "dimension": "completeness", "column": "total_fte_enrollment", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-IPF-012", "name": "endowment_value non-null >= 60% (many small institutions report 0 or null; F3 NULL-cascade expected)", "priority": "P1", "dimension": "completeness", "column": "endowment_value", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-IPF-013", "name": "fiscal_year is single value across all rows (single-vintage invariant)", "priority": "P0", "dimension": "consistency", "column": "fiscal_year", "status": "PASS", "actual": 0, "threshold": "violations = 0"},
+              {"ruleId": "RAW-IPF-014", "name": "Spot check: at least one row instruction_expenses > $100M (large R1 anchor)", "priority": "P1", "dimension": "validity", "column": "instruction_expenses", "status": "PASS", "actual": 0, "threshold": "violations = 0"}
+            ]
+          }
+        },
+        "outputFacets": {
+          "rowCount": 2675,
+          "snapshotId": "2955168649587464831",
+          "fieldCount": 12,
+          "fiscalYear": 2023,
+          "filterApplied": "ICLEVEL=1 AND HLOFFER>=5 (4-year bachelor's-or-above)"
+        }
+      }
+    ]
+  }
+]

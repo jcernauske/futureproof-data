@@ -1,0 +1,235 @@
+{
+  "pre_md5": "721175ac8f514af312bfcc067b4999af",
+  "post_md5": "721175ac8f514af312bfcc067b4999af",
+  "md5_match": true,
+  "baseline_rows": 2675,
+  "baseline_distinct_unitids": 2675,
+  "baseline_form_mix": {
+    "F2": 1579,
+    "F1A": 819,
+    "F3": 277
+  },
+  "pre_flight_pass": 14,
+  "post_flight_pass": 14,
+  "rule_count": 14,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "vectors": 13,
+      "total_rows_corrupted": 838,
+      "rules_fired": [
+        "RAW-IPF-002",
+        "RAW-IPF-003",
+        "RAW-IPF-004",
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007",
+        "RAW-IPF-008",
+        "RAW-IPF-009",
+        "RAW-IPF-010",
+        "RAW-IPF-011",
+        "RAW-IPF-013"
+      ],
+      "fired_count": 11,
+      "caught_in_scope": 11,
+      "missed_out_of_scope": 2
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "vectors": 13,
+      "total_rows_corrupted": 852,
+      "rules_fired": [
+        "RAW-IPF-002",
+        "RAW-IPF-003",
+        "RAW-IPF-004",
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007",
+        "RAW-IPF-008",
+        "RAW-IPF-009",
+        "RAW-IPF-010",
+        "RAW-IPF-011",
+        "RAW-IPF-013"
+      ],
+      "fired_count": 11,
+      "caught_in_scope": 11,
+      "missed_out_of_scope": 2
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "vectors": 13,
+      "total_rows_corrupted": 866,
+      "rules_fired": [
+        "RAW-IPF-002",
+        "RAW-IPF-003",
+        "RAW-IPF-004",
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007",
+        "RAW-IPF-008",
+        "RAW-IPF-009",
+        "RAW-IPF-010",
+        "RAW-IPF-011",
+        "RAW-IPF-013"
+      ],
+      "fired_count": 11,
+      "caught_in_scope": 11,
+      "missed_out_of_scope": 2
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "vectors": 13,
+      "total_rows_corrupted": 880,
+      "rules_fired": [
+        "RAW-IPF-002",
+        "RAW-IPF-003",
+        "RAW-IPF-004",
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007",
+        "RAW-IPF-008",
+        "RAW-IPF-009",
+        "RAW-IPF-010",
+        "RAW-IPF-011",
+        "RAW-IPF-013"
+      ],
+      "fired_count": 11,
+      "caught_in_scope": 11,
+      "missed_out_of_scope": 2
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "vectors": 13,
+      "total_rows_corrupted": 915,
+      "rules_fired": [
+        "RAW-IPF-002",
+        "RAW-IPF-003",
+        "RAW-IPF-004",
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007",
+        "RAW-IPF-008",
+        "RAW-IPF-009",
+        "RAW-IPF-010",
+        "RAW-IPF-011",
+        "RAW-IPF-013"
+      ],
+      "fired_count": 11,
+      "caught_in_scope": 11,
+      "missed_out_of_scope": 2
+    }
+  ],
+  "targeted": [
+    {
+      "name": "form_discriminator_leak",
+      "rows": 7,
+      "expected_rules": [
+        "RAW-IPF-004"
+      ],
+      "rules_fired": [
+        "RAW-IPF-004"
+      ],
+      "caught": true
+    },
+    {
+      "name": "efia_fanout_dedup_failure",
+      "rows": 200,
+      "unique_unitids_duplicated": 50,
+      "expected_rules": [
+        "RAW-IPF-003"
+      ],
+      "rules_fired": [
+        "RAW-IPF-003"
+      ],
+      "caught": true
+    },
+    {
+      "name": "fte_headcount_swap_10x",
+      "rows": 30,
+      "expected_rules": [],
+      "expected_to_be_missed": true,
+      "note": "Bronze rule set has no upper-bound on total_fte; would need base-layer P99 < $500K-equivalent (BSE-IPF-017). Out-of-scope flag.",
+      "rules_fired": [],
+      "caught": false
+    },
+    {
+      "name": "sentinel_leak_negatives",
+      "rows": 75,
+      "expected_rules": [
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007"
+      ],
+      "note": "Strings ('PrivacySuppressed', '.') cannot be injected into a double column post-load; ingestor coerces during read. We probe the 'leaked sentinel survives as -1/-2' case directly.",
+      "rules_fired": [
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007"
+      ],
+      "caught": true
+    },
+    {
+      "name": "negative_monetary_values",
+      "rows": 30,
+      "expected_rules": [
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007"
+      ],
+      "rules_fired": [
+        "RAW-IPF-005",
+        "RAW-IPF-006",
+        "RAW-IPF-007"
+      ],
+      "caught": true
+    },
+    {
+      "name": "multi_vintage_leak",
+      "rows": 30,
+      "expected_rules": [
+        "RAW-IPF-013"
+      ],
+      "rules_fired": [
+        "RAW-IPF-013"
+      ],
+      "caught": true
+    },
+    {
+      "name": "f3_endowment_sparseness_regression",
+      "rows": 20,
+      "expected_rules": [],
+      "expected_to_be_missed": true,
+      "note": "Bronze accepts non-null F3 endowment (no rule forbids). Per EDA \u00a73 / \u00a77, F3 has no F3H family \u2014 non-null is structurally suspect. Flag as 'structural expectation violated; consider RAW-IPF-015'.",
+      "rules_fired": [],
+      "caught": false
+    },
+    {
+      "name": "filter_regression_structural_check",
+      "verified": "Bronze schema does NOT carry ICLEVEL/HLOFFER columns. Filter is applied at HD-join time during ingest, before write. Inability to inject violation rows from the bronze layer (no column to corrupt) is itself the structural guarantee. Spec: governance/eda \u00a76."
+    }
+  ],
+  "rule_fire_count": {
+    "RAW-IPF-001": 0,
+    "RAW-IPF-002": 5,
+    "RAW-IPF-003": 6,
+    "RAW-IPF-004": 6,
+    "RAW-IPF-005": 7,
+    "RAW-IPF-006": 7,
+    "RAW-IPF-007": 7,
+    "RAW-IPF-008": 5,
+    "RAW-IPF-009": 5,
+    "RAW-IPF-010": 5,
+    "RAW-IPF-011": 5,
+    "RAW-IPF-012": 0,
+    "RAW-IPF-013": 6,
+    "RAW-IPF-014": 0
+  },
+  "total_in_scope_injections": 55,
+  "total_in_scope_caught": 55,
+  "total_oos_probes": 10
+}

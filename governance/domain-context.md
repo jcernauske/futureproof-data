@@ -18,6 +18,9 @@
 | 2026-04-10 | Added BEA Regional Price Parities section | Fifth data source — state-level cost-of-living index (50 states + DC, annual snapshot, national=100). Enables salary purchasing power adjustment in the frontend and the Tier 3 Fight Location Lock boss. Does NOT join to other sources by SOC/CIP — joins at query time by the student's selected state. |
 | 2026-04-14 | Added College Scorecard Institution-Level section | Sixth data source — institution-level cost of attendance, net price, tuition, room/board. Joins to existing field-of-study data on UNITID (91.9% coverage). Enables true ROI formula using net_price instead of debt_median. Source-specific context document: `domain/raw-ingest-college-scorecard-institution-context.md`. Key EDA corrections: row count is 3,039 (not ~6,500), COA coverage 73.5% (not 90%), negative net prices are legitimate, quintile monotonicity unreliable at adjacent pairs. All conditional agents (entity-resolver, pii-scanner, temporal-modeler) can be SKIPPED. |
 | 2026-04-16 | Added Anthropic Economic Index section | Seventh data source — Anthropic's empirical observations of Claude usage mapped to O*NET tasks / SOC occupations (release 2025-03-27, CC-BY 4.0). Complements Karpathy's theoretical AI exposure with observed adoption. Grain: `(task_id, soc_code)` Bronze, `soc_code` Silver. Aggregation is SUM (not mean) with even `pct / N` split across multi-SOC tasks to preserve the 100% global-share invariant. SOC coverage revised from ≥80% to ≥60% (actual 61.3% — gaps are in manual/physical occupations Claude traffic doesn't touch, not an ingestor defect). Extends `consumable.ai_exposure` with `observed_exposure_pct` and `automation_pct`. Blocks S4 (`three-signal-ai-exposure-composite`). |
+| 2026-04-30 | Added IPEDS Finance section | Ninth data source — IPEDS Finance Survey (F1A public/GASB + F2 private nonprofit/FASB + F3 for-profit) UNIONed across institutional control, joined to **EFIA** (12-Month Instructional Activity, NOT EFFY which is headcount) on UNITID for `total_fte_enrollment = COALESCE(FTEUG,0)+COALESCE(FTEGD,0)+COALESCE(FTEDPP,0)`, filtered to 4-year-bachelor's-or-above via HD `ICLEVEL=1 AND HLOFFER>=5`. FY23 (provisional, released Sep 2024) is the operative cycle — FY24 not yet released by NCES (HTTP 404 on F2324 bulk URLs as of 2026-04-30). All 8 v1.3-locked column codes byte-verified against FY23 dictionaries (`F1C011/F1C071/F1H02`, `F2E011/F2E061/F2H02`, `F3E011/F3E03C1`); pre-2014-15 belief that F3 omits institutional support is REFUTED — `F3E03C1` is 100% non-null on FY23. Post-filter row count = **2,675** (NOT 5,000–8,000 — RAW-IPF-001 needs revision to `2,500–3,200`); form mix F1A 30.6% / F2 59.0% / F3 10.4%; F3 endowment 100% structurally NULL (no F3H family); imputation prevalence ≤1.22% on every field (§2 Decision #8 well-calibrated). UNITID overlap with `bronze.college_scorecard_institution` = 98.0% of finance / 86.2% of scorecard. Three ingestor configuration gates (fiscal_year=2023, F3 col overrides, EFIA prefix/suffix/dedup overrides) AND a code change (three-column NULL-safe FTE sum) required before promote. Powers consumable `marketing_ratio` and `endowment_per_fte` planks of `consumable.institution_aura`. |
+| 2026-04-30 | Re-finalized IPEDS Finance section against actually-landed FY2022 bronze | Supersedes the prior 2026-04-30 IPEDS Finance entry. The bronze table actually landed against **FY2022** (academic year 2021-22) — NCES had not yet published FY24 finance files at ingest time, so the spec's working-assumption FY24 / earlier draft's FY23 cycles do not correspond to live data. Section rewritten against `governance/eda/raw-ingest-ipeds-finance-eda.md` (2,683 rows, snapshot `982081695100705470`). Updates the recap edge-cases table to FY2022-measured values: 2,683 rows (vs. earlier draft's 2,675), form mix F1A 29.9% / F2 59.4% / F3 10.7%, CON-IFP-008 overlap 90.39% (tight-pass at threshold — add P2 watch-line at 88%). **Surfaces a meaningful prior omission:** endowment imputation prevalence is 25-31% on F1A/F2 (NCES bureau-imputed via prior-year × market-return), not the ≤1.22% the prior entry conflated across all fields. Keeps §2 Decision #8 (accept imputed) as the v1.3 policy, recommends `endowment_value_provenance` flag column for v1.4. Adds plain-English definitions of the four bronze fields, the structural F3-endowment-NULL invariant, the public-system-administrative-office outlier pattern (real IPEDS entities, not data errors), and the cycle-as-runtime-parameter clarification. Cycle vintage advances at the next NCES publication (~Sep 2026 for FY24) by parameter change only. |
+| 2026-04-30 | Finalized EADA section | Eighth data source — Equity in Athletics Disclosure Act institution-level athletic finance reporting. Replaces @bs:data-analyst's provisional 2026-04-30 stub with the canonical synthesis. Captures three-endpoint SPA acquisition pattern; the corrected file model (institution totals live in `InstLevel.xlsx`, separate from per-team `Schools.xlsx`, no in-pipeline filter needed); the corrected lowercase `unitid` / `institution_name` and uppercase `GRND_TOTAL_EXPENSE` / `GRND_TOTAL_REVENUE` / `RECRUITEXP_TOTAL` column names; sentinels (`-1`, `-2`, blank → NULL); 74.5% UNITID overlap with `bronze.college_scorecard_institution` (calibrates BSE-EAD-009 down from 95%); revenue ≈ expense structural identity at the grand-total level; 17.8% real-zero recruiting rate; **open architectural question** on whether per-FTE derivations should use EADA's in-file `EFTotalCount` instead of cross-source LEFT JOIN to `base.ipeds_finance` (covers the 521 EADA institutions missing from IPEDS-side join surface). Also adds forward-looking **aura-score** domain context: neutral brand-gravity signal composed of `endowment_per_fte` + `marketing_ratio` + `athletic_spend_per_fte`; `athletic_subsidy_ratio` deliberately excluded as normative-overlap with ROI/ERN; versioned via `aura_score_version`. PII reaffirmed as none (institution-level public data). Lands `bronze.eada` in the source registry. |
 
 ---
 
@@ -2110,3 +2113,419 @@ All four are captured with signatures in `governance/approvals/onet-experience-r
 - Whether to surface `experience_distribution` (the JSON vector) in any user-facing UI or keep it purely as a backend diagnostic.
 - Whether the Silver-level `suppress_flag` will ever be TRUE on real data. Zero triggers in O*NET 30.2; chaos-only coverage today.
 - Whether to add PT (in-plant training) or OJ (on-the-job training) as secondary signals in a future spec — both are already ingested into Bronze and would require only a new Silver transformation to surface.
+
+---
+
+## EADA (Equity in Athletics Disclosure Act)
+
+> Finalized 2026-04-30 by @bs:domain-context, replacing the provisional 2026-04-30 stub written by @bs:data-analyst during raw-zone EDA for `docs/specs/full-pipeline-eada.md`. The EDA report at `governance/eda/full-pipeline-eada-raw-eda.md` remains the authoritative numeric backing for column pins, distribution stats, and overlap measurements; this section is the synthesis the rest of the pipeline reads.
+
+### Domain Identification
+**Domain.** U.S. higher-education intercollegiate athletics financial reporting. Mandated annually by §485g of the Higher Education Act (Equity in Athletics Disclosure Act, 1994) for any postsecondary institution that receives Title IV federal student aid and operates at least one intercollegiate athletics program. The disclosure is institution-level and public.
+
+**Sub-domain.** Institution-totals athletic finance (revenue, expense, recruiting). Per-sport / per-team detail (`Schools.xlsx`, `SPORTSCODE`-keyed) is **not in scope** for FutureProof.
+
+**Why FutureProof cares.** EADA carries the only authoritative institution-level dollar figure for athletic spend nationwide. Combined with IPEDS Finance, it is the input set for the forward-looking `consumable.institution_aura` table — a "brand gravity" signal applied to school cards and the school-picker.
+
+### Provider and Acquisition
+
+| Aspect | Value |
+|---|---|
+| Provider | U.S. Dept. of Education / Office of Postsecondary Education (OPE) |
+| Front-end | `https://ope.ed.gov/athletics/` (Angular SPA, "Custom Data Cutting Tool") |
+| Backend (unauthenticated, used by ingestor) | three pinned endpoints below |
+| User-Agent observed accepted | `FutureProof/0.1 (jeff@hyenastudios.com)` |
+| License | U.S. Government Work — public domain |
+
+The SPA is not the API. The ingestor must hit the SPA backend directly. Three endpoints, all GET, all unauthenticated:
+
+| Endpoint | Returns |
+|---|---|
+| `GET https://ope.ed.gov/athletics/api/dataFiles/years` | JSON array of available reporting years, e.g. `[2003, 2004, …, 2024]`. |
+| `GET https://ope.ed.gov/athletics/api/dataFiles/fileList` | JSON list of every available zip with `FileName`, `Year`, `Format`, `LinkName`, `Description`. |
+| `GET https://ope.ed.gov/athletics/api/dataFiles/file?fileName=<FileName>` | The zip itself, `application/octet-stream`. |
+
+Two file packages exist per year:
+
+1. `EADA_<YYYY-YYYY>.zip` (~12 MB) — contains `InstLevel.xlsx` (institution-level totals), `Schools.xlsx` (per-team rows), plus SAS / SPSS / Word codebooks. **This is the package we use.**
+2. `EADA_All_Data_Combined_<YYYY-YYYY>_SAS_SPSS_EXCEL.zip` — bundled multi-format institution-only file. Not used.
+
+### File Structure (Critical Modeling Fact)
+
+EADA ships institution totals as a **separate file**, not as a marker subset of a mixed file. This is unlike many federal datasets (where you filter by a sentinel column). Inside `EADA_<YYYY-YYYY>.zip`:
+
+| File | Grain | Rows (2022–23) | Cols | FutureProof? |
+|---|---|---:|---:|---|
+| `InstLevel.xlsx` | one row per `(unitid, academic_year)` | 2,040 | 168 | **Ingested.** |
+| `Schools.xlsx` | one row per `(unitid, SPORTSCODE, academic_year)` | 17,886 | 129 | **Not ingested.** |
+
+**Design implication for @bs:dq-rule-writer and the ingestor:** because we read `InstLevel.xlsx` directly, **no in-pipeline filter is needed**. The earlier spec model "filter mixed file on `SPORT_CODE IS NULL`" was based on an incorrect mental model. RAW-EAD-012 (post-filter row count within 1% of distinct UNITIDs) becomes a tautology under the corrected model and should be dropped or re-targeted.
+
+### Grain
+- **Primary grain:** `(unitid, reporting_year)`. 2,040 rows in the 2022–23 cycle (`reporting_year = 2022`, the academic-year start).
+- Reporting year has **no in-file column**; it is encoded only in the filename. The ingestor stamps `reporting_year` as a constant per cycle.
+- One row per institution per year by construction — no deduplication needed.
+
+### Reporting Cycle
+- Academic year, Jul–Jun. Filenames use the `YYYY-YYYY` form (`EADA_2022-2023.zip`).
+- We stamp `reporting_year = academic_year_start` (e.g., 2022 for the 2022–23 cycle), matching the College Scorecard / IPEDS finance year convention so all education sources align on the same year axis.
+- Submission deadline: Oct 15 of the year following the reporting cycle. Public release: typically the following spring.
+
+### Column Naming Convention (Critical Pin)
+
+EADA mixes lowercase identity columns with uppercase monetary columns within the same file. The 2022–23 column names that the ingestor and downstream consumers must use:
+
+| Concept | Actual column (2022–23) | Type | Notes |
+|---|---|---|---|
+| IPEDS institutional ID | `unitid` (lowercase) | int-like string | NOT `UNITID`. |
+| Institution name | `institution_name` (snake_case) | string | NOT `INSTNM`. |
+| Grand-total expense | `GRND_TOTAL_EXPENSE` | double | Renames to `total_athletic_expenses` in raw schema. |
+| Grand-total revenue | `GRND_TOTAL_REVENUE` | double | Renames to `total_athletic_revenue` in raw schema. |
+| Recruiting expense | `RECRUITEXP_TOTAL` | double | NO `_TOTAL_TOTAL` double suffix. Renames to `recruiting_expenses`. |
+| Athletic enrollment FTE | `EFTotalCount` (also `EFMaleCount`, `EFFemaleCount`) | int | IPEDS 12-month enrollment headcount. See architectural-question below. |
+| Sport code | `SPORTSCODE` | int | Only in `Schools.xlsx`; **absent from `InstLevel.xlsx`**. Not used. |
+| Athletics classification | `ClassificationCode` / `classification_name` | int / string | 19 distinct conference/division values. |
+| IPEDS sector | `sector_cd` / `sector_name` | int / string | IPEDS 9-sector taxonomy. |
+
+**The original spec §3 working assumptions (`EXP_TOTAL_TOTAL`, `REV_TOTAL_TOTAL`, `RECRUITEXP_TOTAL_TOTAL`, `UNITID`, `INSTNM`) are wrong on every monetary and identity column.** The corrected names above are the canon.
+
+### Suppression Sentinels
+
+EADA documentation lists three suppression markers that the ingestor coerces to NULL at raw write:
+
+| Sentinel | Meaning |
+|---|---|
+| Blank / empty cell | Not reported |
+| `-1` | Privacy-suppressed (cohort too small) |
+| `-2` | Not applicable / category not offered |
+
+**In the institution-totals file (2022–23) none of these are observed** — institution grand totals are 100% populated. The sentinels are a per-sport phenomenon (in `Schools.xlsx`), where small programs have privacy-suppressed roster counts. The ingestor's sentinel-stripping logic is retained as a defensive measure for future cycles and for the per-team file should we ever choose to ingest it.
+
+### Athletics Taxonomy (`classification_name`)
+
+19 distinct conference/division values:
+
+NCAA Division I-FBS · I-FCS · I (no football) · II (with/without football) · III (with/without football) · NAIA Division I · II · NJCAA Division I · II · III · NCCAA Division I · II · CCCAA · NWAC · USCAA · Independent · Other.
+
+Distribution skews small/2-year. Only 127 D1-FBS institutions in 2022–23 vs. ~700 in NCAA D3 + NJCAA + CCCAA combined.
+
+### Cross-Source Bridging
+
+| Bridge | Method | Coverage (2022–23) |
+|---|---|---|
+| `bronze.eada.unitid` ↔ `bronze.college_scorecard_institution.unitid` | Direct integer match on IPEDS UNITID | **74.5% (1,519 / 2,040)** |
+| `bronze.eada.unitid` ↔ `base.ipeds_finance.unitid` | Direct integer match on IPEDS UNITID | Unmeasured (table not yet built); expected ~75% by IPEDS-Finance's 4-year-skew. |
+| `bronze.eada.unitid` ↔ `consumable.career_outcomes.unitid` | Direct integer match | Deferred until consumable build. |
+
+**The 521 missing-from-Scorecard institutions are predominantly 2-year colleges**: NJCAA-I 168, NJCAA-II 118, CCCAA 95, NJCAA-III 90, NWAC 10, USCAA 7. College Scorecard's bachelor's Field-of-Study file is structurally 4-year-biased.
+
+**Calibration for BSE-EAD-009.** The spec's 95% cross-source coverage threshold is incompatible with the 74.5% measured ceiling. The base-zone DQ threshold for `fte_source_available` should drop to ~75% against `bronze.college_scorecard_institution`, OR the architectural-question below should be resolved in favor of the in-file FTE source.
+
+### OPEN ARCHITECTURAL QUESTION (BLOCKING for silver-zone implementation)
+
+**The decision:** which FTE source feeds per-FTE athletic-spend derivations in `base.eada_athletic_finance` and downstream `consumable.institution_aura.athletic_spend_per_fte`?
+
+| Option | Source | Coverage of EADA universe | Pros | Cons |
+|---|---|---:|---|---|
+| **A. Cross-source LEFT JOIN** (current spec §5 Decision 3) | `base.ipeds_finance.total_fte_enrollment` | ~74.5% (probably lower) | Single FTE definition shared across all FutureProof per-FTE metrics; consistent with endowment_per_fte. | 521+ EADA institutions get NULL FTE → NULL `athletic_spend_per_fte`. Most are 2-year — exactly the population for which athletic spend is most policy-relevant (Title IX, NJCAA / CCCAA equity). |
+| **B. In-file `EFTotalCount`** | `bronze.eada.EFTotalCount` (IPEDS 12-month enrollment, already in EADA) | ~100% (it's in the same row) | No cross-source join, no coverage cliff. Matches the FTE basis used in Knight Commission per-FTE athletic-spend benchmarks. | Athletic-spend-per-FTE uses one FTE definition while endowment-per-FTE uses another (`base.ipeds_finance.total_fte_enrollment`) — two FTE columns in the aura input set. Risk of methodological inconsistency in `consumable.institution_aura`. |
+| **C. Hybrid (COALESCE)** | `COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.EFTotalCount)` | ~100% | Best coverage, primary IPEDS-Finance definition where available. | The two FTE columns are not identical (`EFTotalCount` is 12-month headcount; IPEDS Finance is annualized FTE). Mixing them is methodologically dirty unless explicitly versioned (e.g., `fte_source = 'ipeds_finance' \| 'eada_eftotalcount'`). |
+
+**Recommendation for the orchestrator to surface to the spec author + @bs:semantic-modeler before silver-zone implementation:** Option C with explicit `fte_source` provenance column on `base.eada_athletic_finance`. This preserves the IPEDS-Finance primary while not losing the 521 institutions. Aura-score versioning (`aura_score_version`) absorbs the methodological seam.
+
+**Until this decision is made, BSE-EAD-009 must be HELD.** The 95% threshold in the spec assumes Option A and a 4-year-biased universe; under Option B/C the threshold should be ≥99%, and under Option A it should be ~75%.
+
+### Recruiting Zero Rate
+
+17.8% of institutions (363 / 2,040) report exactly $0 recruiting expense. These are **real zeros**, not suppressions. They concentrate in NJCAA II/III, CCCAA, NWAC — programs that don't recruit off-campus.
+
+**Notes for @bs:dq-rule-writer:** RAW-EAD-006 (`recruiting_expenses ≥ 0`) is the correct rule. Do **not** add a "> 0" rule on recruiting; it would false-flag 1 in 6 institutions. Document the zero rate in the data contract so MCP responses can explain it.
+
+### Structural Quirk: Revenue ≈ Expense at the Grand-Total Level
+
+EADA convention requires institutions to report total revenues at least equal to total expenses; any operating deficit is conventionally booked as "direct institutional support" within the revenue total. Therefore at the `GRND_TOTAL_*` level, `revenue ≈ expense` for ~every row.
+
+**Implication for `athletic_subsidy_ratio`:** the "athletics loses money" insight lives in `direct_institutional_support` (a separate EADA column not in the raw schema), not in `GRND_TOTAL_REVENUE − GRND_TOTAL_EXPENSE`. The current planned derivation `athletic_subsidy_ratio = (GRND_TOTAL_EXPENSE − GRND_TOTAL_REVENUE) / GRND_TOTAL_EXPENSE` will be ~0 for ~every institution and is not a usable signal.
+
+This is one of two reasons `athletic_subsidy_ratio` is **deliberately excluded from the aura-score input set** (see Aura Score section below). It is retained as a context column on `consumable.institution_aura` only, not as an aura input. Flagged for @bs:dq-rule-writer: drop or re-derive BSE-EAD-010 ("subsidy P50 > 0"), it cannot pass under the GRND_TOTAL convention.
+
+### PII Assessment
+
+**No PII.** EADA is institution-level public data published by a federal agency under §485g disclosure mandate. There are no individual-level fields — no names, no rosters with identifying detail, no personal addresses. All numeric fields are dollar totals, FTE counts, or coach FTE counts at the institution grain. The `institution_name` and `unitid` fields refer to legal entities, not natural persons.
+
+**Notes for @pii-scanner:** Skip detailed scanning of `bronze.eada` — the data is institution-level public-domain federal disclosure. Justification for the contract: "governance/domain-context.md EADA PII section confirms no personal data — all fields are institution-level totals from a federally-mandated public disclosure (§485g HEA)." This matches the "no PII" precedent already established for College Scorecard, BLS OOH, O*NET, BEA RPP, and Anthropic Economic Index.
+
+### Aura Score (Forward-Looking — drives `consumable.institution_aura`)
+
+**Aura is a neutral brand-gravity signal — explicitly NOT good or bad.** Higher aura = stronger institutional brand presence and resource gravity. Lower aura = quieter / less resourced institution. The frontend renders aura as a visual treatment (glow / particle density / saturation) on the school card; it does not appear as a "rating" or "score out of 10" anywhere a student might confuse it with quality.
+
+**Composite of three direct, non-inverted inputs (all per-FTE or ratio-form):**
+
+| Input | Source | Direction | Note |
+|---|---|---|---|
+| `endowment_per_fte` | `base.ipeds_finance` | Higher = more aura | Absolute floor of institutional resource gravity. |
+| `marketing_ratio` | `base.ipeds_finance` (marketing / total expense) | Higher = more aura | Brand-spend as a share of operating budget. |
+| `athletic_spend_per_fte` | `base.eada_athletic_finance` (this source) | Higher = more aura | Athletic visibility / brand reach. |
+
+All three move in the same direction. **There is no inverted input.** Aura is summed, not netted.
+
+**Deliberately excluded from the aura input set:** `athletic_subsidy_ratio`. Two reasons:
+
+1. **Normative overlap with ROI / ERN.** Subsidy ratio carries an implicit "athletics is a money pit / good investment" judgment that overlaps with the financial-return signals already surfaced via `consumable.career_outcomes` (median earnings, debt, ROI). Aura is supposed to be brand-gravity, not financial efficiency — those should not be conflated. This is the §2 Decisions 10 / 11 stance in `docs/specs/full-pipeline-eada.md`.
+2. **Mechanical: the GRND_TOTAL convention nulls the signal.** Per the structural quirk above, `athletic_subsidy_ratio` is ~0 for every institution at the grand-total level. Even if we wanted to include it, the raw input set we ingest doesn't carry the subsidy basis (`direct_institutional_support`).
+
+`athletic_subsidy_ratio` survives on `consumable.institution_aura` as a **context column** (for the MCP server to surface when a Gemma user asks about it directly) but is not an aura input.
+
+**Versioning.** `consumable.institution_aura.aura_score_version` is a string column carrying the aura-formula generation. Initial value: `"v0-draft"` pending the aura-score EDA (Task #10 in this pipeline). When the FTE-source decision above is resolved, when aura-score weighting is finalized, and when the EDA validates the input distribution shapes, the version bumps to `"v1"`. Downstream consumers (frontend, MCP) read both the score and the version; mismatched versions are surfaced as a warning rather than silently merged.
+
+**Notes for @bs:semantic-modeler.** The aura input set is fixed (3 inputs, all positive-direction). The aura *formula* (z-score, percentile, capped log, weighted sum) is open and is the subject of the Aura-score EDA gate. This domain context fixes the inputs; the EDA fixes the formula.
+
+### Source Registry Entry
+
+| Zone | Table | Description |
+|---|---|---|
+| Bronze (raw) | `bronze.eada` | Institution-level athletic finance, one row per `(unitid, reporting_year)`. Brightsmith bronze=raw; the MCP-facing namespace is `bronze`. |
+| Base (planned) | `base.eada_athletic_finance` | Renamed / typed / FTE-joined fact, awaiting FTE-source decision above. |
+| Consumable (planned) | `consumable.institution_aura` | Aura composite, joined to IPEDS Finance and Endowment. |
+
+### Recap: Edge Cases for @bs:dq-rule-writer
+
+| Observation | Recommendation |
+|---|---|
+| All three monetary fields are 100% non-null in 2022–23 | Tighten RAW-EAD-007 / 008 / 009 from ≥95% / ≥95% / ≥80% to ≥99% non-null. |
+| 17.8% recruiting at $0 (real zeros) | Keep RAW-EAD-006 as `≥ 0`. Do not add `> 0`. |
+| `unitid` 100% non-null, 100% unique | RAW-EAD-002 / 003 trivially hold; consider promoting to P0 invariants. |
+| `total_athletic_expenses > $100M` for 60 D1-FBS institutions | RAW-EAD-011 holds with margin. |
+| `total_athletic_expenses == 0` is currently 0 rows | Add a P1 rule "expense > $0" to catch future data corruption. |
+| RAW-EAD-012 (post-filter row count) | Drop or weaken to "row count == file row count" — the per-team filter is gone. |
+| BSE-EAD-009 (95% cross-source FTE coverage) | **Hold pending FTE-source architectural-question above.** |
+| BSE-EAD-010 (subsidy P50 > 0) | **Drop or re-derive.** The GRND_TOTAL convention nulls the signal. |
+
+---
+
+## IPEDS Finance (F1A / F2 / F3 + EFIA + HD)
+
+> Finalized 2026-04-30 by @bs:domain-context against the **actually-landed FY2022 bronze table** (`bronze.ipeds_finance`, 2,683 rows, snapshot `982081695100705470`). Supersedes the earlier draft of this section that was written against a hypothetical FY23 cycle (NCES had not yet published FY23 finance files at ingest time — see "Cycle vintage" below). The full EDA at `governance/eda/raw-ingest-ipeds-finance-eda.md` is the authoritative numeric backing for everything below; this section is the synthesis the rest of the pipeline reads.
+
+### Domain Identification
+
+**Domain.** U.S. higher-education institutional finance reporting. Mandated annually for any postsecondary institution participating in Title IV federal student-aid programs. The IPEDS Finance Survey is split into three forms keyed to institutional control + accounting basis, then unioned in this pipeline into a single per-institution-per-fiscal-year row.
+
+**Sub-domain.** Institution-level functional-expense totals (instruction + institutional support), end-of-year endowment value, and 12-month full-time-equivalent (FTE) enrollment. Per-sport, per-program, per-function-sub-category detail (e.g., research, public service, scholarships) is **not in scope** for FutureProof.
+
+**Why FutureProof cares.** IPEDS Finance is the only authoritative source nationwide for institution-level dollar figures on what schools spend on teaching vs. administration. Combined with EFIA (12-Month Instructional Activity), it produces the per-FTE expense ratios and the `marketing_ratio` (institutional support / instruction) signal — a "brand-vs-teaching-spend" lens. The base/consumable per-FTE derivations and `marketing_ratio` interpretation live downstream of this raw zone. The eventual fusion with EADA athletic-finance into `consumable.institution_aura` (forward-looking "brand gravity" composite) is also out of scope here — see `docs/specs/raw-ingest-eada.md`.
+
+Spec: `docs/specs/full-pipeline-ipeds-finance.md` (v1.3-locked).
+Pre-flight: `governance/eda/raw-ingest-ipeds-finance-preflight.md` (resolves the v1.2 column-code TBDs).
+Full EDA (FY2022 actually-landed): `governance/eda/raw-ingest-ipeds-finance-eda.md`.
+
+### Provider and Acquisition
+
+| Aspect | Value |
+|---|---|
+| Provider | National Center for Education Statistics (NCES), part of U.S. Dept. of Education |
+| Front-end | `https://nces.ed.gov/ipeds/datacenter/` (Compare Institutions → Finance) |
+| Backend (used by ingestor) | bulk CSV download per form, URL pattern `https://nces.ed.gov/ipeds/datacenter/data/{name}.zip` (and `_Dict.zip` for dictionaries) |
+| User-Agent observed accepted | `FutureProof/0.1 (jeff@hyenastudios.com)` |
+| License | U.S. Government Work — public domain |
+| Authentication | None — all four file families (F1A / F2 / F3 / EFIA / HD) ungated |
+
+The ingestor pulls **five** zipped CSVs per cycle (three Finance forms + EFIA + HD), unions the three Finance files in raw with a `report_form` column, LEFT JOINs EFIA on UNITID, and applies the HD-derived 4-year-bachelor's-or-above filter. Stops at `bronze.ipeds_finance`.
+
+### Form Mix and Reporting Basis
+
+IPEDS publishes the Finance Survey on three separate forms:
+
+| Form | Population | Accounting basis | FY2022 row count (post-HD-filter) | Pct of post-filter universe |
+|---|---|---|---:|---:|
+| **F1A** | Public 4-year institutions | GASB (governmental — Statement 34/35 functional-expenses block in Part C) | 803 | 29.9% |
+| **F2** | Private nonprofit 4-year institutions | FASB (Section E functional-expenses block) | 1,593 | 59.4% |
+| **F3** | Private for-profit institutions | proprietary (narrower schedule, post-2014-15 schedule revision) | 287 | 10.7% |
+
+The accounting-basis distinction matters analytically only at the margins — the line-item dictionary definitions for "Instruction" and "Institutional support" are byte-equivalent across F1A/F2/F3 (FARM ¶703.x for institutional support; the same paragraph anchors instruction). At the grand-total level used here, GASB-vs-FASB differences are immaterial. They do affect what is **categorized into** instruction vs. institutional support at the function level (e.g., GASB rolls some operations-and-maintenance into institutional support that FASB books separately), so cross-form per-form analysis on the marketing_ratio is more interpretable than a single global cut. Consumable layer should preserve `report_form` to enable that segmentation.
+
+12 institutions in F2 carry `CONTROL=1` (public) — these are state-related private hybrids (Penn State, Pitt, Temple-class) that elect FASB and file F2. Expected; matches NCES treatment.
+
+### The Four Bronze Fields (Plain English)
+
+These are the four columns the bronze table carries forward into base. All other functional-expense breakouts (research, public service, academic support, student services, scholarships) are intentionally not pulled — they are out of scope for the FutureProof "what does this school spend on teaching vs. administration" lens.
+
+| Bronze field | Plain English | F1A code | F2 code | F3 code | Source survey |
+|---|---|---|---|---|---|
+| `instruction_expenses` | Total annual expenses on direct instruction — faculty salaries, instructional materials, departmental research conducted in service of teaching. The "educational product" line. | `F1C011` (Part C, "Instruction – Total") | `F2E011` (Section E, "Instruction – Total") | `F3E011` (post-2014-15; the `1` suffix denotes "Total amount" and was a v1.2 spec error to omit) | IPEDS Finance |
+| `institutional_support_expenses` | Total annual expenses on day-to-day operational support — executive direction, fiscal/legal/administrative ops, public relations, fundraising, recruiting/marketing, administrative computing. The "overhead" line. | `F1C071` | `F2E061` | `F3E03C1` (post-2014-15 schedule revision; 100% non-null on FY2022 — the pre-2014-15 belief that F3 omits this is **refuted**) | IPEDS Finance |
+| `endowment_value` | End-of-year market value of an institution's endowment funds. | `F1H02` | `F2H02` | **N/A** — F3 has no `F3H` family at all; for-profit institutions do not maintain endowments. NULL for 100% of F3 rows by design. | IPEDS Finance |
+| `total_fte_enrollment` | 12-month full-time-equivalent enrollment, computed as `COALESCE(FTEUG,0) + COALESCE(FTEGD,0) + COALESCE(FTEDPP,0)` — undergraduate + graduate + doctor's-professional-practice (med/law/dental/vet). NULL only when all three components are NULL. | `FTEUG`, `FTEGD`, `FTEDPP` | (same EFIA source) | (same EFIA source) | **EFIA** (12-Month Instructional Activity), NOT EFFY (which is headcount) |
+
+The pre-2014-15 belief that "F3 omits institutional support" is **incorrect for modern cycles** — the F3 schedule was revised in the 2014-15 collection cycle to mirror F1A/F2's six functional categories.
+
+### Critical Survey-Choice Pin: EFIA, NOT EFFY, NOT `EFTOTLT`
+
+This is the single highest-risk field-selection decision in the spec, and the v1.2 spec had it wrong. Three sub-points all bite, and any of them ingested wrong produces silently corrupted per-FTE math:
+
+1. **The FTE-bearing file is `EFIA{YYYY}.zip`** (12-Month Instructional Activity). It is published one row per UNITID (FY2022: 6,036 rows / 6,036 distinct UNITIDs; no `LEVEL` / `LSTUDY` / `EFFYALEV` breakdown column present). **No dedup filter required.**
+2. **NOT `EFFY{YYYY}.zip`.** That file is the unduplicated 12-month *headcount* file, broken out by `EFFYALEV` / `LSTUDY` (one row per institution per student level, ~17,000 rows for ~6,000 institutions). Joining naively against `EFFY` fans-out finance rows by student level and inflates per-FTE values by ~3×. The v1.2 spec named "EFFY/E12" — the operative file is **EFIA**.
+3. **NOT `EF{YYYY}A.EFTOTLT`.** That column is a fall-snapshot **headcount**, not an annualized FTE. Using it would systematically deflate per-FTE values for institutions serving large part-time populations (community colleges, online-heavy schools, R2s with PT graduate cohorts) — exactly the populations FutureProof's robustness rule targets.
+
+There is **no `FTE_TOTAL` or `FTE` column in any IPEDS file**. Total FTE must be computed:
+
+```sql
+total_fte_enrollment =
+  COALESCE(FTEUG, 0) + COALESCE(FTEGD, 0) + COALESCE(FTEDPP, 0)
+-- NULL only if all three components are NULL
+```
+
+`FTEDPP` (doctor's-professional-practice) is populated for ~14% of institutions (medical, dental, law, veterinary schools); excluding it would deflate per-FTE values for those institutions by 5–15%. The reported variants `FTEUG/FTEGD/FTEDPP` are preferred over the estimated `EFTEUG/EFTEGD` — the EFIA dictionary states the reported value defaults to the estimate when the institution declines to provide one, so `FTEUG` is "best institution-confirmed value, falling back to NCES estimate." Aggregate national delta between reported and estimated is ~0.1%; per-institution drift is rare.
+
+### HD Filter — IPEDS-Native 4-Year-Bachelor's-or-Above
+
+Pipeline applies `ICLEVEL = 1 AND HLOFFER >= 5` from the **HD** (Header) file, paired by **calendar year matching fiscal year** (FY2022 → `HD2022.csv`).
+
+- `ICLEVEL = 1` means "4 or more years"
+- `HLOFFER >= 5` means at least bachelor's, post-bacc cert, master's, post-master's, or doctorate
+
+This is IPEDS-native; no College Scorecard `PREDDEG` dependency (the v1.0 spec mixed taxonomies). Result on FY2022: 2,683 / 6,256 HD UNITIDs (42.9%) pass the filter, narrowing the unioned-finance universe (1,936 F1A + 1,782 F2 + 2,120 F3 = 5,838 source rows) down to the landed 2,683-row bronze table.
+
+### Cycle Vintage — FY2022, Not FY24
+
+The v1.3 spec narrative was written assuming FY24 (the spec's working assumption). **The actually-landed bronze table is FY2022 (academic year 2021-22)** — NCES had not yet published FY24 finance files at ingest time (`F2324_F1A.zip` returns HTTP 200 with a 1.2KB 404-error HTML page as of 2026-04-30). FY2022 is the most-recent fully-published cycle and the year the pre-flight verified column codes against.
+
+The cycle is a **runtime parameter** (`fiscal_year=2022` in `domain/sources/ipeds_finance.yaml`'s `fetch.ipeds_finance.fiscal_year` field, threaded through to the ingestor's constructor argument). Promoting to FY23 or FY24 once NCES publishes is a parameter change, not a code change. NCES publishes Finance on a roughly 16-month lag from fiscal-year end; expect FY24 to land in NCES Data Center around Sep 2026.
+
+| Component | FY2022 file | Pairing window |
+|---|---|---|
+| Finance F1A / F2 / F3 | `F2122_F{1A,2,3}.zip` | Fiscal year ending 2022 (typically Jul 2021 – Jun 2022) |
+| EFIA | `EFIA2022.zip` | Academic year 2021-22 (Jul 2021 – Jun 2022) |
+| HD | `HD2022.csv` | Calendar 2022 institutional metadata |
+
+All three reflect the same 12-month window ending June 30, 2022. Pairing convention (`F{YY1}{YY2}` for finance, single-year `{YYYY}` for EFIA/HD) is stable across recent IPEDS revisions.
+
+### The Endowment Imputation Caveat (Methodologically Important)
+
+IPEDS publishes a parallel `X{code}` column for every numeric field, indicating the value's provenance: **R**=reported by institution, **A**=NCES-analytical/derived (typically prior-year ratio applied to current-year revenue, or mean-of-similar-institutions), **P**=prior-year carryforward, **Z**=imputed using zero, **N**=N/A.
+
+On FY2022, the imputation pattern splits into two distinct populations:
+
+| Field family | Imputation prevalence | Interpretation |
+|---|---|---|
+| `instruction_expenses` (XF1C011/XF2E011/XF3E011) | ≤0.52% A+P+Z across all three forms (≥99.4% R) | Bureau imputation is immaterial. Accepting as raw is methodologically clean. |
+| `institutional_support_expenses` (XF1C071/XF2E061/XF3E03C1) | ≤0.14% A+P+Z across all three forms | Same — immaterial. |
+| `endowment_value` (XF1H02 on F1A, XF2H02 on F2) | **31.10% on F1A, 25.31% on F2** carry "A" (NCES-analytical/imputed) | **Significantly imputed.** Endowment is a balance-sheet measure with a fixed publication date; institutions that miss the EOY reporting deadline have endowment imputed by NCES from a prior-year value scaled by a market-return factor. The methodology is documented and stable. |
+
+**v1.3 policy (§2 Decision #8): accept bureau-imputed values as raw values per the spec; do not store the X-flag column.** This is well-calibrated for instruction and institutional support (immaterial) and accepted-with-known-tradeoff for endowment (25-31% of non-null F1A/F2 endowment values are model-imputed rather than institution-reported). Suppressing imputed endowment would drop coverage from ~76% non-null to ~56% non-null and force a corresponding loosening of `BSE-IPF-013` to ~50%.
+
+**v1.4 candidate (NOT a v1.3 blocker):** add an `endowment_value_provenance` column to bronze that stores the `XF1H02`/`XF2H02` flag value verbatim (R/A/P), defaulting to NULL on F3. Allows downstream consumers (EADA fusion, longitudinal endowment-trend analyses) to filter to institution-reported values when modeling change-over-time, without losing the imputation-allowed values for current-snapshot benchmarking.
+
+### F3 Sparseness — What's Structural vs. Missing
+
+| F3 field | NULL rate | Interpretation |
+|---|---|---|
+| `instruction_expenses` | 0.0% (287/287 non-null) | Always reported on the post-2014-15 schedule. |
+| `institutional_support_expenses` | 0.0% (287/287 non-null) | Always reported. The pre-2014-15 belief that F3 omits this is refuted. |
+| `endowment_value` | **100.0% NULL** (0/287 non-null) | **Structural** — F3 has no `F3H` family at all. For-profit institutions do not maintain endowments. **Not a data quality failure**; not a coverage issue. The NULL cascades correctly through `endowment_per_fte` for F3 rows in base/consumable. |
+| `total_fte_enrollment` | 1.4% NULL (4/287) | Newly-opened or late-filer for-profit institutions absent from EFIA. |
+
+The 100%-NULL endowment_value on F3 is the single most important structural-NULL pattern in this domain. Downstream `data_completeness_tier` (per spec §6) must classify F3 rows that are otherwise complete as `medium` (one structurally absent field of four), not `low` or `medium-low`. Future data-product specs that filter or rank by `endowment_per_fte` should explicitly surface F3 rows with N/A treatment, not drop them silently.
+
+### Coverage vs. Career Outcomes (Calibrates CON-IFP-008)
+
+Distinct-UNITID overlap with `consumable.career_outcomes` (the existing FutureProof gold table that already drives the school + major picker):
+
+| Metric | Value |
+|---|---:|
+| `bronze.ipeds_finance` distinct UNITIDs (FY2022, post-HD-filter) | **2,683** |
+| `consumable.career_outcomes` distinct UNITIDs | **2,559** |
+| Overlap | **2,313** |
+| Overlap rate of CO (CON-IFP-008 numerator: ≥90% target) | **90.39%** |
+| Overlap rate of bronze | 86.21% |
+| In CO not in bronze (`co_only`) | 246 |
+| In bronze not in CO (`bronze_only`) | 370 |
+
+**The 9.61% gap is well-explained and not a data-quality issue.** Of the 246 `co_only` UNITIDs:
+- ~50% (122/246) are 4-year institutions that pass our `ICLEVEL=1 AND HLOFFER>=5` filter — IPEDS Finance non-filers for FY2022 (predominantly small graduate-only or specialized for-profit institutions, late filers, or recent merges into a parent UNITID).
+- ~5% (13/246) are recently-closed institutions (e.g., ASA College closed 2023-02-24, San Francisco Art Institute closed 2022-07-15) — Scorecard backfills outcomes for cohorts that graduated before closure.
+- The remaining ~50% are sub-baccalaureate (associate's-only, 2-year, certificate) — expected misses by the spec's 4-year filter.
+
+Of the 370 `bronze_only` UNITIDs: F2=248, F1A=73, F3=49. F1A/F3 entries are dominated by **state-system administrative offices** (e.g., "University of Alabama System Office", "U California-Hastings College of Law") and **specialized graduate-only institutions** (American Film Institute Conservatory, Berkeley School of Theology) that are real IPEDS entities outside Scorecard's earnings-cohort universe.
+
+**CON-IFP-008 calibration:** keep the threshold at ≥90% (matches measured 90.39%). The pass margin is 39 basis points — tight. Add a P2 watch-line at ≥88% so a future vintage drop signals one cycle of warning before a P0-class incident. Document the 246 known `co_only` UNITIDs in the data contract as known-acceptable gap.
+
+### System-Office Outliers (Recurring Pattern, Future Spec Concern)
+
+A recurring pattern across the FY2022 EDA: **public-system administrative offices** (e.g., "LA CCD Office", "U Colorado System Office", "U Hawaii System Office", "U Illinois System Office", "SUNY-System Office", "Vermont State Colleges Chancellor", "Minnesota State Colleges System Office") appear in IPEDS HD with `ICLEVEL=1, HLOFFER>=5` but they are **administrative entities, not degree-granting campuses** — students belong to member institutions. These produce:
+
+- 34 rows with `instruction_expenses = 0` (legitimate — they have no instruction)
+- 21 rows with `marketing_ratio > 10×` (the top 10 of which are all system offices — extreme overhead-relative-to-zero-instruction)
+- The F1A `marketing_ratio` MAX of 2,340 (LA CCD: $2M instruction / $225M institutional support) is a system office, not an institutional malfeasance signal.
+
+**These are real IPEDS entities, not data errors.** Approximately 25-40 of these UNITIDs exist nationwide. Future spec versions may filter them out at the bronze→base boundary (matching `name ~~ ' Office' OR ' System' OR 'Chancellor'` with anchor-aware matching) — this would drop ~1% of rows, eliminate the entire `>10×` marketing-ratio outlier class, and improve consumable→career-outcomes overlap by removing rows that have no career-outcome counterpart by construction. **Out of scope for v1.3** because it would alter the bronze grain (UNITID-level, faithful to source). Surface to @bs:semantic-modeler for `consumable.ipeds_finance_profile` shaping or downstream EADA fusion (system offices have no athletic program and will fall out of EADA fusion naturally).
+
+### Joining IPEDS Finance Into Other Tables
+
+| Pair | Method | Coverage (FY2022) |
+|---|---|---|
+| `bronze.ipeds_finance.unitid` ↔ `consumable.career_outcomes.unitid` | Direct integer match on IPEDS UNITID | **90.39% of CO UNITIDs** find a finance row |
+| `bronze.ipeds_finance.unitid` ↔ `bronze.college_scorecard_institution.unitid` | Direct integer match | clean (the two share an HD-derived UNITID universe) |
+| `bronze.ipeds_finance.unitid` ↔ `consumable.program_career_paths.unitid` | Direct integer match | clean — `program_career_paths` is keyed on the same UNITID |
+| `bronze.ipeds_finance.unitid` ↔ `bronze.eada.unitid` | Direct integer match | unmeasured this cycle; expected ~75% (EADA includes 2-year/sub-baccalaureate institutions the IPEDS-Finance HD filter excludes) |
+
+`unitid` is a **long, 6-digit IPEDS identifier** — the same key used by every existing FutureProof institution-keyed table. **Do NOT use OPEID** (Office of Postsecondary Education identifier — different namespace, 6- or 8-digit, not stable across institutional changes). **Do NOT use IPEDS UnitID-7 or any other variant** — there is one canonical UNITID and it is the 6-digit integer carried in the `unitid` column on every existing bronze/consumable table in this repo.
+
+### What's NOT in This Domain
+
+The bronze layer is intentionally minimal — four payload fields plus identity/provenance. The following all live downstream and are explicitly out of scope here:
+
+| Concept | Lives in | Why not here |
+|---|---|---|
+| Per-FTE derivations (`instruction_per_fte`, `institutional_support_per_fte`, `endowment_per_fte`) | `base.ipeds_finance` (per spec §5) | Per-FTE is a derivation that depends on a separate field (FTE). Raw zone is faithful-to-source per Brightsmith convention. |
+| `marketing_ratio` (institutional support / instruction) and its interpretation | `base.ipeds_finance` (computation), `consumable.ipeds_finance_profile` (interpretation) | Same reason — derived signal, not a raw input. |
+| `data_completeness_tier` (high/medium/low/insufficient) | `consumable.ipeds_finance_profile` (per spec §6) | Synthesized from non-null counts of independent raw inputs. Not a CIP→SOC crosswalk-confidence tier despite the name overlap. |
+| Fusion with EADA athletic-finance into `consumable.institution_aura` "brand gravity" composite | `docs/specs/raw-ingest-eada.md` (downstream spec) | Cross-source fusion. The IPEDS Finance side exposes raw expense passthroughs at consumable specifically to enable this fusion without back-joining to base. |
+| Multi-year SCD2 tracking | Out of scope (post-hackathon) | Single-vintage invariant per spec §2 Decision 6. RAW-IPF-013 enforces. |
+
+### Domain Vocabulary (BT-IPF-* Glossary Anchors)
+
+These are the canonical concept definitions that downstream agents (@bs:data-steward, @bs:cde-tagger, @bs:doc-generator) should treat as authoritative for this source. Final BT-IPF-* IDs are assigned by @bs:data-steward.
+
+| Term | Definition | Notes |
+|---|---|---|
+| **Instruction expenses** | Total annual expenses on direct instruction — faculty salaries, instructional materials, departmental research conducted in service of teaching. The denominator in the marketing ratio. Per FARM ¶703.x ("educational programs of the institution, including credit and non-credit"). | F1A `F1C011` / F2 `F2E011` / F3 `F3E011`. Byte-equivalent across forms. |
+| **Institutional support expenses** | Total annual expenses on day-to-day operational support of the institution — executive direction and planning, legal/fiscal operations, administrative computing, public relations/development. Per FARM ¶703.9. Often a proxy for "marketing and administration overhead" in budget transparency analyses. | F1A `F1C071` / F2 `F2E061` / F3 `F3E03C1`. Byte-equivalent across forms (post-2014-15 schedule revision). |
+| **Endowment value (end of year)** | End-of-year market value of an institution's endowment funds. **Imputation caveat:** ~25-31% of non-null F1A/F2 values carry the NCES-analytical "A" flag (model-imputed from prior-year value × market-return factor). v1.3 accepts these as raw values per §2 Decision #8. | F1A `F1H02` / F2 `F2H02`. F3 has no `F3H` family (for-profits don't maintain endowments) — coalesces to NULL for 100% of F3 rows. |
+| **Total FTE enrollment** | 12-month full-time-equivalent enrollment, sourced from the **EFIA** (12-Month Instructional Activity) survey, **NOT EFFY** (which is unduplicated 12-month headcount, broken out by student level) and **NOT EF Part A `EFTOTLT`** (which is fall-snapshot headcount). Computed as the NULL-safe three-column sum `COALESCE(FTEUG, 0) + COALESCE(FTEGD, 0) + COALESCE(FTEDPP, 0)`, returning NULL only when all three components are NULL. EFIA is published one row per UNITID, no dedup needed. | The single highest-risk field-selection decision in the spec — getting any of the three sub-points wrong produces silently corrupted per-FTE math downstream. |
+| **Per-FTE convention** | Convention for normalizing institution-level financial measures by `total_fte_enrollment`, producing per-student measures comparable across institutions of different size. NULL when either operand is NULL or FTE is 0. **No imputation downstream** of the bureau-level imputation NCES already applies (see endowment imputation caveat). | Lives in `base.ipeds_finance`, not raw. |
+| **Marketing ratio** | Ratio of `institutional_support_expenses / instruction_expenses`. Higher = relatively more spending on administration/marketing/recruiting vs. teaching. Bounds vary widely across the institutional universe; FY2022 P50 (table-wide) = 0.55, F2 P99 ≈ 5.3, F1A P99 ≈ 12.8 (driven by public-system administrative offices, not real campuses). Per-form thresholds advised — proposed table-wide P99 < 5.0 fires on legitimate state-system administrative offices. | Lives in `base.ipeds_finance` (formula) and `consumable.ipeds_finance_profile` (interpretation), not raw. |
+| **`data_completeness_tier`** | Source-data-completeness signal computed from the count of non-null **independent raw inputs** (`instruction_expenses`, `institutional_support_expenses`, `endowment_value`, `total_fte_enrollment`). Values: `high` (4/4), `medium` (2-3/4), `low` (1/4), `insufficient` (0/4). **This is NOT a CIP→SOC crosswalk-confidence tier** — it measures source-field non-null count, not crosswalk match quality. Renamed from `confidence_tier` in v1.1 of the spec to disambiguate. | Lives in `consumable.ipeds_finance_profile`, not raw. |
+
+### PII Assessment
+
+**No PII.** IPEDS Finance is institution-level public data published by NCES under federal disclosure mandate. There are no individual-level fields — no student records, no employee names, no rosters, no addresses. All numeric fields are dollar totals, FTE counts at the institution grain, or balance-sheet measures. The `institution_name` and `unitid` fields refer to legal entities (universities, colleges, system offices), not natural persons.
+
+**Notes for @pii-scanner:** Skip detailed scanning of `bronze.ipeds_finance` — the data is institution-level public-domain federal disclosure. Justification for the contract: "governance/domain-context.md IPEDS Finance PII section confirms no personal data — all fields are institution-level totals from NCES's IPEDS Finance Survey, a federally-mandated public survey under Title IV reporting requirements." This matches the "no PII" precedent already established for College Scorecard, BLS OOH, O*NET, BEA RPP, Anthropic Economic Index, and EADA.
+
+### Source Registry Entry
+
+| Zone | Table | Description |
+|---|---|---|
+| Bronze (raw) | `bronze.ipeds_finance` | Institution-level financial expenses + endowment + FTE, one row per `(unitid, fiscal_year)`. UNIONs F1A/F2/F3 with `report_form` column, LEFT JOINs EFIA on UNITID, applies HD `ICLEVEL=1 AND HLOFFER>=5` filter. **Landed: 2,683 rows, FY2022, snapshot `982081695100705470`.** Source: NCES IPEDS Data Center. |
+| Base (planned) | `base.ipeds_finance` | Renamed / typed / per-FTE-derived fact. Computes `instruction_per_fte`, `institutional_support_per_fte`, `endowment_per_fte`, `marketing_ratio`. |
+| Consumable (planned) | `consumable.ipeds_finance_profile` | Public-facing per-FTE expense ratios + `data_completeness_tier`. Exposes raw dollar passthroughs for downstream EADA fusion. |
+| Consumable (downstream — `raw-ingest-eada.md`) | `consumable.institution_aura` | "Brand gravity" composite. Uses `endowment_per_fte` and `marketing_ratio` planks from this source. |
+
+### Recap: Edge Cases for @bs:dq-rule-writer (FY2022-calibrated)
+
+| Observation | Count | Recommendation |
+|---|---:|---|
+| Post-HD-filter row count = 2,683 (NOT 5,000–8,000) | 2,683 | **Revise RAW-IPF-001 from `5,000–8,000` to `2,500–3,200`** before running DQ rules. The 5,000–8,000 band is a v1.0/v1.1 artifact pre-dating the HD filter. Measured 2,683 lands comfortably mid-band. |
+| `instruction_expenses` non-null = 100.0% | 2,683/2,683 | RAW-IPF-009 (≥90%) holds with massive margin. |
+| `institutional_support_expenses` non-null = 100.0% | 2,683/2,683 | RAW-IPF-010 (≥90%) holds with massive margin. |
+| `total_fte_enrollment` non-null = 97.88% | 2,626/2,683 | RAW-IPF-011 (≥95%) holds; flag if drops below 96%. F1A NULL rate is the worst (5.7%, driven by system offices that have no enrollment); keep table-level not per-form. |
+| `endowment_value` non-null = 75.77% | 2,033/2,683 | **Tighten RAW-IPF-012 from ≥60% to ≥70%** (5.77pp headroom against measured baseline). The 24% NULL is structural F3 (100% of 287 rows) + 17.95% small F2 + 9.59% F1A (foundation-held endowments reported separately on F1B). |
+| F3 endowment NULL = 100% (structural) | 287/287 | Add NEW RAW-IPF-015: `report_form='F3' AND endowment_value IS NULL` for all F3 rows. Codifies the structural NULL as an invariant; future cycles where F3 starts reporting endowment would surface as a rule failure (and signal NCES schedule change). |
+| Form mix: F1A 29.9% / F2 59.4% / F3 10.7% | — | Add NEW RAW-IPF-016: F1A ∈ [700,900], F2 ∈ [1400,1750], F3 ∈ [200,350]. Catches a future form-mix shift. |
+| Bureau imputation ≤0.52% on instruction/inst-support; **25-31% on F1A/F2 endowment** | — | §2 Decision #8 (accept imputed values) is well-calibrated for instruction/inst-support. For endowment, document the prevalence and consider v1.4 `endowment_value_provenance` flag column. Do NOT flip the policy in v1.3. |
+| 34 rows with `instruction_expenses=0`, 16 with `inst_support=0`, 1 with `endowment=0` | — | RAW-IPF-005/006/007 (≥0) hold; do not change to `>0`. The 34 zero-instruction rows are public-system administrative offices (legitimate). |
+| `marketing_ratio` (inst_support / instruction) median by form: F1A 0.36, F2 0.63, F3 0.91; P99 by form: F1A 12.8, F2 5.3, F3 10.3 | — | F3's high ratios are the for-profit marketing-spend signal the consumable layer wants to surface, NOT a data quality issue. **Per-form thresholds for BSE-IPF-015 advised** (proposed F1A < 13, F2 < 5.5, F3 < 11). The proposed table-wide P99 < 5.0 would fire on 1.7% of rows including legitimate state-system administrative offices. |
+| Instruction-per-FTE table-wide P99 = $78.8K; sole row > $500K is UT Southwestern Med Center | — | BSE-IPF-017 (P99 < $500K) holds — the threshold is a tripwire for the EFFY-headcount-vs-FTE field-selection bug class, not an EDA-driven percentile. Keep as-is. |
+| CON-IFP-008 measured = 90.39% (proposed threshold ≥90%) | 2,313/2,559 | **Tight pass — 39 basis points of margin.** Keep the P1 ≥90% threshold; **add a P2 watch-line at ≥88%** so a future-vintage drop gives one cycle of warning. Document the 246 known `co_only` UNITIDs in the data contract. |
+| `data_completeness_tier='high'` projected ≈ 73% (CON-IFP-009 proposed ≥70%) | — | Keep the spec at 70% for headroom; document actual baseline at ~73%. |
