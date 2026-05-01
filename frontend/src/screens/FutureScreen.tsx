@@ -11,10 +11,15 @@ import { BranchHighlightDriver } from "@/components/tree/BranchHighlightDriver";
 import { FutureChatSheet } from "@/components/tree/FutureChatSheet";
 import { SelectedNodeCard } from "@/components/tree/SelectedNodeCard";
 import { EducationFilterRow } from "@/components/tree/EducationFilterRow";
+import { StatFilterRow } from "@/components/tree/StatFilterRow";
 import {
   filterTreeByEducation,
   type EducationFilter,
 } from "@/data/educationFilter";
+import {
+  filterTreeByStats,
+  type StatFilter,
+} from "@/data/statFilter";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { useT } from "@/i18n/useT";
@@ -59,7 +64,7 @@ function FilterEmptyState({
         </p>
         <button
           type="button"
-          data-testid="btn-clear-education-filters"
+          data-testid="btn-clear-all-filters"
           onClick={onClear}
           className="font-body text-small font-semibold text-accent-info hover:underline cursor-pointer"
         >
@@ -181,6 +186,9 @@ export function FutureScreen() {
   const [educationFilters, setEducationFilters] = useState<
     Set<EducationFilter>
   >(() => new Set());
+  const [statFilters, setStatFilters] = useState<Set<StatFilter>>(
+    () => new Set(),
+  );
   const flashTimeoutsRef = useRef<Map<string, number>>(new Map());
 
   const handleToggleEducationFilter = useCallback((filter: EducationFilter) => {
@@ -192,8 +200,18 @@ export function FutureScreen() {
     });
   }, []);
 
-  const handleClearEducationFilters = useCallback(() => {
+  const handleToggleStatFilter = useCallback((filter: StatFilter) => {
+    setStatFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(filter)) next.delete(filter);
+      else next.add(filter);
+      return next;
+    });
+  }, []);
+
+  const handleClearAllFilters = useCallback(() => {
     setEducationFilters(new Set());
+    setStatFilters(new Set());
   }, []);
 
   // Nav guard
@@ -229,18 +247,22 @@ export function FutureScreen() {
     return () => {
       cancelled = true;
     };
-  }, [build, retryCount]);
+    // Depend on build_id (stable string), not the build object — a
+    // store refactor that returned a new object identity for the same
+    // logical build would otherwise refetch the tree on every change.
+  }, [build?.build_id, retryCount]);
 
-  // Apply education filters to the tree before downstream consumers
-  // see it. Filtering at the top means walkTreeNodes, BranchTreeFlow,
-  // and the highlight driver all observe the same filtered universe.
-  const filteredTree = useMemo(
-    () =>
-      treeData
-        ? filterTreeByEducation(treeData.tree, educationFilters)
-        : null,
-    [treeData, educationFilters],
-  );
+  // Compose education + stat filters into a single filtered tree.
+  // Both filters preserve the root, so the stat filter's "compare to
+  // root" reference is the same regardless of education filter
+  // ordering. AND across categories: a branch must satisfy education
+  // filters AND stat filters together.
+  const filteredTree = useMemo(() => {
+    if (!treeData) return null;
+    let t = filterTreeByEducation(treeData.tree, educationFilters);
+    t = filterTreeByStats(t, statFilters);
+    return t;
+  }, [treeData, educationFilters, statFilters]);
 
   // Map node id → soc + title for selection lookups + highlight candidates.
   const nodeRefs = useMemo<NodeRef[]>(
@@ -410,30 +432,32 @@ export function FutureScreen() {
   // Empty-state: filters are active but the filtered tree has no L1
   // branches. Honest framing — the data shows zero transitions matching
   // the active filter, not "we don't know."
+  const anyFilterActive = educationFilters.size > 0 || statFilters.size > 0;
   const filterEmpty =
-    !!filteredTree &&
-    filteredTree.children.length === 0 &&
-    educationFilters.size > 0;
-  // Human-readable join of active filter labels for the empty-state line.
-  // EDUCATION_FILTER_ORDER mirrors EducationFilterRow so the joined
-  // string reads "Master's required or Doctorate or professional"
-  // (not the iteration order of the underlying Set).
+    !!filteredTree && filteredTree.children.length === 0 && anyFilterActive;
+  // Human-readable join of every active filter label across both
+  // categories. Order mirrors the chip rows so the joined string
+  // reads naturally ("Master's required and Higher earnings").
   const filterEmptyLabel = useMemo(() => {
     const labels: string[] = [];
     if (educationFilters.has("bachelors")) labels.push(t("future.filter.bachelors"));
     if (educationFilters.has("masters")) labels.push(t("future.filter.masters"));
     if (educationFilters.has("doctoral")) labels.push(t("future.filter.doctoral"));
+    if (statFilters.has("earnings")) labels.push(t("future.stat.earnings"));
+    if (statFilters.has("ai_resilient")) labels.push(t("future.stat.aiResilient"));
+    if (statFilters.has("growth")) labels.push(t("future.stat.growth"));
     if (labels.length === 0) return "";
     if (labels.length === 1) return labels[0]!;
     if (labels.length === 2) {
-      return t("future.filter.empty.join.or").replace("{a}", labels[0]!).replace("{b}", labels[1]!);
+      return t("future.filter.empty.join.or")
+        .replace("{a}", labels[0]!)
+        .replace("{b}", labels[1]!);
     }
-    // 3 filters active — Oxford-comma'd. Rare path; happens when the
-    // user clicks all three chips, which is functionally equivalent to
-    // no filter so the empty state shouldn't fire here. Defensive.
     const first = labels.slice(0, -1).join(", ");
-    return t("future.filter.empty.join.or").replace("{a}", first).replace("{b}", labels[labels.length - 1]!);
-  }, [educationFilters, t]);
+    return t("future.filter.empty.join.or")
+      .replace("{a}", first)
+      .replace("{b}", labels[labels.length - 1]!);
+  }, [educationFilters, statFilters, t]);
 
   return (
     <div className="min-h-screen pt-14">
@@ -475,10 +499,14 @@ export function FutureScreen() {
                 below at natural height. Both visible without scroll. */}
             <div className="hidden tablet:block">
               <PageContainer variant="bleed" className="px-5">
-                <div className="mb-3">
+                <div className="mb-3 flex flex-col gap-2">
                   <EducationFilterRow
                     active={educationFilters}
                     onToggle={handleToggleEducationFilter}
+                  />
+                  <StatFilterRow
+                    active={statFilters}
+                    onToggle={handleToggleStatFilter}
                   />
                 </div>
                 <div
@@ -499,7 +527,7 @@ export function FutureScreen() {
                     <FilterEmptyState
                       careerTitle={filteredTree?.title ?? ""}
                       filterLabel={filterEmptyLabel}
-                      onClear={handleClearEducationFilters}
+                      onClear={handleClearAllFilters}
                       t={t}
                     />
                   )}
@@ -550,10 +578,14 @@ export function FutureScreen() {
 
             {/* Mobile: tree fills the viewport, chat lives in a bottom sheet. */}
             <div className="tablet:hidden">
-              <div className="px-4 pt-2 pb-2">
+              <div className="px-4 pt-2 pb-2 flex flex-col gap-2">
                 <EducationFilterRow
                   active={educationFilters}
                   onToggle={handleToggleEducationFilter}
+                />
+                <StatFilterRow
+                  active={statFilters}
+                  onToggle={handleToggleStatFilter}
                 />
               </div>
               <div
@@ -574,7 +606,7 @@ export function FutureScreen() {
                   <FilterEmptyState
                     careerTitle={filteredTree?.title ?? ""}
                     filterLabel={filterEmptyLabel}
-                    onClear={handleClearEducationFilters}
+                    onClear={handleClearAllFilters}
                     t={t}
                   />
                 )}
