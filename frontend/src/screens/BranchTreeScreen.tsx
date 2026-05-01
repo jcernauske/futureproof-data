@@ -5,19 +5,16 @@ import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import { getTree } from "@/api/tree";
 import type { AskScope, BuildSummary } from "@/api/menu";
-import { BranchTreeFlow } from "@/components/tree/BranchTreeFlow";
-import { TreeNodeDetailPanel } from "@/components/tree/TreeNodeDetailPanel";
+import { BranchHorizonMap } from "@/components/tree/BranchHorizonMap";
 import { TreeFallback } from "@/components/tree/TreeFallback";
 import { BranchHighlightDriver } from "@/components/tree/BranchHighlightDriver";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { AskGemmaChipRow } from "@/components/AskGemmaChipRow";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { useT } from "@/i18n/useT";
-import { computeLayout } from "@/data/treeLayout";
-import { treeToFlow } from "@/data/treeFlowLayout";
 import { chipResponseExpand, springs } from "@/styles/motion";
 import type { TreeResponse } from "@/types/tree";
-import type { PositionedNode } from "@/data/treeLayout";
+import type { CareerBranch } from "@/types/build";
 import type { CareerPickChip } from "@/types/careerPick";
 
 type ScreenState = "loading" | "tree" | "fallback" | "error";
@@ -59,6 +56,56 @@ function buildSummaryFromBuild(
   };
 }
 
+function treeResponseFromBuild(
+  build: NonNullable<ReturnType<typeof useBuildStore.getState>["build"]>,
+): TreeResponse {
+  const career = build.career;
+  return {
+    tree: {
+      soc_code: career.soc_code,
+      title: career.occupation_title,
+      level: 0,
+      ern: career.stats.ern,
+      roi: career.stats.roi,
+      res: career.stats.res,
+      grw: career.stats.grw,
+      hmn: career.stats.hmn,
+      median_wage: career.median_annual_wage,
+      education: career.education_level_name,
+      boss_ai: null,
+      boss_loans: null,
+      boss_market: null,
+      boss_burnout: null,
+      boss_ceiling: null,
+      children: build.branches.map((branch) => ({
+        soc_code: branch.to_soc,
+        title: branch.to_title,
+        level: 1,
+        ern: null,
+        roi: null,
+        res: null,
+        grw: null,
+        hmn: null,
+        median_wage: null,
+        education: branch.related_education_level,
+        boss_ai: null,
+        boss_loans: null,
+        boss_market: null,
+        boss_burnout: null,
+        boss_ceiling: null,
+        children: [],
+      })),
+    },
+    stats: {
+      total_nodes: build.branches.length + 1,
+      max_depth_reached: build.branches.length > 0 ? 1 : 0,
+      mcp_calls: 0,
+      dead_ends: 0,
+      wall_clock_ms: 0,
+    },
+  };
+}
+
 export function BranchTreeScreen() {
   const navigate = useNavigate();
   const build = useBuildStore((s) => s.build);
@@ -77,14 +124,13 @@ export function BranchTreeScreen() {
   );
   const [latestResponse, setLatestResponse] = useState<string | null>(null);
   const [activeChipId, setActiveChipId] = useState<string | null>(null);
-  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [mapDrawerOpen, setMapDrawerOpen] = useState(false);
   const flashTimeoutsRef = useRef<Map<string, number>>(new Map());
 
   // Navigation guard
   useEffect(() => {
     if (!build) {
-      navigate("/reveal", { replace: true });
+      navigate("/my-build", { replace: true });
     }
   }, [build, navigate]);
 
@@ -92,17 +138,16 @@ export function BranchTreeScreen() {
   useEffect(() => {
     if (!build) return;
 
-    let cancelled = false;
-    const minDisplayMs = 1500;
-    const startTime = Date.now();
+    if (build.branches.length > 0) {
+      setTreeData(treeResponseFromBuild(build));
+      setScreenState("tree");
+      return;
+    }
 
+    let cancelled = false;
     async function fetchTree() {
       try {
-        const result = await getTree(build!.build_id);
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, minDisplayMs - elapsed);
-
-        await new Promise((resolve) => setTimeout(resolve, remaining));
+        const result = await getTree(build!.build_id, 1);
 
         if (cancelled) return;
 
@@ -127,94 +172,31 @@ export function BranchTreeScreen() {
     };
   }, [build, retryCount]);
 
-  // Compute layout for detail panel node lookup
-  const layout = useMemo(() => {
-    if (!treeData) return null;
-    return computeLayout(treeData.tree);
-  }, [treeData]);
-
-  // Node map from flow layout for detail panel lookups + the candidate
-  // list for BranchHighlightDriver (every node's id+title).
-  const flowResult = useMemo(() => {
-    if (!treeData) return null;
-    return treeToFlow(treeData.tree, animalEmoji ?? "🐻");
-  }, [treeData, animalEmoji]);
-
-  const flowNodeMap = flowResult?.nodeMap ?? null;
-
-  // Build the (id, title) candidate list for BranchHighlightDriver.
-  // Walks the tree response in parallel with treeFlowLayout's id schema
-  // so we can map every TreeNode's data title back to a flow node.
-  // Why this isn't just nodeMap: when an L1 branch has children,
-  // treeFlowLayout collapses the L1's actual career title into a
-  // generic ``branchLabel`` ("Specialize" / "Go Management" / etc.)
-  // and emits career nodes for the L2 children. The L1's real title
-  // never lands in ``nodeMap``, so Gemma quoting an L1 title would
-  // silently fail to highlight anything. Here we map the L1 data
-  // title onto the branchLabel node id so it still flashes.
-  const highlightCandidates = useMemo(() => {
-    if (!treeData) return [];
-    const out: { id: string; title: string }[] = [];
-    const root = treeData.tree;
-
-    // Root: id matches treeFlowLayout's `root-${tree.soc_code}`.
-    if (root.title) {
-      out.push({ id: `root-${root.soc_code}`, title: root.title });
+  // Map keyed on `chip-${branch.to_soc}` for O(1) lookup of the
+  // CareerBranch backing a selected chip. Replaces the dendrogram-era
+  // `flowNodeMap` per Decision #14 of feature-tree-horizon-map.md.
+  // Source is `build.branches` (D#16) — `treeData.tree.children` carries
+  // the wrong shape (TreeNode, not CareerBranch).
+  const chipBranchMap = useMemo(() => {
+    const out = new Map<string, CareerBranch>();
+    if (!build) return out;
+    for (const branch of build.branches) {
+      out.set(`chip-${branch.to_soc}`, branch);
     }
-
-    root.children.forEach((branch, branchIdx) => {
-      const branchLabelId = `branch-${branchIdx}`;
-      // Map the L1's real career title (e.g. "Administrative Services
-      // Managers") onto the branchLabel node so Gemma quoting it
-      // flashes the right node, even though the rendered label is
-      // a generic category.
-      if (branch.title) {
-        out.push({ id: branchLabelId, title: branch.title });
-      }
-
-      const isDirectBranch = branch.children.length === 0;
-      if (isDirectBranch) {
-        // Direct branch — career node mirrors the L1.
-        out.push({
-          id: `career-${branch.soc_code}-${branchIdx}`,
-          title: branch.title,
-        });
-        return;
-      }
-
-      // Non-direct: L2 career nodes + L3 endpoint nodes.
-      branch.children.forEach((career) => {
-        if (career.title) {
-          out.push({
-            id: `career-${career.soc_code}-${branchIdx}`,
-            title: career.title,
-          });
-        }
-        career.children.forEach((ep, epIdx) => {
-          if (ep.title) {
-            out.push({
-              id: `endpoint-${ep.soc_code}-${branchIdx}-${epIdx}`,
-              title: ep.title,
-            });
-          }
-        });
-      });
-    });
-
     return out;
-  }, [treeData]);
+  }, [build?.branches]);
 
-  const selectedNode: PositionedNode | null = useMemo(() => {
-    if (!selectedNodeId) return null;
-    if (flowNodeMap?.has(selectedNodeId)) return flowNodeMap.get(selectedNodeId)!;
-    if (!layout) return null;
-    return layout.nodes.find((n) => n.id === selectedNodeId) ?? null;
-  }, [flowNodeMap, layout, selectedNodeId]);
-
-  const rootNode: PositionedNode | null = useMemo(() => {
-    if (!layout) return null;
-    return layout.nodes.find((n) => n.level === 0) ?? null;
-  }, [layout]);
+  // Candidate list for BranchHighlightDriver. The horizon map is L1-only
+  // (chip per CareerBranch), so the candidate set narrows from the old
+  // root + L1-branchLabel + L2 + L3 schema to just `chip-${to_soc}`. See
+  // Out-of-Scope: "L2/L3 title flashes" in the spec.
+  const highlightCandidates = useMemo(() => {
+    if (!build) return [];
+    return build.branches.map((branch) => ({
+      id: `chip-${branch.to_soc}`,
+      title: branch.to_title,
+    }));
+  }, [build?.branches]);
 
   const handleSelectNode = useCallback((id: string | null) => {
     setSelectedNodeId(id);
@@ -243,9 +225,8 @@ export function BranchTreeScreen() {
   const rootSocCode = treeData?.tree.soc_code ?? null;
   const selectedSocCode = useMemo(() => {
     if (!debouncedSelectedNodeId) return null;
-    if (!flowNodeMap) return null;
-    return flowNodeMap.get(debouncedSelectedNodeId)?.soc_code ?? null;
-  }, [debouncedSelectedNodeId, flowNodeMap]);
+    return chipBranchMap.get(debouncedSelectedNodeId)?.to_soc ?? null;
+  }, [debouncedSelectedNodeId, chipBranchMap]);
   const targetSocCode = selectedSocCode ?? rootSocCode;
 
   // Memoize chatScope on primitive deps so identity stays stable
@@ -268,17 +249,17 @@ export function BranchTreeScreen() {
     if (selectedSocCode == null && rootSocCode != null) {
       return `branch · ${treeData?.tree.title ?? "root"}`;
     }
-    const node = debouncedSelectedNodeId
-      ? flowNodeMap?.get(debouncedSelectedNodeId)
+    const branch = debouncedSelectedNodeId
+      ? chipBranchMap.get(debouncedSelectedNodeId)
       : null;
-    return `branch · ${node?.title ?? "root"}`;
+    return `branch · ${branch?.to_title ?? "root"}`;
   }, [
     chatScope,
     selectedSocCode,
     rootSocCode,
     treeData,
     debouncedSelectedNodeId,
-    flowNodeMap,
+    chipBranchMap,
   ]);
 
   // Skeleton hint — parameterized by current scope (root vs branch).
@@ -287,14 +268,14 @@ export function BranchTreeScreen() {
     if (selectedSocCode == null) {
       return t("chat.opener.skeleton.reading");
     }
-    const node = debouncedSelectedNodeId
-      ? flowNodeMap?.get(debouncedSelectedNodeId)
+    const branch = debouncedSelectedNodeId
+      ? chipBranchMap.get(debouncedSelectedNodeId)
       : null;
     return t("chat.opener.skeleton.thinking").replace(
       "{branch}",
-      node?.title ?? "this branch",
+      branch?.to_title ?? "this branch",
     );
-  }, [chatScope, selectedSocCode, debouncedSelectedNodeId, flowNodeMap, t]);
+  }, [chatScope, selectedSocCode, debouncedSelectedNodeId, chipBranchMap, t]);
 
   // Opener prompt — what the embedded chat sends as the user message
   // to trigger the auto-fired opener. Backend short-circuits on
@@ -438,62 +419,11 @@ export function BranchTreeScreen() {
       />
     ) : null;
 
-  const renderDetailDrawer = () => {
-    if (!selectedNode) return null;
-    const branchTitle = selectedNode.title || rootNode?.title || "this path";
-    const drawerLabel = (
-      detailDrawerOpen ? t("tree.hideData") : t("tree.seeData")
-    ).replace("{branch}", branchTitle);
-    return (
-      <div className="flex flex-col">
-        <button
-          type="button"
-          data-testid="btn-tree-detail-toggle"
-          aria-label={drawerLabel}
-          aria-expanded={detailDrawerOpen}
-          onClick={() => setDetailDrawerOpen((s) => !s)}
-          className="h-11 px-5 flex items-center justify-between bg-bp-surface border border-border-subtle rounded-md font-body text-small text-text-secondary hover:text-text-primary hover:bg-bp-raised transition-colors duration-normal cursor-pointer"
-        >
-          <span className="truncate">{drawerLabel}</span>
-          <motion.span
-            aria-hidden
-            animate={{ rotate: detailDrawerOpen ? 180 : 0 }}
-            transition={springs.snappy}
-            className="shrink-0 ml-2"
-          >
-            ▾
-          </motion.span>
-        </button>
-        <AnimatePresence initial={false}>
-          {detailDrawerOpen && (
-            <motion.div
-              key="detail-drawer-body"
-              initial={chipResponseExpand.initial}
-              animate={chipResponseExpand.animate}
-              exit={chipResponseExpand.exit}
-              transition={chipResponseExpand.transition}
-              className="overflow-hidden bg-bp-deep border-t border-border-subtle"
-            >
-              <div className="max-h-[40vh] overflow-y-auto px-5 py-4">
-                <TreeNodeDetailPanel
-                  variant="sidebar"
-                  node={selectedNode}
-                  rootNode={rootNode}
-                  onClose={() => setDetailDrawerOpen(false)}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen pt-14">
       {/* Visually-hidden ARIA hint for AskGemmaChipRow elevation */}
       <span id={ELEVATION_HINT_ID} className="sr-only">
-        Selecting an elevated chip surfaces extra detail about that path.
+        {t("tree.elevationHint")}
       </span>
 
       <AnimatePresence mode="wait">
@@ -560,16 +490,13 @@ export function BranchTreeScreen() {
                     exit={chipResponseExpand.exit}
                     transition={chipResponseExpand.transition}
                     className="overflow-hidden mt-2"
-                    style={{ "--branch-flow-node-scale": "0.85" } as React.CSSProperties}
                   >
-                    <BranchTreeFlow
-                      tree={treeData.tree}
-                      emoji={emoji}
+                    <BranchHorizonMap
+                      branches={build.branches}
+                      buildEduLevel={build.career.education_level_name ?? null}
                       selectedNodeId={selectedNodeId}
                       onSelectNode={handleSelectNode}
                       highlightedNodeIds={highlightedNodeIds}
-                      compact
-                      heightClassName="h-[60vh]"
                     />
                   </motion.div>
                 )}
@@ -577,23 +504,17 @@ export function BranchTreeScreen() {
             </div>
 
             <PageContainer variant="grid">
-              {/* Tree column — desktop only (mobile uses the drawer above).
-                  --branch-flow-node-scale activates the 0.85 shrink on
-                  flow nodes via reactflow-dark.css's [data-compact]
-                  rule (§3 Resolved Decision #7). */}
+              {/* Tree column — desktop only (mobile uses the drawer above). */}
               <aside
                 className="hidden tablet:block tablet:col-span-5"
                 aria-label="Career path map"
-                style={{ "--branch-flow-node-scale": "0.85" } as React.CSSProperties}
               >
-                <BranchTreeFlow
-                  tree={treeData.tree}
-                  emoji={emoji}
+                <BranchHorizonMap
+                  branches={build.branches}
+                  buildEduLevel={build.career.education_level_name ?? null}
                   selectedNodeId={selectedNodeId}
                   onSelectNode={handleSelectNode}
                   highlightedNodeIds={highlightedNodeIds}
-                  compact
-                  heightClassName="h-[70vh]"
                 />
               </aside>
 
@@ -601,7 +522,6 @@ export function BranchTreeScreen() {
               <section className="col-span-12 tablet:col-span-7 flex flex-col gap-3">
                 {renderEmbeddedChat()}
                 {renderChipRow()}
-                {renderDetailDrawer()}
               </section>
 
               {/* CTA strip — full width */}
@@ -609,7 +529,7 @@ export function BranchTreeScreen() {
                 <button
                   className="font-body text-cta font-bold text-text-inverse bg-accent-thrive px-8 py-3 rounded-lg transition-all duration-normal hover:brightness-110"
                   onClick={() => navigate("/save")}
-                  aria-label="Save and share your build"
+                  aria-label={t("tree.saveShareAria")}
                   data-testid="btn-save-share"
                 >
                   {t("tree.saveShare")}
@@ -623,7 +543,7 @@ export function BranchTreeScreen() {
                   </button>
                   <button
                     className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
-                    onClick={() => navigate("/reveal")}
+                    onClick={() => navigate("/my-build")}
                   >
                     {t("tree.backBuild")}
                   </button>

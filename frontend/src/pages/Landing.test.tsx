@@ -10,7 +10,7 @@ import { resetReducedMotion } from "@/test/mocks/prefers-reduced-motion";
  * (hero → problem → how → receipts → ollama → cta → data → team → footer).
  * If someone rearranges or removes a section this must fail.
  *
- * Route wiring (/ → Landing, /app → LandingScreen) is covered by
+ * Route wiring (/ → Landing, /app → Navigate to /set-your-course) is covered by
  * App.test.tsx — not duplicated here.
  */
 

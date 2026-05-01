@@ -1,6 +1,6 @@
 """Locale helpers — normalizer + Gemma language instructions.
 
-MVP supports ``en`` (English) and ``es`` (Spanish). The
+Supports ``en`` (English), ``es`` (Spanish), and ``ar`` (Arabic). The
 ``gemma_language_instruction`` function returns a block that can be
 appended to any Gemma system prompt to constrain output language while
 preserving canonical data values.
@@ -10,12 +10,16 @@ from __future__ import annotations
 
 from typing import Literal
 
-AppLocale = Literal["en", "es"]
+AppLocale = Literal["en", "es", "ar"]
 DEFAULT_LOCALE: AppLocale = "en"
 
 
 def normalize_locale(value: object) -> AppLocale:
-    return "es" if value == "es" else "en"
+    if value == "es":
+        return "es"
+    if value == "ar":
+        return "ar"
+    return "en"
 
 
 _EN_INSTRUCTION = (
@@ -59,10 +63,51 @@ _ES_INSTRUCTION = (
 )
 
 
+_AR_INSTRUCTION = (
+    "Write all student-facing prose in Modern Standard Arabic (الفصحى).\n"
+    "Use the glossary below for product concepts when they appear.\n"
+    "Preserve official school names, occupation titles, source names and "
+    "their acronyms (BLS, O*NET, IPEDS, BEA, College Scorecard), program "
+    "names, dollar amounts, percentages, codes, and JSON keys exactly — "
+    "render them as-is in the original Latin script, do not transliterate "
+    "into Arabic letters.\n"
+    "You may explain what an official English title means in Arabic after "
+    "naming it, but do not replace the canonical title.\n"
+    "After the first reference to a data source, use only its English "
+    "acronym (BLS, O*NET, IPEDS, BEA). Do not translate these acronyms.\n"
+    "Use Western Arabic numerals (0-9), not Eastern Arabic numerals "
+    "(٠-٩), for all dollar amounts, percentages, years, and codes — "
+    "this matches the rest of the app and the underlying data.\n\n"
+    "If your response includes a JSON section or structured output, keep "
+    "all JSON keys and enum values in English exactly as specified — "
+    'including values like "high", "medium", "low", "COMMON", '
+    '"LESS_COMMON", "STRETCH", and all CIP/SOC codes. Only translate '
+    "free-text prose fields (such as "
+    '"reasoning", "rationale", "message", "narrowing_hint", "why").\n\n'
+    "Glossary:\n"
+    "- student debt = الديون الطلابية\n"
+    "- career paths = المسارات المهنية\n"
+    "- job outlook = آفاق التوظيف\n"
+    "- AI exposure = التعرض للذكاء الاصطناعي\n"
+    "- human edge = الميزة الإنسانية\n"
+    "- data is estimated = البيانات تقديرية\n"
+    "- salary = الراتب\n"
+    "- median salary = الراتب الوسيط\n"
+    "- student loan = القرض الطلابي\n"
+    "- guidance counselor = المرشد الأكاديمي\n"
+    "- debt-to-income = نسبة الدين إلى الدخل\n"
+    "- next steps = الخطوات التالية\n"
+    "- cost of attendance = تكلفة الدراسة\n"
+    "- purchasing power = القوة الشرائية"
+)
+
+
 def gemma_language_instruction(locale: AppLocale) -> str:
     locale = normalize_locale(locale)
     if locale == "es":
         return _ES_INSTRUCTION
+    if locale == "ar":
+        return _AR_INSTRUCTION
     return _EN_INSTRUCTION
 
 
@@ -80,6 +125,10 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
             "Gemma no está disponible en este momento. "
             "Tus datos siguen cargados — inténtalo de nuevo."
         ),
+        "ar": (
+            "Gemma غير متاح في الوقت الحالي. "
+            "بياناتك لا تزال محمّلة — حاول مرة أخرى بعد قليل."
+        ),
     },
     "guidance_unavailable": {
         "en": (
@@ -89,6 +138,10 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
         "es": (
             "El análisis completo no se cargó esta vez "
             "— puedes volver a intentarlo."
+        ),
+        "ar": (
+            "لم يتم تحميل التحليل الكامل هذه المرة "
+            "— يمكنك العودة إليه لاحقاً."
         ),
     },
     "next_steps_unavailable": {
@@ -100,6 +153,10 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
             "Tu plan de acción no se cargó esta vez "
             "— inténtalo de nuevo en un momento."
         ),
+        "ar": (
+            "لم يتم تحميل خطة العمل هذه المرة "
+            "— حاول مرة أخرى بعد قليل."
+        ),
     },
     "boss_unknown_ai": {
         "en": (
@@ -109,6 +166,10 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
         "es": (
             "No hay suficientes datos para decir "
             "cómo la IA afectará esta carrera."
+        ),
+        "ar": (
+            "لا تتوفر بيانات كافية لتحديد "
+            "كيف سيؤثر الذكاء الاصطناعي على هذه المهنة."
         ),
     },
     "boss_unknown_loans": {
@@ -120,6 +181,10 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
             "No hay suficientes datos para comparar "
             "la deuda con el salario inicial."
         ),
+        "ar": (
+            "لا تتوفر بيانات كافية لمقارنة "
+            "الديون بالراتب الابتدائي."
+        ),
     },
     "chat_unavailable": {
         "en": (
@@ -129,6 +194,10 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
         "es": (
             "Tengo problemas para conectar con Gemma ahora. "
             "Intenta la pregunta de nuevo en un momento."
+        ),
+        "ar": (
+            "أواجه صعوبة في الاتصال بـ Gemma الآن. "
+            "حاول طرح السؤال مرة أخرى بعد قليل."
         ),
     },
 }

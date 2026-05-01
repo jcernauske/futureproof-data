@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -227,6 +228,64 @@ CAREER_PATHS_RESPONSE_FIELDS = [
 # returns <= 50 rows in practice, so this is a belt-and-suspenders cap,
 # not the primary scan gate it was before the performance rewrite.
 CAREER_PATHS_SCAN_LIMIT = 1000
+
+# ---------------------------------------------------------------------------
+# Peer-school leaderboard (feature-compare-schools-for-career.md)
+# ---------------------------------------------------------------------------
+# Two whitelists: the HTTP endpoint needs full tuition breakdown for the
+# residency-aware label per Decision #8; the MCP/chat tool drops them to
+# save Gemma context budget per genai-architect R4.
+SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_HTTP = [
+    "rank",
+    "unitid",
+    "institution_name",
+    "institution_control",
+    "state_abbr",
+    "cipcode",
+    "program_name",
+    "soc_code",
+    "occupation_title",
+    "stat_ern",
+    "stat_roi",
+    "earnings_1yr_median",
+    "net_price_annual",
+    "cost_of_attendance_annual",
+    "tuition_in_state",
+    "tuition_out_of_state",
+    "overall_confidence",
+    "confidence_tier_program",
+    "match_quality",
+    "is_anchor",
+]
+
+SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_MCP = [
+    "rank",
+    "unitid",
+    "institution_name",
+    "institution_control",
+    "state_abbr",
+    "cipcode",
+    "program_name",
+    "soc_code",
+    "occupation_title",
+    "stat_ern",
+    "stat_roi",
+    "earnings_1yr_median",
+    "net_price_annual",
+    "overall_confidence",
+    "confidence_tier_program",
+    "match_quality",
+    "is_anchor",
+]
+
+_LEADERBOARD_MODES = ("by_soc", "by_cip_and_soc")
+_CONFIDENCE_TIERS_DESC = ("high", "medium", "low")
+# Defensive scan ceiling — at limit=25 + appended anchor we materialize
+# at most ~26 rows from the windowed CTE. The CTE itself can rank
+# thousands of rows, so this caps the materialized list returned to
+# Python. SOCs with >5,000 programs producing them do not exist in
+# practice (largest SOC in PCP has ~2,000 programs).
+SCHOOLS_FOR_CAREER_SCAN_LIMIT = 5000
 
 # ---------------------------------------------------------------------------
 # CIP intent substitution constants
@@ -454,12 +513,21 @@ _CIP4_PATTERN = re.compile(r"^\d{2}\.\d{2}$")
 # miss on essentially every request.
 _CROSSWALK_CACHE_MAX = 128
 _CAREER_PATHS_CACHE_MAX = 256
+_SCHOOLS_FOR_CAREER_CACHE_MAX = 128
 _crosswalk_cache: collections.OrderedDict[tuple[int, str], tuple[str, ...]] = (
     collections.OrderedDict()
 )
 _career_paths_cache: collections.OrderedDict[tuple[int, int, str], tuple] = (
     collections.OrderedDict()
 )
+# Cache key: (id(engine), mode, soc_code, cipcode_or_empty, min_confidence,
+# min_program_confidence, state_abbr_or_empty, limit). build_unitid /
+# build_cipcode are NOT in the key — they only affect anchor-row selection
+# on a copy of the cached materialized ranked list.
+_schools_for_career_cache: collections.OrderedDict[
+    tuple[int, str, str, str, str, str, str, int],
+    tuple,
+] = collections.OrderedDict()
 _cache_lock = threading.Lock()
 
 # Guards first-time construction of the per-server QueryEngine.
@@ -517,7 +585,11 @@ def _cache_drop_engine(engine_id: int) -> None:
     cached rows.
     """
     with _cache_lock:
-        for cache in (_crosswalk_cache, _career_paths_cache):
+        for cache in (
+            _crosswalk_cache,
+            _career_paths_cache,
+            _schools_for_career_cache,
+        ):
             stale = [k for k in cache if k[0] == engine_id]
             for k in stale:
                 del cache[k]
@@ -970,6 +1042,137 @@ class FutureProofMCPServer(BaseMCPServer):
                     "required": ["soc_code"],
                 },
                 handler=self._handle_get_career_branches,
+            ),
+            ToolDef(
+                name="get_schools_for_career",
+                description=(
+                    "Career-to-school leaderboard. Use this tool when the "
+                    "student wants to COMPARE SCHOOLS for a specific career "
+                    "outcome — not for questions about one school's programs. "
+                    "Key distinction: get_career_paths answers 'what does "
+                    "[school+major] lead to?' — this tool answers 'which "
+                    "schools are best for producing [career]?'. Two modes: "
+                    "'by_soc' returns all programs nationally that lead to "
+                    "the given occupation, ranked by earnings (ERN) and ROI; "
+                    "'by_cip_and_soc' narrows to programs in a specific "
+                    "major field (cipcode) that lead to the occupation — the "
+                    "tightest apples-to-apples comparison. When "
+                    "mode='by_cip_and_soc', cipcode is required. Pass "
+                    "build_unitid + build_cipcode together (both or neither) "
+                    "to pin the student's current school as a reference row "
+                    "in the results."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": list(_LEADERBOARD_MODES),
+                            "default": "by_soc",
+                        },
+                        "soc_code": {
+                            "type": "string",
+                            "description": (
+                                "BLS SOC code, e.g. '15-1252' (Software "
+                                "Developers). Required for both modes."
+                            ),
+                        },
+                        "cipcode": {
+                            "type": "string",
+                            "description": (
+                                "CIP code, XX.XXXX string. REQUIRED when "
+                                "mode='by_cip_and_soc'."
+                            ),
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 25,
+                            "default": 5,
+                            "description": (
+                                "Number of top-ranked programs to return. "
+                                "Default 5 is tuned for chat surfaces — "
+                                "total program count is always returned via "
+                                "total_qualifying_programs regardless. The "
+                                "HTTP endpoint may request up to 25."
+                            ),
+                        },
+                        "min_confidence": {
+                            "type": "string",
+                            "enum": list(_CONFIDENCE_TIERS_DESC),
+                            "default": "medium",
+                            "description": (
+                                "Floor on overall_confidence. Default "
+                                "excludes 'low' rows."
+                            ),
+                        },
+                        "min_program_confidence": {
+                            "type": "string",
+                            "enum": list(_CONFIDENCE_TIERS_DESC),
+                            "default": "low",
+                            "description": (
+                                "Optional floor on confidence_tier_program "
+                                "(the upstream completer-count proxy). "
+                                "Default 'low' means no program-level "
+                                "sample-size filter is applied — the school "
+                                "simply needs programs on the books. Tighten "
+                                "to 'medium' to require completions_count "
+                                ">= 30 at the program level."
+                            ),
+                        },
+                        "state_abbr": {
+                            "type": "string",
+                            "description": (
+                                "Optional 2-letter USPS state abbreviation "
+                                "(e.g., 'IN', 'CA', 'NY'). Unknown values "
+                                "return an empty result rather than an error."
+                            ),
+                        },
+                        "build_unitid": {
+                            "type": "integer",
+                            "description": (
+                                "Optional. The student's current school "
+                                "IPEDS unitid, used to highlight their "
+                                "program in the leaderboard. MUST be passed "
+                                "together with build_cipcode — either both "
+                                "or neither. Passing only one is treated as "
+                                "no anchor."
+                            ),
+                        },
+                        "build_cipcode": {
+                            "type": "string",
+                            "description": (
+                                "Optional. The student's current program CIP "
+                                "code (XX.XXXX format). MUST be passed "
+                                "together with build_unitid — either both or "
+                                "neither."
+                            ),
+                        },
+                        "anchor_stat_ern": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": (
+                                "Optional. The build's stat_ern (0-10). When "
+                                "passed with anchor_stat_roi, lets the handler "
+                                "compute anchor_estimated_rank for builds "
+                                "whose CIP-substituted program has no row in "
+                                "the leaderboard table."
+                            ),
+                        },
+                        "anchor_stat_roi": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": (
+                                "Optional. The build's stat_roi (0-10). Pair "
+                                "with anchor_stat_ern."
+                            ),
+                        },
+                    },
+                    "required": ["soc_code"],
+                },
+                handler=self._handle_get_schools_for_career,
             ),
         ]
 
@@ -3065,3 +3268,373 @@ class FutureProofMCPServer(BaseMCPServer):
             {"data": rows, "row_count": len(rows)},
             CAREER_BRANCHES_TABLE,
         )
+
+    # ------------------------------------------------------------------
+    # Tool handler: get_schools_for_career
+    # ------------------------------------------------------------------
+
+    @timed(
+        "get_schools_for_career",
+        extract=lambda result, self, input_dict, *a, **kw: {
+            "mode": str(input_dict.get("mode", "by_soc")),
+            "soc_code": str(input_dict.get("soc_code", "")),
+            "cipcode": str(input_dict.get("cipcode") or ""),
+            "row_count": len(result.get("rows") or [])
+            if isinstance(result, dict)
+            else 0,
+        },
+    )
+    def _handle_get_schools_for_career(self, input_dict: dict) -> dict:
+        """Career-anchored leaderboard query.
+
+        Materializes a single windowed CTE (``RANK() OVER`` on
+        ``(stat_ern + stat_roi)/2``) over ``consumable.program_career_paths``
+        filtered by SOC (and optionally CIP), confidence floors, and state.
+        Returns the top-N rows with ``is_anchor`` flagged when the optional
+        anchor (``build_unitid``, ``build_cipcode``) lands in the top-N, or
+        appended at index N when the anchor is below it but still in the
+        ranked universe. See feature-compare-schools-for-career.md §4.
+        """
+        # ---- Parse + validate inputs ----------------------------------
+        raw_mode = input_dict.get("mode", "by_soc")
+        mode = str(raw_mode).strip() if raw_mode is not None else "by_soc"
+        if mode not in _LEADERBOARD_MODES:
+            return {
+                "error": f"mode must be one of {list(_LEADERBOARD_MODES)}; got {raw_mode!r}",
+            }
+
+        raw_soc = input_dict.get("soc_code")
+        soc_code = str(raw_soc).strip() if raw_soc is not None else ""
+        if not soc_code or not _SOC_CODE_PATTERN.match(soc_code):
+            return {
+                "error": f"soc_code must be in XX-XXXX format; got {raw_soc!r}",
+            }
+
+        raw_cipcode = input_dict.get("cipcode")
+        cipcode: str | None = (
+            str(raw_cipcode).strip() if raw_cipcode is not None else None
+        )
+        if cipcode == "":
+            cipcode = None
+        if cipcode is not None and not _CIPCODE_PATTERN.match(cipcode):
+            return {
+                "error": f"cipcode must be in XX.XX or XX.XXXX format; got {raw_cipcode!r}",
+            }
+        if mode == "by_cip_and_soc" and not cipcode:
+            return {
+                "error": "cipcode is required when mode='by_cip_and_soc'",
+            }
+
+        raw_limit = input_dict.get("limit", 5)
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            limit = 5
+        limit = max(1, min(limit, 25))
+
+        raw_min_conf = input_dict.get("min_confidence", "medium")
+        min_confidence = str(raw_min_conf).strip().lower() if raw_min_conf else "medium"
+        if min_confidence not in _CONFIDENCE_TIERS_DESC:
+            min_confidence = "medium"
+
+        raw_min_prog = input_dict.get("min_program_confidence", "low")
+        min_program_confidence = (
+            str(raw_min_prog).strip().lower() if raw_min_prog else "low"
+        )
+        if min_program_confidence not in _CONFIDENCE_TIERS_DESC:
+            min_program_confidence = "low"
+
+        raw_state = input_dict.get("state_abbr")
+        state_abbr: str | None = None
+        if raw_state is not None:
+            candidate = str(raw_state).strip().upper()
+            if len(candidate) == 2 and candidate.isalpha():
+                state_abbr = candidate
+
+        raw_unitid = input_dict.get("build_unitid")
+        raw_anchor_cip = input_dict.get("build_cipcode")
+        anchor_unitid: int | None = None
+        anchor_cipcode: str | None = None
+        if raw_unitid is not None and raw_anchor_cip is not None:
+            try:
+                if isinstance(raw_unitid, bool):
+                    raise TypeError
+                if isinstance(raw_unitid, int):
+                    anchor_unitid_candidate: int | None = raw_unitid
+                elif isinstance(raw_unitid, str) and raw_unitid.strip().isdigit():
+                    anchor_unitid_candidate = int(raw_unitid.strip())
+                else:
+                    raise ValueError
+                anchor_cip_candidate = str(raw_anchor_cip).strip()
+                if (
+                    anchor_unitid_candidate is not None
+                    and anchor_unitid_candidate > 0
+                    and _CIPCODE_PATTERN.match(anchor_cip_candidate)
+                ):
+                    anchor_unitid = anchor_unitid_candidate
+                    anchor_cipcode = anchor_cip_candidate
+            except (TypeError, ValueError):
+                anchor_unitid = None
+                anchor_cipcode = None
+
+        # Build-time stats for the anchor row. Used to compute
+        # ``anchor_estimated_rank`` when the (unitid, cipcode) is absent
+        # from the filtered universe — typical for builds whose career
+        # was produced via CIP substitution and never materialized into
+        # PCP. Both must be 0-10 ints; bools and out-of-range values
+        # silently drop so a malformed query degrades to "no estimate"
+        # instead of erroring the whole leaderboard.
+        anchor_stat_ern: int | None = None
+        anchor_stat_roi: int | None = None
+        for stat_key in ("anchor_stat_ern", "anchor_stat_roi"):
+            raw_stat = input_dict.get(stat_key)
+            if raw_stat is None or isinstance(raw_stat, bool):
+                continue
+            if isinstance(raw_stat, int):
+                stat_candidate: int | None = raw_stat
+            elif (
+                isinstance(raw_stat, str)
+                and raw_stat.strip().lstrip("-").isdigit()
+            ):
+                stat_candidate = int(raw_stat.strip())
+            else:
+                stat_candidate = None
+            if stat_candidate is None or not (0 <= stat_candidate <= 10):
+                continue
+            if stat_key == "anchor_stat_ern":
+                anchor_stat_ern = stat_candidate
+            else:
+                anchor_stat_roi = stat_candidate
+
+        # ---- Cache lookup ---------------------------------------------
+        engine = self._get_query_engine()
+        cache_key = (
+            id(engine),
+            mode,
+            soc_code,
+            cipcode or "",
+            min_confidence,
+            min_program_confidence,
+            state_abbr or "",
+            limit,
+        )
+        cache_enabled = os.environ.get("FUTUREPROOF_OUTCOMES_CACHE") == "1"
+        materialized: list[dict] | None = None
+        if cache_enabled:
+            cached, hit = _cache_get(_schools_for_career_cache, cache_key)
+            if hit:
+                materialized = [dict(r) for r in cached]
+
+        # ---- Run the windowed query if not cached ---------------------
+        if materialized is None:
+            allowed_overall = _confidence_floor_to_set(min_confidence)
+            allowed_program = (
+                _confidence_floor_to_set(min_program_confidence)
+                if min_program_confidence != "low"
+                else None
+            )
+
+            where_parts = [
+                "soc_code = $soc_code",
+                "stat_ern IS NOT NULL",
+                "stat_roi IS NOT NULL",
+            ]
+            params: dict[str, Any] = {"soc_code": soc_code}
+            if cipcode is not None and mode == "by_cip_and_soc":
+                where_parts.append("cipcode = $cipcode")
+                params["cipcode"] = cipcode
+            if state_abbr is not None:
+                where_parts.append("state_abbr = $state_abbr")
+                params["state_abbr"] = state_abbr
+            if allowed_overall:
+                where_parts.append(
+                    "overall_confidence IN ("
+                    + ", ".join(f"'{tier}'" for tier in allowed_overall)
+                    + ")"
+                )
+            if allowed_program:
+                where_parts.append(
+                    "confidence_tier_program IN ("
+                    + ", ".join(f"'{tier}'" for tier in allowed_program)
+                    + ")"
+                )
+            where_clause = " AND ".join(where_parts)
+
+            sql = f"""
+                WITH ranked AS (
+                    SELECT
+                        unitid,
+                        institution_name,
+                        institution_control,
+                        state_abbr,
+                        cipcode,
+                        program_name,
+                        soc_code,
+                        occupation_title,
+                        stat_ern,
+                        stat_roi,
+                        earnings_1yr_median,
+                        net_price_annual,
+                        cost_of_attendance_annual,
+                        tuition_in_state,
+                        tuition_out_of_state,
+                        overall_confidence,
+                        confidence_tier_program,
+                        match_quality,
+                        (CAST(stat_ern AS DOUBLE)
+                         + CAST(stat_roi AS DOUBLE)) / 2.0 AS composite_score,
+                        RANK() OVER (
+                            ORDER BY
+                                (CAST(stat_ern AS DOUBLE)
+                                 + CAST(stat_roi AS DOUBLE)) / 2.0 DESC,
+                                earnings_1yr_median DESC NULLS LAST,
+                                net_price_annual ASC NULLS LAST
+                        ) AS abs_rank
+                    FROM consumable_program_career_paths
+                    WHERE {where_clause}
+                )
+                SELECT * FROM ranked
+                ORDER BY abs_rank
+                LIMIT {SCHOOLS_FOR_CAREER_SCAN_LIMIT}
+            """
+            try:
+                rows = engine.query_sql(sql, params)
+            except Exception:  # noqa: BLE001
+                # Log full trace server-side; return an opaque code to the
+                # caller so DuckDB internals (table names, version,
+                # stack-frame fragments) don't leak through the HTTP/chat
+                # response. Per code-review Finding 2.
+                logger.exception(
+                    "get_schools_for_career SQL failed",
+                    extra={
+                        "mode": mode,
+                        "soc_code": soc_code,
+                        "cipcode": cipcode or "",
+                    },
+                )
+                return {"error": "leaderboard_query_failed"}
+            materialized = [dict(r) for r in rows]
+            if cache_enabled:
+                snapshot = tuple(dict(r) for r in materialized)
+                _cache_put(
+                    _schools_for_career_cache,
+                    cache_key,
+                    snapshot,
+                    _SCHOOLS_FOR_CAREER_CACHE_MAX,
+                )
+
+        total_qualifying_programs = len(materialized)
+
+        # ---- Top-N selection + anchor handling ------------------------
+        top_n = [dict(r) for r in materialized[:limit]]
+
+        anchor_in_top_n = False
+        anchor_found_in_universe = False
+        if anchor_unitid is not None and anchor_cipcode is not None:
+            in_top_n = False
+            for row in top_n:
+                if (
+                    row.get("unitid") == anchor_unitid
+                    and str(row.get("cipcode")) == anchor_cipcode
+                ):
+                    row["is_anchor"] = True
+                    in_top_n = True
+                    anchor_in_top_n = True
+                    anchor_found_in_universe = True
+                    break
+            if not in_top_n:
+                appended = next(
+                    (
+                        dict(r)
+                        for r in materialized
+                        if r.get("unitid") == anchor_unitid
+                        and str(r.get("cipcode")) == anchor_cipcode
+                    ),
+                    None,
+                )
+                if appended is not None:
+                    appended["is_anchor"] = True
+                    top_n.append(appended)
+                    anchor_found_in_universe = True
+
+        # ---- Estimated rank for anchors absent from PCP ---------------
+        # When the build engine produced the anchor's career via CIP
+        # substitution (so PCP has no row for that combination), but the
+        # caller passed the build's stat_ern + stat_roi, count rows in
+        # the same filtered universe whose composite score outranks the
+        # build's. Tied scores rank equally (stable RANK semantics) —
+        # matches the CTE's RANK() OVER ordering on composite_score DESC.
+        anchor_estimated_rank: int | None = None
+        if (
+            not anchor_found_in_universe
+            and anchor_unitid is not None
+            and anchor_cipcode is not None
+            and anchor_stat_ern is not None
+            and anchor_stat_roi is not None
+        ):
+            anchor_composite = (anchor_stat_ern + anchor_stat_roi) / 2.0
+            higher = sum(
+                1
+                for r in materialized
+                if r.get("composite_score") is not None
+                and float(r["composite_score"]) > anchor_composite
+            )
+            anchor_estimated_rank = higher + 1
+
+        # ---- Mode-aware envelope fields -------------------------------
+        occupation_title = ""
+        program_name: str | None = None
+        if materialized:
+            occupation_title = str(materialized[0].get("occupation_title") or "")
+            if mode == "by_cip_and_soc":
+                program_name = str(materialized[0].get("program_name") or "")
+        elif top_n:
+            occupation_title = str(top_n[0].get("occupation_title") or "")
+
+        # ---- Trim to MCP whitelist + assign ranks ---------------------
+        # The HTTP endpoint reads the full row shape; the MCP/chat path
+        # keeps a tighter whitelist (drops tuition + cost_of_attendance) per
+        # genai-architect R4. The handler always emits the HTTP shape; the
+        # service layer is the boundary. For a chat-originated call the
+        # caller can post-filter to the MCP whitelist, but the simplest
+        # honest move at v1 is to let the handler emit the HTTP shape and
+        # let downstream callers project. We document both whitelists at
+        # the top of the file.
+        wire_rows = []
+        for row in top_n:
+            row.setdefault("is_anchor", False)
+            row["rank"] = int(row.get("abs_rank") or 0)
+            wire_rows.append(
+                {k: row.get(k) for k in SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_HTTP}
+            )
+
+        return {
+            "mode": mode,
+            "soc_code": soc_code,
+            "occupation_title": occupation_title,
+            "cipcode": cipcode if mode == "by_cip_and_soc" else None,
+            "program_name": program_name,
+            "rows": wire_rows,
+            "anchor_in_top_n": anchor_in_top_n,
+            "total_qualifying_programs": total_qualifying_programs,
+            "anchor_estimated_rank": anchor_estimated_rank,
+            "confidence_filter_applied": min_confidence,
+            "state_filter_applied": state_abbr,
+            "min_program_confidence_applied": min_program_confidence,
+            # ISO 8601 string per genai-architect R6 — never a raw datetime
+            # object across the MCP serialization boundary.
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+def _confidence_floor_to_set(floor: str) -> tuple[str, ...]:
+    """Map a confidence floor to the inclusive set above it.
+
+    'high' -> ('high',); 'medium' -> ('high', 'medium');
+    'low' -> ('high', 'medium', 'low').
+    """
+    order = ("high", "medium", "low")
+    if floor not in order:
+        return order
+    cutoff = order.index(floor) + 1
+    return order[:cutoff]

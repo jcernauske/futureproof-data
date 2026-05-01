@@ -1,5 +1,6 @@
 import type { BossId } from "@/types/build";
 import { BOSS_META } from "./bossData";
+import { useT } from "@/i18n/useT";
 
 interface SealedOverlayProps {
   bossId: BossId;
@@ -17,7 +18,9 @@ interface SealedOverlayProps {
  * Tapping breaks the seal and triggers the VS overlay.
  */
 export function SealedOverlay({ bossId, isVisible, isTriggered, onReveal }: SealedOverlayProps) {
+  const t = useT();
   const boss = BOSS_META[bossId];
+  const localizedBossName = t(boss.shortNameKey);
 
   return (
     <div
@@ -35,7 +38,7 @@ export function SealedOverlay({ bossId, isVisible, isTriggered, onReveal }: Seal
       role="button"
       tabIndex={isTriggered ? -1 : 0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onReveal?.(); }}
-      aria-label={`Reveal ${boss.shortName} fight`}
+      aria-label={t("build.bossSealed.revealAria").replace("{bossName}", localizedBossName)}
     >
       {/* Inner border glow — contained energy pressing against the edges */}
       <div
@@ -123,21 +126,22 @@ export function SealedOverlay({ bossId, isVisible, isTriggered, onReveal }: Seal
 
       {/* Boss name + subtitle */}
       <div className="text-center mt-4 relative z-[1]">
-        <div
+        <bdi
           className="font-display font-semibold"
           style={{
             fontSize: 18,
             color: "var(--color-text-secondary)",
             letterSpacing: 0.5,
+            display: "block",
           }}
         >
-          {boss.shortName}
-        </div>
+          {localizedBossName}
+        </bdi>
         <div
           className="font-body text-text-muted mt-0.5"
           style={{ fontSize: 13 }}
         >
-          {boss.subtitle}
+          {t(boss.subtitleKey)}
         </div>
       </div>
 
@@ -155,7 +159,7 @@ export function SealedOverlay({ bossId, isVisible, isTriggered, onReveal }: Seal
             opacity: 0.7,
           }}
         >
-          TAP TO REVEAL
+          {t("build.bossSealed.tapToReveal")}
         </div>
         {/* Chevron pair — staggered bounce */}
         <div className="flex flex-col items-center -mt-0.5" style={{ gap: 0 }}>

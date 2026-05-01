@@ -119,7 +119,7 @@ export function SetYourCourseScreen() {
     return school.netPriceAnnual + gap;
   }, [school, homeState]);
 
-  // Profile guard — bounce to /app if the profile isn't set. Stash this
+  // Profile guard — bounce to /profile if the profile isn't set. Stash this
   // route so ProfileScreen returns here after onboarding.
   useEffect(() => {
     if (!profileName) {
@@ -579,7 +579,7 @@ export function SetYourCourseScreen() {
                               </button>
                               <span
                                 aria-disabled="true"
-                                title="Coming soon"
+                                title={t("syc.comingSoon")}
                                 className="cursor-not-allowed inline-flex items-center gap-2 font-body text-small text-text-muted/70"
                                 data-testid="btn-search-schools"
                               >
@@ -605,7 +605,7 @@ export function SetYourCourseScreen() {
               initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={reducedMotion ? { duration: 0 } : springs.smooth}
-              aria-label="Career paths"
+              aria-label={t("syc.aria.careerPaths")}
               className="flex flex-col gap-6"
             >
               <p className="font-body text-small italic text-text-muted">
@@ -713,7 +713,7 @@ export function SetYourCourseScreen() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={springs.smooth}
-                aria-label="Effort, loans, and next step"
+                aria-label={t("syc.aria.effortLoans")}
                 data-testid="effort-commit-section"
               >
                 <EffortLoansPanel
@@ -752,7 +752,9 @@ export function SetYourCourseScreen() {
                     transition={springs.snappy}
                     data-testid="btn-spec-build-bottom"
                   >
-                    {busy ? `Specing ${profileName}...` : t("syc.specBuild")}
+                    {busy
+                      ? t("syc.specing").replace("{profileName}", profileName ?? "")
+                      : t("syc.specBuild")}
                   </motion.button>
                 </div>
               </motion.section>
@@ -772,7 +774,7 @@ export function SetYourCourseScreen() {
             exit={{ opacity: 0 }}
             role="dialog"
             aria-modal="true"
-            aria-label="Confirm start over"
+            aria-label={t("syc.aria.confirmStartOver")}
           >
             <motion.div
               className="bg-bp-mid border border-border rounded-xl p-6 max-w-sm w-full space-y-4"

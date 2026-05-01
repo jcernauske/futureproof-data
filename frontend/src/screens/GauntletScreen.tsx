@@ -21,6 +21,12 @@ import type { FightPhase } from "@/store/gauntletStore";
 // structural gap, not a tactical one — the gauntlet surfaces that.
 const MAX_REROLLS = 3;
 
+// Returns a stable i18n KEY (not English text) so the persisted
+// `gauntlet.verdict` field can be translated at render time. The
+// display layer (FinalBoss) detects keys via the `gauntlet.verdict.`
+// prefix and translates; backend-supplied English verdicts pass
+// through unchanged for backwards compatibility until the backend
+// is taught to emit the same keys.
 function deriveVerdict(
   wins: number,
   losses: number,
@@ -28,16 +34,14 @@ function deriveVerdict(
   _unknown: number,
 ): string {
   const scored = wins + losses + draws;
-  if (scored === 0) return "Insufficient data to score the gauntlet.";
-  if (losses === 0 && wins >= 3)
-    return "DOMINANT BUILD \u2014 strong across the board.";
+  if (scored === 0) return "gauntlet.verdict.insufficient";
+  if (losses === 0 && wins >= 3) return "gauntlet.verdict.dominant";
   if (wins > losses) {
-    if (losses === 0) return "SOLID BUILD with minor soft spots.";
-    return "SOLID BUILD with a gap.";
+    if (losses === 0) return "gauntlet.verdict.solidMinor";
+    return "gauntlet.verdict.solidGap";
   }
-  if (wins === losses)
-    return "MIXED BUILD \u2014 wins and losses cancel out; play to strengths.";
-  return "VULNERABLE BUILD \u2014 losses outweigh wins; active mitigation required.";
+  if (wins === losses) return "gauntlet.verdict.mixed";
+  return "gauntlet.verdict.vulnerable";
 }
 
 function applyRerollResult(
@@ -115,7 +119,7 @@ export function GauntletScreen() {
   // Nav guard
   useEffect(() => {
     if (!build?.gauntlet?.fights?.length) {
-      navigate("/reveal", { replace: true });
+      navigate("/my-build", { replace: true });
     }
   }, [build, navigate]);
 
@@ -252,7 +256,7 @@ export function GauntletScreen() {
   }, [navigate]);
 
   const handleBackToBuild = useCallback(() => {
-    navigate("/reveal");
+    navigate("/my-build");
   }, [navigate]);
 
   return (

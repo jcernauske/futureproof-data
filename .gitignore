@@ -49,6 +49,10 @@ node_modules/
 # OS
 .DS_Store
 
+# Midjourney source PNGs — derivatives live in frontend/public/campus/.
+# Originals backed up at ~/Documents/Midjourney.
+Midjourney/
+
 # Build artifacts
 *.tsbuildinfo
 

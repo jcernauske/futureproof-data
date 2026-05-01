@@ -40,17 +40,81 @@ const ES: Record<string, string> = {
   penguin: "Pingüino", cat: "Gato",
 };
 
+// Arabic dictionary. Same word universe as ES — every key in ES is
+// represented here so Arabic users see a fully Arabic-script name
+// instead of a Latin string in an Arabic-script font fallback.
+// Translations are short, playful adjectives + animal nouns; the
+// generated name keeps adjective-adjective-animal order (same as the
+// ES path). Some near-synonyms collide (e.g. brave ↔ courageous);
+// alternative words are used where possible to keep variety.
+const AR: Record<string, string> = {
+  // ADJECTIVES_1
+  brave: "شجاع", bold: "جريء", bright: "مشرق", calm: "هادئ",
+  clever: "ذكي", cosmic: "كوني", cozy: "دافئ", daring: "مغامر",
+  dancing: "راقص", dreamy: "حالم", eager: "متلهف",
+  electric: "كهربائي", epic: "ملحمي", fearless: "جسور",
+  fierce: "شرس", free: "حر", gentle: "لطيف", glad: "مسرور",
+  glowing: "متوهج", golden: "ذهبي", grand: "فخم",
+  happy: "سعيد", humble: "متواضع", keen: "حاد", kind: "طيب",
+  lively: "حيوي", lucky: "محظوظ", loyal: "وفي", magic: "سحري",
+  merry: "مرح", mighty: "قوي", noble: "نبيل", plucky: "مقدام",
+  proud: "فخور", quick: "سريع", quiet: "ساكن", rad: "رائع",
+  ready: "جاهز", rising: "صاعد", roaming: "متجول",
+  shining: "لامع", smooth: "ناعم", snappy: "نشيط",
+  soaring: "محلق", sparky: "متألق", speedy: "خاطف",
+  spirited: "حماسي", steady: "ثابت", stellar: "نجمي",
+  stoked: "متحمس",
+
+  // ADJECTIVES_2
+  agile: "رشيق", awesome: "مذهل", breezy: "منعش", chill: "مسترخي",
+  clear: "صاف", crisp: "مقرمش", curious: "فضولي", dapper: "أنيق",
+  deft: "ماهر", earnest: "جاد", fair: "عادل", fancy: "فاخر",
+  fleet: "خفيف", fluffy: "ريشي", focused: "مركز",
+  fresh: "طازج", frisky: "لعوب", fun: "ممتع",
+  fuzzy: "فروي", groovy: "هادئ", gutsy: "جسور", handy: "بارع",
+  hearty: "ودود", honest: "صادق", jazzy: "زاهي",
+  joyful: "مبتهج", jumpy: "قافز", legit: "أصيل",
+  nimble: "خفيف", nifty: "بارع", peppy: "نشط", perky: "بشوش",
+  plush: "وثير", polished: "مصقول", prime: "ممتاز",
+  pumped: "متحمس", quirky: "غريب", rare: "نادر",
+  real: "حقيقي", robust: "متين", savvy: "داهية", sharp: "حاد",
+  slick: "سلس", snug: "مريح", solid: "صلب", spry: "نشط",
+  sure: "واثق", swift: "سريع", true: "صادق", vivid: "زاهي",
+
+  // ANIMALS
+  bear: "دب", bunny: "أرنب", turtle: "سلحفاة",
+  chipmunk: "سنجاب", fox: "ثعلب", owl: "بومة",
+  penguin: "بطريق", cat: "قط",
+};
+
+const TABLES: Partial<Record<AppLocale, Record<string, string>>> = {
+  es: ES,
+  ar: AR,
+};
+
+/**
+ * Translates a generated character name (e.g., "Ready Jazzy Fox") into
+ * the active locale by word-by-word substitution. Word order is
+ * preserved — the generated name is a playful triplet, not formal
+ * prose, so `Listo Llamativo Zorro` / `جاهز زاهي ثعلب` reads naturally
+ * enough in target locales without per-locale grammar rules.
+ *
+ * Falls through to the original name for English (no table) and for
+ * any individual word not in the locale's dictionary (e.g., a custom
+ * name typed by the user).
+ */
 export function localizeProfileName(
   name: string,
   locale: AppLocale,
 ): string {
-  if (locale !== "es") return name;
+  const table = TABLES[locale];
+  if (!table) return name;
   return name
     .split(" ")
     .map((word) => {
       const stripped = word.replace(/\d+$/, "");
       const digits = word.slice(stripped.length);
-      const translated = ES[stripped.toLowerCase()];
+      const translated = table[stripped.toLowerCase()];
       return translated ? translated + digits : word;
     })
     .join(" ");

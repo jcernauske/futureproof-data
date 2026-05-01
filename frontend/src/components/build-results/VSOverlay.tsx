@@ -1,4 +1,7 @@
 import { BOSS_META } from "./bossData";
+import { useProfileStore } from "@/store/profileStore";
+import { localizeProfileName } from "@/i18n/profileName";
+import { useT } from "@/i18n/useT";
 
 interface VSOverlayProps {
   playerEmoji: string;
@@ -11,8 +14,15 @@ interface VSOverlayProps {
 }
 
 export function VSOverlay({ playerEmoji, playerName, bossEmoji, bossShortName, bossId, isActive, isDone }: VSOverlayProps) {
+  const t = useT();
+  const locale = useProfileStore((s) => s.locale);
+  const displayName = localizeProfileName(playerName, locale);
   const boss = BOSS_META[bossId as keyof typeof BOSS_META];
   const bossColor = boss?.color ?? "var(--color-accent-insight)";
+  // Prefer the i18n key from BOSS_META over the prop. The prop is now
+  // already-localized (BossBand resolves it) but we keep the meta lookup
+  // as a safety net for any caller that still passes raw English.
+  const localizedBossName = boss ? t(boss.shortNameKey) : bossShortName;
 
   return (
     <div
@@ -39,9 +49,9 @@ export function VSOverlay({ playerEmoji, playerName, bossEmoji, bossShortName, b
           >
             <span style={{ fontSize: 52 }}>{playerEmoji}</span>
           </div>
-          <span className="font-body font-semibold text-text-secondary" style={{ fontSize: 13 }}>
-            {playerName}
-          </span>
+          <bdi className="font-body font-semibold text-text-secondary" style={{ fontSize: 13 }}>
+            {displayName}
+          </bdi>
         </div>
 
         {/* VS + collision */}
@@ -53,7 +63,7 @@ export function VSOverlay({ playerEmoji, playerName, bossEmoji, bossShortName, b
               animation: isActive ? "vsTextPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both" : undefined,
             }}
           >
-            VS
+            {t("build.vsOverlay.vs")}
           </span>
           <span
             style={{
@@ -112,9 +122,9 @@ export function VSOverlay({ playerEmoji, playerName, bossEmoji, bossShortName, b
           >
             <span style={{ fontSize: 52 }}>{bossEmoji}</span>
           </div>
-          <span className="font-body font-semibold text-text-secondary" style={{ fontSize: 13 }}>
-            {bossShortName}
-          </span>
+          <bdi className="font-body font-semibold text-text-secondary" style={{ fontSize: 13 }}>
+            {localizedBossName}
+          </bdi>
         </div>
       </div>
 

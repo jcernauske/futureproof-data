@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
+import { useBuildsCountStore } from "@/store/buildsCountStore";
 import { createBuild, createBuildStream } from "@/api/build";
 import type { BuildParams, BuildStreamEvent } from "@/api/build";
 import type { Build } from "@/types/build";
@@ -20,6 +21,9 @@ import { VerdictBadge } from "@/components/build-results/VerdictBadge";
 import { BOSS_META, STAT_COLORS, STAT_INFO } from "@/components/build-results/bossData";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { AskGemmaFab } from "@/components/menu/AskGemmaFab";
+import { CompareSchoolsPanel } from "@/components/CompareSchoolsPanel";
+import { spawnBuildFromRow } from "@/lib/buildSpawn";
+import type { SchoolForCareerRow } from "@/types/build";
 import type { AskScope, AskStatTarget } from "@/api/menu";
 import type { StatKey } from "@/data/statExplanations";
 import { STAT_EXPLANATIONS } from "@/data/statExplanations";
@@ -27,13 +31,15 @@ import { fireCheckpoint } from "@/lib/checkpoint";
 import { useT } from "@/i18n/useT";
 import type { BossFightResult, BossId, BossOutcome } from "@/types/build";
 
-// Voice-contract-clean chip text for the per-boss scope. Mirrors the
-// alias table in docs/specs/feature-ask-gemma.md §3.
-const BOSS_CHIP_PREFIX: Record<BossOutcome, string> = {
-  win: "Asking why this risk passed",
-  lose: "Asking why this risk did not pass",
-  draw: "Asking about a borderline risk",
-  unknown: "Asking about a borderline risk",
+// i18n keys for per-boss scope chip text. Mirrors the alias table in
+// docs/specs/feature-ask-gemma.md §3. Resolved through `t(...)` so the
+// chip prefix follows the active locale. `unknown` falls back to the
+// `draw` copy ("borderline risk") in every locale.
+const BOSS_CHIP_PREFIX_KEY: Record<BossOutcome, string> = {
+  win: "build.askBoss.win",
+  lose: "build.askBoss.lose",
+  draw: "build.askBoss.draw",
+  unknown: "build.askBoss.draw",
 };
 
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
@@ -53,6 +59,7 @@ export function BuildResultsScreen() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatScope, setChatScope] = useState<AskScope | null>(null);
   const [chatChipText, setChatChipText] = useState<string>("");
+  const [compareOpen, setCompareOpen] = useState(false);
 
   const openChat = useCallback((scope: AskScope, chipText: string) => {
     setChatScope(scope);
@@ -71,10 +78,10 @@ export function BuildResultsScreen() {
       const label = info?.title ?? statLowercase.toUpperCase();
       openChat(
         { kind: "stat", build_ids: [build.build_id], target_id: target },
-        `Asking about: ${label}`,
+        t("build.askPrefix").replace("{label}", label),
       );
     },
-    [build, openChat],
+    [build, openChat, t],
   );
 
   const handleAskBoss = useCallback(
@@ -83,13 +90,13 @@ export function BuildResultsScreen() {
       const fight = fights.find((f) => f.boss === bossId);
       const result: BossOutcome = fight?.result ?? "unknown";
       const meta = BOSS_META[bossId];
-      const prefix = BOSS_CHIP_PREFIX[result];
+      const prefix = t(BOSS_CHIP_PREFIX_KEY[result]);
       openChat(
         { kind: "boss", build_ids: [build.build_id], target_id: bossId },
-        `${prefix}: ${meta.shortName}`,
+        `${prefix}: ${t(meta.shortNameKey)}`,
       );
     },
-    [build, fights, openChat],
+    [build, fights, openChat, t],
   );
 
   const handleAskSkill = useCallback(
@@ -104,19 +111,19 @@ export function BuildResultsScreen() {
       const truncated = title.length > 40 ? title.slice(0, 39).trimEnd() + "…" : title;
       openChat(
         { kind: "skill", build_ids: [build.build_id], target_id: skillId },
-        `Asking about: ${truncated}`,
+        t("build.askPrefix").replace("{label}", truncated),
       );
     },
-    [build, openChat],
+    [build, openChat, t],
   );
 
   const handleAskBuild = useCallback(() => {
     if (!build) return;
     openChat(
       { kind: "build", build_ids: [build.build_id] },
-      "Asking about your whole build",
+      t("build.askWholeBuild"),
     );
-  }, [build, openChat]);
+  }, [build, openChat, t]);
 
   const cancelledRef = useRef(false);
 
@@ -196,6 +203,7 @@ export function BuildResultsScreen() {
           setBuild(event.build);
           setFights(event.build.gauntlet.fights);
           setIsBuilding(false);
+          useBuildsCountStore.getState().refresh();
           fireCheckpoint("/my-build");
           break;
         case "boss_narrative":
@@ -237,6 +245,7 @@ export function BuildResultsScreen() {
         setBuild(result);
         setFights(result.gauntlet.fights);
         setIsBuilding(false);
+        useBuildsCountStore.getState().refresh();
         fireCheckpoint("/my-build");
       } catch (fallbackErr) {
         if (cancelledRef.current) return;
@@ -580,19 +589,74 @@ export function BuildResultsScreen() {
               stats={career.stats}
             />
             <FinancesCard
-              startingSalary={career.earnings_1yr_median}
-              medianSalary={career.median_annual_wage}
-              tuitionInState={career.tuition_in_state}
-              tuitionOutOfState={career.tuition_out_of_state}
-              netPriceAnnual={career.net_price_annual}
+              career={career}
               loanPct={career.loan_pct}
               isInState={career.is_out_of_state != null ? !career.is_out_of_state : (homeState && school?.stateAbbr ? homeState === school.stateAbbr : null)}
-              institutionControl={career.institution_control ?? null}
             />
           </div>
           <InstitutionCard
             schoolName={build.school_name}
             narrative={build.guidance}
+          />
+        </div>
+
+        {/* Section 2.5: Compare schools trigger — directly under the
+            Path + Institution grid. Single sheet trigger; mode is filterable
+            inside the sheet. */}
+        <div
+          style={{ marginTop: 48, animation: "sectionFadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) 0.3s both" }}
+          data-testid="compare-schools-host"
+        >
+          <h2 className="font-display font-bold text-text-primary mb-4" style={{ fontSize: 32 }}>
+            {t("compareSchools.sectionHeader")}
+          </h2>
+          <button
+            type="button"
+            data-testid="btn-compare-schools"
+            onClick={() => setCompareOpen(true)}
+            className="w-full flex items-center gap-3 h-12 px-4 rounded-xl bg-bp-mid hover:bg-bp-surface border-l-2 border-accent-insight font-display text-body text-text-primary transition-colors text-left"
+          >
+            <span className="flex-1 truncate">
+              {t("compareSchools.bySoc.trigger").replace(
+                "{occupationTitle}",
+                career.occupation_title,
+              )}
+            </span>
+            <span aria-hidden="true" className="text-text-muted">›</span>
+          </button>
+          <CompareSchoolsPanel
+            mode="by_soc"
+            enclosure="sheet"
+            socCode={career.soc_code}
+            cipcode={career.cipcode}
+            occupationTitle={career.occupation_title}
+            programName={career.program_name || build.program_name}
+            anchor={{
+              unitid: career.unitid,
+              cipcode: career.cipcode,
+              statErn: career.stats.ern,
+              statRoi: career.stats.roi,
+              institutionName: career.institution_name || build.school_name,
+              institutionControl: career.institution_control ?? null,
+              programName: career.program_name || build.program_name,
+              stateAbbr: school?.stateAbbr ?? null,
+              earnings1yrMedian: career.earnings_1yr_median,
+              netPriceAnnual: career.net_price_annual,
+            }}
+            open={compareOpen}
+            onClose={() => setCompareOpen(false)}
+            onBuildAtRow={(row: SchoolForCareerRow) => {
+              if (!profileName) return;
+              setCompareOpen(false);
+              void spawnBuildFromRow(row, {
+                profileName,
+                effort,
+                loans,
+                homeState: homeState ?? null,
+                animalEmoji: animalEmoji ?? null,
+                locale: locale ?? "en",
+              });
+            }}
           />
         </div>
 

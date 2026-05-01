@@ -92,8 +92,18 @@ function makeInsights(overrides: Partial<CompareInsights> = {}): CompareInsights
   return {
     money_insight: null,
     compare_summary: null,
+    pros_cons: null,
+    pivotal: null,
     ...overrides,
   };
+}
+
+function renderCV(buildIds: string[], onBack: () => void = () => {}) {
+  return render(
+    <MemoryRouter>
+      <CompareView buildIds={buildIds} onBack={onBack} />
+    </MemoryRouter>,
+  );
 }
 
 beforeEach(() => {
@@ -109,9 +119,7 @@ describe("CompareView", () => {
   it("renders one Risk Headline card per boss in the result (P0)", async () => {
     mockCompareBuilds.mockResolvedValue(makeCompareResult());
 
-    render(
-      <CompareView buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]} onBack={() => {}} />,
-    );
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("card-risk-ai")).toBeInTheDocument();
@@ -127,9 +135,7 @@ describe("CompareView", () => {
   it("renders character cards for each build (P0)", async () => {
     mockCompareBuilds.mockResolvedValue(makeCompareResult());
 
-    render(
-      <CompareView buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]} onBack={() => {}} />,
-    );
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("card-character-berkeley-cs-001")).toBeInTheDocument();
@@ -142,9 +148,7 @@ describe("CompareView", () => {
   it("renders boss grid with skill count badges (P0)", async () => {
     mockCompareBuilds.mockResolvedValue(makeCompareResult());
 
-    render(
-      <CompareView buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]} onBack={() => {}} />,
-    );
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("badge-skill-ai-iu-bloom-mkt-001")).toBeInTheDocument();
@@ -157,9 +161,7 @@ describe("CompareView", () => {
   it("renders salary figures in money section (P0)", async () => {
     mockCompareBuilds.mockResolvedValue(makeCompareResult());
 
-    render(
-      <CompareView buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]} onBack={() => {}} />,
-    );
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("salary-berkeley-cs-001")).toBeInTheDocument();
@@ -200,7 +202,7 @@ describe("CompareView", () => {
     });
     mockCompareBuilds.mockResolvedValue(threeBuild);
 
-    render(<CompareView buildIds={["a", "b", "c"]} onBack={() => {}} />);
+    renderCV(["a", "b", "c"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("card-character-a")).toBeInTheDocument();
@@ -240,7 +242,7 @@ describe("CompareView", () => {
     });
     mockCompareBuilds.mockResolvedValue(fourBuild);
 
-    render(<CompareView buildIds={["a", "b", "c", "d"]} onBack={() => {}} />);
+    renderCV(["a", "b", "c", "d"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("card-character-a")).toBeInTheDocument();
@@ -259,9 +261,7 @@ describe("CompareView", () => {
     });
     mockCompareBuilds.mockResolvedValue(convergentBranches);
 
-    render(
-      <CompareView buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]} onBack={() => {}} />,
-    );
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
 
     await waitFor(() => {
       expect(screen.getByTestId("card-branch-berkeley-cs-001")).toBeInTheDocument();
@@ -280,12 +280,7 @@ describe("CompareView", () => {
       }),
     );
 
-    render(
-      <CompareView
-        buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]}
-        onBack={() => {}}
-      />,
-    );
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
 
     await waitFor(
       () => {
@@ -301,12 +296,7 @@ describe("CompareView", () => {
     mockCompareBuilds.mockResolvedValue(makeCompareResult());
     mockCompareInsights.mockRejectedValue(new Error("model unavailable"));
 
-    render(
-      <CompareView
-        buildIds={["berkeley-cs-001", "iu-bloom-mkt-001"]}
-        onBack={() => {}}
-      />,
-    );
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
 
     await screen.findByTestId("region-gemma-compare");
     expect(screen.getByText(/Reading the tradeoffs/i)).toBeInTheDocument();

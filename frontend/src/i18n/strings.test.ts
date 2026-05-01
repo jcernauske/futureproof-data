@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getString } from "./strings";
+import { getString, STRINGS } from "./strings";
 
 /**
  * getString tests
@@ -101,6 +101,73 @@ describe("getString", () => {
       expect(en).not.toBe(key);
       expect(es).not.toBe(key);
       expect(en).not.toBe(es);
+    }
+  });
+
+  it("returns Arabic string for known key with locale='ar'", () => {
+    const result = getString("profile.meetGuide", "ar");
+    expect(result).toBe("تعرّف على مرشدك");
+  });
+
+  it("Arabic differs from English and Spanish for the same key", () => {
+    const en = getString("profile.meetGuide", "en");
+    const es = getString("profile.meetGuide", "es");
+    const ar = getString("profile.meetGuide", "ar");
+    expect(ar).not.toBe(en);
+    expect(ar).not.toBe(es);
+  });
+
+  it("falls back to English when Arabic key is missing", () => {
+    // Unknown key in any locale returns the raw key string.
+    const result = getString("nonexistent.key.here", "ar");
+    expect(result).toBe("nonexistent.key.here");
+  });
+
+  it("preserves Latin-script brand and acronyms inside Arabic strings", () => {
+    // Voice contract: Gemma stays in Latin script even in Arabic
+    // copy, and SOC/CIP/data acronyms must not be transliterated.
+    expect(getString("syc.gemmaThinking", "ar")).toContain("Gemma");
+    expect(getString("syc.showingSoc", "ar")).toContain("SOC");
+    expect(getString("syc.showingSoc", "ar")).toContain("CIP");
+  });
+
+  it("every en key exists in both es and ar (no silent fallback to English)", () => {
+    // Locks in locale parity going forward. When you add an EN key, the
+    // test forces you to add ES + AR or it fails — preventing the silent
+    // fallback that makes Arabic users see English copy.
+    const enKeys = Object.keys(STRINGS.en);
+    const missingEs = enKeys.filter((k) => !(k in STRINGS.es));
+    const missingAr = enKeys.filter((k) => !(k in STRINGS.ar));
+    expect(missingEs, `Spanish missing keys: ${missingEs.join(", ")}`).toEqual([]);
+    expect(missingAr, `Arabic missing keys: ${missingAr.join(", ")}`).toEqual([]);
+  });
+
+  it("no orphan keys in es or ar (every translated key has an en source)", () => {
+    // Catches dead translations — keys that exist in es/ar but were
+    // removed from en. The fallback chain would never serve these.
+    const enKeys = new Set(Object.keys(STRINGS.en));
+    const orphanEs = Object.keys(STRINGS.es).filter((k) => !enKeys.has(k));
+    const orphanAr = Object.keys(STRINGS.ar).filter((k) => !enKeys.has(k));
+    expect(orphanEs, `Spanish orphan keys: ${orphanEs.join(", ")}`).toEqual([]);
+    expect(orphanAr, `Arabic orphan keys: ${orphanAr.join(", ")}`).toEqual([]);
+  });
+
+  it("Arabic strings exist for the full profile and core build paths", () => {
+    const sampleKeys = [
+      "profile.meetGuide",
+      "profile.start",
+      "syc.heading",
+      "careerPick.heading",
+      "build.gauntlet",
+      "build.startingSalary",
+      "stat.ern.name",
+      "tree.horizon.title",
+    ];
+    for (const key of sampleKeys) {
+      const ar = getString(key, "ar");
+      expect(ar, `Arabic missing for key ${key}`).not.toBe(key);
+      // Should contain at least one Arabic letter (basic Arabic block).
+      expect(ar).toMatch(/[؀-ۿ]/);
     }
   });
 });

@@ -16,6 +16,8 @@ import { RiskHeadlineGrid } from "@/components/menu/RiskHeadlineCard";
 import { CharacterCard } from "@/components/menu/CharacterCard";
 import { MoneySection } from "@/components/menu/MoneySection";
 import { BranchPreview } from "@/components/menu/BranchPreview";
+import { CompareWinners } from "@/components/menu/CompareWinners";
+import { CompareProsCons } from "@/components/menu/CompareProsCons";
 import { Button } from "@/components/ui/Button";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { useT } from "@/i18n/useT";
@@ -288,20 +290,88 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           </span>
         </div>
 
-        <div className="bg-bp-deep/60 rounded-xl p-6 relative overflow-hidden max-w-[720px] mx-auto">
-          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-accent-insight to-accent-insight/20" />
+        <div className="max-w-[720px] mx-auto flex flex-col gap-5">
           {insights?.compare_summary ? (
-            <div className="font-body text-[15px] text-text-primary leading-relaxed whitespace-pre-line">
-              {insights.compare_summary}
-            </div>
+            <p className="font-body text-[15px] text-text-secondary leading-relaxed text-center">
+              {(() => {
+                const trimmed = insights.compare_summary.trim();
+                const sentenceMatch = trimmed.match(/^[^.!?]+[.!?]/);
+                return sentenceMatch ? sentenceMatch[0] : trimmed;
+              })()}
+            </p>
           ) : (
             <motion.p
               animate={{ opacity: [0.4, 0.9, 0.4] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              className="font-body text-body text-text-muted"
+              className="font-body text-body text-text-muted text-center"
             >
               Reading the tradeoffs…
             </motion.p>
+          )}
+
+          {insights?.pivotal?.meta_tradeoff && (
+            <div
+              data-testid="pivotal-meta-tradeoff"
+              className="self-center inline-flex flex-col items-center gap-1.5 px-5 py-3 rounded-full bg-bp-deep/60 border border-border-subtle"
+            >
+              <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted">
+                The real choice
+              </p>
+              <p className="font-display text-heading text-text-primary">
+                {insights.pivotal.meta_tradeoff}
+              </p>
+              {insights.pivotal.meta_explanation && (
+                <p className="font-body text-small text-text-secondary text-center max-w-[520px] leading-snug">
+                  {insights.pivotal.meta_explanation}
+                </p>
+              )}
+            </div>
+          )}
+
+          {insights?.pros_cons && insights.pros_cons.length > 0 && (
+            <CompareProsCons
+              builds={result.builds}
+              prosCons={insights.pros_cons}
+              highlightIndex={highlightIndex}
+            />
+          )}
+
+          <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted text-center">
+            Where they win
+          </p>
+
+          <CompareWinners
+            result={result}
+            highlightIndex={highlightIndex}
+          />
+
+          {insights?.pivotal?.decade_projection && (
+            <article
+              data-testid="pivotal-decade-projection"
+              className="rounded-xl p-5 bg-bp-deep/60 border border-border-subtle relative"
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-accent-info to-accent-info/20 rounded-l-xl" />
+              <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted mb-2">
+                In ten years
+              </p>
+              <p className="font-body text-[15px] text-text-primary leading-relaxed">
+                {insights.pivotal.decade_projection}
+              </p>
+            </article>
+          )}
+
+          {insights?.pivotal?.pivot_question && (
+            <article
+              data-testid="pivotal-question"
+              className="rounded-xl p-5 bg-gradient-to-br from-accent-thrive/10 to-accent-insight/10 border border-accent-thrive/30 relative"
+            >
+              <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-thrive mb-2">
+                Sit with this
+              </p>
+              <p className="font-display text-heading text-text-primary leading-snug">
+                {insights.pivotal.pivot_question}
+              </p>
+            </article>
           )}
         </div>
 

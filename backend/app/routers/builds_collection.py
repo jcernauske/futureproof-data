@@ -15,6 +15,8 @@ from fastapi import APIRouter, HTTPException, Query
 from app.models.api import CompareRequest
 from app.services import builds
 from app.services.guidance import (
+    generate_compare_pivotal_async,
+    generate_compare_pros_cons_async,
     generate_compare_summary_async,
     generate_money_insight_async,
 )
@@ -55,6 +57,8 @@ async def compare_insights(request: CompareRequest) -> dict[str, Any]:
     results = await asyncio.gather(
         generate_money_insight_async(loaded),
         generate_compare_summary_async(loaded),
+        generate_compare_pros_cons_async(loaded),
+        generate_compare_pivotal_async(loaded),
         return_exceptions=True,
     )
 
@@ -64,8 +68,12 @@ async def compare_insights(request: CompareRequest) -> dict[str, Any]:
 
     money_insight = results[0] if not isinstance(results[0], BaseException) else None
     compare_summary = results[1] if not isinstance(results[1], BaseException) else None
+    pros_cons = results[2] if not isinstance(results[2], BaseException) else None
+    pivotal = results[3] if not isinstance(results[3], BaseException) else None
 
     return {
         "money_insight": money_insight,
         "compare_summary": compare_summary,
+        "pros_cons": pros_cons,
+        "pivotal": pivotal,
     }

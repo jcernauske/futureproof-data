@@ -4,7 +4,7 @@
  * Smoke coverage for the unified Set Your Course screen:
  *   - Renders every load-bearing section (school input, effort/loans,
  *     commit + start-over buttons).
- *   - Commit navigates to /reveal.
+ *   - Commit navigates to /my-build.
  *   - Low-confidence resolution surfaces a soft nudge but does NOT
  *     disable the commit button (P1).
  *   - Start-over (after the confirm dialog) resets school / major /
@@ -19,8 +19,50 @@ import { MemoryRouter } from "react-router-dom";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
-import { makeCareer } from "@/components/chapter-book/__fixtures__/branches";
 import type { CareerOutcome } from "@/types/build";
+
+function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
+  return {
+    unitid: 153603,
+    institution_name: "Iowa State University",
+    cipcode: "26.0101",
+    program_name: "Biology, General",
+    soc_code: "19-4021",
+    occupation_title: "Biological Technician",
+    soc_major_group_name: "Life, Physical, and Social Science",
+    median_annual_wage: 52140,
+    earnings_1yr_median: 38000,
+    earnings_1yr_p25: 32000,
+    earnings_1yr_p75: 45000,
+    debt_median: 24000,
+    debt_to_earnings_annual: 0.63,
+    education_level_name: "Bachelor's degree",
+    growth_category: "Average",
+    net_price_annual: 20000,
+    cost_of_attendance_annual: 28000,
+    modeled_total_debt: 80000,
+    debt_median_reference: 24000,
+    institution_control: "Public",
+    tuition_in_state: 9000,
+    tuition_out_of_state: 24000,
+    room_board_on_campus: 11000,
+    stats: { ern: 2, roi: 3, res: 4, grw: 3, hmn: 3 },
+    bosses: { ai: 1, loans: 2, market: 2, burnout: 1, ceiling: 2 },
+    top_5_activities: [],
+    top_human_activities: [],
+    burnout_drivers: [],
+    stats_available_count: 5,
+    overall_confidence: "high",
+    match_quality: null,
+    substitution_applied: false,
+    reported_cipcode: null,
+    substituted_cipcode: null,
+    data_caveat: null,
+    is_out_of_state: false,
+    loan_pct: 1.0,
+    ...overrides,
+  };
+}
 
 // Mock every API module the screen pulls in so no network escapes.
 vi.mock("@/api/intent", () => ({
@@ -144,7 +186,7 @@ describe("TestRender", () => {
 // ---------------------------------------------------------------------------
 
 describe("TestFlow", () => {
-  it("commit_navigates_to_reveal — tapping Spec my build with outcomes loaded routes to /reveal", async () => {
+  it("commit_navigates_to_my_build — tapping Spec my build with outcomes loaded routes to /my-build", async () => {
     const careers = makeCareers();
     vi.mocked(getOutcomes).mockResolvedValue(careers);
     seedState({

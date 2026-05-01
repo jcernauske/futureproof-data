@@ -2,7 +2,7 @@
  * SaveWrappedScreen.test.tsx
  *
  * Tests the Screen 9 orchestrator:
- * - Navigation guard: redirects to /reveal when build is null
+ * - Navigation guard: redirects to /my-build when build is null
  * - Save-confirmation phase renders the build summary
  * - Transition to the story viewer after render + getWrapped resolve
  * - Error phase on render rejection
@@ -149,10 +149,10 @@ afterEach(() => {
 describe("SaveWrappedScreen", () => {
   // --- Navigation guard ---
 
-  it("redirects to /reveal when build is null", () => {
+  it("redirects to /my-build when build is null", () => {
     useBuildStore.setState({ build: null });
     renderScreen();
-    expect(mockNavigate).toHaveBeenCalledWith("/reveal", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith("/my-build", { replace: true });
   });
 
   it("does not fire render when no build is present", () => {
@@ -168,10 +168,14 @@ describe("SaveWrappedScreen", () => {
     mockGetWrapped.mockReturnValue(new Promise(() => {}));
     renderScreen();
 
-    expect(screen.getByTestId("region-save-confirm")).toBeInTheDocument();
-    expect(
-      screen.getByText(/bold bear.*Indiana University.*Financial Analyst/),
-    ).toBeInTheDocument();
+    const region = screen.getByTestId("region-save-confirm");
+    expect(region).toBeInTheDocument();
+    // Profile name now lives inside its own <bdi> for bidi isolation,
+    // so it's a separate text node from "· Indiana University ·". Match
+    // the full textContent of the line instead of a single text node.
+    expect(region.textContent).toMatch(
+      /bold bear.*Indiana University.*Financial Analyst/,
+    );
   });
 
   it("save confirmation region has the correct aria-label", () => {
@@ -213,9 +217,10 @@ describe("SaveWrappedScreen", () => {
     mockGetWrapped.mockReturnValue(new Promise(() => {}));
     renderScreen();
 
-    expect(
-      screen.getByText(/Anonymous.*Indiana University.*Financial Analyst/),
-    ).toBeInTheDocument();
+    const region = screen.getByTestId("region-save-confirm");
+    expect(region.textContent).toMatch(
+      /Anonymous.*Indiana University.*Financial Analyst/,
+    );
   });
 
   // --- Transition to viewer ---

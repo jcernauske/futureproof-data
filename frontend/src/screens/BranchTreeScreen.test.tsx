@@ -6,7 +6,7 @@ import { BranchTreeScreen } from "./BranchTreeScreen";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import type { TreeResponse } from "@/types/tree";
-import type { Build } from "@/types/build";
+import type { Build, CareerBranch } from "@/types/build";
 
 // Mock the Ask Gemma client at the module boundary. The embedded
 // GemmaChat fires askGemma() on mount with the auto-opener; the screen
@@ -21,56 +21,39 @@ vi.mock("@/api/menu", async () => {
   };
 });
 
-// React Flow's pointer-event-driven click handler does not fire reliably
-// in jsdom. Replace BranchTreeFlow with a thin test double that exposes
-// a real DOM button per node so fireEvent.click drives onSelectNode
-// through the screen's actual selection wiring. The double also renders
-// any branch-flash className so the highlight test can find it.
+// Replace BranchHorizonMap with a thin test double that exposes a real
+// DOM button per chip so fireEvent.click drives onSelectNode through
+// the screen's actual selection wiring. The double also renders the
+// branch-flash className so the highlight test can find it.
 //
-// Node ids match the production shape from treeFlowLayout:
-//   - root:        `root-${soc_code}`
-//   - direct branch (no grand-children): `career-${branch.soc_code}-${branchIdx}`
-vi.mock("@/components/tree/BranchTreeFlow", () => ({
-  BranchTreeFlow: ({
-    tree,
+// Chip id schema (Decision #14): `chip-${branch.to_soc}` — flat L1-only
+// candidate set, no L0 root chip, no L2/L3 entries.
+vi.mock("@/components/tree/BranchHorizonMap", () => ({
+  BranchHorizonMap: ({
+    branches,
     onSelectNode,
     selectedNodeId,
-    highlightedNodeId,
+    highlightedNodeIds,
   }: {
-    tree: {
-      soc_code: string;
-      title: string;
-      children?: { soc_code: string; title: string }[];
-    };
+    branches: { to_soc: string; to_title: string }[];
     onSelectNode: (id: string | null) => void;
     selectedNodeId: string | null;
-    highlightedNodeId: string | null;
+    highlightedNodeIds?: ReadonlySet<string>;
   }) => {
     return (
-      <div data-testid="region-branch-tree">
-        <button
-          type="button"
-          data-testid={`node-root-${tree.soc_code}`}
-          data-selected={selectedNodeId === `root-${tree.soc_code}`}
-          className={
-            highlightedNodeId === `root-${tree.soc_code}` ? "branch-flash" : ""
-          }
-          onClick={() => onSelectNode(`root-${tree.soc_code}`)}
-        >
-          {tree.title}
-        </button>
-        {(tree.children ?? []).map((child, idx) => {
-          const id = `career-${child.soc_code}-${idx}`;
+      <div data-testid="region-branch-horizon">
+        {branches.map((branch) => {
+          const id = `chip-${branch.to_soc}`;
           return (
             <button
               key={id}
               type="button"
-              data-testid={`node-${id}`}
+              data-testid={`chip-branch-${branch.to_soc}`}
               data-selected={selectedNodeId === id}
-              className={highlightedNodeId === id ? "branch-flash" : ""}
+              className={highlightedNodeIds?.has(id) ? "branch-flash" : ""}
               onClick={() => onSelectNode(id)}
             >
-              {child.title}
+              {branch.to_title}
             </button>
           );
         })}
@@ -83,7 +66,7 @@ vi.mock("@/components/tree/BranchTreeFlow", () => ({
  * BranchTreeScreen.test.tsx
  *
  * Tests the screen-level orchestration:
- * - Navigation guard: redirects to /reveal if no build in store
+ * - Navigation guard: redirects to /my-build if no build in store
  * - Loading state: shows emoji + "Mapping your branches..."
  * - Tree state: renders BranchTreeSVG after API success
  * - Fallback state: renders TreeFallback when tree has no children
@@ -92,13 +75,9 @@ vi.mock("@/components/tree/BranchTreeFlow", () => ({
  * - Continue navigates to /save
  * - CTA buttons navigate correctly
  *
- * NOTE: We use real timers here (not fakeTimers). The fetchTree function
- * has a minDisplayMs=1500 delay using Date.now + setTimeout. Fighting
- * fake timers with async promise chains and Date.now is fragile. Instead,
- * we let the mock resolve instantly and the minDisplay setTimeout fire
- * naturally, using waitFor to poll for state transitions.
- * The 1500ms wait is acceptable because waitFor's default timeout is 1000ms,
- * so we increase it where needed.
+ * NOTE: Most tests use real timers because the embedded chat opener and
+ * selection debounce use normal async React effects. Scope-binding tests
+ * switch to fake timers locally where they need direct debounce control.
  */
 
 const mockNavigate = vi.fn();
@@ -111,6 +90,27 @@ const mockGetTree = vi.fn();
 vi.mock("@/api/tree", () => ({
   getTree: (...args: unknown[]) => mockGetTree(...args),
 }));
+
+// Branch fixtures matching makeTreeResponse's children. Soc codes line up
+// with `11-300${i}` so click-test selectors stay aligned across the two.
+function makeBranches(count: number): CareerBranch[] {
+  return Array.from({ length: count }, (_, i) => ({
+    from_soc: "13-2051",
+    to_soc: `11-300${i}`,
+    to_title: `Career ${i}`,
+    delta_ern: 5 + i,
+    delta_roi: null,
+    delta_res: null,
+    delta_grw: null,
+    delta_hmn: null,
+    unlock: null,
+    relatedness: i + 1,
+    experience_years: null,
+    experience_tier: null,
+    experience_delta: null,
+    related_education_level: "Bachelor's degree",
+  }));
+}
 
 // Minimal Build fixture
 function makeBuild(overrides: Partial<Build> = {}): Build {
@@ -245,7 +245,7 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockGetTree.mockReset();
   mockAskGemma.mockReset();
-  useBuildStore.setState({ build: makeBuild() });
+  useBuildStore.setState({ build: makeBuild({ branches: makeBranches(3) }) });
   useProfileStore.setState({ animalEmoji: "\uD83D\uDC3B", animalName: "bear", profileName: "bold bear" });
 });
 
@@ -257,18 +257,18 @@ afterEach(() => {
 describe("BranchTreeScreen", () => {
   // --- Navigation guard ---
 
-  it("redirects to /reveal when build is null", () => {
+  it("redirects to /my-build when build is null", () => {
     useBuildStore.setState({ build: null });
     renderScreen();
 
-    expect(mockNavigate).toHaveBeenCalledWith("/reveal", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith("/my-build", { replace: true });
   });
 
   it("does NOT redirect when build is present", () => {
     mockGetTree.mockReturnValue(new Promise(() => {}));
     renderScreen();
 
-    expect(mockNavigate).not.toHaveBeenCalledWith("/reveal", { replace: true });
+    expect(mockNavigate).not.toHaveBeenCalledWith("/my-build", { replace: true });
   });
 
   // --- Loading state ---
@@ -306,10 +306,9 @@ describe("BranchTreeScreen", () => {
     // Initially shows loading
     expect(screen.getByText("Mapping your branches...")).toBeInTheDocument();
 
-    // Wait for the minDisplayMs (1500ms) to pass and state transition
     await waitFor(
       () => {
-        expect(screen.getByTestId("region-branch-tree")).toBeInTheDocument();
+        expect(screen.getByTestId("region-branch-horizon")).toBeInTheDocument();
       },
       { timeout: SETTLE_TIMEOUT },
     );
@@ -345,6 +344,7 @@ describe("BranchTreeScreen", () => {
   // --- Fallback state (empty tree) ---
 
   it("shows fallback when tree has zero children", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockResolvedValue(makeTreeResponse(0));
     renderScreen();
 
@@ -357,6 +357,7 @@ describe("BranchTreeScreen", () => {
   });
 
   it("fallback shows career title in message", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockResolvedValue(makeTreeResponse(0));
     renderScreen();
 
@@ -373,6 +374,7 @@ describe("BranchTreeScreen", () => {
   });
 
   it("fallback still shows Save & Share button", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockResolvedValue(makeTreeResponse(0));
     renderScreen();
 
@@ -387,6 +389,7 @@ describe("BranchTreeScreen", () => {
   // --- Error state ---
 
   it("shows error state when API rejects", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockRejectedValue(new Error("Network timeout"));
     renderScreen();
 
@@ -396,6 +399,7 @@ describe("BranchTreeScreen", () => {
   });
 
   it("shows generic error message regardless of error type", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockRejectedValue(new Error("Server returned 503"));
     renderScreen();
 
@@ -405,6 +409,7 @@ describe("BranchTreeScreen", () => {
   });
 
   it("error state has Try Again and Continue buttons", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockRejectedValue(new Error("fail"));
     renderScreen();
 
@@ -415,6 +420,7 @@ describe("BranchTreeScreen", () => {
   });
 
   it("Continue button in error state navigates to /save", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockRejectedValue(new Error("fail"));
     renderScreen();
 
@@ -427,6 +433,7 @@ describe("BranchTreeScreen", () => {
   });
 
   it("Try Again triggers a re-fetch", async () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockRejectedValue(new Error("fail"));
     renderScreen();
 
@@ -445,11 +452,12 @@ describe("BranchTreeScreen", () => {
 
   // --- API call ---
 
-  it("calls getTree with the build_id from the store", () => {
+  it("calls getTree with the build_id from the store when no cached branches exist", () => {
+    useBuildStore.setState({ build: makeBuild({ branches: [] }) });
     mockGetTree.mockReturnValue(new Promise(() => {}));
     renderScreen();
 
-    expect(mockGetTree).toHaveBeenCalledWith("build-test-123");
+    expect(mockGetTree).toHaveBeenCalledWith("build-test-123", 1);
   });
 
   it("does not call getTree when build is null", () => {
@@ -476,7 +484,7 @@ describe("BranchTreeScreen", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/gauntlet");
   });
 
-  it("Back to My Build navigates to /reveal", async () => {
+  it("Back to My Build navigates to /my-build", async () => {
     mockGetTree.mockResolvedValue(makeTreeResponse(2));
     renderScreen();
 
@@ -488,7 +496,7 @@ describe("BranchTreeScreen", () => {
     );
 
     fireEvent.click(screen.getByText("Back to My Build"));
-    expect(mockNavigate).toHaveBeenCalledWith("/reveal");
+    expect(mockNavigate).toHaveBeenCalledWith("/my-build");
   });
 
   // Re-baselined for feature-tree-as-map.md §3 layout: tree at
@@ -522,10 +530,9 @@ describe("BranchTreeScreen", () => {
   // feature-tree-as-map.md §4 — chat-as-guide bidirectional binding tests.
   // ===========================================================================
 
-  // The tree-fetch path uses real timers and waits ~1500ms for the
-  // minDisplay setTimeout (settle below). Once we reach the tree state,
-  // the embedded chat fires askGemma. Some scope-binding tests need to
-  // assert on debounce timing — those use vi.useFakeTimers() locally.
+  // Once we reach the tree state, the embedded chat fires askGemma. Some
+  // scope-binding tests need to assert on debounce timing — those use
+  // vi.useFakeTimers() locally.
 
   describe("first load: chat-as-guide auto-opener (P0)", () => {
     it("test_first_load_fires_chat_ask_with_root_branch_scope", async () => {
@@ -646,7 +653,7 @@ describe("BranchTreeScreen", () => {
 
       // Click the first child node. Test double exposes a button per
       // node with the production-shape testid.
-      const node = await screen.findByTestId("node-career-11-3000-0");
+      const node = await screen.findByTestId("chip-branch-11-3000");
       await act(async () => {
         fireEvent.click(node);
       });
@@ -688,8 +695,8 @@ describe("BranchTreeScreen", () => {
       const callsBefore = mockAskGemma.mock.calls.length;
 
       // Click two different nodes within the 300ms debounce window.
-      const node0 = await screen.findByTestId("node-career-11-3000-0");
-      const node1 = await screen.findByTestId("node-career-11-3001-1");
+      const node0 = await screen.findByTestId("chip-branch-11-3000");
+      const node1 = await screen.findByTestId("chip-branch-11-3001");
 
       // Rapid double-click — well within 300ms.
       await act(async () => {
@@ -748,7 +755,7 @@ describe("BranchTreeScreen", () => {
       // Click a node → switches scope. The pending root-opener becomes
       // stale; the embedded chat's sessionRef bumps and the stale
       // setHistory write is dropped on resolution.
-      const node = await screen.findByTestId("node-career-11-3000-0");
+      const node = await screen.findByTestId("chip-branch-11-3000");
       await act(async () => {
         fireEvent.click(node);
       });
@@ -819,7 +826,8 @@ describe("BranchTreeScreen", () => {
   });
 
   describe("fallback (P0)", () => {
-    it("test_fallback_career_renders_chat_at_root: zero-children tree still mounts chat at root SOC", async () => {
+  it("test_fallback_career_renders_chat_at_root: zero-children tree still mounts chat at root SOC", async () => {
+      useBuildStore.setState({ build: makeBuild({ branches: [] }) });
       mockGetTree.mockResolvedValue(makeTreeResponse(0));
       mockAskGemma.mockResolvedValue({
         response: "This is a specialized career — what would you like to know?",
