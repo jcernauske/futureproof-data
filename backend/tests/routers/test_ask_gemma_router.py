@@ -643,6 +643,26 @@ def test_post_chat_ask_kind_branch_with_history_uses_tool_loop(
             },
             "branch target_id must match SOC pattern",
         ),
+        # Trailing newline — re.match would accept this because `$`
+        # matches before a trailing \n. fullmatch closes the gap.
+        (
+            {
+                "kind": "branch",
+                "build_ids": ["x"],
+                "target_id": "11-3021\n",
+            },
+            "branch target_id must match SOC pattern",
+        ),
+        # Leading whitespace — bare match would still reject (anchored
+        # at start) but the negative test pins the contract.
+        (
+            {
+                "kind": "branch",
+                "build_ids": ["x"],
+                "target_id": " 11-3021",
+            },
+            "branch target_id must match SOC pattern",
+        ),
     ],
     ids=[
         "branch_no_target",
@@ -652,6 +672,8 @@ def test_post_chat_ask_kind_branch_with_history_uses_tool_loop(
         "branch_target_no_hyphen",
         "branch_target_short_prefix",
         "branch_target_injection_shape",
+        "branch_target_trailing_newline",
+        "branch_target_leading_whitespace",
     ],
 )
 def test_branch_scope_validation(
