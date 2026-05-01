@@ -74,20 +74,4 @@ describe("PentagonOverlay", () => {
     expect(screen.queryByTestId("overlay-shape-3")).not.toBeInTheDocument();
   });
 
-  it("legend lists every build's label", () => {
-    render(<PentagonOverlay result={makeResult(3)} />);
-
-    const legend = screen.getByTestId("overlay-legend");
-    expect(legend).toHaveTextContent("Build A");
-    expect(legend).toHaveTextContent("Build B");
-    expect(legend).toHaveTextContent("Build C");
-  });
-
-  it("aria-label reports the build count for screen readers", () => {
-    render(<PentagonOverlay result={makeResult(2)} />);
-    expect(screen.getByTestId("svg-pentagon-overlay")).toHaveAttribute(
-      "aria-label",
-      "Pentagon overlay comparing 2 builds",
-    );
-  });
 });

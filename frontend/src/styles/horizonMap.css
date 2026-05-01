@@ -1,0 +1,612 @@
+/* Horizon map — /branch-tree's tree-column body.
+ *
+ * Replaces the React Flow dendrogram from feature-tree-as-map.md. Hosts the
+ * relocated `branchFlashPulse` keyframe (was in reactflow-dark.css) — the
+ * only behavior shared with the inherited spec is the bidirectional flash;
+ * everything else (lanes, chips, overflow, empty-state, level-unknown) is
+ * new for this spec.
+ *
+ * Tokens are Brightpath via CSS custom properties (no hardcoded colors).
+ */
+
+/* =============================================================
+   Column shell
+   ============================================================= */
+.horizon-col {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  min-height: 620px;
+  max-height: 760px;
+  background: var(--color-bg-mid);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.horizon-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.horizon-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.horizon-eyebrow {
+  font-family: var(--font-data, "Space Mono", monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-accent-info);
+  text-transform: uppercase;
+}
+
+.horizon-title {
+  font-family: var(--font-display, Fredoka, sans-serif);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--color-text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.horizon-anchor {
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.horizon-anchor strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.horizon-anchor-tag {
+  font-family: var(--font-data, "Space Mono", monospace);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* =============================================================
+   Hide-supplemental toggle
+   ============================================================= */
+.toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label {
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  transition: background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out;
+  flex-shrink: 0;
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  transition: left 200ms ease-out, background 200ms ease-out;
+}
+
+.toggle-switch[data-on="true"] {
+  background: var(--color-accent-info);
+  border-color: var(--color-accent-info);
+  box-shadow: 0 0 12px rgba(123, 184, 224, 0.35);
+}
+
+.toggle-switch[data-on="true"]::after {
+  left: 18px;
+  background: var(--color-text-inverse);
+}
+
+/* =============================================================
+   Lanes container
+   ============================================================= */
+.horizon-lanes {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.horizon-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px 14px 16px;
+  background: rgba(45, 48, 96, 0.30);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+/* Lane left-edge accent — color varies per lane (D#3 visionary call #2). */
+.horizon-lane::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  opacity: 0.5;
+}
+
+.horizon-lane[data-lane="lateral"]::before {
+  background: linear-gradient(180deg, var(--color-accent-thrive), rgba(125, 212, 163, 0));
+}
+
+.horizon-lane[data-lane="step-up"]::before {
+  background: linear-gradient(180deg, var(--color-accent-info), rgba(123, 184, 224, 0));
+}
+
+.horizon-lane[data-lane="long-climb"]::before {
+  background: linear-gradient(180deg, var(--color-accent-insight), rgba(184, 169, 232, 0));
+}
+
+.horizon-lane-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.horizon-lane-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.horizon-lane-label {
+  font-family: var(--font-display, Fredoka, sans-serif);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  margin: 0;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.horizon-lane-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--color-accent-thrive);
+}
+
+.horizon-lane[data-lane="step-up"] .horizon-lane-icon {
+  color: var(--color-accent-info);
+}
+
+.horizon-lane[data-lane="long-climb"] .horizon-lane-icon {
+  color: var(--color-accent-insight);
+}
+
+.horizon-lane-subtitle {
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.horizon-lane-count {
+  font-family: var(--font-data, "Space Mono", monospace);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+/* =============================================================
+   Chip row
+   ============================================================= */
+.horizon-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* When a lane is expanded post-"+N more", chips go 4-across so 21 fits. */
+.horizon-chip-row[data-expanded="true"] .horizon-chip,
+.horizon-chip-row[data-expanded="true"] .horizon-chip-collapse {
+  flex: 0 0 calc((100% - 24px) / 4);
+  min-width: 110px;
+}
+
+/* =============================================================
+   Chip
+   ============================================================= */
+.horizon-chip {
+  position: relative;
+  flex: 0 0 calc((100% - 16px) / 3);
+  min-width: 130px;
+  max-width: 100%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 10px 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  transition:
+    background 180ms ease-out,
+    transform 150ms ease-out,
+    box-shadow 180ms ease-out,
+    border-color 180ms ease-out;
+  overflow: hidden;
+}
+
+.horizon-chip:hover {
+  background: var(--color-bg-raised);
+  border-color: var(--color-border-default);
+  transform: translateY(-1px);
+}
+
+.horizon-chip:focus-visible {
+  outline: 2px solid var(--color-accent-info);
+  outline-offset: 2px;
+}
+
+/* Left-edge relatedness color bar. */
+.horizon-chip::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--color-text-muted);
+}
+
+.horizon-chip[data-tier="primary-short"]::before {
+  background: var(--color-accent-thrive);
+  box-shadow: 0 0 12px rgba(125, 212, 163, 0.5);
+}
+
+.horizon-chip[data-tier="primary-long"]::before {
+  background: var(--color-accent-info);
+  box-shadow: 0 0 10px rgba(123, 184, 224, 0.4);
+}
+
+.horizon-chip[data-tier="supplemental"]::before {
+  background: var(--color-text-muted);
+}
+
+.horizon-chip-title {
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.horizon-chip-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Stat-delta badge — colored per stat. */
+.horizon-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-data, "Space Mono", monospace);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.horizon-stat-badge[data-stat="ern"] {
+  color: var(--color-stat-ern, #f2d477);
+  background: rgba(242, 212, 119, 0.12);
+}
+
+.horizon-stat-badge[data-stat="grw"] {
+  color: var(--color-stat-grw, #7bb8e0);
+  background: rgba(123, 184, 224, 0.12);
+}
+
+.horizon-stat-badge[data-stat="hmn"] {
+  color: var(--color-stat-hmn, #e88ba9);
+  background: rgba(232, 139, 169, 0.12);
+}
+
+.horizon-stat-badge[data-stat="res"] {
+  color: var(--color-stat-res, #b8a9e8);
+  background: rgba(184, 169, 232, 0.12);
+}
+
+.horizon-stat-badge[data-sign="neg"] {
+  opacity: 0.85;
+}
+
+/* SOC major-group rollup badge — 7 buckets per docs/specs/feature-tree-horizon-map.md
+ * follow-up. Single muted color across all buckets — the label carries the
+ * meaning, the color stays out of the way of the relatedness bar / stat /
+ * experience badges already on the chip. */
+.horizon-rollup-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: rgba(138, 133, 149, 0.10);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  padding: 1px 7px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Experience badge — only for mid/senior tier (D#4). */
+.horizon-exp-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--color-accent-caution, #f2d477);
+  background: rgba(242, 212, 119, 0.10);
+  border: 1px solid rgba(242, 212, 119, 0.25);
+  border-radius: 999px;
+  padding: 1px 7px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.horizon-exp-badge[data-tier="senior"] {
+  color: var(--color-accent-alert, #f4a97e);
+  background: rgba(244, 169, 126, 0.10);
+  border-color: rgba(244, 169, 126, 0.25);
+}
+
+/* Unlock footer (when present). */
+.horizon-chip-unlock {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.horizon-chip-unlock svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
+/* Level-unknown muted treatment (D#2 — null edu → Lateral with muted chip). */
+.horizon-chip[data-level-unknown="true"] {
+  background: rgba(45, 48, 96, 0.5);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.horizon-chip[data-level-unknown="true"] .horizon-chip-title {
+  color: var(--color-text-secondary);
+}
+
+.horizon-chip[data-level-unknown="true"]::before {
+  background: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* Selected chip — accent-thrive ring + glow (visionary call #1). */
+.horizon-chip[data-selected="true"] {
+  background: var(--color-bg-raised);
+  border-color: var(--color-accent-thrive);
+  box-shadow:
+    0 0 0 1px var(--color-accent-thrive),
+    0 0 24px rgba(125, 212, 163, 0.3);
+}
+
+/* Lane-local selection dim — only siblings within the selected chip's
+ * own lane dim, not the whole grid (visionary call #1). */
+.horizon-lane[data-has-selection="true"] .horizon-chip:not([data-selected="true"]) {
+  opacity: 0.55;
+  filter: saturate(0.85);
+}
+
+/* =============================================================
+   Branch flash — relocated from reactflow-dark.css
+   ============================================================= */
+@keyframes branchFlashPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(123, 184, 224, 0);
+    border-color: var(--color-border-subtle);
+  }
+  42% {
+    transform: scale(1.06);
+    box-shadow: 0 0 22px 6px rgba(123, 184, 224, 0.55);
+    border-color: var(--color-accent-info);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(123, 184, 224, 0);
+    border-color: var(--color-border-subtle);
+  }
+}
+
+.horizon-chip.branch-flash {
+  animation: branchFlashPulse 600ms ease-out;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .horizon-chip.branch-flash {
+    animation: none;
+    transition: opacity 80ms ease-out;
+    opacity: 0.6;
+  }
+}
+
+/* =============================================================
+   "+N more" overflow + collapse affordances
+   ============================================================= */
+.horizon-chip-more,
+.horizon-chip-collapse {
+  flex: 0 0 calc((100% - 16px) / 3);
+  min-width: 130px;
+  background: rgba(58, 61, 117, 0.35);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body, Nunito, sans-serif);
+  transition:
+    background 180ms ease-out,
+    color 180ms ease-out,
+    border-color 180ms ease-out;
+}
+
+.horizon-chip-more {
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.horizon-chip-more:hover,
+.horizon-chip-collapse:hover {
+  background: var(--color-bg-raised);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.horizon-chip-more-count {
+  font-family: var(--font-data, "Space Mono", monospace);
+  font-size: 13px;
+  color: var(--color-accent-info);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.horizon-chip-more-hint {
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.horizon-chip-collapse {
+  background: transparent;
+  border-style: solid;
+  border-color: var(--color-border-subtle);
+  font-weight: 600;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+/* =============================================================
+   Empty lane
+   ============================================================= */
+.horizon-lane-empty {
+  padding: 14px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(27, 29, 48, 0.4);
+  border: 1px dashed var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.horizon-lane-empty-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(138, 133, 149, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.horizon-lane-empty-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.horizon-lane-empty-title {
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.horizon-lane-empty-sub {
+  font-family: var(--font-body, Nunito, sans-serif);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}

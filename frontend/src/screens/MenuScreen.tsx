@@ -6,17 +6,20 @@ import { Button } from "@/components/ui/Button";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
+import { useBuildsCountStore } from "@/store/buildsCountStore";
 import { listBuilds, type BuildSummary } from "@/api/menu";
 import { deleteBuild, getBuild } from "@/api/build";
 import { BuildCard } from "@/components/menu/BuildCard";
 import { CompareView } from "@/components/menu/CompareView";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { useT } from "@/i18n/useT";
 
 type Mode = "list" | "select" | "compare";
 
 export function MenuScreen() {
   const navigate = useNavigate();
+  const t = useT();
   const profileName = useProfileStore((s) => s.profileName);
   const animalEmoji = useProfileStore((s) => s.animalEmoji);
   const setBuild = useBuildStore((s) => s.setBuild);
@@ -33,11 +36,11 @@ export function MenuScreen() {
   const [chatBuild, setChatBuild] = useState<BuildSummary | null>(null);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
   // Lock as a ref so a fast double-click can't race two getBuild calls
-  // and land at /reveal with the wrong build's payload.
+  // and land at /my-build with the wrong build's payload.
   const navigatingRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!profileName) navigate("/app", { replace: true });
+    if (!profileName) navigate("/set-your-course", { replace: true });
   }, [profileName, navigate]);
 
   useEffect(() => {
@@ -49,6 +52,14 @@ export function MenuScreen() {
       .then((res) => {
         if (cancelled) return;
         setBuilds(res);
+        // Sync the count from the same payload the on-screen list uses, and
+        // clear `loading` so a concurrent AppHeader mount fetch (which sets
+        // loading:true on dispatch) is reset.
+        useBuildsCountStore.setState({
+          count: res.length,
+          loading: false,
+          error: null,
+        });
       })
       .catch((e) => {
         if (cancelled) return;
@@ -100,21 +111,55 @@ export function MenuScreen() {
   const handleNewBuild = useCallback(() => {
     clearProfile();
     resetInputs();
+    useBuildStore.getState().resetBuild();
     navigate("/profile");
   }, [clearProfile, navigate, resetInputs]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const handleEnterSelect = useCallback(() => {
     if (builds.length < 2) return;
     setMode("select");
     setSelectedIds([]);
-  }, [builds.length]);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("select", "1");
+      return next;
+    }, { replace: true });
+  }, [builds.length, setSearchParams]);
 
   const handleCancelSelect = useCallback(() => {
     setMode("list");
     setSelectedIds([]);
-  }, []);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("select");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
-  const [, setSearchParams] = useSearchParams();
+  // Auto-enter select mode when AppHeader's Compare button drops us at
+  // /builds?select=1, so the user only has to pick which builds to compare.
+  useEffect(() => {
+    if (searchParams.get("select") !== "1") return;
+    if (builds.length < 2) return;
+    if (mode !== "list") return;
+    setMode("select");
+    setSelectedIds([]);
+  }, [searchParams, builds.length, mode]);
+
+  // Reset to plain list when AppHeader's My Builds icon drops us back at
+  // /builds with no query — without this, lingering select/compare mode
+  // keeps the selection dots or the compare view alive.
+  useEffect(() => {
+    const isCompareView = searchParams.get("view") === "compare";
+    const isSelectMode = searchParams.get("select") === "1";
+    if (isCompareView || isSelectMode) return;
+    if (mode === "list") return;
+    setMode("list");
+    setSelectedIds([]);
+    setCompareIds([]);
+  }, [searchParams, mode]);
 
   const handleCompareGo = useCallback(() => {
     if (selectedIds.length < 2 || selectedIds.length > 4) return;
@@ -133,8 +178,16 @@ export function MenuScreen() {
   const handleDeleteBuild = useCallback(async (buildId: string) => {
     try {
       await deleteBuild(buildId);
-      setBuilds((prev) => prev.filter((b) => b.build_id !== buildId));
+      setBuilds((prev) => {
+        const next = prev.filter((b) => b.build_id !== buildId);
+        // Optimistic count update — keep the badge in lockstep with the
+        // on-screen list. refresh() below provides eventual-consistency
+        // safety in case the backend disagrees.
+        useBuildsCountStore.setState({ count: next.length, error: null });
+        return next;
+      });
       setSelectedIds((prev) => prev.filter((id) => id !== buildId));
+      useBuildsCountStore.getState().refresh();
     } catch (e) {
       setListError(e instanceof Error ? e.message : "Couldn't delete build.");
     }
@@ -177,24 +230,24 @@ export function MenuScreen() {
             >
             <header className="flex flex-col gap-2">
               <p className="font-data text-micro uppercase tracking-[2px] text-text-muted">
-                Your builds
+                {t("menu.kicker")}
               </p>
               <h1 className="font-display text-display text-text-primary">
-                Saved Builds
+                {mode === "select" ? t("menu.headingCompare") : t("menu.headingView")}
               </h1>
               <p className="font-body text-body text-text-secondary">
-                Compare your futures, ask Gemma, or start a new build.
+                {t("menu.subtitle")}
               </p>
             </header>
 
             <section
               data-testid="region-saved-builds"
-              aria-label="Your saved builds"
+              aria-label={t("menu.savedAria")}
               className="flex flex-col gap-3"
             >
               {loadingList && (
                 <p className="font-body text-body text-text-muted">
-                  Loading your builds…
+                  {t("menu.loadingBuilds")}
                 </p>
               )}
               {!loadingList && listError && (
@@ -203,21 +256,21 @@ export function MenuScreen() {
               {!loadingList && !listError && builds.length === 0 && (
                 <div className="flex flex-col items-center gap-4 py-12 text-center">
                   <p className="font-display text-heading text-text-primary">
-                    No builds yet.
+                    {t("menu.emptyTitle")}
                   </p>
                   <p className="font-body text-body text-text-secondary">
-                    Start your first one to see it here.
+                    {t("menu.emptyDescription")}
                   </p>
                   <div className="flex flex-col tablet:flex-row items-center gap-3">
                     <Button variant="primary" onClick={handleNewBuild} data-testid="btn-new-build">
-                      Start your first build
+                      {t("menu.startFirstBuild")}
                     </Button>
                     <Button
                       variant="secondary"
                       onClick={handleNewBuild}
                       data-testid="btn-new-build-set-course"
                     >
-                      Try the new flow ✦
+                      {t("menu.tryNewFlow")}
                     </Button>
                   </div>
                 </div>
@@ -251,7 +304,7 @@ export function MenuScreen() {
                       />
                       {navigatingId === build.build_id && (
                         <p className="px-5 mt-1 font-body text-micro text-text-muted">
-                          Loading build…
+                          {t("menu.loadingBuild")}
                         </p>
                       )}
                     </motion.div>
@@ -262,7 +315,7 @@ export function MenuScreen() {
 
             {builds.length > 0 && (
               <section
-                aria-label="Build actions"
+                aria-label={t("menu.actionsAria")}
                 className="flex flex-col tablet:flex-row gap-3 tablet:items-center tablet:justify-between"
               >
                 <div className="flex flex-wrap items-center gap-3">
@@ -271,14 +324,14 @@ export function MenuScreen() {
                     onClick={handleNewBuild}
                     data-testid="btn-new-build"
                   >
-                    New Build ✦
+                    {t("menu.newBuild")}
                   </Button>
                   <Button
                     variant="secondary"
                     onClick={handleNewBuild}
                     data-testid="btn-new-build-set-course"
                   >
-                    Try the new flow ✦
+                    {t("menu.tryNewFlow")}
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -290,10 +343,10 @@ export function MenuScreen() {
                         disabled={selectedIds.length < 2 || selectedIds.length > 4}
                         data-testid="btn-compare"
                       >
-                        Compare {selectedIds.length}/4
+                        {t("menu.compareCount").replace("{count}", String(selectedIds.length))}
                       </Button>
                       <Button variant="ghost" onClick={handleCancelSelect}>
-                        Cancel
+                        {t("menu.cancel")}
                       </Button>
                     </>
                   ) : (
@@ -304,14 +357,14 @@ export function MenuScreen() {
                         disabled={builds.length < 2}
                         data-testid="btn-enter-compare"
                       >
-                        Compare Builds
+                        {t("menu.compareBuilds")}
                       </Button>
                       <Button
                         variant="secondary"
                         onClick={handleAskGemma}
                         data-testid="btn-ask-gemma"
                       >
-                        Ask Gemma
+                        {t("menu.askGemma")}
                       </Button>
                     </>
                   )}

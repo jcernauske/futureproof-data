@@ -51,6 +51,7 @@ interface ProfileResponse {
 const LANGUAGE_SEGMENTS: Segment<AppLocale>[] = [
   { value: "en", label: "English" },
   { value: "es", label: "Español" },
+  { value: "ar", label: "العربية" },
 ];
 
 const staggerContainer = {
@@ -184,7 +185,12 @@ export function ProfileScreen() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ ...springs.bouncy, delay: 0.5 }}
               >
-                {localizeProfileName(profileName, locale)}
+                {/* dir="auto" lets the browser resolve direction from
+                    the localized name's first strong character — Latin
+                    name → ltr (escapes the .font-display Arabic remap
+                    in index.css), Arabic name → rtl (correctly uses
+                    Noto Naskh Arabic). */}
+                <bdi dir="auto">{localizeProfileName(profileName, locale)}</bdi>
               </motion.h1>
             </motion.div>
           </AnimatePresence>
@@ -235,7 +241,13 @@ export function ProfileScreen() {
             value={locale}
             onChange={setLocale}
             activeColor="bg-accent-info"
-            ariaLabel={locale === "es" ? "Elegir idioma" : "Choose language"}
+            ariaLabel={
+              locale === "es"
+                ? "Elegir idioma"
+                : locale === "ar"
+                  ? "اختر اللغة"
+                  : "Choose language"
+            }
           />
         </motion.div>
 

@@ -22,6 +22,7 @@ import { MemoryRouter } from "react-router-dom";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
+import { useBuildsCountStore } from "@/store/buildsCountStore";
 import type { Build, BossFightResult, CareerOutcome } from "@/types/build";
 
 // ---------------------------------------------------------------------------
@@ -47,13 +48,20 @@ vi.mock("@/api/gauntlet", () => ({
 // Ask Gemma — patch the askGemma client at the module boundary so we
 // can assert which scope payload reaches the API when the user clicks
 // each entry point. Other @/api/menu exports remain real.
+//
+// `listBuilds` is also mocked here because `useBuildsCountStore.refresh()`
+// fires after a successful create — see the "refreshes builds count after
+// successful createBuild" test below. Defaulting to a 1-build array lets
+// the existing tests continue to ignore it; only the dedicated test asserts.
 const mockAskGemma = vi.fn();
+const mockListBuilds = vi.fn().mockResolvedValue([]);
 vi.mock("@/api/menu", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
   return {
     ...actual,
     askGemma: (...args: unknown[]) => mockAskGemma(...args),
+    listBuilds: (...args: unknown[]) => mockListBuilds(...args),
   };
 });
 
@@ -259,6 +267,9 @@ beforeEach(() => {
   mockCreateBuild.mockReset();
   mockRerollFight.mockReset();
   mockAskGemma.mockReset();
+  mockListBuilds.mockReset();
+  mockListBuilds.mockResolvedValue([]);
+  useBuildsCountStore.setState({ count: null, loading: false, error: null });
   sessionStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
@@ -1179,5 +1190,89 @@ describe("BuildResultsScreen -- skips build when already loaded", () => {
     // When the build is already present in the store on mount, the component
     // should NOT call createBuild. The useEffect checks `!build && !isBuilding`.
     expect(mockCreateBuild).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// Header builds-count invalidation (P1)
+// docs/specs/feature-header-persistent-actions.md §4 New Tests Required.
+// Confirms that the createBuild fallback path fires
+// useBuildsCountStore.refresh() so the AppHeader badge ticks up the moment
+// a fresh build commits to the store.
+// ===========================================================================
+
+describe("BuildResultsScreen -- builds-count invalidation (P1)", () => {
+  it("refreshes builds count after successful createBuild", async () => {
+    seedReady();
+
+    // Note: createBuildStream is NOT mocked, so the production path will
+    // throw inside createBuildStream's fetch and fall back to createBuild
+    // — exactly the path that other tests in this file already exercise.
+    // The refresh() call lives at the same line as the fallback's commit
+    // (BuildResultsScreen.tsx:242), so this asserts the production hook.
+    mockListBuilds.mockResolvedValue([
+      { build_id: "a" },
+      { build_id: "b" },
+      { build_id: "c" },
+      { build_id: "d" },
+    ]);
+    mockCreateBuild.mockResolvedValue(makeBuild());
+
+    // Confirm starting state: count is null, listBuilds has not been called.
+    expect(useBuildsCountStore.getState().count).toBeNull();
+    expect(mockListBuilds).not.toHaveBeenCalled();
+
+    renderScreen();
+
+    // Drive the minDisplayTime timer + flush the createBuild promise.
+    await waitFor(() => {
+      expect(mockCreateBuild).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    // The store's count must reflect the freshly fetched listBuilds payload.
+    // This proves refresh() ran end-to-end after createBuild resolved —
+    // not just that some unrelated thing called listBuilds.
+    await waitFor(() => {
+      expect(useBuildsCountStore.getState().count).toBe(4);
+    });
+    expect(mockListBuilds).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT refresh builds count when createBuild fails", async () => {
+    seedReady();
+    mockCreateBuild.mockRejectedValue(new Error("boom"));
+
+    renderScreen();
+
+    // Wait for the failure to surface so we know the runBuild effect ran
+    // through.
+    await waitFor(() => {
+      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    });
+
+    // listBuilds must not have been called — the refresh() is gated on
+    // a successful create.
+    expect(mockListBuilds).not.toHaveBeenCalled();
+    expect(useBuildsCountStore.getState().count).toBeNull();
+  });
+});
+
+describe("BuildResultsScreen -- Compare schools sheet trigger (P0)", () => {
+  it("renders_compare_schools_trigger -- single trigger opens the in-sheet filterable leaderboard", () => {
+    seedWithBuild();
+    renderScreen();
+
+    // The host wrapper sits between Verdict and Save per
+    // feature-compare-schools-for-career.md §3 (post-product-pivot).
+    expect(screen.getByTestId("compare-schools-host")).toBeInTheDocument();
+
+    // Single sheet trigger; mode is filterable inside the sheet.
+    expect(screen.getByTestId("btn-compare-schools")).toBeInTheDocument();
+
+    // Sheet is not mounted until clicked.
+    expect(screen.queryByTestId("panel-compare-schools")).toBeNull();
   });
 });

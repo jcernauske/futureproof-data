@@ -4,6 +4,23 @@ import { BOSS_METADATA, BOSS_ORDER, getVerdictColor } from "@/data/bossMetadata"
 import { Button } from "@/components/ui/Button";
 import type { GauntletResult, AppliedSkill, BossOutcome } from "@/types/build";
 import { useState } from "react";
+import { useT } from "@/i18n/useT";
+
+// `gauntlet.verdict` may be either:
+//   - an i18n key emitted by the frontend reroll path (deriveVerdict in
+//     GauntletScreen); or
+//   - an English string emitted by the backend (boss_fights._final_verdict).
+// When it's a key we translate; otherwise we display as-is so backend-
+// originated English verdicts still render until the backend speaks keys.
+function renderVerdict(verdict: string, t: (k: string) => string): string {
+  if (verdict.startsWith("gauntlet.verdict.")) {
+    const translated = t(verdict);
+    // getString returns the raw key when the lookup fails — fall back to
+    // a sensible English string in that case so we never show a key path.
+    return translated === verdict ? "" : translated;
+  }
+  return verdict;
+}
 
 interface FinalBossProps {
   gauntlet: GauntletResult;
@@ -19,13 +36,15 @@ const RESULT_PILL: Record<BossOutcome, { label: string; cls: string }> = {
 };
 
 export function FinalBoss({ gauntlet, skillsCrafted, onNextSteps }: FinalBossProps) {
-  const verdictColor = getVerdictColor(gauntlet.verdict);
+  const t = useT();
+  const verdictText = renderVerdict(gauntlet.verdict, t);
+  const verdictColor = getVerdictColor(verdictText || gauntlet.verdict);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
 
   return (
     <motion.article
       id="region-final-boss"
-      aria-label={`Fight the Future: ${gauntlet.verdict}`}
+      aria-label={`Fight the Future: ${verdictText || gauntlet.verdict}`}
       className="flex flex-col items-center text-center"
     >
       {/* Progress circles converge animation */}
@@ -83,7 +102,7 @@ export function FinalBoss({ gauntlet, skillsCrafted, onNextSteps }: FinalBossPro
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...springs.smooth, delay: 0.7 }}
       >
-        {gauntlet.verdict}
+        {verdictText || gauntlet.verdict}
       </motion.p>
 
       {/* Scorecard */}

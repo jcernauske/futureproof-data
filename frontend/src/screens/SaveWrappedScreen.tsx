@@ -57,7 +57,7 @@ export function SaveWrappedScreen() {
   // Navigation guard — must have a build
   useEffect(() => {
     if (!build) {
-      navigate("/reveal", { replace: true });
+      navigate("/my-build", { replace: true });
     }
   }, [build, navigate]);
 

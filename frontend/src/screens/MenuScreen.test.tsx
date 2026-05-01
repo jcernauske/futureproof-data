@@ -3,7 +3,7 @@
  *
  * Tests Screen 10 (post-build hub):
  * - Renders saved builds for the active profile (P0)
- * - Tap a build card → loads via getBuild → navigate to /reveal (P0)
+ * - Tap a build card → loads via getBuild → navigate to /my-build (P0)
  * - "New Build" → clearProfile() + resetInputs() + navigate to /profile (P1)
  * - "Compare Builds" disabled when fewer than 2 builds (P1)
  *
@@ -23,6 +23,7 @@ import { MenuScreen } from "./MenuScreen";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
+import { useBuildsCountStore } from "@/store/buildsCountStore";
 import type { BuildSummary } from "@/api/menu";
 import type { Build } from "@/types/build";
 
@@ -51,12 +52,14 @@ vi.mock("@/api/menu", async () => {
 });
 
 const mockGetBuild = vi.fn();
+const mockDeleteBuild = vi.fn();
 vi.mock("@/api/build", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/build")>("@/api/build");
   return {
     ...actual,
     getBuild: (...args: unknown[]) => mockGetBuild(...args),
+    deleteBuild: (...args: unknown[]) => mockDeleteBuild(...args),
   };
 });
 
@@ -167,6 +170,8 @@ beforeEach(() => {
   mockCompareInsights.mockReset();
   mockSendChat.mockReset();
   mockGetBuild.mockReset();
+  mockDeleteBuild.mockReset();
+  useBuildsCountStore.setState({ count: null, loading: false, error: null });
   // Sane defaults — individual tests can override.
   mockCompareBuilds.mockReturnValue(new Promise(() => {}));
   mockCompareInsights.mockReturnValue(new Promise(() => {}));
@@ -236,7 +241,7 @@ describe("MenuScreen", () => {
     });
   });
 
-  it("redirects to /app when no profile in store (saboteur: profile-less direct nav)", () => {
+  it("redirects to /set-your-course when no profile in store (saboteur: profile-less direct nav)", () => {
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -244,14 +249,14 @@ describe("MenuScreen", () => {
     });
     mockListBuilds.mockResolvedValue([]);
     renderScreen();
-    expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith("/set-your-course", { replace: true });
     // Must not fire the list query before the profile guard kicks the user out.
     expect(mockListBuilds).not.toHaveBeenCalled();
   });
 
   // --- P0: tap card loads build + navigates ---
 
-  it("tap build card → loads via getBuild → setBuild → navigate to /reveal (P0)", async () => {
+  it("tap build card → loads via getBuild → setBuild → navigate to /my-build (P0)", async () => {
     mockListBuilds.mockResolvedValue([makeSummary()]);
     mockGetBuild.mockResolvedValue(makeBuild());
 
@@ -283,7 +288,7 @@ describe("MenuScreen", () => {
       expect(screen.getByText("backend on fire")).toBeInTheDocument();
     });
     // Must NOT have navigated even though the user clicked a card.
-    expect(mockNavigate).not.toHaveBeenCalledWith("/reveal");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/my-build");
   });
 
   // --- P1: New Build clears inputs and navigates ---
@@ -420,5 +425,86 @@ describe("MenuScreen", () => {
     const cta = await screen.findByTestId("btn-new-build");
     fireEvent.click(cta);
     expect(mockNavigate).toHaveBeenCalledWith("/profile");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Header builds-count invalidation (P1)
+  // docs/specs/feature-header-persistent-actions.md §4 New Tests Required.
+  // The badge must update after a build is deleted from the hub. Production
+  // code calls useBuildsCountStore.refresh() in handleDeleteBuild after
+  // deleteBuild resolves; we observe that via a second listBuilds() call
+  // followed by the count store landing on the new server-truth value.
+  // ---------------------------------------------------------------------------
+
+  it("refreshes builds count after deleteBuild (P1)", async () => {
+    // First listBuilds populates the screen and seeds count=3 via the
+    // screen's load effect (MenuScreen.tsx:53).
+    mockListBuilds.mockResolvedValueOnce([
+      makeSummary({ build_id: "build-a", school_name: "School A" }),
+      makeSummary({ build_id: "build-b", school_name: "School B" }),
+      makeSummary({ build_id: "build-c", school_name: "School C" }),
+    ]);
+    // Second listBuilds — fired by useBuildsCountStore.refresh() after
+    // delete resolves — returns the 2 remaining builds. If refresh()
+    // never fires, this mock never resolves and the count stays at 3.
+    mockListBuilds.mockResolvedValueOnce([
+      { build_id: "build-a" },
+      { build_id: "build-c" },
+    ]);
+    mockDeleteBuild.mockResolvedValue(undefined);
+
+    renderScreen();
+
+    // Wait for the initial list to render and the count store to land on 3.
+    await screen.findByTestId("card-build-build-a");
+    await waitFor(() => {
+      expect(useBuildsCountStore.getState().count).toBe(3);
+    });
+    expect(mockListBuilds).toHaveBeenCalledTimes(1);
+
+    // Click the delete button on build-b.
+    fireEvent.click(screen.getByTestId("btn-delete-build-b"));
+
+    // The deleteBuild API must be called with the right id.
+    await waitFor(() => {
+      expect(mockDeleteBuild).toHaveBeenCalledWith("build-b");
+    });
+
+    // The store must end up at 2 — proving refresh() called listBuilds()
+    // a second time and committed the result. We assert on the final
+    // count rather than on the optimistic local list state because the
+    // count store is what AppHeader's badge actually reads.
+    await waitFor(() => {
+      expect(useBuildsCountStore.getState().count).toBe(2);
+    });
+    expect(mockListBuilds).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves builds count when deleteBuild fails (P1)", async () => {
+    mockListBuilds.mockResolvedValueOnce([
+      makeSummary({ build_id: "build-a", school_name: "School A" }),
+      makeSummary({ build_id: "build-b", school_name: "School B" }),
+    ]);
+    mockDeleteBuild.mockRejectedValue(new Error("backend on fire"));
+
+    renderScreen();
+
+    await screen.findByTestId("card-build-build-a");
+    await waitFor(() => {
+      expect(useBuildsCountStore.getState().count).toBe(2);
+    });
+    const initialCallCount = mockListBuilds.mock.calls.length;
+
+    fireEvent.click(screen.getByTestId("btn-delete-build-b"));
+
+    // Wait for the failure to surface so we know handleDeleteBuild ran.
+    await waitFor(() => {
+      expect(screen.getByText("backend on fire")).toBeInTheDocument();
+    });
+
+    // Count must not have changed; refresh() must not have fired (it sits
+    // inside the try-block after deleteBuild resolves successfully).
+    expect(useBuildsCountStore.getState().count).toBe(2);
+    expect(mockListBuilds).toHaveBeenCalledTimes(initialCallCount);
   });
 });

@@ -9,6 +9,8 @@ import { SkillStatBadge } from "./SkillStatBadge";
 import { NarrativeTimeline } from "./NarrativeTimeline";
 import type { NarrativeEntry } from "./NarrativeTimeline";
 import { useT } from "@/i18n/useT";
+import { useProfileStore } from "@/store/profileStore";
+import { localizeProfileName } from "@/i18n/profileName";
 
 const MAX_REROLLS = 3;
 const RESULT_WORD_KEYS: Record<BossOutcome, string> = {
@@ -99,7 +101,10 @@ export function BossBand({
   chatOpen = false,
 }: BossBandProps) {
   const t = useT();
+  const locale = useProfileStore((s) => s.locale);
+  const localizedPlayerName = localizeProfileName(playerName, locale);
   const boss = BOSS_META[fight.boss];
+  const localizedBossName = t(boss.shortNameKey);
   const [localResult, setLocalResult] = useState<BossOutcome>(fight.result);
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
   const [isRescoring, setIsRescoring] = useState(false);
@@ -121,7 +126,7 @@ export function BossBand({
   const availableSkills = skillPool.filter((s) => s.targets.includes(fight.boss));
   const canReroll = localResult !== "win" && availableSkills.length > 0 && rerollCount < MAX_REROLLS;
   const resultColors = RESULT_COLORS[localResult] ?? RESULT_COLORS.unknown;
-  const firstName = playerName.split(" ")[0] ?? playerName;
+  const firstName = localizedPlayerName.split(" ")[0] ?? localizedPlayerName;
 
   // Only reset when a completely different fight mounts (boss change),
   // NOT when the parent updates fight props from a reroll — we manage
@@ -296,7 +301,7 @@ export function BossBand({
       data-result={localResult}
       data-rescored={rescored ? "true" : undefined}
       role="region"
-      aria-label={`${boss.shortName}: ${t(RESULT_WORD_KEYS[localResult])}`}
+      aria-label={`${localizedBossName}: ${t(RESULT_WORD_KEYS[localResult])}`}
     >
       {/* Dual edge stripes */}
       {isRevealed && (
@@ -335,7 +340,7 @@ export function BossBand({
         playerEmoji={playerEmoji}
         playerName={firstName}
         bossEmoji={boss.emoji}
-        bossShortName={boss.shortName}
+        bossShortName={localizedBossName}
         bossId={fight.boss}
         isActive={isVsActive}
         isDone={isVsDone}
@@ -366,7 +371,7 @@ export function BossBand({
 
           <div className="flex-1 min-w-0">
             <div className="font-display font-semibold" style={{ fontSize: 20, color: boss.color }}>
-              {firstName} vs. {boss.shortName}
+              <bdi>{firstName}</bdi> {t("build.bossBand.vs")} <bdi>{localizedBossName}</bdi>
             </div>
             <div className="font-body text-text-muted" style={{ fontSize: 14, marginTop: 2 }}>
               {t(boss.subtitleKey)}
@@ -439,7 +444,7 @@ export function BossBand({
         ) : (
           <div
             data-testid={`boss-narrative-loading-${fight.boss}`}
-            aria-label={`Loading analysis for ${boss.shortName}`}
+            aria-label={t("build.bossBand.loadingAnalysisAria").replace("{bossName}", localizedBossName)}
             className="mt-3"
             style={{ padding: "12px 0" }}
           >

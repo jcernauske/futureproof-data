@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
 import { springs } from "@/styles/motion";
+import { useProfileStore } from "@/store/profileStore";
+import { localizeProfileName } from "@/i18n/profileName";
 
 interface SaveConfirmationProps {
   profileName: string;
@@ -20,6 +22,8 @@ export function SaveConfirmation({
   draws,
   losses,
 }: SaveConfirmationProps) {
+  const locale = useProfileStore((s) => s.locale);
+  const displayName = localizeProfileName(profileName, locale);
   return (
     <div
       role="status"
@@ -95,7 +99,7 @@ export function SaveConfirmation({
           transition={{ delay: 0.7 }}
           className="text-body text-text-secondary"
         >
-          {profileName || "Anonymous"} · {schoolName} · {careerTitle}
+          <bdi>{displayName || "Anonymous"}</bdi> · {schoolName} · {careerTitle}
         </motion.p>
 
         <motion.div

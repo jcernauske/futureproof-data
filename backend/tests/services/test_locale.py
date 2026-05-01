@@ -26,6 +26,9 @@ class TestNormalizeLocale:
     def test_es_returns_es(self):
         assert normalize_locale("es") == "es"
 
+    def test_ar_returns_ar(self):
+        assert normalize_locale("ar") == "ar"
+
     def test_en_returns_en(self):
         assert normalize_locale("en") == "en"
 
@@ -44,6 +47,10 @@ class TestNormalizeLocale:
     def test_es_uppercase_returns_en(self):
         """Only exact 'es' matches — uppercase is rejected."""
         assert normalize_locale("ES") == "en"
+
+    def test_ar_uppercase_returns_en(self):
+        """Only exact 'ar' matches — uppercase is rejected."""
+        assert normalize_locale("AR") == "en"
 
     def test_boolean_returns_en(self):
         assert normalize_locale(True) == "en"
@@ -119,6 +126,45 @@ class TestGemmaLanguageInstruction:
         assert en != es
         assert len(es) > len(en)  # Spanish has glossary, JSON rules
 
+    def test_arabic_includes_glossary(self):
+        inst = gemma_language_instruction("ar")
+        assert "الديون الطلابية" in inst
+        assert "المسارات المهنية" in inst
+        assert "آفاق التوظيف" in inst
+        assert "التعرض للذكاء الاصطناعي" in inst
+
+    def test_arabic_includes_prose_directive(self):
+        inst = gemma_language_instruction("ar")
+        assert "Modern Standard Arabic" in inst
+
+    def test_arabic_includes_preservation_rules(self):
+        inst = gemma_language_instruction("ar")
+        for phrase in [
+            "official school names",
+            "occupation titles",
+            "BLS",
+            "O*NET",
+            "IPEDS",
+            "BEA",
+            "College Scorecard",
+            "dollar amounts",
+            "percentages",
+        ]:
+            assert phrase in inst, f"Arabic instruction missing {phrase!r}"
+
+    def test_arabic_specifies_western_numerals(self):
+        """Western Arabic numerals are required so $ and % match the rest of
+        the app and the underlying data."""
+        inst = gemma_language_instruction("ar")
+        assert "Western Arabic numerals" in inst
+
+    def test_arabic_does_not_substitute_english(self):
+        en = gemma_language_instruction("en")
+        ar = gemma_language_instruction("ar")
+        assert en != ar
+        assert "Spanish" not in ar
+        assert "deuda estudiantil" not in ar
+
 
 # ---------------------------------------------------------------------------
 # fallback_text
@@ -166,10 +212,18 @@ class TestFallbackText:
             "chat_unavailable",
         ],
     )
-    def test_all_keys_have_both_locales(self, key: str):
-        """Every registered fallback key must have both en and es entries."""
+    def test_all_keys_have_all_locales(self, key: str):
+        """Every registered fallback key must have en, es, and ar entries."""
         en = fallback_text(key, "en")
         es = fallback_text(key, "es")
+        ar = fallback_text(key, "ar")
         assert en, f"key {key!r} missing English fallback"
         assert es, f"key {key!r} missing Spanish fallback"
+        assert ar, f"key {key!r} missing Arabic fallback"
         assert en != es, f"key {key!r} has identical en/es — probably not translated"
+        assert en != ar, f"key {key!r} has identical en/ar — probably not translated"
+        assert es != ar, f"key {key!r} has identical es/ar — probably not translated"
+
+    def test_gemma_unreachable_arabic(self):
+        text = fallback_text("gemma_unreachable", "ar")
+        assert "Gemma" in text  # brand name preserved

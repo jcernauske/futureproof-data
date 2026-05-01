@@ -6,6 +6,7 @@ will consume the same shapes verbatim once routers are wired up.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -330,7 +331,7 @@ class IntentResult(BaseModel):
     audit_flag: str | None = None
     audit_message: str | None = None
     needs_clarification: bool = False
-    alternatives: list[dict] | None = None
+    alternatives: list[dict[str, object]] | None = None
     parent_cip: str = ""
     # Student-named sub-specialty (e.g. "Deaf Education") that the chip-
     # routing prompt verified is inside the resolved 4-digit CIP. Carried
@@ -357,3 +358,76 @@ class ProfileLookupResult(BaseModel):
     animal_name: str | None = None
     builds: list[BuildSummary] = Field(default_factory=list)
     suggestion: str | None = None
+
+
+# Peer-school leaderboard (feature-compare-schools-for-career.md).
+# Dual-mode comparison: by_soc (all schools producing a SOC) or
+# by_cip_and_soc (schools with this CIP that produce this SOC).
+
+LeaderboardMode = Literal["by_soc", "by_cip_and_soc"]
+ConfidenceTier = Literal["high", "medium", "low"]
+LeaderboardMatchQuality = Literal[
+    "full",
+    "partial_no_onet",
+    "partial_no_bls",
+    "scorecard_only",
+    # Synthetic anchor row computed at request time when the build's
+    # (unitid, cipcode, soc_code) has no PCP row. Stats come from the
+    # build engine's CIP-substitution path; rank is counted against the
+    # same filtered universe the rest of the rows came from.
+    "estimated",
+]
+
+
+class AnchorBuild(BaseModel):
+    unitid: int
+    cipcode: str  # XX.XXXX, never float
+
+
+class SchoolForCareerRow(BaseModel):
+    rank: int
+    unitid: int
+    institution_name: str
+    institution_control: str | None = None
+    state_abbr: str | None = None
+    cipcode: str
+    program_name: str
+    soc_code: str
+    occupation_title: str
+    stat_ern: int | None = None
+    stat_roi: int | None = None
+    earnings_1yr_median: float | None = None
+    net_price_annual: float | None = None
+    cost_of_attendance_annual: float | None = None
+    tuition_in_state: float | None = None
+    tuition_out_of_state: float | None = None
+    overall_confidence: ConfidenceTier
+    # Open-typed: upstream `consumable.career_outcomes` reserves the right
+    # to add tiers without a schema change. Frontend treats unknown values
+    # as 'low'.
+    confidence_tier_program: str | None = None
+    match_quality: LeaderboardMatchQuality
+    is_anchor: bool = False
+
+
+class SchoolsForCareerResponse(BaseModel):
+    mode: LeaderboardMode
+    soc_code: str
+    occupation_title: str
+    cipcode: str | None = None
+    program_name: str | None = None
+    rows: list[SchoolForCareerRow]
+    anchor_in_top_n: bool
+    # Count of RANKABLE rows for this anchor — pass the confidence filter
+    # AND have both stat_ern and stat_roi non-null so the composite formula
+    # yields a value. Frontend uses this for "ranked among N programs".
+    total_qualifying_programs: int
+    # Set when the caller passed anchor stats AND the (unitid, cipcode)
+    # has no PCP row in the filtered universe. Lets the frontend render
+    # a synthetic anchor row using build-time stats with the rank counted
+    # against `total_qualifying_programs`.
+    anchor_estimated_rank: int | None = None
+    confidence_filter_applied: ConfidenceTier
+    state_filter_applied: str | None = None
+    min_program_confidence_applied: ConfidenceTier
+    generated_at: datetime

@@ -1189,3 +1189,112 @@ Non-goals for hackathon:
 - Freeform runtime translation of every UI string.
 - Translating canonical database values in-place.
 - Multimodal school-logo recognition.
+
+---
+
+## §12 Arabic Extension (added 2026-04-30)
+
+This section documents the third locale layered onto the EN/ES architecture above. **It is an extension, not a separate spec** — the architecture, prompt contract, JSON-key preservation rule, fallback registry, and locale plumbing all carry forward unchanged. The decision to add Arabic is documented in `docs/language-support-decision-report.md` (Arabic is the most common non-Spanish home language among U.S. public-school English learners per NCES fall 2021 EDFacts).
+
+### Why this isn't a full spec rebuild
+
+The EN/ES pipeline is the contract. Adding Arabic is:
+
+1. Widening one Literal type on each side (`Literal["en", "es"]` → `Literal["en", "es", "ar"]`).
+2. Adding one prompt block (`_AR_INSTRUCTION`) and 6 fallback strings.
+3. Translating the existing `STRINGS.en` keys into `STRINGS.ar`.
+4. Adding RTL handling — the only architecturally novel piece.
+
+There is no new screen, no new API, no new Gemma function call, no new data flow, no new pydantic model. The architecture review and design vision from §5 still hold.
+
+### What's shipped
+
+| File | Change |
+|------|--------|
+| `frontend/src/i18n/locales.ts` | Widened `AppLocale` to `"en" \| "es" \| "ar"`. Added `isRtlLocale()` and `localeDirection()` helpers. |
+| `frontend/src/i18n/locales.test.ts` | 17 tests (was 9): Arabic normalization, RTL helpers, direction mapping. |
+| `frontend/src/i18n/strings.ts` | Populated the previously-empty `ar:` block with 262 translated keys. Also closed the pre-existing parity gap by translating `compareSchools.*` into Spanish (was English-fallthrough). |
+| `frontend/src/i18n/strings.test.ts` | Arabic getString tests, brand/acronym preservation check (Gemma stays Latin script, SOC/CIP stay Latin script inside Arabic strings). |
+| `frontend/src/i18n/useDocumentLocale.ts` | New hook — syncs locale to `document.documentElement.lang` and `dir`. |
+| `frontend/src/App.tsx` | Mounts `useDocumentLocale()` once at the AppRoutes root. |
+| `frontend/src/index.css` | Imports Cairo + Noto Naskh Arabic. Adds `html[dir="rtl"] body` font stack and `[data-bdi]` LTR-isolation utility for canonical English content inside Arabic prose. |
+| `frontend/src/screens/ProfileScreen.tsx` | Adds `العربية` to the `LANGUAGE_SEGMENTS` segmented control. ARIA label switches to Arabic when locale is `ar`. |
+| `backend/app/services/locale.py` | Widened `AppLocale` Literal. New `_AR_INSTRUCTION` block (Modern Standard Arabic, glossary of 14 product terms, Western-Arabic-numeral rule, Latin-script preservation rule for school names / occupation titles / source acronyms / dollar amounts / percentages / codes / JSON keys). Added `ar` entries to all six `_FALLBACKS` keys. |
+| `backend/tests/services/test_locale.py` | 40 tests (was 27): Arabic normalize_locale, Arabic instruction content, Arabic fallback parity. |
+
+### Arabic-specific Gemma prompt rules
+
+Beyond the EN/ES contract, the Arabic prompt enforces:
+
+1. **Modern Standard Arabic (الفصحى)** — not dialect. Schools and labor-market language belongs in MSA.
+2. **Latin script preserved for canonical fields** — school names, occupation titles, source acronyms (BLS, O*NET, IPEDS, BEA, College Scorecard), program names, JSON keys, and enum values are NOT transliterated. Indiana University is rendered as "Indiana University" inside Arabic prose, not as "إنديانا يونيفرسيتي".
+3. **Western Arabic numerals (0-9), not Eastern Arabic numerals (٠-٩)** — for dollars, percentages, years, and codes. This matches the rest of the app and the underlying data, and it avoids encoding fragility on cross-system copy/paste.
+4. **JSON keys and enum values stay English** — same rule as Spanish. Free-text prose fields (`reasoning`, `rationale`, `message`, `narrowing_hint`, `why`) are the only places Arabic appears in structured Gemma output.
+
+### Arabic glossary (the 14 product terms Gemma is bound to)
+
+| English | Arabic |
+|---|---|
+| student debt | الديون الطلابية |
+| career paths | المسارات المهنية |
+| job outlook | آفاق التوظيف |
+| AI exposure | التعرض للذكاء الاصطناعي |
+| human edge | الميزة الإنسانية |
+| data is estimated | البيانات تقديرية |
+| salary | الراتب |
+| median salary | الراتب الوسيط |
+| student loan | القرض الطلابي |
+| guidance counselor | المرشد الأكاديمي |
+| debt-to-income | نسبة الدين إلى الدخل |
+| next steps | الخطوات التالية |
+| cost of attendance | تكلفة الدراسة |
+| purchasing power | القوة الشرائية |
+
+### RTL strategy
+
+| Concern | Approach |
+|---|---|
+| Document direction | `useDocumentLocale` hook sets `<html lang="ar" dir="rtl">` reactively when locale flips. Browser flexbox + grid honor `dir`, so `flex-row` and `grid-cols-*` mirror automatically. |
+| Typography | Cairo (body weight, Nunito-equivalent) + Noto Naskh Arabic (display weight, Fredoka-equivalent), loaded alongside the Latin stack so canonical Latin content renders in its own font. |
+| Bidirectional content | `[data-bdi]` utility forces `unicode-bidi: isolate; direction: ltr` for inline Latin runs (school names, $ amounts, codes) inside Arabic paragraphs. Apply on the spans wrapping canonical fields. |
+| Tailwind directional classes | Tailwind 3.4 supports `rtl:` and logical properties (`ms-*`, `me-*`, `ps-*`, `pe-*`, `start-*`, `end-*`, `text-start`, `text-end`). Use the `rtl:` variant where existing physical classes (`mr-*`, `ml-*`, `pr-*`, `pl-*`, `text-left`, `text-right`) cause asymmetry on the demo path. |
+| Arrows / chevrons | The arrow glyphs in user-facing strings (`→`, `←`) are pre-flipped in the Arabic translations — buttons that say "Continue →" in English say "متابعة ←" in Arabic. |
+| Number direction | Western Arabic numerals (0-9) are LTR even inside RTL paragraphs; Unicode bidi handles this correctly without intervention. |
+
+### Known gaps (pre-existing — not introduced by Arabic)
+
+These predate Arabic — they affect Spanish today the same way. Listed here so the next chrome-extraction pass has a target list:
+
+- `frontend/src/components/CareerDetail.tsx` — financial-line labels ("In-state tuition", "Out-of-state tuition", "Room & board", source attribution lines) hardcoded in JSX.
+- `frontend/src/components/GemmaTake.tsx` — "Generated by Gemma 4 based on:" plus its bullet list ("Pentagon stat profile", "Boss fight outcomes", "Career branch data", "Program-specific earnings").
+- `frontend/src/components/horizon/HorizonFooter.tsx` — "Built with Gemma 4".
+- `frontend/src/components/CareerLineageSheet.tsx` — "Ask another question."
+- `frontend/src/components/gauntlet/BossFightCard.tsx` — debug rows ("Raw score", "Win threshold", "Reason", "Original result") — likely dev-mode only, but worth confirming.
+
+In all cases the `getString` fallback chain (`STRINGS[locale][key] ?? STRINGS.en[key] ?? key`) means these render in English in any locale. Adding Arabic does not make this worse; it inherits the same gap.
+
+### Demo-path test (REQUIRED before claiming Arabic support)
+
+Per the decision report: do not claim Arabic support without manually walking the full golden path in `?locale=ar` (or by selecting `العربية` on the Profile screen). Watch for:
+
+- Layout asymmetry — anything visibly off-axis vs the EN layout
+- Untranslated strings — fallthroughs to English (these are the gaps above)
+- Truncation / line-wrap issues — Arabic letters can be wider than their Latin equivalents at the same font size
+- Gemma prose — verify Modern Standard Arabic (not dialect), verify school names and $ amounts stay Latin script, verify Western numerals
+- Stat pentagon / horizon strip / branch tree — these are SVG-based and don't auto-flip with `dir`. Check label positioning.
+- Mixed-content paragraphs — verify `[data-bdi]` is applied where Latin content appears mid-Arabic-sentence
+
+### Submission framing (per decision report)
+
+Once the demo-path test passes:
+
+> FutureProof supports English, Spanish, and Arabic across the student-facing app and Gemma-generated guidance, while preserving official school names, occupation titles, source acronyms, dollar amounts, percentages, and structured data fields.
+
+Until the demo-path test passes:
+
+> FutureProof currently supports English and Spanish, and its language architecture is being extended to Arabic because Arabic is the most common non-Spanish home language among U.S. public school English learners.
+
+Avoid:
+
+- "FutureProof supports 140 languages."
+- "Arabic support is complete" without the manual demo-path test.

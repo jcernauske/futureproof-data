@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap");
 @import "./styles/tokens.css";
 
 @tailwind base;
@@ -21,6 +22,31 @@
     line-height: var(--leading-normal);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Arabic typography. Cairo for body/Nunito-equivalent weight, Noto Naskh
+     for Fredoka-equivalent display tone. The Latin font stays in the stack
+     so school names, occupation titles, and acronyms (BLS, O*NET, IPEDS,
+     CIP, SOC, $, %) render in the original Latin script — required by the
+     Gemma Arabic prompt contract. */
+  html[dir="rtl"] body {
+    font-family: "Cairo", "Nunito", system-ui, -apple-system, sans-serif;
+  }
+  /* Scope to elements whose RESOLVED direction is RTL, not just any
+     descendant of <html dir="rtl">. This lets us mark a Latin-script
+     island (e.g., the FutureProof wordmark) with `dir="ltr"` and have
+     it keep its original Fredoka rendering instead of falling into the
+     Arabic display stack. */
+  html[dir="rtl"] .font-display:dir(rtl),
+  html[dir="rtl"] [class*="font-display"]:dir(rtl) {
+    font-family: "Noto Naskh Arabic", "Fredoka", "Cairo", serif;
+  }
+
+  /* Bidirectional isolation for inline canonical English content (school
+     names, occupation titles, $ amounts, codes) inside Arabic prose. */
+  html[dir="rtl"] [data-bdi] {
+    unicode-bidi: isolate;
+    direction: ltr;
   }
 }
 

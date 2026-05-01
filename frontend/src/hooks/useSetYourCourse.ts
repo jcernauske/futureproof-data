@@ -36,7 +36,7 @@ interface UseSetYourCourseApi {
   resolve: (majorText: string) => void;
   /** Dispatch one of the three correction chips. */
   onChip: (chipId: ChipId, clarifier?: string) => Promise<void>;
-  /** Commit the current resolution, write the log, navigate to /reveal. */
+  /** Commit the current resolution, write the log, navigate to /my-build. */
   commit: () => Promise<void>;
   /** Swap an alternative CIP into the primary position and refetch outcomes. */
   onPickAlternative: (index: number) => void;
@@ -510,8 +510,8 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
       });
 
       // Persist the committed CIP into the MajorSelection shape so
-      // downstream screens (RevealScreen) read the same fields they do
-      // from the old flow.
+      // downstream screens (BuildResultsScreen) read the same fields
+      // they do from the old flow.
       setMajor({
         cipCode: currentResolution.matched_cip,
         cipTitle: currentResolution.matched_title,

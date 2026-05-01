@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { BossRowArt, BranchTreeArt, PentagonArt } from "./HowItWorksCardArt";
+import { useT } from "@/i18n/useT";
 
 type CardArtKey = "pentagon" | "boss-row" | "branch-tree";
 const CARD_ART: Record<CardArtKey, () => ReactElement> = {
@@ -22,9 +23,9 @@ type CardTone = "thrive" | "alert" | "insight";
 
 interface CardSpec {
   identifier: string;
-  label: string;
-  heading: string;
-  body: string;
+  labelKey: string;
+  headingKey: string;
+  bodyKey: string;
   art: CardArtKey;
   tone: CardTone;
 }
@@ -32,31 +33,32 @@ interface CardSpec {
 const CARDS: CardSpec[] = [
   {
     identifier: "landing-how-stats-card",
-    label: "STATS",
-    heading: "You see the stats.",
-    body: "Five numbers, one to ten. Every stat has a tappable receipt. No vibes, no admissions-brochure gloss — just where the number came from.",
+    labelKey: "landing.howItWorks.statsLabel",
+    headingKey: "landing.howItWorks.statsHeading",
+    bodyKey: "landing.howItWorks.statsBody",
     art: "pentagon",
     tone: "thrive",
   },
   {
     identifier: "landing-how-gauntlet-card",
-    label: "GAUNTLET",
-    heading: "You fight the bosses.",
-    body: "Fight AI, Student Loans, the Market, Burnout, the Ceiling. Each boss is a real career threat, scored from real data. Lose one? Reroll with a skill, see what changes.",
+    labelKey: "landing.howItWorks.gauntletLabel",
+    headingKey: "landing.howItWorks.gauntletHeading",
+    bodyKey: "landing.howItWorks.gauntletBody",
     art: "boss-row",
     tone: "alert",
   },
   {
     identifier: "landing-how-branches-card",
-    label: "BRANCHES",
-    heading: "You see the branches.",
-    body: "A degree isn't one job — it's a starting position. Tap any career and the tree unfolds: the ten other careers your major actually leads to, with the stat deltas that come with each.",
+    labelKey: "landing.howItWorks.branchesLabel",
+    headingKey: "landing.howItWorks.branchesHeading",
+    bodyKey: "landing.howItWorks.branchesBody",
     art: "branch-tree",
     tone: "insight",
   },
 ];
 
 export function HowItWorksSection() {
+  const t = useT();
   return (
     <section
       id="landing-section-how"
@@ -68,10 +70,10 @@ export function HowItWorksSection() {
       />
       <div className="mx-auto max-w-[1280px]">
         <p className="font-data text-micro tracking-[0.2em] uppercase text-accent-info text-center mb-4">
-          How it works
+          {t("landing.howItWorks.kicker")}
         </p>
         <h2 className="font-display font-bold text-heading tablet:text-title text-text-primary text-center max-w-[720px] mx-auto mb-16 tablet:mb-20">
-          Three things happen when you spec a build.
+          {t("landing.howItWorks.heading")}
         </h2>
 
         <div className="grid grid-cols-1 desktop:grid-cols-3 gap-8 tablet:gap-10">
@@ -85,13 +87,13 @@ export function HowItWorksSection() {
               >
                 <Art />
                 <p className={`mt-6 font-data font-bold text-[11px] tracking-[2px] uppercase text-accent-${card.tone}`}>
-                  {card.label}
+                  {t(card.labelKey)}
                 </p>
                 <h3 className="mt-2 font-display font-semibold text-heading text-text-primary">
-                  {card.heading}
+                  {t(card.headingKey)}
                 </h3>
                 <p className="mt-3 font-body text-body text-text-secondary leading-normal">
-                  {card.body}
+                  {t(card.bodyKey)}
                 </p>
               </article>
             );

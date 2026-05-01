@@ -3,7 +3,10 @@ import type { BossId } from "@/types/build";
 export interface BossMeta {
   id: BossId;
   emoji: string;
+  /** English fallback. Prefer `shortNameKey` + `t(...)` for display. */
   shortName: string;
+  /** i18n key for the localized short name. */
+  shortNameKey: string;
   subtitle: string;
   subtitleKey: string;
   color: string;
@@ -15,6 +18,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     id: "ai",
     emoji: "\u{1F916}",
     shortName: "AI",
+    shortNameKey: "build.boss.ai.shortName",
     subtitle: "How safe is this career from automation?",
     subtitleKey: "build.boss.ai.subtitle",
     color: "var(--color-boss-ai)",
@@ -24,6 +28,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     id: "loans",
     emoji: "\u{1F4B8}",
     shortName: "Student Loans",
+    shortNameKey: "build.boss.loans.shortName",
     subtitle: "Can your earnings handle the debt?",
     subtitleKey: "build.boss.loans.subtitle",
     color: "var(--color-boss-loans)",
@@ -33,6 +38,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     id: "market",
     emoji: "\u{1F4C8}",
     shortName: "The Market",
+    shortNameKey: "build.boss.market.shortName",
     subtitle: "Is this field growing or shrinking?",
     subtitleKey: "build.boss.market.subtitle",
     color: "var(--color-boss-market)",
@@ -42,6 +48,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     id: "burnout",
     emoji: "\u{1F525}",
     shortName: "Burnout",
+    shortNameKey: "build.boss.burnout.shortName",
     subtitle: "How sustainable is this work long-term?",
     subtitleKey: "build.boss.burnout.subtitle",
     color: "var(--color-boss-burnout)",
@@ -51,6 +58,7 @@ export const BOSS_META: Record<BossId, BossMeta> = {
     id: "ceiling",
     emoji: "\u{1F4CA}",
     shortName: "The Ceiling",
+    shortNameKey: "build.boss.ceiling.shortName",
     subtitle: "How high can your earnings go?",
     subtitleKey: "build.boss.ceiling.subtitle",
     color: "var(--color-boss-ceiling)",

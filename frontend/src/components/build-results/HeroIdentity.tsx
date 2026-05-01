@@ -1,5 +1,7 @@
 import { EMOJI_BG } from "./bossData";
 import { useT } from "@/i18n/useT";
+import { useProfileStore } from "@/store/profileStore";
+import { localizeProfileName } from "@/i18n/profileName";
 
 interface HeroIdentityProps {
   profileName: string;
@@ -10,6 +12,8 @@ interface HeroIdentityProps {
 
 export function HeroIdentity({ profileName, animalEmoji, schoolName, programName }: HeroIdentityProps) {
   const t = useT();
+  const locale = useProfileStore((s) => s.locale);
+  const displayName = localizeProfileName(profileName, locale);
   const emojiBg = EMOJI_BG[animalEmoji] ?? "var(--color-accent-info)";
 
   return (
@@ -35,12 +39,19 @@ export function HeroIdentity({ profileName, animalEmoji, schoolName, programName
 
       {/* Text */}
       <div>
-        <div
+        {/* <bdi> isolates the name's directionality from the surrounding
+            page (rtl in Arabic, ltr otherwise) and lets the browser pick
+            the font face per the script of the localized name —
+            translated AR names render in Arabic script with the Arabic
+            font; Latin names render in Fredoka and never get pulled into
+            the Arabic-script font remap that the global rule applies to
+            .font-display under html[dir="rtl"]. */}
+        <bdi
           className="hero-name font-display font-bold text-text-primary"
-          style={{ fontSize: 40, animation: "fadeInUp 0.4s ease-out 0.65s both" }}
+          style={{ fontSize: 40, animation: "fadeInUp 0.4s ease-out 0.65s both", display: "block" }}
         >
-          {profileName}
-        </div>
+          {displayName}
+        </bdi>
         <div
           className="hero-subtitle font-body text-text-secondary"
           style={{ fontSize: 18, fontWeight: 600, animation: "simpleFade 0.3s ease-out 0.75s both" }}

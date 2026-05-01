@@ -86,9 +86,24 @@ export interface CompareResult {
   branches: CompareBranchBuild[];
 }
 
+export interface BuildProsCons {
+  build_id: string;
+  pros: string[];
+  cons: string[];
+}
+
+export interface ComparePivotal {
+  meta_tradeoff: string;
+  meta_explanation: string;
+  decade_projection: string;
+  pivot_question: string;
+}
+
 export interface CompareInsights {
   money_insight: string | null;
   compare_summary: string | null;
+  pros_cons: BuildProsCons[] | null;
+  pivotal: ComparePivotal | null;
 }
 
 export interface ChatHistoryItem {
@@ -137,7 +152,7 @@ export async function compareBuilds(buildIds: string[]): Promise<CompareResult> 
 }
 
 export async function compareInsights(buildIds: string[]): Promise<CompareInsights> {
-  if (USE_MOCK) return { money_insight: null, compare_summary: null };
+  if (USE_MOCK) return { money_insight: null, compare_summary: null, pros_cons: null, pivotal: null };
   return apiPost<CompareInsights>("/builds/compare-insights", { build_ids: buildIds });
 }
 

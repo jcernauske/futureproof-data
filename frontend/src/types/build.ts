@@ -161,6 +161,64 @@ export interface AppliedSkill {
   delta_ceiling_raw: number;
 }
 
+// Peer-school leaderboard (feature-compare-schools-for-career.md).
+// Mirrors backend.app.models.career.SchoolsForCareerResponse.
+
+export type LeaderboardMode = "by_soc" | "by_cip_and_soc";
+export type ConfidenceTier = "high" | "medium" | "low";
+export type LeaderboardMatchQuality =
+  | "full"
+  | "partial_no_onet"
+  | "partial_no_bls"
+  | "scorecard_only"
+  // Synthetic anchor row constructed client-side from build data when the
+  // build's (unitid, cipcode) is absent from the leaderboard universe.
+  // Backend supplies the rank via `anchor_estimated_rank`.
+  | "estimated";
+
+export interface SchoolForCareerRow {
+  rank: number;
+  unitid: number;
+  institution_name: string;
+  institution_control: string | null;
+  state_abbr: string | null;
+  cipcode: string;
+  program_name: string;
+  soc_code: string;
+  occupation_title: string;
+  stat_ern: number | null;
+  stat_roi: number | null;
+  earnings_1yr_median: number | null;
+  net_price_annual: number | null;
+  cost_of_attendance_annual: number | null;
+  tuition_in_state: number | null;
+  tuition_out_of_state: number | null;
+  overall_confidence: ConfidenceTier;
+  confidence_tier_program: string | null;
+  match_quality: LeaderboardMatchQuality;
+  is_anchor: boolean;
+}
+
+export interface SchoolsForCareerResponse {
+  mode: LeaderboardMode;
+  soc_code: string;
+  occupation_title: string;
+  cipcode: string | null;
+  program_name: string | null;
+  rows: SchoolForCareerRow[];
+  anchor_in_top_n: boolean;
+  total_qualifying_programs: number;
+  // When the caller passed `anchor_stat_ern` + `anchor_stat_roi` and the
+  // (unitid, cipcode) is absent from the filtered universe, this carries
+  // the rank counted against `total_qualifying_programs`. Frontend uses
+  // it to render a synthetic anchor row from build data.
+  anchor_estimated_rank: number | null;
+  confidence_filter_applied: ConfidenceTier;
+  state_filter_applied: string | null;
+  min_program_confidence_applied: ConfidenceTier;
+  generated_at: string;
+}
+
 export interface Build {
   build_id: string;
   created_at: string;
