@@ -550,6 +550,10 @@ export function BuildResultsScreen() {
             className="font-body text-text-muted hover:text-text-secondary hover:underline transition-colors duration-150 bg-transparent border-none cursor-pointer"
             style={{ fontSize: 14 }}
             onClick={() => {
+              // Fire-and-forget by design: clearSession is best-effort
+              // server-side cleanup. The user is already navigating away;
+              // awaiting it would block the redirect on a network outage
+              // and trap them on this screen. Do not "fix" to await.
               clearSession().catch(console.warn);
               useBuildInputStore.getState().reset();
               useBuildStore.setState({ build: null, selectedCareer: null });
@@ -848,6 +852,17 @@ export function BuildResultsScreen() {
               onClick={() => navigate("/branches")}
             >
               {t("build.seeBranches")}
+            </button>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              data-testid="btn-see-future"
+              className="font-body text-text-muted hover:text-accent-info hover:underline transition-colors duration-150 bg-transparent border-none cursor-pointer"
+              style={{ fontSize: 13 }}
+              onClick={() => navigate("/future")}
+            >
+              {t("build.seeFuture")}
             </button>
           </div>
         </div>

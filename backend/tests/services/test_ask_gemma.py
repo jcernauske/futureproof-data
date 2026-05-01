@@ -658,13 +658,14 @@ def _full_build_with_rich_branches() -> Build:
     return base
 
 
-def test_context_for_branch_full_record() -> None:
+@pytest.mark.asyncio
+async def test_context_for_branch_full_record() -> None:
     """Full branch record: stat deltas + education + relatedness + wage
     anchor all render. Numeric values present in helper labels; no
     forbidden tokens in unbracketed prose."""
     build = _full_build_with_rich_branches()
     target = "11-3021"  # Computer and Information Systems Managers
-    block = _context_for_branch(build, target)
+    block = await _context_for_branch(build, target)
 
     helper_text = "\n".join(_HELPER_SPAN_RE.findall(block))
 
@@ -705,11 +706,12 @@ def test_context_for_branch_full_record() -> None:
     )
 
 
-def test_context_for_branch_anchored_at_root() -> None:
+@pytest.mark.asyncio
+async def test_context_for_branch_anchored_at_root() -> None:
     """target_id == root SOC → anchor-at-root case. Up to 3 branches
     enumerated, sorted by relatedness DESC."""
     build = _full_build_with_rich_branches()
-    block = _context_for_branch(build, build.career.soc_code)
+    block = await _context_for_branch(build, build.career.soc_code)
 
     # Header still renders.
     assert "UC Berkeley" in block
@@ -750,13 +752,14 @@ def test_context_for_branch_anchored_at_root() -> None:
     )
 
 
-def test_context_for_branch_no_branches_in_build() -> None:
+@pytest.mark.asyncio
+async def test_context_for_branch_no_branches_in_build() -> None:
     """Build has no branches AND target_id == root SOC. The thin-data
     block renders, with the SOC anchor surfaced. Does NOT fabricate
     branch information."""
     build = _full_build()
     build.branches = []
-    block = _context_for_branch(build, build.career.soc_code)
+    block = await _context_for_branch(build, build.career.soc_code)
 
     # Thin-data acknowledgement is in plain English (NOT inside helpers).
     assert "limited transition data" in block.lower()
@@ -776,7 +779,8 @@ def test_context_for_branch_no_branches_in_build() -> None:
     )
 
 
-def test_context_for_branch_target_not_resolvable() -> None:
+@pytest.mark.asyncio
+async def test_context_for_branch_target_not_resolvable() -> None:
     """target_id doesn't match any branch AND doesn't equal root SOC.
     Service must NOT raise — degrades to thin-data block + occupation
     pointer. The router relies on this for graceful degradation."""
@@ -784,7 +788,7 @@ def test_context_for_branch_target_not_resolvable() -> None:
     target = "99-9999"  # Not a branch, not the root.
 
     # Must not raise.
-    block = _context_for_branch(build, target)
+    block = await _context_for_branch(build, target)
 
     # The block surfaces the unmapped target_id and points Gemma at
     # occupation-level guidance for the root SOC.
@@ -798,7 +802,66 @@ def test_context_for_branch_target_not_resolvable() -> None:
     )
 
 
-def test_context_for_branch_root_anchor_with_no_relatedness_falls_back() -> None:
+@pytest.mark.asyncio
+async def test_context_for_branch_off_build_target_enriched_via_mcp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When target_id isn't on build.branches but IS a real SOC, the
+    builder calls get_occupation_data and renders an enriched 2-step
+    block. /future relies on this so Gemma can talk about L2 endpoints
+    (branches-of-branches) without refusing.
+
+    The builder must call ``mcp_client.call_async`` (not ``call``) so the
+    DuckDB lookup runs on a worker thread instead of blocking the
+    FastAPI event loop — see staff engineer audit 2026-05-01 §S2.
+    """
+    build = _full_build()
+    target = "15-1212"  # Information Security Analysts, not in fixture branches.
+
+    async def fake_mcp_call_async(
+        tool: str, args: dict[str, object]
+    ) -> dict[str, object]:
+        assert tool == "get_occupation_data"
+        assert args == {"soc_code": target}
+        return {
+            "data": {
+                "soc_code": target,
+                "occupation_title": "Information Security Analysts",
+                "median_annual_wage": 124910.0,
+                "education_level_name": "Bachelor's degree",
+                "growth_category": "Much faster than average",
+                "employment_change_pct": 31.5,
+                "openings_annual_avg": 17300,
+            },
+        }
+
+    monkeypatch.setattr(
+        ask_gemma.mcp_client, "call_async", fake_mcp_call_async
+    )
+
+    block = await _context_for_branch(build, target)
+
+    # Title surfaces in plain prose so Gemma can echo it.
+    assert "Information Security Analysts" in block
+    # 2-step framing — distinct from the "branch on this build" copy.
+    assert "2-step" in block
+    # No "isn't loaded" stub when we have data.
+    assert "isn't loaded on this build" not in block
+    # Wage rendered as plain dollars (not a forbidden token).
+    assert "$124,910" in block
+    # Forbidden tokens (education level, growth category) live in
+    # helpers, not in the prose surface.
+    helper_text = "\n".join(_HELPER_SPAN_RE.findall(block))
+    assert "Bachelor's degree" in helper_text
+    assert "Much faster than average" in helper_text
+
+    _assert_no_forbidden_outside_helpers(
+        block, context="_context_for_branch off_build_enriched"
+    )
+
+
+@pytest.mark.asyncio
+async def test_context_for_branch_root_anchor_with_no_relatedness_falls_back() -> None:
     """Root-anchor heuristic edge case: when every branch has
     relatedness=None, fall back to list order rather than crashing on
     the sort key. Defensive — pre-existing builds may lack the field."""
@@ -806,7 +869,7 @@ def test_context_for_branch_root_anchor_with_no_relatedness_falls_back() -> None
     # Wipe relatedness on both existing branches.
     for b in build.branches:
         b.relatedness = None
-    block = _context_for_branch(build, build.career.soc_code)
+    block = await _context_for_branch(build, build.career.soc_code)
 
     # Both list-order branches must be enumerated.
     assert "Tech Lead" in block
@@ -817,7 +880,8 @@ def test_context_for_branch_root_anchor_with_no_relatedness_falls_back() -> None
     )
 
 
-def test_context_for_branch_unlock_is_helper_bracketed() -> None:
+@pytest.mark.asyncio
+async def test_context_for_branch_unlock_is_helper_bracketed() -> None:
     """The literal `unlock` field value must live inside a [helper: ...]
     span — Gemma is instructed never to echo helpers, and the branch
     voice rule explicitly bans echoing 'unlock' (genai-architect Finding 6).
@@ -834,7 +898,7 @@ def test_context_for_branch_unlock_is_helper_bracketed() -> None:
             related_education_level=None,  # Force the unlock path.
         ),
     ]
-    block = _context_for_branch(build, "11-3021")
+    block = await _context_for_branch(build, "11-3021")
 
     # The string "Requires master's degree" must only appear inside a
     # helper span — never in unbracketed prose.
@@ -851,7 +915,8 @@ def test_context_for_branch_unlock_is_helper_bracketed() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_context_blocks_never_leak_forbidden_tokens() -> None:
+@pytest.mark.asyncio
+async def test_context_blocks_never_leak_forbidden_tokens() -> None:
     """Walk every scope kind on a fully-populated build. For every line
     OUTSIDE a [helper: ...] span, no forbidden token may appear.
 
@@ -887,17 +952,17 @@ def test_context_blocks_never_leak_forbidden_tokens() -> None:
         ("compare(N=2)", _context_for_compare([build, second_build])),
         (
             "branch=full",
-            _context_for_branch(rich_branch_build, "11-3021"),
+            await _context_for_branch(rich_branch_build, "11-3021"),
         ),
         (
             "branch=root",
-            _context_for_branch(
+            await _context_for_branch(
                 rich_branch_build, rich_branch_build.career.soc_code
             ),
         ),
         (
             "branch=unresolvable",
-            _context_for_branch(rich_branch_build, "99-9999"),
+            await _context_for_branch(rich_branch_build, "99-9999"),
         ),
     ]
 

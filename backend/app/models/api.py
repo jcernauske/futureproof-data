@@ -99,6 +99,12 @@ class ChatRequest(BaseModel):
 
 AskScopeKind = Literal["stat", "boss", "skill", "build", "compare", "branch"]
 
+# SOC codes follow the BLS XX-XXXX shape exactly. branch scope target_id
+# flows directly into a parameterized DuckDB lookup; rejecting non-SOC
+# input at the boundary closes the unauthenticated /chat/ask DoS-amplifier
+# surface flagged by the 2026-05-01 staff engineer audit (S3).
+_SOC_PATTERN = re.compile(r"^\d{2}-\d{4}$")
+
 
 class AskScope(BaseModel):
     """Scope discriminator for POST /chat/ask.
@@ -106,12 +112,14 @@ class AskScope(BaseModel):
     - kind="stat": 1 build_id, target_id in ERN/ROI/RES/GRW/HMN
     - kind="boss": 1 build_id, target_id in ai/loans/market/burnout/ceiling
     - kind="skill": 1 build_id, target_id is the AppliedSkill.id
+      (length-capped at 64 chars; existence is checked at the service
+      layer against the in-memory build skill list)
     - kind="build": 1 build_id, target_id is None
     - kind="compare": 2-4 build_ids, target_id is None
     - kind="branch": 1 build_id, target_id is the branch's to_soc (or
-      the build's root soc_code for the anchor-at-root case). No
-      whitelist on the value — open-ended SOC codes; existence is
-      checked at the service layer.
+      the build's root soc_code for the anchor-at-root case). Must
+      match the SOC ``\\d{2}-\\d{4}`` shape; existence is then checked
+      at the service layer against build.branches / build.career.
     """
 
     kind: AskScopeKind
@@ -147,6 +155,18 @@ class AskScope(BaseModel):
                 raise ValueError(
                     f"boss target_id must be one of {sorted(valid_bosses)}"
                 )
+        if self.kind == "branch":
+            if not _SOC_PATTERN.match(self.target_id or ""):
+                raise ValueError(
+                    "branch target_id must match SOC pattern \\d{2}-\\d{4}"
+                )
+        if self.kind == "skill":
+            # Defense-in-depth length cap. AppliedSkill.id is a
+            # snake_case identifier in the curated skill pool; 64 chars
+            # is generous and keeps the lookup surface bounded for
+            # unauthenticated callers.
+            if len(self.target_id or "") > 64:
+                raise ValueError("skill target_id must be <= 64 chars")
         return self
 
 
