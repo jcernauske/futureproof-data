@@ -13,6 +13,7 @@ docs/specs/feature-ask-gemma.md.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -31,7 +32,15 @@ async def chat_ask(request: AskRequest) -> AskResponse:
     already enforces cardinality and target_id constraints, so a 422
     from FastAPI fires before this handler runs on bad payloads."""
     try:
-        loaded = [builds.load_build(bid) for bid in request.scope.build_ids]
+        # load_build is sync DuckDB; run it on a worker thread (and fan
+        # out across compare-scope's 2-4 build_ids in parallel) so the
+        # FastAPI event loop isn't blocked while the lookups serialize.
+        loaded = await asyncio.gather(
+            *(
+                asyncio.to_thread(builds.load_build, bid)
+                for bid in request.scope.build_ids
+            )
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

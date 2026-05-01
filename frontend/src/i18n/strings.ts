@@ -82,6 +82,12 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "future.filter.empty.message": "No paths from {career} match {filters}.",
     "future.filter.empty.clear": "Clear filters →",
     "future.filter.empty.join.or": "{a} or {b}",
+    "future.stat.label": "Improves",
+    "future.stat.aria": "Filter career paths by improvement vs your current career",
+    "future.stat.earnings": "Higher earnings",
+    "future.stat.aiResilient": "More AI-resilient",
+    "future.stat.growth": "Faster growth",
+    "future.error.tree": "Failed to load tree",
 
     // Build / loading
     "build.error": "Something went wrong building your profile. Try again or pick a different career.",
@@ -489,6 +495,12 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "future.filter.empty.message": "No hay rutas desde {career} que coincidan con {filters}.",
     "future.filter.empty.clear": "Quitar filtros →",
     "future.filter.empty.join.or": "{a} o {b}",
+    "future.stat.label": "Mejora",
+    "future.stat.aria": "Filtrar trayectorias por mejora respecto a tu carrera actual",
+    "future.stat.earnings": "Mayores ingresos",
+    "future.stat.aiResilient": "Más resistente a la IA",
+    "future.stat.growth": "Mayor crecimiento",
+    "future.error.tree": "No se pudo cargar el árbol",
 
     // Build / loading
     "build.error": "Algo salió mal al crear tu perfil. Inténtalo de nuevo o elige otra carrera.",
@@ -892,6 +904,12 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "future.filter.empty.message": "لا توجد مسارات من {career} تطابق {filters}.",
     "future.filter.empty.clear": "مسح الفلاتر ←",
     "future.filter.empty.join.or": "{a} أو {b}",
+    "future.stat.label": "يحسّن",
+    "future.stat.aria": "تصفية المسارات حسب التحسن مقارنة بمهنتك الحالية",
+    "future.stat.earnings": "أرباح أعلى",
+    "future.stat.aiResilient": "أكثر مقاومة للذكاء الاصطناعي",
+    "future.stat.growth": "نمو أسرع",
+    "future.error.tree": "تعذّر تحميل الشجرة",
 
     // Build / loading
     "build.error": "حدث خطأ أثناء إنشاء ملفك. حاول مجدداً أو اختر مهنة أخرى.",

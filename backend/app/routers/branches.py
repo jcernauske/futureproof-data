@@ -1,18 +1,31 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from app import state
 from app.services import branch_tree, career_tree
 
 router = APIRouter()
 
+# SOC codes follow the BLS XX-XXXX shape exactly. Mirrors the validator
+# applied across careers.py and AskScope so unauthenticated path inputs
+# never reach the gold-zone DuckDB lookup as arbitrary strings.
+_SOC_PATTERN = r"^\d{2}-\d{4}$"
+
+# Hard upper bound on tree depth. The /future screen requests depth=2;
+# 4 leaves headroom for future deeper-explore modes without opening the
+# door to fan-out abuse on an unauthenticated endpoint.
+_MAX_TREE_DEPTH = 4
+
 
 @router.get("/branches/{soc}")
-async def get_branches(soc: str):
+async def get_branches(soc: str = Path(..., pattern=_SOC_PATTERN)):
     return branch_tree.get_branches(soc)
 
 
 @router.get("/tree/{build_id}")
-async def get_tree(build_id: str, max_depth: int = 3):
+async def get_tree(
+    build_id: str,
+    max_depth: int = Query(3, ge=1, le=_MAX_TREE_DEPTH),
+):
     build = state.get_build(build_id)
     if build is None:
         raise HTTPException(status_code=404, detail=f"Build {build_id} not found")

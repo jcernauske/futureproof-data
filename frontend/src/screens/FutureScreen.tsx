@@ -238,7 +238,7 @@ export function FutureScreen() {
         }
       } catch (err) {
         if (cancelled) return;
-        setError("Failed to load tree");
+        setError(t("future.error.tree"));
         if (import.meta.env.DEV) console.error("FutureScreen tree error:", err);
         setScreenState("error");
       }
