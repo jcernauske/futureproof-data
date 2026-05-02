@@ -162,7 +162,21 @@ describe("GemmaChat", () => {
     fireEvent.click(screen.getByTestId("btn-starter-0"));
 
     const input = screen.getByTestId("input-chat") as HTMLInputElement;
-    expect(input.value).toBe("What internships should I look for?");
+    // Chip 0 is the most-likely-tapped multi-tool starter (geography
+    // demo). See STARTERS in GemmaChat.tsx — verified to fire 3
+    // tool calls when sent.
+    expect(input.value).toBe(
+      "How would my salary feel in a few different states?",
+    );
+  });
+
+  it("renders all 6 starter pills (P1)", () => {
+    render(<GemmaChat open={true} build={makeBuild()} onClose={() => {}} />);
+    for (let i = 0; i < 6; i += 1) {
+      expect(screen.getByTestId(`btn-starter-${i}`)).toBeInTheDocument();
+    }
+    // No 7th pill — STARTERS is exactly 6.
+    expect(screen.queryByTestId("btn-starter-6")).toBeNull();
   });
 
   // --- P1: maintains conversation history ---

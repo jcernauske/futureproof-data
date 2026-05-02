@@ -23,7 +23,7 @@ fallback string with status 200, never a 5xx:
 - Gemma transport failure (returns empty string from
   ``generate_with_tools_loop``).
 - Tool-dispatch error (``McpArgumentError`` from bad args from Gemma).
-- Turn-cap exhaustion (``max_turns=3`` reached).
+- Turn-cap exhaustion (``max_turns=5`` reached — 4 tool + 1 synthesis).
 - Wall-time exhaustion (``max_wall_time_s=30.0`` reached).
 
 See docs/specs/feature-ask-gemma.md.
@@ -308,7 +308,9 @@ async def chat_ask(
                 "ask_gemma branch opener: empty text, using fallback"
             )
             text = fallback_text("chat_unavailable", norm_locale)
-        return AskResponse(response=text, tool_calls=[])
+        return AskResponse(
+            response=_strip_thinking_prefix(text), tool_calls=[]
+        )
 
     # Fold history into the user message. ``generate_with_tools_loop``
     # accepts a single user string; multi-turn fidelity for tool-loop
@@ -333,7 +335,14 @@ async def chat_ask(
         user=user_msg,
         tools=tool_schemas,
         dispatch=_dispatch,
-        max_turns=3,
+        # 5 = up to 4 tool turns + 1 synthesis turn. Pre-trace this
+        # was 3 because the tool_dispatched=True short-circuit forced
+        # text on turn 2; post-trace (feature-gemma-trace.md) the
+        # loop chains tool calls across turns and needs an extra
+        # budget slot for the final-text synthesis turn after the
+        # tools are spent. The 30s wall-time cap remains the
+        # load-bearing safety against runaway loops.
+        max_turns=5,
         max_wall_time_s=30.0,
         temperature=_TEMPERATURE,
         max_tokens=1200,
@@ -365,7 +374,9 @@ async def chat_ask(
         )
         for tc in tool_call_log
     ]
-    return AskResponse(response=text, tool_calls=tool_calls)
+    return AskResponse(
+        response=_strip_thinking_prefix(text), tool_calls=tool_calls
+    )
 
 
 async def _dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -373,6 +384,34 @@ async def _dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
     ``student_cip`` the way ``set_your_course.py`` does — Ask Gemma
     answers questions, it does not resolve the student's CIP."""
     return await mcp_client.call_async(name, args)
+
+
+# Chain-of-thought prefix tokens Gemma 4 occasionally emits despite the
+# system prompt's "never write your reasoning" clause. Small list of
+# observed prefixes; strip them defensively at the boundary so the
+# student never sees `thought\n` or similar bleed into the answer.
+_THINKING_PREFIXES: tuple[str, ...] = (
+    "thought\n",
+    "thinking\n",
+    "reasoning\n",
+    "let me think\n",
+)
+
+
+def _strip_thinking_prefix(text: str) -> str:
+    """Strip any chain-of-thought marker token Gemma may have emitted
+    at the start of the response. Idempotent. Conservative — only
+    matches known prefixes against the *start* of the text after
+    light whitespace stripping; never touches the body of the answer.
+    """
+    if not text:
+        return text
+    stripped = text.lstrip()
+    lowered = stripped.lower()
+    for prefix in _THINKING_PREFIXES:
+        if lowered.startswith(prefix):
+            return stripped[len(prefix):].lstrip()
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -423,7 +462,7 @@ async def chat_ask_stream(
     # mirrors chat_ask. Yields only final_text + done.
     if scope.kind == "branch" and not history:
         text = await _branch_opener_text(scope, builds, norm_locale)
-        yield TraceFinalText(response=text)
+        yield TraceFinalText(response=_strip_thinking_prefix(text))
         yield TraceDone()
         return
 
@@ -487,7 +526,8 @@ async def chat_ask_stream(
                 user=user_msg,
                 tools=tool_schemas,
                 dispatch=_dispatch,
-                max_turns=3,
+                # See chat_ask above — 5 = 4 tool turns + 1 synthesis.
+                max_turns=5,
                 max_wall_time_s=30.0,
                 temperature=_TEMPERATURE,
                 max_tokens=1200,
@@ -524,7 +564,7 @@ async def chat_ask_stream(
         if not text:
             text = fallback_text("chat_unavailable", norm_locale)
 
-        yield TraceFinalText(response=text)
+        yield TraceFinalText(response=_strip_thinking_prefix(text))
         yield TraceDone()
     finally:
         # Client disconnect path. If the SSE consumer aborts mid-

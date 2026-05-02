@@ -67,10 +67,24 @@ interface GemmaChatProps {
   onClose?: () => void;
 }
 
+// Pre-baked starter chips. Each one is verified (via curl against
+// live Gemma) to fire 2-3 tool calls when tapped, so judges see the
+// <GemmaTrace> rail render with multiple rows the moment a chip is
+// clicked. Ordered most-likely-tapped first; #5 is the cinematic
+// 3-row mixed-icon shot (briefcase + branch + scale).
+//
+// Geography references are intentionally vague ("a few different
+// states", "different cities") — Gemma picks the states herself,
+// which keeps the chip set varied rather than mentioning the same
+// hardcoded state across multiple chips. See the product partner's
+// review of the multi-tool demo set + feature-gemma-trace.md.
 const STARTERS = [
-  "What internships should I look for?",
-  "Is this career better in-state or out-of-state?",
-  "What if I add a minor?",
+  "How would my salary feel in a few different states?",
+  "Where could I live most affordably on this starting salary?",
+  "What other careers branch off this one, and which ones have better stats?",
+  "What are the three highest-paying related careers, and what would I make in those roles in different cities?",
+  "What does this work look like 10 years in versus today, and which related careers pay more?",
+  "Tell me what this career pays nationally, what other careers branch off it, and how my salary would feel in a few different states.",
 ];
 
 export function GemmaChat({
