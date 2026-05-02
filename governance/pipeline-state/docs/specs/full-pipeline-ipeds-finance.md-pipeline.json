@@ -178,18 +178,21 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T20:46:18.375735+00:00",
-      "output": "docs/specs/full-pipeline-ipeds-finance.md",
-      "output_hash": "sha256:fb0e44dedddef4ee7a37edf8c052b728a45116ba4574800cc2a9ebd9f89e6cdd"
+      "completed_at": "2026-05-01T21:30:24.577239+00:00",
+      "output": "governance/approvals/full-pipeline-ipeds-finance-post-review.md",
+      "output_hash": "sha256:96947cbbf2d56a563397160f813d088516b907c330bfa33dcbb99093e8ab6b3d"
     },
     "staff-engineer": {
-      "status": "NOT_STARTED",
+      "status": "COMPLETED",
       "agent": "@staff-engineer",
       "requires": [
         "governance-reviewer-post"
       ],
       "blocking": false,
-      "skippable": false
+      "skippable": false,
+      "completed_at": "2026-05-01T21:58:47.319307+00:00",
+      "output": "governance/approvals/full-pipeline-ipeds-finance-staff-review.md",
+      "output_hash": "sha256:3009935be1a6a514a95bb18850de3ba23fc706d87377d8da8a3d77e3aa3a636e"
     }
   },
   "skipped_steps": {},

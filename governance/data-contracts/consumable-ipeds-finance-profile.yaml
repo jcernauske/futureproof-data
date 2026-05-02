@@ -1,0 +1,562 @@
+---
+# Data Contract: consumable.ipeds_finance_profile
+# Spec: full-pipeline-ipeds-finance v1.3
+# Zone: Gold (Consumable)
+# Status: draft (pending @bs:staff-engineer post-implementation sign-off)
+# Tagged by: @cde-tagger (governance/cde-tagging/consumable-ipeds-finance-profile.md, separate companion artifact)
+# Documented by: @doc-generator
+# Date: 2026-04-30
+# Parent contracts: (Base contract not yet authored — spec §8 lists base-zone artifacts under @doc-generator's scope but the data-contract checklist item names only the consumable)
+#
+# NAMING NOTE: This file is named consumable-ipeds-finance-profile.yaml per the
+# project convention documented in governance/data-contracts/consumable-regional-price-parities.yaml:
+# Gold/Consumable zone data contracts are named after the target Iceberg namespace
+# (`consumable-<table>.yaml`), matching consumable-regional-price-parities.yaml,
+# consumable-career-outcomes.yaml, consumable-career-branches.yaml,
+# consumable-program-career-paths.yaml, etc.
+
+table: consumable.ipeds_finance_profile
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - unitid
+status: draft
+record_count: 2675
+data_vintage: >
+  IPEDS Finance Survey FY2023 cycle (academic year 2022-23, fiscal year ending
+  June 30 2023) joined at Bronze ingest with EFIA2023 (12-Month Instructional
+  Activity) for the FTE denominator and HD2023 (Header) for institution name and
+  the 4-year bachelor's-or-above filter (`ICLEVEL=1 AND HLOFFER>=5`). Promoted
+  1:1 from base.ipeds_finance with no row-grain change. Consumable adds one
+  derived classification (data_completeness_tier) plus one provenance column
+  (promoted_at). Three raw expense fields (instruction_expenses,
+  institutional_support_expenses, endowment_value) are exposed at consumable as
+  a narrow exception to the standard "consumable is shaped, not raw-pass-through"
+  Brightsmith convention, justified by the named downstream consumer
+  raw-ingest-eada.md per the v1.1 governance-reviewer ADV-6 ruling.
+source: >
+  base.ipeds_finance (Silver promote — no joins, no cross-source work, no entity
+  resolution, no concept normalization; this is the Gold layer in 'pure shaping'
+  mode). Upstream of Silver: bronze.ipeds_finance and the IPEDS Finance Survey
+  (F1A / F2 / F3) + EFIA + HD bulk-CSV downloads from
+  https://nces.ed.gov/ipeds/datacenter/data/.
+spec_reference: docs/specs/full-pipeline-ipeds-finance.md
+parent_spec_reference: docs/specs/full-pipeline-ipeds-finance.md
+owner: "@bs:data-steward"
+sla: >
+  Annual refresh when IPEDS publishes new Finance + EFIA data (typically
+  December). Consumable runs immediately after every Base refresh, which runs
+  immediately after every Bronze refresh. The full bronze→base→consumable
+  promotion chain is idempotent and re-runnable. NCES has not yet released
+  FY2024 finance files as of 2026-04-30; the operative cycle is FY2023.
+
+quality_tier: >
+  EDA-calibrated; expected `high`. The data_completeness_tier distribution on
+  the landed FY2023 cycle is high=1,998 (74.7%) / medium=677 (25.3%) / low=0 /
+  insufficient=0 — comfortably above the 70% CON-IFP-009 P1 floor. Per-form
+  breakdown: F1A high:706/medium:113; F2 high:1,292/medium:287; F3 high:0/
+  medium:277. Every F3 row caps at `medium` by construction because endowment
+  is structurally NULL on F3 (no F3H family on the for-profit schedule);
+  this is the desired behavior per the v1.1 reformulation. The per-row
+  provenance control for this contract is the data_completeness_tier column
+  (column 14 of this contract), explicitly classifying each row's source-data
+  completeness. Every downstream consumer (raw-ingest-eada.md fusion, future
+  receipts/comparison specs, MCP tools) is expected to read
+  data_completeness_tier and surface completeness at the row level rather
+  than rely on the contract-level tier alone.
+
+quality:
+  row_count_guarantee: 2675
+  row_count_tolerance_band: [2500, 3200]
+  row_count_tolerance_note: >
+    Hard guarantee: row count == base.ipeds_finance row count (CON-IFP-001 P0
+    conservation invariant). Soft band [2500, 3200] inherited from RAW-IPF-001
+    (Bronze) — cycle-to-cycle drift within this band is normal IPEDS behavior
+    given non-filer rates and HD-filter narrowing; outside this band requires
+    investigation.
+  null_guarantee: >
+    Six columns guaranteed 100% non-null (record_id, unitid, institution_name,
+    report_form, fiscal_year, data_completeness_tier, promoted_at — seven
+    NOT NULL columns total). Eight columns are NULLABLE by design
+    (total_fte_enrollment, instruction_expenses, institutional_support_expenses,
+    endowment_value, the three per-FTE derivations, marketing_ratio) — NULLs
+    propagate honestly from Bronze through Base per spec §2 Decision #8 and the
+    standing user constraint "no substitution-based degraded states." NULL
+    rates are summarized by data_completeness_tier rather than imputed away.
+  completeness_threshold: 0.97
+  completeness_threshold_note: >
+    97.94% on the FTE-dependent fields (per-FTE derivations and FTE itself);
+    100.00% on the two expense fields; 76.00% on endowment overall (100%
+    structural NULL on F3); 98.84% on marketing_ratio. The 97% contract-level
+    threshold reflects the FTE-dependent-field floor; per-column thresholds
+    are pinned in the DQ rule file.
+  validity_threshold: 1.00
+  validity_threshold_note: >
+    100% validity on enums (report_form ∈ {F1A,F2,F3}; data_completeness_tier
+    ∈ {high,medium,low,insufficient}). 100% validity on arithmetic invariants
+    (CON-IFP-007: institutional_support_per_fte / instruction_per_fte ≈
+    marketing_ratio within 0.001 wherever all three non-null; passes by
+    construction since invariants are inherited from Base BSE-IPF-008/009/010).
+    100% validity on classification correctness (CON-IFP-006: tier recompute
+    matches stored tier).
+  uniqueness_guarantee:
+    - "unitid is unique (2,675 distinct values) — CON-IFP-003 P0"
+    - "record_id is unique (2,675 distinct values) — CON-IFP-004 P0"
+  freshness_sla: >
+    Annual IPEDS publication cycle (typically December for the previous fiscal
+    year). source_load_date in Base must be within 400 days of the consumable
+    promote run date (inheritance from Bronze RAW-IPF-* freshness guardrails;
+    extended via Base source_load_date passthrough). promoted_at is refreshed
+    on every Consumable promote (CON-IFP-010 P0 non-null).
+  cross_source_coverage:
+    rule: "≥ 88% of distinct UNITIDs in consumable.career_outcomes find a matching row here"
+    measured: "88.71% (FY2023)"
+    p1_floor: 0.88
+    p2_watch_line: 0.86
+    p2_rule_id: CON-IFP-008b
+    note: >
+      Recalibrated from spec/EDA 90% per FY2023-vs-FY2022 cross-vintage drift.
+      The 200-bp gap between P1 (88%) and P2 (86%) gives one cycle of warning
+      before a regression becomes a P1 incident. The 11.29% non-coverage is
+      composed of two known classes: (a) Career Outcomes UNITIDs that didn't
+      file a Finance survey for FY2023 (small religious/specialty/late-filer
+      institutions), and (b) Career Outcomes UNITIDs that don't satisfy the
+      ICLEVEL=1 AND HLOFFER>=5 4-year filter applied at Bronze ingest.
+  tier_distribution:
+    high_floor: 0.70
+    high_measured_fy2023: 0.747
+    p1_rule_id: CON-IFP-009
+
+columns:
+  - name: record_id
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic Gold grain surrogate. Derived as
+      compute_grain_id(row, ['unitid'], prefix='ifp'). 2,675 distinct values,
+      one per institution. Format: ifp-<16 hex>. The 'ifp' prefix
+      (ipeds-finance-profile) is distinct from Base's 'ipf' prefix to keep
+      hash namespaces clean across zones; verified Stanford UNITID 243744 →
+      ifp-267f20f48b4b772f at Consumable and ipf-267f20f48b4b772f at Base.
+    dq_rules:
+      - CON-IFP-004
+
+  - name: unitid
+    type: long
+    required: true
+    business_term: BT-001
+    is_cde: true
+    cde_rationale: >
+      Primary key of the Consumable table and dedup grain for
+      compute_grain_id(['unitid'], prefix='ifp'). Join anchor every downstream
+      consumer (raw-ingest-eada.md fusion, future receipts/comparison specs,
+      future MCP tools) resolves back to. IPEDS UNITID is the universal
+      institution identifier across the entire pipeline. Re-affirmed from
+      Base CDE set; Bronze confirmed via 100% non-null + uniqueness.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The 6-digit IPEDS UNITID. Promoted verbatim from base.ipeds_finance.unitid.
+      Natural key. The universal join key linking IPEDS Finance to every other
+      institution-keyed table in the pipeline.
+    dq_rules:
+      - CON-IFP-002
+      - CON-IFP-003
+
+  - name: institution_name
+    type: string
+    required: true
+    business_term: BT-002
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The official name of the institution (HD INSTNM-derived). Promoted
+      verbatim from base.ipeds_finance. Display-only — do not use for joins
+      (case, punctuation, and `-Main Campus` suffix conventions vary across
+      IPEDS sources).
+    dq_rules: []
+
+  - name: report_form
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The IPEDS Finance form the institution filed on. Three values: 'F1A'
+      (public, GASB), 'F2' (private nonprofit, FASB), 'F3' (private for-profit).
+      Carried unchanged from Base. Drives per-form interpretation — F3 rows
+      have endowment structurally NULL and cap at data_completeness_tier='medium'.
+      FY2023 form mix: F1A 819 (30.6%) / F2 1,579 (59.0%) / F3 277 (10.4%).
+    dq_rules: []
+
+  - name: fiscal_year
+    type: int
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The IPEDS fiscal year this row covers (current load: 2023). Constant
+      across every row in a single load (single-vintage invariant inherited
+      from Bronze RAW-IPF-013 P0).
+    dq_rules: []
+
+  - name: total_fte_enrollment
+    type: double
+    required: false
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The institution's 12-month total full-time-equivalent enrollment, sourced
+      from the IPEDS EFIA survey at Bronze (computed as the NULL-safe sum
+      COALESCE(FTEUG,0) + COALESCE(FTEGD,0) + COALESCE(FTEDPP,0)). Promoted
+      verbatim from Base. Observed FY2023: 97.94% non-null. The 55 NULL rows
+      cause the per-FTE values in the same row to be NULL and the
+      data_completeness_tier to cap at 'medium'.
+    dq_rules: []
+
+  - name: instruction_expenses
+    type: double
+    required: false
+    business_term: BT-IPF-INSTRUCTION-EXPENSES
+    is_cde: true
+    cde_rationale: >
+      Newly CDE at consumable per spec §6 Data Contract. The raw dollar value
+      is exposed at this layer as a narrow exception to the standard
+      "consumable is shaped, not raw-pass-through" Brightsmith convention,
+      justified by the named downstream consumer raw-ingest-eada.md (which
+      computes composite ratios like "athletic spending as percentage of
+      instruction" and would otherwise have to back-join to base.ipeds_finance
+      — a more severe convention violation). The dollar values were already
+      exposed at Base, so there is no new information leak. Approved per the
+      v1.1 governance-reviewer ADV-6 ruling.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The institution's total annual expenses for instructional divisions —
+      faculty salaries, instructional materials, departmental research, public
+      service not separately budgeted. Sourced from F1A F1C011 / F2 F2E011 /
+      F3 F3E011. Promoted verbatim from base.ipeds_finance. Observed FY2023:
+      100.00% non-null.
+    dq_rules: []
+
+  - name: institutional_support_expenses
+    type: double
+    required: false
+    business_term: BT-IPF-INSTITUTIONAL-SUPPORT-EXPENSES
+    is_cde: true
+    cde_rationale: >
+      Newly CDE at consumable per spec §6 Data Contract — same EADA-composite-
+      ratio rationale as instruction_expenses (and same narrow-exception
+      justification). The numerator of the marketing_ratio derivation; downstream
+      EADA fusion uses both this raw dollar value and the per-FTE rate to compute
+      composites with athletic-side dollars.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The institution's total annual expenses for executive management, fiscal
+      operations, public relations, fundraising, legal services, administrative
+      computing, and similar administrative functions. Often a proxy for
+      "marketing and administration overhead" in budget-transparency analyses.
+      Sourced from F1A F1C071 / F2 F2E061 / F3 F3E03C1. Promoted verbatim
+      from base.ipeds_finance. Observed FY2023: 100.00% non-null.
+    dq_rules: []
+
+  - name: endowment_value
+    type: double
+    required: false
+    business_term: BT-IPF-ENDOWMENT-VALUE
+    is_cde: true
+    cde_rationale: >
+      Newly CDE at consumable per spec §6 Data Contract — same EADA-composite-
+      ratio rationale as the other two raw expense fields. Endowment value is
+      consumed by the downstream EADA fusion as a per-institution wealth signal
+      (composited with athletic-program-self-sufficiency to form the aura
+      score's "endowment-backed" component).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      End-of-year market value of the institution's endowment funds. Reported
+      on F1A and F2 only — for-profit institutions (F3) have no F3H family on
+      their finance schedule and report NULL by design. Sourced from F1A F1H02
+      / F2 F2H02. Promoted verbatim from base.ipeds_finance. Observed FY2023:
+      76.00% non-null overall; 100% structural NULL on F3.
+    dq_rules: []
+
+  - name: institutional_support_per_fte
+    type: double
+    required: false
+    business_term: BT-IPF-PER-FTE
+    is_cde: true
+    cde_rationale: >
+      Per-student spending on administration. The canonical institution-scale
+      finance signal for cross-institution comparison. Computed at Base for the
+      first time (NULL-safe division of institutional_support_expenses by
+      total_fte_enrollment); promoted verbatim. Re-affirmed CDE from Base set
+      per spec §6 Data Contract.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student administrative-and-overhead spending. Computed at Base as
+      institutional_support_expenses / total_fte_enrollment. NULL when either
+      operand was NULL or total_fte_enrollment ≤ 0. Observed FY2023: 97.94%
+      non-null. Stanford spot check (UNITID 243744): $42,427.78.
+    dq_rules:
+      - CON-IFP-007
+
+  - name: instruction_per_fte
+    type: double
+    required: false
+    business_term: BT-IPF-PER-FTE
+    is_cde: true
+    cde_rationale: >
+      Per-student instructional spending. The canonical institution-scale
+      "what students get" signal. Computed at Base for the first time;
+      promoted verbatim. Re-affirmed CDE from Base set per spec §6 Data
+      Contract. The Base-zone tripwire BSE-IPF-017 (P99 < $500K) guards
+      against an EFFY-headcount-vs-FTE field-selection regression and
+      propagates here unchanged.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student spending on instructional divisions. Computed at Base as
+      instruction_expenses / total_fte_enrollment. NULL when either operand
+      was NULL or total_fte_enrollment ≤ 0. Observed FY2023: 97.94% non-null;
+      P99 = $78.8K (well under the $500K tripwire). Stanford spot check
+      (UNITID 243744): $140,522.42.
+    dq_rules:
+      - CON-IFP-007
+
+  - name: endowment_per_fte
+    type: double
+    required: false
+    business_term: BT-IPF-PER-FTE
+    is_cde: true
+    cde_rationale: >
+      Per-student endowment value — the "wealth backing" signal. Computed at
+      Base for the first time; promoted verbatim. Re-affirmed CDE from Base
+      set per spec §6 Data Contract.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student endowment value. Computed at Base as endowment_value /
+      total_fte_enrollment. NULL when either operand was NULL or
+      total_fte_enrollment ≤ 0; F3 rows are 100% NULL by design. Observed
+      FY2023: 74.69% non-null. Stanford spot check (UNITID 243744): $1,911,327.80.
+    dq_rules: []
+
+  - name: marketing_ratio
+    type: double
+    required: false
+    business_term: BT-IPF-MARKETING-RATIO
+    is_cde: true
+    cde_rationale: >
+      The most analytically loaded consumer-facing signal in this profile —
+      used to rank institutions by administrative-spending intensity and as a
+      Base-zone composite input to the downstream EADA fusion (paired with
+      athletic-program-self-sufficiency to form one component of the aura score).
+      Computed at Base for the first time; promoted verbatim. Re-affirmed CDE
+      per spec §6 Data Contract. The CON-IFP-007 P0 invariant
+      (institutional_support_per_fte / instruction_per_fte ≈ marketing_ratio
+      within 0.001) carries the BSE-IPF-008/009/010 arithmetic invariants
+      forward into the consumable layer.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The dimensionless ratio of institutional support expenses to instruction
+      expenses. Higher = relatively more spending on administration vs. teaching.
+      Computed at Base as institutional_support_expenses / NULLIF(instruction_expenses, 0).
+      Promoted verbatim. NULL when either operand was NULL or instruction was 0.
+      Observed FY2023: 98.84% non-null. Per-form P99: F1A 14.15 / F2 6.35 / F3
+      8.75 (F1A's high P99 reflects the public-system-administrative-office
+      cluster — legitimate IPEDS entities with system-wide overhead and little
+      instruction). Stanford spot check (UNITID 243744): 0.30193.
+    dq_rules:
+      - CON-IFP-007
+
+  - name: data_completeness_tier
+    type: string
+    required: true
+    business_term: BT-IPF-DATA-COMPLETENESS-TIER
+    is_cde: true
+    cde_rationale: >
+      Downstream consumer-facing signal that gates whether to display an
+      institution's profile and that controls Gemma hedging language in MCP
+      tool responses. Spec §6 explicitly lists this column in the Data Contract
+      CDE candidates. The closed-enum domain {high,medium,low,insufficient} is
+      enforced by CON-IFP-005 P0; the classification correctness is enforced by
+      CON-IFP-006 P0 (recompute and compare). Renamed from `confidence_tier`
+      in v1.1 to disambiguate from CIP→SOC crosswalk-confidence tiers used
+      elsewhere in the project — NOT a crosswalk-confidence tier; it measures
+      source-field non-null count, not crosswalk match quality.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Source-data-completeness signal classifying each row by the count of
+      non-null independent raw inputs: instruction_expenses,
+      institutional_support_expenses, endowment_value, total_fte_enrollment
+      (positive). 4 → 'high'; 2-3 → 'medium'; 1 → 'low'; 0 → 'insufficient'.
+      Counts independent raw inputs (NOT derived signals — that was the v1.0
+      formula reworked in v1.1 to prevent inflation effects). Observed FY2023:
+      high=1,998 (74.7%) / medium=677 (25.3%) / low=0 / insufficient=0.
+      Per-form: F1A high:706/medium:113; F2 high:1,292/medium:287; F3 high:0/
+      medium:277. Every F3 row caps at 'medium' by construction because
+      endowment is structurally NULL on F3.
+    dq_rules:
+      - CON-IFP-005
+      - CON-IFP-006
+      - CON-IFP-009
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Consumable promotion batch timestamp. Identical across all 2,675 rows
+      in a batch. Replaces Base's source_load_date / ingested_at operational
+      pair with a single Gold-zone timestamp. Operational observability only.
+      Distinct from base.ipeds_finance.ingested_at (Base batch stamp) and
+      bronze.ipeds_finance.ingested_at (Bronze batch stamp); downstream
+      consumers needing per-zone freshness should reference the fully-qualified
+      table name. Freshness is governed by the annual IPEDS refresh cadence,
+      not by this per-row timestamp.
+    dq_rules:
+      - CON-IFP-010
+
+table_level_dq_rules:
+  - CON-IFP-001  # Row count == base.ipeds_finance row count (conservation invariant — table-wide)
+  - CON-IFP-008  # Cross-source coverage: ≥88% of consumable.career_outcomes UNITIDs find a matching row here
+  - CON-IFP-008b # Cross-source coverage early-warning: ≥86% watch-line on the same check (P2)
+
+dq_summary:
+  total_rules: 11
+  p0_count: 8
+  p1_count: 2
+  p2_count: 1
+  rules_reference: governance/dq-rules/consumable-ipeds-finance-profile.json
+  scorecard_reference: governance/dq-scorecards/full-pipeline-ipeds-finance-scorecard.md
+  current_status: 11/11 PASS (44/44 PASS across all three zones in the full-pipeline scorecard)
+  evaluation_mode_carveouts:
+    - rule_id: CON-IFP-008
+      mode: production_only
+      chaos_exclude: true
+      reason: >
+        Cross-zone join against consumable.career_outcomes. Chaos harness only
+        stages shadow_consumable for ipeds_finance_profile; the cross-table
+        join in shadow mode is unsupported. Same remediation pattern as
+        Bronze GLD-RPP-043 / GLD-RPP-055.
+    - rule_id: CON-IFP-008b
+      mode: production_only
+      chaos_exclude: true
+      reason: Same as CON-IFP-008.
+
+cde_summary:
+  total_columns: 15
+  cde_columns: 9
+  pii_columns: 0
+  cde_columns_list:
+    - unitid                              # Re-affirmed from Bronze/Base CDE set
+    - instruction_expenses                # NEW at consumable per spec §6 (raw passthrough exception)
+    - institutional_support_expenses      # NEW at consumable per spec §6 (raw passthrough exception)
+    - endowment_value                     # NEW at consumable per spec §6 (raw passthrough exception)
+    - institutional_support_per_fte       # Re-affirmed from Base CDE set
+    - instruction_per_fte                 # Re-affirmed from Base CDE set
+    - endowment_per_fte                   # Re-affirmed from Base CDE set
+    - marketing_ratio                     # Re-affirmed from Base CDE set; primary downstream EADA composite input
+    - data_completeness_tier              # NEW at consumable; gates downstream display & Gemma hedging
+  non_cde_columns:
+    - record_id
+    - institution_name
+    - report_form
+    - fiscal_year
+    - total_fte_enrollment
+    - promoted_at
+  sensitivity_classification: public
+  regulatory_frameworks: []
+  k_anonymity_floor: "N/A — institution-level public data; no individual identifiers"
+  cde_reference: governance/cde-tagging/consumable-ipeds-finance-profile.md
+  pii_reference: N/A (no PII; institution-level reporting by design)
+
+business_terms_referenced:
+  - BT-001                                 # UNITID
+  - BT-002                                 # Institution Name
+  - BT-IPF-INSTRUCTION-EXPENSES            # Bronze-defined; reused at consumable
+  - BT-IPF-INSTITUTIONAL-SUPPORT-EXPENSES  # Bronze-defined; reused at consumable
+  - BT-IPF-ENDOWMENT-VALUE                 # Bronze-defined; reused at consumable
+  - BT-IPF-PER-FTE                         # Bronze-defined; per-FTE convention reused at consumable
+  - BT-IPF-MARKETING-RATIO                 # Proposed at spec §6; deferred to silver/gold doc-generator runs (this run)
+  - BT-IPF-DATA-COMPLETENESS-TIER          # Proposed at spec §6; deferred to silver/gold doc-generator runs (this run)
+
+reviewer_conditions:
+  governance_reviewer_v1_1_adv_6_discharged_at_consumable:
+    source: governance/approvals/raw-ingest-ipeds-finance-pre-review.md (v1.1 delta findings ADV-6)
+    status: IMPLEMENTED HERE
+    description: >
+      The v1.1 governance-reviewer ADV-6 ruling approved the narrow exception
+      to the "consumable is shaped, not raw-pass-through" Brightsmith convention
+      for the three raw expense fields (instruction_expenses,
+      institutional_support_expenses, endowment_value). This contract documents
+      the exception explicitly: each of the three fields carries the same
+      cde_rationale narrative explaining the EADA-composite-ratio
+      justification, the named downstream consumer (raw-ingest-eada.md), and
+      the v1.1 reviewer approval. The consumable schema notes ("Raw passthrough
+      USD. Exposed at consumable for downstream EADA composite ratios.") are
+      preserved on each of the three column descriptions.
+  v1_1_tier_rename_propagated:
+    source: governance/approvals/raw-ingest-ipeds-finance-pre-review.md (v1.1 delta findings #8)
+    status: PROPAGATED
+    description: >
+      The v1.1 rename from `confidence_tier` to `data_completeness_tier` is
+      consistently propagated to the column name, the CON-IFP-005 enum domain
+      check, the CON-IFP-006 classification re-compute, the CON-IFP-009
+      distribution check, the BT-IPF-DATA-COMPLETENESS-TIER glossary term, and
+      this contract. The disambiguation note ("NOT a CIP→SOC crosswalk-
+      confidence tier — measures source-field non-null count, not crosswalk
+      match quality") appears on the column description in this contract.
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Breaking changes (column removal, rename, type change,
+    grain change, reduction of the CDE set, relaxation of P0 DQ thresholds,
+    tightening of the data_completeness_tier classification, removal of any of
+    the three raw expense passthroughs) require a new major version and 30-day
+    deprecation notice. Non-breaking changes (column addition, description
+    update, recalibrating the CON-IFP-008 coverage P1 floor when a new IPEDS
+    cycle changes the actual coverage rate, extending the fiscal_year set to
+    add a new cycle) ship as a minor bump without deprecation.
+  notification: "Logged in governance/audit-trail/"
+
+downstream_consumers:
+  - raw-ingest-eada.md / consumable.institution_aura — primary consumer; reads
+    per-FTE finance signals, marketing_ratio, AND the three raw expense
+    passthroughs to compute athletic-side composite ratios; reads
+    data_completeness_tier to gate aura-score confidence
+  - Future receipts/comparison specs — read per-FTE finance signals as the
+    institution-level financial-health denominator for cross-institution
+    comparisons
+  - Future MCP tools — surface finance signals via Gemma tool responses;
+    data_completeness_tier controls hedging language
+
+upstream_dependencies:
+  - base.ipeds_finance — direct source (1:1 promote with data_completeness_tier
+    synthesis); Base in turn depends on bronze.ipeds_finance which fans out
+    across 5 IPEDS source files (F1A + F2 + F3 finance forms + EFIA + HD)
+  - consumable.career_outcomes — referenced by CON-IFP-008 / CON-IFP-008b for
+    cross-source coverage; not joined into this table at promote time
+
+lineage_reference: governance/lineage/full-pipeline-ipeds-finance-{timestamp}.json
