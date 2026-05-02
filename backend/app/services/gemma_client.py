@@ -939,6 +939,12 @@ class ToolCallTurn:
     error: str | None
     tool_result_preview: str = ""
     dispatch_index: int = 0
+    # Un-truncated tool result JSON (server-only — never serialized
+    # over the wire). The truncated `tool_result_preview` exists to
+    # keep the trace SSE payload lean, but server-side consumers
+    # (e.g. ask_gemma._extract_tool_results) need the full string to
+    # JSON-decode kilobyte-scale results without mid-array truncation.
+    tool_result_full: str = ""
 
 
 # Maximum length of the truncated tool result preview surfaced via the
@@ -1187,6 +1193,7 @@ async def _tools_loop_inner(
                 duration_ms=dispatch_ms,
                 error=dispatch_error,
                 tool_result_preview=result_str[:_TOOL_RESULT_PREVIEW_MAX],
+                tool_result_full=result_str,
                 dispatch_index=dispatch_index,
             )
             tool_call_log.append(turn_obj)

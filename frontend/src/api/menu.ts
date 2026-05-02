@@ -179,8 +179,12 @@ function parseFinalTextResponse(
   if (typeof value === "object" && value !== null) {
     const result = explainStatReceiptSchema.safeParse(value);
     if (result.success) return result.data;
+    // Object failed Zod — empty string here so the chat renderer
+    // shows the chat_unavailable rail instead of leaking the literal
+    // "[object Object]" to the student. Schema-drift safety net.
+    return "";
   }
-  return String(value ?? "");
+  return "";
 }
 
 export async function listBuilds(profileName?: string): Promise<BuildSummary[]> {

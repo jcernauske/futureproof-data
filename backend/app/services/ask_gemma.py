@@ -294,6 +294,18 @@ _ERN_LABEL_ALLOWLIST: dict[int, str] = {
     40: "this career's pay rank",
 }
 
+# Friendly effort labels for the math_line's effort sentence
+# (Decision 13). Keys must match the EffortLevel literal in
+# backend/app/models/career.py:16. effort.capitalize() would render
+# "Working_hard" / "All_in" — both read as broken copy.
+_EFFORT_LABELS: dict[str, str] = {
+    "working_hard": "Working Hard",
+    "working": "Working",
+    "balanced": "Balanced",
+    "focused": "Focused",
+    "all_in": "All-In",
+}
+
 # ERN's two data sources. Server-stamped; Gemma's emitted sources
 # field is discarded so the citations stay canonical across runs.
 _ERN_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
@@ -513,6 +525,12 @@ def _extract_tool_results(
     Returns (cip_family_earnings_rank, earnings_1yr_median,
              wage_percentile_overall, median_annual_wage). Any value
     not found in the log is None.
+
+    Reads ``tool_result_full`` (the un-truncated server-only string)
+    rather than ``tool_result_preview``. The preview is capped at
+    ~500 bytes which mid-truncates real ``get_career_paths`` results
+    on cipcode-family flows; the full string is required for reliable
+    JSON parsing (per @faang-staff-engineer S1 finding).
     """
     cip_rank: float | None = None
     earnings: int | None = None
@@ -521,8 +539,11 @@ def _extract_tool_results(
     for turn in tool_call_log:
         if turn.error:
             continue
+        # Prefer the un-truncated full string; fall back to preview
+        # for older callers that don't populate the new field.
+        result_json = turn.tool_result_full or turn.tool_result_preview
         try:
-            preview = json.loads(turn.tool_result_preview)
+            preview = json.loads(result_json)
         except (json.JSONDecodeError, ValueError):
             continue
         if turn.tool_name == "get_career_paths":
@@ -563,35 +584,68 @@ def _render_math_line(
 
     Format: '0.6 × 0.87 + 0.4 × 0.92 → score 9/10'
 
-    When effort != 'balanced', appends a separate effort line on a new
-    line: 'Your **Focused** effort setting lifts this to 9/10' (Decision
-    13). The build_score is the effort-shifted authoritative value; the
-    math_line shows the unshifted derivation.
+    Effort line (Decision 13) appears on a second line when
+    ``effort != "balanced"`` AND the receipt has effort signal to
+    surface. Three cases:
+
+    1. Both percentiles present → render the unshifted derivation
+       in the arrow; if it differs from build_score, append an
+       effort line ("lifts"/"brings" to N/M).
+    2. One percentile null (halfway case) → can't derive the
+       unshifted score. Render build_score in the arrow with an n/a
+       in the missing slot. For non-balanced effort, append an
+       effort line that doesn't claim a from-N-to-M delta:
+       "Your **Focused** effort setting is reflected in this score."
+    3. Both percentiles null → same as halfway, no derivation
+       claimable.
     """
     cip_str = f"{cip_rank:.2f}" if cip_rank is not None else "n/a"
     wage_str = f"{wage_pct:.2f}" if wage_pct is not None else "n/a"
 
     # Compute the unshifted score derivation when both inputs present.
+    unshifted: int | None
     if cip_rank is not None and wage_pct is not None:
         raw = 0.6 * cip_rank + 0.4 * wage_pct
         unshifted = int(1.0 + 9.0 * raw + 0.5)  # half-up round to 1-10
         unshifted = max(1, min(score_max, unshifted))
+        base_score = unshifted
     else:
-        unshifted = build_score  # can't derive — fall back to authoritative
+        # Halfway / both-missing: math can't be derived; show
+        # build_score in the arrow.
+        unshifted = None
+        base_score = build_score
 
     base = (
         f"0.6 × {cip_str} + 0.4 × {wage_str} → score "
-        f"{unshifted}/{score_max}"
+        f"{base_score}/{score_max}"
     )
 
-    if effort == "balanced" or unshifted == build_score:
+    if effort == "balanced":
+        return base
+    # When the unshifted derivation matches the build score, the
+    # effort delta is zero — no effort line.
+    if unshifted is not None and unshifted == build_score:
         return base
 
-    effort_label = effort.capitalize()
+    # Unknown effort string — defensive: no effort line. Both
+    # _EFFORT_LABELS and the EffortLevel literal must agree on
+    # the label set.
+    label = _EFFORT_LABELS.get(effort)
+    if label is None:
+        return base
+
+    if unshifted is None:
+        # No derivation available — say the effort applies, without
+        # claiming a from-N-to-M delta.
+        return (
+            f"{base}\n"
+            f"Your **{label}** effort setting is reflected in this score"
+        )
+
     direction = "lifts" if build_score > unshifted else "brings"
     return (
         f"{base}\n"
-        f"Your **{effort_label}** effort setting {direction} this to "
+        f"Your **{label}** effort setting {direction} this to "
         f"{build_score}/{score_max}"
     )
 
@@ -755,8 +809,11 @@ def _postprocess_ern_explain_receipt(
         )
         return None
 
-    # Step 6: server-stamp score.
+    # Step 6: server-stamp score AND score_max. Whatever Gemma emits
+    # in either field is overwritten; Decision 7 + reviewer S4 finding.
+    # v1.0 fixes score_max = 10 per spec docstring.
     receipt.score = build_score
+    receipt.score_max = 10
 
     # Step 7: server-build math_line.
     cip_rank, earnings, wage_pct, wage = _extract_tool_results(
@@ -1256,6 +1313,13 @@ async def chat_ask_stream(
 
     text = ""
     tool_call_log: list[gemma_client.ToolCallTurn] = []
+    # Tracked separately so the `finally` block can cancel a fallback
+    # in-flight on SSE client disconnect (per @faang-staff-engineer S3
+    # finding — Decision C4 contract). Only set when the JSON path
+    # parse-fails AND the explain-receipt fallback fires.
+    fallback_task: asyncio.Task[
+        tuple[str, list[gemma_client.ToolCallTurn]]
+    ] | None = None
     try:
         # Drain queue until loop_task completes. The wait_for(timeout=...)
         # idiom interleaves queue reads with loop_task done-checks
@@ -1311,8 +1375,12 @@ async def chat_ask_stream(
             markdown_user = (
                 f"{cached_values_block}\n\n{_ERN_EXPLAIN_USER_PROMPT}"
             )
-            try:
-                text, _ = await gemma_client.generate_with_tools_loop(
+            # Wrap the fallback in a task so the outer `finally`
+            # block can cancel it on SSE-client disconnect (Decision
+            # C4 — semaphore must release within ~100ms, not at the
+            # 30s wall-time cap).
+            fallback_task = asyncio.create_task(
+                gemma_client.generate_with_tools_loop(
                     system=markdown_system,
                     user=markdown_user,
                     tools=[],
@@ -1326,6 +1394,9 @@ async def chat_ask_stream(
                         "fallback_after_json_parse_failure": True,
                     },
                 )
+            )
+            try:
+                text, _ = await fallback_task
             except Exception as exc:  # noqa: BLE001 — boundary defense
                 logger.warning(
                     "ern_explain_receipt fallback failed: %s", exc
@@ -1341,12 +1412,19 @@ async def chat_ask_stream(
         # Client disconnect path. If the SSE consumer aborts mid-
         # stream, FastAPI calls aclose() on this generator, which
         # raises GeneratorExit at the active `yield ev` and bypasses
-        # the try-block exit. The finally cancels loop_task and
-        # waits for it to settle so the Gemma semaphore is released
-        # immediately rather than after the wall-time cap (≤30s).
+        # the try-block exit. The finally cancels loop_task and the
+        # explain-receipt fallback_task (when in-flight) so both
+        # Gemma calls release their semaphore immediately rather
+        # than after the wall-time cap (≤30s).
+        pending: list[asyncio.Task[Any]] = []
         if not loop_task.done():
             loop_task.cancel()
-            await asyncio.gather(loop_task, return_exceptions=True)
+            pending.append(loop_task)
+        if fallback_task is not None and not fallback_task.done():
+            fallback_task.cancel()
+            pending.append(fallback_task)
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
 
 async def _branch_opener_text(

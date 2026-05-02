@@ -541,7 +541,10 @@ _SENTINEL_VALUES: tuple[str, ...] = (
     "__FILL_IN__",
     "[FILL_IN]",
     "<FILL_IN>",
-    "PLACEHOLDER",
+    # Tightened per @faang-staff-engineer M1 finding — naked
+    # "placeholder" can appear in legitimate prose, so the sentinel
+    # form requires the underscored / bracketed wrapper.
+    "__PLACEHOLDER__",
     "ONE-SENTENCE DEFINITION HERE",
 )
 
@@ -785,24 +788,99 @@ def test_render_math_line_focused_effort() -> None:
     assert "9/10" in parts[1]
 
 
-def test_render_math_line_chill_effort() -> None:
-    """effort='chill' → 'brings' effort line (score drops). cip=0.70,
-    wage=0.80 → unshifted=8/10. Build score is 6 after a chill drop;
-    the effort line uses 'brings' (not 'lifts') because the score went
-    DOWN (P0). Decision 13."""
+def test_render_math_line_working_hard_effort() -> None:
+    """effort='working_hard' → 'brings' effort line (score drops).
+    cip=0.70, wage=0.80 → unshifted=8/10. Build score is 6 after a
+    working-hard effort drop; the effort line uses 'brings' (not
+    'lifts') because the build score went DOWN. Decision 13. Uses
+    the friendly label 'Working Hard' (B2 fix — effort.capitalize()
+    would have rendered 'Working_hard')."""
     line = _render_math_line(
         cip_rank=0.70,
         wage_pct=0.80,
         build_score=6,
         score_max=10,
-        effort="chill",
+        effort="working_hard",
     )
     parts = line.split("\n")
     assert len(parts) == 2, f"expected 2-line output, got: {line!r}"
     assert parts[0] == "0.6 × 0.70 + 0.4 × 0.80 → score 8/10"
-    assert "**Chill**" in parts[1]
+    assert "**Working Hard**" in parts[1]
     assert "brings" in parts[1]
     assert "6/10" in parts[1]
+
+
+def test_render_math_line_all_in_effort() -> None:
+    """effort='all_in' → 'lifts' effort line. cip=0.70, wage=0.80 →
+    unshifted=8/10. Build score is 10 after an all-in lift. Verifies
+    the friendly label 'All-In' is used (B2 fix — effort.capitalize()
+    would have rendered 'All_in')."""
+    line = _render_math_line(
+        cip_rank=0.70,
+        wage_pct=0.80,
+        build_score=10,
+        score_max=10,
+        effort="all_in",
+    )
+    parts = line.split("\n")
+    assert len(parts) == 2, f"expected 2-line output, got: {line!r}"
+    assert parts[0] == "0.6 × 0.70 + 0.4 × 0.80 → score 8/10"
+    assert "**All-In**" in parts[1]
+    assert "lifts" in parts[1]
+    assert "10/10" in parts[1]
+
+
+def test_render_math_line_unknown_effort_no_line() -> None:
+    """Unknown effort string → defensive: no effort line, just the
+    base math (B2 fix — protects against EffortLevel literal drift)."""
+    line = _render_math_line(
+        cip_rank=0.70,
+        wage_pct=0.80,
+        build_score=6,
+        score_max=10,
+        effort="some_future_value",
+    )
+    # No newline → no effort line.
+    assert "\n" not in line
+    assert line == "0.6 × 0.70 + 0.4 × 0.80 → score 8/10"
+
+
+def test_render_math_line_halfway_case_with_effort() -> None:
+    """One percentile None + non-balanced effort → math line shows
+    build_score with n/a in the missing slot, AND emits an effort
+    line that doesn't claim a from-N-to-M delta (S2 fix). Without
+    this, the halfway case silently suppressed the effort signal —
+    a Decision-13 trust regression."""
+    line = _render_math_line(
+        cip_rank=None,
+        wage_pct=0.80,
+        build_score=7,
+        score_max=10,
+        effort="focused",
+    )
+    parts = line.split("\n")
+    assert len(parts) == 2, f"expected 2-line output, got: {line!r}"
+    assert parts[0] == "0.6 × n/a + 0.4 × 0.80 → score 7/10"
+    assert "**Focused**" in parts[1]
+    assert "is reflected in this score" in parts[1]
+    # The effort line must NOT claim a from-N-to-M delta.
+    assert "lifts" not in parts[1]
+    assert "brings" not in parts[1]
+
+
+def test_render_math_line_halfway_case_balanced_no_effort_line() -> None:
+    """One percentile None + balanced effort → no effort line.
+    Sanity check that the S2 fix doesn't accidentally emit an effort
+    sentence when effort is balanced."""
+    line = _render_math_line(
+        cip_rank=None,
+        wage_pct=0.80,
+        build_score=2,
+        score_max=10,
+        effort="balanced",
+    )
+    assert "\n" not in line
+    assert line == "0.6 × n/a + 0.4 × 0.80 → score 2/10"
 
 
 def test_math_line_format_unicode_arrow() -> None:
