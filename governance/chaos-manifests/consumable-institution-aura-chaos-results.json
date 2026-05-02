@@ -1,0 +1,1008 @@
+{
+  "pre_md5": {
+    "00000-0-0be00d2a-8695-4dbe-a8d9-61e68d3d96e2.parquet": "6a4a3f66009e40bfb428eb962326d0c4",
+    "00000-0-e4a870a1-28a1-4ed1-bb95-471c54bd5aed.parquet": "df820384fb944185af4e3b706fc85f81"
+  },
+  "post_md5": {
+    "00000-0-0be00d2a-8695-4dbe-a8d9-61e68d3d96e2.parquet": "6a4a3f66009e40bfb428eb962326d0c4",
+    "00000-0-e4a870a1-28a1-4ed1-bb95-471c54bd5aed.parquet": "df820384fb944185af4e3b706fc85f81"
+  },
+  "md5_unchanged": true,
+  "cycles": [
+    {
+      "cycle": 1,
+      "rate": 0.05,
+      "rows_after": 3062,
+      "corruptions": [
+        {
+          "name": "completeness_null_inst_name",
+          "dimension": "Completeness",
+          "expected_rules": [
+            "CON-AUR-required-cols (schema-level)"
+          ],
+          "rows_affected": 161,
+          "detail": "set institution_name=NULL on required column",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "validity_basis_enum",
+          "dimension": "Validity",
+          "expected_rules": [
+            "CON-AUR-033"
+          ],
+          "rows_affected": 80,
+          "detail": "aura_score_basis = 'garbage_basis'",
+          "detected_by": [
+            "CON-AUR-033"
+          ],
+          "detected": true
+        },
+        {
+          "name": "uniqueness_record_id_dup",
+          "dimension": "Uniqueness",
+          "expected_rules": [
+            "CON-AUR-uniqueness (record_id)"
+          ],
+          "rows_affected": 40,
+          "detail": "duplicate record_id",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "consistency_flag_vs_tier",
+          "dimension": "Consistency",
+          "expected_rules": [
+            "CON-AUR-consistency (flags vs tier)"
+          ],
+          "rows_affected": 40,
+          "detail": "has_ipeds_finance=False with coverage_tier='both'",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "accuracy_score_off_by_two",
+          "dimension": "Accuracy",
+          "expected_rules": [
+            "CON-AUR-013"
+          ],
+          "rows_affected": 53,
+          "detail": "aura_score = continuous+2",
+          "detected_by": [
+            "CON-AUR-013"
+          ],
+          "detected": true
+        },
+        {
+          "name": "reasonable_continuous_extreme",
+          "dimension": "Reasonableness",
+          "expected_rules": [
+            "CON-AUR-014"
+          ],
+          "rows_affected": 32,
+          "detail": "aura_score_continuous=99.0",
+          "detected_by": [
+            "CON-AUR-014"
+          ],
+          "detected": true
+        },
+        {
+          "name": "freshness_old_promoted",
+          "dimension": "Freshness",
+          "expected_rules": [
+            "CON-AUR-freshness (promoted_at)"
+          ],
+          "rows_affected": 32,
+          "detail": "promoted_at=1970",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "volume_silent_drop",
+          "dimension": "Volume",
+          "expected_rules": [
+            "CON-AUR-001"
+          ],
+          "rows_affected": 161,
+          "detail": "drop 161 rows; remaining=3062",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "ref_invalid_coverage",
+          "dimension": "Referential",
+          "expected_rules": [
+            "CON-AUR-005"
+          ],
+          "rows_affected": 32,
+          "detail": "coverage_tier='orphan_tier'",
+          "detected_by": [
+            "CON-AUR-005"
+          ],
+          "detected": true
+        },
+        {
+          "name": "coverage_strata_collapse",
+          "dimension": "Coverage",
+          "expected_rules": [
+            "CON-AUR-030"
+          ],
+          "rows_affected": 1197,
+          "detail": "92% of three_term -> bucket 5",
+          "detected_by": [],
+          "detected": false
+        }
+      ],
+      "rules_fired": [
+        {
+          "rule": "CON-AUR-005",
+          "detail": "32 invalid coverage_tier"
+        },
+        {
+          "rule": "CON-AUR-011",
+          "detail": "14 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-034",
+          "detail": "14 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-013",
+          "detail": "35 rows fail round-of-continuous"
+        },
+        {
+          "rule": "CON-AUR-014",
+          "detail": "15 continuous out of [1,10]"
+        },
+        {
+          "rule": "CON-AUR-033",
+          "detail": "74 invalid aura_score_basis values"
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "rate": 0.06,
+      "rows_after": 3030,
+      "corruptions": [
+        {
+          "name": "completeness_null_inst_name",
+          "dimension": "Completeness",
+          "expected_rules": [
+            "CON-AUR-required-cols (schema-level)"
+          ],
+          "rows_affected": 193,
+          "detail": "set institution_name=NULL on required column",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "validity_basis_enum",
+          "dimension": "Validity",
+          "expected_rules": [
+            "CON-AUR-033"
+          ],
+          "rows_affected": 96,
+          "detail": "aura_score_basis = 'garbage_basis'",
+          "detected_by": [
+            "CON-AUR-033"
+          ],
+          "detected": true
+        },
+        {
+          "name": "uniqueness_record_id_dup",
+          "dimension": "Uniqueness",
+          "expected_rules": [
+            "CON-AUR-uniqueness (record_id)"
+          ],
+          "rows_affected": 48,
+          "detail": "duplicate record_id",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "consistency_flag_vs_tier",
+          "dimension": "Consistency",
+          "expected_rules": [
+            "CON-AUR-consistency (flags vs tier)"
+          ],
+          "rows_affected": 48,
+          "detail": "has_ipeds_finance=False with coverage_tier='both'",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "accuracy_score_off_by_two",
+          "dimension": "Accuracy",
+          "expected_rules": [
+            "CON-AUR-013"
+          ],
+          "rows_affected": 64,
+          "detail": "aura_score = continuous+2",
+          "detected_by": [
+            "CON-AUR-013"
+          ],
+          "detected": true
+        },
+        {
+          "name": "reasonable_continuous_extreme",
+          "dimension": "Reasonableness",
+          "expected_rules": [
+            "CON-AUR-014"
+          ],
+          "rows_affected": 38,
+          "detail": "aura_score_continuous=99.0",
+          "detected_by": [
+            "CON-AUR-014"
+          ],
+          "detected": true
+        },
+        {
+          "name": "freshness_old_promoted",
+          "dimension": "Freshness",
+          "expected_rules": [
+            "CON-AUR-freshness (promoted_at)"
+          ],
+          "rows_affected": 38,
+          "detail": "promoted_at=1970",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "volume_silent_drop",
+          "dimension": "Volume",
+          "expected_rules": [
+            "CON-AUR-001"
+          ],
+          "rows_affected": 193,
+          "detail": "drop 193 rows; remaining=3030",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "ref_invalid_coverage",
+          "dimension": "Referential",
+          "expected_rules": [
+            "CON-AUR-005"
+          ],
+          "rows_affected": 38,
+          "detail": "coverage_tier='orphan_tier'",
+          "detected_by": [
+            "CON-AUR-005"
+          ],
+          "detected": true
+        },
+        {
+          "name": "coverage_strata_collapse",
+          "dimension": "Coverage",
+          "expected_rules": [
+            "CON-AUR-030"
+          ],
+          "rows_affected": 1196,
+          "detail": "92% of three_term -> bucket 5",
+          "detected_by": [],
+          "detected": false
+        }
+      ],
+      "rules_fired": [
+        {
+          "rule": "CON-AUR-005",
+          "detail": "38 invalid coverage_tier"
+        },
+        {
+          "rule": "CON-AUR-011",
+          "detail": "14 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-034",
+          "detail": "14 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-013",
+          "detail": "35 rows fail round-of-continuous"
+        },
+        {
+          "rule": "CON-AUR-014",
+          "detail": "15 continuous out of [1,10]"
+        },
+        {
+          "rule": "CON-AUR-033",
+          "detail": "92 invalid aura_score_basis values"
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "rate": 0.07,
+      "rows_after": 2998,
+      "corruptions": [
+        {
+          "name": "completeness_null_inst_name",
+          "dimension": "Completeness",
+          "expected_rules": [
+            "CON-AUR-required-cols (schema-level)"
+          ],
+          "rows_affected": 225,
+          "detail": "set institution_name=NULL on required column",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "validity_basis_enum",
+          "dimension": "Validity",
+          "expected_rules": [
+            "CON-AUR-033"
+          ],
+          "rows_affected": 112,
+          "detail": "aura_score_basis = 'garbage_basis'",
+          "detected_by": [
+            "CON-AUR-033"
+          ],
+          "detected": true
+        },
+        {
+          "name": "uniqueness_record_id_dup",
+          "dimension": "Uniqueness",
+          "expected_rules": [
+            "CON-AUR-uniqueness (record_id)"
+          ],
+          "rows_affected": 56,
+          "detail": "duplicate record_id",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "consistency_flag_vs_tier",
+          "dimension": "Consistency",
+          "expected_rules": [
+            "CON-AUR-consistency (flags vs tier)"
+          ],
+          "rows_affected": 56,
+          "detail": "has_ipeds_finance=False with coverage_tier='both'",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "accuracy_score_off_by_two",
+          "dimension": "Accuracy",
+          "expected_rules": [
+            "CON-AUR-013"
+          ],
+          "rows_affected": 75,
+          "detail": "aura_score = continuous+2",
+          "detected_by": [
+            "CON-AUR-013"
+          ],
+          "detected": true
+        },
+        {
+          "name": "reasonable_continuous_extreme",
+          "dimension": "Reasonableness",
+          "expected_rules": [
+            "CON-AUR-014"
+          ],
+          "rows_affected": 45,
+          "detail": "aura_score_continuous=99.0",
+          "detected_by": [
+            "CON-AUR-014"
+          ],
+          "detected": true
+        },
+        {
+          "name": "freshness_old_promoted",
+          "dimension": "Freshness",
+          "expected_rules": [
+            "CON-AUR-freshness (promoted_at)"
+          ],
+          "rows_affected": 45,
+          "detail": "promoted_at=1970",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "volume_silent_drop",
+          "dimension": "Volume",
+          "expected_rules": [
+            "CON-AUR-001"
+          ],
+          "rows_affected": 225,
+          "detail": "drop 225 rows; remaining=2998",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "ref_invalid_coverage",
+          "dimension": "Referential",
+          "expected_rules": [
+            "CON-AUR-005"
+          ],
+          "rows_affected": 45,
+          "detail": "coverage_tier='orphan_tier'",
+          "detected_by": [
+            "CON-AUR-005"
+          ],
+          "detected": true
+        },
+        {
+          "name": "coverage_strata_collapse",
+          "dimension": "Coverage",
+          "expected_rules": [
+            "CON-AUR-030"
+          ],
+          "rows_affected": 1165,
+          "detail": "92% of three_term -> bucket 5",
+          "detected_by": [],
+          "detected": false
+        }
+      ],
+      "rules_fired": [
+        {
+          "rule": "CON-AUR-005",
+          "detail": "45 invalid coverage_tier"
+        },
+        {
+          "rule": "CON-AUR-011",
+          "detail": "23 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-034",
+          "detail": "23 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-013",
+          "detail": "31 rows fail round-of-continuous"
+        },
+        {
+          "rule": "CON-AUR-014",
+          "detail": "20 continuous out of [1,10]"
+        },
+        {
+          "rule": "CON-AUR-033",
+          "detail": "106 invalid aura_score_basis values"
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "rate": 0.08,
+      "rows_after": 2966,
+      "corruptions": [
+        {
+          "name": "completeness_null_inst_name",
+          "dimension": "Completeness",
+          "expected_rules": [
+            "CON-AUR-required-cols (schema-level)"
+          ],
+          "rows_affected": 257,
+          "detail": "set institution_name=NULL on required column",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "validity_basis_enum",
+          "dimension": "Validity",
+          "expected_rules": [
+            "CON-AUR-033"
+          ],
+          "rows_affected": 128,
+          "detail": "aura_score_basis = 'garbage_basis'",
+          "detected_by": [
+            "CON-AUR-033"
+          ],
+          "detected": true
+        },
+        {
+          "name": "uniqueness_record_id_dup",
+          "dimension": "Uniqueness",
+          "expected_rules": [
+            "CON-AUR-uniqueness (record_id)"
+          ],
+          "rows_affected": 64,
+          "detail": "duplicate record_id",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "consistency_flag_vs_tier",
+          "dimension": "Consistency",
+          "expected_rules": [
+            "CON-AUR-consistency (flags vs tier)"
+          ],
+          "rows_affected": 64,
+          "detail": "has_ipeds_finance=False with coverage_tier='both'",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "accuracy_score_off_by_two",
+          "dimension": "Accuracy",
+          "expected_rules": [
+            "CON-AUR-013"
+          ],
+          "rows_affected": 85,
+          "detail": "aura_score = continuous+2",
+          "detected_by": [
+            "CON-AUR-013"
+          ],
+          "detected": true
+        },
+        {
+          "name": "reasonable_continuous_extreme",
+          "dimension": "Reasonableness",
+          "expected_rules": [
+            "CON-AUR-014"
+          ],
+          "rows_affected": 51,
+          "detail": "aura_score_continuous=99.0",
+          "detected_by": [
+            "CON-AUR-014"
+          ],
+          "detected": true
+        },
+        {
+          "name": "freshness_old_promoted",
+          "dimension": "Freshness",
+          "expected_rules": [
+            "CON-AUR-freshness (promoted_at)"
+          ],
+          "rows_affected": 51,
+          "detail": "promoted_at=1970",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "volume_silent_drop",
+          "dimension": "Volume",
+          "expected_rules": [
+            "CON-AUR-001"
+          ],
+          "rows_affected": 257,
+          "detail": "drop 257 rows; remaining=2966",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "ref_invalid_coverage",
+          "dimension": "Referential",
+          "expected_rules": [
+            "CON-AUR-005"
+          ],
+          "rows_affected": 51,
+          "detail": "coverage_tier='orphan_tier'",
+          "detected_by": [
+            "CON-AUR-005"
+          ],
+          "detected": true
+        },
+        {
+          "name": "coverage_strata_collapse",
+          "dimension": "Coverage",
+          "expected_rules": [
+            "CON-AUR-030"
+          ],
+          "rows_affected": 1160,
+          "detail": "92% of three_term -> bucket 5",
+          "detected_by": [],
+          "detected": false
+        }
+      ],
+      "rules_fired": [
+        {
+          "rule": "CON-AUR-005",
+          "detail": "51 invalid coverage_tier"
+        },
+        {
+          "rule": "CON-AUR-011",
+          "detail": "23 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-034",
+          "detail": "23 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-013",
+          "detail": "48 rows fail round-of-continuous"
+        },
+        {
+          "rule": "CON-AUR-014",
+          "detail": "25 continuous out of [1,10]"
+        },
+        {
+          "rule": "CON-AUR-033",
+          "detail": "118 invalid aura_score_basis values"
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "rate": 0.1,
+      "rows_after": 2901,
+      "corruptions": [
+        {
+          "name": "completeness_null_inst_name",
+          "dimension": "Completeness",
+          "expected_rules": [
+            "CON-AUR-required-cols (schema-level)"
+          ],
+          "rows_affected": 322,
+          "detail": "set institution_name=NULL on required column",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "validity_basis_enum",
+          "dimension": "Validity",
+          "expected_rules": [
+            "CON-AUR-033"
+          ],
+          "rows_affected": 161,
+          "detail": "aura_score_basis = 'garbage_basis'",
+          "detected_by": [
+            "CON-AUR-033"
+          ],
+          "detected": true
+        },
+        {
+          "name": "uniqueness_record_id_dup",
+          "dimension": "Uniqueness",
+          "expected_rules": [
+            "CON-AUR-uniqueness (record_id)"
+          ],
+          "rows_affected": 80,
+          "detail": "duplicate record_id",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "consistency_flag_vs_tier",
+          "dimension": "Consistency",
+          "expected_rules": [
+            "CON-AUR-consistency (flags vs tier)"
+          ],
+          "rows_affected": 80,
+          "detail": "has_ipeds_finance=False with coverage_tier='both'",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "accuracy_score_off_by_two",
+          "dimension": "Accuracy",
+          "expected_rules": [
+            "CON-AUR-013"
+          ],
+          "rows_affected": 107,
+          "detail": "aura_score = continuous+2",
+          "detected_by": [
+            "CON-AUR-013"
+          ],
+          "detected": true
+        },
+        {
+          "name": "reasonable_continuous_extreme",
+          "dimension": "Reasonableness",
+          "expected_rules": [
+            "CON-AUR-014"
+          ],
+          "rows_affected": 64,
+          "detail": "aura_score_continuous=99.0",
+          "detected_by": [
+            "CON-AUR-014"
+          ],
+          "detected": true
+        },
+        {
+          "name": "freshness_old_promoted",
+          "dimension": "Freshness",
+          "expected_rules": [
+            "CON-AUR-freshness (promoted_at)"
+          ],
+          "rows_affected": 64,
+          "detail": "promoted_at=1970",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "volume_silent_drop",
+          "dimension": "Volume",
+          "expected_rules": [
+            "CON-AUR-001"
+          ],
+          "rows_affected": 322,
+          "detail": "drop 322 rows; remaining=2901",
+          "detected_by": [],
+          "detected": false
+        },
+        {
+          "name": "ref_invalid_coverage",
+          "dimension": "Referential",
+          "expected_rules": [
+            "CON-AUR-005"
+          ],
+          "rows_affected": 64,
+          "detail": "coverage_tier='orphan_tier'",
+          "detected_by": [
+            "CON-AUR-005"
+          ],
+          "detected": true
+        },
+        {
+          "name": "coverage_strata_collapse",
+          "dimension": "Coverage",
+          "expected_rules": [
+            "CON-AUR-030"
+          ],
+          "rows_affected": 1103,
+          "detail": "92% of three_term -> bucket 5",
+          "detected_by": [],
+          "detected": false
+        }
+      ],
+      "rules_fired": [
+        {
+          "rule": "CON-AUR-005",
+          "detail": "64 invalid coverage_tier"
+        },
+        {
+          "rule": "CON-AUR-011",
+          "detail": "24 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-034",
+          "detail": "24 rows violate score/basis NULL-iff"
+        },
+        {
+          "rule": "CON-AUR-013",
+          "detail": "62 rows fail round-of-continuous"
+        },
+        {
+          "rule": "CON-AUR-014",
+          "detail": "31 continuous out of [1,10]"
+        },
+        {
+          "rule": "CON-AUR-033",
+          "detail": "149 invalid aura_score_basis values"
+        }
+      ]
+    }
+  ],
+  "targeted": {
+    "rows_after": 1492,
+    "corruptions": [
+      {
+        "name": "T1_full_outer_inner_degradation",
+        "dimension": "Volume / FULL OUTER edge",
+        "expected_rules": [
+          "CON-AUR-001"
+        ],
+        "rows_affected": 1731,
+        "detail": "dropped finance_only+athletics_only; n=1492 (floor 2,675)",
+        "detected_by": [
+          "CON-AUR-001"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T2_score_continuous_arithmetic",
+        "dimension": "Accuracy",
+        "expected_rules": [
+          "CON-AUR-013"
+        ],
+        "rows_affected": 1,
+        "detail": "aura_score = round(continuous) + 5",
+        "detected_by": [
+          "CON-AUR-013"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T3_score_range",
+        "dimension": "Validity",
+        "expected_rules": [
+          "CON-AUR-010"
+        ],
+        "rows_affected": 2,
+        "detail": "aura_score in {0, 11}",
+        "detected_by": [
+          "CON-AUR-010"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T4_continuous_range",
+        "dimension": "Validity",
+        "expected_rules": [
+          "CON-AUR-014"
+        ],
+        "rows_affected": 1,
+        "detail": "aura_score_continuous = 12.5 (non-three_term row)",
+        "detected_by": [
+          "CON-AUR-014"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T5_version_legacy",
+        "dimension": "Validity / Versioning",
+        "expected_rules": [
+          "CON-AUR-012"
+        ],
+        "rows_affected": 3,
+        "detail": "aura_score_version = 'v0-draft'",
+        "detected_by": [
+          "CON-AUR-012"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T6_null_iff_break",
+        "dimension": "Consistency",
+        "expected_rules": [
+          "CON-AUR-011",
+          "CON-AUR-034"
+        ],
+        "rows_affected": 1,
+        "detail": "basis=NULL but aura_score=5 (fresh row)",
+        "detected_by": [
+          "CON-AUR-011",
+          "CON-AUR-034"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T7_basis_enum",
+        "dimension": "Validity",
+        "expected_rules": [
+          "CON-AUR-033"
+        ],
+        "rows_affected": 1,
+        "detail": "aura_score_basis = 'invalid_value'",
+        "detected_by": [
+          "CON-AUR-033"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T8_coverage_tier_corruption",
+        "dimension": "Validity",
+        "expected_rules": [
+          "CON-AUR-005"
+        ],
+        "rows_affected": 2,
+        "detail": "coverage_tier in {unknown, mixed}",
+        "detected_by": [
+          "CON-AUR-005"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T9_marketing_ratio_invariant",
+        "dimension": "Accuracy / Algorithmic invariant",
+        "expected_rules": [
+          "CON-AUR-007"
+        ],
+        "rows_affected": 4,
+        "detail": "marketing_ratio != institutional_support / instruction",
+        "detected_by": [
+          "CON-AUR-007"
+        ],
+        "detected": true
+      },
+      {
+        "name": "T10_strata_collapse_three_term",
+        "dimension": "Coverage / Distribution",
+        "expected_rules": [
+          "CON-AUR-030"
+        ],
+        "rows_affected": 1302,
+        "detail": "92% of three_term -> bucket 7",
+        "detected_by": [
+          "CON-AUR-030"
+        ],
+        "detected": true
+      }
+    ],
+    "rules_fired": [
+      {
+        "rule": "CON-AUR-001",
+        "detail": "n=1492 (floor 2,675)"
+      },
+      {
+        "rule": "CON-AUR-005",
+        "detail": "2 invalid coverage_tier"
+      },
+      {
+        "rule": "CON-AUR-007",
+        "detail": "4 rows fail marketing_ratio invariant"
+      },
+      {
+        "rule": "CON-AUR-010",
+        "detail": "1 aura_score out of [1,10]"
+      },
+      {
+        "rule": "CON-AUR-011",
+        "detail": "1 rows violate score/basis NULL-iff"
+      },
+      {
+        "rule": "CON-AUR-034",
+        "detail": "1 rows violate score/basis NULL-iff"
+      },
+      {
+        "rule": "CON-AUR-012",
+        "detail": "3 rows non-v1 version stamp"
+      },
+      {
+        "rule": "CON-AUR-013",
+        "detail": "2 rows fail round-of-continuous"
+      },
+      {
+        "rule": "CON-AUR-014",
+        "detail": "1 continuous out of [1,10]"
+      },
+      {
+        "rule": "CON-AUR-030",
+        "detail": "strata failing >=4/10 coverage: ['invalid_value:1/10']"
+      },
+      {
+        "rule": "CON-AUR-033",
+        "detail": "1 invalid aura_score_basis values"
+      }
+    ],
+    "all_rule_results": [
+      {
+        "rule": "CON-AUR-001",
+        "fired": true,
+        "detail": "n=1492 (floor 2,675)"
+      },
+      {
+        "rule": "CON-AUR-005",
+        "fired": true,
+        "detail": "2 invalid coverage_tier"
+      },
+      {
+        "rule": "CON-AUR-007",
+        "fired": true,
+        "detail": "4 rows fail marketing_ratio invariant"
+      },
+      {
+        "rule": "CON-AUR-010",
+        "fired": true,
+        "detail": "1 aura_score out of [1,10]"
+      },
+      {
+        "rule": "CON-AUR-011",
+        "fired": true,
+        "detail": "1 rows violate score/basis NULL-iff"
+      },
+      {
+        "rule": "CON-AUR-034",
+        "fired": true,
+        "detail": "1 rows violate score/basis NULL-iff"
+      },
+      {
+        "rule": "CON-AUR-012",
+        "fired": true,
+        "detail": "3 rows non-v1 version stamp"
+      },
+      {
+        "rule": "CON-AUR-013",
+        "fired": true,
+        "detail": "2 rows fail round-of-continuous"
+      },
+      {
+        "rule": "CON-AUR-014",
+        "fired": true,
+        "detail": "1 continuous out of [1,10]"
+      },
+      {
+        "rule": "CON-AUR-030",
+        "fired": true,
+        "detail": "strata failing >=4/10 coverage: ['invalid_value:1/10']"
+      },
+      {
+        "rule": "CON-AUR-033",
+        "fired": true,
+        "detail": "1 invalid aura_score_basis values"
+      }
+    ]
+  }
+}
