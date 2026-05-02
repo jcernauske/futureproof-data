@@ -31,10 +31,21 @@ See docs/specs/feature-ask-gemma.md.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections.abc import AsyncIterator
 from typing import Any
 
-from app.models.api import AskResponse, AskScope
+from app.models.api import (
+    AskResponse,
+    AskScope,
+    TraceDone,
+    TraceEvent,
+    TraceEventPayload,
+    TraceFinalText,
+    TraceTurnComplete,
+    TraceTurnStart,
+)
 from app.models.career import (
     AppliedSkill,
     BossFightResult,
@@ -76,12 +87,13 @@ _TOOLS: tuple[str, ...] = (
     "get_career_branches",
 )
 
-# Lower than the 0.7 chat default. Under tool_choice="auto" Gemma 4 will
-# speculatively call get_occupation_data / get_career_paths when context
-# already answers the question; 0.4 strongly suppresses those redundant
-# calls while keeping natural language flow. Chip dispatch uses 0.0 (it
-# requires a tool call); Ask Gemma is the inverse and prefers context.
-_TEMPERATURE = 0.4
+# 0.5 — middle ground. Pre-trace this was 0.4 (suppressed all
+# speculative tool calls). Trace shipping briefly bumped it to 0.7
+# (encouraged tool use but Gemma 4 started leaking chain-of-thought
+# narration into the response). 0.5 keeps the tool-exploration bias
+# while suppressing the rambling. The system prompt's "Never write
+# your reasoning" clause is the load-bearing fix; this just helps.
+_TEMPERATURE = 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -138,17 +150,34 @@ _SYSTEM_BASE = (
     "their notation in your reply. Read what's inside the brackets, "
     "translate it to plain English, and write the plain-English "
     "version.\n\n"
-    "Tools are available for questions that go BEYOND the loaded "
-    "build: 'what if I went to school X?', 'what if I lived in state "
-    "Y?', 'what does career Z look like long-term?'. For questions "
-    "that can be answered from the loaded context (any question about "
-    "the student's current build, stats, risk-category outcomes, or "
-    "applied skills), answer from the context — do not call a tool.\n\n"
+    "You have five tools available — get_career_paths, "
+    "get_occupation_data, get_regional_price_parity, "
+    "compare_purchasing_power, get_career_branches. Use them generously "
+    "any time fresh data would make your answer more accurate, more "
+    "specific, or more verifiable than what you can pull from the "
+    "loaded context. The student values seeing you check sources rather "
+    "than answer from memory. If you can verify with a tool, verify.\n\n"
+    "The narrow exception: if the question is purely about the "
+    "student's OWN build state — their pentagon stats, their risk "
+    "outcomes, their applied skills, their existing branches — that "
+    "data is already in the context block and a tool call would just "
+    "fetch what's already in front of you. Answer from context for "
+    "those.\n\n"
     "For 'what if I picked a different major?' questions: looking up "
     "a major requires a CIP code. If you don't know the exact CIP "
     "code for the major the student is asking about, tell them to "
     "start a new build with that major rather than guessing — do not "
     "call a tool with a made-up code.\n\n"
+    "CRITICAL: Never write your reasoning, deliberation, or "
+    "decision-making process in the response. The student sees only "
+    "your finished answer — never narration like 'I should check', "
+    "'Wait, let me think', 'Actually, I'll', 'Let's see if', 'One "
+    "more thought', or any other thinking-out-loud. If a tool fits, "
+    "call it silently and use the result. If no tool fits the "
+    "question exactly, answer plainly with what you know in two to "
+    "four sentences — do not apologize for the limits of the tools, "
+    "do not enumerate alternatives you considered, do not explain why "
+    "the question is hard. Skip directly to the answer.\n\n"
     "Keep replies to 4-8 sentences of plain prose at a 7th-grade "
     "reading level, unless the student asks for more detail."
 )
@@ -319,16 +348,24 @@ async def chat_ask(
         text = fallback_text("chat_unavailable", norm_locale)
 
     # Surface tool-call telemetry on AskResponse for the routing/E2E
-    # test (test_tool_loop_dispatches_to_mcp). UI ignores it.
-    tool_calls_summary = [
-        {
-            "tool": tc.tool_name,
-            "ok": tc.error is None,
-            "duration_ms": tc.duration_ms,
-        }
+    # test AND for <GemmaTrace>'s post-hoc fallback render — when SSE
+    # is unavailable, the frontend reads this list and synthesizes
+    # turn_start + turn_complete events from it (feature-gemma-trace.md
+    # §4 Service Changes). The ``turn`` field carries the per-dispatch
+    # monotonic ``dispatch_index`` so live and post-hoc feeds use the
+    # same row-correlation key.
+    tool_calls = [
+        TraceEventPayload(
+            turn=tc.dispatch_index,
+            tool=tc.tool_name,
+            args=tc.tool_args,
+            result_preview=tc.tool_result_preview,
+            duration_ms=tc.duration_ms,
+            error=tc.error,
+        )
         for tc in tool_call_log
     ]
-    return AskResponse(response=text, tool_calls=tool_calls_summary)
+    return AskResponse(response=text, tool_calls=tool_calls)
 
 
 async def _dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -336,6 +373,229 @@ async def _dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
     ``student_cip`` the way ``set_your_course.py`` does — Ask Gemma
     answers questions, it does not resolve the student's CIP."""
     return await mcp_client.call_async(name, args)
+
+
+# ---------------------------------------------------------------------------
+# Streaming variant — POST /chat/ask/stream
+# ---------------------------------------------------------------------------
+
+# Bounded queue size for the per-request trace event channel
+# (Decision #14). Worst-case event count per chat turn is
+# max_turns(3) * max_tools_per_turn(~5) * 2 events (start + complete)
+# = ~30. 256 is ~8x headroom; the bound is documented and not reachable
+# under the configured loop limits — but bounded prevents accidental
+# unbounded growth if a future loop change ever changes the bound.
+_TRACE_QUEUE_MAXSIZE = 256
+
+# Polling interval used to interleave queue draining with loop_task
+# completion checks. Short enough to feel live; long enough to not
+# burn CPU. Matches the cadence of the build SSE stream's drain loop.
+_TRACE_DRAIN_POLL_S = 0.05
+
+
+async def chat_ask_stream(
+    *,
+    scope: AskScope,
+    builds: list[Build],
+    message: str,
+    history: list[dict[str, Any]],
+    locale: AppLocale | None,
+) -> AsyncIterator[TraceEvent]:
+    """Streaming variant of ``chat_ask``.
+
+    Yields ``TraceEvent`` objects in order: zero or more
+    ``(turn_start, turn_complete)`` pairs, exactly one ``final_text``,
+    exactly one ``done``.
+
+    Failure modes — all converge on a graceful ``final_text`` carrying
+    the localized ``chat_unavailable`` fallback string + a ``done``
+    trailer. Generator NEVER raises past its boundary (Decision: C3).
+
+    Cancellation — when the SSE client disconnects, FastAPI calls
+    ``aclose()`` on this generator. The ``try/finally`` block cancels
+    the in-flight Gemma loop_task and awaits its completion so the
+    Gemma semaphore is released within ~100ms rather than after the
+    wall-time cap (Decision: C4).
+    """
+    norm_locale = normalize_locale(locale)
+
+    # Branch-scope opener path (no tool loop, no trace events) —
+    # mirrors chat_ask. Yields only final_text + done.
+    if scope.kind == "branch" and not history:
+        text = await _branch_opener_text(scope, builds, norm_locale)
+        yield TraceFinalText(response=text)
+        yield TraceDone()
+        return
+
+    # Build context block per scope kind. Mirrors chat_ask exactly.
+    context_block = await _build_context_block(scope, builds)
+
+    # Assemble system prompt (branch-scope adds the appendix).
+    lang_block = gemma_language_instruction(norm_locale)
+    system_base = (
+        _SYSTEM_BASE + _BRANCH_VOICE_APPENDIX
+        if scope.kind == "branch"
+        else _SYSTEM_BASE
+    )
+    system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
+
+    # Fold history into the user message.
+    user_msg = _fold_history(history, message)
+
+    # Load tool schemas. Skip any tool the MCP server doesn't publish.
+    tool_schemas: list[dict[str, Any]] = []
+    for tool_name in _TOOLS:
+        schema = mcp_client.get_tool_openai_schema(tool_name)
+        if schema is not None:
+            tool_schemas.append(schema)
+
+    extra = {
+        "call_site": f"ask_gemma_stream_{scope.kind}",
+        "scope_target_id": scope.target_id,
+        "scope_build_count": len(scope.build_ids),
+    }
+
+    # Per-request bounded queue. Both callbacks enqueue here; the
+    # generator drains and yields events as they arrive.
+    queue: asyncio.Queue[TraceEvent] = asyncio.Queue(
+        maxsize=_TRACE_QUEUE_MAXSIZE
+    )
+
+    async def on_start(
+        dispatch_index: int, name: str, args: dict[str, Any]
+    ) -> None:
+        await queue.put(
+            TraceTurnStart(turn=dispatch_index, tool=name, args=args)
+        )
+
+    async def on_turn(turn: gemma_client.ToolCallTurn) -> None:
+        await queue.put(
+            TraceTurnComplete(
+                turn=turn.dispatch_index,
+                tool=turn.tool_name,
+                args=turn.tool_args,
+                result_preview=turn.tool_result_preview,
+                duration_ms=turn.duration_ms,
+                error=turn.error,
+            )
+        )
+
+    loop_task: asyncio.Task[tuple[str, list[gemma_client.ToolCallTurn]]] = (
+        asyncio.create_task(
+            gemma_client.generate_with_tools_loop(
+                system=system,
+                user=user_msg,
+                tools=tool_schemas,
+                dispatch=_dispatch,
+                max_turns=3,
+                max_wall_time_s=30.0,
+                temperature=_TEMPERATURE,
+                max_tokens=1200,
+                extra=extra,
+                on_turn_start=on_start,
+                on_turn_event=on_turn,
+            )
+        )
+    )
+
+    text = ""
+    try:
+        # Drain queue until loop_task completes. The wait_for(timeout=...)
+        # idiom interleaves queue reads with loop_task done-checks
+        # without busy-spinning.
+        while not loop_task.done() or not queue.empty():
+            try:
+                ev = await asyncio.wait_for(
+                    queue.get(), timeout=_TRACE_DRAIN_POLL_S
+                )
+                yield ev
+            except asyncio.TimeoutError:
+                continue
+
+        # Loop is done — collect its return. ANY exception (transport,
+        # callback bug, programmer error) collapses to the fallback
+        # final_text + done. Generator never raises past its boundary.
+        try:
+            text, _log = await loop_task
+        except Exception as exc:  # noqa: BLE001 — boundary defense
+            logger.warning("chat_ask_stream: loop_task raised — %s", exc)
+            text = ""
+
+        if not text:
+            text = fallback_text("chat_unavailable", norm_locale)
+
+        yield TraceFinalText(response=text)
+        yield TraceDone()
+    finally:
+        # Client disconnect path. If the SSE consumer aborts mid-
+        # stream, FastAPI calls aclose() on this generator, which
+        # raises GeneratorExit at the active `yield ev` and bypasses
+        # the try-block exit. The finally cancels loop_task and
+        # waits for it to settle so the Gemma semaphore is released
+        # immediately rather than after the wall-time cap (≤30s).
+        if not loop_task.done():
+            loop_task.cancel()
+            await asyncio.gather(loop_task, return_exceptions=True)
+
+
+async def _branch_opener_text(
+    scope: AskScope,
+    builds_in_scope: list[Build],
+    norm_locale: AppLocale,
+) -> str:
+    """Branch opener path — extracted from chat_ask so chat_ask_stream
+    can reuse the same logic. Tools are disabled for the opener; the
+    context block has every numeric driver needed."""
+    assert scope.target_id is not None  # branch scope validator guarantees
+    context_block = await _context_for_branch(
+        builds_in_scope[0], scope.target_id
+    )
+    lang_block = gemma_language_instruction(norm_locale)
+    system_base = f"{_SYSTEM_BASE}{_BRANCH_VOICE_APPENDIX}"
+    system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
+    opener_user = (
+        _OPENER_PROMPT
+        if scope.target_id == builds_in_scope[0].career.soc_code
+        else _OPENER_PROMPT_BRANCH
+    )
+    text = await gemma_client.generate_async(
+        system=system,
+        user=opener_user,
+        max_tokens=400,
+        temperature=_TEMPERATURE,
+        extra={
+            "call_site": "ask_gemma_stream_branch_opener",
+            "scope_target_id": scope.target_id,
+        },
+    )
+    if not text:
+        logger.warning(
+            "ask_gemma stream branch opener: empty text, using fallback"
+        )
+        text = fallback_text("chat_unavailable", norm_locale)
+    return text
+
+
+async def _build_context_block(
+    scope: AskScope, builds_in_scope: list[Build]
+) -> str:
+    """Dispatch to the right per-scope context-builder. Extracted so
+    chat_ask and chat_ask_stream share one implementation."""
+    if scope.kind == "stat":
+        assert scope.target_id is not None
+        return _context_for_stat(builds_in_scope[0], scope.target_id)
+    if scope.kind == "boss":
+        assert scope.target_id is not None
+        return _context_for_boss(builds_in_scope[0], scope.target_id)
+    if scope.kind == "skill":
+        assert scope.target_id is not None
+        return _context_for_skill(builds_in_scope[0], scope.target_id)
+    if scope.kind == "build":
+        return _context_for_build(builds_in_scope[0])
+    if scope.kind == "branch":
+        assert scope.target_id is not None
+        return await _context_for_branch(builds_in_scope[0], scope.target_id)
+    return _context_for_compare(builds_in_scope)
 
 
 # ---------------------------------------------------------------------------

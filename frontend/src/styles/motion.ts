@@ -24,6 +24,10 @@ export const springs = {
 
   /** Quick and responsive, slight bounce. Button press, toggle, slider thumb, micro-interactions. */
   snappy: { type: "spring" as const, stiffness: 400, damping: 25 },
+
+  /** Slide-overs, rail expand/collapse, sheet detents — confident landings,
+   *  no overshoot. Sits between smooth (200/25) and snappy (400/25). */
+  cozy: { type: "spring" as const, stiffness: 240, damping: 28 },
 } as const;
 
 // ============================================================

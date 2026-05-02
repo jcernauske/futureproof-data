@@ -754,12 +754,16 @@ def test_branch_tool_loop_dispatches_get_career_branches(
     assert resp.status_code == 200, resp.text
     body = resp.json()
 
-    # The tool call surfaced on AskResponse.tool_calls.
+    # The tool call surfaced on AskResponse.tool_calls in the enriched
+    # TraceEventPayload shape (turn / tool / args / result_preview /
+    # duration_ms / error). See feature-gemma-trace.md §4.
     assert len(body["tool_calls"]) == 1
     tc = body["tool_calls"][0]
     assert tc["tool"] == "get_career_branches"
-    assert tc["ok"] is True
+    assert tc["error"] is None
     assert tc["duration_ms"] == 124
+    assert tc["turn"] == 0  # dispatch_index of the first dispatch
+    assert tc["args"] == {"soc_code": "13-2052", "primary_only": True}
 
     # call_site stamped correctly on the loop kwargs (visible in
     # logs/gemma.jsonl when a real Gemma call fires).
@@ -786,9 +790,9 @@ def test_tool_loop_dispatches_to_mcp(
 ) -> None:
     """Mock ``generate_with_tools_loop`` to simulate a successful tool
     call. Assert the response carries the tool-call telemetry on
-    ``tool_calls`` so the routing/E2E test (and the UI's debug view)
-    can see it. Per the service contract, ``tool_calls`` is shaped
-    ``[{"tool": str, "ok": bool, "duration_ms": int}, ...]``.
+    ``tool_calls`` in the enriched ``TraceEventPayload`` shape: ``turn``
+    (= dispatch_index), ``tool``, ``args``, ``result_preview``,
+    ``duration_ms``, ``error``. See feature-gemma-trace.md §4.
     """
     build = _make_build()
 
@@ -823,9 +827,163 @@ def test_tool_loop_dispatches_to_mcp(
     assert resp.status_code == 200
     body = resp.json()
     assert body["response"].startswith("Switching majors")
-    # tool_calls is populated. The summary shape from ask_gemma.chat_ask.
+    # tool_calls populated in enriched TraceEventPayload shape.
     assert len(body["tool_calls"]) == 1
     tc = body["tool_calls"][0]
     assert tc["tool"] == "get_career_paths"
-    assert tc["ok"] is True
+    assert tc["error"] is None
     assert tc["duration_ms"] == 87
+    assert tc["turn"] == 0
+    assert tc["args"] == {"unitid": 110635, "cipcode": "11.0701"}
+
+
+# ---------------------------------------------------------------------------
+# 6. POST /chat/ask/stream — SSE trace stream
+# ---------------------------------------------------------------------------
+
+
+def _parse_sse_events(body: str) -> list[tuple[str, dict[str, Any]]]:
+    """Parse an SSE response body into ``[(event_name, data_dict), ...]``.
+
+    Mirrors the helper in test_builds.py — keeps the parser local so
+    each suite stays self-contained.
+    """
+    import json as _json
+
+    events: list[tuple[str, dict[str, Any]]] = []
+    for frame in body.split("\n\n"):
+        frame = frame.strip()
+        if not frame:
+            continue
+        ev_name = ""
+        data_payload: dict[str, Any] = {}
+        for line in frame.split("\n"):
+            if line.startswith("event: "):
+                ev_name = line[len("event: "):]
+            elif line.startswith("data: "):
+                raw = line[len("data: "):]
+                try:
+                    data_payload = _json.loads(raw)
+                except _json.JSONDecodeError:
+                    data_payload = {"_raw": raw}
+        if ev_name:
+            events.append((ev_name, data_payload))
+    return events
+
+
+def test_chat_ask_stream_endpoint_returns_sse(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The /chat/ask/stream endpoint returns text/event-stream with
+    no-cache headers (so proxies don't buffer)."""
+    build = _make_build()
+
+    async def fake_loop(**kwargs: Any) -> tuple[str, list[ToolCallTurn]]:
+        return ("Done.", [])
+
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", fake_loop)
+
+    resp = client.post(
+        "/chat/ask/stream",
+        json={
+            "scope": {"kind": "build", "build_ids": [build.build_id]},
+            "message": "anything",
+            "history": [],
+            "locale": "en",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/event-stream")
+    assert resp.headers.get("cache-control") == "no-cache"
+    assert resp.headers.get("x-accel-buffering") == "no"
+
+
+def test_chat_ask_stream_emits_all_event_types(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Real-shape integration test: parse the SSE stream and assert
+    every expected event type fires in order."""
+    build = _make_build()
+
+    async def fake_loop(**kwargs: Any) -> tuple[str, list[ToolCallTurn]]:
+        on_start = kwargs.get("on_turn_start")
+        on_event = kwargs.get("on_turn_event")
+        await on_start(0, "get_career_paths", {"unitid": 110635})
+        turn = ToolCallTurn(
+            turn_number=0,
+            tool_name="get_career_paths",
+            tool_args={"unitid": 110635},
+            tool_result_size_bytes=42,
+            duration_ms=87,
+            error=None,
+            tool_result_preview='{"data": "ok"}',
+            dispatch_index=0,
+        )
+        await on_event(turn)
+        return ("Final answer.", [turn])
+
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", fake_loop)
+
+    resp = client.post(
+        "/chat/ask/stream",
+        json={
+            "scope": {"kind": "build", "build_ids": [build.build_id]},
+            "message": "What about Marketing at IU?",
+            "history": [],
+            "locale": "en",
+        },
+    )
+    assert resp.status_code == 200
+
+    events = _parse_sse_events(resp.text)
+    event_names = [name for name, _ in events]
+    assert event_names == [
+        "turn_start",
+        "turn_complete",
+        "final_text",
+        "done",
+    ]
+
+    # turn_start payload
+    _, start_data = events[0]
+    assert start_data["turn"] == 0
+    assert start_data["tool"] == "get_career_paths"
+    assert start_data["args"] == {"unitid": 110635}
+
+    # turn_complete payload
+    _, complete_data = events[1]
+    assert complete_data["turn"] == 0
+    assert complete_data["error"] is None
+    assert complete_data["duration_ms"] == 87
+    assert complete_data["result_preview"] == '{"data": "ok"}'
+
+    # final_text + done
+    _, final_data = events[2]
+    assert final_data["response"] == "Final answer."
+    _, done_data = events[3]
+    assert done_data == {"type": "done"}
+
+
+def test_chat_ask_stream_404_on_bad_build(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bad build_id returns 404 (mirrors /chat/ask behavior)."""
+    # Should never even get to the loop.
+    async def fake_loop(**kwargs: Any) -> tuple[str, list[ToolCallTurn]]:
+        raise AssertionError("loop should not run on missing build")
+
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", fake_loop)
+
+    resp = client.post(
+        "/chat/ask/stream",
+        json={
+            "scope": {"kind": "build", "build_ids": ["does-not-exist"]},
+            "message": "anything",
+            "history": [],
+            "locale": "en",
+        },
+    )
+    assert resp.status_code == 404

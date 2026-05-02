@@ -2,15 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
 import {
-  askGemma,
+  askGemmaStream,
   sendChat,
   type AskScope,
   type ChatHistoryItem,
   type BuildSummary,
 } from "@/api/menu";
 import { ChatMessage } from "@/components/menu/ChatMessage";
+import { GemmaTrace } from "@/components/menu/GemmaTrace";
 import { useProfileStore } from "@/store/profileStore";
 import { useT } from "@/i18n/useT";
+import type { GemmaTraceEvent } from "@/types/gemmaTrace";
+
+/**
+ * Per-history-index trace events. Indexed by the index in `history`
+ * of the assistant message the trace belongs to. Live events bind to
+ * the in-flight assistant turn at `history.length`.
+ */
+type TraceMap = Map<number, GemmaTraceEvent[]>;
 
 interface GemmaChatProps {
   open: boolean;
@@ -80,6 +89,11 @@ export function GemmaChat({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per-assistant-turn trace events. Live trace for the in-flight
+  // turn lives at `history.length` while sending; once the answer
+  // resolves, the trace stays bound to its assistant message index.
+  const [traces, setTraces] = useState<TraceMap>(() => new Map());
+  const liveEventsRef = useRef<GemmaTraceEvent[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Bumps on every panel close (and unmount) so in-flight sendChat
   // resolutions know they're stale and skip their state writes.
@@ -100,6 +114,8 @@ export function GemmaChat({
       setDraft("");
       setError(null);
       setSending(false);
+      setTraces(new Map());
+      liveEventsRef.current = [];
       return;
     }
     if (!open) {
@@ -108,6 +124,8 @@ export function GemmaChat({
       setDraft("");
       setError(null);
       setSending(false);
+      setTraces(new Map());
+      liveEventsRef.current = [];
     }
   }, [open, embedded, scopeTargetKey]);
 
@@ -141,10 +159,32 @@ export function GemmaChat({
     const session = sessionRef.current;
     setSending(true);
     setError(null);
+    // Live events bind to assistant index 0 (no prior turns in opener).
+    liveEventsRef.current = [];
+    setTraces((prev) => {
+      const next = new Map(prev);
+      next.set(0, []);
+      return next;
+    });
     (async () => {
       try {
         const locale = useProfileStore.getState().locale;
-        const result = await askGemma(scope, openerPrompt, [], locale);
+        const result = await askGemmaStream(
+          scope,
+          openerPrompt,
+          [],
+          (event) => {
+            if (cancelled || sessionRef.current !== session) return;
+            liveEventsRef.current = [...liveEventsRef.current, event];
+            const snapshot = liveEventsRef.current;
+            setTraces((prev) => {
+              const next = new Map(prev);
+              next.set(0, snapshot);
+              return next;
+            });
+          },
+          locale,
+        );
         if (cancelled || sessionRef.current !== session) return;
         setHistory([{ role: "assistant", content: result.response }]);
         onAssistantResponse?.(result.response);
@@ -183,6 +223,17 @@ export function GemmaChat({
     setHistory(nextHistory);
     setSending(true);
 
+    // Index of the assistant message that the live trace will bind to
+    // once the answer resolves. We mount the trace UI live at this
+    // index while sending.
+    const assistantIdx = nextHistory.length;
+    liveEventsRef.current = [];
+    setTraces((prev) => {
+      const next = new Map(prev);
+      next.set(assistantIdx, []);
+      return next;
+    });
+
     const session = sessionRef.current;
     try {
       // Pass the explicit prior-history snapshot rather than relying on
@@ -191,7 +242,22 @@ export function GemmaChat({
       const locale = useProfileStore.getState().locale;
       let response: string;
       if (scope) {
-        const result = await askGemma(scope, trimmed, priorHistory, locale);
+        const result = await askGemmaStream(
+          scope,
+          trimmed,
+          priorHistory,
+          (event) => {
+            if (sessionRef.current !== session) return;
+            liveEventsRef.current = [...liveEventsRef.current, event];
+            const snapshot = liveEventsRef.current;
+            setTraces((prev) => {
+              const next = new Map(prev);
+              next.set(assistantIdx, snapshot);
+              return next;
+            });
+          },
+          locale,
+        );
         response = result.response;
       } else if (build) {
         response = await sendChat(build.build_id, trimmed, priorHistory, locale);
@@ -207,6 +273,94 @@ export function GemmaChat({
     } finally {
       if (sessionRef.current === session) setSending(false);
     }
+  }
+
+  /**
+   * Render a chat message paired with its trace (when present). The
+   * trace renders ABOVE the assistant message inside the same
+   * scrollable feed so reading order matches reasoning order.
+   */
+  function renderMessageWithTrace(m: ChatHistoryItem, i: number) {
+    const events = traces.get(i);
+    const showTrace = m.role === "assistant" && events && events.length > 0;
+    return (
+      <div key={i} className="flex flex-col gap-2">
+        {showTrace ? (
+          <GemmaTrace events={events!} mode="complete" />
+        ) : null}
+        <ChatMessage message={m} />
+      </div>
+    );
+  }
+
+  /**
+   * Render the in-flight loading row including any live trace events
+   * for the current sending turn. Pulled out so the JSX stays flat
+   * inside the embedded + slide-in returns — Vite's babel parser
+   * trips on the inline-IIFE-returning-fragment pattern in some
+   * toolchain versions.
+   */
+  function renderSendingRow(opts?: { compact?: boolean }) {
+    const liveEvents = traces.get(history.length);
+    const hasLiveTrace = !!liveEvents && liveEvents.length > 0;
+    const wrapperMotion = opts?.compact
+      ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+      : {
+          initial: { opacity: 0, y: 24 },
+          animate: { opacity: 1, y: 0 },
+          transition: springs.smooth,
+        };
+    return (
+      <>
+        {hasLiveTrace ? (
+          <GemmaTrace events={liveEvents!} mode="live" />
+        ) : null}
+        <motion.div
+          {...wrapperMotion}
+          className={opts?.compact ? "flex items-start gap-2" : "flex flex-col"}
+          data-testid={opts?.compact ? "chat-loading" : undefined}
+        >
+          <div
+            className={
+              opts?.compact
+                ? "contents"
+                : "flex items-start gap-2"
+            }
+            data-testid={opts?.compact ? undefined : "chat-loading"}
+          >
+            <span
+              aria-hidden
+              className="shrink-0 mt-2 w-6 h-6 rounded-full bg-accent-insight/15 text-accent-insight flex items-center justify-center text-micro"
+            >
+              ✦
+            </span>
+            <div className="px-4 py-3 bg-bp-deep rounded-lg rounded-tl-sm flex items-center gap-1.5">
+              {[0, 1, 2].map((dotIdx) => (
+                <motion.span
+                  key={dotIdx}
+                  className="w-1.5 h-1.5 rounded-full bg-text-secondary"
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    delay: dotIdx * 0.15,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          {!opts?.compact && skeletonHint && (
+            <p
+              data-testid="skel-chat-opener"
+              aria-label="Loading Gemma's read on your career path"
+              className="font-body text-small text-text-muted mt-2 ml-9"
+            >
+              {skeletonHint}
+            </p>
+          )}
+        </motion.div>
+      </>
+    );
   }
 
   if (embedded) {
@@ -242,50 +396,9 @@ export function GemmaChat({
           ref={scrollRef}
           className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
         >
-          {history.map((m, i) => (
-            <ChatMessage key={i} message={m} />
-          ))}
+          {history.map((m, i) => renderMessageWithTrace(m, i))}
 
-          {sending && (
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={springs.smooth}
-              className="flex flex-col"
-            >
-              <div className="flex items-start gap-2" data-testid="chat-loading">
-                <span
-                  aria-hidden
-                  className="shrink-0 mt-2 w-6 h-6 rounded-full bg-accent-insight/15 text-accent-insight flex items-center justify-center text-micro"
-                >
-                  ✦
-                </span>
-                <div className="px-4 py-3 bg-bp-deep rounded-lg rounded-tl-sm flex items-center gap-1.5">
-                  {[0, 1, 2].map((i) => (
-                    <motion.span
-                      key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-text-secondary"
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{
-                        duration: 1.2,
-                        repeat: Infinity,
-                        delay: i * 0.15,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              {skeletonHint && (
-                <p
-                  data-testid="skel-chat-opener"
-                  aria-label="Loading Gemma's read on your career path"
-                  className="font-body text-small text-text-muted mt-2 ml-9"
-                >
-                  {skeletonHint}
-                </p>
-              )}
-            </motion.div>
-          )}
+          {sending && renderSendingRow()}
 
           {error && (
             <p className="font-body text-small text-accent-alert">{error}</p>
@@ -430,39 +543,9 @@ export function GemmaChat({
                 </motion.div>
               )}
 
-              {history.map((m, i) => (
-                <ChatMessage key={i} message={m} />
-              ))}
+              {history.map((m, i) => renderMessageWithTrace(m, i))}
 
-              {sending && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-start gap-2"
-                  data-testid="chat-loading"
-                >
-                  <span
-                    aria-hidden
-                    className="shrink-0 mt-2 w-6 h-6 rounded-full bg-accent-insight/15 text-accent-insight flex items-center justify-center text-micro"
-                  >
-                    ✦
-                  </span>
-                  <div className="px-4 py-3 bg-bp-deep rounded-lg rounded-tl-sm flex items-center gap-1.5">
-                    {[0, 1, 2].map((i) => (
-                      <motion.span
-                        key={i}
-                        className="w-1.5 h-1.5 rounded-full bg-text-secondary"
-                        animate={{ opacity: [0.3, 1, 0.3] }}
-                        transition={{
-                          duration: 1.2,
-                          repeat: Infinity,
-                          delay: i * 0.15,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </motion.div>
-              )}
+              {sending && renderSendingRow({ compact: true })}
 
               {error && (
                 <p className="font-body text-small text-accent-alert">{error}</p>

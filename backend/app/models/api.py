@@ -6,7 +6,7 @@ Thin wrappers capturing what the frontend sends, not what services return.
 from __future__ import annotations
 
 import re
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -182,15 +182,105 @@ class AskRequest(BaseModel):
     locale: AppLocale | None = None
 
 
+class TraceEventPayload(BaseModel):
+    """One enriched tool-call entry for ``AskResponse.tool_calls``.
+
+    Also serves as the wire payload of ``turn_complete`` SSE events on
+    ``POST /chat/ask/stream``. The ``turn`` field carries the per-
+    dispatch monotonic ``dispatch_index`` from
+    ``ToolCallTurn.dispatch_index`` (Decision #13) — unique even with
+    parallel tool calls in one outer LLM turn. ``<GemmaTrace>`` uses
+    this as the row-correlation key.
+
+    See ``docs/specs/feature-gemma-trace.md`` §4 Data Model.
+    """
+
+    turn: int
+    tool: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    result_preview: str = ""
+    duration_ms: int = 0
+    error: str | None = None
+
+
 class AskResponse(BaseModel):
-    """POST /chat/ask response body. ``tool_calls`` may be non-empty
-    even when ``response`` is the chat_unavailable fallback string —
-    e.g. when one tool call succeeded before Gemma's final turn failed.
-    The frontend ignores ``tool_calls``; it exists for telemetry and
-    the routing/E2E test that asserts dispatch fired."""
+    """POST /chat/ask response body.
+
+    ``tool_calls`` carries the enriched per-turn payload that powers
+    ``<GemmaTrace>``'s post-hoc (fallback) render — when SSE
+    streaming is unavailable the frontend reads this list and
+    synthesizes ``turn_start`` + ``turn_complete`` events from it.
+
+    May be non-empty even when ``response`` is the chat_unavailable
+    fallback string — e.g. when one tool call succeeded before
+    Gemma's final turn failed.
+    """
 
     response: str
-    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    tool_calls: list[TraceEventPayload] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# SSE wire-format models for POST /chat/ask/stream
+#
+# Each event below is the JSON payload that arrives in the ``data:`` field
+# of one SSE frame. The discriminated union allows future event types
+# (e.g. ``thinking``, ``final_text_delta``) to be added without breaking
+# older consumers, provided the frontend parser silently skips unknown
+# ``type`` values per Decision #15.
+#
+# In ``TraceTurnStart`` and ``TraceTurnComplete``, the ``turn`` field
+# carries the backend's ``dispatch_index`` — the per-dispatch monotonic
+# correlation key, NOT the loop's outer LLM turn_number.
+# ---------------------------------------------------------------------------
+
+
+class TraceTurnStart(BaseModel):
+    """Emitted immediately before each ``await dispatch(...)`` call —
+    so the UI shows the in-progress shimmer the moment Gemma issues
+    the call, not after the result lands."""
+
+    type: Literal["turn_start"] = "turn_start"
+    turn: int
+    tool: str
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+class TraceTurnComplete(BaseModel):
+    """Emitted immediately after the matching ``ToolCallTurn`` is
+    appended to ``tool_call_log``. Carries the same ``turn`` (=
+    dispatch_index) as the prior ``turn_start`` so the consumer pairs
+    them as one row."""
+
+    type: Literal["turn_complete"] = "turn_complete"
+    turn: int
+    tool: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    result_preview: str = ""
+    duration_ms: int = 0
+    error: str | None = None
+
+
+class TraceFinalText(BaseModel):
+    """Carries Gemma's final text answer. Always emitted exactly once
+    per stream, even on transport failure (in which case ``response``
+    is the localized ``chat_unavailable`` fallback string)."""
+
+    type: Literal["final_text"] = "final_text"
+    response: str
+
+
+class TraceDone(BaseModel):
+    """Trailer event signaling end-of-stream. The frontend can stop
+    reading after this event arrives."""
+
+    type: Literal["done"] = "done"
+
+
+TraceEvent = Annotated[
+    TraceTurnStart | TraceTurnComplete | TraceFinalText | TraceDone,
+    Field(discriminator="type"),
+]
 
 
 class CompareRequest(BaseModel):

@@ -18,6 +18,7 @@ import type { AskScope, BuildSummary } from "@/api/menu";
 
 const mockSendChat = vi.fn();
 const mockAskGemma = vi.fn();
+const mockAskGemmaStream = vi.fn();
 vi.mock("@/api/menu", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
@@ -25,8 +26,41 @@ vi.mock("@/api/menu", async () => {
     ...actual,
     sendChat: (...args: unknown[]) => mockSendChat(...args),
     askGemma: (...args: unknown[]) => mockAskGemma(...args),
+    askGemmaStream: (...args: unknown[]) => mockAskGemmaStream(...args),
   };
 });
+
+// Helper: build the default happy-path stream impl. Fires the supplied
+// events in order through onEvent and resolves with the final shape.
+type StreamEvent =
+  | { type: "turn_start"; turn: number; tool: string; args: Record<string, unknown> }
+  | {
+      type: "turn_complete";
+      turn: number;
+      tool: string;
+      args: Record<string, unknown>;
+      result_preview: string;
+      duration_ms: number;
+      error: string | null;
+    }
+  | { type: "final_text"; response: string }
+  | { type: "done" };
+
+function streamImpl(events: StreamEvent[]) {
+  return async (
+    _scope: unknown,
+    _message: unknown,
+    _history: unknown,
+    onEvent: (event: StreamEvent) => void,
+  ) => {
+    for (const ev of events) onEvent(ev);
+    const final = events.find(
+      (e): e is Extract<StreamEvent, { type: "final_text" }> =>
+        e.type === "final_text",
+    );
+    return { response: final?.response ?? "", events };
+  };
+}
 
 function makeBuild(overrides: Partial<BuildSummary> = {}): BuildSummary {
   return {
@@ -52,6 +86,15 @@ function makeBuild(overrides: Partial<BuildSummary> = {}): BuildSummary {
 beforeEach(() => {
   mockSendChat.mockReset();
   mockAskGemma.mockReset();
+  mockAskGemmaStream.mockReset();
+  // Default happy-path stream so existing scope-based tests keep
+  // passing without each test wiring the mock up explicitly.
+  mockAskGemmaStream.mockImplementation(
+    streamImpl([
+      { type: "final_text", response: "ok" },
+      { type: "done" },
+    ]),
+  );
 });
 
 describe("GemmaChat", () => {
@@ -187,17 +230,23 @@ describe("GemmaChat", () => {
   // Ask Gemma — scope-aware path (docs/specs/feature-ask-gemma.md §4 P0).
   // ===========================================================================
 
-  describe("scope prop routes to askGemma() instead of sendChat() (P0)", () => {
-    it("calls askGemma with the scope when scope is set", async () => {
+  describe("scope prop routes to askGemmaStream() instead of sendChat() (P0)", () => {
+    // Per Authorized Test Modifications (§4 / C7) — chat now uses the
+    // streaming variant for scope-bound calls. Args: (scope, message,
+    // history, onEvent, locale). The onEvent callback is fired once
+    // per parsed SSE event.
+    it("calls askGemmaStream with the scope when scope is set", async () => {
       const scope: AskScope = {
         kind: "stat",
         build_ids: ["berkeley-cs-001"],
         target_id: "ERN",
       };
-      mockAskGemma.mockResolvedValue({
-        response: "Earnings start strong here.",
-        tool_calls: [],
-      });
+      mockAskGemmaStream.mockImplementation(
+        streamImpl([
+          { type: "final_text", response: "Earnings start strong here." },
+          { type: "done" },
+        ]),
+      );
 
       render(
         <GemmaChat
@@ -215,18 +264,21 @@ describe("GemmaChat", () => {
       fireEvent.click(screen.getByTestId("btn-chat-send"));
 
       await waitFor(() => {
-        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
       });
-      // sendChat must NOT have been called when scope is set.
+      // sendChat and the legacy askGemma must NOT have been called when
+      // scope is set — chat now uses askGemmaStream exclusively for
+      // scope-bound calls.
       expect(mockSendChat).not.toHaveBeenCalled();
+      expect(mockAskGemma).not.toHaveBeenCalled();
 
-      // Args: (scope, message, history, locale)
-      expect(mockAskGemma).toHaveBeenCalledWith(
-        scope,
-        "Why is this so low?",
-        [],
-        "en",
-      );
+      // Args: (scope, message, history, onEvent, locale)
+      const args = mockAskGemmaStream.mock.calls[0]!;
+      expect(args[0]).toEqual(scope);
+      expect(args[1]).toBe("Why is this so low?");
+      expect(args[2]).toEqual([]);
+      expect(typeof args[3]).toBe("function"); // onEvent callback
+      expect(args[4]).toBe("en");
 
       // Render the response.
       await waitFor(() => {
@@ -239,10 +291,12 @@ describe("GemmaChat", () => {
         kind: "compare",
         build_ids: ["berkeley-cs-001", "iu-bloom-mkt-001"],
       };
-      mockAskGemma.mockResolvedValue({
-        response: "Side-by-side, the cost gap is real.",
-        tool_calls: [],
-      });
+      mockAskGemmaStream.mockImplementation(
+        streamImpl([
+          { type: "final_text", response: "Side-by-side, the cost gap is real." },
+          { type: "done" },
+        ]),
+      );
 
       // No build prop — compare scope is the only one with N>1 build_ids.
       render(
@@ -261,9 +315,9 @@ describe("GemmaChat", () => {
       fireEvent.click(screen.getByTestId("btn-chat-send"));
 
       await waitFor(() => {
-        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
       });
-      expect(mockAskGemma.mock.calls[0]![0]).toEqual(scope);
+      expect(mockAskGemmaStream.mock.calls[0]![0]).toEqual(scope);
     });
   });
 
@@ -333,7 +387,9 @@ describe("GemmaChat", () => {
         build_ids: ["berkeley-cs-001"],
         target_id: "15-1252",
       };
-      mockAskGemma.mockReturnValue(new Promise(() => {}));
+      // Pending stream — opener fires but never resolves; we're testing
+      // the non-async layout, not the response render.
+      mockAskGemmaStream.mockReturnValue(new Promise(() => {}));
 
       const { container } = render(
         <GemmaChat
@@ -387,16 +443,21 @@ describe("GemmaChat", () => {
       expect(screen.queryByTestId("panel-branch-chat")).toBeNull();
     });
 
-    it("embedded variant auto-fires the opener via askGemma when scope is set", async () => {
+    it("embedded variant auto-fires the opener via askGemmaStream when scope is set", async () => {
       const scope: AskScope = {
         kind: "branch",
         build_ids: ["berkeley-cs-001"],
         target_id: "15-1252",
       };
-      mockAskGemma.mockResolvedValue({
-        response: "You're at the root of your career path.",
-        tool_calls: [],
-      });
+      mockAskGemmaStream.mockImplementation(
+        streamImpl([
+          {
+            type: "final_text",
+            response: "You're at the root of your career path.",
+          },
+          { type: "done" },
+        ]),
+      );
 
       render(
         <GemmaChat
@@ -411,12 +472,12 @@ describe("GemmaChat", () => {
       );
 
       await waitFor(() => {
-        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
       });
       // The opener fires with the openerPrompt as the user message and
       // empty history (this is what triggers the backend's tools-disabled
       // opener path).
-      const args = mockAskGemma.mock.calls[0]!;
+      const args = mockAskGemmaStream.mock.calls[0]!;
       expect(args[0]).toEqual(scope);
       expect(args[1]).toBe("Give me a 3-sentence orientation.");
       expect(args[2]).toEqual([]);
@@ -441,10 +502,12 @@ describe("GemmaChat", () => {
         target_id: "11-3021",
       };
 
-      mockAskGemma.mockResolvedValueOnce({
-        response: "Root opener text.",
-        tool_calls: [],
-      });
+      mockAskGemmaStream.mockImplementationOnce(
+        streamImpl([
+          { type: "final_text", response: "Root opener text." },
+          { type: "done" },
+        ]),
+      );
 
       const { rerender } = render(
         <GemmaChat
@@ -457,17 +520,19 @@ describe("GemmaChat", () => {
         />,
       );
       await waitFor(() => {
-        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
       });
       await waitFor(() => {
         expect(screen.getByText("Root opener text.")).toBeInTheDocument();
       });
 
       // Switch branches → second opener fires; prior history clears.
-      mockAskGemma.mockResolvedValueOnce({
-        response: "Manager-branch opener text.",
-        tool_calls: [],
-      });
+      mockAskGemmaStream.mockImplementationOnce(
+        streamImpl([
+          { type: "final_text", response: "Manager-branch opener text." },
+          { type: "done" },
+        ]),
+      );
       rerender(
         <GemmaChat
           open={true}
@@ -480,7 +545,7 @@ describe("GemmaChat", () => {
       );
 
       await waitFor(() => {
-        expect(mockAskGemma).toHaveBeenCalledTimes(2);
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(2);
       });
       await waitFor(() => {
         expect(screen.getByText("Manager-branch opener text.")).toBeInTheDocument();
@@ -515,6 +580,165 @@ describe("GemmaChat", () => {
       expect(screen.queryByTestId("chip-chat-scope")).toBeNull();
       // The legacy chip text contains the school name from the build.
       expect(screen.getByText(/UC Berkeley/)).toBeInTheDocument();
+    });
+  });
+
+  // ===========================================================================
+  // <GemmaTrace> integration (feature-gemma-trace.md §4 New Tests Required).
+  // ===========================================================================
+
+  describe("GemmaTrace integration", () => {
+    it("test_chat_renders_trace_when_tool_calls_present", async () => {
+      const scope: AskScope = {
+        kind: "stat",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "ERN",
+      };
+      mockAskGemmaStream.mockImplementation(
+        streamImpl([
+          {
+            type: "turn_start",
+            turn: 0,
+            tool: "get_career_paths",
+            args: { student_major: "Marketing" },
+          },
+          {
+            type: "turn_complete",
+            turn: 0,
+            tool: "get_career_paths",
+            args: { student_major: "Marketing" },
+            result_preview: "ok",
+            duration_ms: 87,
+            error: null,
+          },
+          { type: "final_text", response: "Earnings start strong here." },
+          { type: "done" },
+        ]),
+      );
+
+      render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scope}
+          chipText="Asking about: Earning Power"
+          onClose={() => {}}
+        />,
+      );
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "Why is this so low?" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      // The trace renders above Gemma's response message.
+      await waitFor(() => {
+        expect(screen.getByTestId("gemma-trace")).toBeInTheDocument();
+      });
+      expect(screen.getByTestId("gemma-trace-row-0")).toBeInTheDocument();
+      // Pedagogical sentence from TOOL_LABEL_MAP.
+      expect(
+        screen.getByText(/Looking up career outcomes for Marketing/),
+      ).toBeInTheDocument();
+      // The chat answer also rendered.
+      await waitFor(() => {
+        expect(
+          screen.getByText("Earnings start strong here."),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("test_chat_omits_trace_when_no_tool_calls", async () => {
+      const scope: AskScope = {
+        kind: "stat",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "ERN",
+      };
+      // Stream emits only final_text + done (Gemma answered from context).
+      mockAskGemmaStream.mockImplementation(
+        streamImpl([
+          { type: "final_text", response: "Pulled from context." },
+          { type: "done" },
+        ]),
+      );
+
+      render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scope}
+          chipText="Asking about: Earning Power"
+          onClose={() => {}}
+        />,
+      );
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "anything" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Pulled from context.")).toBeInTheDocument();
+      });
+      // No trace section in the DOM.
+      expect(screen.queryByTestId("gemma-trace")).toBeNull();
+    });
+
+    it("test_chat_falls_back_to_post_hoc_trace_on_stream_failure", async () => {
+      const scope: AskScope = {
+        kind: "stat",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "ERN",
+      };
+      // Simulate the askGemmaStream fallback path by having the mock
+      // synthesize the same shape it would after catching an HTTP error
+      // and re-routing through askGemma. The mocked stream just emits
+      // synthesized turn events as if from tool_calls.
+      mockAskGemmaStream.mockImplementation(
+        streamImpl([
+          {
+            type: "turn_start",
+            turn: 0,
+            tool: "get_career_paths",
+            args: { student_major: "Marketing" },
+          },
+          {
+            type: "turn_complete",
+            turn: 0,
+            tool: "get_career_paths",
+            args: { student_major: "Marketing" },
+            result_preview: "ok",
+            duration_ms: 50,
+            error: null,
+          },
+          { type: "final_text", response: "Fallback answer." },
+          { type: "done" },
+        ]),
+      );
+
+      render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scope}
+          chipText="Asking about: Earning Power"
+          onClose={() => {}}
+        />,
+      );
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "anything" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      // Trace renders post-hoc (visually identical to live State 2).
+      await waitFor(() => {
+        expect(screen.getByTestId("gemma-trace")).toBeInTheDocument();
+      });
+      // Chat answer arrives. Fallback path is silent — no error toast.
+      await waitFor(() => {
+        expect(screen.getByText("Fallback answer.")).toBeInTheDocument();
+      });
     });
   });
 });

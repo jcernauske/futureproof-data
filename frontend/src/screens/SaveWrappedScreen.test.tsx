@@ -306,7 +306,7 @@ describe("SaveWrappedScreen", () => {
     expect(screen.getByText("Skip to menu")).toBeInTheDocument();
   });
 
-  it("'Skip to menu' navigates to /branches", async () => {
+  it("'Skip to menu' navigates to /future", async () => {
     mockRenderWrapped.mockRejectedValue(new Error("fail"));
     renderScreen();
 
@@ -318,7 +318,7 @@ describe("SaveWrappedScreen", () => {
     );
 
     fireEvent.click(screen.getByText("Skip to menu"));
-    expect(mockNavigate).toHaveBeenCalledWith("/branches");
+    expect(mockNavigate).toHaveBeenCalledWith("/future");
   });
 
   it("handles a non-Error thrown value without crashing", async () => {

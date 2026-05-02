@@ -14,6 +14,14 @@ export interface TreeNode {
   hmn: number | null;
   median_wage: number | null;
   education: string | null;
+  experience_years: number | null;
+  experience_tier: string | null;
+  /**
+   * O*NET career_branches.best_index — relatedness rank where
+   * 1 = closest match, 20 = stretch ceiling. Null on the root and
+   * on any node whose source row lacked best_index.
+   */
+  relatedness: number | null;
   boss_ai: string | null;
   boss_loans: string | null;
   boss_market: string | null;

@@ -8,12 +8,29 @@ import type { TreeResponse, TreeNode } from "@/types/tree";
 import type { Build } from "@/types/build";
 
 const mockAskGemma = vi.fn();
+// askGemmaStream — happy-path SSE-equivalent default. Auto-opener
+// fires on mount + on every selectedRef change; both paths now go
+// through askGemmaStream. Per Authorized Test Modifications (§4 / C7).
+const mockAskGemmaStream = vi.fn().mockImplementation(
+  async (..._args: unknown[]) => {
+    const final = { type: "final_text" as const, response: "ok" };
+    const done = { type: "done" as const };
+    const onEvent = _args[3] as ((e: unknown) => void) | undefined;
+    if (onEvent) {
+      onEvent(final);
+      onEvent(done);
+    }
+    return { response: "ok", events: [final, done] };
+  },
+);
 vi.mock("@/api/menu", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
   return {
     ...actual,
     askGemma: (...args: unknown[]) => mockAskGemma(...args),
+    askGemmaStream: (...args: Parameters<typeof import("@/api/menu").askGemmaStream>) =>
+      mockAskGemmaStream(...args),
   };
 });
 
@@ -145,6 +162,9 @@ function makeTreeResponse(): TreeResponse {
       hmn: 38,
       median_wage: 95570,
       education: "Bachelor's degree",
+      experience_years: null,
+      experience_tier: null,
+      relatedness: null,
       boss_ai: "draw",
       boss_loans: "win",
       boss_market: "win",
@@ -162,6 +182,9 @@ function makeTreeResponse(): TreeResponse {
           hmn: 40,
           median_wage: 140000,
           education: "Bachelor's degree",
+          experience_years: null,
+          experience_tier: null,
+          relatedness: null,
           boss_ai: "win",
           boss_loans: "win",
           boss_market: "win",
@@ -180,6 +203,9 @@ function makeTreeResponse(): TreeResponse {
           hmn: 50,
           median_wage: 75000,
           education: "Bachelor's degree",
+          experience_years: null,
+          experience_tier: null,
+          relatedness: null,
           boss_ai: "lose",
           boss_loans: "win",
           boss_market: "win",
@@ -357,6 +383,137 @@ describe("FutureScreen — selected-node card", () => {
   });
 });
 
+describe("FutureScreen — breadcrumb persistence (T1.4 regression)", () => {
+  // Regression for staff-engineer Finding #1 (§8). Filter hides the
+  // selected node → selectedNodeId resets to null via the cascade.
+  // Snapshot must NOT wipe — the breadcrumb is what tells the student
+  // "your selection is still here, the filter is just hiding it."
+  it("breadcrumb persists across a filter that hides the selected node", async () => {
+    useBuildStore.setState({ build: makeBuild() });
+    mockGetTree.mockResolvedValue(makeMixedEducationTreeFixture());
+
+    renderScreen();
+
+    // Wait for tree to render then click a Master's-required L1.
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId("tree-node-13-1161").length,
+      ).toBeGreaterThan(0);
+    });
+
+    await act(async () => {
+      const node = screen.getAllByTestId("tree-node-13-1161")[0];
+      if (!node) throw new Error("expected target tree node");
+      node.click();
+    });
+
+    // Breadcrumb should now show two segments (root + selected).
+    await waitFor(() => {
+      const segments = screen.queryAllByTestId(/breadcrumb-\d+-/);
+      expect(segments.length).toBeGreaterThanOrEqual(2);
+    });
+
+    // Apply a filter that excludes the selected branch.
+    await act(async () => {
+      const chip = screen.getAllByTestId("filter-chip-bachelors")[0];
+      if (!chip) throw new Error("expected bachelors filter chip");
+      chip.click();
+    });
+
+    // Selected branch is now filter-hidden, but the breadcrumb still
+    // renders and the leaf segment is in ghost state.
+    await waitFor(() => {
+      const segments = screen.queryAllByTestId(/breadcrumb-\d+-/);
+      expect(segments.length).toBeGreaterThanOrEqual(2);
+    });
+    const ghostSegments = screen
+      .queryAllByTestId(/breadcrumb-\d+-/)
+      .filter((el) => el.getAttribute("data-hidden") === "true");
+    expect(ghostSegments.length).toBeGreaterThan(0);
+  });
+});
+
+// Local fixture for the breadcrumb test — mirrors the description-level
+// makeMixedEducationTree() shape but available outside its closure.
+function makeMixedEducationTreeFixture(): TreeResponse {
+  return {
+    tree: {
+      soc_code: "13-2051",
+      title: "Financial Analyst",
+      level: 0,
+      ern: 72,
+      roi: 68,
+      res: 45,
+      grw: 61,
+      hmn: 38,
+      median_wage: 95570,
+      education: "Bachelor's degree",
+      experience_years: null,
+      experience_tier: null,
+      relatedness: null,
+      boss_ai: "draw",
+      boss_loans: "win",
+      boss_market: "win",
+      boss_burnout: "lose",
+      boss_ceiling: "draw",
+      children: [
+        {
+          soc_code: "13-1161",
+          title: "Market Research Analyst",
+          level: 1,
+          ern: 70,
+          roi: 65,
+          res: 55,
+          grw: 75,
+          hmn: 50,
+          median_wage: 75000,
+          education: "Master's degree",
+          experience_years: null,
+          experience_tier: null,
+          relatedness: null,
+          boss_ai: "lose",
+          boss_loans: "win",
+          boss_market: "win",
+          boss_burnout: "draw",
+          boss_ceiling: "draw",
+          children: [],
+        },
+        // Sibling Bachelor's L1 so the Bachelor's filter chip is
+        // available — without it the new "available chips only" logic
+        // would hide the chip and the click below would fail.
+        {
+          soc_code: "11-3031",
+          title: "Financial Manager",
+          level: 1,
+          ern: 70,
+          roi: 65,
+          res: 50,
+          grw: 60,
+          hmn: 45,
+          median_wage: 140000,
+          education: "Bachelor's degree",
+          experience_years: null,
+          experience_tier: null,
+          relatedness: null,
+          boss_ai: "draw",
+          boss_loans: "win",
+          boss_market: "win",
+          boss_burnout: "draw",
+          boss_ceiling: "win",
+          children: [],
+        },
+      ],
+    },
+    stats: {
+      total_nodes: 3,
+      max_depth_reached: 1,
+      mcp_calls: 2,
+      dead_ends: 0,
+      wall_clock_ms: 1000,
+    },
+  };
+}
+
 describe("FutureScreen — education filters", () => {
   function makeMixedEducationTree(): TreeResponse {
     return {
@@ -371,6 +528,9 @@ describe("FutureScreen — education filters", () => {
         hmn: 38,
         median_wage: 95570,
         education: "Bachelor's degree",
+        experience_years: null,
+        experience_tier: null,
+        relatedness: null,
         boss_ai: "draw",
         boss_loans: "win",
         boss_market: "win",
@@ -388,6 +548,9 @@ describe("FutureScreen — education filters", () => {
             hmn: 40,
             median_wage: 140000,
             education: "Bachelor's degree",
+            experience_years: null,
+            experience_tier: null,
+            relatedness: null,
             boss_ai: "win",
             boss_loans: "win",
             boss_market: "win",
@@ -406,6 +569,9 @@ describe("FutureScreen — education filters", () => {
             hmn: 50,
             median_wage: 75000,
             education: "Master's degree",
+            experience_years: null,
+            experience_tier: null,
+            relatedness: null,
             boss_ai: "lose",
             boss_loans: "win",
             boss_market: "win",
@@ -424,6 +590,9 @@ describe("FutureScreen — education filters", () => {
             hmn: 60,
             median_wage: 145000,
             education: "Doctoral or professional degree",
+            experience_years: null,
+            experience_tier: null,
+            relatedness: null,
             boss_ai: "win",
             boss_loans: "draw",
             boss_market: "draw",
@@ -493,12 +662,16 @@ describe("FutureScreen — education filters", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("renders the empty-state overlay when a filter hides every L1 branch", async () => {
+  it("renders the empty-state overlay when a filter combo hides every L1 branch", async () => {
+    // Combined Master's edu + Higher-pay stat filters are individually
+    // available against the mixed fixture (Bachelor's L1, Master's L1,
+    // Doctoral L1 — Master's is $75k, others top $140k). The AND
+    // intersection is empty: no L1 is BOTH Master's AND higher pay.
+    // The new "available chips only" logic still renders both chips
+    // (each individually has a match); the empty-state surfaces from
+    // their combination.
     useBuildStore.setState({ build: makeBuild() });
-    // Mixed tree contains zero Doctoral L1s? Actually the fixture has
-    // one (23-1011 Lawyer). Use a Bachelor's-only fixture so toggling
-    // Master's leaves an empty tree.
-    mockGetTree.mockResolvedValue(makeTreeResponse());
+    mockGetTree.mockResolvedValue(makeMixedEducationTree());
 
     renderScreen();
 
@@ -513,8 +686,14 @@ describe("FutureScreen — education filters", () => {
       if (!masters) throw new Error("expected master's filter chip");
       masters.click();
     });
+    await act(async () => {
+      const earnings = screen.getAllByTestId("stat-filter-chip-earnings")[0];
+      if (!earnings) throw new Error("expected earnings filter chip");
+      earnings.click();
+    });
 
-    // No Bachelor's branches match → empty state surfaces.
+    // Master's L1 fails earnings ($75k < $95k) AND Bachelor's/Doctoral
+    // L1s fail edu → no L1 passes both → empty state surfaces.
     await waitFor(() => {
       expect(
         screen.getAllByTestId("filter-empty-state").length,
@@ -522,7 +701,7 @@ describe("FutureScreen — education filters", () => {
     });
     // Clear button restores the unfiltered tree.
     await act(async () => {
-      const clear = screen.getAllByTestId("btn-clear-education-filters")[0];
+      const clear = screen.getAllByTestId("btn-clear-all-filters")[0];
       if (!clear) throw new Error("expected clear filters button");
       clear.click();
     });
@@ -566,6 +745,160 @@ describe("FutureScreen — education filters", () => {
     expect(
       screen.getAllByTestId("tree-node-23-1011").length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("FutureScreen — stat filters", () => {
+  function makeMixedStatsTree(): TreeResponse {
+    return {
+      tree: {
+        soc_code: "13-2051",
+        title: "Financial Analyst",
+        level: 0,
+        ern: 72,
+        roi: 68,
+        res: 5,
+        grw: 6,
+        hmn: 38,
+        median_wage: 95570,
+        education: "Bachelor's degree",
+        experience_years: null,
+        experience_tier: null,
+        relatedness: null,
+        boss_ai: "draw",
+        boss_loans: "win",
+        boss_market: "win",
+        boss_burnout: "lose",
+        boss_ceiling: "draw",
+        children: [
+          {
+            // Higher earnings only.
+            soc_code: "11-3031",
+            title: "Financial Manager",
+            level: 1,
+            ern: null,
+            roi: 70,
+            res: 5,
+            grw: 6,
+            hmn: 40,
+            median_wage: 140000,
+            education: "Bachelor's degree",
+            experience_years: null,
+            experience_tier: null,
+            relatedness: null,
+            boss_ai: "win",
+            boss_loans: "win",
+            boss_market: "win",
+            boss_burnout: "lose",
+            boss_ceiling: "win",
+            children: [],
+          },
+          {
+            // Higher RES + GRW only, same wage.
+            soc_code: "15-1252",
+            title: "Software Developer",
+            level: 1,
+            ern: null,
+            roi: 65,
+            res: 8,
+            grw: 9,
+            hmn: 45,
+            median_wage: 95570,
+            education: "Bachelor's degree",
+            experience_years: null,
+            experience_tier: null,
+            relatedness: null,
+            boss_ai: "draw",
+            boss_loans: "win",
+            boss_market: "win",
+            boss_burnout: "draw",
+            boss_ceiling: "draw",
+            children: [],
+          },
+        ],
+      },
+      stats: {
+        total_nodes: 3,
+        max_depth_reached: 1,
+        mcp_calls: 2,
+        dead_ends: 0,
+        wall_clock_ms: 1500,
+      },
+    };
+  }
+
+  it("renders all 3 stat filter chips above the tree", async () => {
+    useBuildStore.setState({ build: makeBuild() });
+    mockGetTree.mockResolvedValue(makeMixedStatsTree());
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId("stat-filter-chip-earnings").length,
+      ).toBeGreaterThan(0);
+    });
+    expect(
+      screen.getAllByTestId("stat-filter-chip-ai_resilient").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByTestId("stat-filter-chip-growth").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("higher-earnings filter hides branches with same/lower wage", async () => {
+    useBuildStore.setState({ build: makeBuild() });
+    mockGetTree.mockResolvedValue(makeMixedStatsTree());
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("tree-node-11-3031").length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByTestId("tree-node-15-1252").length).toBeGreaterThan(0);
+
+    await act(async () => {
+      const chip = screen.getAllByTestId("stat-filter-chip-earnings")[0];
+      if (!chip) throw new Error("expected earnings filter chip");
+      chip.click();
+    });
+
+    expect(
+      screen.getAllByTestId("tree-node-11-3031").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByTestId("tree-node-15-1252")).toBeNull();
+  });
+
+  it("AND semantic: combining earnings + growth filters out branches that improve only one", async () => {
+    useBuildStore.setState({ build: makeBuild() });
+    mockGetTree.mockResolvedValue(makeMixedStatsTree());
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("tree-node-11-3031").length).toBeGreaterThan(0);
+    });
+
+    // 11-3031 improves earnings only; 15-1252 improves growth only.
+    // Combining both filters → neither matches → empty state appears.
+    await act(async () => {
+      const earnings = screen.getAllByTestId("stat-filter-chip-earnings")[0];
+      if (!earnings) throw new Error("expected earnings filter chip");
+      earnings.click();
+    });
+    await act(async () => {
+      const growth = screen.getAllByTestId("stat-filter-chip-growth")[0];
+      if (!growth) throw new Error("expected growth filter chip");
+      growth.click();
+    });
+
+    expect(screen.queryByTestId("tree-node-11-3031")).toBeNull();
+    expect(screen.queryByTestId("tree-node-15-1252")).toBeNull();
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId("filter-empty-state").length,
+      ).toBeGreaterThan(0);
+    });
   });
 });
 

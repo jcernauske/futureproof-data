@@ -18,7 +18,7 @@ function getPhaseAccent(pathname: string): string {
     return "bg-accent-thrive";
   if (pathname.startsWith("/gauntlet") || pathname.startsWith("/bosses"))
     return "bg-accent-alert";
-  if (pathname.startsWith("/branches"))
+  if (pathname.startsWith("/future"))
     return "bg-accent-insight";
   if (pathname.startsWith("/save"))
     return "bg-accent-empathy";

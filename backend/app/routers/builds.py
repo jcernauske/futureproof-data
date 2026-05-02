@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any, cast
@@ -32,6 +31,7 @@ from app.services import (
     skill_recs,
     stat_engine,
 )
+from app.services._sse import sse_event
 from app.services.locale import AppLocale
 
 logger = logging.getLogger(__name__)
@@ -223,11 +223,6 @@ async def create_build(request: BuildRequest):
     return build
 
 
-def _sse_event(event: str, data: Any) -> str:
-    payload = json.dumps(data, default=str, ensure_ascii=False)
-    return f"event: {event}\ndata: {payload}\n\n"
-
-
 @router.post("/stream")
 async def create_build_stream(request: BuildRequest) -> StreamingResponse:
     return StreamingResponse(
@@ -262,10 +257,10 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
             career_task, branches_task,
         )
     except ValueError as exc:
-        yield _sse_event("error", {"detail": str(exc)})
+        yield sse_event("error", {"detail": str(exc)})
         return
     except LookupError:
-        yield _sse_event(
+        yield sse_event(
             "error",
             {"detail": "We don't have enough data for that career at this school."},
         )
@@ -304,7 +299,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
         locale=request.locale,
     )
 
-    yield _sse_event("skeleton", skeleton.model_dump(mode="json"))
+    yield sse_event("skeleton", skeleton.model_dump(mode="json"))
 
     locale = request.locale or "en"
 
@@ -353,7 +348,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
     try:
         for coro in asyncio.as_completed(tasks):
             event_name, event_data = await coro
-            yield _sse_event(event_name, event_data)
+            yield sse_event(event_name, event_data)
 
             if event_name == "skill_recs":
                 recs_result = [SkillRec.model_validate(r) for r in event_data]
@@ -374,7 +369,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
     state.store_build(final_build)
     builds.save_build(final_build)
 
-    yield _sse_event("done", {"build_id": final_build.build_id})
+    yield sse_event("done", {"build_id": final_build.build_id})
 
 
 @router.post("/{build_id}/save")

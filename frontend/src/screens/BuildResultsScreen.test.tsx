@@ -54,6 +54,22 @@ vi.mock("@/api/gauntlet", () => ({
 // successful createBuild" test below. Defaulting to a 1-build array lets
 // the existing tests continue to ignore it; only the dedicated test asserts.
 const mockAskGemma = vi.fn();
+// askGemmaStream — happy-path SSE-equivalent default. Fires final_text
+// + done synchronously into the onEvent callback so existing tests
+// that just assert "chat sent" stay green without rewriting.
+// Per the spec's Authorized Test Modifications (§4 / C7).
+const mockAskGemmaStream = vi.fn().mockImplementation(
+  async (..._args: unknown[]) => {
+    const final = { type: "final_text" as const, response: "ok" };
+    const done = { type: "done" as const };
+    const onEvent = _args[3] as ((e: unknown) => void) | undefined;
+    if (onEvent) {
+      onEvent(final);
+      onEvent(done);
+    }
+    return { response: "ok", events: [final, done] };
+  },
+);
 const mockListBuilds = vi.fn().mockResolvedValue([]);
 vi.mock("@/api/menu", async () => {
   const actual =
@@ -61,6 +77,8 @@ vi.mock("@/api/menu", async () => {
   return {
     ...actual,
     askGemma: (...args: unknown[]) => mockAskGemma(...args),
+    askGemmaStream: (...args: Parameters<typeof import("@/api/menu").askGemmaStream>) =>
+      mockAskGemmaStream(...args),
     listBuilds: (...args: unknown[]) => mockListBuilds(...args),
   };
 });
@@ -274,6 +292,7 @@ beforeEach(() => {
   mockCreateBuild.mockReset();
   mockRerollFight.mockReset();
   mockAskGemma.mockReset();
+  mockAskGemmaStream.mockClear();
   mockListBuilds.mockReset();
   mockListBuilds.mockResolvedValue([]);
   mockClearSession.mockReset();
@@ -582,14 +601,14 @@ describe("BuildResultsScreen -- save button (P1)", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/save");
   });
 
-  it("branch_tree_link_navigates -- clicking branch tree link navigates to /branches", () => {
+  it("future_tree_link_navigates -- clicking future tree link navigates to /future", () => {
     seedWithBuild();
     renderScreen();
 
-    const branchLink = screen.getByText(/Want to explore career branches/);
+    const branchLink = screen.getByText(/See where this could lead/);
     fireEvent.click(branchLink);
 
-    expect(mockNavigate).toHaveBeenCalledWith("/branches");
+    expect(mockNavigate).toHaveBeenCalledWith("/future");
   });
 });
 
@@ -911,9 +930,9 @@ describe("BuildResultsScreen -- per-stat ask dispatches stat scope (P0)", () => 
     fireEvent.click(screen.getByTestId("btn-chat-send"));
 
     await waitFor(() => {
-      expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
     });
-    const scope = mockAskGemma.mock.calls[0]![0] as {
+    const scope = mockAskGemmaStream.mock.calls[0]![0] as {
       kind: string;
       target_id: string;
       build_ids: string[];
@@ -991,9 +1010,9 @@ describe("BuildResultsScreen -- per-boss ask dispatches boss scope (P0)", () => 
       fireEvent.click(screen.getByTestId("btn-chat-send"));
 
       await waitFor(() => {
-        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
       });
-      const scope = mockAskGemma.mock.calls[0]![0] as {
+      const scope = mockAskGemmaStream.mock.calls[0]![0] as {
         kind: string;
         target_id: string;
       };
@@ -1032,9 +1051,9 @@ describe("BuildResultsScreen -- per-skill ask dispatches skill scope (P0)", () =
     fireEvent.click(screen.getByTestId("btn-chat-send"));
 
     await waitFor(() => {
-      expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
     });
-    const scope = mockAskGemma.mock.calls[0]![0] as {
+    const scope = mockAskGemmaStream.mock.calls[0]![0] as {
       kind: string;
       target_id: string;
     };
@@ -1066,9 +1085,9 @@ describe("BuildResultsScreen -- FAB dispatches build scope (P0)", () => {
     fireEvent.click(screen.getByTestId("btn-chat-send"));
 
     await waitFor(() => {
-      expect(mockAskGemma).toHaveBeenCalledTimes(1);
+      expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
     });
-    const scope = mockAskGemma.mock.calls[0]![0] as {
+    const scope = mockAskGemmaStream.mock.calls[0]![0] as {
       kind: string;
       build_ids: string[];
     };

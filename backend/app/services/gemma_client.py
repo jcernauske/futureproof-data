@@ -937,6 +937,35 @@ class ToolCallTurn:
     tool_result_size_bytes: int
     duration_ms: int
     error: str | None
+    tool_result_preview: str = ""
+    dispatch_index: int = 0
+
+
+# Maximum length of the truncated tool result preview surfaced via the
+# trace stream and AskResponse.tool_calls. 500 chars keeps log records
+# lean while still giving the engineering view a meaningful sample.
+_TOOL_RESULT_PREVIEW_MAX = 500
+
+
+# Callback aliases for the trace stream. Both accept sync OR async
+# returns — the loop's invocation shim awaits when it sees a coroutine.
+TurnStartCallback = Callable[[int, str, dict[str, Any]], Any]
+TurnEventCallback = Callable[["ToolCallTurn"], Any]
+
+
+async def _invoke_callback(callback: Callable[..., Any] | None, *args: Any) -> None:
+    """Invoke an opt-in trace callback. Handles sync OR async callables.
+    Swallows + logs any exception so a broken consumer never breaks the
+    Gemma loop. Trace is supplementary — chat must keep working.
+    """
+    if callback is None:
+        return
+    try:
+        result = callback(*args)
+        if asyncio.iscoroutine(result):
+            await result
+    except Exception as exc:  # noqa: BLE001 — callback isolation is the point
+        logger.warning("trace callback raised: %s", exc)
 
 
 async def generate_with_tools_loop(
@@ -950,11 +979,28 @@ async def generate_with_tools_loop(
     temperature: float = 0.0,
     max_tokens: int = 600,
     extra: dict[str, Any] | None = None,
+    on_turn_start: TurnStartCallback | None = None,
+    on_turn_event: TurnEventCallback | None = None,
 ) -> tuple[str, list[ToolCallTurn]]:
     """Multi-turn Gemma tool-calling loop.
 
     Returns ``(final_text, tool_call_log)``. On transport failure or
     cap hit, returns ``("", [...])``.
+
+    ``on_turn_start`` and ``on_turn_event`` are opt-in trace callbacks
+    (see docs/specs/feature-gemma-trace.md, Decisions #12–#13). When set:
+
+    - ``on_turn_start(dispatch_index, tool_name, tool_args)`` fires
+      immediately before each ``await dispatch(...)``. ``dispatch_index``
+      is monotonically unique across the entire chat turn (including
+      parallel tool calls in one outer LLM turn).
+    - ``on_turn_event(tool_call_turn)`` fires immediately after each
+      ``ToolCallTurn`` is appended to ``tool_call_log``.
+
+    Both callbacks are fired-and-forgotten: exceptions are caught and
+    logged at WARNING; the loop continues. Sync or async callables are
+    both supported. Both default to ``None`` (no-op) to preserve
+    backward compatibility with all existing callers.
     """
     sem = _get_semaphore()
     async with sem:
@@ -968,6 +1014,8 @@ async def generate_with_tools_loop(
             temperature=temperature,
             max_tokens=max_tokens,
             extra=extra,
+            on_turn_start=on_turn_start,
+            on_turn_event=on_turn_event,
         )
 
 
@@ -982,6 +1030,8 @@ async def _tools_loop_inner(
     temperature: float,
     max_tokens: int,
     extra: dict[str, Any] | None,
+    on_turn_start: TurnStartCallback | None = None,
+    on_turn_event: TurnEventCallback | None = None,
 ) -> tuple[str, list[ToolCallTurn]]:
     """Core loop logic, runs inside the semaphore."""
     _client, config = _cached_client()
@@ -992,7 +1042,6 @@ async def _tools_loop_inner(
         {"role": "user", "content": user},
     ]
     tool_call_log: list[ToolCallTurn] = []
-    tool_dispatched = False
     wall_start = time.perf_counter()
 
     for turn in range(max_turns):
@@ -1005,9 +1054,13 @@ async def _tools_loop_inner(
             break
 
         turn_start = time.perf_counter()
-        # After a successful tool dispatch, drop tools so Gemma
-        # produces text with the result rather than looping.
-        turn_tools = [] if tool_dispatched else tools
+        # Tools are offered on every turn up to ``max_turns``. Pre-trace
+        # the loop dropped tools after the first dispatch (anti-runaway
+        # guard); now that the trace IS the value (feature-gemma-trace.md)
+        # and the system prompt biases toward tool use, we let Gemma
+        # chain across turns. ``max_turns`` and ``max_wall_time_s``
+        # remain the load-bearing bounds.
+        turn_tools = tools
         try:
             response_text, response_tool_calls = await asyncio.wait_for(
                 _one_tool_turn(
@@ -1059,6 +1112,13 @@ async def _tools_loop_inner(
             fn_args = tc.get("arguments", {})
             tc_id = tc.get("id", f"call_{turn}")
 
+            # dispatch_index is the per-dispatch monotonic key shared
+            # by on_turn_start and on_turn_event for the SSE trace
+            # (Decision #13). Captured BEFORE dispatch so turn_start
+            # carries the same key the appended ToolCallTurn will hold.
+            dispatch_index = len(tool_call_log)
+            await _invoke_callback(on_turn_start, dispatch_index, fn_name, fn_args)
+
             dispatch_start = time.perf_counter()
             dispatch_error: str | None = None
             result_str = ""
@@ -1087,14 +1147,18 @@ async def _tools_loop_inner(
                 )
 
             dispatch_ms = int((time.perf_counter() - dispatch_start) * 1000)
-            tool_call_log.append(ToolCallTurn(
+            turn_obj = ToolCallTurn(
                 turn_number=turn,
                 tool_name=fn_name,
                 tool_args=fn_args,
                 tool_result_size_bytes=len(result_str.encode()),
                 duration_ms=dispatch_ms,
                 error=dispatch_error,
-            ))
+                tool_result_preview=result_str[:_TOOL_RESULT_PREVIEW_MAX],
+                dispatch_index=dispatch_index,
+            )
+            tool_call_log.append(turn_obj)
+            await _invoke_callback(on_turn_event, turn_obj)
 
             _log_tool_turn(
                 turn_number=turn,
@@ -1109,8 +1173,9 @@ async def _tools_loop_inner(
             if dispatch_error:
                 return "", tool_call_log
 
-            tool_dispatched = True
-            # Append assistant tool-call + tool result to history.
+            # Append assistant tool-call + tool result to history so the
+            # next turn can either read the result and produce text, or
+            # decide it needs another tool call.
             # Ollama native API uses a different message shape.
             if is_ollama:
                 messages.append({

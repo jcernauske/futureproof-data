@@ -247,7 +247,7 @@ export function GauntletScreen() {
   }, [build.build_id, setPhase, setNextStepsContent, setNextStepsError]);
 
   const handleBranches = useCallback(() => {
-    navigate("/branches");
+    navigate("/future");
   }, [navigate]);
 
   const handleSave = useCallback(() => {

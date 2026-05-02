@@ -49,6 +49,10 @@ class TreeNode:
     # lacks O*NET ETE coverage — treated as "unknown", never filtered.
     experience_years: float | None = None
     experience_tier: str | None = None
+    # O*NET relatedness rank from career_branches.best_index.
+    # 1 = closest, 20 = stretch ceiling. None on the root (no parent
+    # to be related to) and on any child whose row lacks best_index.
+    relatedness: int | None = None
     # Boss fight results at this node (computed from absolute stats).
     boss_ai: str | None = None
     boss_loans: str | None = None
@@ -220,6 +224,7 @@ def build_tree(
                     if related_exp_tier is not None
                     else None
                 ),
+                relatedness=as_int(row.get("best_index")),
             )
             node.children.append(child)
 

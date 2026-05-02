@@ -37,6 +37,9 @@ export default {
           mid: "var(--color-bg-mid)",
           surface: "var(--color-bg-surface)",
           raised: "var(--color-bg-raised)",
+          // Recessed inset surface for contained sub-surfaces (e.g.
+          // <GemmaTrace> rail inside a chat bubble). See tokens.css.
+          recessed: "var(--color-bg-recessed)",
         },
         accent: {
           thrive: "var(--color-accent-thrive)",

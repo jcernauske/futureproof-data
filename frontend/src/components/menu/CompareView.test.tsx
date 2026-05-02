@@ -19,6 +19,21 @@ import type { CompareResult, CompareInsights } from "@/api/menu";
 const mockCompareBuilds = vi.fn();
 const mockCompareInsights = vi.fn();
 const mockAskGemma = vi.fn();
+// askGemmaStream — happy-path SSE-equivalent default. Compare-scope
+// chat goes through askGemmaStream now. Per Authorized Test
+// Modifications (§4 / C7).
+const mockAskGemmaStream = vi.fn().mockImplementation(
+  async (..._args: unknown[]) => {
+    const final = { type: "final_text" as const, response: "ok" };
+    const done = { type: "done" as const };
+    const onEvent = _args[3] as ((e: unknown) => void) | undefined;
+    if (onEvent) {
+      onEvent(final);
+      onEvent(done);
+    }
+    return { response: "ok", events: [final, done] };
+  },
+);
 vi.mock("@/api/menu", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
@@ -27,6 +42,8 @@ vi.mock("@/api/menu", async () => {
     compareBuilds: (...args: unknown[]) => mockCompareBuilds(...args),
     compareInsights: (...args: unknown[]) => mockCompareInsights(...args),
     askGemma: (...args: unknown[]) => mockAskGemma(...args),
+    askGemmaStream: (...args: Parameters<typeof import("@/api/menu").askGemmaStream>) =>
+      mockAskGemmaStream(...args),
   };
 });
 
@@ -357,9 +374,9 @@ describe("CompareView", () => {
       fireEvent.click(screen.getByTestId("btn-chat-send"));
 
       await waitFor(() => {
-        expect(mockAskGemma).toHaveBeenCalledTimes(1);
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
       });
-      const scope = mockAskGemma.mock.calls[0]![0] as {
+      const scope = mockAskGemmaStream.mock.calls[0]![0] as {
         kind: string;
         build_ids: string[];
       };
