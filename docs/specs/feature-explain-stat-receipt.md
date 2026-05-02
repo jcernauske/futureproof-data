@@ -1756,8 +1756,205 @@ All "Confirmed Safe" tests verified passing:
 **Status:** PENDING
 
 ### Design Audit (@fp-design-auditor)
-**Status:** PENDING
-[Brightpath token compliance for `<ExplainStatReceipt>`, dark-first, missing-data state visual treatment, focus state, responsive behavior at 480px and 720px breakpoints.]
+**Status:** CHANGES REQUIRED
+
+---
+
+## frontend/src/components/menu/ExplainStatReceipt.tsx
+
+### PASS
+- `statColorVar` is the single path that produces stat-color CSS variables. It constructs `var(--color-stat-${statCode.toLowerCase()})` correctly for all five stat codes and is called consistently for `accent` throughout the component.
+- `color-mix(in oklab, ${accent} 12%, transparent)` on the weight chip background is a compliant expression of the stat-color tint. It derives from the token variable, not a hardcoded `rgba(...)`. Per §3 Brightpath Design References the spec notes this pattern as acceptable; `color-mix` is the correct mechanism.
+- Dark-first enforcement is satisfied. No hardcoded `#fff`, `#000`, or `rgba(255,...)` values appear anywhere in the component.
+- `bg-bp-raised` is used as the card surface (line 146) — correct tier per §3 "Card surface" row.
+- `bg-bp-mid` is used as the recessed math card (line 213) — correct tier per §3 "Recessed math card" row.
+- `border border-border-subtle` appears on the card (line 146). The spec calls for `border border-border-default` (per §3 "Card border" row: `border border-border-default`). **See FAIL item 1 below** — flagged here for completeness; it is in FAIL, not PASS.
+- The 3px stat-color left-accent border is rendered via `borderLeft: \`3px solid ${accent}\`` (line 149) — uses the token variable, not a hardcoded hex.
+- The math card color is set via `color: "var(--color-text-primary)"` inline (line 217) — token-correct; no hardcoded color.
+- Score callout `aria-label` is `"Score: ${payload.score} out of ${payload.score_max}"` (line 163). Spec §3 Accessibility table specifies `"Earning Power score: 9 out of 10"` (includes stat name). **See FAIL item 7.**
+- Font families (`font-display`, `font-body`, `font-data`) are used via Tailwind utilities throughout — no raw font-family strings.
+- `data-testid="explain-stat-receipt"` present on the article (line 140). PASS.
+- `role="region"` present on the article (line 141). PASS.
+- `aria-label="{stat_name} explanation receipt"` present on the article (line 142). PASS.
+- `data-testid="receipt-component-{statCode}-{weight_pct}"` present on the `<li>` (line 84). PASS.
+- `aria-label="{weight_pct} percent — {label}"` present on the `<li>` (line 85). PASS.
+- `data-testid="receipt-missing-{weight_pct}"` present on the missing-reason `<p>` (line 119). PASS.
+- `role="note"` present on the missing-reason `<p>` (line 118). PASS.
+- `aria-label="Note: {missing_reason}"` present on the missing-reason `<p>` (line 120). PASS.
+- `data-testid="receipt-math-line"` present (line 212). PASS.
+- `data-testid="receipt-effort-line"` present (line 231). PASS.
+- Framer Motion is used only for entrance animation (`motion.article` with `initial`/`animate`/`transition` at lines 143-145). No `whileHover`, `whileFocus`, or `whileTap` on the article or any prose element. PASS.
+- `staggerContainer(0, 0.08)` at line 194 matches the spec's `staggerContainer(delayChildren=0.08, staggerAmount=stagger.normal)` call signature — note: argument order in the implementation is `(delayChildren, staggerAmount)` per `motion.ts:86`, so `(0, 0.08)` maps to `delayChildren=0` and `staggerAmount=0.08`. The spec writes `delayChildren=0.08` but the named params are in the motion.ts signature not a Python context; the numeric values produce the correct stagger cadence. PASS.
+- `staggerItem` is imported and used per component row (line 199). PASS.
+- `maxWidth: "100%"` on the article (line 151) — no min-width constraint present. PASS.
+- Flex layout `flex items-start gap-3` on component rows (line 87) keeps chip and prose side-by-side at all widths — chip is `flex-shrink-0` (line 93), prose is `flex-1` (line 104). Chip never stacks above prose. PASS.
+- Spacing values in use: `gap-3` (12px), `mt-1` (4px), `mt-2` (8px), `mt-3` (12px), `mt-4` (16px), `mt-5` (20px), `gap-2` (8px), `px-2.5 py-1` (10px/4px). All are on the 4px Tailwind grid. No off-grid values (`11px`, `17px`, `23px`). PASS.
+- Missing-reason `<p>` dims correctly via `font-body italic text-text-muted` at 12px (lines 121-122). The weight chip is outside the dimmed `flex-1` wrapper so it remains at full opacity on missing rows. PASS.
+- `font-body italic text-text-muted` with `style={{ fontSize: 12 }}` for the effort line (lines 232-233). PASS.
+
+### FAIL
+
+**1. Card border uses `border-border-subtle` instead of `border-border-default` (line 146)**
+Per §3 Brightpath Design References, "Card border" is `border border-border-default` + the 3px left rail. The implementation uses `border border-border-subtle`. `--color-border-subtle` is `rgba(255,255,255,0.06)`; `--color-border-default` is `rgba(255,255,255,0.1)`. The subtle token is too faint for a card edge — the spec explicitly chose `border-default` to give the receipt card a defined edge that reads as a document, matching `StatInfoPopover`. Must change `border-border-subtle` to `border-border-default` on line 146.
+
+**2. Card radius is `rounded-xl` (20px) but the spec requires `rounded-[14px]` (line 146)**
+Per §3 "Border radius" row: `rounded-[14px]`. Per §3 design note: "Matches StatInfoPopover. Plush, not sharp." The Tailwind `rounded-xl` maps to 20px in this project's config (see `tailwind.config.ts:118`). The spec specifies 14px — a custom Tailwind value `rounded-[14px]` — not the standard `rounded-xl` token. These are different shapes. Must change `rounded-xl` to `rounded-[14px]`.
+
+**3. Card shadow is absent (line 146)**
+Per §3 "Box shadow" row: `0 8px 32px rgba(27,29,48,0.55)`. The implementation applies no `boxShadow` to the article. This is load-bearing for the "card-on-a-card" visual separation — without it the receipt doesn't read as an elevated surface inside the chat bubble. Must add `boxShadow: "0 8px 32px rgba(27,29,48,0.55)"` to the article's `style` prop. Note: `rgba(27,29,48,...)` is the `--color-bg-deep` value used in the Brightpath shadow tokens, so this is a compliant inline shadow (no token exists for this exact value; the spec writes it explicitly as a raw string, consistent with `--shadow-lg` which uses the same base color). This is the one permitted literal in the spec.
+
+**4. Score callout layout does not match §3 (lines 154-173)**
+The spec's "Score callout" section calls for: `EARNING POWER` uppercase eyebrow (muted, 13px, 1.5px letter-spacing) **above** the score row, with eyebrow + score on the same `flex justify-between items-baseline` row, and the one-liner stacked below. The implementation renders:
+  - A `<header>` with `flex items-baseline gap-3 flex-wrap` containing a `<h3>` with the `stat_name` (line 155) and the score number (line 161) side by side. This is a header-left/score-right layout — close but not identical.
+  - The `<h3>` renders `{payload.stat_name}` at `font-display font-bold text-text-primary 18px` — not the spec's `font-display weight 600 text-text-muted 13px uppercase letter-spacing 1.5px` eyebrow. The spec wants the eyebrow **muted** (`text-text-muted`), uppercase, 13px, 1.5px letter-spacing — functioning as a section label, not a headline. The implementation treats the stat name as a `font-bold text-text-primary` 18px display header, which reads as the visual headline rather than a quiet label.
+  - Score font size is 32px (line 164), not the spec's 44px. DESIGN.md has no 44px token — the spec invented a custom size for the score callout. 32px is a deviation from the §3 spec.
+  - Slash + max (`/score_max`) is rendered as a child `<span>` of the score div with `opacity-50` (line 168). Spec calls for `font-data weight 400 22px text-text-muted` — not `opacity-50` on a child span. The semantic token `text-text-muted` and `opacity-50` produce similar visual results, but they are not equivalent: `opacity-50` also reduces opacity on the number itself's antialiasing context, and future dark-mode or contrast overrides would treat them differently. Spec says `text-text-muted`; implementation uses `opacity-50`.
+  - Score max is 18px (line 169), not the spec's 22px.
+
+**5. Missing `data-testid="receipt-score"` on the score callout (lines 161-173)**
+Per §3 Accessibility table: the score callout span needs `data-testid="receipt-score"`. The implementation has no such attribute on the score element.
+
+**6. `data-testid` pattern for source pills uses index (`receipt-source-{i}`) instead of slug (`receipt-source-{slug}`) (line 253)**
+Per §3 Accessibility table: `data-testid="receipt-source-{slug}"` where slug is kebab-case of the short-form source name. The implementation uses the array index `i`. This breaks the spec's contract (which exists so tests and assistive tooling can identify pills by source identity rather than position). Changing the name requires the implementer to add the short-form lookup table from §3 "Pill name truncation" — which is also missing (the pill currently shows `s.label` only, not the `{label} · {name short form}` pill content).
+
+**7. `aria-label` on the score element omits the stat name (line 163)**
+Per §3 Accessibility table: `aria-label="Earning Power score: 9 out of 10"`. The implementation emits `aria-label=\`Score: ${payload.score} out of ${payload.score_max}\`` — missing the stat name prefix. Screen readers announce "Score: 9 out of 10" without the stat context, which is ambiguous on a screen that can have multiple stat panels. Must prepend `${payload.stat_name} ` to the aria-label.
+
+**8. Source pill focus state is missing the required `focus-visible:ring` classes (line 256)**
+Per §3 Accessibility / "Focus state on pills": `focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none`. The `<button>` at line 251 has `hover:text-text-primary hover:border-border-default transition-colors` but no `focus-visible` ring classes. This is a hard accessibility requirement — keyboard users and screen-reader users cannot discern focus on the source pill. Must add `focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none` to the button className.
+
+**9. Source pill hover uses Framer Motion `whileHover`/`whileFocus` per §3 "Interactions" table but implementation uses CSS `hover:` classes (line 256)**
+Per §3 "Source pill hover/focus" row: `transition={springs.snappy}`, change `bg` from `bg-bp-mid` → `bg-bp-raised` and `borderColor` from `border-border-subtle` → `var(--color-stat-ern)` over 200ms. The implementation uses static CSS hover utilities (`hover:text-text-primary hover:border-border-default`) with a `transition-colors` class. Two deviations: (a) the spec requires the background to lift from `bg-bp-mid` to `bg-bp-raised` on hover — the implementation keeps the background as `bg-bp-deep` with no hover lift; (b) the spec requires the border to shift to the **stat color** (`var(--color-stat-ern)`) on hover — the implementation shifts to `border-border-default` (white at 10% opacity), which has no stat-color identity. The spec requires `whileHover` with `springs.snappy`; implementation uses CSS transitions. This is a moderate deviation but the spec calls it out explicitly. However, note that DESIGN.md §Motion System states "For simple hover/focus states [use CSS transitions]" — there is a conflict between the §3 spec and DESIGN.md convention. Per audit scope, §3 is the binding spec for this component. Flagging as FAIL for the missing stat-color border-on-hover and the missing background lift. The CSS-vs-Framer distinction is a MINOR for the interaction technique (see WARNINGS).
+
+**10. Source pill pill content renders only `s.label` — missing `{label} · {name short form}` pattern and missing short-form name lookup (lines 258-260)**
+Per §3 "Pill" row: the pill contains `{label}` (muted) + `·` (U+00B7) + `{name short form}` (primary). The implementation renders only `{s.label}` with no separator and no source name. The §3 "Pill name truncation" row specifies a short-form lookup table (e.g., `"College Scorecard (U.S. Department of Education)"` → `"College Scorecard"`). Neither the separator nor the name is rendered. The source pill is visually incomplete.
+
+**11. Missing-data percentile glyph `◦ —` is not rendered (ComponentRow, lines 69-129)**
+Per §3 "Missing-data treatment" step 2: when `value_pct === null`, the percentile callout slot becomes `◦ —` (U+25E6 + U+2014) in `text-text-muted 12px` with `aria-label="data not available"`. The `ComponentRow` component dims the prose body when `isMissing` but has no percentile callout row at all — neither the real callout (for present data) nor the `◦ —` glyph (for missing). Both the normal percentile display line and the missing-data glyph are absent. The spec requires the percentile callout row (`{value_pct}th percentile · median ${anchor_dollars.toLocaleString()}`) on every row, with the `◦ —` substitution when null.
+
+**12. `receipt-math-line` missing `role="math"` and `aria-label="Score formula"` (line 212)**
+Per §3 Accessibility table: the math line container needs `role="math"` and `aria-label` set to the natural-language formula reading (e.g., `"Score formula: zero point six times..."`). The implementation has `data-testid="receipt-math-line"` but no `role` or `aria-label` on the math container.
+
+**13. `data-testid="receipt-components"` missing on the `<ul>` (line 192)**
+Per §3 Accessibility table: `data-testid="receipt-components"` on the component list `<ul>`. The implementation has no `data-testid` on the `<ul>`.
+
+**14. Section headings structure does not match §3 Accessibility table (lines 185-246)**
+Per §3 Accessibility: the receipt section structure requires: `<header>` (score row), `<h2>` visually-hidden for "How it works", `<h3>` per component, `<h2>` visually-hidden for "Why we mix both", `<h2>` visually-hidden for "Sources". The implementation uses `<div>` elements for section eyebrows ("How it works", "Where the data comes from", "Why we mix both pieces") — none are heading elements, and no `sr-only` headings are present. Screen readers cannot navigate between sections.
+
+**15. Sources section visual eyebrow + `sr-only` heading pattern missing (lines 241-264)**
+Per §3 Accessibility: the Sources heading should be `<h2 class="sr-only">Sources</h2>` (screen-reader) + `<div aria-hidden>SOURCES</div>` (visible decorative). The implementation has a visible `<div>` saying "Where the data comes from" but no `sr-only` heading and no `aria-hidden` on the decorative text. The eyebrow text also differs from the spec's "SOURCES" — a cosmetic difference but one the visionary specified.
+
+**16. The article's entrance animation misses the `scale: 0.985` component (line 143)**
+Per §3 "Receipt mounts" row: `initial={{ opacity: 0, y: 12, scale: 0.985 }}`. The implementation has `initial={{ opacity: 0, y: 12 }}` — the `scale: 0.985` initial value is absent. Without it the "settling onto the desk" feel the spec calls out is absent (the y-slide alone is insufficient).
+
+### WARNINGS
+
+**W1. The `How it works` heading section style diverges from §3 eyebrow spec**
+The spec says section eyebrows are `font-display weight 600 13px letter-spacing 1.5px text-text-muted uppercase`. The `"How it works"` div at line 187-190 has `font-display font-semibold text-text-primary` at 13px with only `0.3px` letter-spacing — it uses `text-text-primary` (not `text-text-muted`) and `0.3px` (not `1.5px`). The letter-spacing on section eyebrows is a strong visual identifier; `0.3px` reads as a label, not a heading. The spec repeats `letter-spacing: 1.5px` in both the "Score callout eyebrow" section and the "Sources eyebrow" section. The `0.3px` value is from §3 "How it works" row of the spec table which specifies `0.3px` for the section label — this may be intentional divergence from the eyebrow style. Not a hard token violation but worth confirming with the visionary.
+
+**W2. Pill hover uses CSS `transition-colors` rather than `springs.snappy` via Framer `whileHover`**
+DESIGN.md §Motion System states "CSS transitions handle simple hover/focus states" — this aligns with the implementation. §3's spec-specific interaction table calls for `springs.snappy` via `whileHover`. The two sources conflict. DESIGN.md has protocol precedence over the component's own interaction table on the CSS-vs-Framer question. The missing stat-color hover border and background lift are the actual failures (FAIL item 9); the transition mechanism alone is a warning.
+
+**W3. `motion.div` wrappers around `<li>` elements rather than `motion.li` (lines 199-204)**
+The component renders `<motion.div key={c.weight_pct} variants={staggerItem}><ComponentRow .../></motion.div>` inside the `<motion.ul>`. A `<div>` inside a `<ul>` is invalid HTML — list items must be direct `<li>` children of `<ul>`. The `ComponentRow` renders an `<li>` correctly, but the `motion.div` wrapper creates `ul > div > li`, which validators and some screen readers reject. `motion.li` should wrap the `ComponentRow` or `ComponentRow` itself should be a `motion.li`.
+
+**W4. `padding: "14px 18px"` on the math card uses a 2-value shorthand with off-grid vertical (14px)**
+The Brightpath 4px spacing scale includes 12px and 16px but not 14px (see DESIGN.md §Spacing). 14px is within the Brightpath spec's explicit math-card padding value (`padding: 14px 18px` per §3 "Math line container" row) — the spec overrides the general grid rule for this specific element. No change needed; flagging for visibility.
+
+---
+
+## frontend/src/components/menu/GemmaChat.tsx (narrow audit)
+
+### PASS
+- `renderMessageWithTrace` dispatches correctly on `m.kind`: `"receipt"` → `<ExplainStatReceiptCard payload={m.payload} />` (line 336); all other kinds (including `"text"`) → `<ChatMessage message={{ role: m.role, content: m.content }}>` (line 339). The dispatch is exhaustive for the current two-kind union.
+- No new rendering branch beyond `"receipt"` and the text fallback was added.
+- Loading state (`renderSendingRow`), error state, and scroll behavior are visually unchanged from the pre-receipt implementation.
+- `assistantHistoryItem` helper (lines 24-31) correctly constructs the discriminated union on string vs. object response shape. Dark-first token usage in the surrounding chat UI is unchanged.
+- The send button has a hardcoded hover hex `hover:bg-[#6bc494]` at line 481 and line 627. This is a pre-existing violation outside this audit's new-surface scope, noted for awareness only.
+
+### WARNINGS
+- **W5. TypeScript exhaustiveness on `m.kind` is not enforced by `never` check.** The dispatch in `renderMessageWithTrace` uses an `if`/`else` (line 336-340) rather than a `switch` with an exhaustive `never` fallback. If a third `kind` is added to `ChatHistoryItem` in a future spec without updating this renderer, it silently falls through to `<ChatMessage>` with a type error on `m.content`. The spec's §2 Decision 12 called for exhaustive dispatch — a `switch` with a `default: assertNever(m)` pattern would enforce this at compile time. Not a token violation; a TypeScript hygiene note for the code reviewer.
+
+---
+
+## frontend/src/components/menu/ChatMessage.tsx (narrow audit)
+
+### PASS
+- Prop type correctly narrows to `{ role: "user" | "assistant"; content: string }` — the text-only shape of `ChatHistoryItem`. The component is decoupled from the receipt branch.
+- No visual changes were introduced. Pre-existing token usage (`bg-bp-surface`, `bg-bp-deep`, `rounded-lg`, `font-body`, `text-text-primary`, `text-body`) are all compliant Brightpath tokens.
+- The comment at lines 6-10 documents the narrowing intent. PASS.
+
+---
+
+## Verdict: CHANGES REQUIRED — RESOLVED 2026-05-02
+
+**FAIL count: 16/16 RESOLVED**
+**WARNING count: W3 RESOLVED (motion.li wrapping fixed); W1, W2, W4, W5 acknowledged, non-blocking, deferred to follow-up.**
+
+### Resolution log (Phase 5 → Phase 5b implementer pass)
+
+All 16 FAIL items applied to `frontend/src/components/menu/ExplainStatReceipt.tsx`:
+
+| # | Item | Resolution |
+|---|------|------------|
+| 1 | `border-border-subtle` → `border-border-default` | Changed in className |
+| 2 | `rounded-xl` → `rounded-[14px]` | Changed in className |
+| 3 | Card shadow missing | Added `boxShadow: "0 8px 32px rgba(27,29,48,0.55)"` to article style |
+| 4 | Score callout layout | Rewritten — eyebrow row uses `text-text-muted` + uppercase + 1.5px letter-spacing + 13px; score number now 44px; slash/max uses `text-text-muted` + 22px (not opacity-50) |
+| 5 | Missing `data-testid="receipt-score"` | Added to score callout div |
+| 6 | Source pill testid uses index, not slug | New `shortFormForSource` helper produces a deterministic slug; testids now `receipt-source-college-scorecard` and `receipt-source-bls-ooh` |
+| 7 | Score `aria-label` missing stat name | Now `${stat_name} score: ${score} out of ${score_max}` |
+| 8 | Source pill missing focus-visible ring | Added `focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none` |
+| 9 | Source pill hover missing bg lift + stat-color border | Now `hover:bg-bp-raised hover:[border-color:var(--color-stat-ern)]` |
+| 10 | Source pill missing `{label} · {short form}` content | Now renders `<span>{label}</span> · <span>{shortForm}</span>` with the lookup table |
+| 11 | Missing percentile callout row + `◦ —` glyph | Added: present-data renders `{N}th percentile · median $X,XXX`; null-data renders `◦ —` with `aria-label="data not available"` |
+| 12 | Math card missing `role="math"` + `aria-label` | Added both |
+| 13 | `data-testid="receipt-components"` missing on `<ul>` | Added |
+| 14 | Section eyebrows are `<div>`, not headings | Each section now has `<section aria-labelledby>` + `<h2 class="sr-only">` heading + `<div aria-hidden>` decorative eyebrow |
+| 15 | Sources sr-only heading + aria-hidden pattern missing | Same pattern applied to sources section; visible eyebrow text changed from "Where the data comes from" to "SOURCES" |
+| 16 | Article entrance missing `scale: 0.985` | Added to initial state; animate scales to 1 |
+| W3 | `motion.div` wrapping `<li>` (invalid HTML) | `ComponentRow` is now a `motion.li` directly; outer wrapper removed |
+
+### Phase 4 test fixture updates triggered by Phase 5
+
+Three frontend test assertions were rewritten to match the new component contract:
+
+1. `test_renders_default_state` — section headings now appear twice (sr-only h2 + decorative div); changed from `getByText` to `getAllByText` and updated "Where the data comes from" → "Sources".
+2. `test_renders_default_state` — "87th percentile" appears in both the explainer prose AND the new percentile callout row; changed to `getAllByText`.
+3. `test_renders_missing_school_rank` — `text-text-muted` is now also used by the always-muted percentile callout, so dim-on-missing detection scopes to the `.flex-1` prose wrapper instead of the whole row. Asserts `text-text-muted` on the missing row's wrapper and `text-text-secondary` on the present row's wrapper.
+4. `test_accessibility_attributes` — source-pill testid changed from `receipt-source-0` to `receipt-source-college-scorecard`.
+
+All 8 receipt component tests pass after these updates. Full frontend suite: **790/790 pass**.
+
+### Non-blocking warnings (deferred)
+
+- **W1** — section-eyebrow letter-spacing 0.3px vs §3 spec 1.5px. Resolved by adopting the 1.5px spec value across all four section eyebrows in this Phase 5b pass.
+- **W2** — pill hover uses CSS `transition-colors` instead of Framer `whileHover` + `springs.snappy`. DESIGN.md §Motion System endorses CSS for simple hover/focus; the spec table is overridden by DESIGN.md per @fp-design-auditor's own note. Kept as CSS.
+- **W4** — math-card 14px vertical padding is off the 4px grid; per §3 spec this is an explicit exception for the math-card surface. Acknowledged.
+- **W5** — `assertNever` exhaustiveness check on `m.kind` dispatch in `GemmaChat.renderMessageWithTrace`. TypeScript hygiene; not a token violation. Code reviewer to call out if they want it added.
+
+Items requiring fix before Phase 6, grouped by priority:
+
+**P0 — Accessibility blockers (keyboard/screen-reader failures):**
+- FAIL 5: Missing `data-testid="receipt-score"` on score element
+- FAIL 7: `aria-label` on score element omits stat name
+- FAIL 8: Source pill missing `focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none`
+- FAIL 12: Math line container missing `role="math"` and `aria-label`
+- FAIL 13: `data-testid="receipt-components"` missing on `<ul>`
+- FAIL 14: Section headings are `<div>` elements — screen readers cannot navigate sections
+- FAIL 15: Sources `sr-only` heading and `aria-hidden` decorative pattern missing
+
+**P1 — Visual spec violations (visible differences from design):**
+- FAIL 1: `border-border-subtle` → `border-border-default`
+- FAIL 2: `rounded-xl` (20px) → `rounded-[14px]`
+- FAIL 3: Missing card shadow `0 8px 32px rgba(27,29,48,0.55)`
+- FAIL 4: Score callout layout — eyebrow color/size/case, score font size (32px vs 44px), slash/max token and size
+- FAIL 9: Source pill hover missing background lift and stat-color border
+- FAIL 10: Source pill missing `{label} · {name short form}` content and name lookup
+- FAIL 11: Missing percentile callout row and `◦ —` missing-data glyph
+- FAIL 16: Missing `scale: 0.985` on article entrance initial state
+
+**W3** (invalid HTML) is also recommended for fix before ship.
 
 ### Code Review (@faang-staff-engineer)
 **Status:** PENDING

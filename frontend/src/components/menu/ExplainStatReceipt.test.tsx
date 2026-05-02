@@ -112,17 +112,23 @@ describe("ExplainStatReceiptCard", () => {
       ),
     ).toBeInTheDocument();
 
-    // The four section headings.
-    expect(screen.getByText("How it works")).toBeInTheDocument();
-    expect(screen.getByText("Where the data comes from")).toBeInTheDocument();
-    expect(screen.getByText("Why we mix both pieces")).toBeInTheDocument();
+    // Section headings render. Each label appears twice (sr-only h2 +
+    // visible decorative div per §3 accessibility pattern), so use
+    // getAllByText. The eyebrow text was changed to "Sources" by the
+    // visionary's design audit (was "Where the data comes from").
+    expect(screen.getAllByText("How it works").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Sources").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Why we mix both pieces").length,
+    ).toBeGreaterThan(0);
 
     // Components: both rows render with their labels + explainers.
     expect(screen.getByText("your school's program rank")).toBeInTheDocument();
     expect(screen.getByText("this career's pay rank")).toBeInTheDocument();
-    expect(
-      screen.getByText(/87th percentile/),
-    ).toBeInTheDocument();
+    // "87th percentile" appears both in the explainer prose AND in the
+    // percentile-callout row. Both are intentional; getAllByText asserts
+    // at least one is present.
+    expect(screen.getAllByText(/87th percentile/).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/Software Developer pays a median of \$132,270/),
     ).toBeInTheDocument();
@@ -131,11 +137,13 @@ describe("ExplainStatReceiptCard", () => {
     const mathCard = screen.getByTestId("receipt-math-line");
     expect(mathCard).toHaveTextContent("0.6 × 0.87 + 0.4 × 0.92 → score 9/10");
 
-    // Sources render as 2 pills.
-    expect(screen.getByTestId("receipt-source-0")).toBeInTheDocument();
-    expect(screen.getByTestId("receipt-source-1")).toBeInTheDocument();
+    // Sources render as 2 pills, identified by slug per §3 spec.
     expect(
-      screen.getByTestId("receipt-source-0"),
+      screen.getByTestId("receipt-source-college-scorecard"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("receipt-source-bls-ooh")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("receipt-source-college-scorecard"),
     ).toHaveAttribute("title", expect.stringContaining("College Scorecard"));
 
     // why-mix paragraph renders.
@@ -159,22 +167,24 @@ describe("ExplainStatReceiptCard", () => {
       "no median earnings reported for this program yet",
     );
 
-    // The 60% row's body text is dimmed via the text-text-muted class
-    // (per the component's `isMissing ? "text-text-muted"` branch).
+    // The 60% row's prose container dims to text-text-muted; the
+    // percentage chip and the always-muted percentile callout don't
+    // count for "row dimming." We scope to the .flex-1 prose wrapper.
     const row60 = screen.getByTestId("receipt-component-ern-60");
-    // Walk into the row to find the dimmed body div. The component's
-    // structure puts the dimmed class on the inner content div, not
-    // the <li> itself.
-    const dimmedDiv = row60.querySelector(".text-text-muted");
-    expect(dimmedDiv).not.toBeNull();
+    const proseWrapper60 = row60.querySelector(".flex-1");
+    expect(proseWrapper60).not.toBeNull();
+    expect(proseWrapper60!.className).toContain("text-text-muted");
 
     // Math line carries n/a in the 60% slot.
     expect(screen.getByTestId("receipt-math-line")).toHaveTextContent(
       "0.6 × n/a",
     );
-    // Other component (40%) is NOT dimmed.
+    // 40% row's prose wrapper is NOT dimmed (text-text-secondary).
     const row40 = screen.getByTestId("receipt-component-ern-40");
-    expect(row40.querySelector(".text-text-muted")).toBeNull();
+    const proseWrapper40 = row40.querySelector(".flex-1");
+    expect(proseWrapper40).not.toBeNull();
+    expect(proseWrapper40!.className).toContain("text-text-secondary");
+    expect(proseWrapper40!.className).not.toContain("text-text-muted");
   });
 
   // -----------------------------------------------------------------
@@ -253,8 +263,8 @@ describe("ExplainStatReceiptCard", () => {
     expect(screen.getByTestId("receipt-component-ern-60")).toBeInTheDocument();
     expect(screen.getByTestId("receipt-component-ern-40")).toBeInTheDocument();
 
-    // Source pills each carry data-testid + aria-label + title.
-    const src0 = screen.getByTestId("receipt-source-0");
+    // Source pills each carry data-testid (slug-based) + aria-label + title.
+    const src0 = screen.getByTestId("receipt-source-college-scorecard");
     expect(src0).toHaveAttribute("aria-label", expect.stringContaining("Source"));
     expect(src0).toHaveAttribute("title");
   });
