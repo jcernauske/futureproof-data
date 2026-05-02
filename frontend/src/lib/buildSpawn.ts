@@ -63,6 +63,7 @@ function rowToCareerOutcome(row: SchoolForCareerRow): CareerOutcome {
     growth_category: null,
     net_price_annual: row.net_price_annual,
     cost_of_attendance_annual: row.cost_of_attendance_annual,
+    published_cost_4yr: null,
     modeled_total_debt: null,
     debt_median_reference: null,
     institution_control: row.institution_control,

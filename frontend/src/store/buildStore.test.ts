@@ -29,6 +29,7 @@ function makeCareer(soc = "15-1252"): CareerOutcome {
     growth_category: null,
     net_price_annual: null,
     cost_of_attendance_annual: null,
+    published_cost_4yr: null,
     modeled_total_debt: null,
     debt_median_reference: null,
     institution_control: null,

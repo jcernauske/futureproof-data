@@ -106,18 +106,38 @@ export function SetYourCourseScreen() {
     }
   }, [isAdjustMode]);
 
-  const effectiveNetPrice = useMemo(() => {
-    if (!school?.netPriceAnnual) return school?.netPriceAnnual ?? null;
-    if (!homeState || !school.stateAbbr) return school.netPriceAnnual;
-    if (!school.institutionControl?.startsWith("Public")) return school.netPriceAnnual;
-    if (homeState === school.stateAbbr) return school.netPriceAnnual;
+  // Residency-aware 4-year published cost — full COA sticker, with the
+  // OOS tuition gap added for out-of-state public-school applicants.
+  // Mirrors stat_engine._published_cost_4yr exactly. Per the 2026-05-02
+  // cost-anchor change, this is THE cost number every screen shows; the
+  // legacy "average net price" is no longer surfaced because it's an
+  // average across other students' aid that doesn't apply to anyone in
+  // particular before they've applied.
+  const publishedCost4yr = useMemo<number | null>(() => {
+    const coa = school?.costOfAttendanceAnnual;
+    if (!coa || coa <= 0) return null;
+    // Private — single sticker, no residency adjustment.
+    if (!school?.institutionControl?.startsWith("Public")) return coa * 4;
+    // Public — adjust upward when student is out-of-state.
+    if (!homeState || !school.stateAbbr) return coa * 4;
+    if (homeState === school.stateAbbr) return coa * 4;
     const inState = school.tuitionInState;
     const outState = school.tuitionOutOfState;
-    if (inState == null || outState == null) return school.netPriceAnnual;
+    if (inState == null || outState == null) return coa * 4;
     const gap = outState - inState;
-    if (gap <= 0) return school.netPriceAnnual;
-    return school.netPriceAnnual + gap;
+    if (gap <= 0) return coa * 4;
+    return (coa + gap) * 4;
   }, [school, homeState]);
+
+  // Legacy field name retained for the EffortLoansPanel prop wiring
+  // below — both the panel and the mocked fallback expect a per-year
+  // cost. We pass `publishedCost4yr / 4` so the loans-slider math
+  // (cost × 4 × loan_pct) lands on the same total as the backend's
+  // (published_cost_4yr × loan_pct).
+  const effectivePerYearCost = useMemo<number | null>(() => {
+    if (publishedCost4yr === null) return null;
+    return publishedCost4yr / 4;
+  }, [publishedCost4yr]);
 
   // Profile guard — bounce to /profile if the profile isn't set. Stash this
   // route so ProfileScreen returns here after onboarding.
@@ -724,7 +744,7 @@ export function SetYourCourseScreen() {
                   profileName={profileName}
                   onSubmit={() => void commit()}
                   submitting={busy}
-                  netPriceAnnual={effectiveNetPrice}
+                  netPriceAnnual={effectivePerYearCost}
                 />
                 {softNudge && (
                   <p

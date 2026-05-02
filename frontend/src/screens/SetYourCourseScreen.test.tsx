@@ -40,6 +40,7 @@ function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
     growth_category: "Average",
     net_price_annual: 20000,
     cost_of_attendance_annual: 28000,
+    published_cost_4yr: null,
     modeled_total_debt: 80000,
     debt_median_reference: 24000,
     institution_control: "Public",

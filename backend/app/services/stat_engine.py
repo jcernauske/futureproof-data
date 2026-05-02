@@ -161,29 +161,27 @@ def _derive_roi(
 
 def _derive_loans_boss(
     *,
-    net_price_annual: float | None,
-    debt_median: float | None,
+    published_cost_4yr: float | None,
     earnings_1yr_median: float | None,
     loan_pct: float,
 ) -> tuple[int | None, float | None, float | None]:
     """Compute (boss_loans_score, modeled_total_debt, financed_dte).
 
-    Unlike ROI, the Student Loans Boss IS financing-aware. The math is:
+    Unlike ROI (which is financing-agnostic), the Student Loans Boss IS
+    financing-aware. The math is:
 
-        modeled_total_debt = cost_per_year * 4 * loan_pct
+        modeled_total_debt = published_cost_4yr * loan_pct
         financed_dte       = modeled_total_debt / earnings_1yr_median
         boss_loans_score   = 11 - compute_stat_roi(financed_dte)
 
-    where ``cost_per_year`` is ``net_price_annual`` when available and
-    ``debt_median / 4`` as a coarse back-compat fallback (legacy rows
-    whose debt_median is a cumulative 4-year figure — this collapses to
-    the pre-split behaviour when net_price is absent).
+    where ``published_cost_4yr`` is the school's 4-year sticker cost of
+    attendance (residency-aware) per ``_published_cost_4yr``. This is
+    the post-2026-05-02 cost anchor — net_price/debt_median are no
+    longer used (see _published_cost_4yr docstring for rationale).
 
     Special cases:
     - loan_pct <= 0.0: no debt, boss is trivially auto-win (score 1).
-    - loan_pct >= 1.0 with no cost inputs: pass the pre-computed
-      boss_loans from the row (see caller) — this helper returns
-      None/None/None and the caller substitutes the row value.
+    - published_cost_4yr is None: caller substitutes the row value.
     - earnings missing or zero: can't compute a DTE — caller handles.
 
     Returns ``(boss_loans_score, modeled_total_debt, financed_dte)``.
@@ -196,23 +194,14 @@ def _derive_loans_boss(
     if loan_pct <= 0.0:
         return 1, 0.0, 0.0
 
-    # Choose the cost-per-year basis. net_price_annual is the real
-    # 4-year attendance cost; debt_median is a cumulative 4-year figure
-    # so we divide by 4 to match the ``cost_per_year × 4`` formula.
-    cost_per_year: float | None = None
-    if net_price_annual is not None:
-        cost_per_year = float(net_price_annual)
-    elif debt_median is not None:
-        cost_per_year = float(debt_median) / 4.0
-
-    if cost_per_year is None:
+    if published_cost_4yr is None:
         return None, None, None
     if earnings_1yr_median is None or float(earnings_1yr_median) <= 0:
         # We know the modeled debt but can't form a DTE.
-        modeled_debt = cost_per_year * 4.0 * float(loan_pct)
+        modeled_debt = float(published_cost_4yr) * float(loan_pct)
         return None, modeled_debt, None
 
-    modeled_debt = cost_per_year * 4.0 * float(loan_pct)
+    modeled_debt = float(published_cost_4yr) * float(loan_pct)
     financed_dte = modeled_debt / float(earnings_1yr_median)
     equivalent_roi = compute_stat_roi(financed_dte)
     boss_loans = (11 - equivalent_roi) if equivalent_roi is not None else None
@@ -228,6 +217,15 @@ def _adjust_net_price_for_residency(
     home_state: str | None,
     school_state: str | None,
 ) -> float | None:
+    """DEPRECATED — kept for back-compat callers only.
+
+    The cost basis for ROI and the Student Loans Boss has switched to
+    ``_published_cost_4yr`` (full sticker, residency-aware) per the
+    2026-05-02 cost-anchor change. This helper is retained because some
+    legacy display paths still cite "average net price" as a reference
+    (i.e. "for context, the average aided student paid $X"). New cost
+    work should use ``_published_cost_4yr``, not this.
+    """
     if net_price_annual is None:
         return None
     if home_state is None or school_state is None:
@@ -242,6 +240,67 @@ def _adjust_net_price_for_residency(
     if gap <= 0:
         return net_price_annual
     return net_price_annual + gap
+
+
+def _published_cost_4yr(
+    *,
+    cost_of_attendance_annual: float | None,
+    tuition_in_state: float | None,
+    tuition_out_of_state: float | None,
+    institution_control: str | None,
+    home_state: str | None,
+    school_state: str | None,
+) -> float | None:
+    """Return the school's published 4-year cost of attendance (full
+    sticker), residency-aware for public schools.
+
+    This is the cost basis for ROI and the Student Loans Boss. Replaces
+    the pre-2026-05-02 ``net_price_annual`` × 4 anchor — net price is an
+    average across federally-aided students, which obscures what the
+    school will actually charge a particular applicant before any aid
+    decision. At the exploration phase (pre-application) the only
+    honest signal is the published sticker.
+
+    Math:
+
+      Private:                                COA × 4
+      Public, in-state (home == school):       COA × 4
+      Public, out-of-state (home != school):   (COA + (OOS_tuition - IS_tuition)) × 4
+      Public, residency unknown:               COA × 4   (defaults to in-state)
+      COA missing or non-positive:             None      (caller renders "—")
+
+    The OOS adjustment adds the full tuition gap to the in-state COA
+    (which already includes tuition + room/board + fees). IPEDS reports
+    a single ``cost_of_attendance_annual`` per institution, which is the
+    in-state figure for publics; the out-of-state COA is reconstructed
+    by adding the OOS tuition premium.
+
+    Returns the 4-YEAR total. The caller divides by 4 if it needs an
+    annual figure (e.g. modeled_total_debt = published_cost_4yr ×
+    loan_pct).
+    """
+    if cost_of_attendance_annual is None or cost_of_attendance_annual <= 0:
+        return None
+    coa = float(cost_of_attendance_annual)
+
+    # Private — single sticker number, no residency adjustment.
+    if institution_control != "Public":
+        return coa * 4.0
+
+    # Public — adjust upward when the student is out-of-state.
+    if home_state is None or school_state is None:
+        # Residency unknown — default to in-state COA.
+        return coa * 4.0
+    if home_state == school_state:
+        return coa * 4.0
+    if tuition_in_state is None or tuition_out_of_state is None:
+        # OOS resident at a public school but tuition split is missing.
+        # Use in-state COA as the lower bound rather than fabricating.
+        return coa * 4.0
+    gap = float(tuition_out_of_state) - float(tuition_in_state)
+    if gap <= 0:
+        return coa * 4.0
+    return (coa + gap) * 4.0
 
 
 def _row_to_outcome(
@@ -279,11 +338,28 @@ def _row_to_outcome(
     earnings_f = _maybe_float(earnings_raw)
     dte_f = _maybe_float(dte)
 
+    coa_f = _maybe_float(row.get("cost_of_attendance_annual"))
     tuition_in_f = _maybe_float(row.get("tuition_in_state"))
     tuition_out_f = _maybe_float(row.get("tuition_out_of_state"))
     inst_control = row.get("institution_control")
     school_state = row.get("state_abbr")
 
+    # Residency-aware 4-year published cost. This is the single cost
+    # anchor for both ROI (financing-agnostic) and the Student Loans
+    # Boss (financing-aware). Replaces the prior net-price-based path
+    # per the 2026-05-02 cost-anchor change.
+    published_cost_4yr = _published_cost_4yr(
+        cost_of_attendance_annual=coa_f,
+        tuition_in_state=tuition_in_f,
+        tuition_out_of_state=tuition_out_f,
+        institution_control=inst_control,
+        home_state=home_state,
+        school_state=school_state,
+    )
+
+    # Net-price residency adjustment retained for the FinancesCard
+    # "for context" display only — does NOT drive ROI or the loans
+    # boss anymore.
     adjusted_net_price = _adjust_net_price_for_residency(
         net_price_annual=net_price_f,
         tuition_in_state=tuition_in_f,
@@ -293,18 +369,16 @@ def _row_to_outcome(
         school_state=school_state,
     )
 
-    # When residency adjustment applies, recompute the DTE so ROI
-    # reflects the out-of-state cost basis (the Gold-level dte_f is
-    # pre-baked from the blended net_price_annual).
-    roi_dte = dte_f
+    # ROI's DTE is published_cost_4yr / earnings (sticker-anchored,
+    # financing-agnostic). When published cost is missing, ROI is None
+    # and the legacy Gold-level dte_f / raw_stat_roi falls through.
+    roi_dte: float | None = None
     if (
-        adjusted_net_price is not None
-        and net_price_f is not None
-        and adjusted_net_price != net_price_f
+        published_cost_4yr is not None
         and earnings_f is not None
         and earnings_f > 0
     ):
-        roi_dte = (adjusted_net_price * 4.0) / earnings_f
+        roi_dte = published_cost_4yr / earnings_f
 
     # ROI is loan_pct-independent — it reflects program cost vs earnings.
     adj_stat_roi = _derive_roi(
@@ -313,8 +387,7 @@ def _row_to_outcome(
     )
     # Student Loans Boss IS loan_pct-aware — it reflects financing choices.
     boss_loans_derived, modeled_total_debt, financed_dte = _derive_loans_boss(
-        net_price_annual=adjusted_net_price,
-        debt_median=debt_median_f,
+        published_cost_4yr=published_cost_4yr,
         earnings_1yr_median=earnings_f,
         loan_pct=loan_pct,
     )
@@ -383,6 +456,7 @@ def _row_to_outcome(
             else net_price_annual_raw
         ),
         cost_of_attendance_annual=row.get("cost_of_attendance_annual"),
+        published_cost_4yr=published_cost_4yr,
         modeled_total_debt=modeled_total_debt,
         debt_median_reference=debt_median_reference,
         institution_control=inst_control,
@@ -455,8 +529,7 @@ def recompute_for_sliders(
         new_ern = career.stats.ern
 
     boss_loans, modeled_debt, financed_dte = _derive_loans_boss(
-        net_price_annual=career.net_price_annual,
-        debt_median=career.debt_median,
+        published_cost_4yr=career.published_cost_4yr,
         earnings_1yr_median=career.earnings_1yr_median,
         loan_pct=new_loan_pct,
     )
