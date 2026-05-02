@@ -199,49 +199,453 @@ The fix is to take the math out of Gemma's hands. Gemma stays in charge of **voi
 
 ## §3 UI/UX Design
 
-> **Backend-only?** No — this spec ships a new React component. @fp-design-visionary fills this section BEFORE implementation begins. Pixel-perfect target.
+### Emotional target
 
-### What's in scope for the visionary
+**Trust, in physical form.** The student clicked "✦ Explain this to me" because the score made them curious or skeptical. The receipt is the answer to *"prove it."* It should feel like the moment a financial advisor slides a single sheet of paper across the table — the math is right there, the sources are named, nothing is hidden. Not a wall of text. Not a "trust me." A receipt.
 
-The new `<ExplainStatReceipt>` component renders inside `GemmaChat` as the assistant's reply when the receipt path fires. Specifically the visionary owns:
+The card sits inside the chat history but it is not a chat message. It is **a document the chat returned**. That distinction drives every visual decision below: the card has its own surface tier, its own typographic system, its own breathing room. The chat bubble is the envelope; the receipt is the letter.
 
-1. **The receipt "card" within the chat bubble.** Background tier, padding, border treatment, max-width, how it visually distinguishes from a plain-prose Gemma reply directly above or below it in the chat history.
-2. **Section typography.** The four sections (one-liner / how it works / sources / why-we-mix) each need distinct typographic weight without becoming busy. Current spike uses `### H3` + `**bold**` paragraph headers in markdown; the visionary decides whether to keep that hierarchy or compress.
-3. **Component bullet rendering.** Each `StatComponent` is a row with `weight_pct` (e.g., "60%") + `label` ("your school's program rank") + the explainer text + the percentile callout + missing-data line. Visionary specifies the layout — left-rail percentage chip? Inline weight prefix? Stacked vs. inline?
-4. **Percentile callout typography.** "87th percentile (out of 100 programs, this one ranks higher than about 86)" is a real on-screen text element. The number `87` and the gloss are visually distinct elements; visionary decides the treatment (data-font for the number? muted parenthetical?).
-5. **The math line.** `0.6 × 0.87 + 0.4 × 0.92 → score 9/10`. This is the "show the receipts" moment. Visionary decides whether it's a code-block-styled box, a centered single-line callout, or inline with the bullets.
-6. **Source pills.** "College Scorecard" and "BLS Occupational Outlook Handbook" — visionary specifies the chip / pill / badge treatment, including whether they're tappable (e.g., to surface a tooltip with the exact dataset version, which we have in tool results).
-7. **Missing-data treatment.** When `value_pct === null`, `anchor_dollars === null`, or `missing_reason` is set, the row's visual weight should drop to `text-muted` and the missing-reason line should be subtle. The visionary decides exactly how subtle (italics? small caps? inline em-dash?).
-8. **Score callout at top.** `### Earning Power — 9/10` is the receipt's title. The score is the headline number; treat it like one. The stat color (`var(--color-stat-ern)`) should drive the accent.
-9. **Responsive behavior.** Chat panel ranges from ~480px (slide-in narrow) to ~720px (wide). The receipt has to read at all widths. Bullets may need to stack on narrow.
-10. **Loading state.** While the tool loop is running, the chat shows the existing typing-dots indicator. When the structured receipt arrives, it transitions in. Visionary specifies whether there's a fade, a skeleton, or just an instant swap.
+The micro-feeling at each beat:
+- **Loading** — patience, not anxiety. Gemma is fetching the actual numbers. The trace rail already shows that beautifully; the receipt area below it just holds a low-key skeleton placeholder so the student knows what shape is coming.
+- **Arrival** — *settling*. The card doesn't snap in; it lifts up from below the trace and settles like paper landing on a desk. The score number locks last (a 120ms delay after the card body appears) so the eye is led: "here's the receipt … here's the headline."
+- **Reading** — *guided clarity*. The score is the headline. The two component bullets are the evidence. The math line is the tally. The sources are the citations. The why-mix paragraph is the editorial. Every section is visually distinct enough to scan in two seconds and read in twenty.
+- **A missing piece** — *honest, not embarrassed*. When a percentile is null, the row dims to `text-muted` and the percentile slot becomes an open-ring em-dash glyph (matching the existing pentagon-vertex missing-data convention from AURA). No red. No warning. Just a quiet "we don't have this yet."
 
-### Brightpath references
+### The card
 
-- Background tier: receipt sits inside the existing `bg-bp-mid` chat bubble; the receipt's own surface is likely `bg-bp-raised` to read as a card-within-a-card.
-- Stat color: `var(--color-stat-ern)` (gold, `#F2D477`). Use for the score number, the section accent, and the trigger button on `BuildResultsScreen` (already shipped from the spike).
-- Typography: `font-display` for section headings, `font-body` for prose, `font-data` for percentages/scores/math. No new fonts.
-- Border / divider: existing `border-border-subtle` for inter-section separators if any; no new tokens.
-- Source pills should reuse an existing chip pattern if one exists (check `frontend/src/components/ui` and `BossBand.tsx` for chip conventions).
+A single self-contained surface, distinct from the chat bubble that holds it. The chat bubble (`bg-bp-deep`, per `ChatMessage.tsx:28`) acts as the envelope; the receipt is a `bg-bp-raised` card-within-a-card with a 3px stat-color left rail. The left rail is the **only** color cue on the card body — it stamps the receipt with the stat's identity (gold for ERN, green for ROI, etc.) without bleeding color into the prose.
+
+| Property | Value | Rationale |
+|---|---|---|
+| Container element | `<article role="region">` with `data-testid="explain-stat-receipt"` | Semantic landmark, screen-reader-discoverable. |
+| Background | `bg-bp-raised` | One tier above the chat bubble's `bg-bp-deep`; reads as a card on a card. Same tier as `StatInfoPopover.tsx:57`. |
+| Border | `border border-border-default` (full 1px) + `borderLeft: 3px solid var(--color-stat-ern)` | The full subtle border defines the card edge; the 3px gold left rail is the stat fingerprint. Direct echo of the StatInfoPopover treatment so the two surfaces feel like siblings. |
+| Border radius | `rounded-[14px]` | Matches StatInfoPopover. Plush, not sharp. |
+| Padding | `20px` (top/right/bottom) + `24px` (left) | Slightly more left padding so prose floats away from the stat rail and the rail reads as ornament, not as a divider being crowded. |
+| Box shadow | `0 8px 32px rgba(27,29,48,0.55)` | Half a step shy of the popover's `0.7` because the receipt sits inside an already-elevated bubble; over-shadowing reads as floating. |
+| Max width | `min(100%, 640px)` | The chat panel ranges 480-720px; capping at 640px ensures the receipt never feels stretched even on the widest panel. The chat bubble's own `max-w-[90%]` from `ChatMessage.tsx:28` already provides the outer constraint. |
+| Spacing inside | Sections separated by `marginTop: 18px` (no dividers between most sections); `border-t border-border-subtle` divider ONLY above the sources row | Dividers everywhere makes the card feel like a form. One divider before sources lets the citations read as a footer. |
+| Outer wrap | `<motion.article>` mounting transition (see §3 Interactions) | The receipt's arrival is the moment of trust; motion is part of the design, not decoration. |
+| Distinguishing from a prose bubble | A plain-prose Gemma reply has NO stat-color rail, NO `bg-bp-raised` surface, and NO border — it's a soft `bg-bp-deep` bubble with rounded corners and an `✦` avatar to its left (`ChatMessage.tsx:38-45`). The receipt has all three (rail + raised surface + border) and the `✦` avatar is suppressed (the receipt is a document, not a quote from Gemma). The two surfaces are unmistakable at a glance. |
+
+### Score callout (the headline)
+
+The first thing the student sees inside the card. Treat it like a magazine cover: stat name in display weight, score number huge in data font, slash and max in muted data font.
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│  EARNING POWER                                          9 /10 │
+│                                                              │
+│  Where your starting paychecks land — your school's program  │
+│  versus the rest of the country, blended with how this       │
+│  career pays nationally.                                     │
+└───────────────────────────────────────────────────────────────┘
+```
+
+Specifically:
+
+| Element | Token / spec |
+|---|---|
+| `EARNING POWER` (eyebrow) | `font-display` weight 600, size 13px, letter-spacing 1.5px, `text-text-muted`, uppercase. Sits *above* the score row. The all-caps eyebrow gives the stat name the air of a section header without competing with the score number. |
+| Score number `9` | `font-data` weight 700, size 44px, line-height 1.0, `color: var(--color-stat-ern)`. **The only number on the card rendered in stat color.** Everything else (percentiles, math line) stays in `text-text-primary` so the score is unambiguously the headline. |
+| Slash + max `/10` | `font-data` weight 400, size 22px, `text-text-muted`, baseline-aligned with the score number's lower third (so `9 /10` reads as one composed unit, not two glued ones). 4px of left margin on the slash. |
+| One-liner (`payload.one_liner`) | `font-body` weight 400, size 15px, line-height 1.55, `text-text-secondary`, max width 56ch. Sits 12px below the eyebrow/score row. This is the Gemma-written one-sentence definition; voice rules from `pentagon-stat-explanation/SKILL.md` apply. |
+| Layout | Eyebrow + score on the same row using `flex justify-between items-baseline`. One-liner stacks below at full card width. On narrow widths (<560px), eyebrow stays inline; score never wraps. |
+
+The score number's `data-testid="receipt-score"` and `aria-label="Earning Power score: 9 out of 10"` belong here.
+
+### How it works (the components)
+
+The two `StatComponent` rows are the heart of the receipt. **Layout decision: option (a) — left-rail percentage chip + stacked label/explainer/percentile callout.** Reasoning:
+- Option (b) inline-weight-prefix becomes unreadable on a narrow chat panel — "60% — your school's program rank — Indiana University..." wraps badly and the weight gets lost in the prose.
+- Option (c) two-column with weight + everything else introduces a vertical divider that makes the card feel like a spreadsheet, fighting the "letter, not form" emotional target.
+- Option (a) gives the weight chip its own anchor, leaves the prose to breathe at full width, and stays composable when a row's `value_pct` is null (the chip is unaffected; only the prose dims).
+
+Wireframe of one component row:
+
+```
+┌─────┐
+│ 60% │  Your school's program rank
+└─────┘  Indiana University Computer Science grads earn a median
+         of $78,400 within a year — that's the 87th percentile
+         (out of about 1,200 CS programs nationally, this one
+         ranks higher than ~1,044 of them).
+
+         87th percentile  ·  median $78,400
+```
+
+| Element | Token / spec |
+|---|---|
+| Container | `<li data-testid="receipt-component-ern-{0\|1}">`, `display: flex`, `gap: 14px`, `align-items: flex-start`. Rows separated by `marginTop: 16px` between siblings. |
+| Weight chip (left rail) | Fixed `width: 56px`, `flex-shrink: 0`. Inside: a pill with `background: rgba(242,212,119,0.12)` (stat-color at 12% — derived from the existing `STAT_COLORS.ern.bg` pattern in `bossData.ts:80`), `padding: 6px 10px`, `border-radius: 999px`, `font-data` weight 700, size 13px, `color: var(--color-stat-ern)`, `text-align: center`. Reads as `60%`. The chip uses stat-color background not because the weight has color identity, but because it tethers each row visually to the score callout's stat color — the rail-and-chip pair feels intentional, not accidental. |
+| Label (`payload.components[i].label`) | `font-display` weight 600, size 14px, `text-text-primary`, line-height 1.3. Sits as the row title. Sentence-case (the canonical labels are sentence-case: "your school's program rank"). |
+| Explainer (`payload.components[i].explainer`) | `font-body` weight 400, size 14px, `text-text-secondary`, line-height 1.55, `marginTop: 4px`. The Gemma-written prose; max width 60ch. The percentile gloss appears inline within this prose per the SKILL voice rule (e.g., *"the 87th percentile (out of 1,200 CS programs nationally, this one ranks higher than about 1,044)"*) — see "Percentile typography inside the explainer" below. |
+| Percentile callout (data row) | A separate row below the explainer prose with `marginTop: 8px`, displaying `{value_pct}th percentile · median ${anchor_dollars.toLocaleString()}` (or just one of the two if the other is null). `font-data` weight 600, size 13px, `text-text-primary` for the numbers, `text-text-muted` for the `th percentile` and `median` words and the `·` separator (U+00B7). Letter-spacing 0.3px. This is the "show the receipts" data-summary line per row — the one place a student looking for just the numbers can find them quickly without re-reading the prose. |
+
+#### Percentile typography inside the explainer prose
+
+The explainer string contains the percentile gloss inline (e.g., *"the 87th percentile (out of 1,200 CS programs nationally, this one ranks higher than about 1,044)"*). The treatment:
+
+- The number `87` and the gloss numbers `1,200` and `1,044` are wrapped in `<span class="font-data text-text-primary">` to nudge the digits into Space Mono. **The surrounding "th percentile" and the parenthetical gloss stay in `font-body` `text-text-secondary`** — same weight as the rest of the explainer prose, no italics. This keeps the prose readable as a sentence (the eye doesn't trip on dimmed parentheticals) while letting the data points pop subtly via font change alone.
+- This nudge is achieved by a regex pass in the renderer: any match of `/(\d{1,3})(st|nd|rd|th)\s+percentile/i` and `/\$([0-9,]+)/g` and integer-with-comma matches inside parentheses gets the data-font wrap. Implementation detail; the visual rule is "numbers in Space Mono, glue prose in Nunito."
+
+### The math line (the tally)
+
+This is the show-the-receipts moment. The math line gets its own visual treatment — an inset card with mono font and a unicode arrow. It's the one element in the receipt that is unapologetically *engineering*; that's what makes it trustworthy.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│   0.6 × 0.87  +  0.4 × 0.92   →   score 9/10                │
+└─────────────────────────────────────────────────────────────┘
+   Your Focused effort setting lifts this to 9/10
+```
+
+Specifically:
+
+| Element | Token / spec |
+|---|---|
+| Container | `<div data-testid="receipt-math-line">`, `bg-bp-mid` (one tier *down* from the card surface — recessed, like a tally tape sunk into the page), `padding: 14px 18px`, `border-radius: 10px`, `marginTop: 18px`. No border. The recessed surface treatment is what distinguishes this from a chat-message bubble; `ChatMessage.tsx:75` already uses `bg-bp-mid` for inline `<code>`, so the eye reads `bg-bp-mid` as "this is data, not prose" — perfect carry-over. |
+| Math expression | `font-data` weight 600, size 15px, `text-text-primary`, letter-spacing 0.4px. The unicode arrow `→` (U+2192) and the score `9/10` get a 12px horizontal gap (via `gap: 12px` on a flex container) so the score callout stands apart from the arithmetic. The arrow itself stays in `text-text-primary` — keeping it in stat color was tempting but would over-color the receipt; reserving stat color for the score number alone makes that one number more powerful. |
+| Centering | `text-align: center` on the math expression. Centered single-line on widths ≥ 480px; on narrower widths it stays centered and wraps the score callout to its own line below the expression (see Responsive Behavior). |
+| Effort line (Decision 13) | When `payload.math_line` contains a `\n` and the second line follows the pattern `Your **{Effort}** effort setting...`, the renderer parses the second line and renders it BELOW the inset math-card, NOT inside it. Treatment: `font-body` weight 400, size 13px, `text-text-secondary`, `marginTop: 8px`, `text-align: center`, `font-style: italic`. The `**{Effort}**` markdown delimiters render as `font-display weight 600 text-text-primary` (non-italic) for the effort label. The outset placement (below the math-card, not inside) makes the effort line read as a footnote on the math, not as another line of arithmetic — which is exactly the relationship Decision 13 wants surfaced. |
+
+### Sources (the citations)
+
+A row of two pills below a divider. Quiet, factual, tappable.
+
+```
+─────────────────────────────────────────────────────────────
+SOURCES
+[ Graduate earnings · College Scorecard ]   [ Wages · BLS OOH ]
+```
+
+| Element | Token / spec |
+|---|---|
+| Section eyebrow | `font-display` weight 600, size 11px, letter-spacing 1.5px, `text-text-muted`, uppercase. `marginTop: 16px` (the divider sits between this eyebrow and the why-mix paragraph above it). |
+| Divider | `border-t border-border-subtle`, `paddingTop: 14px`. The single divider in the entire receipt, demarcating prose-above from citations-below. |
+| Pill row | `<ul>` with `display: flex; flex-wrap: wrap; gap: 8px`, `marginTop: 8px`. |
+| Pill (`<li>`) | `<button>` (tappable — tooltip on focus/hover with the source's full `name` and the dataset version, when available). `bg-bp-mid`, `border: 1px solid border-border-subtle`, `border-radius: 999px`, `padding: 6px 12px`, `font-body` weight 500, size 12px. Inside: `<span class="text-text-muted">{label}</span>` + `<span class="text-text-muted">·</span>` + `<span class="text-text-primary">{name short form}</span>`. The label (e.g., "Graduate earnings") is muted; the source name is primary. The U+00B7 middle dot separates them. |
+| Pill name truncation | The full source name on payload (`"College Scorecard (U.S. Department of Education)"`) is too long for a pill. The renderer applies a short-form lookup table: `College Scorecard (U.S. Department of Education)` → `College Scorecard`; `Occupational Outlook Handbook, published by the Bureau of Labor Statistics (BLS)` → `BLS OOH`. The full name appears in the tooltip + `aria-label` so nothing is hidden, just compressed. |
+| Hover/focus state | `bg-bp-raised` background (one tier up — feels like the pill rises slightly), `border-color: var(--color-stat-ern)` (stat-color border on hover, the second place stat color enters the receipt), `cursor: pointer`. Transition: `200ms ease-out` on background + border-color. |
+| Tooltip on hover/focus | Existing `TooltipPrimitive` pattern (or Radix tooltip if already in the project — verify in implementation). Content: full source name + a small data line (e.g., *"College Scorecard (U.S. Department of Education) · 2023 release"* if a version is available; `payload.sources[i].name` alone if not). 200ms open delay, 100ms close. |
+| Pill `data-testid` | `receipt-source-{slug}` where slug is a kebab-case of the short-form name. |
+| Pill `aria-label` | `Source: {full name}`. |
+
+### Why we mix both pieces (the editorial)
+
+A single paragraph. Last narrative section before the sources divider. Its job is the *why* — the educational paragraph that turns a list of components into an explanation.
+
+| Element | Token / spec |
+|---|---|
+| Section eyebrow | `WHY WE MIX BOTH` — `font-display` weight 600, size 11px, letter-spacing 1.5px, `text-text-muted`, uppercase. `marginTop: 22px` (more breathing room than between component rows; this is a section change). |
+| Paragraph (`payload.why_mix_paragraph`) | `font-body` weight 400, size 14px, line-height 1.6, `text-text-secondary`, max-width 60ch, `marginTop: 8px`. |
+| Voice handling | The Pydantic `max_length=800` validator catches truncations before they render here; a half-sentence never reaches the DOM. The voice rules from `SKILL.md` Section 4 ("Picture two students…") shape the prose; the visionary doesn't override them. |
+| What this section does NOT have | No bold pull-quotes inside the paragraph. No emphasis tints. The Gemma-written prose carries its own rhythm; styling it would over-egg an already-thoughtful card. |
+
+### Missing-data treatment
+
+When a `StatComponent` has `value_pct === null` OR `anchor_dollars === null` OR `missing_reason` is non-null, the row's visual weight drops in three coordinated steps. **All three apply together.** This is the existing AURA missing-data convention transferred to the receipt — same vocabulary, different surface.
+
+1. **Row body opacity drops to 0.6.** The label, the explainer prose, the percentile callout all dim together. The weight chip stays at full opacity (the structural information — that this row is the 60% piece — remains undimmed; only the data is dimmed).
+2. **Percentile callout slot becomes an open-ring em-dash.** Where the percentile would render (e.g., `87th percentile · median $78,400`), the renderer instead displays a `◦ —` glyph: a small open ring (U+25E6, `text-text-muted`, 12px) followed by an em-dash (U+2014, same color). This is the same vocabulary the pentagon vertex uses for an unreported AURA stat — when the student sees `◦ —` anywhere in the product, it means *we don't have this yet*. The legend coherence is the point.
+3. **Missing-reason line appears below the explainer.** A `<p role="note" data-testid="receipt-missing-{component-key}">` containing `payload.components[i].missing_reason` (the canned server-stamped string, e.g., `"no median earnings reported for this program yet"`). Treatment: `font-body` weight 400, size 12px, `font-style: italic`, `text-text-muted`, `marginTop: 6px`. Italics here are the right move (despite italics being rare in the rest of the design system) because the line is *meta* — it's about the data, not part of it. The explainer prose stays non-italic; only the meta-explanation tilts.
+
+The `missing_reason` `aria-label` reads as `Note: {missing_reason}` to the screen reader.
+
+When **both** components are missing, the receipt still renders (the score is from the build, not from the percentiles), and the math line shows `0.6 × n/a + 0.4 × n/a → score N/10`. The two `n/a` strings inside the math expression are styled exactly the same as the percentile values (no special opacity dim) — they're already textually distinct, and dimming them inside the math card would muddy the recessed `bg-bp-mid` surface. The receipt does NOT show a card-level "limited data" warning banner (per the user's standing rule on substitution caveats).
+
+### Loading state (skeleton frame)
+
+While the tool loop is in flight, the trace rail above the receipt area is doing its job — streaming `TraceTurnStart` events for `get_career_paths` and `get_occupation_data`. The receipt area below the trace shows a **skeleton frame in the exact final shape**, with shimmer animations on each placeholder. The skeleton is not a generic gray box; it's the receipt's actual layout, just unfilled. This is the moment the student is most curious; showing the empty container reduces perceived wait.
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│  ▱▱▱▱▱▱▱▱▱▱▱                                          ▱▱ /10│  ← shimmer eyebrow + score
+│                                                              │
+│  ▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱                    │  ← shimmer one-liner
+│                                                              │
+│  ┌──┐  ▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱                                       │
+│  │  │  ▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱                  │
+│  └──┘                                                        │
+│                                                              │
+│  ┌──┐  ▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱                                       │
+│  │  │  ▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱                  │
+│  └──┘                                                        │
+└───────────────────────────────────────────────────────────────┘
+```
+
+| Element | Token / spec |
+|---|---|
+| Skeleton container | Same card chrome as the realized receipt: `bg-bp-raised`, full border, 3px `var(--color-stat-ern)` left rail, same padding. The frame is the constant; the contents fill in. |
+| Shimmer block | `<div role="presentation" aria-hidden>`, `bg-bp-mid` background, `border-radius: 4px`, sized to match the realized element (eyebrow row: 96px × 14px; one-liner: full-width × 18px × 2 lines; component label: 200px × 14px; explainer: full-width × 14px × 3 lines). |
+| Shimmer animation | A single sweep gradient — `background: linear-gradient(90deg, bg-bp-mid 0%, bg-bp-raised 50%, bg-bp-mid 100%)`, `background-size: 200% 100%`, animated `background-position` from `100% 0` to `-100% 0` over 1400ms `ease-in-out` infinite. Subtle, not flashy. |
+| When the receipt arrives | The skeleton fades out (200ms) while the realized receipt fades up (320ms `springs.smooth` from y:8). The two animations overlap by 100ms so the transition feels like the skeleton is *becoming* the receipt rather than being replaced by it. |
+| `data-testid` | `explain-stat-receipt-skeleton`. |
+| `aria-busy` | The skeleton container carries `aria-busy="true"` so screen readers announce loading state. The realized receipt drops the attribute. |
+
+### Fallback path (markdown spike)
+
+When JSON parsing fails and the markdown-spike fallback fires, the response renders through the existing prose markdown path (`ChatMessage.tsx`) — that's a `bg-bp-deep` chat bubble with the `✦` avatar, NOT a receipt card. **Decision: do not visually distinguish the fallback from any other Gemma prose reply.** Reasoning: the user clicked "Explain this to me" and they got an explanation; whether it came through the structured path or the markdown path is an engineering detail, not a user-facing one. Showing a "this is a fallback" indicator would teach the student that something failed, which (a) breaks the trust the receipt feature is built to create and (b) is outside the user's mental model entirely (they don't know the receipt path exists as a separate code branch). The markdown response has its own visual identity already (chat bubble, ✦, prose). That's the correct degraded experience: same content shape, slightly less polish.
+
+### Mockups (all five required states)
+
+#### State 1 — Default (both percentiles present, balanced effort)
+
+Indiana University-Bloomington → Computer Science → Software Developer
+
+```
+┌── chat panel (640px wide) ──────────────────────────────────────────────┐
+│                                                                         │
+│  ✦  [trace rail collapsed: 2 tools called, 1.4s]                        │
+│                                                                         │
+│  ┌─[receipt card, bg-bp-raised, 3px gold left rail]──────────────────┐  │
+│  ┃ EARNING POWER                                              9 /10  │  │
+│  ┃                                                                   │  │
+│  ┃ Where your starting paychecks land — your school's program        │  │
+│  ┃ versus the rest of the country, blended with how this career      │  │
+│  ┃ pays nationally.                                                  │  │
+│  ┃                                                                   │  │
+│  ┃ ┌─────┐  Your school's program rank                               │  │
+│  ┃ │ 60% │  Indiana University Computer Science grads earn a median  │  │
+│  ┃ └─────┘  of $78,400 within a year — the 87th percentile (out of   │  │
+│  ┃          1,200 CS programs nationally, this one ranks higher      │  │
+│  ┃          than about 1,044 of them).                               │  │
+│  ┃                                                                   │  │
+│  ┃          87th percentile  ·  median $78,400                       │  │
+│  ┃                                                                   │  │
+│  ┃ ┌─────┐  This career's pay rank                                   │  │
+│  ┃ │ 40% │  Software Developers nationally are paid in the 92nd      │  │
+│  ┃ └─────┘  percentile (out of all U.S. occupations, this one earns  │  │
+│  ┃          more than ~840 of them) — median wage about $132,930.    │  │
+│  ┃                                                                   │  │
+│  ┃          92nd percentile  ·  median $132,930                      │  │
+│  ┃                                                                   │  │
+│  ┃ ╭─[bg-bp-mid inset]──────────────────────────────────────────╮    │  │
+│  ┃ │      0.6 × 0.87  +  0.4 × 0.92    →    score 9/10          │    │  │
+│  ┃ ╰────────────────────────────────────────────────────────────╯    │  │
+│  ┃                                                                   │  │
+│  ┃ WHY WE MIX BOTH                                                   │  │
+│  ┃                                                                   │  │
+│  ┃ Picture two students with the same diploma. One graduates from    │  │
+│  ┃ a program where alumni land lucrative jobs; the other from a      │  │
+│  ┃ program where alumni land in lower-paid roles. The career's       │  │
+│  ┃ national pay tells you the ceiling of the field; your program's   │  │
+│  ┃ rank tells you how this school's grads stack up reaching it.      │  │
+│  ┃                                                                   │  │
+│  ┃ ─────────────────────────────────────────────────────────────     │  │
+│  ┃ SOURCES                                                           │  │
+│  ┃ [ Graduate earnings · College Scorecard ]  [ Wages · BLS OOH ]    │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### State 2 — Missing school rank (60% component)
+
+Millikin University → Chemistry → Food Science Technicians (the spike's failure case)
+
+```
+┌─[receipt card]──────────────────────────────────────────────────────┐
+┃ EARNING POWER                                              2 /10    │
+┃                                                                     │
+┃ Where your starting paychecks land — your school's program          │
+┃ versus the rest of the country, blended with how this career        │
+┃ pays nationally.                                                    │
+┃                                                                     │
+┃ ┌─────┐  Your school's program rank                                 │  ← row dimmed (opacity 0.6)
+┃ │ 60% │  Millikin University Chemistry grads' median earnings       │  ← chip stays at full opacity
+┃ └─────┘  within a year of graduation aren't reported in the         │
+┃          public data — that piece of the score sits open.           │
+┃                                                                     │
+┃          ◦ —                                                        │  ← open-ring + em-dash
+┃                                                                     │
+┃          (note) no median earnings reported for this program yet    │  ← italic missing-reason
+┃                                                                     │
+┃ ┌─────┐  This career's pay rank                                     │  ← full opacity
+┃ │ 40% │  Food Science Technicians nationally are paid in the        │
+┃ └─────┘  37th percentile (out of all U.S. occupations, this one     │
+┃          earns more than ~330 of them) — median wage about          │
+┃          $48,440.                                                   │
+┃                                                                     │
+┃          37th percentile  ·  median $48,440                         │
+┃                                                                     │
+┃ ╭─[bg-bp-mid inset]──────────────────────────────────────────╮      │
+┃ │     0.6 × n/a  +  0.4 × 0.37    →    score 2/10            │      │
+┃ ╰────────────────────────────────────────────────────────────╯      │
+┃                                                                     │
+┃ WHY WE MIX BOTH                                                     │
+┃ ...                                                                 │
+┃                                                                     │
+┃ ─────────────────────────────────────────────────────────────       │
+┃ SOURCES                                                             │
+┃ [ Graduate earnings · College Scorecard ]  [ Wages · BLS OOH ]      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### State 3 — Missing occupation wage (40% component)
+
+```
+┌─[receipt card]──────────────────────────────────────────────────────┐
+┃ EARNING POWER                                              5 /10    │
+┃ ...                                                                 │
+┃                                                                     │
+┃ ┌─────┐  Your school's program rank                                 │  ← full opacity
+┃ │ 60% │  ...                                                        │
+┃ └─────┘  62nd percentile  ·  median $54,200                         │
+┃                                                                     │
+┃ ┌─────┐  This career's pay rank                                     │  ← row dimmed
+┃ │ 40% │  Wage data for this occupation isn't reported by the BLS    │
+┃ └─────┘  at the level we need — the national pay piece sits open.   │
+┃                                                                     │
+┃          ◦ —                                                        │
+┃          (note) no national wage data reported for this             │  ← italic
+┃                 occupation yet                                      │
+┃                                                                     │
+┃ ╭─[bg-bp-mid inset]──────────────────────────────────────────╮      │
+┃ │     0.6 × 0.62  +  0.4 × n/a    →    score 5/10            │      │
+┃ ╰────────────────────────────────────────────────────────────╯      │
+┃ ...                                                                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### State 4 — Both missing (degenerate)
+
+```
+┌─[receipt card]──────────────────────────────────────────────────────┐
+┃ EARNING POWER                                              3 /10    │  ← score from build, not derived
+┃ ...                                                                 │
+┃                                                                     │
+┃ ┌─────┐  Your school's program rank                  (row dimmed)   │
+┃ │ 60% │  ...                                                        │
+┃ └─────┘  ◦ —                                                        │
+┃          (note) no median earnings reported for this program yet    │
+┃                                                                     │
+┃ ┌─────┐  This career's pay rank                      (row dimmed)   │
+┃ │ 40% │  ...                                                        │
+┃ └─────┘  ◦ —                                                        │
+┃          (note) no national wage data reported for this             │
+┃                 occupation yet                                      │
+┃                                                                     │
+┃ ╭─[bg-bp-mid inset]──────────────────────────────────────────╮      │
+┃ │     0.6 × n/a  +  0.4 × n/a    →    score 3/10             │      │
+┃ ╰────────────────────────────────────────────────────────────╯      │
+┃ ...                                                                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### State 5 — Loading (skeleton)
+
+See the "Loading state" section above for the skeleton wireframe.
+
+#### State variant — Effort line (Decision 13, applies orthogonally to states 1-4)
+
+```
+┃ ╭─[bg-bp-mid inset]──────────────────────────────────────────╮
+┃ │     0.6 × 0.87  +  0.4 × 0.92    →    score 7/10           │
+┃ ╰────────────────────────────────────────────────────────────╯
+┃                                                              
+┃         Your Focused effort setting lifts this to 9/10         ← italic, below the math card
+```
+
+### Interactions (Framer Motion specs)
+
+| Trigger | Element | Animation | Configuration |
+|---|---|---|---|
+| Receipt mounts after tool loop completes | `<motion.article>` card | Fade up + scale | `initial={{ opacity: 0, y: 12, scale: 0.985 }}` → `animate={{ opacity: 1, y: 0, scale: 1 }}`, `transition={springs.smooth}` (200/25). The slight scale (0.985 → 1) gives the "settling onto the desk" feel. |
+| Receipt mounts (continued) | Score number `9` | Counts up + delayed appear | The score number wrapper has `initial={{ opacity: 0 }}`, `animate={{ opacity: 1 }}`, `transition={{ delay: 0.18, ...springs.snappy }}`. The number text itself counts from 0 to the final value over 400ms `ease-out` (existing count-up util in the project, or a simple `useEffect` ticker if not). |
+| Receipt mounts (continued) | Component rows (li) | Stagger fade-up | Use `staggerContainer(delayChildren=0.08, staggerAmount=stagger.normal)` from `motion.ts`; each `<li>` fades up from y:6. Math line and sources also participate in the stagger but with `delayChildren` chosen so the math card lands ~120ms after the second component row. |
+| Receipt mounts (continued) | Math-line inset card | Fade in with slight scale | `initial={{ opacity: 0, scale: 0.96 }}`, `animate={{ opacity: 1, scale: 1 }}`, `transition={{ delay: 0.4, ...springs.smooth }}`. The math is the punchline; the late delay lets the eye finish reading the components before the tally appears. |
+| Source pill hover/focus | `<button>` pill | Background + border lift | `transition={springs.snappy}`, change `bg` from `bg-bp-mid` → `bg-bp-raised` and `borderColor` from `border-border-subtle` → `var(--color-stat-ern)` over 200ms. `whileHover` and `whileFocus` Framer props. |
+| Source pill press | `<button>` pill | Scale press | `whileTap={{ scale: 0.97 }}` with `transition={springs.snappy}`. Existing `pressTap` pattern from `transitions` in `motion.ts`. |
+| Tooltip on source pill | Tooltip surface | Fade + shift in | Existing tooltip pattern; 200ms open delay, 150ms fade-in, 100ms close. |
+| Skeleton → realized receipt | Skeleton wrapper | Crossfade | Skeleton: `exit={{ opacity: 0 }}, transition={{ duration: 0.2 }}`. Realized receipt: see "Receipt mounts" above. AnimatePresence wrapper keys on `kind === "receipt" ? "receipt" : "skeleton"`. |
+| Reduced motion | All of the above | Disable transforms, keep fades | Wrap motion variants in `useReducedMotion()` (Framer hook) — when true, the entrance becomes a single 150ms fade with no y/scale, the count-up snaps to final value instantly, and the stagger collapses to 0. The receipt still arrives; it just arrives plainly. |
+
+### Responsive Behavior
+
+The chat panel is 480-720px wide; the receipt card respects the panel's `max-w-[90%]` and adds its own `max-width: 640px`. Two breakpoints inside the receipt:
+
+**At ≥ 560px (chat panel approximately ≥ 600px):**
+- Eyebrow + score on a single row (`flex justify-between`).
+- Component bullets: weight chip + stacked content side-by-side as designed (the default option-a layout).
+- Math line: math expression and `→ score N/10` on a single line, centered.
+- Source pills: inline on one row, wrap only if both pills together exceed available width.
+
+**At < 560px (chat panel approximately ≤ 600px, the narrow slide-in mode):**
+- Eyebrow + score still inline (eyebrow shrinks via `text-overflow: ellipsis` if needed; score stays on the right). The eyebrow's `EARNING POWER` is short enough to never truncate; this is a defensive rule.
+- Component bullets: weight chip stays in left rail (it's only 56px, narrow enough to keep the layout intact even at 480px). The prose still flows beside the chip — never stack the chip above the prose, because the row's information hierarchy (weight is a *qualifier* of the label, not a separate concept) only reads when they're side-by-side.
+- Math line: the score callout (`→ score 9/10`) wraps to its own line below the arithmetic. Both lines remain centered. The math expression `0.6 × 0.87 + 0.4 × 0.92` stays on one line at 480px because the data-font is compact enough; the wrap behavior kicks in only on the `→` arrow before the score.
+- Source pills: stack to two rows (one per pill) only if the longest pill exceeds the available width; otherwise inline. The flex-wrap handles this declaratively.
+- Why-mix paragraph: max-width drops from 60ch to the full card width.
+
+The "no break" baseline is **480px** (the narrowest the chat panel ever goes). At 480px the receipt is still a four-section composed document; nothing collapses or hides. Below 480px is out of scope for the chat panel and therefore out of scope for the receipt.
+
+### Brightpath Design References
+
+| Concern | Token / pattern |
+|---|---|
+| Card surface | `bg-bp-raised` (matches `StatInfoPopover.tsx:57`) |
+| Card border | `border border-border-default` + `borderLeft: 3px solid var(--color-stat-ern)` (mirrors StatInfoPopover's left-rail treatment) |
+| Card shadow | `0 8px 32px rgba(27,29,48,0.55)` (a tier shy of StatInfoPopover's `0.7`) |
+| Card radius | `rounded-[14px]` (StatInfoPopover) |
+| Recessed math card | `bg-bp-mid` (echoes inline `<code>` in `ChatMessage.tsx:75`) |
+| Eyebrow text | `font-display` 11-13px, `letter-spacing: 1.5px`, uppercase, `text-text-muted` |
+| Score number | `font-data` weight 700, 44px, `color: var(--color-stat-ern)` |
+| Score max | `font-data` weight 400, 22px, `text-text-muted` |
+| Section label / row title | `font-display` weight 600, 14px, `text-text-primary` |
+| Prose | `font-body` weight 400, 14-15px, line-height 1.55-1.6, `text-text-secondary` |
+| Inline numbers in prose | `font-data` `text-text-primary` (regex pass) |
+| Percentile callout row | `font-data` weight 600, 13px, `text-text-primary` for numbers, `text-text-muted` for the prose glue |
+| Math expression | `font-data` weight 600, 15px, `text-text-primary`, U+2192 arrow |
+| Effort line | `font-body` italic 13px, `text-text-secondary`, `**Effort**` segment in `font-display` weight 600 `text-text-primary` non-italic |
+| Source pill | Compact pattern derived from `SkillStatBadge.tsx` (`rounded-full`, `font-data` for the label-name pair) — but with `font-body` instead of `font-data` to match the reading register, and tappable behavior via `<button>` |
+| Stat-color tint background | `rgba(242,212,119,0.12)` for ERN weight chip — derived from `STAT_COLORS.ern.bg` pattern (`rgba(242,212,119,0.15)`) at slightly reduced opacity to sit quietly inside the recessed math context |
+| Missing-data percentile | U+25E6 + U+2014 (`◦ —`) in `text-text-muted` 12px |
+| Missing-reason note | `font-body` italic 12px `text-text-muted` |
+| Motion: card mount | `springs.smooth` (200/25) |
+| Motion: score appear | `springs.snappy` (400/25) at `delay: 0.18` |
+| Motion: row stagger | `staggerContainer(delayChildren=0.08, staggerAmount=stagger.normal)` |
+| Motion: math line | `springs.smooth` at `delay: 0.4` |
+| Motion: pill hover | `springs.snappy` |
+
+No new tokens. No new font roles. No new color values. The receipt is composed entirely from existing Brightpath primitives.
 
 ### Accessibility
 
-| Element | Identifier | Type | aria-label |
-|---------|------------|------|------------|
-| Receipt container | `data-testid="explain-stat-receipt"` | `<article role="region">` | `Earning Power explanation receipt` |
-| Score callout | (visionary specifies) | (visionary specifies) | `Earning Power score: {N} out of {N_max}` |
-| Component row | `data-testid="receipt-component-{ern\|roi\|res\|grw\|aura}-{0..N}"` | `<li>` | (visionary specifies) |
-| Source pill | `data-testid="receipt-source-{slug}"` | `<a>` or `<button>` if tappable, `<span>` if not | `Source: {name}` |
-| Missing-data line | `data-testid="receipt-missing-{component-key}"` | `<p role="note">` | (visionary specifies) |
+| Element | Identifier | Type | aria-label / role notes |
+|---|---|---|---|
+| Receipt container | `data-testid="explain-stat-receipt"` | `<article role="region">` | `aria-label="Earning Power explanation receipt"`. The `role="region"` makes it a screen-reader landmark; receipt is announced as a discrete section the user can jump to. |
+| Score callout (number) | `data-testid="receipt-score"` | `<span>` inside the score row | `aria-label="Earning Power score: 9 out of 10"`. The visual "9 /10" is decorative; the aria-label is the canonical reading. |
+| Score row container | (no testid) | `<header>` | The score row is the receipt's `<header>` element so the eyebrow + score + one-liner are grouped semantically. |
+| Component row list | `data-testid="receipt-components"` | `<ul>` | Implicit role; no aria-label needed. |
+| Component row | `data-testid="receipt-component-{stat_code.lower()}-{0..N}"` (e.g., `receipt-component-ern-0`) | `<li>` | `aria-label="60 percent — your school's program rank"`. Reading the weight first matches the visual order. |
+| Component weight chip | (no testid) | `<span aria-hidden="true">` | The visible "60%" text is hidden from the screen reader because the row's `aria-label` already includes "60 percent." |
+| Component label | (no testid) | `<h3>` (visually styled, not size 24) | The label uses `<h3>` semantic but the visual is `font-display 14px`. Receipt section structure: `<header>` (score), `<h2>` for "How it works" (visually-hidden), `<h3>` per component, `<h2>` for "Why we mix both" (visually-hidden), `<h2>` for "Sources" (visually-hidden eyebrow with `aria-label`). |
+| Percentile callout row | (no testid) | `<p>` | Read inline; no special role. |
+| Math line container | `data-testid="receipt-math-line"` | `<div role="math" aria-label="Score formula">` | The aria-label is `"Score formula: zero point six times zero point eight seven plus zero point four times zero point nine two equals score 9 out of 10"`. Built server-side in the renderer from the structured fields, so it reads naturally even on screen readers that don't pronounce U+2192. |
+| Effort line | `data-testid="receipt-effort-line"` | `<p>` | Read as flowing prose. |
+| Why-mix paragraph | `data-testid="receipt-why-mix"` | `<p>` | The eyebrow `<h2>` above it labels the section. |
+| Sources eyebrow | (no testid) | `<h2 class="sr-only">Sources</h2>` followed by visible `<div aria-hidden>SOURCES</div>` | The visual eyebrow is decorative; the screen reader reads the proper heading. |
+| Source pill list | `data-testid="receipt-sources"` | `<ul>` | |
+| Source pill | `data-testid="receipt-source-{slug}"` | `<button>` (tappable) — `<li>` wrapper | `aria-label="Source: College Scorecard (U.S. Department of Education)"`. The full source name is announced; the visual short-form is decorative. Tooltip content is also announced via `aria-describedby` pointing at the tooltip element. |
+| Missing-data line | `data-testid="receipt-missing-{component-key}"` (e.g., `receipt-missing-school-rank`) | `<p role="note">` | `aria-label="Note: no median earnings reported for this program yet"`. |
+| Missing-data percentile glyph | (no testid) | `<span aria-label="data not available">◦ —</span>` | The U+25E6 + U+2014 glyph string is meaningless to a screen reader; the aria-label is canonical. |
+| Skeleton container | `data-testid="explain-stat-receipt-skeleton"` | `<div role="status" aria-busy="true" aria-live="polite">` | `aria-label="Loading Earning Power explanation"`. Polite live region so the eventual receipt arrival is announced without interrupting. |
+| Reduced motion | All Framer motion props | Hook | `useReducedMotion()` collapses entrance animations; functionality is identical. |
+| Focus state on pills | Pill `<button>` | `focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none` | Same focus ring pattern as `StatInfoPopover.tsx:89`. |
+| Color contrast | All text on `bg-bp-raised` | Verified | `text-text-primary` and `text-text-secondary` on `bg-bp-raised` exceed WCAG AA at all sizes (verified against the existing StatInfoPopover, which uses identical pairings). The `var(--color-stat-ern)` gold (`#F2D477`) on `bg-bp-raised` for the score number passes AA at 44px (large text threshold is 3:1; gold-on-raised exceeds). |
 
 ### States to mock
 
-- **Default** — both percentiles populated (Indiana University → CS → Software Developer).
-- **Missing school rank** — `cip_family_earnings_rank === null` (Millikin → Chemistry → Food Science Technicians, the spike's failure case).
-- **Missing occupation wage** — `wage_percentile_overall === null` (rare but possible for SOC codes BLS doesn't price).
-- **Both missing** — degenerate but possible; receipt should still render with `score` from the build and a graceful explanation.
-- **Loading** — tool calls in flight, receipt not yet rendered.
-- **Fallback** — JSON parse failed; markdown-spike output renders in its place. (Visionary doesn't need to design this — it's the existing spike output. But specify how it's visually identified, if at all, so the engineer knows.)
+(Final list, mirrored against §4 Architecture and §5 reviews. All five required states are wireframed in "Mockups" above.)
+
+- **State 1 — Default.** Both percentiles populated, balanced effort. Indiana University-Bloomington → CS → Software Developer.
+- **State 2 — Missing school rank.** `cip_family_earnings_rank === null`. 60% component dims, percentile slot is `◦ —`, missing-reason note appears. Millikin → Chemistry → Food Science Technicians (the spike's failure case — production data).
+- **State 3 — Missing occupation wage.** `wage_percentile_overall === null`. 40% component dims; same treatment.
+- **State 4 — Both missing.** Score still renders from `build.career.stats.ern`; both rows dim; math line shows `0.6 × n/a + 0.4 × n/a → score N/10`.
+- **State 5 — Loading (skeleton).** Same card chrome, shimmer placeholders inside. `aria-busy="true"`, polite live region.
+- **State variant — Effort line (Decision 13).** Applies to any of states 1-4 when `effort != "balanced"`. The italic effort line renders below the math card.
+- **Fallback — markdown spike.** No visual distinction from a normal Gemma prose reply. Renders through `ChatMessage.tsx`. The student does not learn that JSON parsing failed.
 
 ---
 
@@ -1124,6 +1528,56 @@ The other two new concerns (concurrent-write safety, fallback trace continuity) 
 #### Conditions (CHANGES REQUESTED)
 
 1. **`__FILL_IN__` sentinel passthrough guard.** The spec must add one of the following: (a) a Pydantic custom validator on `one_liner`, `explainer`, `components[*].explainer`, and `why_mix_paragraph` that rejects any value containing the literal string `"__FILL_IN__"` (causes Pydantic `ValidationError` → returns None → fallback fires), OR (b) a step 3.5 in the `_postprocess_ern_explain_receipt` pipeline that scans the parsed dict for any string value matching `"__FILL_IN__"` and returns None if found. Either guard must be paired with an explicit prohibition in the `_ern_explain_appendix` body: "Do not emit the literal string `__FILL_IN__` in your response — replace every placeholder with the actual content for this student." A P0 test `test_postprocess_rejects_sentinel_passthrough` should assert that a receipt containing `"one_liner": "__FILL_IN__"` returns None. Without this guard, Gemma silently producing sentinel strings is a correctness failure that never triggers the fallback and renders garbage to the student.
+
+### @genai-architect Re-Review (v1.3)
+**Status:** APPROVED
+**Reviewed:** 2026-05-02
+
+#### Per-Condition Verification
+
+**The single v1.2 new concern — `__FILL_IN__` sentinel passthrough.**
+✅ RESOLVED. v1.3 closes the concern on both sides of the boundary simultaneously, which is the right design: a Pydantic-layer guard that fires regardless of what the appendix says, and an appendix instruction that reduces the model-level frequency of the failure.
+
+The Pydantic layer: a module-level `_reject_sentinel_passthrough` function is wired via `field_validator` onto all four prose fields — `StatComponent.explainer`, `StatComponent.anchor_text`, `ExplainStatReceipt.one_liner`, and `ExplainStatReceipt.why_mix_paragraph`. Matching is done via five compiled regex patterns covering the five sentinel forms cited in the v1.2 concern (`__FILL_IN__`, `[FILL...`, `<FILL...`, `ONE-SENTENCE DEFINITION HERE`, `PLACEHOLDER`), all `re.IGNORECASE`. A match raises `ValueError`, which Pydantic surfaces as a `ValidationError`, which `_postprocess_ern_explain_receipt` converts to `None`, which fires the markdown fallback. The guard is unconditional — it does not depend on appendix quality or Gemma version behavior.
+
+The appendix layer: the appendix concludes with an explicit prohibition naming each of the five sentinel strings and stating that echoing them "will fail validation and the receipt will not render." This is correctly framed as a consequence, not just a rule — consequence-framing is more reliable for instruction-following at temperature 0 than prohibition-only phrasing.
+
+The new P0 test `test_postprocess_rejects_sentinel_passthrough` covers all five sentinel patterns across all four prose fields (5 × 4 = 20 cases), asserting both that the validator fires and that the helper returns None.
+
+#### Assessment of Remaining or New Concerns
+
+**Regex pattern completeness — plausible missing sentinels.**
+
+The five patterns cover the explicit sentinels used in the v1.2 appendix template. Three gaps are worth naming:
+
+1. **Empty string and whitespace-only strings.** `""` or `"   "` in a prose field would pass all five sentinel patterns and pass Pydantic (no `min_length` on `one_liner`, `explainer`, or `anchor_text`). Gemma 4 rarely emits a pure empty string for a prose field at temperature 0 — it is more likely to emit the sentinel verbatim or a short generic sentence. This is a low-probability gap, and an empty `one_liner` or `explainer` would be visually obvious in QA. It is not a blocker, but adding `min_length=1` to the four prose fields (`Field(min_length=1, ...)`) would close it at zero test-writing cost. This is a suggestion, not a condition.
+
+2. **"TODO" and free-text markers.** A Gemma completion under distribution shift might emit `"TODO"`, `"[fill this in]"`, `"N/A"`, or similar. These are not covered by the five patterns. However, they are also not the sentinels in the spec's appendix template — the risk is a generic Gemma failure mode, not the specific sentinel-passthrough failure the v1.2 concern named. These cases would render as visibly incorrect prose and would likely surface in QA or dogfooding rather than silently degrading. The five patterns address the specific failure mode identified; extending coverage to every possible non-answer string is a different problem domain (output quality monitoring, not sentinel rejection).
+
+3. **Capitalization variants.** All patterns are `re.IGNORECASE`, so `__fill_in__`, `PLACEHOLDER`, `placeholder`, `Placeholder` are all caught. No gap here.
+
+None of these rise to the level of a new condition. The pattern set is targeted and proportionate.
+
+**Pydantic v2 `extra="forbid"` and `field_validator` composition.**
+
+No composition issue. In Pydantic v2, `model_config = ConfigDict(extra="forbid")` and `field_validator` decorators are orthogonal mechanisms: `extra="forbid"` rejects keys that are not declared on the model; `field_validator` validates the values of declared fields. They operate at different stages of the validation pipeline and do not mask each other. A payload with an extra field raises `ValidationError` from the `extra="forbid"` check before field validators run; a payload with a sentinel-valued prose field raises `ValidationError` from `_reject_sentinel_passthrough` after field-type coercion. Both produce `ValidationError` and both cause `_postprocess_ern_explain_receipt` to return `None`. The spec's use of `field_validator("explainer")(_reject_sentinel_passthrough)` as a class-body assignment is the correct Pydantic v2 pattern for reusing a validator function across fields without a decorator. No gap here.
+
+**Appendix prohibition phrasing — clarity for Gemma 4.**
+
+The appendix ends with: *"The strings `__FILL_IN__`, `[FILL_IN]`, `<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`, and `PLACEHOLDER` are placeholders ONLY — they MUST be replaced with your actual content. Echoing them back verbatim will fail validation and the receipt will not render."*
+
+This is clear and correctly phrased. The consequence ("will fail validation and the receipt will not render") is actionable — Gemma 4's instruction-following at temperature 0 responds better to consequence framing than to prohibition-only framing. The five strings are named explicitly, reducing the model's ambiguity about which strings count as sentinels. The placement at the end of the appendix (the highest-attention position in a long system prompt, per instruction-following research on LLMs) is correct. No revision needed.
+
+#### Summary
+
+All seven v1.1 conditions were resolved in v1.2. The single v1.2 new concern (sentinel passthrough) is resolved in v1.3 with a correct, well-tested, Pydantic-layer guard that does not depend on appendix quality. No new architecture-layer concerns introduced. The two minor items noted above (empty-string gap, "TODO"-type variants) are QA/monitoring concerns, not spec gaps, and are flagged as suggestions rather than conditions.
+
+#### Verdict
+- [x] APPROVED
+- [ ] CHANGES REQUESTED
+- [ ] REJECTED
+
+Spec is ready to advance to **Phase 2: Design Vision** (@fp-design-visionary fills §3).
 
 ---
 
