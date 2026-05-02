@@ -88,7 +88,7 @@ def _mock_branches(monkeypatch, branch_map: dict):
                 "related_burnout": 5,
                 "related_ai_boss": 5,
                 "related_education_level": "Bachelor's",
-                "best_index": 2.0,
+                "best_index": 2,
             }
             if len(b) >= 7:
                 row["related_experience_years"] = b[5]
@@ -198,6 +198,96 @@ class TestBuildTree:
         child = root.children[0]
         assert child.roi == root.roi == 4
         assert child.ern is None
+
+    def test_build_tree_carries_relatedness(self, monkeypatch):
+        """T2.2 (backend): TreeNode.relatedness is populated from
+        ``best_index`` on the branch row via ``as_int``. Confirms the
+        propagation chain Gold → MCP row → TreeNode.
+
+        Root never carries a relatedness rank (it has no parent to be
+        related to). Children inherit the rank from the row's
+        ``best_index`` field.
+        """
+        _mock_branches(monkeypatch, {
+            "27-2011": [
+                ("27-2012", "Producers", 6, 5, 4),
+                ("27-2032", "Choreographers", 7, 10, 9),
+            ],
+        })
+        root, _ = career_tree.build_tree(_build(), max_depth=1)
+
+        # Root has no parent → relatedness stays None.
+        assert root.relatedness is None
+
+        # Children pick up ``best_index`` = 2 from the fixture (already
+        # int, not float — so as_int passes it through unchanged).
+        assert len(root.children) == 2
+        assert root.children[0].relatedness == 2
+        assert root.children[1].relatedness == 2
+
+    def test_build_tree_relatedness_coerces_floats(self, monkeypatch):
+        """DuckDB/Iceberg can return ``best_index`` as a float
+        (e.g. 4.0). The TreeNode field is typed ``int | None``; the
+        ``as_int`` coercion in expand() must round to int."""
+        from app.services import mcp_client
+
+        def fake_call(tool, args):
+            if tool != "get_career_branches":
+                return {"data": []}
+            return {
+                "data": [
+                    {
+                        "soc_code": "27-2011",
+                        "related_soc_code": "27-2012",
+                        "related_title": "Producers",
+                        "related_grw": 6,
+                        "related_hmn": 5,
+                        "related_res": 4,
+                        "related_wage": 60000.0,
+                        "related_burnout": 5,
+                        "related_ai_boss": 5,
+                        "related_education_level": "Bachelor's",
+                        "best_index": 4.0,  # float — must coerce to int
+                    },
+                ],
+            }
+
+        monkeypatch.setattr(mcp_client, "call", fake_call)
+        root, _ = career_tree.build_tree(_build(), max_depth=1)
+        assert root.children[0].relatedness == 4
+        assert isinstance(root.children[0].relatedness, int)
+
+    def test_build_tree_relatedness_null_when_best_index_missing(
+        self, monkeypatch
+    ):
+        """Rows without ``best_index`` (legacy or partial data) leave
+        ``TreeNode.relatedness`` as None — never a fabricated default."""
+        from app.services import mcp_client
+
+        def fake_call(tool, args):
+            if tool != "get_career_branches":
+                return {"data": []}
+            return {
+                "data": [
+                    {
+                        "soc_code": "27-2011",
+                        "related_soc_code": "27-2012",
+                        "related_title": "Producers",
+                        "related_grw": 6,
+                        "related_hmn": 5,
+                        "related_res": 4,
+                        "related_wage": 60000.0,
+                        "related_burnout": 5,
+                        "related_ai_boss": 5,
+                        "related_education_level": "Bachelor's",
+                        # NOTE: no best_index key
+                    },
+                ],
+            }
+
+        monkeypatch.setattr(mcp_client, "call", fake_call)
+        root, _ = career_tree.build_tree(_build(), max_depth=1)
+        assert root.children[0].relatedness is None
 
 
 class TestExperienceFiltering:

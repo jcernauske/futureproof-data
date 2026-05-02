@@ -135,7 +135,7 @@ export function SaveWrappedScreen() {
   }, [frames, build]);
 
   const handleDone = useCallback(() => {
-    navigate("/branches");
+    navigate("/future");
   }, [navigate]);
 
   if (!build) return null;

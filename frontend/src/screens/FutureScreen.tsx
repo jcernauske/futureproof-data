@@ -25,19 +25,26 @@ import {
   buildBreadcrumbSegments,
   findPathToNodeId,
 } from "@/components/tree/Breadcrumb";
-import { filterTreeByBoss, type BossFilter } from "@/data/bossFilter";
+import {
+  filterTreeByBoss,
+  availableBossFilters,
+  type BossFilter,
+} from "@/data/bossFilter";
 import {
   filterTreeByExperience,
   isFullRange as isFullExperienceRange,
   EXPERIENCE_RANGE_FULL,
   type ExperienceRange,
 } from "@/data/experienceFilter";
+import { computePathRarity } from "@/data/pathRarity";
 import {
   filterTreeByEducation,
+  availableEducationFilters,
   type EducationFilter,
 } from "@/data/educationFilter";
 import {
   filterTreeByStats,
+  availableStatFilters,
   type StatFilter,
 } from "@/data/statFilter";
 import { GemmaChat } from "@/components/menu/GemmaChat";
@@ -240,6 +247,13 @@ export function FutureScreen() {
   // T1.2 — pan/zoom signal for the tour chip navigate-flash sequence.
   // Bumping the timestamp re-triggers the pan even on the same nodeId.
   const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
+  // Per-node path rarity for the in-flight tour. Populated only with
+  // "stretch" / "longshot" entries — direct/adjacent get nothing so
+  // the in-tree pill never appears on common paths. Cleared when the
+  // tour ends or is cancelled.
+  const [tourFlashRarity, setTourFlashRarity] = useState<
+    Map<string, "stretch" | "longshot">
+  >(() => new Map());
   const flashTimeoutsRef = useRef<Map<string, number>>(new Map());
   const tourTimeoutsRef = useRef<number[]>([]);
 
@@ -328,6 +342,24 @@ export function FutureScreen() {
     t = filterTreeByStats(t, statFilters);
     return t;
   }, [treeData, educationFilters, statFilters, bossFilters, experienceRange]);
+
+  // "Available" filter sets — computed from the *unfiltered* tree so
+  // toggling a filter doesn't make sibling chips disappear. Chips not
+  // in the available set render only if currently active (so the
+  // student can always deactivate). Hides whole rows when nothing is
+  // available — saves vertical real estate on small trees.
+  const availableEdu = useMemo(
+    () => (treeData ? availableEducationFilters(treeData.tree) : new Set<EducationFilter>()),
+    [treeData],
+  );
+  const availableBoss = useMemo(
+    () => (treeData ? availableBossFilters(treeData.tree) : new Set<BossFilter>()),
+    [treeData],
+  );
+  const availableStat = useMemo(
+    () => (treeData ? availableStatFilters(treeData.tree) : new Set<StatFilter>()),
+    [treeData],
+  );
 
   // Map node id → soc + title for selection lookups + highlight candidates.
   const nodeRefs = useMemo<NodeRef[]>(
@@ -485,6 +517,23 @@ export function FutureScreen() {
       const FLASH_DELAY_MS = 220;
       const FLASH_HOLD_MS = 780;
       const STEP_MS = PAN_MS + FLASH_DELAY_MS + FLASH_HOLD_MS;
+      const SETTLE_MS = 280;
+
+      // Compute per-node rarity for any flashed node whose cumulative
+      // path is unusual. Only "stretch" / "longshot" entries are kept;
+      // direct / adjacent paths produce no in-tree signal.
+      const rarityMap = new Map<string, "stretch" | "longshot">();
+      if (treeData) {
+        for (const id of nodeIds) {
+          const path = findPathToNodeId(treeData.tree, id);
+          if (!path) continue;
+          const rarity = computePathRarity(path);
+          if (rarity && (rarity.tier === "stretch" || rarity.tier === "longshot")) {
+            rarityMap.set(id, rarity.tier);
+          }
+        }
+      }
+      setTourFlashRarity(rarityMap);
 
       nodeIds.forEach((nodeId, idx) => {
         const baseDelay = idx * STEP_MS;
@@ -502,8 +551,35 @@ export function FutureScreen() {
         );
         tourTimeoutsRef.current.push(panTid, flashTid);
       });
+
+      // Tail of the tour: pan back to the top result (the headline
+      // answer to "highest pay" / etc.), select it so the
+      // SelectedNodeCard + path-rarity badge update, and open the
+      // companion rail so the answer is actually visible. The
+      // visionary's "no auto-open on click" rule doesn't apply here
+      // — the tour is an explicit "show me X" gesture and the rail
+      // open is the natural follow-through.
+      const totalMs = nodeIds.length * STEP_MS + SETTLE_MS;
+      const headline = nodeIds[0]!;
+      const finishTid = window.setTimeout(() => {
+        setPanTarget({
+          nodeId: headline,
+          ts: Date.now(),
+          zoom: 1.4,
+          duration: PAN_MS,
+        });
+        setSelectedNodeId(headline);
+        setCompanionMode((prev) => (prev === "peeked" ? "open" : prev));
+      }, totalMs);
+      // Clear the flash-rarity map a beat after the last flash window
+      // closes so the in-tree pills exit cleanly with the glow.
+      const clearRarityTid = window.setTimeout(
+        () => setTourFlashRarity(new Map()),
+        totalMs + FLASH_HOLD_MS,
+      );
+      tourTimeoutsRef.current.push(finishTid, clearRarityTid);
     },
-    [handleHighlight],
+    [handleHighlight, treeData],
   );
 
   useEffect(() => {
@@ -617,6 +693,18 @@ export function FutureScreen() {
     [breadcrumbSnapshot, filteredTree, selectedNodeId],
   );
 
+  // Cumulative skill-overlap rarity along the selection path. Computed
+  // against the *unfiltered* tree (treeData.tree) so the badge tracks
+  // the real path even when filters hide intermediate L1 nodes. Null
+  // when nothing is selected, the path can't be resolved, or all hops
+  // have null relatedness.
+  const pathRarity = useMemo(() => {
+    if (!treeData || !selectedNodeId) return null;
+    const path = findPathToNodeId(treeData.tree, selectedNodeId);
+    if (!path) return null;
+    return computePathRarity(path);
+  }, [treeData, selectedNodeId]);
+
   // Empty-state: filters are active but the filtered tree has no L1
   // branches. Honest framing — the data shows zero transitions matching
   // the active filter, not "we don't know."
@@ -700,46 +788,55 @@ export function FutureScreen() {
                 paddingRight: railWidth(companionMode, viewportWidth),
               }}
             >
-              <PageContainer variant="bleed" className="px-5 pb-3">
-                {filteredTree && (
-                  <div className="mb-3">
+              <PageContainer variant="bleed" className="px-5 pb-2">
+                {/* Top utility row — tour chips + breadcrumb sit
+                    side-by-side; both wrap to their own line on narrow
+                    viewports. */}
+                <div className="mb-2 flex flex-row flex-wrap items-center gap-x-5 gap-y-2">
+                  {filteredTree && (
                     <TourChipRow
                       tree={filteredTree}
                       onPlayTour={handlePlayTour}
                     />
-                  </div>
-                )}
-                <Breadcrumb
-                  segments={breadcrumbSegments}
-                  onSegmentClick={handleBreadcrumbClick}
-                />
-                <div className="mb-3 flex flex-row flex-wrap items-center gap-x-5 gap-y-3">
+                  )}
+                  <Breadcrumb
+                    segments={breadcrumbSegments}
+                    onSegmentClick={handleBreadcrumbClick}
+                  />
+                </div>
+                {/* Filter row — all four chip groups + slider on one
+                    line when there's room; flex-wrap drops cleanly to
+                    a second line on narrower viewports. Trimmed chip
+                    labels (e.g. "Bachelor's" not "Bachelor's only")
+                    keep this dense at 1280-1440 widths. */}
+                <div className="mb-2 flex flex-row flex-wrap items-center gap-x-5 gap-y-2">
                   <EducationFilterRow
                     active={educationFilters}
                     onToggle={handleToggleEducationFilter}
+                    available={availableEdu}
                   />
                   <BossFilterRow
                     active={bossFilters}
                     onToggle={handleToggleBossFilter}
+                    available={availableBoss}
                   />
-                </div>
-                <div className="mb-3 flex flex-row flex-wrap items-center gap-x-5 gap-y-3">
                   <StatFilterRow
                     active={statFilters}
                     onToggle={handleToggleStatFilter}
+                    available={availableStat}
                   />
                   <ExperienceRangeSlider
                     range={experienceRange}
                     onChange={setExperienceRange}
                   />
                 </div>
-                {/* Tree fills the rest of the viewport — height computed
-                    from the standard chrome offsets so React Flow has
-                    a stable canvas. */}
+                {/* Tree fills the rest of the viewport. The chrome
+                    above this is ~140px (utility row + filter row +
+                    page padding); 56px is the global header. */}
                 <div
                   className="relative w-full bg-bp-surface border border-border-subtle rounded-xl shadow-md overflow-hidden"
                   style={{
-                    height: "calc(100vh - 56px - 240px)",
+                    height: "calc(100vh - 56px - 140px)",
                     minHeight: 480,
                   }}
                 >
@@ -753,6 +850,7 @@ export function FutureScreen() {
                       highlightedNodeIds={highlightedNodeIds}
                       panTarget={panTarget}
                       refitToken={refitToken}
+                      flashRarityById={tourFlashRarity}
                     />
                   )}
                   {filterEmpty && (
@@ -805,6 +903,7 @@ export function FutureScreen() {
                       build={build}
                       picked={cardPicked}
                       root={filteredTree ?? undefined}
+                      pathRarity={pathRarity}
                     />
                   </div>
                 )}
@@ -833,16 +932,19 @@ export function FutureScreen() {
                 <EducationFilterRow
                   active={educationFilters}
                   onToggle={handleToggleEducationFilter}
+                  available={availableEdu}
                 />
                 <BossFilterRow
                   active={bossFilters}
                   onToggle={handleToggleBossFilter}
+                  available={availableBoss}
                 />
               </div>
               <div className="px-4 pt-2 pb-2 flex flex-row flex-wrap items-center gap-x-4 gap-y-2">
                 <StatFilterRow
                   active={statFilters}
                   onToggle={handleToggleStatFilter}
+                  available={availableStat}
                 />
                 <ExperienceRangeSlider
                   range={experienceRange}
@@ -886,6 +988,7 @@ export function FutureScreen() {
                       build={build}
                       picked={cardPicked}
                       root={filteredTree ?? undefined}
+                      pathRarity={pathRarity}
                     />
                   </div>
                 )}

@@ -982,3 +982,363 @@ async def test_generate_with_tools_loop_transport_error(monkeypatch, tmp_path):
     assert text == ""
     assert log == []
     gemma_client.reset_cache()
+
+
+# ---------------------------------------------------------------------------
+# Trace callback tests (feature-gemma-trace.md §4)
+# ---------------------------------------------------------------------------
+
+
+class _MultiToolCallResponse:
+    """One LLM response carrying multiple parallel tool_use blocks.
+    Models the parallel-tool-call case Decision #13's dispatch_index
+    is meant to handle."""
+
+    def __init__(self, calls: list[tuple[str, str, str]]) -> None:
+        # Each call: (tool_name, tool_args_json, call_id)
+        class _M:
+            pass
+
+        tcs = []
+        for name, args_json, cid in calls:
+            fn = _M()
+            fn.name = name
+            fn.arguments = args_json
+            tc = _M()
+            tc.id = cid
+            tc.type = "function"
+            tc.function = fn
+            tcs.append(tc)
+
+        msg = _M()
+        msg.content = None
+        msg.tool_calls = tcs
+        choice = _M()
+        choice.message = msg
+        choice.finish_reason = "stop"
+        self.choices = [choice]
+        self.usage = None
+
+
+@pytest.mark.asyncio
+async def test_on_turn_event_default_is_noop(monkeypatch, tmp_path):
+    """Loop with no on_turn_event passed behaves identically to baseline."""
+    _career_args = '{"unitid": 151351, "cipcode": "52.1401"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _career_args),
+        _PlainTextResponse("Done."),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    assert text == "Done."
+    assert len(log) == 1
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_on_turn_start_default_is_noop(monkeypatch, tmp_path):
+    """Loop with no on_turn_start passed behaves identically to baseline."""
+    _career_args = '{"unitid": 151351, "cipcode": "52.1401"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _career_args),
+        _PlainTextResponse("Done."),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    assert text == "Done."
+    assert len(log) == 1
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_on_turn_event_fires_per_turn(monkeypatch, tmp_path):
+    """Mock callback receives one call per appended ToolCallTurn, in order."""
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args, "c1"),
+        _PlainTextResponse("Done."),
+    ])
+
+    received: list[gemma_client.ToolCallTurn] = []
+
+    async def _on_turn(turn):
+        received.append(turn)
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": [{"x": 1}]}
+
+    await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        on_turn_event=_on_turn,
+    )
+
+    assert len(received) == 1
+    assert received[0].tool_name == "get_career_paths"
+    assert received[0].dispatch_index == 0
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_on_turn_start_fires_before_dispatch(monkeypatch, tmp_path):
+    """on_turn_start fires BEFORE dispatch returns (UI sees in-progress
+    shimmer the moment Gemma issues the call)."""
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args),
+        _PlainTextResponse("Done."),
+    ])
+
+    timeline: list[str] = []
+
+    async def _on_start(idx: int, name: str, args: dict) -> None:
+        timeline.append(f"start:{idx}:{name}")
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        timeline.append(f"dispatch_begin:{name}")
+        await asyncio.sleep(0.01)
+        timeline.append(f"dispatch_end:{name}")
+        return {"data": []}
+
+    await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        on_turn_start=_on_start,
+    )
+
+    # start fires BEFORE dispatch_begin
+    start_idx = timeline.index("start:0:get_career_paths")
+    begin_idx = timeline.index("dispatch_begin:get_career_paths")
+    assert start_idx < begin_idx, f"timeline: {timeline}"
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_index_unique_across_parallel_calls(
+    monkeypatch, tmp_path
+):
+    """Decision #13: with multiple tool calls in ONE outer LLM turn,
+    each appended ToolCallTurn has a distinct, monotonically increasing
+    dispatch_index even though they share turn_number."""
+    args1 = '{"unitid": 1, "cipcode": "11.0701"}'
+    args2 = '{"unitid": 2, "cipcode": "52.1401"}'
+    args3 = '{"unitid": 3, "cipcode": "26.0101"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _MultiToolCallResponse([
+            ("get_career_paths", args1, "c1"),
+            ("get_career_paths", args2, "c2"),
+            ("get_career_paths", args3, "c3"),
+        ]),
+        _PlainTextResponse("Final answer."),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    _text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    # All three dispatched in a single outer turn → share turn_number=0
+    # but have distinct, sequential dispatch_index values 0, 1, 2.
+    assert len(log) == 3
+    assert {t.turn_number for t in log} == {0}
+    assert [t.dispatch_index for t in log] == [0, 1, 2]
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_on_turn_start_and_event_share_dispatch_index(
+    monkeypatch, tmp_path
+):
+    """For each dispatch, the dispatch_index passed to on_turn_start
+    equals ToolCallTurn.dispatch_index passed to on_turn_event. This is
+    the contract <GemmaTrace> relies on for row pairing."""
+    args1 = '{"unitid": 1, "cipcode": "11.0701"}'
+    args2 = '{"unitid": 2, "cipcode": "52.1401"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _MultiToolCallResponse([
+            ("get_career_paths", args1, "c1"),
+            ("get_career_paths", args2, "c2"),
+        ]),
+        _PlainTextResponse("Final."),
+    ])
+
+    starts: list[int] = []
+    completes: list[int] = []
+
+    async def _on_start(idx: int, name: str, args: dict) -> None:
+        starts.append(idx)
+
+    async def _on_turn(turn) -> None:
+        completes.append(turn.dispatch_index)
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        on_turn_start=_on_start,
+        on_turn_event=_on_turn,
+    )
+
+    assert starts == [0, 1]
+    assert completes == [0, 1]
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_on_turn_event_callback_failure_does_not_break_loop(
+    monkeypatch, tmp_path
+):
+    """A callback that raises is caught + logged; loop continues to
+    completion. Trace is supplementary; chat must keep working."""
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args),
+        _PlainTextResponse("All good."),
+    ])
+
+    async def _broken(turn):
+        raise RuntimeError("consumer is broken")
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        on_turn_event=_broken,
+    )
+
+    assert text == "All good."
+    assert len(log) == 1
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_on_turn_start_callback_failure_does_not_break_loop(
+    monkeypatch, tmp_path
+):
+    """Symmetric to the on_turn_event failure test."""
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args),
+        _PlainTextResponse("All good."),
+    ])
+
+    async def _broken(idx, name, args):
+        raise RuntimeError("start consumer broken")
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        on_turn_start=_broken,
+    )
+
+    assert text == "All good."
+    assert len(log) == 1
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_callback_accepts_sync_callable(monkeypatch, tmp_path):
+    """Item D: both callbacks accept sync OR async callables. Loop
+    detects via asyncio.iscoroutine on the return value. Test fixtures
+    can use plain list-append spies without async def boilerplate."""
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args),
+        _PlainTextResponse("Done."),
+    ])
+
+    starts: list[tuple[int, str]] = []
+    completes: list[int] = []
+
+    def _sync_start(idx: int, name: str, args: dict) -> None:
+        starts.append((idx, name))
+
+    def _sync_event(turn) -> None:
+        completes.append(turn.dispatch_index)
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, _log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        on_turn_start=_sync_start,
+        on_turn_event=_sync_event,
+    )
+
+    assert text == "Done."
+    assert starts == [(0, "get_career_paths")]
+    assert completes == [0]
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_tool_result_preview_truncated(monkeypatch, tmp_path):
+    """The tool_result_preview field is truncated to 500 chars;
+    tool_result_size_bytes reflects the FULL size."""
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args),
+        _PlainTextResponse("Done."),
+    ])
+
+    big_string = "x" * 2000
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": big_string}
+
+    _text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+    )
+
+    assert len(log) == 1
+    turn = log[0]
+    assert len(turn.tool_result_preview) == 500
+    # Full size is the JSON-encoded length: includes braces + key + quotes
+    assert turn.tool_result_size_bytes > 2000
+    gemma_client.reset_cache()

@@ -278,6 +278,29 @@
   animation: chip-pulse-caution 1.6s ease-in-out infinite;
 }
 
+/* Gemma trace in-progress pulse — the gentle, slow opacity breath on
+   <GemmaTrace> rows that are awaiting their turn_complete event. Tuned
+   slower than card-breathe (4s, loud box-shadow) and chip-pulse-caution
+   (1.6s, tense) so it remains patient at 0.3s AND at 30s durations
+   (Gemma transport failure long-shimmer case). Operates on opacity
+   only — never recolors, never adds glow.
+   feature-gemma-trace.md §3 Visual Spec — Icons / State 1 Streaming. */
+@keyframes gemma-trace-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+.animate-gemma-trace-pulse {
+  animation: gemma-trace-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gemma-trace-pulse {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-chip-pulse-caution {
     animation: none;

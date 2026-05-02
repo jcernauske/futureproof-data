@@ -15,11 +15,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.models.api import AskRequest, AskResponse
 from app.services import ask_gemma, builds
+from app.services._sse import sse_event
 
 logger = logging.getLogger(__name__)
 
@@ -54,3 +57,53 @@ async def chat_ask(request: AskRequest) -> AskResponse:
         )
     except ask_gemma.SkillNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/chat/ask/stream")
+async def chat_ask_stream(request: AskRequest) -> StreamingResponse:
+    """SSE variant of /chat/ask. Streams ``TraceEvent`` frames as Gemma
+    works through its tool-call loop, finishing with ``final_text``
+    then ``done``.
+
+    The frontend tries this endpoint first; on connection failure (HTTP
+    error or thrown exception in the read loop), it falls back to the
+    non-streaming ``/chat/ask`` endpoint and synthesizes trace events
+    from ``AskResponse.tool_calls`` (feature-gemma-trace.md §4 Service
+    Changes — frontend askGemmaStream).
+    """
+    try:
+        loaded = await asyncio.gather(
+            *(
+                asyncio.to_thread(builds.load_build, bid)
+                for bid in request.scope.build_ids
+            )
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    async def _stream() -> AsyncIterator[str]:
+        try:
+            async for ev in ask_gemma.chat_ask_stream(
+                scope=request.scope,
+                builds=loaded,
+                message=request.message,
+                history=request.history,
+                locale=request.locale,
+            ):
+                yield sse_event(ev.type, ev.model_dump(mode="json"))
+        except ask_gemma.SkillNotFoundError as exc:
+            # SkillNotFoundError is a logical 404 from the service.
+            # In a streaming response we surface it as a final error
+            # event then close, since the response headers were
+            # already sent.
+            yield sse_event("error", {"detail": str(exc)})
+            yield sse_event("done", {})
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

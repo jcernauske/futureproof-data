@@ -18,6 +18,11 @@
     --color-bg-mid: #232545;
     --color-bg-surface: #2D3060;
     --color-bg-raised: #3A3D75;
+    /* Recessed inset surface — sits inside chat bubbles / cards as a
+       contained sub-surface. Half a step down from --color-bg-mid.
+       Used by <GemmaTrace>'s rail container and the Reasoning Card.
+       feature-gemma-trace.md §3 Brightpath References. */
+    --color-bg-recessed: rgba(27, 29, 48, 0.5);
 
     /* ==============================
        ACCENTS

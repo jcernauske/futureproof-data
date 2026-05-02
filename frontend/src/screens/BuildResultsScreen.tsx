@@ -849,17 +849,6 @@ export function BuildResultsScreen() {
               type="button"
               className="font-body text-accent-info hover:underline hover:brightness-125 transition-colors duration-150 bg-transparent border-none cursor-pointer"
               style={{ fontSize: 14 }}
-              onClick={() => navigate("/branches")}
-            >
-              {t("build.seeBranches")}
-            </button>
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <button
-              type="button"
-              data-testid="btn-see-future"
-              className="font-body text-text-muted hover:text-accent-info hover:underline transition-colors duration-150 bg-transparent border-none cursor-pointer"
-              style={{ fontSize: 13 }}
               onClick={() => navigate("/future")}
             >
               {t("build.seeFuture")}

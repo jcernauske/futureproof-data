@@ -8,8 +8,40 @@
 
 import type { Node, Edge } from "@xyflow/react";
 import type { TreeNode } from "@/types/tree";
+import { pickEdgeLabel, pickEdgeHover } from "@/data/edgeLabel";
 
 export type FlowDirection = "LR" | "TB";
+
+type Translator = (key: string) => string;
+
+/**
+ * T2.2 — Compute the relatedness-driven stroke width + opacity.
+ *
+ * Combined-axis encoding over rank ∈ [1, 20] (per @fp-data-reviewer:
+ * Silver tier ceiling caps real ranks at 20). Linear interpolation
+ * keeps "rank 5 looks twice as bold as rank 10" intuitive.
+ *
+ * `null` rank clamps to rank 20 (most translucent / thinnest end) —
+ * honest "we don't know" per the architect's recommendation.
+ *
+ * L1 edges (root → career) and L2 edges (career → endpoint) use
+ * different ranges so the existing L1-vs-L2 hierarchy is preserved.
+ */
+function relatednessStyle(
+  level: "root-career" | "career-endpoint",
+  rank: number | null,
+): { strokeWidth: number; opacity: number } {
+  const r = Math.max(1, Math.min(20, rank ?? 20));
+  const t = (r - 1) / 19; // 0 at rank 1 (closest), 1 at rank 20 (stretch)
+  const ranges =
+    level === "root-career"
+      ? { wMax: 3.2, wMin: 1.4, oMax: 0.95, oMin: 0.4 }
+      : { wMax: 2.4, wMin: 0.8, oMax: 0.8, oMin: 0.28 };
+  return {
+    strokeWidth: ranges.wMax + (ranges.wMin - ranges.wMax) * t,
+    opacity: ranges.oMax + (ranges.oMin - ranges.oMax) * t,
+  };
+}
 
 const STAT_COLORS: Record<string, string> = {
   ern: "#F2D477",
@@ -37,9 +69,25 @@ const RANK_AT_LEVEL = {
 // Tightened from the original 80/40 — with depth=2 and 12 L1 branches
 // fanning into ~5 L2 children each, the original spacing produced a
 // ~4800px column that fitView could only render at ~0.10 zoom (nodes
-// became unreadable). 48/12 keeps siblings legible without colliding.
+// became unreadable). The staircase per-branch rank offset (below)
+// spreads branches diagonally so we can afford a tad more vertical
+// room per endpoint without re-bloating the canvas:
+//   - The endpoint cluster (avatar + 2-line label) is ~50px tall.
+//     SLOT_PER_NODE was 36 → labels stacked tight enough to brush each
+//     other AND collide with edge-label pills (T1.1). 48 gives ~4-6px
+//     of breathing room between clusters without bloating the canvas
+//     (a +33% vertical expansion vs the previous +50%+ alternatives).
+//   - SLOT_BRANCH_GAP keeps a small visible break between adjacent
+//     branches' L2 columns.
 const SLOT_PER_NODE = 48;
-const SLOT_BRANCH_GAP = 12;
+const SLOT_BRANCH_GAP = 10;
+
+// Staircase: each successive branch is offset along the rank axis so
+// the tree spreads diagonally instead of stacking in one tall column.
+// Improves the aspect ratio in LR mode (root left, branches cascading
+// to the lower-right) — viewport, fit-view zoom, and the minimap all
+// read better when the canvas is closer to square.
+const STAIR_RANK_PER_BRANCH = 90;
 
 export interface FlowNodeData extends Record<string, unknown> {
   nodeType: "root" | "career" | "endpoint";
@@ -53,6 +101,11 @@ export interface FlowNodeData extends Record<string, unknown> {
   branchLabel: string | null;
   direction: FlowDirection;
   flashing: boolean;
+  /** When set during a tour-chip flash, the node renders a small
+   *  rarity pill that fades in with the flash and out with it. Only
+   *  populated for "stretch" / "longshot" paths (direct/adjacent get
+   *  nothing — absence is the signal). */
+  flashRarity?: "stretch" | "longshot" | null;
   selected: boolean;
   dimmed: boolean;
   stats: {
@@ -114,6 +167,7 @@ export function treeToFlow(
   tree: TreeNode,
   emoji: string,
   direction: FlowDirection = "LR",
+  t: Translator = (key: string) => key,
 ): FlowLayoutResult {
   const nodes: Node<FlowNodeData>[] = [];
   const edges: Edge[] = [];
@@ -134,6 +188,8 @@ export function treeToFlow(
       id: rootId,
       type: "root",
       position: place(RANK_AT_LEVEL.root, 200, direction),
+      width: 140,
+      height: 140,
       data: {
         ...baseData,
         nodeType: "root",
@@ -167,6 +223,8 @@ export function treeToFlow(
     id: rootId,
     type: "root",
     position: place(RANK_AT_LEVEL.root, rootSlot - 60, direction),
+    width: 140,
+    height: 140,
     data: {
       ...baseData,
       nodeType: "root",
@@ -187,6 +245,13 @@ export function treeToFlow(
   branches.forEach((branch, branchIdx) => {
     const branchColor = dominantStatColor(tree, branch);
 
+    // Staircase: shift each branch's L1 + L2 columns further along
+    // the rank axis. Branch 0 sits at the base column, each
+    // subsequent branch is STAIR_RANK_PER_BRANCH further out.
+    const branchRankOffset = branchIdx * STAIR_RANK_PER_BRANCH;
+    const careerRank = RANK_AT_LEVEL.career + branchRankOffset;
+    const endpointRank = RANK_AT_LEVEL.endpoint + branchRankOffset;
+
     // Each L1 branch always has a career node. Its L2 children (if any)
     // become endpoints. No more branch-label intermediary.
     const endpoints = branch.children;
@@ -198,7 +263,9 @@ export function treeToFlow(
     nodes.push({
       id: careerId,
       type: "career",
-      position: place(RANK_AT_LEVEL.career, careerCenter - 18, direction),
+      position: place(careerRank, careerCenter - 18, direction),
+      width: 200,
+      height: 56,
       data: {
         ...baseData,
         nodeType: "career",
@@ -214,13 +281,22 @@ export function treeToFlow(
       },
     });
 
-    edges.push({
-      id: `edge-root-${careerId}`,
-      source: rootId,
-      target: careerId,
-      type: "default",
-      style: { stroke: branchColor, strokeWidth: 2, opacity: 0.8 },
-    });
+    {
+      const style = relatednessStyle("root-career", branch.relatedness);
+      edges.push({
+        id: `edge-root-${careerId}`,
+        source: rootId,
+        target: careerId,
+        type: "withLabel",
+        data: {
+          label: pickEdgeLabel(tree, branch, t),
+          hoverContext: pickEdgeHover(tree, branch),
+          stroke: branchColor,
+          strokeWidth: style.strokeWidth,
+          opacity: style.opacity,
+        },
+      });
+    }
 
     endpoints.forEach((ep, epIdx) => {
       const epSlot = cursor + epIdx * SLOT_PER_NODE + SLOT_PER_NODE / 2;
@@ -229,7 +305,9 @@ export function treeToFlow(
       nodes.push({
         id: epId,
         type: "endpoint",
-        position: place(RANK_AT_LEVEL.endpoint, epSlot - 25, direction),
+        position: place(endpointRank, epSlot - 25, direction),
+        width: 220,
+        height: 50,
         data: {
           ...baseData,
           nodeType: "endpoint",
@@ -245,13 +323,22 @@ export function treeToFlow(
         },
       });
 
-      edges.push({
-        id: `edge-${careerId}-${epId}`,
-        source: careerId,
-        target: epId,
-        type: "default",
-        style: { stroke: branchColor, strokeWidth: 1.5, opacity: 0.5 },
-      });
+      {
+        const style = relatednessStyle("career-endpoint", ep.relatedness);
+        edges.push({
+          id: `edge-${careerId}-${epId}`,
+          source: careerId,
+          target: epId,
+          type: "withLabel",
+          data: {
+            label: pickEdgeLabel(branch, ep, t),
+            hoverContext: pickEdgeHover(branch, ep),
+            stroke: branchColor,
+            strokeWidth: style.strokeWidth,
+            opacity: style.opacity,
+          },
+        });
+      }
     });
 
     cursor += careerSpan + SLOT_BRANCH_GAP;

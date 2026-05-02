@@ -1,6 +1,10 @@
 import { CareerCard } from "@/components/CareerCard";
+import { MiniCompareStrip } from "@/components/tree/MiniCompareStrip";
+import { WhatItTakes } from "@/components/tree/WhatItTakes";
+import { PathRarityBadge } from "@/components/tree/PathRarityBadge";
 import type { Build, CareerOutcome } from "@/types/build";
 import type { TreeNode } from "@/types/tree";
+import type { PathRarityResult } from "@/data/pathRarity";
 
 interface SelectedNodeCardProps {
   /** Tree node to render — root, L1, or L2. */
@@ -12,6 +16,20 @@ interface SelectedNodeCardProps {
    * default root anchor). /future passes `selectedNodeId !== null`.
    */
   picked: boolean;
+  /**
+   * Tree root node — required when the card may render the
+   * mini-compare strip (T1.3). The strip computes deltas as
+   * `node.<stat> − root.<stat>` and is suppressed when
+   * `node.soc_code === root.soc_code`.
+   */
+  root?: TreeNode;
+  /**
+   * Cumulative path-rarity computed from the unfiltered tree path
+   * root → ... → selected. Surfaces the badge above the title for
+   * non-direct paths; omitted for the root anchor or when no
+   * relatedness data is available along the chain.
+   */
+  pathRarity?: PathRarityResult | null;
 }
 
 /**
@@ -93,15 +111,39 @@ export function SelectedNodeCard({
   node,
   build,
   picked,
+  root,
+  pathRarity,
 }: SelectedNodeCardProps) {
   const career = treeNodeToCareerOutcome(node, build);
+  // T1.3: mini-compare strip renders only on a non-root active
+  // selection, where root is supplied. The strip itself further
+  // hides when same SOC or when every delta has a null side.
+  const showCompareStrip =
+    picked && root != null && root.soc_code !== node.soc_code;
+  // T2.3 — what-it-takes block replaces the single educationLabel sub-line
+  // when a non-root node is selected. Root anchor keeps the single line.
+  const showWhatItTakes = showCompareStrip;
+  // Path-rarity badge surfaces only on non-direct, non-root selections.
+  const showRarityBadge =
+    picked &&
+    pathRarity != null &&
+    pathRarity.tier !== "direct" &&
+    root != null &&
+    root.soc_code !== node.soc_code;
   return (
     <div data-testid="selected-node-card" data-soc={node.soc_code}>
+      {showRarityBadge && (
+        <div className="mb-2">
+          <PathRarityBadge rarity={pathRarity!} />
+        </div>
+      )}
+      {showWhatItTakes && <WhatItTakes selected={node} root={root} />}
+      {showCompareStrip && <MiniCompareStrip selected={node} root={root} />}
       <CareerCard
         career={career}
         picked={picked}
         onSelect={() => {}}
-        educationLabel={node.education}
+        educationLabel={showWhatItTakes ? null : node.education}
         hideNullStats
       />
     </div>

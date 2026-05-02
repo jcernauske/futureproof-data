@@ -4,6 +4,13 @@ import { useT } from "@/i18n/useT";
 interface EducationFilterRowProps {
   active: ReadonlySet<EducationFilter>;
   onToggle: (filter: EducationFilter) => void;
+  /**
+   * Optional set of filters that have at least one match in the
+   * underlying tree. Chips not in this set are skipped — keeps the
+   * rail tight when the source tree lacks coverage for a given
+   * degree level. Omit to render all chips (legacy behavior).
+   */
+  available?: ReadonlySet<EducationFilter>;
 }
 
 const FILTER_ORDER: readonly EducationFilter[] = [
@@ -26,8 +33,13 @@ const LABEL_KEY: Record<EducationFilter, string> = {
 export function EducationFilterRow({
   active,
   onToggle,
+  available,
 }: EducationFilterRowProps) {
   const t = useT();
+  const visibleFilters = available
+    ? FILTER_ORDER.filter((f) => available.has(f) || active.has(f))
+    : FILTER_ORDER;
+  if (visibleFilters.length === 0) return null;
   return (
     <div
       role="group"
@@ -38,7 +50,7 @@ export function EducationFilterRow({
       <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted mr-1">
         {t("future.filter.label")}
       </span>
-      {FILTER_ORDER.map((filter) => {
+      {visibleFilters.map((filter) => {
         const isActive = active.has(filter);
         return (
           <button

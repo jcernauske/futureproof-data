@@ -14,10 +14,8 @@ See docs/specs/feature-set-your-course.md §4.
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -29,16 +27,11 @@ from app.models.api import (
     IntentStreamRequest,
 )
 from app.services import set_your_course
+from app.services._sse import sse_event
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _sse_event(event: str, data: Any) -> str:
-    """Format one SSE frame. Data is JSON-encoded on a single line."""
-    payload = json.dumps(data, default=str, ensure_ascii=False)
-    return f"event: {event}\ndata: {payload}\n\n"
 
 
 async def _stream_events(
@@ -54,14 +47,14 @@ async def _stream_events(
         ):
             name = event.get("event", "delta")
             data = event.get("data", {})
-            yield _sse_event(name, data)
+            yield sse_event(name, data)
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("set_your_course stream failed: %s", exc)
-        yield _sse_event(
+        yield sse_event(
             "error",
             {"message": "stream failed — try again."},
         )
-        yield _sse_event("done", {})
+        yield sse_event("done", {})
 
 
 @router.post("/stream")
