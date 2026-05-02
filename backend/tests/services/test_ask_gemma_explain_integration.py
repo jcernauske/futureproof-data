@@ -35,7 +35,6 @@ from app.models.career import (
 )
 from app.services import ask_gemma, gemma_client
 
-
 _IU_UNITID = 151351
 _IU_CIPCODE = "11.0701"
 _IU_SOC = "15-1252"
