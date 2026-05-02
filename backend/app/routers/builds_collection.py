@@ -50,7 +50,12 @@ async def compare_insights(request: CompareRequest) -> dict[str, Any]:
     the frontend renders whatever arrives.
     """
     try:
-        loaded = [builds.load_build(bid) for bid in request.build_ids]
+        # Same async DuckDB-load pattern as POST /chat/ask — fan the
+        # 2-4 build_ids out across worker threads instead of
+        # serializing on the event loop. Per audit followup-3 §P1.
+        loaded = await asyncio.gather(
+            *(asyncio.to_thread(builds.load_build, bid) for bid in request.build_ids)
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

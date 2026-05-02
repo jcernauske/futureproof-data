@@ -5,13 +5,33 @@ import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import { getTree } from "@/api/tree";
 import type { AskScope, BuildSummary } from "@/api/menu";
-import { BranchTreeFlow } from "@/components/tree/BranchTreeFlow";
+import { BranchTreeFlow, type PanTarget } from "@/components/tree/BranchTreeFlow";
 import { TreeFallback } from "@/components/tree/TreeFallback";
 import { BranchHighlightDriver } from "@/components/tree/BranchHighlightDriver";
 import { FutureChatSheet } from "@/components/tree/FutureChatSheet";
 import { SelectedNodeCard } from "@/components/tree/SelectedNodeCard";
 import { EducationFilterRow } from "@/components/tree/EducationFilterRow";
 import { StatFilterRow } from "@/components/tree/StatFilterRow";
+import { TourChipRow } from "@/components/tree/TourChipRow";
+import { BossFilterRow } from "@/components/tree/BossFilterRow";
+import { ExperienceRangeSlider } from "@/components/tree/ExperienceRangeSlider";
+import {
+  CompanionRail,
+  type CompanionMode,
+  railWidth,
+} from "@/components/tree/CompanionRail";
+import {
+  Breadcrumb,
+  buildBreadcrumbSegments,
+  findPathToNodeId,
+} from "@/components/tree/Breadcrumb";
+import { filterTreeByBoss, type BossFilter } from "@/data/bossFilter";
+import {
+  filterTreeByExperience,
+  isFullRange as isFullExperienceRange,
+  EXPERIENCE_RANGE_FULL,
+  type ExperienceRange,
+} from "@/data/experienceFilter";
 import {
   filterTreeByEducation,
   type EducationFilter,
@@ -189,7 +209,39 @@ export function FutureScreen() {
   const [statFilters, setStatFilters] = useState<Set<StatFilter>>(
     () => new Set(),
   );
+  const [bossFilters, setBossFilters] = useState<Set<BossFilter>>(
+    () => new Set(),
+  );
+  // Companion rail mode (desktop only). Mobile uses the existing
+  // FutureChatSheet; the rail is gated behind isTablet below.
+  const [companionMode, setCompanionMode] = useState<CompanionMode>("peeked");
+  const [companionUnread, setCompanionUnread] = useState(false);
+  const lastSeenResponseRef = useRef<string | null>(null);
+  const [refitToken, setRefitToken] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1280 : window.innerWidth,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const [experienceRange, setExperienceRange] = useState<ExperienceRange>(
+    EXPERIENCE_RANGE_FULL,
+  );
+  // T1.4 breadcrumb snapshot: titles + SOC codes from the *last
+  // successful* selection lineage. Persists across filter toggles so
+  // a hidden segment renders as a ghost rather than vanishing.
+  // Cleared on root-click or when the lineage changes.
+  const [breadcrumbSnapshot, setBreadcrumbSnapshot] = useState<
+    { socCode: string; title: string }[]
+  >([]);
+  // T1.2 — pan/zoom signal for the tour chip navigate-flash sequence.
+  // Bumping the timestamp re-triggers the pan even on the same nodeId.
+  const [panTarget, setPanTarget] = useState<PanTarget | null>(null);
   const flashTimeoutsRef = useRef<Map<string, number>>(new Map());
+  const tourTimeoutsRef = useRef<number[]>([]);
 
   const handleToggleEducationFilter = useCallback((filter: EducationFilter) => {
     setEducationFilters((prev) => {
@@ -209,9 +261,20 @@ export function FutureScreen() {
     });
   }, []);
 
+  const handleToggleBossFilter = useCallback((filter: BossFilter) => {
+    setBossFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(filter)) next.delete(filter);
+      else next.add(filter);
+      return next;
+    });
+  }, []);
+
   const handleClearAllFilters = useCallback(() => {
     setEducationFilters(new Set());
     setStatFilters(new Set());
+    setBossFilters(new Set());
+    setExperienceRange(EXPERIENCE_RANGE_FULL);
   }, []);
 
   // Nav guard
@@ -260,9 +323,11 @@ export function FutureScreen() {
   const filteredTree = useMemo(() => {
     if (!treeData) return null;
     let t = filterTreeByEducation(treeData.tree, educationFilters);
+    t = filterTreeByBoss(t, bossFilters);
+    t = filterTreeByExperience(t, experienceRange);
     t = filterTreeByStats(t, statFilters);
     return t;
-  }, [treeData, educationFilters, statFilters]);
+  }, [treeData, educationFilters, statFilters, bossFilters, experienceRange]);
 
   // Map node id → soc + title for selection lookups + highlight candidates.
   const nodeRefs = useMemo<NodeRef[]>(
@@ -284,10 +349,33 @@ export function FutureScreen() {
     }
   }, [selectedNodeId, nodeRefsById]);
 
+  // T1.4 — user-initiated select/clear. The snapshot wipe ONLY fires
+  // here (or in handleBreadcrumbClick on root) so the cascade
+  // selectedNodeId-drop-on-filter-hide can NOT erase the breadcrumb.
+  // That cascade is what drives the ghost-state UX: keep the snapshot,
+  // hide the node — student sees "you'd be here if you cleared the
+  // filter."
   const handleSelectNode = useCallback((id: string | null) => {
     setSelectedNodeId(id);
-    if (id != null) setSheetOpen(true);
+    if (id == null) {
+      setBreadcrumbSnapshot([]);
+    } else {
+      setSheetOpen(true);
+    }
   }, []);
+
+  // Refresh the breadcrumb snapshot only when selection lands on a
+  // visible node. NEVER wipes — the wipe paths live in
+  // handleSelectNode(null) and handleBreadcrumbClick(root).
+  useEffect(() => {
+    if (!treeData) return;
+    if (selectedNodeId == null) return;
+    const path = findPathToNodeId(treeData.tree, selectedNodeId);
+    if (path == null) return;
+    setBreadcrumbSnapshot(
+      path.map((n) => ({ socCode: n.soc_code, title: n.title })),
+    );
+  }, [selectedNodeId, treeData]);
 
   // Debounce selection so rapid taps don't queue several openers.
   useEffect(() => {
@@ -338,9 +426,9 @@ export function FutureScreen() {
   const openerPrompt = useMemo(() => {
     if (!chatScope) return undefined;
     return selectedRef == null
-      ? "Give me a 3-sentence orientation on this career path and what branches I could take."
-      : "Give me a 3-sentence orientation on this branch — what it is, the strongest tradeoff, and what to ask next.";
-  }, [chatScope, selectedRef]);
+      ? t("future.opener.root")
+      : t("future.opener.branch");
+  }, [chatScope, selectedRef, t]);
 
   // Highlight driver candidates: every tree node, keyed by its React
   // Flow id so the BranchTreeFlow can do an O(1) Set lookup.
@@ -382,9 +470,95 @@ export function FutureScreen() {
     };
   }, []);
 
-  const handleAssistantResponse = useCallback((text: string) => {
-    setLatestResponse(text);
+  // T1.2 — orchestrate the navigate-flash-navigate sequence for a
+  // tour chip click. For each ranked node: pan + zoom in, wait for the
+  // pan to settle, flash the node, wait for the flash to clear, advance
+  // to the next. Re-clicking a chip cancels the in-flight tour and
+  // restarts.
+  const handlePlayTour = useCallback(
+    (nodeIds: string[]) => {
+      tourTimeoutsRef.current.forEach((tid) => window.clearTimeout(tid));
+      tourTimeoutsRef.current = [];
+      if (nodeIds.length === 0) return;
+
+      const PAN_MS = 550;
+      const FLASH_DELAY_MS = 220;
+      const FLASH_HOLD_MS = 780;
+      const STEP_MS = PAN_MS + FLASH_DELAY_MS + FLASH_HOLD_MS;
+
+      nodeIds.forEach((nodeId, idx) => {
+        const baseDelay = idx * STEP_MS;
+        const panTid = window.setTimeout(() => {
+          setPanTarget({
+            nodeId,
+            ts: Date.now(),
+            zoom: 1.4,
+            duration: PAN_MS,
+          });
+        }, baseDelay);
+        const flashTid = window.setTimeout(
+          () => handleHighlight(nodeId),
+          baseDelay + PAN_MS + FLASH_DELAY_MS,
+        );
+        tourTimeoutsRef.current.push(panTid, flashTid);
+      });
+    },
+    [handleHighlight],
+  );
+
+  useEffect(() => {
+    const timers = tourTimeoutsRef.current;
+    return () => {
+      timers.forEach((tid) => window.clearTimeout(tid));
+      timers.length = 0;
+    };
   }, []);
+
+  const handleAssistantResponse = useCallback(
+    (text: string) => {
+      setLatestResponse(text);
+      // Mark the rail as having unread content if the student isn't
+      // currently looking at it — the peek strip pulses an info dot
+      // until they open the rail.
+      if (companionMode === "peeked" && text !== lastSeenResponseRef.current) {
+        setCompanionUnread(true);
+      }
+    },
+    [companionMode],
+  );
+
+  // When the rail is opened (or focused), mark whatever response is
+  // currently latest as "seen" and clear the unread badge.
+  useEffect(() => {
+    if (companionMode !== "peeked") {
+      lastSeenResponseRef.current = latestResponse;
+      setCompanionUnread(false);
+    }
+  }, [companionMode, latestResponse]);
+
+  // Whenever the rail finishes animating to a new width, bump the
+  // refit token so React Flow's FitOnTreeChange re-runs with the
+  // new tree pane bounds.
+  const handleRailWidthSettle = useCallback(() => {
+    setRefitToken((n) => n + 1);
+  }, []);
+
+  // T1.4 — clicking a breadcrumb segment re-selects (or clears for
+  // root). Ghost segments still call the setter but the filter will
+  // gate the result; the breadcrumb stays as the visual hint.
+  const handleBreadcrumbClick = useCallback(
+    (segment: { isRoot: boolean; nodeId: string | null }) => {
+      if (segment.isRoot) {
+        setSelectedNodeId(null);
+        setBreadcrumbSnapshot([]);
+        return;
+      }
+      if (segment.nodeId != null) {
+        setSelectedNodeId(segment.nodeId);
+      }
+    },
+    [],
+  );
 
   if (!build) return null;
 
@@ -429,10 +603,28 @@ export function FutureScreen() {
         .join(" · ")
     : null;
 
+  // T1.4 breadcrumb segments — derived per render from snapshot +
+  // current filtered tree so ghost state tracks the active filters.
+  const breadcrumbSegments = useMemo(
+    () =>
+      filteredTree
+        ? buildBreadcrumbSegments(
+            breadcrumbSnapshot,
+            filteredTree,
+            selectedNodeId,
+          )
+        : [],
+    [breadcrumbSnapshot, filteredTree, selectedNodeId],
+  );
+
   // Empty-state: filters are active but the filtered tree has no L1
   // branches. Honest framing — the data shows zero transitions matching
   // the active filter, not "we don't know."
-  const anyFilterActive = educationFilters.size > 0 || statFilters.size > 0;
+  const anyFilterActive =
+    educationFilters.size > 0 ||
+    statFilters.size > 0 ||
+    bossFilters.size > 0 ||
+    !isFullExperienceRange(experienceRange);
   const filterEmpty =
     !!filteredTree && filteredTree.children.length === 0 && anyFilterActive;
   // Human-readable join of every active filter label across both
@@ -443,6 +635,9 @@ export function FutureScreen() {
     if (educationFilters.has("bachelors")) labels.push(t("future.filter.bachelors"));
     if (educationFilters.has("masters")) labels.push(t("future.filter.masters"));
     if (educationFilters.has("doctoral")) labels.push(t("future.filter.doctoral"));
+    if (bossFilters.has("boss_ai")) labels.push(t("future.survives.ai"));
+    if (bossFilters.has("boss_market")) labels.push(t("future.survives.market"));
+    if (bossFilters.has("boss_burnout")) labels.push(t("future.survives.burnout"));
     if (statFilters.has("earnings")) labels.push(t("future.stat.earnings"));
     if (statFilters.has("ai_resilient")) labels.push(t("future.stat.aiResilient"));
     if (statFilters.has("growth")) labels.push(t("future.stat.growth"));
@@ -457,7 +652,7 @@ export function FutureScreen() {
     return t("future.filter.empty.join.or")
       .replace("{a}", first)
       .replace("{b}", labels[labels.length - 1]!);
-  }, [educationFilters, statFilters, t]);
+  }, [educationFilters, statFilters, bossFilters, t]);
 
   return (
     <div className="min-h-screen pt-14">
@@ -495,23 +690,58 @@ export function FutureScreen() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Desktop: stacked rows. Tree row fixed at 60vh; chat row
-                below at natural height. Both visible without scroll. */}
-            <div className="hidden tablet:block">
-              <PageContainer variant="bleed" className="px-5">
-                <div className="mb-3 flex flex-col gap-2">
+            {/* Desktop layout — tree pane fills the viewport and the
+                CompanionRail (selected card + chat) lives in a
+                right-edge slide-over. Tree pane reflows via paddingRight
+                so React Flow's container resize triggers a re-fit. */}
+            <div
+              className="hidden tablet:block transition-[padding] duration-200 ease-out"
+              style={{
+                paddingRight: railWidth(companionMode, viewportWidth),
+              }}
+            >
+              <PageContainer variant="bleed" className="px-5 pb-3">
+                {filteredTree && (
+                  <div className="mb-3">
+                    <TourChipRow
+                      tree={filteredTree}
+                      onPlayTour={handlePlayTour}
+                    />
+                  </div>
+                )}
+                <Breadcrumb
+                  segments={breadcrumbSegments}
+                  onSegmentClick={handleBreadcrumbClick}
+                />
+                <div className="mb-3 flex flex-row flex-wrap items-center gap-x-5 gap-y-3">
                   <EducationFilterRow
                     active={educationFilters}
                     onToggle={handleToggleEducationFilter}
                   />
+                  <BossFilterRow
+                    active={bossFilters}
+                    onToggle={handleToggleBossFilter}
+                  />
+                </div>
+                <div className="mb-3 flex flex-row flex-wrap items-center gap-x-5 gap-y-3">
                   <StatFilterRow
                     active={statFilters}
                     onToggle={handleToggleStatFilter}
                   />
+                  <ExperienceRangeSlider
+                    range={experienceRange}
+                    onChange={setExperienceRange}
+                  />
                 </div>
+                {/* Tree fills the rest of the viewport — height computed
+                    from the standard chrome offsets so React Flow has
+                    a stable canvas. */}
                 <div
                   className="relative w-full bg-bp-surface border border-border-subtle rounded-xl shadow-md overflow-hidden"
-                  style={{ height: "60vh", minHeight: 480 }}
+                  style={{
+                    height: "calc(100vh - 56px - 240px)",
+                    minHeight: 480,
+                  }}
                 >
                   {filteredTree && (
                     <BranchTreeFlow
@@ -521,6 +751,8 @@ export function FutureScreen() {
                       selectedNodeId={selectedNodeId}
                       onSelectNode={handleSelectNode}
                       highlightedNodeIds={highlightedNodeIds}
+                      panTarget={panTarget}
+                      refitToken={refitToken}
                     />
                   )}
                   {filterEmpty && (
@@ -532,60 +764,89 @@ export function FutureScreen() {
                     />
                   )}
                 </div>
-                {/* Chat (7 cols) + selected-node card (5 cols).
-                    Tilted toward chat per the design call — card is
-                    glance-only, chat is the read surface. */}
-                <div className="mt-4 grid grid-cols-12 gap-4">
-                  <div className="col-span-12 desktop:col-span-7 flex flex-col gap-3">
-                    {renderEmbeddedChat()}
-                  </div>
-                  <div className="col-span-12 desktop:col-span-5">
-                    {cardNode && (
-                      <SelectedNodeCard
-                        node={cardNode}
-                        build={build}
-                        picked={cardPicked}
-                      />
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-3 mt-6 mb-12">
-                  <button
-                    className="font-body text-cta font-bold text-text-inverse bg-accent-thrive px-8 py-3 rounded-lg transition-all duration-normal hover:brightness-110"
-                    onClick={() => navigate("/save")}
-                    aria-label={t("tree.saveShareAria")}
-                    data-testid="btn-save-share"
-                  >
-                    {t("tree.saveShare")}
-                  </button>
-                  <div className="flex gap-4">
+              </PageContainer>
+            </div>
+
+            {/* Right-edge companion rail — desktop only. Houses the
+                Save & Share + back link in its header, the
+                SelectedNodeCard + Ask Gemma chat in its body. */}
+            <div className="hidden tablet:block">
+              <CompanionRail
+                mode={companionMode}
+                onModeChange={setCompanionMode}
+                peekTitle={selectedRef?.title ?? filteredTree?.title ?? ""}
+                hasUnread={companionUnread}
+                onWidthSettle={handleRailWidthSettle}
+                headerSlot={
+                  <div className="flex flex-row items-center justify-between gap-3">
                     <button
-                      className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
-                      onClick={() => navigate("/branches")}
-                    >
-                      {t("future.viewMap")}
-                    </button>
-                    <button
+                      type="button"
                       className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
                       onClick={() => navigate("/my-build")}
                     >
                       {t("tree.backBuild")}
                     </button>
+                    <button
+                      type="button"
+                      className="font-body text-small font-bold text-text-inverse bg-accent-thrive px-4 py-2 rounded-lg transition-all duration-normal hover:brightness-110"
+                      onClick={() => navigate("/save")}
+                      aria-label={t("tree.saveShareAria")}
+                      data-testid="btn-save-share"
+                    >
+                      {t("tree.saveShare")}
+                    </button>
                   </div>
-                </div>
-              </PageContainer>
+                }
+              >
+                {cardNode && (
+                  <div className="mb-3">
+                    <SelectedNodeCard
+                      node={cardNode}
+                      build={build}
+                      picked={cardPicked}
+                      root={filteredTree ?? undefined}
+                    />
+                  </div>
+                )}
+                {renderEmbeddedChat()}
+              </CompanionRail>
             </div>
 
             {/* Mobile: tree fills the viewport, chat lives in a bottom sheet. */}
             <div className="tablet:hidden">
-              <div className="px-4 pt-2 pb-2 flex flex-col gap-2">
+              {filteredTree && (
+                <div className="px-4 pt-2">
+                  <TourChipRow
+                    tree={filteredTree}
+                    onPlayTour={handlePlayTour}
+                  />
+                </div>
+              )}
+              <div className="px-4">
+                <Breadcrumb
+                  segments={breadcrumbSegments}
+                  onSegmentClick={handleBreadcrumbClick}
+                  maxCharsPerSegment={16}
+                />
+              </div>
+              <div className="px-4 pt-2 flex flex-row flex-wrap items-center gap-x-5 gap-y-3">
                 <EducationFilterRow
                   active={educationFilters}
                   onToggle={handleToggleEducationFilter}
                 />
+                <BossFilterRow
+                  active={bossFilters}
+                  onToggle={handleToggleBossFilter}
+                />
+              </div>
+              <div className="px-4 pt-2 pb-2 flex flex-row flex-wrap items-center gap-x-4 gap-y-2">
                 <StatFilterRow
                   active={statFilters}
                   onToggle={handleToggleStatFilter}
+                />
+                <ExperienceRangeSlider
+                  range={experienceRange}
+                  onChange={setExperienceRange}
                 />
               </div>
               <div
@@ -600,6 +861,7 @@ export function FutureScreen() {
                     selectedNodeId={selectedNodeId}
                     onSelectNode={handleSelectNode}
                     highlightedNodeIds={highlightedNodeIds}
+                    panTarget={panTarget}
                   />
                 )}
                 {filterEmpty && (
@@ -623,6 +885,7 @@ export function FutureScreen() {
                       node={cardNode}
                       build={build}
                       picked={cardPicked}
+                      root={filteredTree ?? undefined}
                     />
                   </div>
                 )}

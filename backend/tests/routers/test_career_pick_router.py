@@ -210,3 +210,87 @@ def test_post_ask_malformed_body_returns_422(client: TestClient) -> None:
     missing_fields = {loc[-1] for loc in missing_locs if loc}
     assert "chip_id" in missing_fields
     assert "major_text" in missing_fields
+
+
+# ---------------------------------------------------------------------------
+# Field-validator boundary — audit followup-3 §P1.
+# Every field on AskCareerPickRequest flows directly into a Gemma prompt,
+# so the validator is the only thing standing between an unauthenticated
+# caller and unbounded LLM cost / prompt-injection. Each parametrize
+# entry pins one bypass shape that would otherwise reach _build_user_prompt.
+# ---------------------------------------------------------------------------
+
+
+_VALID_PAYLOAD: dict[str, object] = {
+    "chip_id": "why_no_doctor",
+    "cipcode": "26.0101",
+    "major_text": "pre-med",
+    "soc_codes": ["19-1029"],
+}
+
+
+@pytest.mark.parametrize(
+    "field, value, expected_substring",
+    [
+        # cipcode
+        ("cipcode", "not.a.cip", "cipcode must match CIP pattern"),
+        ("cipcode", "26", "cipcode must match CIP pattern"),
+        ("cipcode", "26.01", None),  # Valid: 2-digit suffix is allowed.
+        ("cipcode", "26.0101\n", "cipcode must match CIP pattern"),
+        # selected_soc
+        ("selected_soc", "not-a-soc", "selected_soc must match SOC pattern"),
+        ("selected_soc", "11-30210", "selected_soc must match SOC pattern"),
+        ("selected_soc", "11-3021\n", "selected_soc must match SOC pattern"),
+        # soc_codes (list)
+        ("soc_codes", ["bogus"], "must match SOC pattern"),
+        ("soc_codes", ["11-3021", "drop-table"], "must match SOC pattern"),
+        # length caps
+        ("major_text", "x" * 201, "at most 200 characters"),
+        ("terminal_title", "x" * 201, "at most 200 characters"),
+        ("chip_id", "x" * 65, "at most 64 characters"),
+        ("soc_codes", ["11-3021"] * 51, "at most 50 items"),
+    ],
+    ids=[
+        "cipcode_freeform",
+        "cipcode_no_dot_decimals",
+        "cipcode_short_decimals_valid",
+        "cipcode_trailing_newline",
+        "selected_soc_freeform",
+        "selected_soc_long_suffix",
+        "selected_soc_trailing_newline",
+        "soc_codes_freeform_entry",
+        "soc_codes_mixed_valid_invalid",
+        "major_text_too_long",
+        "terminal_title_too_long",
+        "chip_id_too_long",
+        "soc_codes_list_too_long",
+    ],
+)
+def test_post_ask_field_validators(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
+    expected_substring: str | None,
+) -> None:
+    """Pydantic field validators reject malformed AskCareerPickRequest
+    fields with 422 before the handler runs. The valid case
+    (``expected_substring is None``) confirms the validator hasn't
+    over-tightened past legitimate inputs."""
+
+    async def _unused(**_kwargs: object) -> str:  # pragma: no cover
+        return "never called"
+
+    monkeypatch.setattr(gemma_client, "generate_async", _unused)
+
+    payload = dict(_VALID_PAYLOAD)
+    payload[field] = value
+    response = client.post("/career-pick/ask", json=payload)
+
+    if expected_substring is None:
+        # Valid input — handler should run; we just assert the
+        # validator didn't reject. 200 from the mocked Gemma path.
+        assert response.status_code == 200, response.text
+    else:
+        assert response.status_code == 422, response.text
+        assert expected_substring in response.text

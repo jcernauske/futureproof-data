@@ -38,6 +38,11 @@ def client(isolated_builds_db) -> TestClient:
         ("113021", 422),  # Missing hyphen.
         ("1-3021", 422),  # Three-char prefix wrong.
         ("11-30210", 422),  # Five-digit suffix.
+        # Trailing newline — closed at the path-validator level by
+        # FastAPI's regex anchoring. Mirrors the AskScope fullmatch
+        # case in test_ask_gemma_router.py so the contract is pinned
+        # on both surfaces.
+        ("11-3021%0A", 422),
     ],
     ids=[
         "valid_management",
@@ -47,6 +52,7 @@ def client(isolated_builds_db) -> TestClient:
         "no_hyphen",
         "short_prefix",
         "long_suffix",
+        "trailing_newline_url_encoded",
     ],
 )
 def test_get_branches_soc_validation(
