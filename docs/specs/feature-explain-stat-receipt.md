@@ -104,10 +104,10 @@ OUT OF SCOPE — REJECT as scope creep if a reviewer requests them:
 |-------|-------|
 | Created | 2026-05-02 |
 | Author | Jeff + Claude Code |
-| Spec Version | 1.2 (DRAFT) |
+| Spec Version | 1.3 (DRAFT) |
 | Last Updated | 2026-05-02 |
 | Blocked By | — (was: `pentagon-stat-reshape.md`; reshape reached COMPLETE on 2026-05-02 — unblocked) |
-| Changelog | 1.2 — addresses §5 v1.1 architecture-review findings (CHANGES REQUESTED from both @fp-architect and @genai-architect): adds Decision 13 (effort-shift coherence), Decision 14 (label allowlist normalization), Decision 15 (response_format synthesis-turn-only scoping); softens Decision 10's AURA generality claim; rewrites §4 Service Changes to specify per-backend JSON-mode translation (Ollama `format: "json"` vs OpenRouter `response_format: {"type":"json_object"}`); changes the system-appendix prompt format from "Pydantic model verbatim" to "filled-in JSON example with `__FILL_IN__` sentinels"; adds tool-result caching across the JSON→markdown fallback retry; adds a `kind: Literal["receipt"]` self-discriminator field to `ExplainStatReceipt`; splits the score-reference voice-rule relaxation between JSON numeric fields (lifted) and prose fields (retained); requires `_extract_json_objects` reuse; adds `_postprocess_ern_explain_receipt` extra validations (stat_code match, server-only `math_line` regardless of Gemma output, `max_length=800` on `why_mix_paragraph`); requires structured parse-failure log records in `gemma.jsonl`; expands the frontend `menu.ts` and `GemmaChat.tsx` cascade in §4 File Changes; adds null-build-stat guard. <br>1.1 — pentagon-stat-reshape unblock: verified spike code survived the reshape merge. <br>1.0 — initial draft. |
+| Changelog | 1.3 — addresses the single new concern raised by @genai-architect re-review of v1.2 (sentinel passthrough): adds a Pydantic `field_validator` on prose fields rejecting strings that contain template-sentinel patterns (`__FILL_IN__`, `[FILL`, `<FILL`, etc.); adds an explicit prohibition in the system appendix telling Gemma not to echo placeholder sentinels back; clarifies the placeholder convention; adds P0 test `test_postprocess_rejects_sentinel_passthrough`. v1.2 had 7/7 v1.1 genai-architect conditions and 8/8 v1.1 fp-architect conditions resolved; this v1.3 closes the only newly-introduced concern. <br>1.2 — addresses §5 v1.1 architecture-review findings (CHANGES REQUESTED from both @fp-architect and @genai-architect): adds Decision 13 (effort-shift coherence), Decision 14 (label allowlist normalization), Decision 15 (response_format synthesis-turn-only scoping); softens Decision 10's AURA generality claim; rewrites §4 Service Changes to specify per-backend JSON-mode translation (Ollama `format: "json"` vs OpenRouter `response_format: {"type":"json_object"}`); changes the system-appendix prompt format from "Pydantic model verbatim" to "filled-in JSON example with `__FILL_IN__` sentinels"; adds tool-result caching across the JSON→markdown fallback retry; adds a `kind: Literal["receipt"]` self-discriminator field to `ExplainStatReceipt`; splits the score-reference voice-rule relaxation between JSON numeric fields (lifted) and prose fields (retained); requires `_extract_json_objects` reuse; adds `_postprocess_ern_explain_receipt` extra validations (stat_code match, server-only `math_line` regardless of Gemma output, `max_length=800` on `why_mix_paragraph`); requires structured parse-failure log records in `gemma.jsonl`; expands the frontend `menu.ts` and `GemmaChat.tsx` cascade in §4 File Changes; adds null-build-stat guard. <br>1.1 — pentagon-stat-reshape unblock: verified spike code survived the reshape merge. <br>1.0 — initial draft. |
 | Related Specs | `docs/specs/feature-ask-gemma.md` (the existing scope-aware chat surface this extends); `docs/specs/pentagon-stat-reshape.md` (in-flight HMN→AURA reshape); `docs/specs/feature-gemma-trace.md` (the trace-rail UX that streams tool-call events — unchanged by this spec but its event model is what makes the "show the receipts" moment legible) |
 | Related References | `.claude/skills/pentagon-stat-explanation/SKILL.md` (voice rules + worked-example template that the JSON prose fields must follow); `docs/reference/stat-display-surfaces.md` (surface index — `<ExplainStatReceipt>` is a new entry under §1g of that doc once shipped) |
 
@@ -304,7 +304,42 @@ New Pydantic models in `backend/app/models/api.py`:
 
 ```python
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+import re
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+# Module-level helper used by both StatComponent and ExplainStatReceipt
+# prose-field validators. Catches Gemma echoing the system-appendix
+# placeholder sentinels back into the JSON instead of replacing them
+# with real prose. This is a silent-correctness failure mode genai-
+# architect flagged on v1.2 — without this guard a string like
+# "__FILL_IN__" or "[ONE-SENTENCE DEFINITION HERE]" would pass Pydantic
+# validation and render to the student.
+_SENTINEL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"__FILL[_ ]IN__", re.IGNORECASE),
+    re.compile(r"\[\s*FILL[\s_-]*IN", re.IGNORECASE),
+    re.compile(r"<\s*FILL[\s_-]*IN", re.IGNORECASE),
+    re.compile(r"\bONE-SENTENCE\s+DEFINITION\s+HERE\b", re.IGNORECASE),
+    re.compile(r"\bPLACEHOLDER\b", re.IGNORECASE),
+)
+
+
+def _reject_sentinel_passthrough(value: str) -> str:
+    """Reject prose strings that contain unreplaced template sentinels.
+
+    Used as a Pydantic field_validator on every prose field
+    (one_liner, components[*].explainer, components[*].anchor_text,
+    why_mix_paragraph). Triggers the markdown fallback path when
+    Gemma echoes the appendix's placeholder sentinels back instead of
+    writing real content.
+    """
+    for pattern in _SENTINEL_PATTERNS:
+        if pattern.search(value):
+            raise ValueError(
+                f"prose field contains unreplaced template sentinel: "
+                f"{value[:80]!r}"
+            )
+    return value
 
 
 class ReceiptSource(BaseModel):
@@ -383,6 +418,15 @@ class StatComponent(BaseModel):
             "why in plain English (e.g. 'no median earnings reported for "
             "this program yet'). Server-stamped, not from Gemma."
         ),
+    )
+
+    # Sentinel-passthrough guards: reject Gemma echoing the system-
+    # appendix placeholders back instead of replacing them.
+    _reject_sentinel_explainer = field_validator("explainer")(
+        _reject_sentinel_passthrough
+    )
+    _reject_sentinel_anchor_text = field_validator("anchor_text")(
+        _reject_sentinel_passthrough
     )
 
 
@@ -475,6 +519,17 @@ class ExplainStatReceipt(BaseModel):
             "Pydantic validation failure → fallback fires (rather than "
             "rendering a half-sentence)."
         )
+    )
+
+    # Sentinel-passthrough guards: reject Gemma echoing the system-
+    # appendix placeholders back instead of replacing them. Without
+    # these, a string like "__FILL_IN__" would pass Pydantic and
+    # render to the student. genai-architect v1.2 re-review concern.
+    _reject_sentinel_one_liner = field_validator("one_liner")(
+        _reject_sentinel_passthrough
+    )
+    _reject_sentinel_why_mix = field_validator("why_mix_paragraph")(
+        _reject_sentinel_passthrough
     )
 ```
 
@@ -621,10 +676,11 @@ def _log_receipt_parse(
     """
 ```
 
-Existing helper `_ern_explain_appendix(career: CareerOutcome) -> str` keeps its signature; the body is rewritten per the v1.2 changes:
-- Replaces the markdown four-section template with a single filled-in JSON example carrying `__FILL_IN__` sentinels for prose fields and realistic numeric placeholders (Decision 15 / genai-architect finding 2).
+Existing helper `_ern_explain_appendix(career: CareerOutcome) -> str` keeps its signature; the body is rewritten per the v1.2 + v1.3 changes:
+- Replaces the markdown four-section template with a single filled-in JSON example carrying `__FILL_IN__` sentinels for prose fields and realistic numeric placeholders (Decision 15 / genai-architect v1.1 finding 2).
 - Inlines the relevant SKILL.md voice rules verbatim (percentile-gloss inline format, acronym-first-use, `why_mix_paragraph` calibration target — ~3-sentence "two students" contrast).
 - Splits the score-reference voice-rule relaxation: lifted for `value_pct` and `anchor_dollars` JSON numeric fields, retained as an explicit prohibition for `one_liner`, `explainer`, `why_mix_paragraph` ("Do not write 'N/10', 'your score is N', or any numeric score reference in any prose field — score display is the UI's responsibility").
+- **Sentinel-passthrough prohibition (v1.3 — genai-architect re-review).** The appendix concludes with an explicit instruction: *"The example above shows the JSON structure. The strings `__FILL_IN__`, `[FILL_IN]`, `<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`, and `PLACEHOLDER` are placeholders ONLY — they MUST be replaced with your actual content. Echoing them back verbatim will fail validation and the receipt will not render."* This is the appendix-side companion to the Pydantic `field_validator` guard.
 
 `gemma_client.generate_with_tools_loop` signature change:
 
@@ -729,6 +785,7 @@ These tests must NOT break. If they fail, escalate per §10:
 | P0 | `backend/tests/services/test_ask_gemma_explain_receipt.py` | `test_postprocess_rejects_wrong_stat_code` | Gemma emits `stat_code: "ROI"` for an ERN explain request → assertion fails → returns None. **genai-architect Condition 5a.** |
 | P0 | `backend/tests/services/test_ask_gemma_explain_receipt.py` | `test_postprocess_overwrites_math_line_unconditionally` | Gemma emits `math_line: "I made this up"` → server overwrites with the actual `_render_math_line(...)` output. The string Gemma sent NEVER appears in the receipt. **genai-architect Condition 5b.** |
 | P0 | `backend/tests/services/test_ask_gemma_explain_receipt.py` | `test_postprocess_rejects_truncated_why_mix_paragraph` | Gemma emits a `why_mix_paragraph` string of length 801+ → Pydantic `max_length=800` rejects → returns None → fallback fires. **genai-architect Condition 5c.** |
+| P0 | `backend/tests/services/test_ask_gemma_explain_receipt.py` | `test_postprocess_rejects_sentinel_passthrough` | Gemma echoes `"one_liner": "__FILL_IN__"` (or `"[FILL_IN]"`, `"<FILL_IN>"`, `"PLACEHOLDER"`, `"ONE-SENTENCE DEFINITION HERE"`) verbatim from the appendix's filled-in JSON example → Pydantic `field_validator` raises → returns None → fallback fires. Covers all five sentinel patterns across all four prose fields (`one_liner`, `components[*].explainer`, `components[*].anchor_text`, `why_mix_paragraph`). **genai-architect v1.2 re-review concern — silent correctness failure mode.** |
 | P0 | `backend/tests/services/test_ask_gemma_explain_receipt.py` | `test_postprocess_label_normalization_match_by_weight` | Gemma emits `components[0].weight_pct=60, label="program rank"` (off-script) → `_normalize_label` matches by `weight_pct=60` → replaces with canonical "your school's program rank" → WARNING logged with both values. **Decision 14 + genai-architect Condition 6.** |
 | P0 | `backend/tests/services/test_ask_gemma_explain_receipt.py` | `test_postprocess_label_normalization_handles_swap` | Gemma swaps the labels (60% component carries the 40% canonical label) → match-by-weight catches the swap → both labels normalized to their canonical forms. |
 | P0 | `backend/tests/services/test_ask_gemma_explain_receipt.py` | `test_postprocess_logs_structured_record_on_success` | After a successful parse, `_log_receipt_parse` appends one structured record to `gemma.jsonl` with `parse_success=True`, `failure_reason=None`, plus `call_site`, `json_prefix`, `build_id`, `backend`. Assert by tailing the test log file or mocking the writer. **genai-architect Condition 6.** |
@@ -821,6 +878,62 @@ None. The architecture is sound; the concerns above are all addressable inside �
 6. **§4 File Changes — frontend cascade:** Expand the `frontend/src/api/menu.ts` row to enumerate the response-type cascade: `parseSSEFrame.final_text`, `AskGemmaStreamResult.response`, `let response` in `askGemmaStream`, the mock + fallback synthetic `final_text` events. Same row for `GemmaChat.tsx` should call out lines 207, 239, 248, 280, 287.
 7. **§4 Data Model — discriminator field:** Add a `kind: Literal["text", "receipt"]` (or rename + literal) to `TraceFinalText` so the frontend Zod validator can use `z.discriminatedUnion`. Avoid object-shape sniffing as the load-bearing parser strategy.
 8. **§2 Decisions — add Decision 14 (label allowlist):** Document the per-stat allowlist behavior (normalize vs reject) and where the allowlist lives. Promote the P1 test to P0 if "normalize" is the policy.
+
+### @fp-architect Re-Review (v1.2)
+**Status:** APPROVED
+**Reviewed:** 2026-05-02
+
+#### System Context
+v1.2 was authored to address the eight conditions returned in the v1.1 re-review (CHANGES REQUESTED). The architectural surface is unchanged — same three layers (gemma_client kwarg, ask_gemma post-processor, AskResponse/TraceFinalText union widening) and the same sentinel-triggered branch in `chat_ask` / `chat_ask_stream`. The v1.2 changes are tightening moves on contracts, scope, and observability, not redrawing data flow. I am re-reading §1-§4 and the §4 Testing Impact Analysis only — sections owned by other reviewers (§3, design audit, code review, verification) are out of scope for this pass.
+
+#### Per-Condition Verification
+
+1. **§4 Service Changes — gemma_client JSON-mode plumbing.**
+   RESOLVED. §4 File Changes row for `gemma_client.py` now spells out per-backend translation: OpenAI-compat path passes `response_format={"type":"json_object"}` verbatim into `completion_kwargs`; native Ollama path translates the same kwarg to `payload["format"] = "json"` before the httpx POST, with the translation hidden inside `_one_tool_turn_ollama` so the public kwarg API stays uniform. The two P0 tests (`test_response_format_propagates_to_openrouter_path`, `test_response_format_translates_to_ollama_native_payload`) lock both paths. The §4 Architecture Overview point 1 and the Gemma-touching extra discipline table (`INFERENCE_BACKEND=ollama` / `INFERENCE_BACKEND=openrouter` rows) cross-reference the same translation. Condition 1 is fully addressed.
+
+2. **§2 Decisions — Decision 13 (effort-shift coherence).**
+   RESOLVED. Decision 13 explicitly resolves the build-callout vs derived-math disagreement: math_line shows the unshifted percentile derivation; when `effort != "balanced"` an explicit effort line is appended ("Your **Focused** effort setting lifts this to 9/10"). The contract is mirrored in §1 Success Criterion #11, in `_render_math_line`'s docstring under §4 Service Changes, and in three P0 tests (`test_render_math_line_balanced_effort`, `_focused_effort`, `_chill_effort`). The two N-values are now visibly reconciled by the explicit effort line rather than silently disagreeing. Condition 2 is fully addressed.
+
+3. **§4 Service Changes — fallback path caches tool_call_log.**
+   RESOLVED. Decision 6 is refined v1.2 in the decision table; §4 Architecture Overview's Fallback path paragraph specifies the cached `tool_call_log` is injected into the markdown-fallback's user message ("Here are the values from your build: cip_family_earnings_rank=X, ..."); the Gemma-touching-extra-discipline "Fallback when JSON parsing fails" row reiterates "no MCP re-fetch happens"; and P0 test `test_chat_ask_ern_explain_fallback_uses_cached_tool_log` asserts MCP dispatch count == 2 (one per tool, ONE attempt). Wall-time exposure is documented as ~10-15s instead of ~50-60s. Condition 3 is fully addressed.
+
+4. **§1 Success Criteria + §2 Decision 10 — soften AURA generality claim.**
+   RESOLVED. Decision 10 is rewritten to "generic across ERN, ROI, RES, and GRW; AURA explicitly excluded" with the additive-not-breaking framing for the future AURA spec. §1 Success Criterion #11 carries the same scoping verbatim, including the explicit "AURA's institution-level provenance does not fit the StatComponent shape" sentence that mirrors my v1.1 finding. The §4 Out of Scope row for AURA still parks it correctly. The honest scoping is in place. Condition 4 is fully addressed.
+
+5. **§4 Service Changes — null-build-stat guard.**
+   RESOLVED. `_postprocess_ern_explain_receipt`'s 10-step pipeline (§4 Architecture Overview point 3) explicitly returns None at step 5 when `build.career.stats.ern is None`. The helper docstring under Service Changes documents the guard ("If build.career.stats.ern is None -> None (belt-and-suspenders; the trigger button should be disabled in this case)"). The `score` field description in the Pydantic model points at the same behavior. P0 test `test_chat_ask_ern_explain_returns_none_when_build_score_null` covers it. Condition 5 is fully addressed.
+
+6. **§4 File Changes — frontend cascade.**
+   RESOLVED. The `frontend/src/api/menu.ts` row now enumerates seven sub-bullets covering: (a) `parseSSEFrame` `final_text` branch preserving non-string payloads, (b) `AskGemmaStreamResult.response` widening, (c) `let response = ""` initialization widening, (d) synthetic `final_text` events in mock + fallback paths, (e) `mockChat` and (f) `sendChat` returning string unchanged, (g) Zod runtime parse with string-fallback on parse failure. The `GemmaChat.tsx` row enumerates lines 207, 239, 248, 262, 280, 287 plus the renderer dispatch (`item.kind === "text"` vs `"receipt"`). The new `frontend/src/types/chat.ts` file is added to centralize the discriminated union. Implementer cannot ship a half-typed cascade and discover it via tsc. Condition 6 is fully addressed.
+
+7. **§4 Data Model — discriminator field.**
+   RESOLVED. `ExplainStatReceipt` carries `kind: Literal["receipt"] = "receipt"` as a self-discriminator field at the model root with a clear field description explaining its purpose. The §4 Architecture Overview point 4 and the §4 File Changes row for `api.py` both surface the field. The frontend Zod parser is documented as `z.union([z.string(), z.object({kind: z.literal("receipt"), ...})])` in the `menu.ts` cascade and exercised by two P0 tests (`test_zod_parser_distinguishes_string_vs_receipt`, `test_zod_parser_falls_back_to_string_on_invalid_object`). Object-shape sniffing is no longer the load-bearing parser strategy. Condition 7 is fully addressed.
+
+8. **§2 Decisions — Decision 14 (label allowlist).**
+   RESOLVED. Decision 14 documents the normalize-not-reject policy with the match-by-weight-first guard against the swap-component-labels case. The `_ERN_LABEL_ALLOWLIST: dict[int, str]` constant is enumerated under §4 File Changes (60 → "your school's program rank", 40 → "this career's pay rank"). The `_normalize_label(weight_pct, gemma_label, allowlist) -> tuple[str, bool]` helper signature and docstring under §4 Service Changes specify the match strategy. Three P0 tests cover the cases (`test_postprocess_label_normalization_match_by_weight`, `_handles_swap`, plus the WARNING log assertion via `test_postprocess_logs_structured_record_*`). Condition 8 is fully addressed.
+
+#### Findings
+
+##### Sound (additive observations on v1.2)
+- **Decision 15 (synthesis-turn-only response_format scoping)** — the v1.2 spec adopts genai-architect's synthesis-turn-only fix as a first-class decision, with a dedicated `final_turn_response_format` kwarg name that makes the scoping explicit at every call site. Cross-cutting tests at `test_final_turn_response_format_synthesis_only` and the mock-loop trace verify the scoping. This is architecturally correct and prevents the OpenRouter tool-call-suppression failure mode that was implicit in the v1.1 design.
+- **`_extract_json_objects` reuse** — explicitly documented as step 1 of the helper pipeline (Architecture Overview point 3). Two P0 tests cover the markdown-fence and trailing-prose extraction modes. Avoids re-implementing the existing primitive. Clean.
+- **Structured `gemma.jsonl` log records** — `_log_receipt_parse` is a properly-typed helper with a fixed schema and an enumerated `failure_reason` set (`pydantic_validation`, `json_decode`, `stat_code_mismatch`, `score_null`). The `call_site == "explain_ern_receipt"` filter for `parse_success_rate` aggregation is a good production-monitoring pattern. The §1 Success Criteria add the "Per-parse structured log record" criterion, locking in observability.
+- **Voice-rule scoping split** — Decision 15 supporting paragraph + the §4 Service Changes appendix-rewrite bullet codify the split: numeric-field score-reference relaxation (`value_pct`, `anchor_dollars`) vs. prose-field score-reference prohibition (`one_liner`, `explainer`, `why_mix_paragraph`). The Pydantic field descriptions on `one_liner` and `why_mix_paragraph` carry the prohibition inline. This blocks the prose/score divergence failure mode genai-architect flagged.
+- **`why_mix_paragraph` `max_length=800`** — Pydantic-level truncation guard now in place; truncated outputs trigger fallback rather than rendering a half-sentence. Documented in the model definition and in `test_postprocess_rejects_truncated_why_mix_paragraph`.
+- **Filled-in JSON example with `__FILL_IN__` sentinels** — replaces the v1.1 "Pydantic model verbatim" prompt format. This is the right vehicle for Gemma 4 (per genai-architect finding 2) and is documented as the `_RECEIPT_JSON_TEMPLATE` constant under §4 File Changes.
+
+##### Concerns
+None remaining at the architecture layer. All eight v1.1 conditions are resolved; the additional v1.2 changes (Decision 15, structured logging, `max_length=800`, voice-rule scoping split, JSON-template format) are net improvements that close failure modes the v1.1 design left open.
+
+##### Blockers
+None.
+
+#### Verdict
+- [x] APPROVED
+- [ ] CHANGES REQUESTED
+- [ ] REJECTED
+
+Spec is ready to advance to **Phase 2: Design Vision** (@fp-design-visionary fills §3).
 
 ### @genai-architect Review
 **Status:** CHANGES REQUESTED
@@ -952,6 +1065,67 @@ The ten findings above surface four concrete implementation gaps that the spec d
 6. **§4 Service Changes — structured parse-failure logging:** `_postprocess_ern_explain_receipt` must append one structured record to `logs/gemma.jsonl` per call: `{call_site: "explain_ern_receipt", parse_success: bool, failure_reason: str | None, json_prefix: str, build_id: str, backend: str}`. Add a P0 test: `test_postprocess_logs_structured_record_on_failure`. Add to §1 Success Criteria: "Parse failure events are machine-parseable from `logs/gemma.jsonl` via the `call_site == 'explain_ern_receipt'` filter."
 
 7. **§2 Decisions — update out-of-scope AURA note:** The "same JSON-mode appendix template reused for ROI/RES/GRW/AURA" claim needs a correction: ROI/RES/GRW reuse the template with stat-specific substitutions; AURA requires a structurally different appendix (no blend contrast, institution-level provenance instead of percentile). Update the out-of-scope entry for the AURA spec to say "requires a different system-appendix structure, not just different tool arguments."
+
+### @genai-architect Re-Review (v1.2)
+**Status:** APPROVED
+**Reviewed:** 2026-05-02
+
+#### Per-Condition Verification
+
+1. **§4 Service Changes — `response_format` synthesis-turn-only scoping.**
+   ✅ RESOLVED — v1.2 renames the public kwarg to `final_turn_response_format` (making the scoping explicit at every call site), adds Decision 15 with the full rationale and implementation hook (`_tools_loop_inner` injects the constraint into `completion_kwargs` only when `not response_tool_calls`), and locks both paths with P0 test `test_final_turn_response_format_synthesis_only` asserting absence on tool-call turns and presence on the synthesis turn. The `final_turn_response_format` name is better than `response_format` precisely because it signals the scoping to any future implementer reading the call site.
+
+2. **§4 Service Changes — `_postprocess_ern_explain_receipt` extraction strategy.**
+   ✅ RESOLVED — Step 1 of the 10-step pipeline is now explicitly `_extract_json_objects(raw)` (the existing helper), handling both the markdown-fence and trailing-prose failure modes before attempting `json.loads`. Two P0 tests cover the concrete fence-wrap case (`test_postprocess_uses_extract_json_objects_first`) and the trailing-prose recovery case (`test_postprocess_extract_handles_trailing_prose`). The `_extract_json_objects` docstring reference to lines 815–846 in `gemma_client.py` prevents re-implementation of the primitive.
+
+3. **§4 Service Changes — voice-rule relaxation scoping.**
+   ✅ RESOLVED — v1.2 codifies the split explicitly: the "never state a raw score" prohibition is lifted ONLY for `value_pct` and `anchor_dollars` (JSON numeric fields); retained as an explicit prohibition on `one_liner`, `explainer`, and `why_mix_paragraph` (prose string fields). The Pydantic field descriptions on `one_liner` and `why_mix_paragraph` carry the inline prohibition ("Must NOT contain numeric score references like 'N/10' or 'your score is X'"). The `_ern_explain_appendix` rewrite bullet under §4 File Changes calls out the scoped relaxation and the explicit prose-field prohibition verbatim. The fp-architect re-review's "Sound" section also confirms this as a v1.2 improvement.
+
+4. **§4 Service Changes — system appendix prompt format.**
+   ✅ RESOLVED — v1.2 replaces "Pydantic model verbatim" with a "filled-in JSON example with `__FILL_IN__` sentinel strings for prose fields and realistic numeric placeholders." The constant is renamed `_RECEIPT_JSON_TEMPLATE` (not `_RECEIPT_JSON_SCHEMA`). The appendix rewrite bullet documents inlining the SKILL voice rules (percentile-gloss inline format, acronym-first-use, `why_mix_paragraph` calibration target) verbatim at inference time, since Gemma has no SKILL.md access. The fp-architect re-review confirms the change under the "Sound" section.
+
+5. **§4 Service Changes — additional validations.**
+   ✅ RESOLVED — All three sub-conditions addressed: (a) Step 4 of the pipeline asserts `receipt.stat_code == "ERN"`, returns None on mismatch; P0 test `test_postprocess_rejects_wrong_stat_code` covers it. (b) Step 6 (renumbered from the v1.1 position) server-builds `math_line` unconditionally via `_render_math_line()`; the helper docstring explicitly states "the value Gemma emits in this field (if any) is discarded"; P0 test `test_postprocess_overwrites_math_line_unconditionally` covers it. (c) `why_mix_paragraph` carries `Field(max_length=800)` in the Pydantic model definition; P0 test `test_postprocess_rejects_truncated_why_mix_paragraph` covers the truncation-triggers-fallback path.
+
+6. **§4 Service Changes — structured parse-failure logging.**
+   ✅ RESOLVED — `_log_receipt_parse` is now a documented helper with the exact log-record shape: `{call_site: "explain_ern_receipt", parse_success: bool, failure_reason: "pydantic_validation"|"json_decode"|"stat_code_mismatch"|"score_null"|None, json_prefix: str, build_id: str, backend: "ollama"|"openrouter"}`. INFO on success, WARNING on failure. Step 10 of the pipeline emits the record. §1 Success Criteria adds the "Per-parse structured log record" criterion explicitly (including the metric derivation pattern). Two P0 tests cover both branches: `test_postprocess_logs_structured_record_on_success` and `test_postprocess_logs_structured_record_on_failure`.
+
+7. **§2 Decisions — out-of-scope AURA note correction.**
+   ✅ RESOLVED — Decision 10 is rewritten in v1.2 to explicitly exclude AURA from the generality claim. The revised text states "AURA explicitly excluded — its institution-level provenance does not fit the StatComponent shape... future AURA spec adds one additive root-level field." The "same template" claim is gone; the fp-architect re-review's Condition 4 (AURA softening) was addressed in the same pass that addressed my Condition 7, and both reviewers agree the current framing is honest.
+
+#### New LLM-Integration Concerns
+
+Three new concerns were raised for explicit verification:
+
+**Concern A — `_log_receipt_parse` JSONL safety and concurrent-write handling.**
+No issue. The spec documents `_log_receipt_parse` as appending a record to `logs/gemma.jsonl`. Inspection of `gemma_client.py` confirms that all writes to `gemma.jsonl` flow through `_log_exchange(record: dict[str, Any]) -> None`, which acquires `_log_lock` (a `threading.Lock`) before opening the file and writing the line (`with _log_lock, path.open("a", ...) as fh: fh.write(line + "\n")`). The lock is module-level, covers the full `open+write` critical section, and is documented at lines 233–239 with an explicit rationale ("POSIX write atomicity only holds up to PIPE_BUF... a full Gemma record can reach 10-20 KB"). Every caller of `_log_exchange` inherits the lock. The spec documents `_log_receipt_parse` as calling into this existing infrastructure — it does not open the file directly. Each record is a single `json.dumps` call producing one line, which is exactly the JSONL format (`\n`-delimited JSON objects, one per line). Concurrent writes are safe and the output is machine-parseable as JSONL. No gap here.
+
+**Concern B — `__FILL_IN__` sentinels and Gemma literal-passthrough risk.**
+This is a real but manageable risk that the spec does not fully resolve. Gemma 4 is a strong few-shot learner and typically replaces placeholder strings when the JSON context makes the intent clear ("fill in this string value with the appropriate content"). However, at temperature 0, if the sentinel string `"__FILL_IN__"` appears in the model's training data as a literal instruction-following marker (which is plausible given web-scraped instruction-tuning data), some fraction of completions may emit the sentinel verbatim in a prose field.
+
+The spec states the template uses `"__FILL_IN__"` sentinels but does not show the template itself or specify what surrounding instruction text frames the sentinels. The critical gap is: **the spec does not document a clear instruction in the appendix telling Gemma to replace sentinels**. Without an explicit phrase such as "Replace every `__FILL_IN__` string with the appropriate content for this student's program and career — do not emit the literal string `__FILL_IN__` in your response," a Gemma completion that passes back `"one_liner": "__FILL_IN__"` will: (a) pass `json.loads` successfully, (b) pass Pydantic validation (string type, no `max_length` constraint on `one_liner`), and (c) render the literal sentinel string in the student's chat. This is a silent correctness failure, not a parse failure. The fallback never fires.
+
+The mitigation is a one-line addition to the appendix instruction and a Pydantic `min_length=1` constraint on the prose fields (or a custom validator that rejects the sentinel string). The spec should add either: (a) an explicit Pydantic validator `@field_validator("one_liner", "explainer", "why_mix_paragraph") def not_sentinel(cls, v): assert "__FILL_IN__" not in v; return v`, or (b) document in the appendix instruction that `__FILL_IN__` must never appear in the output and add a post-processing check in step 3 of the pipeline that treats any receipt containing the literal string as a parse failure (returns None → fallback). Without one of these guards, the sentinel passthrough is a production correctness risk that the test suite will not catch (since test mocks return valid JSON, not Gemma-generated completions).
+
+**Concern C — Fallback path trace-event continuity.**
+No issue. The spec is clear on this in multiple places: Decision 9 states the trace-rail UX is "byte-identical to the spike — same `TraceTurnStart` and `TraceTurnComplete` events, same ordering, same timing." The fp-architect review confirms at lines 789–790: "Verified at `ask_gemma.py:702-712` — the on_turn callbacks build `TraceTurnComplete` from `ToolCallTurn` fields, never the final text." When the fallback path runs, it re-uses the **cached `tool_call_log`** from the first (JSON-mode) attempt — it does NOT re-run the tool calls. The cached `ToolCallTurn` objects already carry the trace event data (`TraceTurnStart`, `TraceTurnComplete`) that were emitted during the first attempt. The second (markdown) pass runs without tool calls, so it emits no new trace events; the trace rail shows the same tool-call events from attempt 1 plus the final text from attempt 2. This is the correct behavior: the student sees two real tool calls in the trace (fetched once) and then the markdown receipt. The "frozen trace rail" risk would exist only if the fallback emitted a new `TraceTurnStart` for tools that never fired — but since no new tool calls happen on the fallback path, no new trace events are emitted, and the rail remains in its post-tool-call state. The §1 Success Criterion "The trace-rail UX is byte-identical to the spike" and Decision 9 both confirm this. No gap.
+
+#### Summary
+
+All seven v1.1 conditions are fully resolved. One new concern (Concern B — `__FILL_IN__` sentinel passthrough) is a real production correctness risk not covered by the current spec. It will not be caught by the test suite because tests use mock JSON fixtures rather than live Gemma completions. The fix is small: add a sentinel-check guard in the post-processing pipeline (step 3 or as a Pydantic validator) and an explicit instruction in the appendix.
+
+The other two new concerns (concurrent-write safety, fallback trace continuity) are non-issues based on the existing codebase implementation.
+
+#### Verdict
+- [ ] APPROVED
+- [x] CHANGES REQUESTED
+- [ ] REJECTED
+
+#### Conditions (CHANGES REQUESTED)
+
+1. **`__FILL_IN__` sentinel passthrough guard.** The spec must add one of the following: (a) a Pydantic custom validator on `one_liner`, `explainer`, `components[*].explainer`, and `why_mix_paragraph` that rejects any value containing the literal string `"__FILL_IN__"` (causes Pydantic `ValidationError` → returns None → fallback fires), OR (b) a step 3.5 in the `_postprocess_ern_explain_receipt` pipeline that scans the parsed dict for any string value matching `"__FILL_IN__"` and returns None if found. Either guard must be paired with an explicit prohibition in the `_ern_explain_appendix` body: "Do not emit the literal string `__FILL_IN__` in your response — replace every placeholder with the actual content for this student." A P0 test `test_postprocess_rejects_sentinel_passthrough` should assert that a receipt containing `"one_liner": "__FILL_IN__"` returns None. Without this guard, Gemma silently producing sentinel strings is a correctness failure that never triggers the fallback and renders garbage to the student.
+
+---
 
 ### @fp-data-reviewer Review
 **Status:** SKIPPED — no pipeline, schema, or data-formula changes. Existing `cip_family_earnings_rank` and `wage_percentile_overall` columns are read; no transformation, no re-promotion.
