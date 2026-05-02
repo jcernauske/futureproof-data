@@ -1957,13 +1957,275 @@ Items requiring fix before Phase 6, grouped by priority:
 **W3** (invalid HTML) is also recommended for fix before ship.
 
 ### Code Review (@faang-staff-engineer)
-**Status:** PENDING
+**Status:** CHANGES REQUIRED
+**Reviewed:** 2026-05-02
+**Reviewer note.** This was a thorough audit — security, performance, error handling, the cached-fallback contract, JSON-mode synthesis-turn scoping, and trust boundaries between Gemma's output and the server-stamped fields. The architecture is sound and the spec's calls (server owns numbers, Gemma owns voice, `extra="forbid"`, sentinel-passthrough validator) are correctly realized in code. The trust boundary work is solid and the JSON-mode threading is correct. There are, however, four bugs worth fixing before merge — one of them rendering-correctness (`[object Object]` leaking to the user), one user-facing copy (effort labels not matching the actual `EffortLevel` literal set), one silent data-loss (`tool_result_preview` truncated below the size of a real `get_career_paths` result), and one effort-line-suppression edge case. Tests pass, but two test cases assert behavior on inputs that cannot occur in production (`effort="chill"`).
+
 #### Findings
-[Filled in by reviewer — security (JSON injection?), performance (parser overhead), error handling (fallback paths), architectural consistency with existing Ask Gemma patterns.]
+
+##### 🔴 BLOCKERS
+
+**B1. The frontend Zod fallback renders `[object Object]` to the user when an object payload fails the receipt schema.**
+**Location:** `frontend/src/api/menu.ts:175-184` (`parseFinalTextResponse`).
+**Impact:** Concern #5 from the prompt is a real bug. When `final_text.response` is a non-string, non-receipt-shaped object (malformed wire payload, schema drift, partial Pydantic-rejected serialization on the server, or — the realistic case — a future receipt-schema bump where the frontend ships before the backend does), `safeParse` returns `{success: false}` and the function falls through to `return String(value ?? "")`. `String({foo: 1})` → `"[object Object]"`. The string lands in the chat history as if it were a normal Gemma reply and gets rendered verbatim by `<ChatMessage>`. The student sees the literal text **`[object Object]`** in their chat. This is the exact UX disaster the prompt called out.
+```typescript
+// CURRENT — broken
+function parseFinalTextResponse(value: unknown): string | ExplainStatReceipt {
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    const result = explainStatReceiptSchema.safeParse(value);
+    if (result.success) return result.data;
+  }
+  return String(value ?? "");  // returns "[object Object]" for any object that fails Zod
+}
+```
+**The Fix:** Return a graceful fallback string for the malformed-object case. The Test §7 fixture `test_zod_parser_falls_back_to_string_on_invalid_object` should also be tightened so it asserts the fallback is NOT `"[object Object]"`.
+```typescript
+function parseFinalTextResponse(value: unknown): string | ExplainStatReceipt {
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    const result = explainStatReceiptSchema.safeParse(value);
+    if (result.success) return result.data;
+    // Object failed Zod — don't leak [object Object] to the user.
+    return "";  // empty string falls through to the chat_unavailable rail at the renderer level
+  }
+  return typeof value === "string" ? value : "";
+}
+```
+Severity: 🔴 Critical — direct user-facing rendering bug, easily reachable in production.
+
+**B2. `_render_math_line` effort labels don't match the actual `EffortLevel` literal set.**
+**Location:** `backend/app/services/ask_gemma.py:587-595` (`_render_math_line`); supporting test at `backend/tests/services/test_ask_gemma_explain_receipt.py:788-806`.
+**Impact:** The implementation calls `effort.capitalize()` to render the effort label inside the bold `**{Effort}**` segment. The actual `EffortLevel` literal in `backend/app/models/career.py:16` is:
+```python
+EffortLevel = Literal["working_hard", "working", "balanced", "focused", "all_in"]
+```
+For real builds, `_render_math_line` will render:
+- `effort="working_hard"` → `"Your **Working_hard** effort setting brings this to..."` ← reads as broken copy
+- `effort="working"` → `"Your **Working** effort setting brings this..."` ← acceptable but flat
+- `effort="all_in"` → `"Your **All_in** effort setting lifts this..."` ← reads as broken copy
+- `effort="focused"` → `"Your **Focused** effort setting lifts this..."` ← OK
+- `effort="balanced"` → no effort line (correct)
+
+The Phase 4 test `test_render_math_line_chill_effort` is testing an effort string (`"chill"`) that is not a valid `EffortLevel`. The test passes because `_render_math_line` accepts `effort: str` (typed loosely) and matches anything `!= "balanced"`. This is a test-passing-but-wrong-in-prod situation.
+
+**The Fix:** Add an effort-label lookup table and reject unknown values with a balanced-effort fallback (no effort line). Replace `effort.capitalize()` with the friendly form. Drop the `chill` test or rewrite it against `working` / `working_hard`.
+```python
+# At module top, beside _ERN_LABEL_ALLOWLIST.
+_EFFORT_LABELS: dict[str, str] = {
+    "working_hard": "Working Hard",
+    "working":      "Working",
+    "balanced":     "Balanced",
+    "focused":      "Focused",
+    "all_in":       "All-In",
+}
+
+def _render_math_line(...):
+    ...
+    if effort == "balanced" or unshifted == build_score:
+        return base
+    label = _EFFORT_LABELS.get(effort)
+    if label is None:
+        return base  # unknown effort — defensive: no effort line
+    direction = "lifts" if build_score > unshifted else "brings"
+    return f"{base}\nYour **{label}** effort setting {direction} this to {build_score}/{score_max}"
+```
+Severity: 🔴 Critical for product-quality. Working-effort and all-in students are the majority of explorers; what they see is the load-bearing UX moment of this entire spec.
+
+##### 🟠 SERIOUS
+
+**S1. `tool_result_preview` truncation at 500 bytes silently drops percentile data on real `get_career_paths` results.**
+**Location:** `backend/app/services/gemma_client.py:947` (`_TOOL_RESULT_PREVIEW_MAX = 500`); `backend/app/services/ask_gemma.py:507-552` (`_extract_tool_results`).
+**Impact:** Concern #6 in the prompt — confirmed real. `get_career_paths` returns `{"results": [<row>, ...]}` where each row is a multi-field object. With school+major substitution scenarios surfacing many rows in `cipcode` family neighbors, the response is regularly multi-kilobyte. `_extract_tool_results` calls `json.loads(turn.tool_result_preview)` against a string truncated to 500 bytes — almost guaranteed to land mid-array on a real `program_career_paths` result, which makes `json.loads` raise `JSONDecodeError`. The function silently `continue`s past the failed turn. The result: `cip_rank=None, earnings=None`, even when the data was actually fetched correctly. The receipt then fires the missing-data UI, the cached-fallback path also shows "n/a", and the markdown fallback's user-message-injection block reads `cip_family_earnings_rank = None` despite the tool having returned a valid value.
+```python
+# In gemma_client.py:1189
+tool_result_preview=result_str[:_TOOL_RESULT_PREVIEW_MAX],  # 500 bytes — too small
+```
+This is silent data-loss; nothing alerts (the truncation is invisible to `_extract_tool_results`). Symptoms in production will look like "lots of programs randomly hit the missing-data path."
+**The Fix:** Either (a) raise `_TOOL_RESULT_PREVIEW_MAX` to a value that comfortably holds typical results (4096 or 8192), or (b) carry the un-truncated result on `ToolCallTurn` for server-side post-processing while keeping the truncation purely for the frontend trace-rail preview. (b) is cleaner; the truncation exists for the SSE wire size of the trace UI, not for downstream consumers. Add a non-truncated `tool_result_full: str` field on `ToolCallTurn` (server-only — exclude from `TraceTurnComplete` Pydantic serialization) and have `_extract_tool_results` read from it.
+Severity: 🟠 Serious — silent correctness regression on the gold path.
+
+**S2. `_render_math_line` halfway-case suppresses the effort line when one percentile is None.**
+**Location:** `backend/app/services/ask_gemma.py:578-595`.
+**Impact:** Concern #8 in the prompt — confirmed. When `cip_rank` is None XOR `wage_pct` is None (one missing, one present — the realistic single-missing-data state), the function falls back to `unshifted = build_score` (line 580). The next gate at line 587 is `if effort == "balanced" or unshifted == build_score: return base`. Because we set `unshifted = build_score`, the condition collapses to True for ALL non-balanced efforts when one percentile is null. **The effort-line is unconditionally suppressed in the halfway-missing case.** A focused-effort student with missing school-rank data sees the math line `0.6 × n/a + 0.4 × 0.37 → score 7/10` and no effort-line annotation — but their score `7/10` was effort-shifted from a build-derived value, and the receipt is silent about that shift. Decision 13 explicitly calls out the effort signal as load-bearing for trust ("two different N-values that fundamentally undermine the explainer's purpose"). Suppressing the effort-line silently is exactly the trust-collapse Decision 13 was designed to prevent.
+**The Fix:** When one percentile is null, render the math line as `→ score N/M` using `build_score` directly, but keep the effort-line independent of the unshifted/shifted comparison — drive it solely from `effort != "balanced"`.
+```python
+def _render_math_line(...):
+    cip_str = f"{cip_rank:.2f}" if cip_rank is not None else "n/a"
+    wage_str = f"{wage_pct:.2f}" if wage_pct is not None else "n/a"
+
+    if cip_rank is not None and wage_pct is not None:
+        raw = 0.6 * cip_rank + 0.4 * wage_pct
+        unshifted = max(1, min(score_max, int(1.0 + 9.0 * raw + 0.5)))
+        base_score = unshifted
+    else:
+        # Halfway / both-missing: math can't be derived; show build_score in the arrow.
+        unshifted = None
+        base_score = build_score
+
+    base = f"0.6 × {cip_str} + 0.4 × {wage_str} → score {base_score}/{score_max}"
+
+    if effort == "balanced":
+        return base
+    # When the unshifted derivation is available AND equal to build_score, no effort line.
+    if unshifted is not None and unshifted == build_score:
+        return base
+
+    label = _EFFORT_LABELS.get(effort)
+    if label is None:
+        return base
+    if unshifted is None:
+        # No derivation — say the effort applies, without claiming a "from-N to M" delta.
+        return f"{base}\nYour **{label}** effort setting is reflected in this score"
+    direction = "lifts" if build_score > unshifted else "brings"
+    return f"{base}\nYour **{label}** effort setting {direction} this to {build_score}/{score_max}"
+```
+Severity: 🟠 Serious — silent trust regression in a state the spec explicitly considered.
+
+**S3. The streaming markdown fallback is awaited inline, defeating the SSE-disconnect cleanup contract.**
+**Location:** `backend/app/services/ask_gemma.py:1314-1328`.
+**Impact:** The streaming generator wraps the JSON-mode `loop_task` in `asyncio.create_task(...)` and the `finally` cancels it on client disconnect (lines 1340-1349) so the Gemma semaphore releases within ~100ms. But the markdown-fallback retry calls `await gemma_client.generate_with_tools_loop(...)` directly inline (line 1315-1328) instead of as a task. If the SSE client disconnects during the fallback's await, FastAPI raises `GeneratorExit` at the next `yield` — but the `await` on the fallback isn't cancellable from the `finally`, so the Gemma call holds its semaphore for up to the 30s `max_wall_time_s` cap. Decision C4 explicitly calls out the semaphore-release contract; the fallback path silently violates it.
+**The Fix:** Wrap the fallback in `asyncio.create_task` and pin it to a local that the `finally` block can cancel.
+```python
+fallback_task = asyncio.create_task(
+    gemma_client.generate_with_tools_loop(
+        system=markdown_system, user=markdown_user, tools=[], ...
+    )
+)
+try:
+    text, _ = await fallback_task
+except Exception as exc:
+    logger.warning("ern_explain_receipt fallback failed: %s", exc)
+    text = ""
+# In finally: also cancel fallback_task if not done.
+```
+And teach the existing `finally` to cancel `fallback_task` too.
+Severity: 🟠 Serious — semaphore starvation under load with disconnecting clients.
+
+**S4. `score_max` is not server-stamped or validated.**
+**Location:** `backend/app/models/api.py:372-378`; `backend/app/services/ask_gemma.py:768`.
+**Impact:** The Pydantic field declares `score_max: int = Field(default=10, ...)` with NO `ge`/`le` bounds. Gemma can emit `score_max: 100` and Pydantic accepts it. The server then passes that value into `_render_math_line(..., score_max=receipt.score_max, ...)`, which renders `→ score N/100`. The frontend consumes `payload.score_max` to render `9 / 10` — with `score_max=100` it renders `9 / 100`. The score callout becomes silently wrong. Concern #7 in the prompt ("server stamps score, why not score_max?") is a fair worry — `score` is unconditionally stamped, but `score_max` isn't.
+**The Fix:** Either (a) constrain via Pydantic — `score_max: int = Field(default=10, ge=1, le=10)` for v1.0 since the field is "fixed at 10 in v1.0" per the schema docstring; or (b) server-stamp it to 10 in `_postprocess_ern_explain_receipt` step 6 alongside the score override.
+```python
+# In _postprocess_ern_explain_receipt, alongside step 6:
+receipt.score = build_score
+receipt.score_max = 10  # spec says fixed at 10 for v1.0
+```
+Severity: 🟠 Serious — small attack surface (Gemma error window), but the schema's "trust the server" promise is stronger if `score_max` is also server-controlled.
+
+##### 🟡 MODERATE
+
+**M1. Sentinel passthrough regex `\bPLACEHOLDER\b` is over-eager for legitimate prose.**
+**Location:** `backend/app/models/api.py:223`.
+**Impact:** Concern #10 in the prompt — there is real risk, but it's contained. The ERN-explain prose is constrained to school+major+career topics; a student typing the sentinel `[explain-this:ERN]` is locked to that narrow surface. The chance Gemma's prose contains the standalone word "placeholder" is low. However: when the SKILL.md guidance evolves or a future stat-explain reuses the schema, the regex becomes more brittle. The other four sentinels are well-bounded (`__FILL_IN__`, `[FILL_IN]`, `<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`); only `\bPLACEHOLDER\b` matches a common English word. The over-eagerness costs a fallback round-trip (~5-10s) for a benign string match.
+**The Fix:** Tighten to either `r"\b__?PLACEHOLDER__?\b"` (matches `_PLACEHOLDER_` and `__PLACEHOLDER__` like the other sentinels) or remove this pattern entirely (the four bracketed/explicit ones cover the actual appendix text). The appendix actually doesn't write the literal "PLACEHOLDER" anywhere — only "placeholders" appears in the *prose* of the appendix instructions. Removing the standalone word from the regex set tightens the trust boundary without losing any actual sentinel coverage.
+Severity: 🟡 Moderate — defensive paranoia, low real-world hit rate.
+
+**M2. `_normalize_label` lowercase comparison loses canonical-string-distance tolerance.**
+**Location:** `backend/app/services/ask_gemma.py:599-618`; spec §6 deviation 2 acknowledges this.
+**Impact:** Concern #14 in the prompt. Spec Decision 14 calls for "match by weight first, then nearest-string-distance." Implementation matches by weight, then `.strip().lower()` equality. This means `"Your school's program rank"` (capitalized Y) gets normalized — fine, that's the swap case the function exists to solve. But the WARNING fires on every benign capitalization variant Gemma produces. The function is correctness-preserving (always lands on the canonical) but log-noisy.
+**The Fix:** Either accept the noise (the WARNING is informational and the parse_success_rate metric isn't affected), OR add `difflib.SequenceMatcher.ratio() > 0.85` as a "close enough; don't normalize" gate. The implementation as-is is acceptable; the spec deviation note in §6 is honest about it.
+Severity: 🟡 Moderate — log noise only, no correctness impact.
+
+**M3. `_extract_tool_results` doesn't dedupe / handle multiple turns of the same tool.**
+**Location:** `backend/app/services/ask_gemma.py:521-552`.
+**Impact:** The loop iterates `tool_call_log` and assigns `cip_rank` / `earnings` / etc. on every match. If Gemma calls `get_career_paths` twice (different cipcode arguments; e.g., it tried a substitution lookup then the canonical), the LAST matching turn wins. There's no guard for "use the turn whose `cipcode` argument matches `career.cipcode`." For most cases this is fine, but on substitution flows it's a quiet correctness footgun.
+**The Fix:** Match on tool args too. Filter tool calls where `turn.tool_args.get("cipcode") == build.career.cipcode` AND `turn.tool_args.get("unitid") == build.career.unitid`.
+Severity: 🟡 Moderate — substitution flows could see the wrong row's percentile.
+
+**M4. `_log_receipt_parse` `json_prefix` is the first 500 chars of Gemma's raw output. Includes student PII through the appendix.**
+**Location:** `backend/app/services/ask_gemma.py:639` (`json_prefix[:500]`).
+**Impact:** Concern #13 in the prompt. The appendix at `_ern_explain_appendix_json` injects `career.unitid`, `career.cipcode`, and `career.soc_code` into the system prompt. Gemma's raw response usually starts with `{"kind": "receipt", "stat_code": "ERN", "stat_name": "Earning Power", ...` — the first 500 chars typically do NOT include school+program names (those land deeper, in the explainer prose). But Gemma is non-deterministic; if it echoes "Indiana University Computer Science" in the `anchor_text` field early enough, the PII lands in `gemma.jsonl`. The current model leaks at most institution + program + career identifiers (no email, no SSN, no DOB). For the project's data-handling rules these are NOT considered PII (they're public-record school choices), but the team should explicitly say so in writing.
+**The Fix:** Either (a) confirm in writing that institution_name, program_name, and occupation_title are non-PII per project policy, or (b) hash/redact those three identifiers in `json_prefix` before logging. (a) is the lighter touch and matches the existing logging surface (`gemma_client._log_exchange` already records system+user prompts verbatim, which contain the same identifiers).
+Severity: 🟡 Moderate — depends on the team's PII classification.
+
+##### 🔵 MINOR
+
+**N1. The `_TOOL_RESULT_PREVIEW_MAX` constant is private but consumed across module boundaries by the explain-receipt path.**
+**Location:** `backend/app/services/ask_gemma.py` reads `gemma_client._extract_json_objects` and now indirectly depends on `gemma_client._TOOL_RESULT_PREVIEW_MAX`'s value being adequate for `_extract_tool_results` to deserialize. The cross-module coupling isn't documented.
+**The Fix:** Either expose a public constant or comment the dependency at the call site. Tied to S1's resolution — if `tool_result_full` becomes a separate field, the coupling goes away.
+Severity: 🔵 Minor — code-organization nit.
+
+**N2. `_postprocess_ern_explain_receipt` step 9 uses `weight_pct == 60` and `weight_pct == 40` as magic numbers.**
+**Location:** `backend/app/services/ask_gemma.py:787-810`.
+**Impact:** Future ROI/RES specs will reuse the same code shape; the hard-coded 60/40 weight values become a refactor obstacle. The `_ERN_LABEL_ALLOWLIST` already has the canonical weight->label mapping; the value-stamping logic should drive off the same allowlist or accept a config dict.
+**The Fix:** Optional cleanup; not blocking. ROI is a separate spec.
+Severity: 🔵 Minor.
+
+**N3. `int(cip_rank * 100 + 0.5)` halfway-rounding is correct but inconsistent with `_format_pct`.**
+**Location:** `backend/app/services/ask_gemma.py:790, 801` and `497-504`.
+**Impact:** `_format_pct` uses `int(value * 100 + 0.5)` and `_postprocess_ern_explain_receipt` re-implements the same expression in steps 9. Same math, two places. DRY.
+**The Fix:** `comp.value_pct = int(_format_pct(cip_rank))` if `cip_rank is not None else None`. (`_format_pct` already returns "n/a" for None, so the inline guard stays.) Cleaner; not blocking.
+Severity: 🔵 Minor.
+
+**N4. The fallback path's tool_call_log isn't appended to the final `AskResponse.tool_calls`.**
+**Location:** `backend/app/services/ask_gemma.py:1027-1059` (non-stream path).
+**Impact:** When the fallback fires in `chat_ask`, the post-processing at line 1046 builds `tool_calls` from the original `tool_call_log` (correctly — that's where the real MCP work happened). But `fallback_tool_log` from line 1017 is captured then discarded. With `tools=[]` the fallback log is empty anyway, so this is benign — but worth a comment so a future maintainer doesn't add tools to the fallback and forget to merge logs.
+Severity: 🔵 Minor.
+
+**N5. `GemmaChat.renderMessageWithTrace` lacks `assertNever` exhaustiveness on the `kind` discriminator.**
+**Location:** `frontend/src/components/menu/GemmaChat.tsx:336-340`.
+**Impact:** Auditor's W5 — confirmed. A future third `kind` (e.g., `"compare-card"`) silently falls through to `<ChatMessage>` with a TypeScript error on `m.content`. `switch (m.kind) { case "receipt": ...; case "text": ...; default: const _: never = m; throw new Error(...); }` would catch the omission at compile time.
+Severity: 🔵 Minor — TypeScript hygiene.
+
+##### 🟢 PRAISE
+
+**P1. Trust-boundary discipline is solid.** The 10-step `_postprocess_ern_explain_receipt` pipeline correctly server-stamps `score`, `math_line`, `value_pct`, `anchor_dollars`, `missing_reason`, and `sources` — every numeric field that the spec promises is overwritten. The Pydantic `extra="forbid"` config plus the sentinel-passthrough validator close every realistic vector for Gemma to inject content the server didn't approve. The `_normalize_label` allowlist match-by-weight is the right call for catching the swap case.
+
+**P2. Synthesis-turn-only JSON-mode scoping is correctly implemented.** The `prev_turn_had_tool_calls` flag walks correctly across loop iterations: turn 0 sees `effective_response_format = None`, the flag flips to True only AFTER tool calls fire, and turn 1+ sees the JSON-mode dict. I traced two-tool-call and three-turn flows by hand; the scoping holds. Decision 15 is realized in the loop.
+
+**P3. The Ollama `format` translation handles all three `response_format` shapes defensively.** `{"type": "json_object"}` → `"json"`; `{"type": "json_schema", "json_schema": {"schema": {...}}}` → schema dict; unknown shapes fall through to `payload["format"] = response_format` (passes through). `None` is a no-op (the `if response_format is not None` guard at line 1391 keeps `payload` clean). Concern #4 from the prompt is covered.
+
+**P4. The cached-fallback path correctly avoids re-fetching MCP tools.** `tools=[]` is passed to the fallback `generate_with_tools_loop` AND the markdown appendix tells Gemma not to call them. Both belt and suspenders. The cached values inject into the user message via `_format_cached_tool_values`. The trace events from the JSON attempt are correctly preserved as the canonical record (no duplicate events for the fallback turn). Concern #2 from the prompt is well-handled.
+
+**P5. The `extra="forbid"` Pydantic config is consistently applied to all three new models** (`ReceiptSource`, `StatComponent`, `ExplainStatReceipt`). Future spec extensions adding fields will fail-loudly at parse time rather than silently accepting unexpected payloads. Same hygiene level as the rest of the `app.models.api` module.
+
+**P6. The streaming generator's existing `try/finally` cancellation contract for `loop_task` is preserved.** SSE-disconnect cleanup works correctly for the JSON attempt — only the fallback path violates it (S3). The original semaphore-release contract is otherwise intact.
+
+**P7. The `_extract_json_objects` reuse for the fence-stripping JSON parse is the right primitive.** Per genai-architect Condition 2, the same helper that handles ` ```json{...}``` ` and trailing-prose extraction is reused — no parse logic forks. Tests exercise both fence and trailing-prose cases.
+
+#### Required Changes (Before Phase 7 Approval)
+
+Routed to the implementation agent (Claude Code, original implementer of Phase 3):
+
+1. **B1 — Frontend Zod fallback:** `parseFinalTextResponse` must not return `"[object Object]"` for malformed objects. Return empty string or null. Update the test to assert the fallback string is NOT `"[object Object]"`.
+2. **B2 — Effort labels:** Add `_EFFORT_LABELS: dict[str, str]` mapping the actual `EffortLevel` literals to user-facing labels. Replace `effort.capitalize()` with the lookup. Drop or rewrite `test_render_math_line_chill_effort` against `working` / `working_hard`.
+3. **S1 — Tool-result truncation:** Either raise `_TOOL_RESULT_PREVIEW_MAX` to ≥4096, or split `tool_result_preview` (truncated, frontend-trace-only) from `tool_result_full` (un-truncated, server-only). The former is simplest; the latter is cleaner.
+4. **S2 — Halfway-case effort line:** When one percentile is None and effort is non-balanced, render an effort-line that doesn't claim a from-N-to-M delta. See suggested fix above.
+5. **S3 — SSE fallback semaphore release:** Wrap the markdown-fallback `await` inside `chat_ask_stream` in `asyncio.create_task` and cancel it in the existing `finally` block alongside `loop_task`.
+6. **S4 — `score_max` server-stamping:** Either constrain via Pydantic `Field(default=10, ge=1, le=10)` OR server-stamp in step 6 of `_postprocess_ern_explain_receipt`.
+
+Optional (non-blocking, address at implementer's discretion):
+- **M1** — Tighten or remove the standalone-word `\bPLACEHOLDER\b` sentinel pattern.
+- **M3** — Match `_extract_tool_results` against `turn.tool_args.cipcode/unitid` to handle multi-turn substitution flows.
+- **M4** — Document PII classification for institution/program/occupation identifiers.
+
 #### Verdict
 - [ ] APPROVED
-- [ ] CHANGES REQUIRED
+- [x] CHANGES REQUIRED → RESOLVED 2026-05-02 (Phase 6b implementer pass)
 - [ ] BLOCKER
+
+**Summary of finding counts:** 🔴 BLOCKER ×2 · 🟠 SERIOUS ×4 · 🟡 MODERATE ×4 · 🔵 MINOR ×5 · 🟢 PRAISE ×7
+
+#### Resolution log (Phase 6 → Phase 6b implementer pass)
+
+All 6 required changes (B1, B2, S1, S2, S3, S4) applied. M1 also addressed.
+
+| ID | Item | Resolution |
+|----|------|------------|
+| **B1** | `parseFinalTextResponse` returns `[object Object]` for malformed objects | Now returns `""` for malformed objects (Zod-failed objects AND non-string non-object values). Test `test_zod_parser_falls_back_to_string_on_invalid_object` strengthened to assert `response !== "[object Object]"`. |
+| **B2** | `effort.capitalize()` renders `Working_hard` / `All_in` for real EffortLevel values | New `_EFFORT_LABELS: dict[str, str]` table maps each `EffortLevel` literal (`working_hard`, `working`, `balanced`, `focused`, `all_in`) to a friendly form (`Working Hard`, `Working`, `Balanced`, `Focused`, `All-In`). `_render_math_line` looks up the label; unknown effort strings get no effort line (defensive). New tests `test_render_math_line_working_hard_effort`, `test_render_math_line_all_in_effort`, `test_render_math_line_unknown_effort_no_line` replace the dropped `chill` test. |
+| **S1** | `_TOOL_RESULT_PREVIEW_MAX = 500` truncates real `get_career_paths` results mid-array | Added `tool_result_full: str = ""` field on `ToolCallTurn` carrying the un-truncated string (server-only — not in `TraceTurnComplete` SSE serialization). `gemma_client._tools_loop_inner` populates it. `_extract_tool_results` reads `turn.tool_result_full or turn.tool_result_preview` (preview as a backward-compat fallback). |
+| **S2** | Halfway-case (one percentile null) silently suppressed effort line | `_render_math_line` rewritten: when one input is null, the unshifted derivation is unavailable; the function shows `build_score` in the arrow and emits an effort line "Your **{Effort}** effort setting is reflected in this score" (no from-N-to-M claim). Two new tests cover the halfway-case-with-effort and halfway-case-balanced-no-effort-line paths. |
+| **S3** | Streaming markdown fallback `await` not cancellable on SSE disconnect | Wrapped the fallback `generate_with_tools_loop` call in `asyncio.create_task` and tracked it as `fallback_task` in the streaming generator. The `finally` block now cancels both `loop_task` and `fallback_task` (when in-flight) and gathers them. Decision C4 contract restored. |
+| **S4** | `score_max` not server-stamped or validated | `_postprocess_ern_explain_receipt` step 6 now stamps `receipt.score_max = 10` alongside the score override. |
+| **M1** | `\bPLACEHOLDER\b` over-eager — matches "placeholder" in legitimate prose | Tightened to `__PLACEHOLDER__|\[PLACEHOLDER\]|<PLACEHOLDER>`. Sentinel test `_SENTINEL_VALUES` updated to use `__PLACEHOLDER__` instead of bare `PLACEHOLDER`. |
+
+**Test results post-fix:**
+- Backend pytest: 1399/1399 pass (was 1395 — added 4 new effort-label tests, 1 was renamed). 0 regressions.
+- Frontend vitest: 790/790 pass. 0 regressions.
+
+**Non-blocking items deferred:** M2 (lowercase normalization noise — acknowledged in §6 deviation 2; log-noise only), M3 (multi-turn substitution flow — single-turn flow is current production behavior; flagged for follow-up), M4 (PII classification — institution/program/occupation are public-record school choices, consistent with existing `_log_exchange` logging surface). N1–N5 minor items deferred — none block ship.
 
 ---
 

@@ -101,7 +101,8 @@ describe("parseSSEFrame final_text Zod union", () => {
   it("test_zod_parser_falls_back_to_string_on_invalid_object — missing fields (P0)", () => {
     // Object with the receipt's `kind` discriminator but missing
     // required fields (no components, no math_line). Zod rejects;
-    // parser falls back to String(value) instead of throwing.
+    // parser falls back to an empty string (NOT "[object Object]" —
+    // that was the @faang-staff-engineer B1 finding).
     const broken = {
       kind: "receipt",
       stat_code: "ERN",
@@ -112,11 +113,12 @@ describe("parseSSEFrame final_text Zod union", () => {
     );
     expect(event).not.toBeNull();
     if (event!.type === "final_text") {
-      // Falls back to String(value) — the value is "[object Object]"
-      // for plain JSON objects. The contract is "doesn't throw," not
-      // "produces meaningful output" — the prose render of
-      // "[object Object]" is the gracefully-degrade path.
       expect(typeof event!.response).toBe("string");
+      // Schema-drift safety net: never leak "[object Object]" to
+      // the student. Empty string lets the chat renderer fall
+      // through to the chat_unavailable rail.
+      expect(event!.response).not.toBe("[object Object]");
+      expect(event!.response).toBe("");
     }
   });
 

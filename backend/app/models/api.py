@@ -220,7 +220,11 @@ _SENTINEL_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\[\s*FILL[\s_-]*IN", re.IGNORECASE),
     re.compile(r"<\s*FILL[\s_-]*IN", re.IGNORECASE),
     re.compile(r"\bONE-SENTENCE\s+DEFINITION\s+HERE\b", re.IGNORECASE),
-    re.compile(r"\bPLACEHOLDER\b", re.IGNORECASE),
+    # The naked word "placeholder" can appear in legitimate prose
+    # (e.g. "the score is a placeholder for...") so the sentinel
+    # form requires the underscored / bracketed wrapper that an
+    # actual template echo would carry.
+    re.compile(r"__PLACEHOLDER__|\[PLACEHOLDER\]|<PLACEHOLDER>", re.IGNORECASE),
 )
 
 
