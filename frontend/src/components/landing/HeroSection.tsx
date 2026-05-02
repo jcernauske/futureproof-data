@@ -41,7 +41,7 @@ export function HeroSection() {
               { abbr: "ROI", label: "Return on Investment", value: 82, color: "var(--color-stat-roi)" },
               { abbr: "RES", label: "AI Resilience", value: 65, color: "var(--color-stat-res)" },
               { abbr: "GRW", label: "Growth Potential", value: 71, color: "var(--color-stat-grw)" },
-              { abbr: "HMN", label: "Human Edge", value: 59, color: "var(--color-stat-hmn)" },
+              { abbr: "AURA", label: "Brand Gravity", value: 59, color: "var(--color-stat-aura)" },
             ].map((s) => (
               <li
                 key={s.abbr}

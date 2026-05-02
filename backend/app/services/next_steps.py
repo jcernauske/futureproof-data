@@ -34,7 +34,7 @@ _SYSTEM = (
     "career, a salary figure, a debt amount, an AI-exposure concern — "
     "in plain words.\n\n"
     "Never use these words or framings in your output:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN. Translate — 'the starting "
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN. Translate — 'the starting "
     "salary is low compared to other graduates from this program', "
     "never 'ERN is low'.\n"
     "- score fractions: never '7/10' or '3 out of 10'.\n"
@@ -90,7 +90,6 @@ def _skill_delta_str(skill: AppliedSkill) -> str:
         ("ROI", skill.delta_roi),
         ("RES", skill.delta_res),
         ("GRW", skill.delta_grw),
-        ("HMN", skill.delta_hmn),
     ):
         if val:
             parts.append(f"{label} {val:+d}")

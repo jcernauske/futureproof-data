@@ -123,7 +123,7 @@ function buildSummaryFromBuild(
     roi: build.career.stats.roi ?? null,
     res: build.career.stats.res ?? null,
     grw: build.career.stats.grw ?? null,
-    hmn: build.career.stats.hmn ?? null,
+    aura: build.career.stats.aura ?? null,
     wins,
     losses,
     draws,

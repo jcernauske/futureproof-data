@@ -6,9 +6,9 @@
 export interface PentagonStats {
   ern: number | null;
   roi: number | null;
-  res: number | null;
+  res: number | null;  // blended from raw_stat_res + raw_stat_hmn
   grw: number | null;
-  hmn: number | null;
+  aura: number | null;  // institution-level brand gravity
 }
 
 export interface BossScores {
@@ -67,6 +67,17 @@ export interface CareerOutcome {
 
   stats: PentagonStats;
   bosses: BossScores;
+
+  // Raw inputs to the blended RES (Decision 4 in pentagon-stat-reshape):
+  // Fight AI scores from these underlying integers, not the rounded
+  // display value on stats.res.
+  raw_stat_res?: number | null;
+  raw_stat_hmn?: number | null;
+
+  // AURA provenance, stamped from the per-build aura lookup so receipts
+  // can cite basis/version without a follow-up MCP query.
+  aura_score_basis?: string | null;
+  aura_score_version?: string | null;
 
   top_5_activities: Array<Record<string, unknown>>;
   top_human_activities: Array<Record<string, unknown>>;
@@ -127,7 +138,11 @@ export interface CareerBranch {
   delta_roi: number | null;
   delta_res: number | null;
   delta_grw: number | null;
-  delta_hmn: number | null;
+  // Pentagon-stat-reshape Decision 5: AURA is institution-invariant.
+  // Branches stay at the same school by construction, so delta_aura
+  // is always 0. Field present in the contract so the radar overlay
+  // can iterate 5 deltas uniformly.
+  delta_aura: number;
   unlock: string | null;
   relatedness: number | null;
   // O*NET experience requirements (onet-experience-requirements spec,
@@ -154,9 +169,10 @@ export interface AppliedSkill {
   targets: BossId[];
   delta_ern: number;
   delta_roi: number;
-  delta_res: number;
+  delta_res: number;  // absorbs former delta_hmn impact
   delta_grw: number;
-  delta_hmn: number;
+  // delta_hmn REMOVED (pentagon-stat-reshape v1.2). AURA is
+  // institution-level → skills cannot shift it.
   delta_burnout_raw: number;
   delta_ceiling_raw: number;
 }

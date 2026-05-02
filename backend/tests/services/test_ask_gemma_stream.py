@@ -61,7 +61,7 @@ def _make_build() -> Build:
             program_name="Computer Science",
             soc_code="13-2052",
             occupation_title="Financial Analyst",
-            stats=PentagonStats(ern=7, roi=6, res=5, grw=8, hmn=4),
+            stats=PentagonStats(ern=7, roi=6, res=5, grw=8, aura=4),
             bosses=BossScores(
                 ai=10, loans=10, market=10, burnout=10, ceiling=10
             ),

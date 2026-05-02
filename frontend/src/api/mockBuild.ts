@@ -46,7 +46,7 @@ function makeCareer(
     tuition_in_state: 11442,
     tuition_out_of_state: 41196,
     room_board_on_campus: 17220,
-    stats: { ern: stats[0], roi: stats[1], res: stats[2], grw: stats[3], hmn: stats[4] },
+    stats: { ern: stats[0], roi: stats[1], res: stats[2], grw: stats[3], aura: stats[4] },
     bosses: { ai: bosses[0], loans: bosses[1], market: bosses[2], burnout: bosses[3], ceiling: bosses[4] },
     top_5_activities: [
       { activity: "Analyzing data or information", importance: 85 },
@@ -139,20 +139,20 @@ export async function mockCreateBuild(
   };
 
   const branches: CareerBranch[] = [
-    { from_soc: career.soc_code, to_soc: "11-3021", to_title: "IT Manager", delta_ern: 2, delta_roi: 1, delta_res: 1, delta_grw: 0, delta_hmn: 2, unlock: "5+ years experience", relatedness: 0.85, experience_years: 6, experience_tier: "mid", experience_delta: 4, related_education_level: "Bachelor's degree" },
-    { from_soc: career.soc_code, to_soc: "15-2051", to_title: "Data Scientist", delta_ern: 1, delta_roi: 0, delta_res: -1, delta_grw: 2, delta_hmn: -1, unlock: "Graduate degree", relatedness: 0.72, experience_years: 3, experience_tier: "early", experience_delta: 1, related_education_level: "Master's degree" },
-    { from_soc: career.soc_code, to_soc: "15-1221", to_title: "Research Scientist", delta_ern: 1, delta_roi: 1, delta_res: -1, delta_grw: 1, delta_hmn: 0, unlock: "PhD", relatedness: 0.65, experience_years: 9, experience_tier: "senior", experience_delta: 7, related_education_level: "Doctoral or professional degree" },
+    { from_soc: career.soc_code, to_soc: "11-3021", to_title: "IT Manager", delta_ern: 2, delta_roi: 1, delta_res: 1, delta_grw: 0, delta_aura: 0, unlock: "5+ years experience", relatedness: 0.85, experience_years: 6, experience_tier: "mid", experience_delta: 4, related_education_level: "Bachelor's degree" },
+    { from_soc: career.soc_code, to_soc: "15-2051", to_title: "Data Scientist", delta_ern: 1, delta_roi: 0, delta_res: -1, delta_grw: 2, delta_aura: 0, unlock: "Graduate degree", relatedness: 0.72, experience_years: 3, experience_tier: "early", experience_delta: 1, related_education_level: "Master's degree" },
+    { from_soc: career.soc_code, to_soc: "15-1221", to_title: "Research Scientist", delta_ern: 1, delta_roi: 1, delta_res: -1, delta_grw: 1, delta_aura: 0, unlock: "PhD", relatedness: 0.65, experience_years: 9, experience_tier: "senior", experience_delta: 7, related_education_level: "Doctoral or professional degree" },
   ];
 
   const skillRecs: SkillRec[] = [
     { title: "Cloud Architecture", stat_impact: "ERN +1, GRW +1", rationale: "Cloud skills are the #1 hiring signal in this field right now." },
-    { title: "Technical Leadership", stat_impact: "HMN +2, ERN +1", rationale: "People management unlocks the highest earning trajectories." },
+    { title: "Technical Leadership", stat_impact: "RES +2, ERN +1", rationale: "People management unlocks the highest earning trajectories." },
     { title: "Open Source Contributions", stat_impact: "RES +1, GRW +1", rationale: "Visible portfolio work builds resilience against market shifts." },
   ];
 
   const skillPool: AppliedSkill[] = [
-    { id: "sk-cloud", title: "Cloud Architecture", rationale: "Cloud skills are the #1 hiring signal.", targets: ["market", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 0, delta_grw: 1, delta_hmn: 0, delta_burnout_raw: 0, delta_ceiling_raw: 2 },
-    { id: "sk-lead", title: "Technical Leadership", rationale: "People management unlocks higher earnings.", targets: ["burnout", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 0, delta_grw: 0, delta_hmn: 2, delta_burnout_raw: -1, delta_ceiling_raw: 3 },
+    { id: "sk-cloud", title: "Cloud Architecture", rationale: "Cloud skills are the #1 hiring signal.", targets: ["market", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 0, delta_grw: 1, delta_burnout_raw: 0, delta_ceiling_raw: 2 },
+    { id: "sk-lead", title: "Technical Leadership", rationale: "People management unlocks higher earnings.", targets: ["burnout", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 2, delta_grw: 0, delta_burnout_raw: -1, delta_ceiling_raw: 3 },
   ];
 
   return {

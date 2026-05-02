@@ -38,7 +38,7 @@ function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
     room_board_on_campus: null,
     roi_cost_basis: null,
     financed_dte: null,
-    stats: { ern: null, roi: null, res: null, grw: null, hmn: null },
+    stats: { ern: null, roi: null, res: null, grw: null, aura: null },
     bosses: { ai: null, loans: null, market: null, burnout: null, ceiling: null },
     top_5_activities: [],
     top_human_activities: [],
@@ -363,7 +363,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           earnings_1yr_median: 45_000,
           debt_to_earnings_annual: 0.42,
           modeled_total_debt: 18_000,
-          stats: { ern: null, roi: 8, res: null, grw: null, hmn: null },
+          stats: { ern: null, roi: 8, res: null, grw: null, aura: null },
         })}
         loanPct={0.5}
         isInState={null}
@@ -394,7 +394,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           debt_median_reference: 22_000,
           earnings_1yr_median: 45_000,
           debt_to_earnings_annual: 0.49,
-          stats: { ern: null, roi: 7, res: null, grw: null, hmn: null },
+          stats: { ern: null, roi: 7, res: null, grw: null, aura: null },
         })}
         loanPct={1.0}
         isInState={null}

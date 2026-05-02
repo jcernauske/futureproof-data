@@ -352,9 +352,9 @@
   background: rgba(123, 184, 224, 0.12);
 }
 
-.horizon-stat-badge[data-stat="hmn"] {
-  color: var(--color-stat-hmn, #e88ba9);
-  background: rgba(232, 139, 169, 0.12);
+.horizon-stat-badge[data-stat="aura"] {
+  color: var(--color-stat-aura, #e8b86b);
+  background: rgba(232, 184, 107, 0.12);
 }
 
 .horizon-stat-badge[data-stat="res"] {

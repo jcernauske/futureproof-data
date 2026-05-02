@@ -6,9 +6,12 @@ useful or noise?
 
 Builds a tree starting from the primary career, expanding branches
 up to 3 levels deep using the career_branches table. Each node
-carries absolute stats (GRW, HMN, RES from the branch data) plus
-the root build's ROI (school-level, doesn't change). ERN is shown
-only for the root since it requires school+program context.
+carries absolute stats (GRW, RES blended from the branch data's
+``related_res`` + ``related_hmn``) plus the root build's ROI
+(school-level, doesn't change) and AURA (institution-level —
+constant across branches per Decision 5 in pentagon-stat-reshape).
+ERN is shown only for the root since it requires school+program
+context.
 
 No Gemma calls — pure mechanical data chaining.
 """
@@ -23,6 +26,7 @@ from typing import Any
 from app.models.career import Build
 from app.services import boss_fights, mcp_client
 from app.services._coercion import as_float, as_int
+from app.services.stat_engine import _blend_res
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +39,19 @@ class TreeNode:
     # Stats — None means not available at this depth.
     ern: int | None = None
     roi: int | None = None
-    res: int | None = None
+    res: int | None = None  # blended from raw_stat_res + raw_stat_hmn
     grw: int | None = None
-    hmn: int | None = None
+    aura: int | None = None  # institution-level — inherited from root
     median_wage: float | None = None
     burnout_raw: int | None = None
     ai_boss_raw: int | None = None
     education: str | None = None
+    # Raw inputs preserved for Fight AI scoring (Decision 4 revised in
+    # pentagon-stat-reshape.md). The display ``res`` is the rounded blend;
+    # ``_score_ai`` reads from these raw values to stay bit-exact with
+    # pre-reshape behavior.
+    raw_stat_res: int | None = None
+    raw_stat_hmn: int | None = None
     # O*NET experience requirements
     # (onet-experience-requirements, Gold contract v1.2.0). Populated
     # from ``related_experience_years`` / ``related_experience_tier`` on
@@ -108,7 +118,7 @@ def _compute_boss_results(node: TreeNode, roi: int | None) -> None:
             roi=roi,
             res=node.res,
             grw=node.grw,
-            hmn=node.hmn,
+            aura=node.aura,
         ),
         bosses=BossScores(
             ai=node.ai_boss_raw,
@@ -117,6 +127,8 @@ def _compute_boss_results(node: TreeNode, roi: int | None) -> None:
             burnout=node.burnout_raw,
             ceiling=None,
         ),
+        raw_stat_res=node.raw_stat_res,
+        raw_stat_hmn=node.raw_stat_hmn,
     )
     for boss_id in ("ai", "loans", "market", "burnout", "ceiling"):
         fight = boss_fights.rescore_fight(career, boss_id)
@@ -125,7 +137,7 @@ def _compute_boss_results(node: TreeNode, roi: int | None) -> None:
 
 def _node_has_full_stats(node: TreeNode) -> bool:
     return all(
-        v is not None for v in (node.grw, node.hmn, node.res)
+        v is not None for v in (node.grw, node.aura, node.res)
     )
 
 
@@ -150,6 +162,9 @@ def build_tree(
     stats = TreeStats()
     career = build.career
     root_roi = career.stats.roi
+    # AURA is institution-level → invariant across every branch in this
+    # build. Stamp it on every TreeNode (Decision 5: delta_aura == 0).
+    root_aura = career.stats.aura
 
     root = TreeNode(
         soc_code=career.soc_code,
@@ -159,10 +174,12 @@ def build_tree(
         roi=career.stats.roi,
         res=career.stats.res,
         grw=career.stats.grw,
-        hmn=career.stats.hmn,
+        aura=root_aura,
         median_wage=career.median_annual_wage,
         burnout_raw=career.bosses.burnout,
         ai_boss_raw=career.bosses.ai,
+        raw_stat_res=career.raw_stat_res,
+        raw_stat_hmn=career.raw_stat_hmn,
     )
 
     seen: set[str] = {root.soc_code}
@@ -201,15 +218,20 @@ def build_tree(
             seen.add(related_soc)
 
             related_exp_tier = row.get("related_experience_tier")
+            related_res_raw = as_int(row.get("related_res"))
+            related_hmn_raw = as_int(row.get("related_hmn"))
             child = TreeNode(
                 soc_code=str(related_soc),
                 title=str(row.get("related_title")),
                 level=node.level + 1,
                 ern=None,
                 roi=root_roi,
-                res=as_int(row.get("related_res")),
+                # Display res = blended; raw res/hmn preserved for Fight AI.
+                res=_blend_res(related_res_raw, related_hmn_raw),
                 grw=as_int(row.get("related_grw")),
-                hmn=as_int(row.get("related_hmn")),
+                aura=root_aura,
+                raw_stat_res=related_res_raw,
+                raw_stat_hmn=related_hmn_raw,
                 median_wage=(
                     float(row["related_wage"])
                     if isinstance(row.get("related_wage"), (int, float))
@@ -269,7 +291,7 @@ def _format_stats(node: TreeNode) -> str:
         ("ROI", node.roi),
         ("RES", node.res),
         ("GRW", node.grw),
-        ("HMN", node.hmn),
+        ("AURA", node.aura),
     ):
         parts.append(f"{label} {val}" if val is not None else f"{label} —")
     return ", ".join(parts)

@@ -50,7 +50,7 @@ _SYSTEM = (
     "starting salary, say exactly that. Use the actual dollar figures, "
     "years, and percentages the prompt gives you.\n\n"
     "Never use these words or framings in your output:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN. The student has never seen "
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN. The student has never seen "
     "these letters. Translate to plain words — 'earnings start low "
     "compared to other graduates from this program', never the code or "
     "the number.\n"
@@ -112,7 +112,9 @@ def _format_branches(branches: list[CareerBranch]) -> str:
                 ("ROI", branch.delta_roi),
                 ("RES", branch.delta_res),
                 ("GRW", branch.delta_grw),
-                ("HMN", branch.delta_hmn),
+                # AURA delta is institution-invariant (always 0 — Decision 5).
+                # Skip emitting it when zero per the existing filter below.
+                ("AURA", branch.delta_aura),
             )
             if isinstance(delta, int) and delta != 0
         ]
@@ -285,7 +287,7 @@ _SHARED_VOICE_RULES = (
     "compared to other graduates from this program'), never cite the "
     "stat code or the score.\n\n"
     "Never use these words or framings in your output:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN.\n"
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN.\n"
     "- score fractions: never '7/10' or '3 out of 10'.\n"
     "- outcome labels: never WIN, DRAW, LOSE, won, lost, tied.\n"
     "- game framing: never 'fight', 'boss', 'gauntlet', 'battle', "
@@ -405,7 +407,7 @@ _MONEY_INSIGHT_SYSTEM = (
     "actual dollar figures. Express debt differences in concrete terms "
     "(months of salary, not just dollar deltas).\n\n"
     "Never use these words or framings:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN\n"
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN\n"
     "- SOC codes: never mention SOC codes like '11-2011' or '13-1161'\n"
     "- score fractions: never '7/10'\n"
     "- outcome labels: never WIN, DRAW, LOSE\n"
@@ -483,7 +485,7 @@ _COMPARE_SYSTEM = (
     "with honest answers would talk. You are the interpretation layer, "
     "not a judge. Never declare a winner. Never recommend a school.\n\n"
     "Never use these words or framings:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN\n"
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN\n"
     "- SOC codes: never mention SOC codes like '11-2011' or '13-1161'\n"
     "- score fractions: never '7/10'\n"
     "- outcome labels: never WIN, DRAW, LOSE\n"
@@ -583,7 +585,7 @@ _COMPARE_PROS_CONS_SYSTEM = (
     "amount, percentage, or direct comparison to ANOTHER build in the "
     "set. No vague phrases like 'relies heavily on human connection' "
     "or 'unlikely to be replaced' — anchor every claim in data.\n\n"
-    "Forbidden: stat codes (ERN/ROI/RES/GRW/HMN), SOC codes, score "
+    "Forbidden: stat codes (ERN/ROI/RES/GRW/AURA/HMN), SOC codes, score "
     "fractions like '7/10', WIN/DRAW/LOSE labels, the words 'fight', "
     "'boss', 'gauntlet', 'battle', 'journey', 'amazing', 'unfortunately', "
     "exclamation points, and bullet glyphs (no '✓' or '✗' — the UI "
@@ -703,7 +705,7 @@ _COMPARE_PIVOTAL_SYSTEM = (
     "No 'consider', 'imagine', 'think about'. No rhetorical questions "
     "about feelings.\n\n"
     "Forbidden words and phrases (will be rejected): stat codes "
-    "(ERN/ROI/RES/GRW/HMN), SOC codes, score fractions like '3/10' or "
+    "(ERN/ROI/RES/GRW/AURA/HMN), SOC codes, score fractions like '3/10' or "
     "'7/10', WIN/DRAW/LOSE, 'fight', 'boss', 'gauntlet', 'battle', "
     "'journey', 'amazing', 'unfortunately', exclamation points, 'best "
     "of both worlds', 'at the end of the day', 'follow your heart', "

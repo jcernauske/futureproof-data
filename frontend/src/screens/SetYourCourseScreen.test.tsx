@@ -46,7 +46,7 @@ function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
     tuition_in_state: 9000,
     tuition_out_of_state: 24000,
     room_board_on_campus: 11000,
-    stats: { ern: 2, roi: 3, res: 4, grw: 3, hmn: 3 },
+    stats: { ern: 2, roi: 3, res: 4, grw: 3, aura: 3 },
     bosses: { ai: 1, loans: 2, market: 2, burnout: 1, ceiling: 2 },
     top_5_activities: [],
     top_human_activities: [],

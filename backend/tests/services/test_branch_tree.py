@@ -42,7 +42,9 @@ class TestGetBranches:
         assert branch.delta_ern == 2  # wage_delta 25000 -> +2
         assert branch.delta_roi == 1
         assert branch.delta_grw == 1
-        assert branch.delta_hmn == -1
+        # AURA is institution-invariant — branches stay at the same school
+        # so delta_aura is always 0 (Decision 5 in pentagon-stat-reshape).
+        assert branch.delta_aura == 0
         assert branch.delta_res == 0
         assert branch.unlock == "Bachelor's · high relatedness"
         # feature-chapter-book Decision #12 — typed education-level surfaces

@@ -44,7 +44,7 @@ def _career(
         institution_control=institution_control,
         roi_cost_basis=roi_cost_basis,  # type: ignore[arg-type]
         financed_dte=financed_dte,
-        stats=PentagonStats(ern=7, roi=roi, res=5, grw=6, hmn=6),
+        stats=PentagonStats(ern=7, roi=roi, res=5, grw=6, aura=6),
         bosses=BossScores(ai=6, loans=5, market=6, burnout=5, ceiling=5),
     )
 

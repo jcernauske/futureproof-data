@@ -91,7 +91,7 @@ describe("DataSourcesSection", () => {
     const expected: Record<string, string> = {
       "landing-data-row-scorecard": "ERN, ROI, Loans",
       "landing-data-row-bls": "Growth, Ceiling",
-      "landing-data-row-onet": "HMN, Burnout",
+      "landing-data-row-onet": "AURA, Burnout",
       "landing-data-row-karpathy": "RES baseline",
       "landing-data-row-anthropic": "RES confidence, velocity",
       "landing-data-row-bea": "Geo adjustment",

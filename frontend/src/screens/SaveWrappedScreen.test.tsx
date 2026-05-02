@@ -57,7 +57,7 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
       program_name: "Marketing",
       soc_code: "13-2051",
       occupation_title: "Financial Analyst",
-      stats: { ern: 8, roi: 9, res: 4, grw: 6, hmn: 6 },
+      stats: { ern: 8, roi: 9, res: 4, grw: 6, aura: 6 },
       bosses: { ai: 7, loans: null, market: 7, burnout: 6, ceiling: null },
       median_annual_wage: 66490,
       earnings_1yr_median: 45000,

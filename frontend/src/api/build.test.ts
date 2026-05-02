@@ -333,7 +333,7 @@ const SKELETON_BUILD = {
     program_name: "Marketing",
     soc_code: "13-1161",
     occupation_title: "Market Research Analysts",
-    stats: { ern: 7, roi: 8, res: 5, grw: 6, hmn: 7 },
+    stats: { ern: 7, roi: 8, res: 5, grw: 6, aura: 7 },
     bosses: { ai: 6, loans: 8, market: 7, burnout: 5, ceiling: 4 },
     median_annual_wage: 68230,
   },
@@ -584,7 +584,7 @@ describe("build.ts — mock fixtures", () => {
     expect(firstCareer.stats).toHaveProperty("roi");
     expect(firstCareer.stats).toHaveProperty("res");
     expect(firstCareer.stats).toHaveProperty("grw");
-    expect(firstCareer.stats).toHaveProperty("hmn");
+    expect(firstCareer.stats).toHaveProperty("aura");
     expect(firstCareer).toHaveProperty("bosses");
     expect(firstCareer.bosses).toHaveProperty("ai");
     expect(firstCareer.bosses).toHaveProperty("loans");

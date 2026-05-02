@@ -285,12 +285,12 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "stat.roi.name": "Return on Investment",
     "stat.res.name": "AI Resilience",
     "stat.grw.name": "Growth Outlook",
-    "stat.hmn.name": "Human Edge",
-    "stat.ern.explanation": "Based on what graduates of this program at this school actually earn.",
+    "stat.aura.name": "Brand Gravity",
+    "stat.ern.explanation": "Compares what graduates of this program at this school earn against peers in the same field, blended with how this career's wages rank among all U.S. occupations.",
     "stat.roi.explanation": "Compares the total cost of attending this program (4 years) to your starting salary. Doesn't depend on how you finance it — that's Fight Student Loans.",
-    "stat.res.explanation": "How exposed is this career to AI automation? Higher means the work needs humans.",
+    "stat.res.explanation": "How well your career holds up against AI. Blends two signals: how much the work still needs people, and how poorly automation actually does it today.",
     "stat.grw.explanation": "Is this field growing or shrinking? Based on 10-year job projections.",
-    "stat.hmn.explanation": "How much does this job depend on uniquely human skills?",
+    "stat.aura.explanation": "How much weight your school's name carries — endowment per student, marketing reach, athletic budget. Real signal, not vibes. Some schools don't have it yet.",
 
     // Chat
     "chat.tryOne": "Try one of these:",
@@ -751,12 +751,12 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "stat.roi.name": "Retorno de Inversión",
     "stat.res.name": "Resiliencia ante IA",
     "stat.grw.name": "Perspectiva de Crecimiento",
-    "stat.hmn.name": "Ventaja Humana",
+    "stat.aura.name": "Atracción de Marca",
     "stat.ern.explanation": "Basado en lo que realmente ganan los graduados de este programa en esta escuela.",
     "stat.roi.explanation": "Compara el costo total de este programa (4 años) con tu salario inicial. No depende de cómo lo financies — eso es la pelea contra Préstamos Estudiantiles.",
-    "stat.res.explanation": "¿Qué tan expuesta está esta carrera a la automatización con IA? Más alto significa que el trabajo necesita humanos.",
+    "stat.res.explanation": "Qué tan bien resiste tu carrera a la IA. Combina dos señales: cuánto necesita personas el trabajo, y qué tan mal lo hace la automatización hoy.",
     "stat.grw.explanation": "¿Este campo está creciendo o disminuyendo? Basado en proyecciones de empleo a 10 años.",
-    "stat.hmn.explanation": "¿Cuánto depende este trabajo de habilidades exclusivamente humanas?",
+    "stat.aura.explanation": "Cuánto peso tiene el nombre de tu escuela — donaciones por estudiante, alcance de marketing, presupuesto atlético. Señal real, no humo. Algunas escuelas todavía no la tienen.",
 
     // Chat
     "chat.tryOne": "Prueba una de estas:",
@@ -1217,12 +1217,12 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "stat.roi.name": "العائد على الاستثمار",
     "stat.res.name": "الصمود أمام الذكاء الاصطناعي",
     "stat.grw.name": "آفاق النمو",
-    "stat.hmn.name": "الميزة الإنسانية",
+    "stat.aura.name": "الجاذبية المؤسسية",
     "stat.ern.explanation": "بناءً على ما يكسبه فعلاً خريجو هذا البرنامج في هذه المدرسة.",
     "stat.roi.explanation": "تقارن إجمالي تكلفة هذا البرنامج (4 سنوات) براتبك الابتدائي. لا تعتمد على طريقة تمويلك — ذلك في تحدّي القروض الطلابية.",
-    "stat.res.explanation": "ما مدى تعرّض هذه المهنة للأتمتة بالذكاء الاصطناعي؟ كلما ارتفع الرقم زادت حاجة العمل إلى البشر.",
+    "stat.res.explanation": "مدى صمود مهنتك أمام الذكاء الاصطناعي. يدمج إشارتين: مدى حاجة العمل إلى البشر، وضعف أداء الأتمتة فعلياً اليوم.",
     "stat.grw.explanation": "هل هذا المجال ينمو أم يتقلّص؟ مبني على توقّعات التوظيف لعشر سنوات.",
-    "stat.hmn.explanation": "إلى أي مدى يعتمد هذا العمل على مهارات بشرية فريدة؟",
+    "stat.aura.explanation": "ما الوزن الذي يحمله اسم مدرستك — المنح للطالب، الانتشار التسويقي، ميزانية الرياضة. إشارة حقيقية لا انطباعات. بعض المدارس لا تتوفر بياناتها بعد.",
 
     // Chat
     "chat.tryOne": "جرّب واحدة من هذه:",

@@ -43,7 +43,7 @@ def _career(title: str = "Fundraisers", ern: int = 8) -> CareerOutcome:
         program_name="Marketing",
         soc_code="13-1131",
         occupation_title=title,
-        stats=PentagonStats(ern=ern, roi=9, res=4, grw=6, hmn=6),
+        stats=PentagonStats(ern=ern, roi=9, res=4, grw=6, aura=6),
         bosses=BossScores(ai=7, loans=None, market=7, burnout=6, ceiling=None),
         median_annual_wage=66490.0,
     )
@@ -188,7 +188,6 @@ class TestBuildCrud:
                 rationale="Direct AI tools at Kelley.",
                 targets=["ai"],
                 delta_res=2,
-                delta_hmn=1,
             ),
             AppliedSkill(
                 id="loans_instate_residency",
@@ -218,7 +217,9 @@ class TestBuildCrud:
         assert len(loaded.skill_pool) == 2
         assert loaded.skill_pool[0].title == "Kelley Business Analytics minor"
         assert loaded.skill_pool[0].delta_res == 2
-        assert loaded.skill_pool[0].delta_hmn == 1
+        # delta_hmn was removed in pentagon-stat-reshape v1.2 (AppliedSkill
+        # no longer carries it; RES absorbs the human-essential signal).
+        assert not hasattr(loaded.skill_pool[0], "delta_hmn")
         assert loaded.skill_pool[1].delta_roi == 2
 
     def test_reroll_bookkeeping_round_trips(self, isolated_builds_dir):

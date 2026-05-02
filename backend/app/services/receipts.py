@@ -144,10 +144,12 @@ def stats_receipt(
         f"ROI {_stat(stats.roi)}/10 ← " + " | ".join(cost_lines)
     )
 
-    # RES provenance. v4 adds the Option B composite — when the MCP row
-    # carries composite_method we prefer that wording so students see
-    # which signals contributed. Pre-v4 rows (composite_method is None)
-    # fall through to the legacy Gemma/Karpathy branches.
+    # RES is now blended from stat_res (AI exposure resilience) + stat_hmn
+    # (O*NET human-essential ratio). Three branches per pentagon-stat-reshape
+    # §4 — both present, stat_hmn NULL, stat_res NULL (~1.05M rows in gold).
+    # The AI-exposure provenance from the underlying stat_res source is
+    # appended after the blend description so the receipt remains a complete
+    # audit trail.
     method = career.composite_method
     composite_methods = {
         "three_signal",
@@ -157,37 +159,62 @@ def stats_receipt(
     }
     if method in composite_methods:
         velocity = career.velocity_label or "unknown"
-        parts = [
-            f"Option B composite ({method}) — Gemma theoretical × Karpathy "
-            f"baseline blended by adoption percentile",
+        ai_src_parts = [
+            f"stat_res via Option B composite ({method}) — Gemma theoretical × "
+            f"Karpathy baseline blended by adoption percentile",
             f"velocity={velocity}",
         ]
         if career.ai_adoption_share is not None:
-            parts.append(f"ai_adoption_share={career.ai_adoption_share:.4f}")
-        parts.append(f"SOC {career.soc_code}")
-        res_src = "; ".join(parts)
+            ai_src_parts.append(
+                f"ai_adoption_share={career.ai_adoption_share:.4f}"
+            )
+        ai_src_parts.append(f"SOC {career.soc_code}")
+        ai_exposure_src = "; ".join(ai_src_parts)
     elif method == "gemma_only":
-        res_src = (
-            f"Gemma task-level AI exposure only — no observed adoption data "
-            f"(SOC {career.soc_code})"
+        ai_exposure_src = (
+            f"stat_res via Gemma task-level AI exposure only — no observed "
+            f"adoption data (SOC {career.soc_code})"
         )
     elif method == "karpathy_only":
-        res_src = (
-            f"Karpathy AI exposure baseline — Gemma unavailable "
+        ai_exposure_src = (
+            f"stat_res via Karpathy AI exposure baseline — Gemma unavailable "
             f"(SOC {career.soc_code})"
         )
     elif career.scoring_model == "gemma-4":
         model_tag = career.model_tag or "gemma-4"
-        res_src = (
-            f"Gemma task-level AI exposure ({model_tag}, AI-estimated) "
-            f"on O*NET tasks (SOC {career.soc_code})"
+        ai_exposure_src = (
+            f"stat_res via Gemma task-level AI exposure ({model_tag}, "
+            f"AI-estimated) on O*NET tasks (SOC {career.soc_code})"
         )
     else:
-        res_src = (
-            f"Karpathy AI exposure + O*NET task analysis "
+        ai_exposure_src = (
+            f"stat_res via Karpathy AI exposure + O*NET task analysis "
             f"(SOC {career.soc_code})"
         )
-    lines.append(f"RES {_stat(stats.res)}/10 ← {res_src}")
+
+    raw_res = career.raw_stat_res
+    raw_hmn = career.raw_stat_hmn
+    if raw_res is not None and raw_hmn is not None:
+        blend_desc = (
+            f"blended from stat_res {raw_res} + stat_hmn {raw_hmn} "
+            f"(50/50 mean, draft)"
+        )
+    elif raw_res is not None and raw_hmn is None:
+        blend_desc = (
+            "stat_res only (no O*NET task signal — stat_hmn unavailable "
+            "for this SOC)"
+        )
+    elif raw_res is None and raw_hmn is not None:
+        blend_desc = (
+            "stat_hmn only (no AI exposure signal — stat_res unavailable "
+            "for this SOC)"
+        )
+    else:
+        blend_desc = "no resilience signal — both stat_res and stat_hmn unavailable"
+
+    lines.append(
+        f"RES {_stat(stats.res)}/10 ← {blend_desc} | {ai_exposure_src}"
+    )
 
     grw_source = career.growth_category or "category unavailable"
     lines.append(
@@ -195,21 +222,42 @@ def stats_receipt(
         f"(SOC {career.soc_code})"
     )
 
-    human_count = len(career.top_human_activities)
-    human_names = ", ".join(
-        str(item.get("activity", ""))
-        for item in career.top_human_activities[:3]
-        if item.get("activity")
-    )
-    hmn_detail = (
-        f"{human_count} uniquely-human tasks"
-        + (f": {human_names}" if human_names else "")
-    )
-    lines.append(
-        f"HMN {_stat(stats.hmn)}/10 ← O*NET human activity ratio — {hmn_detail}"
-    )
+    # AURA — institution-level brand gravity. Sourced from
+    # consumable.institution_aura.aura_score (one MCP lookup per build,
+    # stamped on every CareerOutcome). Roughly 10% of student-reachable
+    # unitids have no row → render explicit "—" instead of a numeric.
+    if stats.aura is not None:
+        basis_label = _humanize_basis(career.aura_score_basis)
+        lines.append(
+            f"AURA {stats.aura}/10 ← {basis_label} (institution-level)"
+        )
+    else:
+        lines.append(
+            "AURA — (no brand-gravity data for this school yet)"
+        )
 
     return lines
+
+
+_BASIS_HUMAN: dict[str, str] = {
+    "three_term": "endowment + marketing + athletics",
+    "two_term_finance_only": "endowment + marketing (no athletics signal)",
+    "two_term_no_endowment": "marketing + athletics (no endowment signal)",
+    "one_term_marketing_only": "marketing reach only",
+}
+
+
+def _humanize_basis(basis: str | None) -> str:
+    """Convert raw aura_score_basis enum to receipt-friendly label.
+
+    Raw codes (``three_term``, ``one_term_marketing_only``) are
+    pipeline-internal taxonomy. Receipts are student-facing surfaces, so
+    they get human-readable labels. Falls back to the raw code for any
+    unmapped value (defensive — shouldn't fire on shipped data).
+    """
+    if basis is None:
+        return "unknown basis"
+    return _BASIS_HUMAN.get(basis, basis)
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +319,8 @@ def skill_recs_receipt(
 
     lines = [
         f"Stats sent: ERN {_stat(stats.ern)}, ROI {_stat(stats.roi)}, "
-        f"RES {_stat(stats.res)}, GRW {_stat(stats.grw)}, HMN {_stat(stats.hmn)}",
+        f"RES {_stat(stats.res)}, GRW {_stat(stats.grw)}, "
+        f"AURA {_stat(stats.aura)}",
         f"Lost: {weak} | Drawn: {draw_str}",
     ]
     human_names = [
@@ -314,7 +363,6 @@ def _skill_delta_str(skill: AppliedSkill) -> str:
         ("ROI", skill.delta_roi),
         ("RES", skill.delta_res),
         ("GRW", skill.delta_grw),
-        ("HMN", skill.delta_hmn),
     ):
         if val:
             parts.append(f"{label}{val:+d}")
@@ -340,7 +388,7 @@ def next_steps_receipt(build: Build) -> list[str]:
         f"({career.soc_code})",
         f"Stats: ERN {_stat(stats.ern)}, ROI {_stat(stats.roi)}, "
         f"RES {_stat(stats.res)}, GRW {_stat(stats.grw)}, "
-        f"HMN {_stat(stats.hmn)} | "
+        f"AURA {_stat(stats.aura)} | "
         f"Gauntlet: {gauntlet.wins}W/{gauntlet.losses}L/{gauntlet.draws}D",
         f"Skills crafted: {len(build.skills_crafted)} | "
         f"Skill recs offered: {len(build.skill_recs)}",

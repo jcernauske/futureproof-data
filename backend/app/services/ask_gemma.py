@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -112,7 +113,7 @@ _STAT_ALIAS: dict[str, str] = {
     "ROI": "Return on Investment",
     "RES": "AI Resilience",
     "GRW": "Growth Outlook",
-    "HMN": "Human Edge",
+    "AURA": "Brand Gravity",
 }
 _BOSS_ALIAS: dict[str, str] = {
     "ai": "AI Resilience risk",
@@ -251,6 +252,129 @@ _OPENER_PROMPT_BRANCH = (
 
 
 # ---------------------------------------------------------------------------
+# ERN explain-this-stat spike (in-app spike — not a spec'd feature).
+# Strictly additive: ERN-only, gated on the sentinel opener message.
+# Voice authority: .claude/skills/pentagon-stat-explanation/SKILL.md.
+# If the spike works, a proper spec lands after the pentagon-stat-reshape
+# (HMN→AURA) work wraps up.
+# ---------------------------------------------------------------------------
+
+_ERN_EXPLAIN_OPENER = "[explain-this:ERN]"
+_ERN_EXPLAIN_TEMPERATURE = 0.0
+_ERN_EXPLAIN_MAX_TOKENS = 1500
+
+# What we send to Gemma in place of the sentinel — a clean instruction.
+_ERN_EXPLAIN_USER_PROMPT = (
+    "Explain my Earning Power score with the receipts. Show me the actual "
+    "numbers behind it, not just the definition."
+)
+
+
+def _ern_explain_appendix(career: CareerOutcome) -> str:
+    """Build the system-prompt appendix that puts Gemma in ERN-explain
+    mode. Substitutes the build's identifiers so Gemma calls the tools
+    with exact arguments rather than guessing.
+
+    The voice rules in `_SYSTEM_BASE` relax for this turn ONLY — see
+    the §1 paragraph below. The four-section structure mirrors the
+    worked example in `pentagon-stat-explanation/SKILL.md`.
+    """
+    return f"""
+
+EXPLAIN-THIS-STAT MODE — ERN
+
+The student tapped 'Explain this to me' on their Earning Power score. For
+this turn ONLY the standard voice rules above relax in three specific ways:
+
+1. You MUST quote the actual numeric values: percentile ranks (e.g. 0.92),
+   the X/10 score, and the 0.6 × A + 0.4 × B math. The 'never state a raw
+   score, percentile, or fraction' rule is suspended for this turn — the
+   percentiles and the math ARE the answer.
+2. Use a structured response with the four labeled sections below, not
+   4–8 sentences of prose.
+3. Reading level lifts to high-school junior. Technical terms are OK when
+   introduced in plain English first with the term in parentheses on first
+   use (e.g. 'field of study (Classification of Instructional Programs
+   family, or CIP family)'). After first use, the abbreviation is fine.
+
+REQUIRED TOOL CALLS — call BOTH before answering. Use these exact
+arguments from the student's build:
+
+  • get_career_paths(unitid={career.unitid}, cipcode="{career.cipcode}")
+    From the result, find the row where soc_code = "{career.soc_code}" and
+    pull `cip_family_earnings_rank` (the 60% input — how this program
+    ranks against peers in the same field of study) and
+    `earnings_1yr_median` (graduate earnings).
+
+  • get_occupation_data(soc_code="{career.soc_code}")
+    Pull `wage_percentile_overall` (the 40% input — how this career's
+    median wage ranks against all U.S. occupations) and
+    `median_annual_wage`.
+
+If a tool call fails or a needed field is null, say so plainly in that
+section ('we don't have a percentile rank for this program yet'). Do not
+hallucinate values.
+
+REQUIRED RESPONSE STRUCTURE — render exactly these four sections, in
+this order, with these section headings:
+
+### Earning Power — <SCORE>/10
+
+**The one-liner.** One sentence naming what the score measures.
+
+**How it works.** Two sub-bullets, then one math line:
+  - **60% — your school's program rank.** {career.institution_name}'s
+    {career.program_name} grads earn a median of $<earnings_1yr_median> —
+    that lands at the <cip_family_earnings_rank × 100>th percentile of all
+    {career.program_name} programs nationally (Classification of
+    Instructional Programs family {career.cipcode}).
+  - **40% — this career's pay rank.** {career.occupation_title}'s median
+    wage is $<median_annual_wage>, which sits at the
+    <wage_percentile_overall × 100>th percentile of all U.S. occupations
+    (Standard Occupational Classification code {career.soc_code}).
+
+  PERCENTILE GLOSS — on the FIRST percentile mentioned anywhere in the
+  response, write it INLINE as a single phrase with the explanation in
+  parentheses immediately after the number. Format:
+  '<N>th percentile (out of 100 <thing>, this one ranks higher than
+  about <N−1>)'. Examples (do not copy verbatim — substitute the actual
+  numbers and noun):
+    ✓ '87th percentile (out of 100 programs, this one ranks higher
+       than about 86)'
+    ✓ '92nd percentile (out of 100 careers, this one pays more than
+       about 91)'
+    ✗ DO NOT write a second sentence such as 'This is the Nth
+       percentile...' — that repeats the number and breaks the flow.
+    ✗ DO NOT mention the percentile twice in the same bullet.
+  After the first time, every later percentile in the response stands
+  alone: write '99th percentile' with no gloss.
+
+  Math: 0.6 × <cip_family_earnings_rank> + 0.4 ×
+  <wage_percentile_overall> = <raw> → rounds to <SCORE>/10.
+
+**Where the data comes from.**
+  - Graduate earnings: College Scorecard (U.S. Department of Education).
+  - Occupation wages: Occupational Outlook Handbook, published by the
+    Bureau of Labor Statistics (BLS).
+
+**Why we mix both pieces.** A two-students contrast in ~3 sentences:
+imagine a top-ranked program in a low-paying field vs. a top-ranked
+program in a high-paying field. Show why using only the school rank
+would be misleading, and why the occupation blend grounds the score in
+real U.S. salaries. Don't compare against the student's actual
+situation — this paragraph is the universal explanation of the formula,
+not their personal score.
+
+VOICE — every acronym (CIP, SOC, BLS) is expanded once on first use,
+then the abbreviation is fine. Use plain language; technical terms sit
+in parentheses on first use. Don't soften 'low' or 'high' — quote the
+percentile and let it speak. The percentile-gloss rule (above) is a
+sub-case of the same first-use principle: explain the concept the FIRST
+time it appears, then trust the reader for the rest of the response.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
@@ -304,6 +428,17 @@ async def chat_ask(
     )
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
+    # ERN explain-this-stat spike: detect the sentinel, append the
+    # ERN-explain appendix to the system prompt, and substitute a clean
+    # user prompt for the loop. Strictly additive, ERN-only.
+    explain_ern = (
+        scope.kind == "stat"
+        and scope.target_id == "ERN"
+        and message.strip() == _ERN_EXPLAIN_OPENER
+    )
+    if explain_ern:
+        system = system + _ern_explain_appendix(builds[0].career)
+
     # Branch-scope opener path: when history is empty, the call is the
     # auto-fired opener from the BranchTreeScreen mount or a node click.
     # Tools are disabled (the context block has every numeric driver
@@ -338,7 +473,11 @@ async def chat_ask(
     # Fold history into the user message. ``generate_with_tools_loop``
     # accepts a single user string; multi-turn fidelity for tool-loop
     # callers is a future enhancement (see spec §2 Out of Scope).
-    user_msg = _fold_history(history, message)
+    user_msg = (
+        _ERN_EXPLAIN_USER_PROMPT
+        if explain_ern
+        else _fold_history(history, message)
+    )
 
     # Load tool schemas. Skip any tool the MCP server doesn't publish.
     tool_schemas: list[dict[str, Any]] = []
@@ -351,6 +490,7 @@ async def chat_ask(
         "call_site": f"ask_gemma_{scope.kind}",
         "scope_target_id": scope.target_id,
         "scope_build_count": len(scope.build_ids),
+        "explain_ern": explain_ern,
     }
 
     text, tool_call_log = await gemma_client.generate_with_tools_loop(
@@ -367,8 +507,8 @@ async def chat_ask(
         # load-bearing safety against runaway loops.
         max_turns=5,
         max_wall_time_s=30.0,
-        temperature=_TEMPERATURE,
-        max_tokens=1200,
+        temperature=_ERN_EXPLAIN_TEMPERATURE if explain_ern else _TEMPERATURE,
+        max_tokens=_ERN_EXPLAIN_MAX_TOKENS if explain_ern else 1200,
         extra=extra,
     )
 
@@ -421,14 +561,29 @@ _THINKING_PREFIXES: tuple[str, ...] = (
 )
 
 
+_HELPER_LEAK_RE = re.compile(r"\A\s*\[helper:.*?\]\s*", re.DOTALL)
+
+
 def _strip_thinking_prefix(text: str) -> str:
     """Strip any chain-of-thought marker token Gemma may have emitted
     at the start of the response. Idempotent. Conservative — only
     matches known prefixes against the *start* of the text after
     light whitespace stripping; never touches the body of the answer.
+
+    Also strips any leading ``[helper: ...]`` scratchpad block(s) Gemma
+    occasionally leaks despite the system prompt's "never reproduce
+    helper annotations" clause. Multi-line; loops in case Gemma emits
+    more than one consecutive block. Anchored to the start, so helper-
+    bracketed text appearing inside the body of the answer (rare but
+    possible) is left alone.
     """
     if not text:
         return text
+    while True:
+        m = _HELPER_LEAK_RE.match(text)
+        if not m:
+            break
+        text = text[m.end():]
     stripped = text.lstrip()
     lowered = stripped.lower()
     for prefix in _THINKING_PREFIXES:
@@ -501,8 +656,21 @@ async def chat_ask_stream(
     )
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
+    # ERN explain-this-stat spike — see chat_ask above for the gate.
+    explain_ern = (
+        scope.kind == "stat"
+        and scope.target_id == "ERN"
+        and message.strip() == _ERN_EXPLAIN_OPENER
+    )
+    if explain_ern:
+        system = system + _ern_explain_appendix(builds[0].career)
+
     # Fold history into the user message.
-    user_msg = _fold_history(history, message)
+    user_msg = (
+        _ERN_EXPLAIN_USER_PROMPT
+        if explain_ern
+        else _fold_history(history, message)
+    )
 
     # Load tool schemas. Skip any tool the MCP server doesn't publish.
     tool_schemas: list[dict[str, Any]] = []
@@ -515,6 +683,7 @@ async def chat_ask_stream(
         "call_site": f"ask_gemma_stream_{scope.kind}",
         "scope_target_id": scope.target_id,
         "scope_build_count": len(scope.build_ids),
+        "explain_ern": explain_ern,
     }
 
     # Per-request bounded queue. Both callbacks enqueue here; the
@@ -552,8 +721,12 @@ async def chat_ask_stream(
                 # See chat_ask above — 5 = 4 tool turns + 1 synthesis.
                 max_turns=5,
                 max_wall_time_s=30.0,
-                temperature=_TEMPERATURE,
-                max_tokens=1200,
+                temperature=(
+                    _ERN_EXPLAIN_TEMPERATURE if explain_ern else _TEMPERATURE
+                ),
+                max_tokens=(
+                    _ERN_EXPLAIN_MAX_TOKENS if explain_ern else 1200
+                ),
                 extra=extra,
                 on_turn_start=on_start,
                 on_turn_event=on_turn,
@@ -929,23 +1102,32 @@ def _context_for_stat(build: Build, stat_code: str) -> str:
             )
         )
 
-    elif stat_code == "HMN":
+    elif stat_code == "AURA":
         lines.append("")
-        lines.append("Human Edge drivers (translate into plain English):")
-        if career.top_human_activities:
-            lines.append("- Top work activities that still need humans:")
-            for activity in career.top_human_activities[:3]:
-                title = activity.get("title") or activity.get("label") or "(unnamed)"
-                importance = activity.get("importance")
-                if isinstance(importance, (int, float)):
-                    lines.append(
-                        f"  - {title} "
-                        + _helper(f"importance = {float(importance):.2f}")
-                    )
-                else:
-                    lines.append(f"  - {title}")
+        lines.append("Brand Gravity drivers (translate into plain English):")
+        basis = career.aura_score_basis
+        if basis:
+            lines.append(
+                "- Composite basis (raw enum, do NOT echo): "
+                + _helper(f"aura_score_basis = {basis}")
+            )
+        version = career.aura_score_version
+        if version:
+            lines.append(_helper(f"aura_score_version = {version}"))
+        if career.stats.aura is None:
+            lines.append(
+                "- No institutional brand-gravity data is available "
+                "for this school yet — the pentagon renders this slot "
+                "as an em-dash. Acknowledge the missing data honestly "
+                "instead of guessing a number."
+            )
         else:
-            lines.append("- No human-activity breakdown available for this occupation")
+            lines.append(
+                "- Institution-level signal: blends endowment per "
+                "student, marketing reach, and athletic spending into "
+                "a single 1-10 score. Higher means the school carries "
+                "more weight beyond classroom outcomes."
+            )
 
     return "\n".join(lines)
 
@@ -987,18 +1169,30 @@ def _context_for_boss(build: Build, boss_id: str) -> str:
         lines.append(fight.narrative)
     if fight.reason:
         # ``reason`` is the scorer's internal summary string (e.g.
-        # ``"RES 4 + HMN 5 = 9"``). It contains stat codes, so it MUST
-        # live inside a [helper: ...] span — Gemma reads it for math
-        # but the system prompt instructs her never to echo helper
-        # spans verbatim.
+        # ``"raw stat_res 4 + stat_hmn 5 = 9"``). It contains stat
+        # codes, so it MUST live inside a [helper: ...] span — Gemma
+        # reads it for math but the system prompt instructs her never
+        # to echo helper spans verbatim.
         lines.append("")
         lines.append(_helper(f"reason summary = {fight.reason}"))
 
     if boss_id == "ai":
+        if career.raw_stat_res is not None:
+            lines.append(_helper(
+                f"raw stat_res (AI exposure resilience input) = "
+                f"{career.raw_stat_res}/10"
+            ))
+        if career.raw_stat_hmn is not None:
+            lines.append(_helper(
+                f"raw stat_hmn (O*NET human-essential input) = "
+                f"{career.raw_stat_hmn}/10"
+            ))
         if career.stats.res is not None:
-            lines.append(_helper(f"AI Resilience component = {career.stats.res}/10"))
-        if career.stats.hmn is not None:
-            lines.append(_helper(f"Human Edge component = {career.stats.hmn}/10"))
+            lines.append(_helper(
+                f"display blended RES = {career.stats.res}/10 "
+                f"(50/50 mean of the two raw inputs above; not used "
+                f"for the fight score)"
+            ))
         if career.task_breakdown_human:
             lines.append(
                 "- Top parts of the work that still need humans: "
@@ -1030,8 +1224,11 @@ def _context_for_boss(build: Build, boss_id: str) -> str:
             lines.append(f"- BLS growth category: {career.growth_category}")
 
     elif boss_id == "burnout":
-        if career.stats.hmn is not None:
-            lines.append(_helper(f"Human Edge score = {career.stats.hmn}/10"))
+        # Burnout no longer reads HMN (RES absorbed it). Surface AURA
+        # for institutional context — students at higher-resourced
+        # institutions often have richer support infrastructure.
+        if career.stats.aura is not None:
+            lines.append(_helper(f"Brand Gravity score = {career.stats.aura}/10"))
         if career.burnout_drivers:
             lines.append("- Top burnout-correlated work demands:")
             for driver in career.burnout_drivers[:3]:
@@ -1092,7 +1289,7 @@ def _context_for_skill(build: Build, skill_id: str) -> str:
         ("ROI", "delta_roi"),
         ("RES", "delta_res"),
         ("GRW", "delta_grw"),
-        ("HMN", "delta_hmn"),
+
     ):
         delta = getattr(skill, attr)
         if delta:
@@ -1117,7 +1314,7 @@ def _context_for_skill(build: Build, skill_id: str) -> str:
     # Current stats (so Gemma can reason about post-application values)
     lines.append("")
     lines.append("Current build stats (translate into plain English):")
-    for stat_code in ("ERN", "ROI", "RES", "GRW", "HMN"):
+    for stat_code in ("ERN", "ROI", "RES", "GRW", "AURA"):
         v = _stat_value(career, stat_code)
         if v is not None:
             lines.append(_helper(f"current {_STAT_ALIAS[stat_code]} = {v}/10"))
@@ -1169,7 +1366,7 @@ def _context_for_build(build: Build) -> str:
 
     lines.append("")
     lines.append("Pentagon stats (translate into plain English):")
-    for stat_code in ("ERN", "ROI", "RES", "GRW", "HMN"):
+    for stat_code in ("ERN", "ROI", "RES", "GRW", "AURA"):
         v = _stat_value(career, stat_code)
         if v is not None:
             lines.append(_helper(f"{_STAT_ALIAS[stat_code]} = {v}/10"))
@@ -1276,7 +1473,7 @@ def _context_for_build(build: Build) -> str:
                 ("ROI", "delta_roi"),
                 ("RES", "delta_res"),
                 ("GRW", "delta_grw"),
-                ("HMN", "delta_hmn"),
+        
             ):
                 d = getattr(skill, attr)
                 if d:
@@ -1349,7 +1546,7 @@ async def _context_for_branch(build: Build, target_id: str) -> str:
             ("ROI", "delta_roi"),
             ("RES", "delta_res"),
             ("GRW", "delta_grw"),
-            ("HMN", "delta_hmn"),
+    
         ):
             delta = getattr(matched_branch, attr)
             if delta:
@@ -1449,7 +1646,7 @@ async def _context_for_branch(build: Build, target_id: str) -> str:
         # Pentagon stats so Gemma can root the conversation.
         lines.append("")
         lines.append("Current career stats (translate into plain English):")
-        for stat_code in ("ERN", "ROI", "RES", "GRW", "HMN"):
+        for stat_code in ("ERN", "ROI", "RES", "GRW", "AURA"):
             v = _stat_value(career, stat_code)
             if v is not None:
                 lines.append(_helper(f"{_STAT_ALIAS[stat_code]} = {v}/10"))
@@ -1490,7 +1687,7 @@ async def _context_for_branch(build: Build, target_id: str) -> str:
                     ("ERN", "delta_ern"),
                     ("RES", "delta_res"),
                     ("GRW", "delta_grw"),
-                    ("HMN", "delta_hmn"),
+            
                 ):
                     delta = getattr(b, attr)
                     if delta:
@@ -1653,7 +1850,7 @@ def _context_for_compare(builds_in_scope: list[Build]) -> str:
             f"Build {idx + 1}: {career.institution_name} — "
             f"{career.program_name} → {career.occupation_title}"
         )
-        for stat_code in ("ERN", "ROI", "RES", "GRW", "HMN"):
+        for stat_code in ("ERN", "ROI", "RES", "GRW", "AURA"):
             v = _stat_value(career, stat_code)
             if v is not None:
                 per_build_lines.append(

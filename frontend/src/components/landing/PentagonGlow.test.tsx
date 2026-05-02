@@ -21,7 +21,7 @@ describe("PentagonGlow", () => {
   it("renders five stat labels", () => {
     const { container } = render(<PentagonGlow />);
     const labels = Array.from(container.querySelectorAll("span")).filter((el) =>
-      ["Earnings", "ROI", "Resilience", "Growth", "Human"].includes(el.textContent ?? "")
+      ["Earnings", "ROI", "Resilience", "Growth", "Brand Gravity"].includes(el.textContent ?? "")
     );
     expect(labels.length).toBe(5);
   });

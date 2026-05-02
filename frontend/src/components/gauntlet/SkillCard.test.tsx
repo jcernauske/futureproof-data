@@ -28,7 +28,6 @@ function makeSkill(overrides?: Partial<AppliedSkill>): AppliedSkill {
     delta_roi: 0,
     delta_res: 0,
     delta_grw: 1,
-    delta_hmn: 0,
     delta_burnout_raw: 0,
     delta_ceiling_raw: 2,
     ...overrides,
@@ -52,13 +51,13 @@ describe("SkillCard", () => {
       <SkillCard skill={makeSkill()} selected={false} onToggle={vi.fn()} />,
     );
 
-    // ERN +1, GRW +1, CEIL +2 should appear; ROI, RES, HMN, BRN are 0
+    // ERN +1, GRW +1, CEIL +2 should appear; ROI, RES, AURA, BRN are 0
     expect(screen.getByText(/ERN \+1/)).toBeInTheDocument();
     expect(screen.getByText(/GRW \+1/)).toBeInTheDocument();
     expect(screen.getByText(/CEIL \+2/)).toBeInTheDocument();
     expect(screen.queryByText(/ROI/)).not.toBeInTheDocument();
     expect(screen.queryByText(/RES/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/HMN/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/AURA/)).not.toBeInTheDocument();
     expect(screen.queryByText(/BRN/)).not.toBeInTheDocument();
   });
 
@@ -68,7 +67,6 @@ describe("SkillCard", () => {
       delta_roi: 0,
       delta_res: 0,
       delta_grw: 0,
-      delta_hmn: 0,
     });
     render(
       <SkillCard skill={skill} selected={false} onToggle={vi.fn()} />,
@@ -95,7 +93,6 @@ describe("SkillCard", () => {
       delta_roi: 0,
       delta_res: 0,
       delta_grw: 0,
-      delta_hmn: 0,
       delta_burnout_raw: 0,
       delta_ceiling_raw: 0,
     });
@@ -103,7 +100,7 @@ describe("SkillCard", () => {
       <SkillCard skill={skill} selected={false} onToggle={vi.fn()} />,
     );
 
-    for (const label of ["ERN", "ROI", "RES", "GRW", "HMN", "BRN", "CEIL"]) {
+    for (const label of ["ERN", "ROI", "RES", "GRW", "AURA", "BRN", "CEIL"]) {
       expect(screen.queryByText(new RegExp(label))).not.toBeInTheDocument();
     }
   });
@@ -177,7 +174,6 @@ describe("SkillCard", () => {
       delta_roi: 0,
       delta_res: 0,
       delta_grw: 0,
-      delta_hmn: 0,
       delta_burnout_raw: -2,
       delta_ceiling_raw: 0,
     });
@@ -196,7 +192,6 @@ describe("SkillCard", () => {
       delta_roi: 0,
       delta_res: 0,
       delta_grw: 0,
-      delta_hmn: 0,
       delta_burnout_raw: 0,
       delta_ceiling_raw: 3,
     });

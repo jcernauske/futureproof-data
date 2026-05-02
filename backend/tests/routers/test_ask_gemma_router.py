@@ -53,7 +53,7 @@ def _make_build(
         program_name=major_text,
         soc_code=soc,
         occupation_title=title,
-        stats=PentagonStats(ern=8, roi=6, res=4, grw=9, hmn=5),
+        stats=PentagonStats(ern=8, roi=6, res=4, grw=9, aura=5),
         bosses=BossScores(ai=11, loans=8, market=10, burnout=6, ceiling=7),
         median_annual_wage=127_260.0,
         earnings_1yr_median=82_500.0,

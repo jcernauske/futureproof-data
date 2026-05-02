@@ -57,11 +57,11 @@ class Program(BaseModel):
 
 
 class PentagonStats(BaseModel):
-    ern: int | None
-    roi: int | None
-    res: int | None
-    grw: int | None
-    hmn: int | None
+    ern: int | None = None
+    roi: int | None = None
+    res: int | None = None  # blended from stat_res + stat_hmn (see _blend_res)
+    grw: int | None = None
+    aura: int | None = None  # institution-level brand gravity
 
 
 class BossScores(BaseModel):
@@ -116,6 +116,17 @@ class CareerOutcome(BaseModel):
 
     stats: PentagonStats
     bosses: BossScores
+
+    # Raw inputs to the blended RES, plumbed through so Fight AI can score
+    # from the underlying integers without consuming the rounded display
+    # value (Decision 4 revised in pentagon-stat-reshape.md).
+    raw_stat_res: int | None = None
+    raw_stat_hmn: int | None = None
+
+    # AURA provenance, stamped from the per-build aura lookup so receipts
+    # can cite basis/version without a follow-up MCP query.
+    aura_score_basis: str | None = None
+    aura_score_version: str | None = None
 
     # AI exposure provenance (v4 of gemma-ai-exposure-rescore).
     # scoring_model = "gemma-4" when this career's RES/Fight AI comes
@@ -205,7 +216,10 @@ class CareerBranch(BaseModel):
     delta_roi: int | None = None
     delta_res: int | None = None
     delta_grw: int | None = None
-    delta_hmn: int | None = None
+    # AURA is institution-level. Branches stay at the same school by
+    # construction (consumable.career_branches has no unitid column),
+    # so AURA cannot shift across a branch — invariant 0.
+    delta_aura: int = 0
     unlock: str | None = None
     relatedness: float | None = None
     # O*NET experience requirements (onet-experience-requirements spec,
@@ -249,9 +263,10 @@ class AppliedSkill(BaseModel):
     targets: list[BossId] = Field(default_factory=list)
     delta_ern: int = 0
     delta_roi: int = 0
-    delta_res: int = 0
+    delta_res: int = 0  # absorbs former delta_hmn impact
     delta_grw: int = 0
-    delta_hmn: int = 0
+    # delta_hmn REMOVED (pentagon-stat-reshape v1.2). delta_aura NOT ADDED:
+    # AURA is institution-level so skills cannot shift it.
     delta_burnout_raw: int = 0
     delta_ceiling_raw: int = 0
 
@@ -287,11 +302,11 @@ class BuildSummary(BaseModel):
     school_name: str
     major_text: str
     career_title: str
-    ern: int | None
-    roi: int | None
-    res: int | None
-    grw: int | None
-    hmn: int | None
+    ern: int | None = None
+    roi: int | None = None
+    res: int | None = None
+    grw: int | None = None
+    aura: int | None = None
     wins: int
     losses: int
     draws: int = 0

@@ -158,12 +158,14 @@ def stat_explainer(career: CareerOutcome) -> str:
             f"Student Loans Boss.{roi_ctx}"
         )
 
-    # RES — AI resilience
+    # RES — AI resilience (now blended from stat_res + stat_hmn for display).
+    # Note: Fight AI scores from the raw row inputs (career.raw_stat_res +
+    # career.raw_stat_hmn), not this rounded display value.
     if s.res is not None:
         lines.append(
-            f"- RES {s.res}/10 (AI Resilience): How safe this job is from "
-            f"being replaced by AI. Higher means the job needs skills that "
-            f"computers can't do yet."
+            f"- RES {s.res}/10 (AI Resilience): How well this career holds "
+            f"up against AI. Blends two signals — how much the work still "
+            f"needs people, and how poorly automation actually does it today."
         )
 
     # GRW — growth
@@ -176,23 +178,30 @@ def stat_explainer(career: CareerOutcome) -> str:
             grw_desc = "Fewer people are being hired for this job than before."
         lines.append(f"- GRW {s.grw}/10 (Growth): {grw_desc}")
 
-    # HMN — human touch
-    if s.hmn is not None:
-        if s.hmn >= 7:
-            hmn_desc = (
-                "Most of this job involves uniquely human skills — "
-                "empathy, creativity, judgment."
+    # AURA — institution-level brand gravity. Nullable for ~10% of unitids
+    # without consumable.institution_aura coverage; render explicit "—".
+    if s.aura is not None:
+        if s.aura >= 7:
+            aura_desc = (
+                "This school carries serious institutional weight — strong "
+                "endowment, marketing reach, athletic profile."
             )
-        elif s.hmn >= 4:
-            hmn_desc = (
-                "This job mixes human skills with technical/routine work."
+        elif s.aura >= 4:
+            aura_desc = (
+                "This school has moderate brand gravity — solid presence "
+                "without dominating headlines."
             )
         else:
-            hmn_desc = (
-                "Much of this job is routine or technical work that "
-                "doesn't rely heavily on human judgment."
+            aura_desc = (
+                "This school is light on institutional brand signal "
+                "compared to peers."
             )
-        lines.append(f"- HMN {s.hmn}/10 (Human Touch): {hmn_desc}")
+        lines.append(f"- AURA {s.aura}/10 (Brand Gravity): {aura_desc}")
+    else:
+        lines.append(
+            "- AURA — (Brand Gravity): No institutional brand-gravity "
+            "data is available for this school yet."
+        )
 
     return "\n".join(lines)
 
@@ -442,8 +451,9 @@ def _boss_instructions(boss_id: str) -> str:
 # single scalar used for comparison against these bounds. The raw
 # ``boss_*_score`` fields from the data layer are 1-10 ints that already
 # encode the threat intensity; where spec thresholds reference pentagon
-# stats (e.g. RES + HMN for Fight AI), we compute from the stats
-# instead of the raw boss score.
+# stats (e.g. raw stat_res + stat_hmn for Fight AI — Decision 4 in
+# pentagon-stat-reshape.md), we compute from the row scores instead of
+# the raw boss score.
 
 @dataclass(frozen=True)
 class BossSpec:
@@ -499,11 +509,29 @@ def _safe_sum(*values: int | None) -> int | None:
 
 
 def _score_ai(career: CareerOutcome) -> tuple[int | None, str]:
-    """RES + HMN — AI resilience stacked with uniquely-human work."""
-    score = _safe_sum(career.stats.res, career.stats.hmn)
+    """Sum the RAW row inputs (stat_res + stat_hmn) using ``_safe_sum``.
+
+    Reads from ``career.raw_stat_res`` and ``career.raw_stat_hmn`` — the
+    underlying inputs preserved on CareerOutcome by ``_row_to_outcome``,
+    NOT the blended ``stats.res`` display value. The blend is
+    presentation-only (Decision 2 in pentagon-stat-reshape.md); Fight AI
+    scores from the underlying inputs so existing thresholds (win=14,
+    draw=10) and existing fixtures stay BIT-EXACT with pre-reshape
+    behavior. Doubling the surviving input on the partial-null branch
+    would silently flip ~1.05M rows, contradicting the bit-exact
+    rationale (Decision 4 revised, v1.2 data-review fix).
+    """
+    raw_res = career.raw_stat_res
+    raw_hmn = career.raw_stat_hmn
+    score = _safe_sum(raw_res, raw_hmn)
     if score is None:
-        return None, "RES + HMN stats unavailable"
-    return score, f"RES {career.stats.res} + HMN {career.stats.hmn} = {score}"
+        return None, "raw stat_res and stat_hmn unavailable"
+    # Match spec §6 wording: always emit both operands so downstream
+    # readers (Gemma narrative prompts, audit logs) see the full math
+    # even on the partial-null branch. None inputs render as "unavailable".
+    res_str = f"stat_res {raw_res}" if raw_res is not None else "stat_res unavailable"
+    hmn_str = f"stat_hmn {raw_hmn}" if raw_hmn is not None else "stat_hmn unavailable"
+    return score, f"raw {res_str} + {hmn_str} = {score}"
 
 
 def _score_loans(career: CareerOutcome) -> tuple[int | None, str]:
@@ -589,7 +617,7 @@ _NARRATIVE_SYSTEM = (
     "compared to the starting salary, say exactly that. Use the actual "
     "dollar figures, years, and percentages the prompt gives you.\n\n"
     "Never use these words or framings in your output:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN. The student has never seen "
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN. The student has never seen "
     "these letters. If a stat is low, say what it means ('earnings "
     "start low compared to other graduates from this program'), never "
     "the code or the number.\n"

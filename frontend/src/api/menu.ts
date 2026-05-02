@@ -31,7 +31,7 @@ export interface BuildSummary {
   roi: number | null;
   res: number | null;
   grw: number | null;
-  hmn: number | null;
+  aura: number | null;
   wins: number;
   losses: number;
   draws: number;
@@ -119,7 +119,7 @@ export interface ChatHistoryItem {
 // Mirrors the backend AskScope discriminated union (models/api.py).
 // ---------------------------------------------------------------------------
 
-export type AskStatTarget = "ERN" | "ROI" | "RES" | "GRW" | "HMN";
+export type AskStatTarget = "ERN" | "ROI" | "RES" | "GRW" | "AURA";
 export type AskBossTarget =
   | "ai"
   | "loans"

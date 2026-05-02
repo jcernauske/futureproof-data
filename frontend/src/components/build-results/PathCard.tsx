@@ -10,7 +10,7 @@ interface PathCardProps {
   stats: PentagonStats;
 }
 
-const STAT_KEYS = ["ern", "roi", "res", "grw", "hmn"] as const;
+const STAT_KEYS = ["ern", "roi", "res", "grw", "aura"] as const;
 
 export function PathCard({ programName, cipCode, careerName, socCode, stats }: PathCardProps) {
   const t = useT();

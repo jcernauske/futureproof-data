@@ -35,7 +35,7 @@ function makeCareer(soc = "15-1252"): CareerOutcome {
     tuition_in_state: null,
     tuition_out_of_state: null,
     room_board_on_campus: null,
-    stats: { ern: 8, roi: 7, res: 4, grw: 9, hmn: 5 },
+    stats: { ern: 8, roi: 7, res: 4, grw: 9, aura: 5 },
     bosses: { ai: 6, loans: 3, market: 2, burnout: 5, ceiling: 3 },
     top_5_activities: [],
     top_human_activities: [],

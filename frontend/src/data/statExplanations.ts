@@ -6,7 +6,7 @@
  * mockups for stat colors and abbreviations.
  */
 
-export type StatKey = "ern" | "roi" | "res" | "grw" | "hmn";
+export type StatKey = "ern" | "roi" | "res" | "grw" | "aura";
 
 export interface StatExplanation {
   key: StatKey;
@@ -30,7 +30,7 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
     nameKey: "stat.ern.name",
     abbreviation: "ERN",
     explanation:
-      "Based on what graduates of this program at this school actually earn.",
+      "Compares what graduates of this program at this school earn against peers in the same field, blended with how this career's wages rank among all U.S. occupations.",
     explanationKey: "stat.ern.explanation",
     source: "College Scorecard + BLS",
     color: "var(--color-stat-ern)",
@@ -56,9 +56,9 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
     nameKey: "stat.res.name",
     abbreviation: "RES",
     explanation:
-      "How exposed is this career to AI automation? Higher means the work needs humans.",
+      "How well your career holds up against AI. Blends two signals: how much the work still needs people, and how poorly automation actually does it today.",
     explanationKey: "stat.res.explanation",
-    source: "Composite AI Exposure (Gemma 4 + Karpathy + Anthropic)",
+    source: "Karpathy AI Exposure + Anthropic Economic Index + O*NET task profiles",
     color: "var(--color-stat-res)",
     textClass: "text-stat-res",
     bgClass: "bg-stat-res",
@@ -77,17 +77,17 @@ export const STAT_EXPLANATIONS: StatExplanation[] = [
     bgClass: "bg-stat-grw",
   },
   {
-    key: "hmn",
-    name: "Human Edge",
-    nameKey: "stat.hmn.name",
-    abbreviation: "HMN",
+    key: "aura",
+    name: "Brand Gravity",
+    nameKey: "stat.aura.name",
+    abbreviation: "AURA",
     explanation:
-      "How much does this job depend on uniquely human skills?",
-    explanationKey: "stat.hmn.explanation",
-    source: "O*NET Work Activities",
-    color: "var(--color-stat-hmn)",
-    textClass: "text-stat-hmn",
-    bgClass: "bg-stat-hmn",
+      "How much weight your school's name carries — endowment per student, marketing reach, athletic budget. Real signal, not vibes. Some schools don't have it yet.",
+    explanationKey: "stat.aura.explanation",
+    source: "IPEDS Finance + EADA athletics",
+    color: "var(--color-stat-aura)",
+    textClass: "text-stat-aura",
+    bgClass: "bg-stat-aura",
   },
 ];
 

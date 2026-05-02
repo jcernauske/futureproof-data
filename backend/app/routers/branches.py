@@ -51,7 +51,7 @@ def _node_to_dict(node) -> dict:
         "roi": node.roi,
         "res": node.res,
         "grw": node.grw,
-        "hmn": node.hmn,
+        "aura": node.aura,
         "median_wage": node.median_wage,
         "education": node.education,
         "experience_years": node.experience_years,

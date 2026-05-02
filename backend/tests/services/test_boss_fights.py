@@ -12,7 +12,9 @@ def _career(
     roi=None,
     res=None,
     grw=None,
-    hmn=None,
+    aura=None,
+    raw_stat_res=None,
+    raw_stat_hmn=None,
     burnout=None,
     ceiling=None,
     net_price_annual=None,
@@ -28,6 +30,15 @@ def _career(
     tuition_out_of_state=None,
     loan_pct=1.0,
 ) -> CareerOutcome:
+    # Pentagon-stat-reshape (Decision 4): if the test specifies res/aura
+    # without raw_* values, default raw_stat_res to the legacy res value
+    # and raw_stat_hmn to the (now-renamed) aura value so existing test
+    # intent (res + hmn → Fight AI score) carries forward bit-exactly.
+    # New tests should pass raw_stat_res / raw_stat_hmn explicitly.
+    if raw_stat_res is None and res is not None:
+        raw_stat_res = res
+    if raw_stat_hmn is None and aura is not None:
+        raw_stat_hmn = aura
     return CareerOutcome(
         unitid=1,
         institution_name="Test School",
@@ -47,32 +58,34 @@ def _career(
         tuition_in_state=tuition_in_state,
         tuition_out_of_state=tuition_out_of_state,
         loan_pct=loan_pct,
-        stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, hmn=hmn),
+        stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, aura=aura),
         bosses=BossScores(
             ai=None, loans=None, market=None, burnout=burnout, ceiling=ceiling
         ),
+        raw_stat_res=raw_stat_res,
+        raw_stat_hmn=raw_stat_hmn,
     )
 
 
 class TestFightAI:
     def test_win_when_res_plus_hmn_high(self):
-        career = _career(res=8, hmn=8)
+        career = _career(res=8, aura=8)
         fight = _run_one(career, "ai")
         assert fight.result == "win"
         assert fight.raw_score == 16
 
     def test_draw_in_middle_band(self):
-        career = _career(res=5, hmn=5)
+        career = _career(res=5, aura=5)
         fight = _run_one(career, "ai")
         assert fight.result == "draw"
 
     def test_lose_when_low(self):
-        career = _career(res=2, hmn=3)
+        career = _career(res=2, aura=3)
         fight = _run_one(career, "ai")
         assert fight.result == "lose"
 
     def test_unknown_when_stats_missing(self):
-        career = _career(res=None, hmn=None)
+        career = _career(res=None, aura=None)
         fight = _run_one(career, "ai")
         assert fight.result == "unknown"
         assert fight.raw_score is None
@@ -141,7 +154,7 @@ class TestGauntletVerdict:
     def test_dominant_when_no_losses_and_three_wins(self, monkeypatch):
         _disable_narrative(monkeypatch)
         gauntlet = boss_fights.run_gauntlet(
-            _career(res=8, hmn=8, roi=9, grw=7, burnout=3, ceiling=8),
+            _career(res=8, aura=8, roi=9, grw=7, burnout=3, ceiling=8),
             with_narratives=False,
         )
         assert gauntlet.losses == 0
@@ -151,7 +164,7 @@ class TestGauntletVerdict:
     def test_vulnerable_when_losses_outweigh_wins(self, monkeypatch):
         _disable_narrative(monkeypatch)
         gauntlet = boss_fights.run_gauntlet(
-            _career(res=2, hmn=2, roi=3, grw=2, burnout=9, ceiling=2),
+            _career(res=2, aura=2, roi=3, grw=2, burnout=9, ceiling=2),
             with_narratives=False,
         )
         assert gauntlet.losses > gauntlet.wins
@@ -167,7 +180,7 @@ class TestGauntletVerdict:
         _disable_narrative(monkeypatch)
         # 2 wins + 2 losses + 1 draw
         gauntlet = boss_fights.run_gauntlet(
-            _career(res=8, hmn=8, roi=2, grw=2, burnout=3, ceiling=5),
+            _career(res=8, aura=8, roi=2, grw=2, burnout=3, ceiling=5),
             with_narratives=False,
         )
         # ai=16 win, loans=2 lose, market=2 lose, burnout=8 win, ceiling=5 draw
@@ -204,7 +217,7 @@ class TestScoreAndNarrateSplit:
     """
 
     def test_score_gauntlet_produces_empty_narratives(self):
-        career = _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=7, ern=6)
+        career = _career(res=8, aura=8, roi=7, grw=6, burnout=3, ceiling=7, ern=6)
         gauntlet = boss_fights.score_gauntlet(career)
         # Every fight got scored — no unknowns with full stats.
         assert len(gauntlet.fights) == 5
@@ -237,7 +250,7 @@ class TestScoreAndNarrateSplit:
         monkeypatch.setattr(gemma_client, "generate_async", _explode_async)
 
         boss_fights.score_gauntlet(
-            _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=7)
+            _career(res=8, aura=8, roi=7, grw=6, burnout=3, ceiling=7)
         )
         assert called["n"] == 0
 
@@ -255,7 +268,7 @@ class TestScoreAndNarrateSplit:
         monkeypatch.setattr(gemma_client, "generate", fake_generate)
 
         gauntlet = boss_fights.run_gauntlet(
-            _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=7, ern=6),
+            _career(res=8, aura=8, roi=7, grw=6, burnout=3, ceiling=7, ern=6),
             with_narratives=True,
         )
         # One generate call per fight.
@@ -284,7 +297,7 @@ class TestScoreAndNarrateSplit:
         # ern missing → ceiling fight is UNKNOWN; other stats present
         # so their fights classify normally.
         gauntlet = boss_fights.run_gauntlet(
-            _career(res=8, hmn=8, roi=7, grw=6, burnout=3, ceiling=None, ern=None),
+            _career(res=8, aura=8, roi=7, grw=6, burnout=3, ceiling=None, ern=None),
             with_narratives=True,
         )
 
@@ -318,12 +331,12 @@ class TestNarrateOne:
             raw_score=16,
             threshold_win=14,
             threshold_draw=10,
-            reason="RES 8 + HMN 8 = 16",
+            reason="RES 8 + AURA 8 = 16",
         )
         import asyncio
 
         text = asyncio.run(
-            boss_fights.narrate_one(_career(res=8, hmn=8), fight)
+            boss_fights.narrate_one(_career(res=8, aura=8), fight)
         )
         # narrate_one returns whatever Gemma returned; leading/trailing
         # whitespace is intentionally preserved (stripping is the sync
@@ -414,7 +427,7 @@ class TestNarrateOne:
             "ROI",
             "RES",
             "GRW",
-            "HMN",
+            "AURA",
             "flagged for review",
             "/10",
         ]
@@ -481,7 +494,7 @@ class TestNarrateOne:
             raw_score=12,
             threshold_win=14,
             threshold_draw=10,
-            reason="RES 6 + HMN 6",
+            reason="RES 6 + AURA 6",
         )
         import asyncio
 
@@ -489,7 +502,7 @@ class TestNarrateOne:
 
         with pytest.raises(RuntimeError, match="OpenRouter 503"):
             asyncio.run(
-                boss_fights.narrate_one(_career(res=6, hmn=6), fight)
+                boss_fights.narrate_one(_career(res=6, aura=6), fight)
             )
 
 
@@ -513,10 +526,10 @@ class TestRerollCommentary:
             raw_score=14,
             threshold_win=14,
             threshold_draw=10,
-            reason="RES 5 + HMN 9 = 14",
+            reason="RES 5 + AURA 9 = 14",
         )
         text = boss_fights.generate_reroll_commentary(
-            career=_career(res=5, hmn=9),
+            career=_career(res=5, aura=9),
             fight=fight,
             original_result="lose",
             original_narrative="The original coach note.",
@@ -543,7 +556,7 @@ class TestRerollCommentary:
             reason="test",
         )
         text = boss_fights.generate_reroll_commentary(
-            career=_career(res=8, hmn=8),
+            career=_career(res=8, aura=8),
             fight=fight,
             original_result="lose",
             original_narrative="",
@@ -569,7 +582,7 @@ class TestRerollCommentary:
             reason="test",
         )
         text = boss_fights.generate_reroll_commentary(
-            career=_career(res=6, hmn=6),
+            career=_career(res=6, aura=6),
             fight=fight,
             original_result="lose",
             original_narrative="",
@@ -691,11 +704,11 @@ class TestNarrativePromptIncludesCostContext:
 
 class TestRescoreFight:
     def test_rescores_with_updated_stats(self):
-        original = _career(res=2, hmn=3)
+        original = _career(res=2, aura=3)
         lost = _run_one(original, "ai")
         assert lost.result == "lose"
 
-        buffed = _career(res=8, hmn=8)
+        buffed = _career(res=8, aura=8)
         rescored = boss_fights.rescore_fight(buffed, "ai")
         assert rescored.result == "win"
         assert rescored.raw_score == 16
@@ -711,10 +724,10 @@ class TestRescoreFight:
         import pytest
 
         with pytest.raises(ValueError, match="Unknown boss id"):
-            boss_fights.rescore_fight(_career(res=5, hmn=5), "nonsense")
+            boss_fights.rescore_fight(_career(res=5, aura=5), "nonsense")
 
     def test_narrative_is_empty_on_rescore(self):
-        rescored = boss_fights.rescore_fight(_career(res=8, hmn=8), "ai")
+        rescored = boss_fights.rescore_fight(_career(res=8, aura=8), "ai")
         assert rescored.narrative == ""
 
 
@@ -723,7 +736,7 @@ class TestRecomputeTotals:
         from app.services import gemma_client
 
         monkeypatch.setattr(gemma_client, "generate", lambda **kwargs: "")
-        career = _career(res=2, hmn=3, roi=2, grw=2, burnout=10, ceiling=2, ern=2)
+        career = _career(res=2, aura=3, roi=2, grw=2, burnout=10, ceiling=2, ern=2)
         gauntlet = boss_fights.run_gauntlet(career, with_narratives=False)
         original_losses = gauntlet.losses
         assert original_losses >= 1
@@ -742,7 +755,7 @@ class TestRecomputeTotals:
         from app.services import gemma_client
 
         monkeypatch.setattr(gemma_client, "generate", lambda **kwargs: "")
-        career = _career(res=9, hmn=9, roi=9, grw=9, burnout=1, ceiling=9, ern=9)
+        career = _career(res=9, aura=9, roi=9, grw=9, burnout=1, ceiling=9, ern=9)
         gauntlet = boss_fights.run_gauntlet(career, with_narratives=False)
         boss_fights.recompute_totals(gauntlet)
         assert gauntlet.losses == 0
@@ -840,7 +853,7 @@ class TestBossFightsLocale:
             gemma_client, "generate_async", fake_generate_async
         )
 
-        career = _career(res=3, hmn=7)
+        career = _career(res=3, aura=7)
         gauntlet = boss_fights.score_gauntlet(career)
         # Pick a fight that is NOT unknown so narrate_one calls Gemma.
         fight = next(f for f in gauntlet.fights if f.result != "unknown")
@@ -870,7 +883,7 @@ class TestBossFightsLocale:
             gemma_client, "generate_async", fake_generate_async
         )
 
-        career = _career(res=3, hmn=7)
+        career = _career(res=3, aura=7)
         gauntlet = boss_fights.score_gauntlet(career)
         fight = next(f for f in gauntlet.fights if f.result != "unknown")
 
@@ -898,7 +911,7 @@ class TestBossFightsLocale:
             gemma_client, "generate_async", fake_generate_async
         )
 
-        career = _career(res=None, hmn=None)
+        career = _career(res=None, aura=None)
         gauntlet = boss_fights.score_gauntlet(career)
         fight = next(f for f in gauntlet.fights if f.boss == "ai")
         assert fight.result == "unknown"
@@ -922,7 +935,7 @@ class TestBossFightsLocale:
 
         monkeypatch.setattr(gemma_client, "generate", fake_generate)
 
-        career = _career(res=5, hmn=7)
+        career = _career(res=5, aura=7)
         fight = BossFightResult(
             boss="ai",
             label="Fight AI",

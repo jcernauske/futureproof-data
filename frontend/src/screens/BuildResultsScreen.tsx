@@ -42,7 +42,7 @@ const BOSS_CHIP_PREFIX_KEY: Record<BossOutcome, string> = {
   unknown: "build.askBoss.draw",
 };
 
-const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
+const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
 
 export function BuildResultsScreen() {
   const navigate = useNavigate();
@@ -59,16 +59,40 @@ export function BuildResultsScreen() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatScope, setChatScope] = useState<AskScope | null>(null);
   const [chatChipText, setChatChipText] = useState<string>("");
+  // ERN explain-this-stat spike — when set, the slide-in chat fires this
+  // opener automatically. Cleared on close so a manual reopen doesn't
+  // replay the explanation. ERN-only for now.
+  const [chatOpenerPrompt, setChatOpenerPrompt] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
 
-  const openChat = useCallback((scope: AskScope, chipText: string) => {
-    setChatScope(scope);
-    setChatChipText(chipText);
-    setChatOpen(true);
-  }, []);
+  const openChat = useCallback(
+    (scope: AskScope, chipText: string, openerPrompt?: string) => {
+      setChatScope(scope);
+      setChatChipText(chipText);
+      setChatOpenerPrompt(openerPrompt ?? null);
+      setChatOpen(true);
+    },
+    [],
+  );
   const closeChat = useCallback(() => {
     setChatOpen(false);
+    setChatOpenerPrompt(null);
   }, []);
+
+  // ERN explain-this-stat spike. Sentinel string is matched in
+  // backend/app/services/ask_gemma.py (`_ERN_EXPLAIN_OPENER`).
+  const handleExplainErn = useCallback(() => {
+    if (!build) return;
+    openChat(
+      {
+        kind: "stat",
+        build_ids: [build.build_id],
+        target_id: "ERN" as AskStatTarget,
+      },
+      t("build.askPrefix").replace("{label}", "Earning Power"),
+      "[explain-this:ERN]",
+    );
+  }, [build, openChat, t]);
 
   const handleAskStat = useCallback(
     (statLowercase: string) => {
@@ -744,6 +768,21 @@ export function BuildResultsScreen() {
                           <p className="font-body text-text-secondary" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>
                             {t(stat.explanationKey)}
                           </p>
+                          {/* ERN explain-this-stat spike. ERN-only. */}
+                          {key === "ern" && (
+                            <button
+                              type="button"
+                              onClick={handleExplainErn}
+                              data-testid="btn-explain-ern"
+                              aria-label="Explain Earning Power to me"
+                              disabled={chatOpen}
+                              className="inline-flex items-center gap-1.5 mt-2 px-2 py-1 -mx-2 rounded-md font-body font-semibold transition-colors duration-fast cursor-pointer hover:bg-state-loading active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                              style={{ fontSize: 12, color: colors?.text }}
+                            >
+                              <span aria-hidden>✦</span>
+                              Explain this to me
+                            </button>
+                          )}
                         </div>
                         {/* Score */}
                         <div className="flex-shrink-0 text-right">
@@ -883,6 +922,7 @@ export function BuildResultsScreen() {
         build={null}
         scope={chatScope ?? undefined}
         chipText={chatChipText}
+        openerPrompt={chatOpenerPrompt ?? undefined}
         onClose={closeChat}
       />
     </div>

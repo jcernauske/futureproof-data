@@ -138,7 +138,7 @@ function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
     tuition_in_state: null,
     tuition_out_of_state: null,
     room_board_on_campus: null,
-    stats: { ern: 8, roi: 6, res: 7, grw: 9, hmn: 5 },
+    stats: { ern: 8, roi: 6, res: 7, grw: 9, aura: 5 },
     bosses: { ai: 7, loans: 4, market: 9, burnout: 5, ceiling: 8 },
     top_5_activities: [],
     top_human_activities: [],
@@ -215,7 +215,6 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
         delta_roi: 2,
         delta_res: 0,
         delta_grw: 0,
-        delta_hmn: 0,
         delta_burnout_raw: 0,
         delta_ceiling_raw: 0,
       },
@@ -872,7 +871,7 @@ describe("BuildResultsScreen -- stat legend", () => {
       { abbr: "ROI", name: "Return on Investment" },
       { abbr: "RES", name: "AI Resilience" },
       { abbr: "GRW", name: "Growth Outlook" },
-      { abbr: "HMN", name: "Human Edge" },
+      { abbr: "AURA", name: "Brand Gravity" },
     ];
 
     for (const stat of expectedStats) {

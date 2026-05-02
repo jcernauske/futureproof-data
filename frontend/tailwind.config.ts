@@ -54,7 +54,7 @@ export default {
           roi: "var(--color-stat-roi)",
           res: "var(--color-stat-res)",
           grw: "var(--color-stat-grw)",
-          hmn: "var(--color-stat-hmn)",
+          aura: "var(--color-stat-aura)",
         },
         text: {
           primary: "var(--color-text-primary)",
@@ -128,6 +128,7 @@ export default {
         "glow-insight": "var(--shadow-glow-insight)",
         "glow-info": "var(--shadow-glow-info)",
         "glow-empathy": "var(--shadow-glow-empathy)",
+        "glow-aura": "var(--shadow-glow-aura)",
       },
       spacing: {
         1: "4px",

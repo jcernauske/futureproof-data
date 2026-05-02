@@ -64,7 +64,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
     soc: "19-4021",
     title: "Biological Technician",
     wage: 52140,
-    stats: { ern: 2, roi: 3, res: 4, grw: 3, hmn: 3 },
+    stats: { ern: 2, roi: 3, res: 4, grw: 3, aura: 3 },
     chapters: [
       {
         number: 1,
@@ -76,7 +76,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
           "Lab-bench work — samples, assays, documentation. The career starts here for most biology grads.",
         unlock: null,
         deltas: {},
-        stats_snapshot: { ern: 2, roi: 3, res: 4, grw: 3, hmn: 3 },
+        stats_snapshot: { ern: 2, roi: 3, res: 4, grw: 3, aura: 3 },
       },
       {
         number: 2,
@@ -109,7 +109,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         what_changes:
           "Runs the lab. Budget, hiring, research direction. The work becomes more about people than pipettes.",
         unlock: null,
-        deltas: { ern: +2, grw: +1, hmn: +1 },
+        deltas: { ern: +2, grw: +1, aura: +1 },
       },
     ],
   },
@@ -117,7 +117,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
     soc: "19-1029",
     title: "Biologist",
     wage: 65000,
-    stats: { ern: 3, roi: 3, res: 4, grw: 3, hmn: 3 },
+    stats: { ern: 3, roi: 3, res: 4, grw: 3, aura: 3 },
     chapters: [
       {
         number: 1,
@@ -128,7 +128,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         what_changes: "Field or lab generalist — the starting bench.",
         unlock: null,
         deltas: {},
-        stats_snapshot: { ern: 3, roi: 3, res: 4, grw: 3, hmn: 3 },
+        stats_snapshot: { ern: 3, roi: 3, res: 4, grw: 3, aura: 3 },
       },
       {
         number: 2,
@@ -139,7 +139,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         what_changes:
           "Specialization kicks in. Publications and field studies start to define the next step.",
         unlock: null,
-        deltas: { grw: +1, hmn: +1 },
+        deltas: { grw: +1, aura: +1 },
       },
       {
         number: 3,
@@ -169,7 +169,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
     soc: "19-1099",
     title: "Laboratory Animal Caretaker",
     wage: 34740,
-    stats: { ern: 1, roi: 2, res: 5, grw: 2, hmn: 4 },
+    stats: { ern: 1, roi: 2, res: 5, grw: 2, aura: 4 },
     chapters: [
       {
         number: 1,
@@ -181,7 +181,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
           "Hands-on animal husbandry — feeding, housing, records for research subjects.",
         unlock: null,
         deltas: {},
-        stats_snapshot: { ern: 1, roi: 2, res: 5, grw: 2, hmn: 4 },
+        stats_snapshot: { ern: 1, roi: 2, res: 5, grw: 2, aura: 4 },
       },
       {
         number: 2,
@@ -192,7 +192,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         what_changes:
           "Manages a small team, runs scheduling, handles regulatory compliance paperwork.",
         unlock: null,
-        deltas: { ern: +1, hmn: +1 },
+        deltas: { ern: +1, aura: +1 },
       },
       {
         number: 3,
@@ -213,7 +213,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
 // Chapter card
 // ---------------------------------------------------------------------------
 
-const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
+const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
 
 function DeltaPill({ statKey, value }: { statKey: StatKey; value: number }) {
   const stat = STAT_MAP[statKey];

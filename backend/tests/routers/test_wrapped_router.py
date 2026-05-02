@@ -39,7 +39,7 @@ def _make_build() -> Build:
         program_name="Marketing",
         soc_code="13-2051",
         occupation_title="Financial Analyst",
-        stats=PentagonStats(ern=8, roi=9, res=4, grw=6, hmn=6),
+        stats=PentagonStats(ern=8, roi=9, res=4, grw=6, aura=6),
         bosses=BossScores(ai=7, loans=None, market=7, burnout=6, ceiling=None),
         median_annual_wage=66490.0,
     )

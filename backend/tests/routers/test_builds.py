@@ -57,7 +57,7 @@ def _career() -> CareerOutcome:
         program_name="Marketing",
         soc_code="13-1161",
         occupation_title="Market Research Analysts",
-        stats=PentagonStats(ern=7, roi=8, res=5, grw=6, hmn=7),
+        stats=PentagonStats(ern=7, roi=8, res=5, grw=6, aura=7),
         bosses=BossScores(ai=6, loans=8, market=7, burnout=5, ceiling=4),
         median_annual_wage=68230.0,
     )

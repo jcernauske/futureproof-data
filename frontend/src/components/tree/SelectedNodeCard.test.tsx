@@ -40,7 +40,7 @@ function makeBuild(): Build {
       tuition_out_of_state: null,
       is_out_of_state: false,
       room_board_on_campus: null,
-      stats: { ern: 7, roi: 6, res: 5, grw: 6, hmn: 4 },
+      stats: { ern: 7, roi: 6, res: 5, grw: 6, aura: 4 },
       bosses: { ai: 4, loans: 3, market: 5, burnout: 6, ceiling: 4 },
       top_5_activities: [],
       top_human_activities: [],
@@ -73,7 +73,7 @@ function makeNode(overrides: Partial<TreeNode> = {}): TreeNode {
     roi: 7,
     res: 6,
     grw: 8,
-    hmn: 5,
+    aura: 5,
     median_wage: 140000,
     education: "Bachelor's degree",
     experience_years: null,
@@ -101,7 +101,7 @@ describe("treeNodeToCareerOutcome", () => {
       roi: 7,
       res: 6,
       grw: 8,
-      hmn: 5,
+      aura: 5,
     });
   });
 
@@ -162,11 +162,11 @@ describe("SelectedNodeCard", () => {
     );
     // The bar's stat label is "ERN" — should be absent.
     expect(screen.queryByText("ERN")).toBeNull();
-    // But ROI / RES / GRW / HMN should still render.
+    // But ROI / RES / GRW / AURA should still render.
     expect(screen.getByText("ROI")).toBeInTheDocument();
     expect(screen.getByText("RES")).toBeInTheDocument();
     expect(screen.getByText("GRW")).toBeInTheDocument();
-    expect(screen.getByText("HMN")).toBeInTheDocument();
+    expect(screen.getByText("AURA")).toBeInTheDocument();
   });
 
   it("renders ERN when the node carries a value (root case)", () => {
@@ -202,7 +202,7 @@ describe("SelectedNodeCard — T1.3 mini-compare strip", () => {
       roi: 6,
       res: 5,
       grw: 6,
-      hmn: 4,
+      aura: 4,
       median_wage: 95_570,
       education: "Bachelor's degree",
       experience_years: null,
@@ -373,7 +373,7 @@ describe("SelectedNodeCard — T2.3 what-it-takes block", () => {
       roi: 6,
       res: 5,
       grw: 6,
-      hmn: 4,
+      aura: 4,
       median_wage: 95_570,
       education: "Bachelor's degree",
       experience_years: 2,
@@ -396,7 +396,7 @@ describe("SelectedNodeCard — T2.3 what-it-takes block", () => {
       experience_years: 7,
       res: 8, // top-stat bullet (Δ=+3)
       grw: 6,
-      hmn: 4,
+      aura: 4,
     });
     render(
       <SelectedNodeCard
