@@ -1623,18 +1623,131 @@ None. The §3 design from @fp-design-visionary was implemented as written. The �
 
 ## §7 Test Coverage
 
-**Status:** PENDING
+**Status:** COMPLETE (Phase 4 — @test-writer, 2026-05-02)
 
 ### Tests Added
 
-| Test File | Test Name | What It Tests |
-|-----------|-----------|---------------|
+#### Backend — `backend/tests/services/test_ask_gemma_explain_receipt.py` (NEW, 48 tests, P0/P1)
+| Test Name | Priority | What It Tests |
+|-----------|----------|---------------|
+| `test_postprocess_happy_path` | P0 | Valid Gemma JSON → ExplainStatReceipt populated; both percentiles present; sources stamped from canonical `_ERN_RECEIPT_SOURCES`. |
+| `test_postprocess_overrides_score_from_build` | P0 | Gemma emits valid-but-wrong `score: 2`; receipt's score is stamped to `build.career.stats.ern` (7). |
+| `test_postprocess_school_rank_null` | P0 | `cip_family_earnings_rank` null → 60% component `value_pct` null + `missing_reason` set; math_line shows `0.6 × n/a` and real `0.4 × 0.92`. |
+| `test_postprocess_occupation_pct_null` | P0 | `wage_percentile_overall` null → 40% component nulled; math_line shows `0.4 × n/a`. |
+| `test_postprocess_both_null` | P0 | Both percentiles null → receipt parses; math_line shows n/a in both slots; both `missing_reason` strings populated. |
+| `test_postprocess_invalid_json_returns_none` | P0 | Unparseable string → None. |
+| `test_postprocess_extra_field_rejected` | P0 | Pydantic `extra="forbid"` rejects `confidence: 0.8` → None. |
+| `test_postprocess_missing_required_field` | P0 | Pydantic rejects payload with `why_mix_paragraph` dropped → None. |
+| `test_postprocess_uses_extract_json_objects_first` | P0 | Markdown-fenced ` ```json{...}``` ` payload parses (`_extract_json_objects` strips fence). |
+| `test_postprocess_extract_handles_trailing_prose` | P0 | `Here is the receipt: {valid JSON}` parses via brace-depth extraction. |
+| `test_postprocess_rejects_wrong_stat_code` | P0 | Gemma emits `stat_code: "ROI"` for ERN request → None (Step 4 stat_code assertion). |
+| `test_postprocess_overwrites_math_line_unconditionally` | P0 | Gemma writes `"I made this up"`; the string never appears in the final receipt — `_render_math_line` output overwrites unconditionally. |
+| `test_postprocess_rejects_truncated_why_mix_paragraph` | P0 | `max_length=800` rejects 801-char `why_mix_paragraph` → None. |
+| `test_postprocess_rejects_sentinel_passthrough` | P0 | 5 sentinel patterns × 4 prose fields (one_liner, why_mix_paragraph, components[0].explainer, components[0].anchor_text) — 20 parametrized cases. Every field_validator firing → None. |
+| `test_postprocess_label_normalization_match_by_weight` | P0 | Off-script `label="program rank"` at weight=60 → normalized to `"your school's program rank"`. |
+| `test_postprocess_label_normalization_handles_swap` | P0 | Gemma swaps the canonical labels across components → match-by-weight catches the swap; both labels normalized. |
+| `test_postprocess_returns_none_when_build_score_null` | P0 | `build.career.stats.ern is None` → score_null guard fires → None. |
+| `test_postprocess_logs_structured_record_on_success` | P0 | Successful parse writes one INFO record with `parse_success=True`, `failure_reason=None`, `call_site`, `build_id`, `backend`. |
+| `test_postprocess_logs_structured_record_on_failure` | P0 | 3 parametrized failure_reasons (`json_decode`, `pydantic_validation`, `stat_code_mismatch`) each emit exactly one WARNING record with the matching reason. |
+| `test_postprocess_logs_score_null_failure` | P0 | The fourth failure_reason — `score_null` — emits one WARNING with the matching reason. |
+| `test_render_math_line_balanced_effort` | P0 | `effort="balanced"` → simple form, no `\n`. |
+| `test_render_math_line_focused_effort` | P0 | `effort="focused"`, build_score above unshifted → unshifted derivation + `Your **Focused** effort setting lifts this to N/M`. |
+| `test_render_math_line_chill_effort` | P0 | `effort="chill"`, build_score below unshifted → unshifted derivation + `brings this to N/M`. |
+| `test_math_line_format_unicode_arrow` | P1 | math_line uses `→` (U+2192) not `->`. |
+| `test_normalize_label_*` (3 unit tests) | helper | `_normalize_label` canonical-match (no change), off-script (replace), unknown-weight (passthrough). |
+
+#### Backend — `backend/tests/services/test_ask_gemma_explain_integration.py` (NEW, 6 tests, P0)
+| Test Name | What It Tests |
+|-----------|---------------|
+| `test_chat_ask_ern_explain_returns_receipt_on_success` | End-to-end: `[explain-this:ERN]` opener → JSON-mode loop → AskResponse.response is an ExplainStatReceipt object; `final_turn_response_format={"type": "json_object"}` is threaded into `generate_with_tools_loop`. |
+| `test_chat_ask_ern_explain_falls_back_on_parse_failure` | Postprocess returns None → fallback retry fires → response is the markdown-spike string. |
+| `test_chat_ask_ern_explain_fallback_uses_cached_tool_log` | Fallback retry passes `tools=[]` to `generate_with_tools_loop` and injects the cached percentile values into the user message — `cip_family_earnings_rank = 0.87` and `wage_percentile_overall = 0.92` appear verbatim. MCP dispatch counter == 0 across the entire chat_ask invocation (Decision 6 v1.2). |
+| `test_chat_ask_ern_explain_returns_string_when_build_score_null` | Build with `stats.ern is None` → postprocess returns None (score_null) → fallback fires → response is a string. |
+| `test_chat_ask_stream_ern_explain_emits_receipt_in_final_text` | `TraceFinalText.response` carries an ExplainStatReceipt object (with `kind: "receipt"`), not a string, when JSON path succeeds. |
+| `test_chat_ask_non_explain_stat_scope_does_not_set_response_format` | Free-form stat-scope question (NOT the opener) → `final_turn_response_format` is None. Defends against an explain-mode leak into the prose path. |
+
+#### Backend — `backend/tests/services/test_gemma_client.py` (4 NEW tests, P0)
+| Test Name | What It Tests |
+|-----------|---------------|
+| `test_final_turn_response_format_synthesis_only` | 3-turn loop (tool-call, tool-call, synthesis); response_format is None on turn 0 (initial tool-call decision); injected on turns 1 and 2 (synthesis-eligible). |
+| `test_response_format_propagates_to_openrouter_path` | OpenAI-compat path: `final_turn_response_format={"type":"json_object"}` lands in `completion_kwargs["response_format"]` verbatim. Mock OpenAI client. |
+| `test_response_format_translates_to_ollama_native_payload` | Ollama native path: `{"type":"json_object"}` translates to `payload["format"] = "json"` before the httpx POST. **fp-architect Condition 1.** |
+| `test_response_format_absent_when_unset_on_ollama` | Sanity: when `response_format=None`, payload has no `format` key. |
+
+#### Frontend — `frontend/src/components/menu/ExplainStatReceipt.test.tsx` (NEW, 8 tests, P0/P1)
+| Test Name | Priority | What It Tests |
+|-----------|----------|---------------|
+| `test_renders_default_state` | P0 | All four sections render (callout, components, math card, sources, why-mix); both rows + both pills present. |
+| `test_renders_missing_school_rank` | P0 | Missing-reason note renders; 60% row's body text gets `text-text-muted` className; math card shows `0.6 × n/a`; 40% row not dimmed. |
+| `test_renders_score_color_token` | P0 | Region's inline style references `var(--color-stat-ern)`. |
+| `test_renders_effort_line_when_non_balanced` | P0 | `\n`-split math_line surfaces the effort line as `[data-testid="receipt-effort-line"]` distinct from the math card; `**Focused**` renders as `<strong>` (no raw asterisks leaked). |
+| `does NOT render the effort line for balanced effort` | saboteur | When math_line has no `\n`, `receipt-effort-line` is absent. |
+| `test_accessibility_attributes` | P1 | `role="region"`, `aria-label` includes stat name + "explanation receipt"; component-row + source-pill data-testids present. |
+| `test_renders_responsive_narrow` | P1 | At 480px viewport, region's max-width is 100% (no fixed-px overflow); component renders. |
+| `renders both-missing degenerate state without throwing` | sanity | Both components have missing_reason notes; math card shows two `n/a` placeholders. |
+
+#### Frontend — `frontend/src/api/menu.test.ts` (NEW, 7 tests, P0)
+| Test Name | What It Tests |
+|-----------|---------------|
+| `test_zod_parser_distinguishes_string_vs_receipt` (string branch) | `parseSSEFrame` returns the string verbatim for plain-prose final_text. |
+| `test_zod_parser_distinguishes_string_vs_receipt` (receipt branch) | Object payload matching the Zod schema parses to a typed ExplainStatReceipt (kind, stat_code, score, components, sources). |
+| `test_zod_parser_falls_back_to_string_on_invalid_object` (missing fields) | Object missing required fields → `String(value)` fallback, no throw. |
+| Saboteur: wrong-type field (`score` as string) | Falls back to string. |
+| Saboteur: out-of-range `score: 99` | Falls back to string (Zod `.max(10)` rejects). |
+| Saboteur: extra field (`confidence: 0.8`) | `.strict()` rejects → falls back to string. |
+| Saboteur: missing `response` key | Resolves to empty string, no throw. |
+
+#### Frontend — `frontend/src/components/menu/GemmaChat.test.tsx` (1 NEW test + 1 modification, P0)
+| Test Name | What It Tests |
+|-----------|---------------|
+| `test_dispatches_receipt_to_explain_stat_component` | Mock `askGemmaStream` to emit a receipt-typed final_text → `<ExplainStatReceiptCard data-testid="explain-stat-receipt">` renders, math card carries the server-built arithmetic, no `[object Object]` leak from the prose renderer. |
+| `second user turn passes the prior 2-entry history to sendChat` (modified) | History assertion now expects `kind: "text"` on each entry, per the discriminated union widening (authorized modification per §4). |
+
+### Edge Cases Covered
+
+- [x] Gemma emits valid-but-wrong score → server stamps build's score
+- [x] Gemma swaps component labels (60% gets the 40% canonical) → match-by-weight recovery
+- [x] Gemma echoes appendix sentinels verbatim (5 patterns × 4 prose fields = 20 cases)
+- [x] Markdown-fenced JSON ` ```json{...}``` ` parses
+- [x] Trailing prose `Here is the receipt: {...}` parses via brace-depth extraction
+- [x] Truncated `why_mix_paragraph` (801 chars) rejected by Pydantic `max_length`
+- [x] Wrong stat_code (ERN request, ROI emitted) rejected by Step 4 assertion
+- [x] All 4 percentile-null permutations (60% null, 40% null, both null, both present)
+- [x] All 3 effort levels (balanced, focused, chill) — focused/chill emit two-line math
+- [x] Math line uses Unicode `→` not ASCII `->`
+- [x] Hallucinated `math_line` text from Gemma never survives the post-processor
+- [x] `build.career.stats.ern is None` → score_null guard fires (BuildResultsScreen disables the trigger; this defends the helper-level guard)
+- [x] All 4 failure_reason codes (`json_decode`, `pydantic_validation`, `stat_code_mismatch`, `score_null`) emit structured logs
+- [x] Synthesis-turn-only JSON-mode scoping (turn 0 is unconstrained — Decision 15)
+- [x] OpenAI-compat path + Ollama native path both translated correctly (fp-architect Condition 1)
+- [x] Frontend Zod parser falls back to string on every invalid-object permutation (no throw)
 
 ### Test Results
 | Suite | Pass | Fail | Skip | Total |
 |-------|------|------|------|-------|
-| pytest | | | | |
-| vitest | | | | |
+| pytest (backend) | 1395 | 0 | 0 | 1395 |
+| vitest (frontend) | 790 | 0 | 0 | 790 |
+
+Backend: 1337 baseline + 58 new (48 in `test_ask_gemma_explain_receipt.py` + 6 in `test_ask_gemma_explain_integration.py` + 4 in `test_gemma_client.py`) = 1395 passing.
+
+Frontend: 773 baseline (1 was failing on the unmodified GemmaChat test, fixed via authorized modification) + 16 new (8 in `ExplainStatReceipt.test.tsx` + 7 in `menu.test.ts` + 1 in `GemmaChat.test.tsx`) = 790 passing. The 1 prior failure is the authorized `kind: "text"` widening of an existing fixture; all other previously-passing tests continue to pass.
+
+### Existing Tests Status (Confirmed Safe — §4)
+
+All "Confirmed Safe" tests verified passing:
+
+- [x] `test_chat_ask_boss_scope_*`, `test_chat_ask_skill_scope_*`, `test_chat_ask_build_scope_*`, `test_chat_ask_branch_*` — boss/skill/build/branch scopes unchanged.
+- [x] `test_strip_thinking_prefix*` — `_strip_thinking_prefix` reused for the markdown fallback path; no signature change.
+- [x] `test_helper_leak_*` — `_HELPER_LEAK_RE` unchanged.
+- [x] `test_voice_contract.py` — system-base voice rules unchanged; receipt appendix is local to the explain-this-stat turn.
+- [x] `BuildResultsScreen.test.tsx` (all tests) — trigger-button behavior unchanged.
+- [x] `test_message_rendering_text` and equivalents — plain-text rendering continues to work identically (the `kind === "text"` branch of the renderer dispatch).
+
+### Gaps Identified
+
+- **Smoke verification across both inference backends.** Live Ollama and OpenRouter behavior is not exercised in unit tests by design — these backends are mocked everywhere. §9 Smoke Verification covers the live behavior gate.
+- **`test_explain_stat_receipt_zod_matches_pydantic` (P2 row in §4).** A round-trip schema-parity test between Pydantic and Zod was deferred. The two schemas are structurally aligned by hand (same field names, same constraint shapes); a property-based diff test would be the right v1.1 follow-up but is out of scope for v1.0.
+- **`response_format_propagates_to_openrouter_path` exercises `_one_tool_turn` directly** rather than through `_tools_loop_inner`, because the loop's synthesis-turn-only scoping suppresses the format on the first turn. The wire-format propagation is covered; the loop scoping itself is covered by `test_final_turn_response_format_synthesis_only`. Both halves of the path are intentional separate units.
 
 ---
 

@@ -213,14 +213,27 @@ describe("GemmaChat", () => {
     });
 
     // Second invocation: build_id, message="Q2", history must contain the prior turn
-    // (1 user + 1 assistant — exactly 2 entries per the spec table).
+    // (1 user + 1 assistant — exactly 2 entries per the spec table). The
+    // history-item type now widened to a discriminated union with
+    // `kind: "text" | "receipt"` per feature-explain-stat-receipt.md
+    // §4 (authorized test modification). Existing prose paths emit
+    // `kind: "text"` items; the receipt kind is exercised separately
+    // by the receipt-dispatch test below.
     const secondCallArgs = mockSendChat.mock.calls[1]!;
     expect(secondCallArgs[0]).toBe("berkeley-cs-001");
     expect(secondCallArgs[1]).toBe("Q2");
-    const history = secondCallArgs[2] as Array<{ role: string; content: string }>;
+    const history = secondCallArgs[2] as Array<{
+      role: string;
+      kind?: string;
+      content?: string;
+    }>;
     expect(history).toHaveLength(2);
-    expect(history[0]).toEqual({ role: "user", content: "Q1" });
-    expect(history[1]).toEqual({ role: "assistant", content: "A1" });
+    expect(history[0]).toEqual({ role: "user", kind: "text", content: "Q1" });
+    expect(history[1]).toEqual({
+      role: "assistant",
+      kind: "text",
+      content: "A1",
+    });
   });
 
   // --- Error path (defensive) ---
@@ -753,6 +766,123 @@ describe("GemmaChat", () => {
       await waitFor(() => {
         expect(screen.getByText("Fallback answer.")).toBeInTheDocument();
       });
+    });
+  });
+
+  // ===========================================================================
+  // Explain-this-stat receipt dispatch
+  // (docs/specs/feature-explain-stat-receipt.md §4 P0).
+  //
+  // GemmaChat's renderMessageWithTrace dispatches on `m.kind`:
+  //   - kind === "receipt" → <ExplainStatReceiptCard payload={...} />
+  //   - kind === "text"    → <ChatMessage message={...} />
+  // The streaming path constructs the history item via
+  // `assistantHistoryItem(response)`, which discriminates on whether
+  // `response` is a string vs. a structured ExplainStatReceipt object.
+  // ===========================================================================
+
+  describe("ERN explain-receipt dispatch (P0)", () => {
+    it("test_dispatches_receipt_to_explain_stat_component — kind:receipt → ExplainStatReceiptCard", async () => {
+      const scope: AskScope = {
+        kind: "stat",
+        build_ids: ["berkeley-cs-001"],
+        target_id: "ERN",
+      };
+      const receipt = {
+        kind: "receipt" as const,
+        stat_code: "ERN" as const,
+        stat_name: "Earning Power",
+        score: 7,
+        score_max: 10,
+        one_liner:
+          "Earning Power tells you how much your degree usually pays right after graduation.",
+        components: [
+          {
+            weight_pct: 60,
+            label: "your school's program rank",
+            explainer:
+              "IU CS grads earn $94,200 — 87th percentile (out of 100 programs, this one ranks higher than about 86) of all CS programs.",
+            value_pct: 87,
+            anchor_text: "Indiana University Computer Science grads",
+            anchor_dollars: 94_200,
+            missing_reason: null,
+          },
+          {
+            weight_pct: 40,
+            label: "this career's pay rank",
+            explainer:
+              "Software Developer pays $132,270 — 92nd percentile.",
+            value_pct: 92,
+            anchor_text: "Software Developer",
+            anchor_dollars: 132_270,
+            missing_reason: null,
+          },
+        ],
+        math_line: "0.6 × 0.87 + 0.4 × 0.92 → score 9/10",
+        sources: [
+          {
+            label: "Graduate earnings",
+            name: "College Scorecard (U.S. Department of Education)",
+          },
+          {
+            label: "Occupation wages",
+            name: "Occupational Outlook Handbook (BLS)",
+          },
+        ],
+        why_mix_paragraph:
+          "Two students at different schools — different programs, different careers, different ranks. Mixing both grounds the score in real salaries.",
+      };
+
+      // The streamImpl helper is typed for string responses only;
+      // bypass it with a hand-rolled mock that emits a receipt object
+      // in the final_text frame.
+      mockAskGemmaStream.mockImplementation(
+        async (
+          _scope: unknown,
+          _message: unknown,
+          _history: unknown,
+          onEvent: (event: unknown) => void,
+        ) => {
+          const finalEv = { type: "final_text", response: receipt };
+          const doneEv = { type: "done" };
+          onEvent(finalEv);
+          onEvent(doneEv);
+          return { response: receipt, events: [finalEv, doneEv] };
+        },
+      );
+
+      render(
+        <GemmaChat
+          open={true}
+          build={makeBuild()}
+          scope={scope}
+          chipText="Asking about: Earning Power"
+          onClose={() => {}}
+        />,
+      );
+
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "[explain-this:ERN]" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+
+      // The receipt card mounts (data-testid from
+      // ExplainStatReceipt.tsx). Prose renderer must NOT have rendered
+      // the receipt object's stringification.
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("explain-stat-receipt"),
+        ).toBeInTheDocument();
+      });
+      // Math card from the receipt component renders the server-built
+      // arithmetic — proof that the structured payload reached the
+      // dedicated renderer, not the prose path.
+      expect(screen.getByTestId("receipt-math-line")).toHaveTextContent(
+        "0.6 × 0.87 + 0.4 × 0.92 → score 9/10",
+      );
+      // Sanity: the prose-render fallback `[object Object]` MUST NOT
+      // appear anywhere — that would mean the receipt was stringified.
+      expect(screen.queryByText(/\[object Object\]/)).toBeNull();
     });
   });
 });
