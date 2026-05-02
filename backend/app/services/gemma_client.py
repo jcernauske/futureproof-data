@@ -981,6 +981,7 @@ async def generate_with_tools_loop(
     extra: dict[str, Any] | None = None,
     on_turn_start: TurnStartCallback | None = None,
     on_turn_event: TurnEventCallback | None = None,
+    final_turn_response_format: dict[str, Any] | None = None,
 ) -> tuple[str, list[ToolCallTurn]]:
     """Multi-turn Gemma tool-calling loop.
 
@@ -1001,6 +1002,17 @@ async def generate_with_tools_loop(
     logged at WARNING; the loop continues. Sync or async callables are
     both supported. Both default to ``None`` (no-op) to preserve
     backward compatibility with all existing callers.
+
+    ``final_turn_response_format`` (NEW per
+    docs/specs/feature-explain-stat-receipt.md Decision 15) — when set
+    (e.g. ``{"type": "json_object"}``), the JSON-mode constraint is
+    injected only on synthesis turns (turns that follow at least one
+    tool-call turn). It is NOT applied to the initial turn-0 tool-call
+    decision, which would risk suppressing tool emission on backends
+    that strictly enforce the format constraint (Ollama
+    ``format: "json"`` is the strict case). Per-backend translation
+    (OpenAI-compat ``response_format`` vs Ollama native ``format``) is
+    handled inside ``_one_tool_turn`` / ``_one_tool_turn_ollama``.
     """
     sem = _get_semaphore()
     async with sem:
@@ -1016,6 +1028,7 @@ async def generate_with_tools_loop(
             extra=extra,
             on_turn_start=on_turn_start,
             on_turn_event=on_turn_event,
+            final_turn_response_format=final_turn_response_format,
         )
 
 
@@ -1032,6 +1045,7 @@ async def _tools_loop_inner(
     extra: dict[str, Any] | None,
     on_turn_start: TurnStartCallback | None = None,
     on_turn_event: TurnEventCallback | None = None,
+    final_turn_response_format: dict[str, Any] | None = None,
 ) -> tuple[str, list[ToolCallTurn]]:
     """Core loop logic, runs inside the semaphore."""
     _client, config = _cached_client()
@@ -1043,6 +1057,13 @@ async def _tools_loop_inner(
     ]
     tool_call_log: list[ToolCallTurn] = []
     wall_start = time.perf_counter()
+    # Synthesis-turn-only JSON-mode scoping (spec Decision 15). The
+    # constraint is applied starting on turn 1+ (after at least one
+    # tool-call turn has fired), never on turn 0. This protects the
+    # tool-call mechanism — Ollama's ``format: "json"`` strictly
+    # enforces JSON output and would suppress tool calls if applied
+    # on turn 0.
+    prev_turn_had_tool_calls = False
 
     for turn in range(max_turns):
         remaining = max_wall_time_s - (time.perf_counter() - wall_start)
@@ -1061,6 +1082,12 @@ async def _tools_loop_inner(
         # chain across turns. ``max_turns`` and ``max_wall_time_s``
         # remain the load-bearing bounds.
         turn_tools = tools
+        # Synthesis-turn-only JSON-mode scoping. Apply the constraint
+        # only on turns that follow a tool-call turn — never on the
+        # initial turn-0 decision (spec Decision 15).
+        effective_response_format = (
+            final_turn_response_format if prev_turn_had_tool_calls else None
+        )
         try:
             response_text, response_tool_calls = await asyncio.wait_for(
                 _one_tool_turn(
@@ -1070,6 +1097,7 @@ async def _tools_loop_inner(
                     max_tokens=max_tokens,
                     turn_number=turn,
                     extra=extra,
+                    response_format=effective_response_format,
                 ),
                 timeout=remaining,
             )
@@ -1105,6 +1133,10 @@ async def _tools_loop_inner(
                 extra=extra,
             )
             return response_text, tool_call_log
+
+        # Mark that this turn produced tool calls — the next turn
+        # qualifies for synthesis-turn JSON-mode scoping (Decision 15).
+        prev_turn_had_tool_calls = True
 
         # Process each tool call
         for tc in response_tool_calls:
@@ -1228,6 +1260,7 @@ async def _one_tool_turn(
     max_tokens: int,
     turn_number: int,
     extra: dict[str, Any] | None,
+    response_format: dict[str, Any] | None = None,
 ) -> tuple[str, list[dict[str, Any]] | None]:
     """Issue one Gemma call. Returns (text, tool_calls_list | None on error).
 
@@ -1236,6 +1269,15 @@ async def _one_tool_turn(
     Routes Ollama through the native ``/api/chat`` endpoint with
     ``tools`` + ``think: false`` to avoid the OpenAI-compat endpoint's
     thinking-mode token drain.
+
+    ``response_format`` (e.g. ``{"type": "json_object"}``) is the
+    OpenAI-compat JSON-mode payload. Per-backend translation:
+      - OpenRouter / OpenAI-compat: passed verbatim in completion_kwargs.
+      - Ollama native: translated to ``payload["format"] = "json"``
+        (Ollama's native API uses a different on-the-wire key).
+    The caller (``_tools_loop_inner``) is responsible for scoping when
+    this fires (synthesis turns only — see Decision 15 in the
+    explain-stat-receipt spec).
     """
     _client, config = _cached_client()
     resolved_model = config.model
@@ -1249,6 +1291,7 @@ async def _one_tool_turn(
             temperature=temperature,
             max_tokens=max_tokens,
             turn_number=turn_number,
+            response_format=response_format,
         )
 
     # OpenRouter / other OpenAI-compatible backends.
@@ -1261,6 +1304,9 @@ async def _one_tool_turn(
     if tools:
         completion_kwargs["tools"] = tools
         completion_kwargs["tool_choice"] = "auto"
+    if response_format is not None:
+        # OpenAI-compat: pass verbatim (e.g. {"type": "json_object"}).
+        completion_kwargs["response_format"] = response_format
 
     def _call() -> Any:
         return _client.chat.completions.create(**completion_kwargs)
@@ -1318,8 +1364,17 @@ async def _one_tool_turn_ollama(
     temperature: float,
     max_tokens: int,
     turn_number: int,
+    response_format: dict[str, Any] | None = None,
 ) -> tuple[str, list[dict[str, Any]] | None]:
-    """Ollama native /api/chat with tools + think=false."""
+    """Ollama native /api/chat with tools + think=false.
+
+    ``response_format`` is translated from the OpenAI-compat shape
+    (``{"type": "json_object"}``) to Ollama's native ``format: "json"``
+    payload field. A full JSON-Schema document passed in
+    ``response_format`` (rare today; reserved for future structured-
+    output) is forwarded to ``payload["format"]`` as-is so Ollama can
+    apply schema-strict mode.
+    """
     url = f"{_ollama_native_url(config)}/api/chat"
     payload: dict[str, Any] = {
         "model": model,
@@ -1333,6 +1388,23 @@ async def _one_tool_turn_ollama(
     }
     if tools:
         payload["tools"] = tools
+    if response_format is not None:
+        # Translate OpenAI-compat shape → Ollama native shape.
+        # {"type": "json_object"} → "json"
+        # {"type": "json_schema", "json_schema": {...}} → the schema dict
+        rf_type = response_format.get("type")
+        if rf_type == "json_object":
+            payload["format"] = "json"
+        elif rf_type == "json_schema":
+            schema = response_format.get("json_schema", {}).get("schema")
+            if schema is not None:
+                payload["format"] = schema
+            else:
+                payload["format"] = "json"
+        else:
+            # Unknown shape — pass through anything that looks
+            # already-Ollama-shaped (a dict that's not OpenAI-compat).
+            payload["format"] = response_format
 
     def _call() -> dict[str, Any]:
         resp = httpx.post(url, json=payload, timeout=180.0)

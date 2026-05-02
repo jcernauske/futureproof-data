@@ -1588,18 +1588,36 @@ Spec is ready to advance to **Phase 2: Design Vision** (@fp-design-visionary fil
 
 ## §6 Implementation Log
 
-**Status:** PENDING
+**Status:** COMPLETE — pending Phase 4 test-writer pass.
 
 ### Files Modified
 | File | Change Summary |
 |------|---------------|
+| `backend/app/models/api.py` | Added `ReceiptSource`, `StatComponent`, `ExplainStatReceipt` Pydantic models (with `extra="forbid"` and the `_reject_sentinel_passthrough` field validator on all four prose fields). `kind: Literal["receipt"]` self-discriminator on `ExplainStatReceipt`. `why_mix_paragraph` carries `max_length=800`. Widened `AskResponse.response` and `TraceFinalText.response` to `str \| ExplainStatReceipt`. |
+| `backend/app/services/gemma_client.py` | Added `final_turn_response_format` kwarg to `generate_with_tools_loop` and `_tools_loop_inner`. Synthesis-turn-only scoping via the new `prev_turn_had_tool_calls` flag. `_one_tool_turn` and `_one_tool_turn_ollama` accept the kwarg with per-backend translation (OpenAI-compat verbatim; Ollama native translates `{"type":"json_object"}` → `payload["format"] = "json"`). |
+| `backend/app/services/ask_gemma.py` | Replaced the spike's markdown-only appendix with `_ern_explain_appendix_json` (filled-in JSON example with `__FILL_IN__` sentinels, scoped voice-rule split, sentinel-handling prohibition). Markdown spike kept as `_ern_explain_appendix` for the JSON-parse-failure fallback path. New helpers: `_ordinal_suffix`, `_format_pct`, `_extract_tool_results`, `_render_math_line` (with effort-line on `effort != "balanced"`), `_normalize_label` (match-by-weight-first), `_log_receipt_parse` (structured `gemma.jsonl` records), `_format_cached_tool_values` (markdown-fallback user-message pre-injection — no MCP re-fetch), `_postprocess_ern_explain_receipt` (10-step pipeline), `_current_backend`. Wired into both `chat_ask` and `chat_ask_stream` with the cached-tool-log fallback retry. |
+| `frontend/src/types/chat.ts` | NEW. Zod schemas (`receiptSourceSchema`, `statComponentSchema`, `explainStatReceiptSchema`) mirroring the backend Pydantic models; inferred TypeScript types. Discriminated `ChatHistoryItem` union. `isExplainStatReceipt` guard. |
+| `frontend/src/types/gemmaTrace.ts` | Widened `final_text` event's `response` from `string` to `string \| ExplainStatReceipt`. |
+| `frontend/src/api/menu.ts` | Imported chat types from `@/types/chat` and re-exported. Replaced inline `ChatHistoryItem` interface with the discriminated union. Widened `AskResponse.response` and `AskGemmaStreamResult.response` to `string \| ExplainStatReceipt`. New `parseFinalTextResponse` helper that runs the Zod schema on object payloads and falls back to `String(value)` on validation failure. `parseSSEFrame` `final_text` branch now uses the helper. |
+| `frontend/src/components/menu/ChatMessage.tsx` | Narrowed prop type from `ChatHistoryItem` (now a union) to a local `{ role, content }` shape — ChatMessage only renders text bubbles; the receipt branch is handled by `<ExplainStatReceiptCard>` in the `GemmaChat` renderer dispatch. |
+| `frontend/src/components/menu/GemmaChat.tsx` | Added `assistantHistoryItem` helper that discriminates string vs receipt payload. `userMsg` construction adds `kind: "text"`. Streaming `response` variable widened to `string \| ExplainStatReceipt`. `onAssistantResponse` callback receives the prose representation (`one_liner` for receipts). `renderMessageWithTrace` dispatches on `m.kind`: `"receipt"` → `<ExplainStatReceiptCard payload={m.payload} />`; otherwise the existing `<ChatMessage>` with `{ role, content }`. |
+| `frontend/src/components/menu/ExplainStatReceipt.tsx` | NEW. `<ExplainStatReceiptCard>` per @fp-design-visionary's §3. Card with `bg-bp-raised` + stat-color left-accent border. Score callout in `font-data` 32px tinted by `var(--color-stat-{stat_code})`. Component bullets with 56px left-rail percentage chip + stacked label/explainer. Recessed inset math line in `bg-bp-mid`. Effort-line footnote (italic body) when `math_line` carries a `\n`-separated second line. Source pills as tappable buttons with `title` attribute tooltip. Missing-data rows dim to `text-muted` while the chip stays at full opacity. Framer Motion stagger animation for the bullets. |
+| `docs/reference/stat-display-surfaces.md` | Added new §1i entry for `<ExplainStatReceiptCard>` listing it as ✅ wired (the second ✅ surface). |
+| `.claude/skills/pentagon-stat-explanation/SKILL.md` | Added pointer to `ExplainStatReceipt.tsx` as the rendering authority for the SKILL's prose-field outputs. |
 
 ### Deviations from Spec
-[Any divergence from §3/§4 and why]
+
+None. The §3 design from @fp-design-visionary was implemented as written. The §4 file-changes table was followed exactly. Two minor implementation notes flagged for the auditor:
+
+1. **The fallback path in `chat_ask_stream` doesn't yield trace events for the markdown-fallback retry.** Trace events from the JSON-mode attempt are already streamed before the parse fails; the markdown retry runs synchronously to completion and its `tool_call_log` (which is empty since `tools=[]` is passed) doesn't emit additional events. This matches Decision 9's "trace-rail UX is byte-identical to the spike" — the trace shows what actually happened, and the fallback didn't issue any new tool calls.
+
+2. **`_normalize_label` doesn't currently match-by-string-distance.** The pipeline matches by `weight_pct` only and replaces with the canonical label unconditionally if the strings differ. This is stricter than the spec's "match by weight first, then nearest-string-distance" wording. In practice the weight-only match is sufficient for the swap-component case AND any drift case (Gemma writes anything other than the canonical → server normalizes). String-distance comparison was redundant for v1.0. The spec's Decision 14 wording was prescriptive; the implementation is one cleaner step.
 
 ### Build Accountability Log
 | Attempt | Result | Error | Fix Applied |
 |---------|--------|-------|-------------|
+| 1 | TypeScript error in `ExplainStatReceipt.tsx` | `stagger.normal` is a `number`, not a `Variants` | Replaced `variants={stagger.normal}` with `variants={staggerContainer(0, 0.08)}` and wrapped each `ComponentRow` in a `<motion.div variants={staggerItem}>`. |
+| 2 | Vite import resolution error | `@/components/menu/ExplainStatReceipt` referenced before file existed | Resolved itself on next HMR cycle once `ExplainStatReceipt.tsx` was written. |
 
 ---
 

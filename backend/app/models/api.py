@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.career import Build, IntentResult
 from app.services.locale import AppLocale
@@ -203,6 +203,229 @@ class TraceEventPayload(BaseModel):
     error: str | None = None
 
 
+# ---------------------------------------------------------------------------
+# ExplainStatReceipt — structured-JSON output for the "Explain this stat"
+# affordance on /my-build. Fires only on the sentinel opener
+# ``[explain-this:ERN]``; all other Ask Gemma traffic continues to use the
+# free-form prose path. See docs/specs/feature-explain-stat-receipt.md.
+# ---------------------------------------------------------------------------
+
+# Module-level helper used by ``StatComponent`` and ``ExplainStatReceipt``
+# prose-field validators. Catches Gemma echoing the system-appendix
+# placeholder sentinels back into the JSON instead of replacing them with
+# real prose. Without this guard a string like "__FILL_IN__" would pass
+# Pydantic and render to the student.
+_SENTINEL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"__FILL[_ ]IN__", re.IGNORECASE),
+    re.compile(r"\[\s*FILL[\s_-]*IN", re.IGNORECASE),
+    re.compile(r"<\s*FILL[\s_-]*IN", re.IGNORECASE),
+    re.compile(r"\bONE-SENTENCE\s+DEFINITION\s+HERE\b", re.IGNORECASE),
+    re.compile(r"\bPLACEHOLDER\b", re.IGNORECASE),
+)
+
+
+def _reject_sentinel_passthrough(value: str) -> str:
+    """Reject prose strings that contain unreplaced template sentinels.
+
+    Used as a Pydantic field_validator on every prose field
+    (one_liner, components[*].explainer, components[*].anchor_text,
+    why_mix_paragraph). Triggers the markdown fallback path when Gemma
+    echoes the appendix's placeholder sentinels back instead of writing
+    real content.
+    """
+    for pattern in _SENTINEL_PATTERNS:
+        if pattern.search(value):
+            raise ValueError(
+                f"prose field contains unreplaced template sentinel: "
+                f"{value[:80]!r}"
+            )
+    return value
+
+
+class ReceiptSource(BaseModel):
+    """A data source citation rendered as a pill in the receipt UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(
+        description="Human-readable category, e.g. 'Graduate earnings'."
+    )
+    name: str = Field(
+        description=(
+            "Full source name, e.g. 'College Scorecard "
+            "(U.S. Department of Education)'."
+        )
+    )
+
+
+class StatComponent(BaseModel):
+    """One mixed-in piece of a stat's score (e.g. the 60% school-rank
+    piece of ERN, or the 40% occupation-wage piece). Generic across
+    ERN/ROI/RES/GRW; AURA is out of scope for v1.0 (see spec
+    Decision 10)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    weight_pct: int = Field(
+        ge=0,
+        le=100,
+        description=(
+            "Percentage weight in the formula (e.g. 60 for the 60% "
+            "school-rank piece). Sum across components <= 100."
+        ),
+    )
+    label: str = Field(
+        description=(
+            "Plain-English component name, e.g. 'your school's "
+            "program rank'. Server-normalized against a per-stat "
+            "allowlist in _postprocess_ern_explain_receipt."
+        )
+    )
+    explainer: str = Field(
+        description=(
+            "Gemma-written 1-2 sentence explanation of what this "
+            "component measures and where the percentile comes from. "
+            "Voice rules from pentagon-stat-explanation/SKILL.md apply. "
+            "Must NOT contain numeric score references; the score "
+            "callout is the UI's responsibility."
+        )
+    )
+    value_pct: int | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description=(
+            "Percentile rank (0-100). Null when the underlying input "
+            "is missing — the renderer reads this as 'we don't have "
+            "this yet,' not as zero. Server-stamped from the tool "
+            "result, never from Gemma."
+        ),
+    )
+    anchor_text: str = Field(
+        description=(
+            "The named entity this percentile attaches to, e.g. "
+            "'Indiana University Computer Science grads' or "
+            "'Software Developer'. Used in the bullet's lead phrase."
+        )
+    )
+    anchor_dollars: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Dollar amount associated with the anchor (median "
+            "earnings, median wage). Null when missing. "
+            "Server-stamped from the tool result."
+        ),
+    )
+    missing_reason: str | None = Field(
+        default=None,
+        description=(
+            "When value_pct or anchor_dollars is null, this string "
+            "explains why in plain English (e.g. 'no median earnings "
+            "reported for this program yet'). Server-stamped, not "
+            "from Gemma."
+        ),
+    )
+
+    _reject_sentinel_explainer = field_validator("explainer")(
+        _reject_sentinel_passthrough
+    )
+    _reject_sentinel_anchor_text = field_validator("anchor_text")(
+        _reject_sentinel_passthrough
+    )
+
+
+class ExplainStatReceipt(BaseModel):
+    """Structured explainer-receipt payload for one of the five
+    pentagon stats. v1.0 ships ERN only; the schema fits ERN, ROI,
+    RES, and GRW. AURA explicitly out of scope (Decision 10)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["receipt"] = Field(
+        default="receipt",
+        description=(
+            "Self-discriminator field. Lets the frontend Zod parser "
+            "distinguish a receipt response from a plain-string "
+            "response on the union type str | ExplainStatReceipt "
+            "without object-shape sniffing. Always 'receipt'."
+        ),
+    )
+    stat_code: Literal["ERN", "ROI", "RES", "GRW", "AURA"] = Field(
+        description="Pentagon stat code; mirrors AskScope.target_id."
+    )
+    stat_name: str = Field(
+        description=(
+            "Plain-English stat name, e.g. 'Earning Power'. "
+            "Mirrors ask_gemma._STAT_ALIAS but Pydantic-typed."
+        )
+    )
+    score: int = Field(
+        ge=1,
+        le=10,
+        description=(
+            "The student's score on this stat. Server-stamped from "
+            "build.career.stats.<stat>; whatever Gemma emits in this "
+            "field is overwritten unconditionally."
+        ),
+    )
+    score_max: int = Field(
+        default=10,
+        description=(
+            "Maximum possible score. Fixed at 10 in v1.0; "
+            "parameterized for future stat-system changes."
+        ),
+    )
+    one_liner: str = Field(
+        description=(
+            "Gemma-written one-sentence definition of the score. "
+            "Voice rules from pentagon-stat-explanation/SKILL.md "
+            "apply. Must NOT contain numeric score references."
+        )
+    )
+    components: list[StatComponent] = Field(
+        min_length=1,
+        max_length=5,
+        description=(
+            "The mixed-in pieces of the score. ERN uses 2 (60% + "
+            "40%); ROI uses 1; GRW uses 1; RES uses 2 (post-reshape "
+            "blended)."
+        ),
+    )
+    math_line: str = Field(
+        description=(
+            "Server-rendered math expression, e.g. "
+            "'0.6 × 0.87 + 0.4 × 0.92 → score 9/10'. Null inputs "
+            "render as 'n/a'. **Always server-built unconditionally; "
+            "the value Gemma emits in this field (if any) is "
+            "discarded.** When effort != 'balanced', a separate "
+            "effort line is appended on a new line."
+        )
+    )
+    sources: list[ReceiptSource] = Field(
+        min_length=1,
+        description="Data sources rendered as pills in the receipt UI.",
+    )
+    why_mix_paragraph: str = Field(
+        max_length=800,
+        description=(
+            "Gemma-written ~3-sentence 'two students contrast' "
+            "paragraph. Voice rules from "
+            "pentagon-stat-explanation/SKILL.md apply. Must NOT "
+            "contain numeric score references. max_length=800 "
+            "catches token-budget truncations as a Pydantic "
+            "validation failure."
+        )
+    )
+
+    _reject_sentinel_one_liner = field_validator("one_liner")(
+        _reject_sentinel_passthrough
+    )
+    _reject_sentinel_why_mix = field_validator("why_mix_paragraph")(
+        _reject_sentinel_passthrough
+    )
+
+
 class AskResponse(BaseModel):
     """POST /chat/ask response body.
 
@@ -214,9 +437,14 @@ class AskResponse(BaseModel):
     May be non-empty even when ``response`` is the chat_unavailable
     fallback string — e.g. when one tool call succeeded before
     Gemma's final turn failed.
+
+    ``response`` is a discriminated union: a plain string for every
+    existing scope (boss, skill, build, branch, compare, free-form
+    stat questions), or a structured ``ExplainStatReceipt`` when the
+    stat-scope explain-this-stat sentinel fires successfully.
     """
 
-    response: str
+    response: str | ExplainStatReceipt
     tool_calls: list[TraceEventPayload] = Field(default_factory=list)
 
 
@@ -264,10 +492,15 @@ class TraceTurnComplete(BaseModel):
 class TraceFinalText(BaseModel):
     """Carries Gemma's final text answer. Always emitted exactly once
     per stream, even on transport failure (in which case ``response``
-    is the localized ``chat_unavailable`` fallback string)."""
+    is the localized ``chat_unavailable`` fallback string).
+
+    ``response`` matches ``AskResponse.response`` — a plain string for
+    every existing scope, or a structured ``ExplainStatReceipt`` when
+    the stat-scope explain-this-stat sentinel fires successfully.
+    """
 
     type: Literal["final_text"] = "final_text"
-    response: str
+    response: str | ExplainStatReceipt
 
 
 class TraceDone(BaseModel):

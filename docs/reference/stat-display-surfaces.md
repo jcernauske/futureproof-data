@@ -74,6 +74,14 @@ The primary stat-display surface. Pentagon + legend + boss-fight bands.
 - **Affordance:** ⚠️ **Partial.** The popover renders, the "Ask Gemma about this" button is still active, but Gemma has no AURA score to explain. Any "explain this" affordance must detect `stats.aura === null` and either suppress itself or route to a "why doesn't my school have AURA?" explainer (different intent than the standard explainer — closer to a coverage explanation).
 - **Hard constraint** (per memory `feedback_no_substitution_caveat.md`): no banner, no toast, no card-edge tint. The em-dash on the vertex (§1b) and the appended sentence in this popover are the **only** missing-data sentences in the UI.
 
+### 1i. ExplainStatReceiptCard — structured explainer-receipt (ERN only, v1.0)
+- **File:** `frontend/src/components/menu/ExplainStatReceipt.tsx`
+- **When it shows:** Student clicks "✦ Explain this to me" on the ERN row → slide-in chat opens → backend's JSON-mode path returns an `ExplainStatReceipt` payload → `GemmaChat`'s renderer dispatches on `kind: "receipt"` → this component renders. v1.0 ships ERN only; ROI/RES/GRW/AURA each get their own follow-up spec.
+- **What user sees:** A card with score callout (gold for ERN), one-liner, two component bullets (60% school rank + 40% career rank) with left-rail percentage chips, recessed inset math line (`bg-bp-mid`), source pills, why-mix paragraph. Effort-line footnote when `effort != "balanced"`.
+- **Affordance:** ✅ **This IS the explain-this-stat affordance.** The card itself doesn't carry a follow-up "ask Gemma" button (the user already asked). Subsequent free-form chat in the same panel routes through the standard prose handler.
+- **Spec:** `docs/specs/feature-explain-stat-receipt.md` (DRAFT v1.3, IMPLEMENTATION).
+- **Schema:** Pydantic `ExplainStatReceipt` in `backend/app/models/api.py`; Zod mirror in `frontend/src/types/chat.ts`.
+
 ### 1h. RES + AURA stat tutorial cards (post-reshape, first-build only)
 - **File:** Stat tutorial overlay (location TBD by reshape implementation; spec §3 calls for a card per stat shown only on first build).
 - **What user sees:** Tutorial overlay with five cards (one per stat). The reshape **rewrites the RES card** (new copy describes the blend) and **replaces the HMN card with an AURA card** ("Brand Gravity"). Each card has a body (~155 chars) + a source line.

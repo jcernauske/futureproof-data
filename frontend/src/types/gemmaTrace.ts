@@ -17,6 +17,8 @@
  * See `docs/specs/feature-gemma-trace.md` §3 Row Correlation Key.
  */
 
+import type { ExplainStatReceipt } from "@/types/chat";
+
 export type GemmaTraceEvent =
   | {
       type: "turn_start";
@@ -33,7 +35,7 @@ export type GemmaTraceEvent =
       duration_ms: number;
       error: string | null;
     }
-  | { type: "final_text"; response: string }
+  | { type: "final_text"; response: string | ExplainStatReceipt }
   | { type: "done" };
 
 /**

@@ -119,6 +119,8 @@ The "Picture two students…" contrast. This is the section that earns trust. Sh
 Pentagon-stat copy lives in **at least seven places** (plus AURA-specific UI states post-reshape). Updating one and forgetting the others is the most common bug in this area. Update all of them in the same change, or none of them.
 
 > **Companion reference.** `docs/reference/stat-display-surfaces.md` is the full, audited index of every place a stat is shown to a user. It tags each surface with whether an "Ask Gemma to explain this" affordance already exists and locks the chat-scope contract for new affordances. Use it as the deeper checklist; the table below is the fast-glance summary.
+>
+> **Rendering authority for the structured-receipt path.** `frontend/src/components/menu/ExplainStatReceipt.tsx` is where the SKILL's prose-field outputs (`one_liner`, `components[*].explainer`, `why_mix_paragraph`) actually render once Gemma emits valid JSON. The voice rules below dictate the words; the component dictates the visual structure. Per `docs/specs/feature-explain-stat-receipt.md`.
 
 ### Live UI surfaces (user-visible)
 

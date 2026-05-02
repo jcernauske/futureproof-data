@@ -16,6 +16,13 @@ import {
   mockChat,
 } from "@/api/mockMenu";
 import type { GemmaTraceEvent } from "@/types/gemmaTrace";
+import {
+  explainStatReceiptSchema,
+  type ChatHistoryItem,
+  type ExplainStatReceipt,
+} from "@/types/chat";
+
+export type { ChatHistoryItem, ExplainStatReceipt } from "@/types/chat";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_API === "true";
 const API_BASE =
@@ -109,10 +116,10 @@ export interface CompareInsights {
   pivotal: ComparePivotal | null;
 }
 
-export interface ChatHistoryItem {
-  role: "user" | "assistant";
-  content: string;
-}
+// `ChatHistoryItem` is a discriminated union exported from
+// `@/types/chat`. Re-exported above so consumers can import either
+// path. v1.0 kinds: "text" (plain prose) and "receipt"
+// (ExplainStatReceipt for the explain-this-stat affordance).
 
 // ---------------------------------------------------------------------------
 // Ask Gemma — scope-aware chat (POST /chat/ask).
@@ -151,8 +158,29 @@ export interface TraceEventPayload {
 }
 
 export interface AskResponse {
-  response: string;
+  response: string | ExplainStatReceipt;
   tool_calls: TraceEventPayload[];
+}
+
+/**
+ * Parse the SSE `final_text.response` payload, which is a discriminated
+ * union of plain string and the structured ExplainStatReceipt object.
+ *
+ *   - String → returned as-is (the prose-bubble path).
+ *   - Object → validated against the receipt Zod schema. On parse
+ *     success the typed receipt is returned; on parse failure we
+ *     fall back to `String(value)` so a malformed object still
+ *     renders something rather than throwing.
+ */
+function parseFinalTextResponse(
+  value: unknown,
+): string | ExplainStatReceipt {
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    const result = explainStatReceiptSchema.safeParse(value);
+    if (result.success) return result.data;
+  }
+  return String(value ?? "");
 }
 
 export async function listBuilds(profileName?: string): Promise<BuildSummary[]> {
@@ -276,7 +304,7 @@ export function parseSSEFrame(frame: string): GemmaTraceEvent | null {
     case "final_text":
       return {
         type: "final_text",
-        response: typeof obj.response === "string" ? obj.response : "",
+        response: parseFinalTextResponse(obj.response),
       };
     case "done":
       return { type: "done" };
@@ -318,7 +346,7 @@ function synthesizeEventsFromToolCalls(
 }
 
 export interface AskGemmaStreamResult {
-  response: string;
+  response: string | ExplainStatReceipt;
   events: GemmaTraceEvent[];
 }
 
@@ -354,7 +382,7 @@ export async function askGemmaStream(
   }
 
   const collected: GemmaTraceEvent[] = [];
-  let response = "";
+  let response: string | ExplainStatReceipt = "";
 
   try {
     const res = await fetch(`${API_BASE}/chat/ask/stream`, {

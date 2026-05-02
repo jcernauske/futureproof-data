@@ -1,10 +1,16 @@
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { springs } from "@/styles/motion";
-import type { ChatHistoryItem } from "@/api/menu";
 
+/**
+ * ChatMessage only renders text bubbles. The discriminated
+ * `ChatHistoryItem` union has a "receipt" branch handled separately by
+ * `<ExplainStatReceiptCard>` in `GemmaChat.tsx`'s renderer dispatch —
+ * this component never sees that branch, so its prop type narrows to
+ * the text-only shape.
+ */
 interface ChatMessageProps {
-  message: ChatHistoryItem;
+  message: { role: "user" | "assistant"; content: string };
 }
 
 /**
