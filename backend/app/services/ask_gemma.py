@@ -175,6 +175,22 @@ _SYSTEM_BASE = (
     "code for the major the student is asking about, tell them to "
     "start a new build with that major rather than guessing — do not "
     "call a tool with a made-up code.\n\n"
+    "RESIDENCY-AWARE COST COMPARISONS: When you compare schools and "
+    "the context block says the student is paying out-of-state "
+    "tuition at their current school, you MUST surface this in your "
+    "answer. The leaderboard tool (get_schools_for_career) returns "
+    "each school's average net_price_annual across ALL its students "
+    "— mostly in-state residents paying low rates. An out-of-state "
+    "student would NOT pay that listed average; they would pay "
+    "closer to that school's tuition_out_of_state figure. State "
+    "this gotcha plainly in the answer (e.g. 'as an out-of-state "
+    "student you'd pay closer to $X, not the $Y school average'). "
+    "Use the per-school tuition_out_of_state field from the "
+    "leaderboard response when it's available; if it isn't, still "
+    "name the issue and tell the student to verify the OOS rate. "
+    "When the student is paying in-state at their current school, "
+    "no caveat is needed — the leaderboard average is the right "
+    "number to compare to.\n\n"
     "CRITICAL: Never write your reasoning, deliberation, or "
     "decision-making process in the response. The student sees only "
     "your finished answer — never narration like 'I should check', "
@@ -1226,21 +1242,11 @@ def _context_for_build(build: Build) -> str:
             f"- This school's out-of-state tuition: "
             f"{fmt_dollars(career.tuition_out_of_state)}"
         )
-    lines.append(
-        _helper(
-            "When comparing this student's costs to other schools "
-            "returned by get_schools_for_career, remember that the "
-            "leaderboard's net_price_annual is a school-wide average "
-            "across ALL students at that school. If the student is "
-            "out-of-state at their current school, they would also "
-            "pay out-of-state rates at peer schools — so a peer "
-            "school's listed average net price is NOT what this "
-            "student would actually pay. Make that distinction "
-            "explicit in your answer when comparing costs across "
-            "schools, and prefer to compare in-state-to-in-state or "
-            "out-of-state-to-out-of-state when that data is available."
-        )
-    )
+    # The behavioral instruction for handling residency-aware school
+    # comparisons now lives in _SYSTEM_BASE (RESIDENCY-AWARE COST
+    # COMPARISONS section) rather than here, so Gemma treats it as a
+    # directive she must follow rather than helper-bracketed
+    # background she silently absorbs.
 
     # Risk outcomes
     lines.append("")
