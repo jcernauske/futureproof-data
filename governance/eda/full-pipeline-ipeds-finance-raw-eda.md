@@ -286,7 +286,7 @@ ingestor = IpedsFinanceIngestor(
 | RAW-IPF-010 (institutional_support non-null ≥ 90%) | 90% | **keep 90%** | Observed 100.00% — rule passes |
 | RAW-IPF-011 (total_fte_enrollment non-null ≥ 95%) | 95% | **keep 95% (margin to 97.94%)** | Observed 97.94% — narrow but passes; flag if drops below 96% |
 | RAW-IPF-012 (endowment_value non-null ≥ 60%) | 60% | **keep 60% (76% observed)** | Observed 76.0% (24% NULL is mostly structural F3 + 16% small F2) |
-| RAW-IPF-014 (anchor: ≥1 row instruction > $100M) | qualitative | **observed 269 rows; calibrate to ≥200** | F1A median is already $50M; the largest-50 anchor is implicit |
+| RAW-IPF-014 (anchor: ≥1 row instruction > $100M) | qualitative | **observed 365 rows; calibrate to ≥200** | F1A median is already $50M; the largest-50 anchor is implicit |
 | **NEW (suggested)** RAW-IPF-015 | n/a | F3 endowment_value = NULL **for 100% of F3 rows** | Codifies the structural NULL; flips a silent failure mode into a positive assertion |
 | **NEW (suggested)** RAW-IPF-016 | n/a | F1A row count between 700 and 900; F2 between 1,400 and 1,750; F3 between 200 and 350 | Catches a form-mix shift (e.g., a year where the F3 schedule changes again) |
 
