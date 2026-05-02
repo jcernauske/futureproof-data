@@ -1,0 +1,319 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-01T23:07:50.000000Z",
+    "run": {
+      "runId": "7f45ab05-f70f-462f-9501-5bd2caff00da",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/full-pipeline-eada.md",
+          "specVersion": "1.1",
+          "specZone": "base",
+          "specSection": "§5",
+          "versionNote": "v1.1 (2026-04-30) §5 Option-C amendment: original spec used base.ipeds_finance.total_fte_enrollment as the SOLE FTE source, which covered only 74.5% of EADA institutions (NULL-ing the 521 ~25.5% institutions missing from IPEDS Finance, predominantly 2-year colleges — NJCAA / CCCAA / NWAC). §2 Decision 3 was amended to adopt Option C: COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount) with explicit fte_source provenance ('ipeds_finance' / 'eada_fte_headcount' / 'none'). Hybrid coverage ≈ 100%. The two FTE definitions are NOT identical (total_fte_enrollment is annualized; eada_fte_headcount is 12-month headcount per Knight Commission convention) — fte_source makes the methodological mix explicit so downstream consumers can stratify or filter. Silver-EDA recalibrations are ALSO captured here: BSE-EAD-007 athletic_subsidy_ratio band widened from [-1.0, 1.0] to [-3.0, 1.0] after empirical falsification on 4 institutions (Binghamton -2.92, Haskell Indian Nations -2.56, Kennedy-King -1.57, Rust College -1.43) where reported athletic revenue exceeds expenses by more than 2× — these reflect institutional-transfer accounting, not data defects, per fp-data-reviewer §7 prior flag. BSE-EAD-010 invariant inverted from 'P50 > 0 (most athletic programs lose money)' to 'P50 == 0 AND P5 < 0 AND P95 == 0' after EDA confirmed the OPE/EADA ledger convention double-counts institutional support on both sides of the ledger — 63% of rows have revenue == expenses exactly and 0% have revenue < expenses; observed P5=-0.157 / P50=0.0 / P95=0.0 / min=-2.92 / max=0.0. The recalibrated invariant still detects sign-flips and threshold drift."
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@bs:lineage-tracker",
+          "reasoning": "Silver-zone promote of bronze.eada into base.eada per spec v1.1 §5 Option-C amendment. The EadaBaseTransformer at src/silver/eada_base.py performs a cross-source LEFT JOIN: bronze.eada (the 17-column institution-totals grain, snapshot 2061189972643103988, post-EFTotalCount re-ingest per the §4 amendment) LEFT JOIN base.ipeds_finance (snapshot 1277941459950591173) on UNITID. The promote produces the 17-column base.eada table at the UNITID grain: 7 passthrough columns from bronze (unitid, institution_name, reporting_year, total_athletic_expenses, total_athletic_revenue, recruiting_expenses, eada_fte_headcount), 1 hybrid FTE column (total_fte_enrollment) computed as COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount), 1 provenance column (fte_source) computed as a CASE expression on the same two inputs, 2 boolean coverage flags (has_ipeds_finance_fte, has_eada_fte), 4 derived per-FTE / ratio columns (athletic_spend_per_fte, athletic_revenue_per_fte, recruiting_per_fte, athletic_subsidy_ratio), and 2 framework provenance columns (source_load_date, ingested_at). record_id is the surrogate key. The three per-FTE columns inherit the fte_source of their denominator (the COALESCE'd total_fte_enrollment) and are NULL when the denominator is NULL or ≤ 0 — no imputation. athletic_subsidy_ratio is computed only from the raw monetary columns (total_athletic_expenses, total_athletic_revenue) and is independent of FTE source.",
+          "reasoningContinued": "Output: 2,040 rows / 17 columns / snapshot 973879610917339278. Row-count conservation holds (2,040 in / 2,040 out — bronze.eada is already at the UNITID grain via the InstLevel.xlsx file selection in the bronze ingestor, so the silver promote is 1-to-1). All 13 DQ rules from governance/dq-rules/base-eada.json (11 P0 + 2 P1) PASS with zero violations against this snapshot per the scorecard at governance/dq-scorecards/base-eada-20260501T210828Z.json — overall_pass=true, p0_gate_blocking=false. The silver-EDA-calibrated rules (BSE-EAD-007 widened band, BSE-EAD-010 OPE-ledger inversion, BSE-EAD-009 fte_source enum and 'none' rate ≤ 1%, BSE-EAD-011 fte_source distribution ≈ 74.5/25.5 ±5pp, BSE-EAD-013 IPEDS-preference cross-source invariant) all pass, confirming the Option-C COALESCE behaves as specified — IPEDS Finance is preferred where available, EADA EFTotalCount fills the 25.5% gap, and the methodological mix is faithfully tagged. No new chaos run is required at silver — DQ pass is the regression check per Brightsmith convention."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {
+            "bronze.eada": 2040,
+            "base.ipeds_finance": 2675
+          },
+          "rowsWritten": 2040,
+          "rowCountConservation": "1-to-1 (bronze.eada is already at UNITID grain)",
+          "outputSnapshotId": "973879610917339278",
+          "bronzeInputSnapshotId": "2061189972643103988",
+          "ipedsFinanceInputSnapshotId": "1277941459950591173",
+          "schemaColumnCount": 17,
+          "fteSourceMix": {
+            "ipeds_finance": "≈ 74.5% (per BSE-EAD-011, ±5pp)",
+            "eada_fte_headcount": "≈ 25.5% (per BSE-EAD-011, ±5pp)",
+            "none": "< 1% (per BSE-EAD-009)"
+          },
+          "dqOverallPass": true,
+          "dqP0Total": 11,
+          "dqP0Pass": 11,
+          "dqP0Fail": 0,
+          "dqP1Total": 2,
+          "dqP1Pass": 2,
+          "dqP1Fail": 0,
+          "dqScorecard": "governance/dq-scorecards/base-eada-20260501T210828Z.json"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.promote-eada",
+      "facets": {
+        "documentation": {
+          "description": "Silver-zone promote of bronze.eada into base.eada per spec full-pipeline-eada.md §5 (Option-C amendment, 2026-04-30). Cross-source LEFT JOIN: bronze.eada LEFT JOIN base.ipeds_finance on UNITID. Hybrid FTE source: total_fte_enrollment = COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount); fte_source = CASE WHEN base.ipeds_finance.total_fte_enrollment IS NOT NULL THEN 'ipeds_finance' WHEN bronze.eada.eada_fte_headcount IS NOT NULL THEN 'eada_fte_headcount' ELSE 'none' END. Per-FTE columns (athletic_spend_per_fte, athletic_revenue_per_fte, recruiting_per_fte) inherit the fte_source of their denominator and are NULL when the denominator is NULL or ≤ 0 — no imputation. athletic_subsidy_ratio = (total_athletic_expenses - total_athletic_revenue) / NULLIF(total_athletic_expenses, 0) is computed from raw monetary columns only and is independent of FTE source. Idempotent promote pattern: same UNITID grain, same snapshot semantics, overwrites prior snapshot if rerun. Grain: UNITID. Dedup grain: [unitid].",
+          "specSection": "§5",
+          "amendment": "Option-C (2026-04-30) — hybrid FTE source with provenance"
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/eada_base.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.eada",
+        "facets": {
+          "dataSource": {
+            "name": "Bronze EADA — institution totals (post-EFTotalCount §4 amendment re-ingest)",
+            "snapshotId": "2061189972643103988",
+            "rowCount": 2040,
+            "grain": "UNITID",
+            "sourceFile": "InstLevel.xlsx (EADA 2022–2023)",
+            "sourceCode": "src/raw/eada_ingestor.py",
+            "ingestNote": "Re-ingested 2026-04-30 with eada_fte_headcount (EFTotalCount) added per spec v1.1 §4 amendment — required to support the Option-C COALESCE FTE source."
+          },
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "description": "Surrogate key from bronze."},
+              {"name": "unitid", "type": "STRING", "description": "IPEDS 6-digit institution ID. Cross-source join key to base.ipeds_finance."},
+              {"name": "institution_name", "type": "STRING", "description": "Institution name passthrough."},
+              {"name": "reporting_year", "type": "INTEGER", "description": "EADA reporting year (e.g., 2022 for the 2022–2023 publication)."},
+              {"name": "total_athletic_expenses", "type": "DOUBLE", "description": "EADA GRND_TOTAL_EXPENSE — institution total athletic expenses."},
+              {"name": "total_athletic_revenue", "type": "DOUBLE", "description": "EADA GRND_TOTAL_REVENUE — institution total athletic revenue."},
+              {"name": "recruiting_expenses", "type": "DOUBLE", "description": "EADA RECRUITEXP_TOTAL — institution total recruiting expenses."},
+              {"name": "eada_fte_headcount", "type": "DOUBLE", "description": "EADA EFTotalCount (12-month enrollment headcount). Added 2026-04-30 §4 amendment to support Option-C hybrid FTE."},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.ipeds_finance",
+        "facets": {
+          "dataSource": {
+            "name": "Base IPEDS Finance (FY2023, all three forms F1A/F2/F3 unioned, EFIA-joined for FTE)",
+            "snapshotId": "1277941459950591173",
+            "grain": "UNITID",
+            "sourceCode": "src/silver/ipeds_finance_base.py"
+          },
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "STRING", "description": "Cross-source join key from bronze.eada."},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "description": "EFIA-derived 12-Month Instructional Activity FTE — NULL-safe COALESCE(FTEUG,0)+COALESCE(FTEGD,0)+COALESCE(FTEDPP,0). Annualized (NOT the same construct as EADA EFTotalCount, which is 12-month headcount). Preferred FTE source per §2 Decision 3 Option-C."}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.eada",
+        "facets": {
+          "dataSource": {
+            "snapshotId": "973879610917339278",
+            "rowCount": 2040,
+            "grain": "UNITID",
+            "dedupGrain": "[unitid]"
+          },
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "description": "Surrogate key, non-null and unique (BSE-EAD-003)."},
+              {"name": "unitid", "type": "STRING", "description": "Dedup grain (BSE-EAD-002)."},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "reporting_year", "type": "INTEGER"},
+              {"name": "total_athletic_expenses", "type": "DOUBLE"},
+              {"name": "total_athletic_revenue", "type": "DOUBLE"},
+              {"name": "recruiting_expenses", "type": "DOUBLE"},
+              {"name": "eada_fte_headcount", "type": "DOUBLE"},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "description": "Hybrid FTE — COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount). Coverage ≈ 100%."},
+              {"name": "fte_source", "type": "STRING", "description": "Provenance enum: 'ipeds_finance' / 'eada_fte_headcount' / 'none' (BSE-EAD-009)."},
+              {"name": "has_ipeds_finance_fte", "type": "BOOLEAN"},
+              {"name": "has_eada_fte", "type": "BOOLEAN"},
+              {"name": "athletic_spend_per_fte", "type": "DOUBLE"},
+              {"name": "athletic_revenue_per_fte", "type": "DOUBLE"},
+              {"name": "recruiting_per_fte", "type": "DOUBLE"},
+              {"name": "athletic_subsidy_ratio", "type": "DOUBLE", "description": "Independent of FTE source. Range [-3.0, 1.0] per BSE-EAD-007 (silver-EDA-calibrated 2026-04-30)."},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "record_id"}
+                ],
+                "transformationDescription": "Direct passthrough from bronze.eada.record_id. Surrogate key carried through silver promote.",
+                "transformationType": "DIRECT"
+              },
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "unitid"}
+                ],
+                "transformationDescription": "Direct passthrough. Also serves as the cross-source LEFT-JOIN key against base.ipeds_finance.",
+                "transformationType": "DIRECT"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "institution_name"}
+                ],
+                "transformationDescription": "Direct passthrough.",
+                "transformationType": "DIRECT"
+              },
+              "reporting_year": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "reporting_year"}
+                ],
+                "transformationDescription": "Direct passthrough.",
+                "transformationType": "DIRECT"
+              },
+              "total_athletic_expenses": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "total_athletic_expenses"}
+                ],
+                "transformationDescription": "Direct passthrough of EADA GRND_TOTAL_EXPENSE.",
+                "transformationType": "DIRECT"
+              },
+              "total_athletic_revenue": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "total_athletic_revenue"}
+                ],
+                "transformationDescription": "Direct passthrough of EADA GRND_TOTAL_REVENUE.",
+                "transformationType": "DIRECT"
+              },
+              "recruiting_expenses": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "recruiting_expenses"}
+                ],
+                "transformationDescription": "Direct passthrough of EADA RECRUITEXP_TOTAL.",
+                "transformationType": "DIRECT"
+              },
+              "eada_fte_headcount": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "eada_fte_headcount"}
+                ],
+                "transformationDescription": "Direct passthrough of EADA EFTotalCount (12-month enrollment headcount). Added to bronze 2026-04-30 per §4 amendment specifically to enable the Option-C COALESCE in this silver promote.",
+                "transformationType": "DIRECT"
+              },
+              "total_fte_enrollment": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "total_fte_enrollment"},
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "eada_fte_headcount"}
+                ],
+                "transformationDescription": "Hybrid FTE source per §5 Option-C amendment (2026-04-30). Computed as COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount). IPEDS-Finance value (annualized FTE) is preferred; EADA EFTotalCount (12-month headcount) is the fallback. The two definitions are NOT identical — the methodological mix is tagged in fte_source. Hybrid coverage ≈ 100% (vs. 74.5% for IPEDS-only, which NULL-ed 521 ~25.5% predominantly 2-year-college institutions).",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "COALESCE"
+              },
+              "fte_source": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "total_fte_enrollment"},
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "eada_fte_headcount"}
+                ],
+                "transformationDescription": "Provenance column for total_fte_enrollment. CASE WHEN base.ipeds_finance.total_fte_enrollment IS NOT NULL THEN 'ipeds_finance' WHEN bronze.eada.eada_fte_headcount IS NOT NULL THEN 'eada_fte_headcount' ELSE 'none' END. Distribution per BSE-EAD-011: ~74.5% ipeds_finance, ~25.5% eada_fte_headcount, <1% none.",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "CASE"
+              },
+              "has_ipeds_finance_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "total_fte_enrollment"}
+                ],
+                "transformationDescription": "Boolean coverage flag: TRUE iff base.ipeds_finance.total_fte_enrollment was non-null for this UNITID after the LEFT JOIN.",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "IS_NOT_NULL"
+              },
+              "has_eada_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "eada_fte_headcount"}
+                ],
+                "transformationDescription": "Boolean coverage flag: TRUE iff bronze.eada.eada_fte_headcount was non-null (expected ~100% post §4 amendment re-ingest).",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "IS_NOT_NULL"
+              },
+              "athletic_spend_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "total_athletic_expenses"},
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "total_fte_enrollment"},
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "eada_fte_headcount"}
+                ],
+                "transformationDescription": "total_athletic_expenses / NULLIF(COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount), 0). NULL when either operand is NULL or when the COALESCE'd FTE ≤ 0. Inherits the fte_source of its denominator. No imputation. Arithmetic invariant BSE-EAD-008: athletic_spend_per_fte * total_fte_enrollment ≈ total_athletic_expenses within $1 where all three non-null.",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "RATIO"
+              },
+              "athletic_revenue_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "total_athletic_revenue"},
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "total_fte_enrollment"},
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "eada_fte_headcount"}
+                ],
+                "transformationDescription": "total_athletic_revenue / NULLIF(COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount), 0). NULL when either operand is NULL or when the COALESCE'd FTE ≤ 0. Inherits the fte_source of its denominator. No imputation.",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "RATIO"
+              },
+              "recruiting_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "recruiting_expenses"},
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "total_fte_enrollment"},
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "eada_fte_headcount"}
+                ],
+                "transformationDescription": "recruiting_expenses / NULLIF(COALESCE(base.ipeds_finance.total_fte_enrollment, bronze.eada.eada_fte_headcount), 0). NULL when either operand is NULL or when the COALESCE'd FTE ≤ 0. Inherits the fte_source of its denominator. No imputation.",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "RATIO"
+              },
+              "athletic_subsidy_ratio": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "total_athletic_expenses"},
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "total_athletic_revenue"}
+                ],
+                "transformationDescription": "(total_athletic_expenses - total_athletic_revenue) / NULLIF(total_athletic_expenses, 0). Independent of FTE source. Positive = subsidized by rest of budget; near 0 = self-sustaining; negative = profitable. Range constrained to [-3.0, 1.0] per BSE-EAD-007 (silver-EDA-calibrated 2026-04-30; original [-1.0, 1.0] band was empirically falsified by 4 institutions — Binghamton -2.92, Haskell Indian Nations -2.56, Kennedy-King -1.57, Rust College -1.43 — reflecting institutional-transfer accounting). BSE-EAD-010 OPE-ledger invariant (silver-EDA-calibrated 2026-04-30): P50 == 0 AND P5 < 0 AND P95 == 0 (63% of rows have revenue == expenses exactly because the OPE/EADA ledger convention double-counts institutional support on both sides).",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "RATIO"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.eada", "field": "load_date"}
+                ],
+                "transformationDescription": "Direct passthrough of the bronze ingest's load_date. Provenance — the date bronze.eada was landed.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "Stamped at base-promote time by the silver transformer. NOT inherited from bronze — this records when base.eada was produced, not when bronze.eada was landed.",
+                "transformationType": "DERIVED",
+                "transformationSubtype": "RUNTIME_STAMP"
+              }
+            }
+          },
+          "dataQualityAssertions": {
+            "scorecard": "governance/dq-scorecards/base-eada-20260501T210828Z.json",
+            "rulesFile": "governance/dq-rules/base-eada.json",
+            "executedAt": "2026-05-01T21:08:28.249017+00:00",
+            "executedBy": "@dq-engineer",
+            "overallPass": true,
+            "p0GateBlocking": false,
+            "ruleCount": 13,
+            "assertions": [
+              {"ruleId": "BSE-EAD-001", "name": "Row count == raw row count (conservation)", "priority": "P0", "dimension": "consistency", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-002", "name": "unitid uniqueness (dedup grain)", "priority": "P0", "dimension": "uniqueness", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-003", "name": "record_id non-null and unique", "priority": "P0", "dimension": "validity", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-004", "name": "athletic_spend_per_fte >= 0 where non-null", "priority": "P0", "dimension": "validity", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-005", "name": "athletic_revenue_per_fte >= 0 where non-null", "priority": "P0", "dimension": "validity", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-006", "name": "recruiting_per_fte >= 0 where non-null", "priority": "P0", "dimension": "validity", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-007", "name": "athletic_subsidy_ratio in [-3.0, 1.0] where non-null (silver-EDA-calibrated 2026-04-30; widened from [-1.0, 1.0] after 4-institution empirical falsification)", "priority": "P0", "dimension": "validity", "calibration": "silver-EDA-recalibrated", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-008", "name": "Arithmetic invariant: athletic_spend_per_fte * total_fte_enrollment ≈ total_athletic_expenses within $1", "priority": "P0", "dimension": "consistency", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-009", "name": "fte_source enum membership and 'none' rate <= 1%", "priority": "P0", "dimension": "validity", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-010", "name": "athletic_subsidy_ratio P50 == 0 with P5 < 0 and P95 == 0 (OPE ledger convention)", "priority": "P1", "dimension": "consistency", "calibration": "silver-EDA-recalibrated (OPE-ledger convention)", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-011", "name": "fte_source distribution: ipeds_finance ~74.5% / eada_fte_headcount ~25.5% (±5pp)", "priority": "P1", "dimension": "consistency", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-012", "name": "Tautology: total_fte_enrollment IS NULL iff fte_source = 'none'", "priority": "P0", "dimension": "consistency", "passed": true, "actual": 0},
+              {"ruleId": "BSE-EAD-013", "name": "IPEDS-preference invariant: every IPEDS-Finance UNITID with non-null total_fte_enrollment stamps fte_source = 'ipeds_finance'", "priority": "P0", "dimension": "referential_integrity", "passed": true, "actual": 0}
+            ]
+          }
+        }
+      }
+    ]
+  }
+]
