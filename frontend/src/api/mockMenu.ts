@@ -20,7 +20,7 @@ const SUMMARIES: BuildSummary[] = [
     roi: 7,
     res: 4,
     grw: 9,
-    hmn: 5,
+    aura: 5,
     wins: 4,
     losses: 0,
     draws: 1,
@@ -37,7 +37,7 @@ const SUMMARIES: BuildSummary[] = [
     roi: 6,
     res: 7,
     grw: 5,
-    hmn: 8,
+    aura: 8,
     wins: 3,
     losses: 1,
     draws: 1,
@@ -54,7 +54,7 @@ const SUMMARIES: BuildSummary[] = [
     roi: 8,
     res: 9,
     grw: 7,
-    hmn: 9,
+    aura: 9,
     wins: 5,
     losses: 0,
     draws: 0,
@@ -110,7 +110,7 @@ export async function mockCompareBuilds(buildIds: string[]): Promise<CompareResu
       { label: "ROI", values: picks.map((b) => b.roi) },
       { label: "RES", values: picks.map((b) => b.res) },
       { label: "GRW", values: picks.map((b) => b.grw) },
-      { label: "HMN", values: picks.map((b) => b.hmn) },
+      { label: "AURA", values: picks.map((b) => b.aura) },
     ],
     bosses: [
       { label: "AI", boss_id: "ai", values: bossOutcomes(picks, "ai"), skill_counts: skillCounts(picks, "ai"), original_values: bossOutcomes(picks, "ai") },
@@ -165,7 +165,7 @@ function bossOutcomes(builds: BuildSummary[], boss: string): string[] {
 const STARTER_RESPONSES = [
   "Solid question. Based on your build, the data points to a clear tradeoff: your earning power is strong but your AI exposure is non-trivial. Internships at firms blending engineering with domain knowledge — health tech, climate tech — would harden your build against automation while keeping the salary trajectory.",
   "Looking at your stats, the in-state path keeps your ROI healthy because of net price. Out-of-state would push your modeled total debt up by roughly 60%, which moves Loans from WIN into DRAW territory. The career market is about the same in both states for this role.",
-  "A minor in something human-edge-heavy (writing, design, ethics) would lift your HMN stat by 1–2 and gives you a hedge against the AI boss. It won't move ERN much, but the pentagon shape becomes more balanced — better against future shocks.",
+  "A minor in something human-judgment-heavy (writing, design, ethics) would lift your RES stat by 1–2 and gives you a hedge against the AI boss. It won't move ERN much, but the pentagon shape becomes more balanced — better against future shocks. AURA is institution-level so no minor can shift it.",
 ];
 
 export async function mockChat(_message: string, history: ChatHistoryItem[]): Promise<string> {

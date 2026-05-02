@@ -11,7 +11,7 @@ export interface TreeNode {
   roi: number | null;
   res: number | null;
   grw: number | null;
-  hmn: number | null;
+  aura: number | null;
   median_wage: number | null;
   education: string | null;
   experience_years: number | null;

@@ -70,7 +70,7 @@ function rowToCareerOutcome(row: SchoolForCareerRow): CareerOutcome {
     tuition_out_of_state: row.tuition_out_of_state,
     is_out_of_state: false,
     room_board_on_campus: null,
-    stats: { ern: row.stat_ern, roi: row.stat_roi, res: null, grw: null, hmn: null },
+    stats: { ern: row.stat_ern, roi: row.stat_roi, res: null, grw: null, aura: null },
     bosses: { ai: null, loans: null, market: null, burnout: null, ceiling: null },
     top_5_activities: [],
     top_human_activities: [],

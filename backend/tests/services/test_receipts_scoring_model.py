@@ -25,7 +25,7 @@ def _career_with_provenance(
         occupation_title="Fundraisers",
         scoring_model=scoring_model,
         model_tag=model_tag,
-        stats=PentagonStats(ern=7, roi=6, res=5, grw=6, hmn=6),
+        stats=PentagonStats(ern=7, roi=6, res=5, grw=6, aura=6),
         bosses=BossScores(ai=6, loans=5, market=6, burnout=5, ceiling=5),
     )
 
@@ -88,7 +88,7 @@ class TestResReceiptCompositeMethod:
             composite_method=composite_method,  # type: ignore[arg-type]
             velocity_label=velocity_label,  # type: ignore[arg-type]
             ai_adoption_share=ai_adoption_share,
-            stats=PentagonStats(ern=7, roi=6, res=5, grw=6, hmn=6),
+            stats=PentagonStats(ern=7, roi=6, res=5, grw=6, aura=6),
             bosses=BossScores(ai=6, loans=5, market=6, burnout=5, ceiling=5),
         )
 

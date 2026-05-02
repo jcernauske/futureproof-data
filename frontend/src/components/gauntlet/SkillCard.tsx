@@ -7,12 +7,14 @@ interface SkillCardProps {
   onToggle: () => void;
 }
 
+// AppliedSkill no longer carries delta_hmn (folded into delta_res
+// per pentagon-stat-reshape v1.2). delta_aura is intentionally omitted
+// — AURA is institution-level and skills can't shift it.
 const STAT_LABELS: Record<string, { label: string; signMultiplier?: number }> = {
   delta_ern: { label: "ERN" },
   delta_roi: { label: "ROI" },
   delta_res: { label: "RES" },
   delta_grw: { label: "GRW" },
-  delta_hmn: { label: "HMN" },
   delta_burnout_raw: { label: "BRN", signMultiplier: -1 },
   delta_ceiling_raw: { label: "CEIL" },
 };

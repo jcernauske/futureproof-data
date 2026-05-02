@@ -88,7 +88,7 @@ function makeCompareResult(overrides: Partial<CompareResult> = {}): CompareResul
       { label: "ROI", values: [7, 6] },
       { label: "RES", values: [4, 7] },
       { label: "GRW", values: [9, 5] },
-      { label: "HMN", values: [5, 8] },
+      { label: "AURA", values: [5, 8] },
     ],
     bosses: [
       { label: "AI", boss_id: "ai", values: ["LOSE", "WIN"], skill_counts: [0, 1], original_values: ["LOSE", "LOSE"] },
@@ -202,7 +202,7 @@ describe("CompareView", () => {
         { label: "ROI", values: [6, 7, 5] },
         { label: "RES", values: [5, 4, 6] },
         { label: "GRW", values: [8, 9, 7] },
-        { label: "HMN", values: [4, 5, 3] },
+        { label: "AURA", values: [4, 5, 3] },
       ],
       bosses: [
         { label: "AI", boss_id: "ai", values: ["WIN", "DRAW", "LOSE"], skill_counts: [0, 0, 0], original_values: ["WIN", "DRAW", "LOSE"] },
@@ -241,7 +241,7 @@ describe("CompareView", () => {
         { label: "ROI", values: [6, 7, 5, 8] },
         { label: "RES", values: [5, 4, 6, 7] },
         { label: "GRW", values: [8, 9, 7, 6] },
-        { label: "HMN", values: [4, 5, 3, 9] },
+        { label: "AURA", values: [4, 5, 3, 9] },
       ],
       bosses: [
         { label: "AI", boss_id: "ai", values: ["WIN", "DRAW", "LOSE", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "DRAW", "LOSE", "WIN"] },

@@ -48,10 +48,10 @@ const STAT_COLORS: Record<string, string> = {
   roi: "#7DD4A3",
   res: "#B8A9E8",
   grw: "#7BB8E0",
-  hmn: "#E88BA9",
+  aura: "#E8B86B",
 };
 
-const STAT_KEYS = ["ern", "roi", "res", "grw", "hmn"] as const;
+const STAT_KEYS = ["ern", "roi", "res", "grw", "aura"] as const;
 
 // Rank-axis spacing per level (root → career → endpoint).
 // "Rank" = primary flow axis; for LR it's X, for TB it's Y.
@@ -113,7 +113,7 @@ export interface FlowNodeData extends Record<string, unknown> {
     roi: number | null;
     res: number | null;
     grw: number | null;
-    hmn: number | null;
+    aura: number | null;
   };
 }
 
@@ -140,7 +140,7 @@ function makeStats(node: TreeNode) {
     roi: node.roi,
     res: node.res,
     grw: node.grw,
-    hmn: node.hmn,
+    aura: node.aura,
   };
 }
 

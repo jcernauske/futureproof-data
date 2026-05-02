@@ -27,7 +27,7 @@ function makeNode(overrides: Partial<TreeNode> = {}): TreeNode {
     roi: null,
     res: null,
     grw: null,
-    hmn: null,
+    aura: null,
     median_wage: null,
     education: null,
     experience_years: null,

@@ -40,7 +40,7 @@ const VALID_TREE_RESPONSE: TreeResponse = {
     roi: 68,
     res: 45,
     grw: 61,
-    hmn: 38,
+    aura: 38,
     median_wage: 95570,
     education: "Bachelor's degree",
     experience_years: null,

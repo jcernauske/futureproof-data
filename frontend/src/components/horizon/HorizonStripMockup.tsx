@@ -61,7 +61,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
     soc: "19-4021",
     title: "Biological Technician",
     wage: 52140,
-    stats: { ern: 2, roi: 3, res: 4, grw: 3, hmn: 3 },
+    stats: { ern: 2, roi: 3, res: 4, grw: 3, aura: 3 },
     horizon: [
       {
         tier: "entry",
@@ -101,7 +101,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         soc: "11-9121",
         one_liner: "Runs the lab. Budget, hiring, research direction.",
         unlock: null,
-        deltas: { ern: +2, grw: +1, hmn: +1 },
+        deltas: { ern: +2, grw: +1, aura: +1 },
       },
     ],
   },
@@ -109,7 +109,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
     soc: "19-1029",
     title: "Biologist",
     wage: 65000,
-    stats: { ern: 3, roi: 3, res: 4, grw: 3, hmn: 3 },
+    stats: { ern: 3, roi: 3, res: 4, grw: 3, aura: 3 },
     horizon: [
       {
         tier: "entry",
@@ -129,7 +129,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         soc: "19-1023",
         one_liner: "Specializes, publishes, runs field studies solo.",
         unlock: null,
-        deltas: { grw: +1, hmn: +1 },
+        deltas: { grw: +1, aura: +1 },
       },
       {
         tier: "mid",
@@ -157,7 +157,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
     soc: "25-1042",
     title: "Biology Teacher, Postsecondary",
     wage: 79170,
-    stats: { ern: 3, roi: 3, res: 5, grw: 3, hmn: 5 },
+    stats: { ern: 3, roi: 3, res: 5, grw: 3, aura: 5 },
     horizon: [
       {
         tier: "entry",
@@ -187,7 +187,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         soc: "25-1042",
         one_liner: "Own lab, own students, tenure clock ticking.",
         unlock: "Doctorate · high relatedness",
-        deltas: { ern: +1, hmn: +1 },
+        deltas: { ern: +1, aura: +1 },
       },
       {
         tier: "senior",
@@ -197,7 +197,7 @@ const COMMON_CAREERS: MockCareerRow[] = [
         soc: "25-1042",
         one_liner: "Tenured. Research direction plus department politics.",
         unlock: null,
-        deltas: { ern: +2, hmn: +2 },
+        deltas: { ern: +2, aura: +2 },
       },
     ],
   },
@@ -384,7 +384,7 @@ function HorizonDetail({
 // Main row — the CareerCard that expands into a horizon strip
 // ---------------------------------------------------------------------------
 
-const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
+const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
 
 function CareerRow({
   career,

@@ -12,7 +12,7 @@ import type { TreeNode } from "@/types/tree";
  * Bullet rules:
  *   - Education: shown when both sides are known and non-equal
  *   - Experience: shown when both tiers are known and non-equal
- *   - Top stat shift: max |Δ| across res/grw/hmn (skips wage/roi —
+ *   - Top stat shift: max |Δ| across res/grw/aura (skips wage/roi —
  *     those duplicate the mini-compare strip)
  *
  * Glyph color rule per spec: `↑` always thrive — investment framing,
@@ -69,11 +69,15 @@ function pickTopStat(
   root: TreeNode,
   t: (key: string) => string,
 ): Bullet | null {
-  type Stat = { key: "res" | "grw" | "hmn"; labelKey: string };
+  // Pentagon-stat-reshape Decision 5: AURA is institution-invariant
+  // (delta_aura is always 0 across branches by construction). Drop it
+  // from the top-stat candidate set — it can never be the top shift.
+  // RES already absorbs the former human-essential signal so the
+  // "humanWork" candidate is now subsumed by the RES blend.
+  type Stat = { key: "res" | "grw"; labelKey: string };
   const candidates: Stat[] = [
     { key: "res", labelKey: "future.stat.aiResilient" },
     { key: "grw", labelKey: "future.stat.growth" },
-    { key: "hmn", labelKey: "future.stat.humanWork" },
   ];
   let best: { stat: Stat; delta: number } | null = null;
   for (const stat of candidates) {

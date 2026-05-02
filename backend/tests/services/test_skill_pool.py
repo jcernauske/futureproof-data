@@ -16,7 +16,7 @@ def _career(
     roi: int | None = 5,
     res: int | None = 5,
     grw: int | None = 5,
-    hmn: int | None = 5,
+    aura: int | None = 5,
     burnout: int | None = 5,
     ceiling: int | None = 5,
 ) -> CareerOutcome:
@@ -27,7 +27,7 @@ def _career(
         program_name="Marketing",
         soc_code="11-2021",
         occupation_title="Marketing Managers",
-        stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, hmn=hmn),
+        stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, aura=aura),
         bosses=BossScores(
             ai=5, loans=5, market=5, burnout=burnout, ceiling=ceiling
         ),
@@ -53,13 +53,15 @@ class TestFallbackPoolIntegrity:
             assert skill.targets, f"{skill.id} has no targets"
 
     def test_every_skill_has_at_least_one_nonzero_delta(self):
+        # delta_hmn was removed in pentagon-stat-reshape v1.2 (RES absorbed
+        # the human-essential signal). delta_aura is intentionally absent
+        # from AppliedSkill — AURA is institution-level.
         for skill in skill_pool.FALLBACK_POOL:
             deltas = [
                 skill.delta_ern,
                 skill.delta_roi,
                 skill.delta_res,
                 skill.delta_grw,
-                skill.delta_hmn,
                 skill.delta_burnout_raw,
                 skill.delta_ceiling_raw,
             ]
@@ -107,7 +109,10 @@ class TestApplySkills:
         assert result is career  # no-op short-circuit
 
     def test_stat_deltas_stack_and_clamp(self):
-        career = _career(res=3, hmn=3)
+        # Pentagon-stat-reshape: AURA is institution-level — skills can't
+        # shift it (no delta_aura on AppliedSkill). Verify aura passes
+        # through unchanged from the original CareerOutcome.
+        career = _career(res=3, aura=3)
         skills = [
             AppliedSkill(
                 id="a",
@@ -115,7 +120,6 @@ class TestApplySkills:
                 rationale="",
                 targets=["ai"],
                 delta_res=5,
-                delta_hmn=5,
             ),
             AppliedSkill(
                 id="b",
@@ -123,15 +127,14 @@ class TestApplySkills:
                 rationale="",
                 targets=["ai"],
                 delta_res=5,  # would push to 13 → clamp to 10
-                delta_hmn=2,
             ),
         ]
         new_career = skill_pool.apply_skills(career, skills)
         assert new_career.stats.res == 10  # clamped
-        assert new_career.stats.hmn == 10  # clamped
+        assert new_career.stats.aura == 3  # unchanged — institution-level
         # Original untouched.
         assert career.stats.res == 3
-        assert career.stats.hmn == 3
+        assert career.stats.aura == 3
 
     def test_none_stats_stay_none(self):
         career = _career(res=None)
@@ -208,6 +211,8 @@ class TestFormatImpact:
         assert skill_pool.format_impact(skill) == "RES+2"
 
     def test_multiple_stats(self):
+        # delta_hmn / AURA dropped from AppliedSkill in pentagon-stat-reshape.
+        # Verify multi-stat delta formatting still emits each non-zero stat.
         skill = AppliedSkill(
             id="x",
             title="X",
@@ -215,12 +220,12 @@ class TestFormatImpact:
             targets=["ai", "market"],
             delta_res=2,
             delta_grw=1,
-            delta_hmn=-1,
+            delta_ern=-1,
         )
         impact = skill_pool.format_impact(skill)
         assert "RES+2" in impact
         assert "GRW+1" in impact
-        assert "HMN-1" in impact
+        assert "ERN-1" in impact
 
     def test_burnout_raw_shows_signed(self):
         skill = AppliedSkill(
@@ -256,7 +261,7 @@ def _lose_ai_gauntlet():
                 raw_score=6,
                 threshold_win=14,
                 threshold_draw=10,
-                reason="RES 3 + HMN 3 = 6",
+                reason="RES 3 + AURA 3 = 6",
             )
         ],
         wins=0,
@@ -279,7 +284,7 @@ def _lose_ai_and_loans_gauntlet():
                 raw_score=6,
                 threshold_win=14,
                 threshold_draw=10,
-                reason="RES 3 + HMN 3 = 6",
+                reason="RES 3 + AURA 3 = 6",
             ),
             BossFightResult(
                 boss="loans",  # type: ignore[arg-type]
@@ -311,7 +316,7 @@ def _draw_ai_gauntlet():
                 raw_score=10,
                 threshold_win=14,
                 threshold_draw=10,
-                reason="RES 5 + HMN 5 = 10",
+                reason="RES 5 + AURA 5 = 10",
             )
         ],
         wins=0,
@@ -334,7 +339,7 @@ def _mixed_loss_draw_win_gauntlet():
                 raw_score=10,
                 threshold_win=14,
                 threshold_draw=10,
-                reason="RES 5 + HMN 5 = 10",
+                reason="RES 5 + AURA 5 = 10",
             ),
             BossFightResult(
                 boss="loans",  # type: ignore[arg-type]
@@ -373,6 +378,8 @@ def _win_everything_gauntlet():
 
 class TestParsePool:
     def test_parses_valid_line(self):
+        # Pentagon-stat-reshape: legacy HMN tokens fold into RES on parse
+        # (RES absorbs the human-essential signal). RES+2,HMN+1 → delta_res=3.
         text = (
             "ai|Kelley Business Analytics minor|RES+2,HMN+1|"
             "The Kelley analytics minor teaches marketers to direct AI tools."
@@ -381,8 +388,7 @@ class TestParsePool:
         assert len(skills) == 1
         skill = skills[0]
         assert skill.title == "Kelley Business Analytics minor"
-        assert skill.delta_res == 2
-        assert skill.delta_hmn == 1
+        assert skill.delta_res == 3  # 2 (raw RES) + 1 (folded HMN)
         assert skill.targets == ["ai"]
         assert "Kelley" in skill.rationale
 

@@ -48,7 +48,7 @@ function makeResult(buildCount: 2 | 3): CompareResult {
       { label: "ROI", values: valuesFor(6) },
       { label: "RES", values: valuesFor(7) },
       { label: "GRW", values: valuesFor(8) },
-      { label: "HMN", values: valuesFor(4) },
+      { label: "AURA", values: valuesFor(4) },
     ],
     bosses: [],
     branches: [],

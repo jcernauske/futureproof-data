@@ -25,7 +25,7 @@
     --stat-roi: #7DD4A3;
     --stat-res: #B8A9E8;
     --stat-grw: #7BB8E0;
-    --stat-hmn: #E88BA9;
+    --stat-aura: #E8B86B;
     --text-primary: #F5F0E8;
     --text-secondary: #C4BFB0;
     --text-muted: #8A8595;
@@ -543,7 +543,7 @@ const LOAN_LABELS = [
 ];
 
 // Base stats for ISU Business -> Financial Analyst
-const BASE_STATS = { ERN: 7, ROI: 7, RES: 5, GRW: 8, HMN: 6 };
+const BASE_STATS = { ERN: 7, ROI: 7, RES: 5, GRW: 8, AURA: 6 };
 
 // Full stat names and descriptions — the stat literacy system
 const STAT_NAMES = {
@@ -551,7 +551,7 @@ const STAT_NAMES = {
   ROI: { full: 'Return on Investment', short: 'Earnings vs. student debt', detail: 'Compares your expected earnings to your total student debt. Less borrowing means better ROI. Source: College Scorecard.' },
   RES: { full: 'AI Resilience', short: 'How safe from automation', detail: 'Measures how exposed this career is to AI automation. Higher means the work needs humans. Source: Karpathy AI Exposure + O*NET tasks.' },
   GRW: { full: 'Growth', short: 'Is the field expanding?', detail: 'Based on 10-year job projections. Higher means more opportunity ahead. Source: Bureau of Labor Statistics.' },
-  HMN: { full: 'Human Edge', short: 'Needs uniquely human skills', detail: 'How much does this job depend on empathy, creativity, judgment, and persuasion? Higher means harder to replace. Source: O*NET Work Activities.' }
+  AURA: { full: 'Brand Gravity', short: "How much weight your school's name carries", detail: "Endowment per student, marketing reach, athletic budget. Real signal, not vibes. Some schools don't have it yet. Source: IPEDS Finance + EADA athletics." }
 };
 
 function getStats() {
@@ -580,7 +580,7 @@ function render(scenario) {
   if (scenario === 'empty') { renderEmpty(c); return; }
 
   const stats = getStats();
-  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', HMN: '#E88BA9' };
+  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', AURA: '#E8B86B' };
 
   c.innerHTML = `
     <div class="screen-title">Personalize your build</div>
@@ -644,7 +644,7 @@ function render(scenario) {
     <div class="stat-legend">
       <div class="stat-legend-title">Your five career stats</div>
       <div class="stat-legend-intro">Every career path in FutureProof is measured by these five stats, all backed by real data. Tap any stat to learn more.</div>
-      ${['ERN', 'ROI', 'RES', 'GRW', 'HMN'].map(k => `
+      ${['ERN', 'ROI', 'RES', 'GRW', 'AURA'].map(k => `
         <div class="stat-legend-row" onclick="this.classList.toggle('expanded')">
           <div class="stat-legend-dot" style="background:${colors[k]}"></div>
           <div class="stat-legend-info">
@@ -697,8 +697,8 @@ function render(scenario) {
 }
 
 function drawMiniPent(stats, cx, cy, r) {
-  const order = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
-  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', HMN: '#E88BA9' };
+  const order = ['ERN', 'ROI', 'RES', 'GRW', 'AURA'];
+  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', AURA: '#E8B86B' };
 
   let svg = '';
   // Grid
@@ -766,8 +766,8 @@ function renderEmpty(c) {
 let chartMode04 = 'pentagon';
 
 function drawMiniBarChart(stats) {
-  const order = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
-  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', HMN: '#E88BA9' };
+  const order = ['ERN', 'ROI', 'RES', 'GRW', 'AURA'];
+  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', AURA: '#E8B86B' };
   return `<div class="mini-bar-chart">${order.map((s, i) => {
     const val = stats[s];
     return `<div class="mini-bar-row">

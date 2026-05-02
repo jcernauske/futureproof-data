@@ -49,7 +49,7 @@ def _make_build(
         program_name=major_text,
         soc_code=soc,
         occupation_title=title,
-        stats=PentagonStats(ern=8, roi=9, res=4, grw=6, hmn=6),
+        stats=PentagonStats(ern=8, roi=9, res=4, grw=6, aura=6),
         bosses=BossScores(ai=7, loans=None, market=7, burnout=6, ceiling=None),
         median_annual_wage=66490.0,
     )
@@ -170,7 +170,7 @@ class TestListBuildsRouter:
             "roi",
             "res",
             "grw",
-            "hmn",
+            "aura",
             "wins",
             "losses",
             "draws",
@@ -209,7 +209,7 @@ class TestCompareBuildsRouter:
         assert len(body["builds"]) == 2
         # Stats must contain all 5 axes; each row must hold one value per build.
         labels = {row["label"] for row in body["stats"]}
-        assert labels == {"ERN", "ROI", "RES", "GRW", "HMN"}
+        assert labels == {"ERN", "ROI", "RES", "GRW", "AURA"}
         for row in body["stats"]:
             assert len(row["values"]) == 2
         # Bosses must include the canonical 5; per-build values present.

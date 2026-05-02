@@ -163,13 +163,16 @@ export function GemmaChat({
     ? `Context: ${build.school_name} · ${build.career_title} · ${wlcd}`
     : "";
 
-  // Auto-fire the opener in embedded mode when scope changes. The
-  // opener prompt is sent over the wire but never shown to the
-  // student — only the assistant response renders. The screen owns
-  // debouncing, so we fire on every scopeTargetKey change without
-  // a delay here.
+  // Auto-fire the opener when:
+  // - embedded mode: on every scope change (panel always open).
+  // - slide-in mode: when the panel transitions open with a scope +
+  //   opener. The close-effect above wipes history on open=false, so
+  //   reopen starts a fresh session and the opener fires once.
+  // The opener prompt is sent over the wire but never shown to the
+  // student — only the assistant response renders.
   useEffect(() => {
-    if (!embedded || !scope || !openerPrompt) return;
+    if (!scope || !openerPrompt) return;
+    if (!embedded && !open) return;
     let cancelled = false;
     const session = sessionRef.current;
     setSending(true);
@@ -219,9 +222,10 @@ export function GemmaChat({
     };
     // scopeTargetKey re-fires on every scope.target_id change.
     // openerPrompt is included so the screen can re-trigger by passing
-    // a new prompt without changing scope.
+    // a new prompt without changing scope. `open` is included so
+    // slide-in mode fires on close→open transitions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [embedded, scopeTargetKey, openerPrompt]);
+  }, [embedded, open, scopeTargetKey, openerPrompt]);
 
   async function submit(message: string) {
     if (!message.trim() || sending) return;

@@ -16,6 +16,7 @@ data/gold/pyiceberg_catalog.db
 
 # CLI harness local state
 backend/data/
+data/builds/
 
 # Gemma call logs (JSONL, one record per API call)
 logs/

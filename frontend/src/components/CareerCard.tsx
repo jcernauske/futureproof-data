@@ -25,7 +25,7 @@ interface CareerCardProps {
   hideNullStats?: boolean;
 }
 
-const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
+const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));

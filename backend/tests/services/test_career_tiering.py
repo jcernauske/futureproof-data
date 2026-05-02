@@ -14,7 +14,7 @@ def _outcome(soc: str, title: str = "Test", wage: float = 50000.0) -> CareerOutc
         program_name="Marketing",
         soc_code=soc,
         occupation_title=title,
-        stats=PentagonStats(ern=5, roi=5, res=5, grw=5, hmn=5),
+        stats=PentagonStats(ern=5, roi=5, res=5, grw=5, aura=5),
         bosses=BossScores(ai=5, loans=5, market=5, burnout=5, ceiling=5),
         median_annual_wage=wage,
         stats_available_count=5,

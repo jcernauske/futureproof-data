@@ -20,7 +20,7 @@ def _career() -> CareerOutcome:
         program_name="Marketing",
         soc_code="11-2021",
         occupation_title="Marketing Managers",
-        stats=PentagonStats(ern=8, roi=9, res=3, grw=6, hmn=7),
+        stats=PentagonStats(ern=8, roi=9, res=3, grw=6, aura=7),
         bosses=BossScores(ai=7, loans=2, market=6, burnout=5, ceiling=8),
     )
 
@@ -35,7 +35,7 @@ def _gauntlet_with_ai_loss() -> GauntletResult:
                 raw_score=10,
                 threshold_win=14,
                 threshold_draw=10,
-                reason="RES 3 + HMN 7 = 10",
+                reason="RES 3 + AURA 7 = 10",
             )
         ],
         wins=0,
@@ -50,6 +50,10 @@ class TestGenerateRecs:
     def test_parses_pipe_delimited_lines(self, monkeypatch):
         from app.services import gemma_client
 
+        # Pentagon-stat-reshape: legacy HMN tokens fold into RES at the
+        # clamp step (RES absorbs the human-essential signal). The
+        # parser keeps HMN in its regex specifically so legacy Gemma
+        # outputs land cleanly without dropping skills.
         monkeypatch.setattr(
             gemma_client,
             "generate",
@@ -63,6 +67,9 @@ class TestGenerateRecs:
         assert len(recs) == 3
         assert recs[0].title == "Data Analytics Minor"
         assert recs[0].stat_impact == "RES+2"
+        # Legacy HMN tokens become RES at clamp time.
+        assert recs[1].stat_impact == "RES+1"
+        assert recs[2].stat_impact == "RES+1"
         assert "direct AI analysis" in recs[0].rationale
 
     def test_fallback_when_gemma_empty(self, monkeypatch):
@@ -98,7 +105,9 @@ class TestClampImpact:
         assert skill_recs._clamp_impact("ROI+3") == "ROI+3"
 
     def test_plus_four_clamps_to_two(self):
-        assert skill_recs._clamp_impact("HMN+4") == "HMN+2"
+        # Legacy HMN tokens fold into RES at clamp time. Magnitude clamp
+        # still applies after the fold.
+        assert skill_recs._clamp_impact("HMN+4") == "RES+2"
 
     def test_plus_five_clamps_to_two(self):
         assert skill_recs._clamp_impact("ROI+5") == "ROI+2"
@@ -129,6 +138,8 @@ class TestClampImpact:
     def test_end_to_end_clamps_in_generate_recs(self, monkeypatch):
         from app.services import gemma_client
 
+        # Legacy HMN tokens fold into RES at clamp time. Magnitude clamp
+        # still applies after the fold (so HMN+4 → RES+2, HMN+2 → RES+2).
         monkeypatch.setattr(
             gemma_client,
             "generate",
@@ -142,5 +153,5 @@ class TestClampImpact:
         assert len(recs) == 3
         impacts = [r.stat_impact for r in recs]
         assert impacts[0] == "RES+2"  # clamped from +5
-        assert impacts[1] == "HMN+2"  # clamped from +4
-        assert impacts[2] == "HMN+2"  # unchanged
+        assert impacts[1] == "RES+2"  # HMN+4 → folded to RES, clamped to +2
+        assert impacts[2] == "RES+2"  # HMN+2 → folded to RES, unchanged magnitude

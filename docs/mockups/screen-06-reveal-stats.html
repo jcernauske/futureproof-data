@@ -25,7 +25,7 @@
     --stat-roi: #7DD4A3;
     --stat-res: #B8A9E8;
     --stat-grw: #7BB8E0;
-    --stat-hmn: #E88BA9;
+    --stat-aura: #E8B86B;
     --text-primary: #F5F0E8;
     --text-secondary: #C4BFB0;
     --text-muted: #8A8595;
@@ -416,8 +416,8 @@
   .stat-vertex.res .stat-name, .stat-vertex.res .stat-value { color: var(--stat-res); }
   .stat-vertex.grw { bottom: 0; left: -30px; }
   .stat-vertex.grw .stat-name, .stat-vertex.grw .stat-value { color: var(--stat-grw); }
-  .stat-vertex.hmn { top: 26%; left: -70px; }
-  .stat-vertex.hmn .stat-name, .stat-vertex.hmn .stat-value { color: var(--stat-hmn); }
+  .stat-vertex.aura { top: 26%; left: -70px; }
+  .stat-vertex.aura .stat-name, .stat-vertex.aura .stat-value { color: var(--stat-aura); }
 
   /* === STAT TUTORIAL OVERLAY === */
   .tutorial-overlay {
@@ -687,7 +687,7 @@
     .stat-chart-wrapper { width: 260px; }
     .pentagon-section { width: 260px; height: 260px; }
     .stat-vertex.roi { right: -55px; }
-    .stat-vertex.hmn { left: -55px; }
+    .stat-vertex.aura { left: -55px; }
 
     .stat-vertex .stat-value { font-size: 16px; }
     .gemma-take { padding: 20px; }
@@ -764,9 +764,9 @@ const MOCK_DATA = {
     ROI: { value: 6, color: '#7DD4A3', full: 'Return on Investment', icon: '\u{1F4B0}', desc: 'Compares your expected earnings to your student debt. At 50% loans, your debt-to-earnings ratio is manageable but not exceptional.' },
     RES: { value: 5, color: '#B8A9E8', full: 'AI Resilience', icon: '\u{1F6E1}\uFE0F', desc: 'How exposed is this career to AI automation? Financial analysis has moderate exposure \u2014 AI handles the models, but humans still interpret context.' },
     GRW: { value: 8, color: '#7BB8E0', full: 'Growth', icon: '\u{1F331}', desc: 'Is this field growing or shrinking? Financial analyst roles are projected to grow 9% over the next decade \u2014 well above average.' },
-    HMN: { value: 6, color: '#E88BA9', full: 'Human Edge', icon: '\u2764\uFE0F', desc: 'How much does this job depend on uniquely human skills? Client relationships and judgment calls keep the human edge moderate.' }
+    AURA: { value: 6, color: '#E8B86B', full: 'Brand Gravity', icon: '\u2728', desc: 'How much weight your school\u2019s name carries \u2014 endowment per student, marketing reach, athletic budget. ISU lands mid-pack on the institutional brand-gravity scale.' }
   },
-  gemmaTake: "Your ISU Business degree opens a solid path into financial analysis. The earning power is strong at the 75th percentile, and the field is growing faster than most. The catch? AI is reshaping how financial modeling works \u2014 your AI Resilience score of 5 means this is a career where you'll want to stay ahead of the tools, not compete with them. The good news: your Human Edge and Growth numbers give you room to evolve. This is a build with real upside and one clear risk to manage."
+  gemmaTake: "Your ISU Business degree opens a solid path into financial analysis. The earning power is strong at the 75th percentile, and the field is growing faster than most. The catch? AI is reshaping how financial modeling works \u2014 your AI Resilience score of 5 means this is a career where you'll want to stay ahead of the tools, not compete with them. The good news: your Brand Gravity and Growth numbers give you room to evolve. This is a build with real upside and one clear risk to manage."
 };
 
 const TUTORIAL_STEPS = [
@@ -774,7 +774,7 @@ const TUTORIAL_STEPS = [
   { stat: 'ROI', icon: '\u{1F4B0}', name: 'ROI', full: 'Return on Investment', desc: 'Compares your expected earnings to your student debt. Your loan percentage drives this number \u2014 less debt means better ROI.', color: '#7DD4A3' },
   { stat: 'RES', icon: '\u{1F6E1}\uFE0F', name: 'RES', full: 'AI Resilience', desc: 'How exposed is this career to AI automation? Higher means the work needs humans. Based on real task-level analysis of what people in this job do every day.', color: '#B8A9E8' },
   { stat: 'GRW', icon: '\u{1F331}', name: 'GRW', full: 'Growth', desc: 'Is this field growing or shrinking? Based on 10-year job projections from the Bureau of Labor Statistics. Higher means more opportunity ahead.', color: '#7BB8E0' },
-  { stat: 'HMN', icon: '\u2764\uFE0F', name: 'HMN', full: 'Human Edge', desc: 'How much does this job depend on uniquely human skills \u2014 empathy, creativity, judgment, persuasion? Higher means harder to replace.', color: '#E88BA9' }
+  { stat: 'AURA', icon: '\u2728', name: 'AURA', full: 'Brand Gravity', desc: 'How much weight your school\u2019s name carries \u2014 endowment per student, marketing reach, athletic budget. Real signal, not vibes. Some schools don\u2019t have it yet.', color: '#E8B86B' }
 ];
 
 const RECEIPT_DATA = {
@@ -782,7 +782,7 @@ const RECEIPT_DATA = {
   ROI: { title: 'ROI: Return on Investment', score: '6 / 10', color: '#7DD4A3', data: 'Debt-to-earnings: 0.62<br>Loan %: 50% of published debt<br>Source: College Scorecard 2022', threshold: '1-2: DTE >1.5 \u00b7 3-4: 1.0-1.5 \u00b7 5-6: 0.5-1.0<br>7-8: 0.25-0.5 \u00b7 9-10: <0.25' },
   RES: { title: 'RES: AI Resilience', score: '5 / 10', color: '#B8A9E8', data: 'AI exposure score: 5.2 / 10<br>Inverted to resilience: 4.8<br>Source: Karpathy + O*NET tasks', threshold: '1-2: Exposure >8 \u00b7 3-4: 6-8 \u00b7 5-6: 4-6<br>7-8: 2-4 \u00b7 9-10: <2' },
   GRW: { title: 'GRW: Growth', score: '8 / 10', color: '#7BB8E0', data: 'Projected growth: +9% (2024-2034)<br>National avg: +4%<br>Source: BLS Employment Projections', threshold: '1-2: Decline \u00b7 3-4: 0-2% \u00b7 5-6: 2-5%<br>7-8: 5-10% \u00b7 9-10: >10%' },
-  HMN: { title: 'HMN: Human Edge', score: '6 / 10', color: '#E88BA9', data: 'Human task ratio: 0.61<br>Key tasks: Client advising, judgment calls<br>Source: O*NET Work Activities', threshold: '1-2: <0.2 \u00b7 3-4: 0.2-0.4 \u00b7 5-6: 0.4-0.6<br>7-8: 0.6-0.8 \u00b7 9-10: >0.8' }
+  AURA: { title: 'AURA: Brand Gravity', score: '6 / 10', color: '#E8B86B', data: 'Composite basis: endowment + marketing + athletics<br>Endowment per FTE: $12.5k \u00b7 Marketing ratio: 3.4%<br>Source: IPEDS Finance + EADA athletics', threshold: '1-2: minimal brand signal \u00b7 3-4: niche regional<br>5-6: solid mid-tier \u00b7 7-8: strong national \u00b7 9-10: flagship' }
 };
 
 // === PENTAGON GEOMETRY ===
@@ -797,7 +797,7 @@ function pentagonPoint(cx, cy, r, index) {
 
 function drawPentagonSVG(stats, animate = true) {
   const cx = 170, cy = 170, outerR = 130;
-  const statOrder = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
+  const statOrder = ['ERN', 'ROI', 'RES', 'GRW', 'AURA'];
 
   // Outer pentagon (grid lines)
   let gridSVG = '';
@@ -887,7 +887,7 @@ function render(scenario) {
 
 function renderPopulated(container, showTutorial = false) {
   const d = MOCK_DATA;
-  const statOrder = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
+  const statOrder = ['ERN', 'ROI', 'RES', 'GRW', 'AURA'];
 
   container.innerHTML = `
     <div class="gemma-take" id="gemmaTake">
@@ -922,7 +922,7 @@ function renderPopulated(container, showTutorial = false) {
           <div class="pentagon-glow"></div>
           ${drawPentagonSVG(d.stats, true)}
           ${statOrder.map(s => {
-            const positions = { ERN: 'ern', ROI: 'roi', RES: 'res', GRW: 'grw', HMN: 'hmn' };
+            const positions = { ERN: 'ern', ROI: 'roi', RES: 'res', GRW: 'grw', AURA: 'aura' };
             return `<div class="stat-vertex ${positions[s]}" onclick="showReceipt('${s}')">
               <div class="stat-name">${d.stats[s].full}</div>
               <span class="stat-value" data-target="${d.stats[s].value}" data-stat="${s}">0</span>
@@ -1110,8 +1110,8 @@ const PENTAGON_ICON_SVG = `<svg viewBox="0 0 20 20"><polygon points="10,1 18.5,7
 const BAR_ICON_SVG = `<svg viewBox="0 0 20 20"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="7" y="6" width="3" height="12" rx="1"/><rect x="12" y="9" width="3" height="9" rx="1"/><rect x="15" y="3" width="3" height="15" rx="1"/></svg>`;
 
 function drawBarChartHTML06(stats) {
-  const order = ['ERN', 'ROI', 'RES', 'GRW', 'HMN'];
-  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', HMN: '#E88BA9' };
+  const order = ['ERN', 'ROI', 'RES', 'GRW', 'AURA'];
+  const colors = { ERN: '#F2D477', ROI: '#7DD4A3', RES: '#B8A9E8', GRW: '#7BB8E0', AURA: '#E8B86B' };
   return `<div class="bar-chart-view">${order.map((s, i) => {
     const val = stats[s].value || stats[s];
     return `<div class="bar-row">

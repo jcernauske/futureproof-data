@@ -22,7 +22,7 @@ def _career() -> CareerOutcome:
         program_name="Marketing",
         soc_code="11-2021",
         occupation_title="Marketing Managers",
-        stats=PentagonStats(ern=8, roi=9, res=3, grw=6, hmn=7),
+        stats=PentagonStats(ern=8, roi=9, res=3, grw=6, aura=7),
         bosses=BossScores(ai=7, loans=2, market=6, burnout=5, ceiling=8),
         median_annual_wage=157620.0,
         education_level_name="Bachelor's degree",
@@ -39,7 +39,7 @@ def _gauntlet() -> GauntletResult:
                 raw_score=10,
                 threshold_win=14,
                 threshold_draw=10,
-                reason="RES 3 + HMN 7 = 10",
+                reason="RES 3 + AURA 7 = 10",
             )
         ],
         wins=0,
@@ -95,7 +95,7 @@ class TestGenerateGuidance:
             "ROI",
             "RES",
             "GRW",
-            "HMN",
+            "AURA",
             "/10",
         ):
             assert forbidden not in text, (

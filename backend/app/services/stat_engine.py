@@ -16,6 +16,7 @@ boss scores. This module:
 from __future__ import annotations
 
 import logging
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from app.models.career import (
@@ -28,6 +29,76 @@ from app.services import mcp_client
 from app.services._coercion import as_int
 
 logger = logging.getLogger(__name__)
+
+
+def _round_half_up(value: float) -> int:
+    """Half-up rounding (NOT banker's rounding).
+
+    Python's built-in ``round()`` is half-even (banker's), which would
+    give different numbers than the spec implies. We use Decimal.quantize
+    so 0.5 always rounds away from zero.
+    """
+    return int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _blend_res(stat_res: int | None, stat_hmn: int | None) -> int | None:
+    """DRAFT 50/50 mean of the two AI-resilience signals.
+
+    Pending EDA. The two underlying scores measure related but distinct
+    things — ``stat_res`` is adoption-level resilience (Karpathy +
+    Anthropic + Gemma), ``stat_hmn`` is task-level human-essential ratio
+    (O*NET). EDA needs to confirm the correlation and pick weights;
+    until then a simple mean ships (see pentagon-stat-reshape.md §2
+    Decision 3).
+
+    Partial-null rule: if one input is None, return the other; if both
+    None, return None. Never fabricates a value.
+
+    NOTE: this rounded value is the DISPLAY value. Fight AI scores from
+    the raw inputs (Decision 4 revised in pentagon-stat-reshape.md) so
+    this rounding never reaches boss-fight outcomes.
+    """
+    if stat_res is None and stat_hmn is None:
+        return None
+    if stat_res is None:
+        return stat_hmn
+    if stat_hmn is None:
+        return stat_res
+    return _round_half_up((stat_res + stat_hmn) / 2)
+
+
+def _fetch_aura(unitid: int) -> tuple[int | None, str | None, str | None]:
+    """Return ``(aura_score, aura_score_basis, aura_score_version)``.
+
+    All three are None when the institution has no row in
+    ``consumable.institution_aura``, or when the row has NULL
+    ``aura_score`` (no marketing_ratio signal — see §6 of
+    full-pipeline-eada.md).
+
+    AURA is supplementary to the build — it surfaces on the 5th
+    pentagon vertex but does not drive any boss fight scoring. A
+    pyiceberg flake or transient MCP failure on this lookup must NOT
+    cascade to a 500 on /outcomes; we log and degrade to "no AURA
+    available for this build" (the pentagon's open-ring missing-data
+    treatment handles the rendering side cleanly).
+    """
+    try:
+        result = mcp_client.call("get_institution_aura", {"unitid": unitid})
+    except Exception as exc:  # noqa: BLE001 — supplementary lookup, must fail soft
+        logger.warning(
+            "get_institution_aura failed for unitid=%s; degrading to no-aura: %s",
+            unitid,
+            exc,
+        )
+        return None, None, None
+    row = result.get("data")
+    if not row:
+        return None, None, None
+    return (
+        as_int(row.get("aura_score")),
+        row.get("aura_score_basis"),
+        row.get("aura_score_version"),
+    )
 
 # Effort adjustment: shift applied to ERN in score points. ROI is
 # intentionally excluded — effort reflects earning potential while in
@@ -60,7 +131,7 @@ def _apply_effort(stats: PentagonStats, effort: EffortLevel) -> PentagonStats:
         roi=stats.roi,
         res=stats.res,
         grw=stats.grw,
-        hmn=stats.hmn,
+        aura=stats.aura,
     )
 
 
@@ -183,6 +254,9 @@ def _row_to_outcome(
     substituted_cipcode: str | None,
     data_caveat: dict[str, Any] | None,
     home_state: str | None = None,
+    aura_score: int | None = None,
+    aura_score_basis: str | None = None,
+    aura_score_version: str | None = None,
 ) -> CareerOutcome:
     raw_stat_roi = as_int(row.get("stat_roi"))
     raw_boss_loans = as_int(row.get("boss_loans_score"))
@@ -253,12 +327,15 @@ def _row_to_outcome(
         else raw_boss_loans
     )
 
+    raw_stat_res = as_int(row.get("stat_res"))
+    raw_stat_hmn = as_int(row.get("stat_hmn"))
+    blended_res = _blend_res(raw_stat_res, raw_stat_hmn)
     stats = PentagonStats(
         ern=as_int(row.get("stat_ern")),
         roi=adj_stat_roi,
-        res=as_int(row.get("stat_res")),
+        res=blended_res,
         grw=as_int(row.get("stat_grw")),
-        hmn=as_int(row.get("stat_hmn")),
+        aura=aura_score,
     )
     stats = _apply_effort(stats, effort)
 
@@ -320,6 +397,10 @@ def _row_to_outcome(
         room_board_on_campus=row.get("room_board_on_campus"),
         stats=stats,
         bosses=bosses,
+        raw_stat_res=raw_stat_res,
+        raw_stat_hmn=raw_stat_hmn,
+        aura_score_basis=aura_score_basis,
+        aura_score_version=aura_score_version,
         top_5_activities=_list_field("top_5_activities"),
         top_human_activities=_list_field("top_human_activities"),
         burnout_drivers=_list_field("burnout_drivers"),
@@ -387,7 +468,7 @@ def recompute_for_sliders(
                 roi=career.stats.roi,
                 res=career.stats.res,
                 grw=career.stats.grw,
-                hmn=career.stats.hmn,
+                aura=career.stats.aura,
             ),
             "bosses": BossScores(
                 ai=career.bosses.ai,
@@ -456,6 +537,11 @@ def compute_pentagon(
     substituted_cipcode = result.get("substituted_cipcode")
     data_caveat = result.get("data_caveat") if substitution_applied else None
 
+    # AURA is institution-level — one MCP lookup per build, value stamped
+    # onto every CareerOutcome row. CIP substitution does NOT change unitid
+    # so this lookup also doesn't change under substitution (Decision 6).
+    aura_score, aura_score_basis, aura_score_version = _fetch_aura(unitid)
+
     outcomes = [
         _row_to_outcome(
             row,
@@ -466,6 +552,9 @@ def compute_pentagon(
             substituted_cipcode=substituted_cipcode,
             data_caveat=data_caveat,
             home_state=home_state,
+            aura_score=aura_score,
+            aura_score_basis=aura_score_basis,
+            aura_score_version=aura_score_version,
         )
         for row in rows
     ]

@@ -28,7 +28,7 @@ function makeCareer(soc: string, title: string): CareerOutcome {
     tuition_in_state: null,
     tuition_out_of_state: null,
     room_board_on_campus: null,
-    stats: { ern: 7, roi: 6, res: 5, grw: 6, hmn: 5 },
+    stats: { ern: 7, roi: 6, res: 5, grw: 6, aura: 5 },
     bosses: { ai: 5, loans: 3, market: 3, burnout: 4, ceiling: 4 },
     top_5_activities: [],
     top_human_activities: [],

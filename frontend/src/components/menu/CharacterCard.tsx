@@ -13,7 +13,7 @@ const STAT_BARS: { label: string; color: string }[] = [
   { label: "ROI", color: "var(--color-stat-roi)" },
   { label: "RES", color: "var(--color-stat-res)" },
   { label: "GRW", color: "var(--color-stat-grw)" },
-  { label: "HMN", color: "var(--color-stat-hmn)" },
+  { label: "AURA", color: "var(--color-stat-aura)" },
 ];
 
 function formatCost(val: number | null): string {
@@ -58,27 +58,45 @@ export function CharacterCard({ build, stats, buildIndex, highlighted = true, on
 
       <div className="flex flex-col gap-2 mb-4">
         {STAT_BARS.map(({ label, color: statColor }) => {
-          const val = statMap[label] ?? 0;
-          const pct = Math.max(0, Math.min(100, (val / 10) * 100));
+          // Pentagon-stat-reshape §3 missing-data treatment: surface
+          // null AURA (and any other absent stat) as em-dash + hollow
+          // track instead of a "0" with empty bar.
+          const raw = statMap[label];
+          const isAbsent = raw === null || raw === undefined;
+          const val = isAbsent ? 0 : Math.max(0, Math.min(10, raw));
+          const pct = (val / 10) * 100;
           return (
-            <div key={label} className="flex items-center gap-2">
+            <div
+              key={label}
+              className="flex items-center gap-2"
+              data-state={isAbsent ? "absent" : undefined}
+            >
               <span
                 className="font-data text-[10px] font-bold uppercase tracking-wider w-8 shrink-0"
                 style={{ color: statColor }}
               >
                 {label}
               </span>
-              <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${pct}%`, background: statColor }}
-                />
+              <div
+                className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden"
+                style={
+                  isAbsent
+                    ? { border: "1px dashed var(--color-text-muted)", opacity: 0.4 }
+                    : undefined
+                }
+              >
+                {!isAbsent && (
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: statColor }}
+                  />
+                )}
               </div>
               <span
                 className="font-data text-[11px] font-bold w-6 text-right shrink-0"
                 style={{ color: statColor }}
               >
-                {val ?? "—"}
+                {isAbsent ? "—" : val}
               </span>
             </div>
           );

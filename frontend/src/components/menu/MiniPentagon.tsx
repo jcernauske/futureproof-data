@@ -1,11 +1,11 @@
 import type { BuildSummary } from "@/api/menu";
 
 interface MiniPentagonProps {
-  stats: Pick<BuildSummary, "ern" | "roi" | "res" | "grw" | "hmn">;
+  stats: Pick<BuildSummary, "ern" | "roi" | "res" | "grw" | "aura">;
   size?: number;
 }
 
-const KEYS: (keyof MiniPentagonProps["stats"])[] = ["ern", "roi", "res", "grw", "hmn"];
+const KEYS: (keyof MiniPentagonProps["stats"])[] = ["ern", "roi", "res", "grw", "aura"];
 
 function vertex(i: number, radius: number, center: number): [number, number] {
   const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
@@ -20,8 +20,16 @@ export function MiniPentagon({ stats, size = 40 }: MiniPentagonProps) {
     .map((_, i) => vertex(i, maxRadius, center).join(","))
     .join(" ");
 
+  // Missing-data treatment (revised after user feedback 2026-05-02):
+  // Null vertices collapse to radius 0 (center). Earlier "anchor at
+  // outer perimeter" treatment misread as "high score everywhere"
+  // because the polygon fill dominated. Honest visual: the polygon
+  // visibly shrinks at missing axes.
   const dataPoints = KEYS.map((key, i) => {
-    const v = Math.max(0, Math.min(10, stats[key] ?? 0));
+    const raw = stats[key];
+    const v = raw === null || raw === undefined
+      ? 0
+      : Math.max(0, Math.min(10, raw));
     return vertex(i, maxRadius * (v / 10), center).join(",");
   }).join(" ");
 

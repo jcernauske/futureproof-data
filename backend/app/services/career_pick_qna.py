@@ -50,7 +50,7 @@ GEMMA_SYSTEM_PROMPT = (
     "('becoming a doctor usually means going to med school after "
     "college') and point to one real career that IS on the screen.\n\n"
     "Never use these words or framings in your output:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN. Translate to plain words.\n"
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN. Translate to plain words.\n"
     "- score fractions: never '7/10' or '3 out of 10'.\n"
     "- outcome labels: never WIN, DRAW, LOSE, won, lost, tied.\n"
     "- game framing: never 'fight', 'boss', 'gauntlet', 'battle', "

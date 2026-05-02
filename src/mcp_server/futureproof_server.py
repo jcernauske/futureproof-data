@@ -303,6 +303,25 @@ OCCUPATION_PROFILES_TABLE = "consumable.occupation_profiles"
 ONET_WORK_PROFILES_TABLE = "consumable.onet_work_profiles"
 AI_EXPOSURE_TABLE_SUB = "consumable.ai_exposure"
 CAREER_OUTCOMES_TABLE = "consumable.career_outcomes"
+INSTITUTION_AURA_TABLE = "consumable.institution_aura"
+
+INSTITUTION_AURA_RESPONSE_FIELDS = [
+    "unitid",
+    "institution_name",
+    "endowment_per_fte",
+    "marketing_ratio",
+    "athletic_spend_per_fte",
+    "athletic_revenue_per_fte",
+    "athletic_subsidy_ratio",
+    "athletic_fte_source",
+    "aura_score",
+    "aura_score_continuous",
+    "aura_score_version",
+    "aura_score_basis",
+    "has_ipeds_finance",
+    "has_eada",
+    "coverage_tier",
+]
 
 # Matches a "broad" (XX.01 or XX.0100) CIP — the "General" catch-all in
 # every CIP family.
@@ -1174,6 +1193,44 @@ class FutureProofMCPServer(BaseMCPServer):
                 },
                 handler=self._handle_get_schools_for_career,
             ),
+            ToolDef(
+                name="get_institution_aura",
+                description=(
+                    "Get the institution-level brand gravity (AURA) record "
+                    "for a school by unitid. Returns the v1 aura_score "
+                    "(1-10) plus its provenance: aura_score_basis "
+                    "identifies which composite ingredients went into the "
+                    "score (three_term, two_term_finance_only, "
+                    "two_term_no_endowment, one_term_marketing_only, or "
+                    "NULL when no marketing_ratio signal was available), "
+                    "aura_score_version stamps the formula version, and "
+                    "the underlying signals (endowment_per_fte, "
+                    "marketing_ratio, athletic_spend_per_fte, "
+                    "athletic_revenue_per_fte, athletic_subsidy_ratio) "
+                    "are returned for receipts. has_ipeds_finance / "
+                    "has_eada / coverage_tier indicate which source(s) "
+                    "covered this institution. NULL aura_score is normal "
+                    "for institutions without coverage — the caller "
+                    "renders the AURA stat as '—'."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "unitid": {
+                            "type": "integer",
+                            "description": (
+                                "IPEDS 6-digit institution identifier "
+                                "(e.g., 151801 for Indiana State "
+                                "University). Get this from "
+                                "get_school_programs or get_career_paths "
+                                "results."
+                            ),
+                        },
+                    },
+                    "required": ["unitid"],
+                },
+                handler=self._handle_get_institution_aura,
+            ),
         ]
 
     def get_resources(self) -> list[ResourceDef]:
@@ -1361,6 +1418,51 @@ class FutureProofMCPServer(BaseMCPServer):
         return self.enrich_response(
             {"data": _decode_json_struct_fields(rows[0]), "row_count": 1},
             TABLE_NAME,
+        )
+
+    # ------------------------------------------------------------------
+    # Tool handler: get_institution_aura
+    # ------------------------------------------------------------------
+
+    def _handle_get_institution_aura(self, input_dict: dict) -> dict:
+        """Query consumable.institution_aura for one school by unitid.
+
+        Returns the matching row with governance metadata, or a null
+        result with a message when the unitid has no row in the table.
+        A row with `aura_score IS NULL` is returned intact — the caller
+        decides whether to render the AURA stat as "—".
+        """
+        unitid = input_dict.get("unitid")
+        # Defensive: bool is a subclass of int in Python so isinstance(True, int)
+        # returns True. Reject bools explicitly to keep the contract honest.
+        if not isinstance(unitid, int) or isinstance(unitid, bool):
+            return {"data": None, "message": "unitid is required (integer)"}
+
+        rows = self.query_iceberg_simple(
+            INSTITUTION_AURA_TABLE,
+            filters={"unitid": unitid},
+            columns=INSTITUTION_AURA_RESPONSE_FIELDS,
+            limit=1,
+        )
+
+        if rows and "error" in rows[0]:
+            return self.attach_governance(
+                {"data": None, "message": rows[0]["error"]},
+                INSTITUTION_AURA_TABLE,
+            )
+
+        if not rows:
+            return self.attach_governance(
+                {
+                    "data": None,
+                    "message": "No institution_aura row for this unitid",
+                },
+                INSTITUTION_AURA_TABLE,
+            )
+
+        return self.enrich_response(
+            {"data": rows[0], "row_count": 1},
+            INSTITUTION_AURA_TABLE,
         )
 
     # ------------------------------------------------------------------

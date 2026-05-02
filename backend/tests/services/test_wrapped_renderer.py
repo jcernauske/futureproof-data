@@ -56,7 +56,7 @@ def _build(
     major: str = "Marketing",
     career_title: str = "Financial Analyst",
 ) -> Build:
-    stats = stats or PentagonStats(ern=8, roi=9, res=4, grw=6, hmn=6)
+    stats = stats or PentagonStats(ern=8, roi=9, res=4, grw=6, aura=6)
     if fights is None:
         fights = [
             _fight("ai", "win"),
@@ -113,7 +113,7 @@ def _build(
 class TestPentagonSvg:
     def test_returns_valid_svg_string(self):
         svg = wrapped_renderer._pentagon_svg(
-            {"ern": 8, "roi": 9, "res": 4, "grw": 6, "hmn": 6}
+            {"ern": 8, "roi": 9, "res": 4, "grw": 6, "aura": 6}
         )
         assert svg.lstrip().startswith("<svg")
         assert svg.rstrip().endswith("</svg>")
@@ -122,14 +122,14 @@ class TestPentagonSvg:
     def test_has_exactly_five_vertex_circles(self):
         """One filled circle per axis — 5 stat points, no more, no less."""
         svg = wrapped_renderer._pentagon_svg(
-            {"ern": 5, "roi": 5, "res": 5, "grw": 5, "hmn": 5}
+            {"ern": 5, "roi": 5, "res": 5, "grw": 5, "aura": 5}
         )
         # Circle elements are the only <circle> in the SVG
         assert svg.count("<circle") == 5
 
     def test_includes_fill_polygon_and_grid_rings(self):
         svg = wrapped_renderer._pentagon_svg(
-            {"ern": 8, "roi": 9, "res": 4, "grw": 6, "hmn": 6}
+            {"ern": 8, "roi": 9, "res": 4, "grw": 6, "aura": 6}
         )
         # 4 grid-ring polygons + 1 data polygon = 5
         assert svg.count("<polygon") == 5
@@ -139,7 +139,7 @@ class TestPentagonSvg:
     def test_missing_stats_treated_as_zero(self):
         """None values collapse to radius 0 (center) — do NOT crash."""
         svg = wrapped_renderer._pentagon_svg(
-            {"ern": None, "roi": None, "res": None, "grw": None, "hmn": None}
+            {"ern": None, "roi": None, "res": None, "grw": None, "aura": None}
         )
         # All five points collapse to center (390.0, 390.0) — no NaN/None
         # leaked into the points attribute
@@ -151,7 +151,7 @@ class TestPentagonSvg:
     def test_out_of_range_high_value_clamped(self):
         """A value of 15 (above 10) must NOT push points past r_max=300."""
         svg = wrapped_renderer._pentagon_svg(
-            {"ern": 15, "roi": 0, "res": 0, "grw": 0, "hmn": 0}
+            {"ern": 15, "roi": 0, "res": 0, "grw": 0, "aura": 0}
         )
         # Canvas is 780x780, center (390, 390), r_max=300 so vertices
         # must stay within [90, 690]. Extract polygon points and verify.
@@ -166,7 +166,7 @@ class TestPentagonSvg:
 
     def test_negative_value_clamped_to_zero(self):
         svg = wrapped_renderer._pentagon_svg(
-            {"ern": -5, "roi": 0, "res": 0, "grw": 0, "hmn": 0}
+            {"ern": -5, "roi": 0, "res": 0, "grw": 0, "aura": 0}
         )
         # Should not crash, should not contain negative coords
         assert "--" not in svg  # no double-minus from formatting
@@ -178,7 +178,7 @@ class TestPentagonSvg:
 class TestPickStandoutStat:
     def test_picks_strict_highest(self):
         build = _build(
-            stats=PentagonStats(ern=2, roi=3, res=9, grw=4, hmn=5)
+            stats=PentagonStats(ern=2, roi=3, res=9, grw=4, aura=5)
         )
         assert wrapped_renderer._pick_standout_stat(build) == "res"
 
@@ -189,35 +189,35 @@ class TestPickStandoutStat:
         so equal scores keep the earliest key in the ordered list.
         """
         build = _build(
-            stats=PentagonStats(ern=8, roi=8, res=8, grw=8, hmn=8)
+            stats=PentagonStats(ern=8, roi=8, res=8, grw=8, aura=8)
         )
         assert wrapped_renderer._pick_standout_stat(build) == "ern"
 
     def test_tie_break_across_subset(self):
-        """ROI wins over RES/GRW/HMN when all are tied at the max."""
+        """ROI wins over RES/GRW/AURA when all are tied at the max."""
         build = _build(
-            stats=PentagonStats(ern=3, roi=7, res=7, grw=7, hmn=7)
+            stats=PentagonStats(ern=3, roi=7, res=7, grw=7, aura=7)
         )
         assert wrapped_renderer._pick_standout_stat(build) == "roi"
 
     def test_all_none_stats_defaults_to_ern(self):
         """Per the implementation's best_key default. No crash."""
         build = _build(
-            stats=PentagonStats(ern=None, roi=None, res=None, grw=None, hmn=None)
+            stats=PentagonStats(ern=None, roi=None, res=None, grw=None, aura=None)
         )
         assert wrapped_renderer._pick_standout_stat(build) == "ern"
 
     def test_none_stat_never_wins_over_real_value(self):
         """A present stat of 1 beats any number of None stats."""
         build = _build(
-            stats=PentagonStats(ern=None, roi=None, res=1, grw=None, hmn=None)
+            stats=PentagonStats(ern=None, roi=None, res=1, grw=None, aura=None)
         )
         assert wrapped_renderer._pick_standout_stat(build) == "res"
 
     def test_zero_is_a_valid_stat_value(self):
         """0 beats -1 but loses to 1 — standard comparison."""
         build = _build(
-            stats=PentagonStats(ern=0, roi=0, res=0, grw=0, hmn=0)
+            stats=PentagonStats(ern=0, roi=0, res=0, grw=0, aura=0)
         )
         # All zero, all present — first-key wins is ERN
         assert wrapped_renderer._pick_standout_stat(build) == "ern"
@@ -269,7 +269,7 @@ class TestBuildContext:
 
     def test_pentagon_ctx_embeds_stat_values(self):
         build = _build(
-            stats=PentagonStats(ern=8, roi=9, res=4, grw=6, hmn=6),
+            stats=PentagonStats(ern=8, roi=9, res=4, grw=6, aura=6),
             career_title="Financial Analyst",
         )
         ctx = wrapped_renderer._build_context(build, "alice", "🦊")
@@ -278,20 +278,20 @@ class TestBuildContext:
         assert p["stat_roi"] == 9
         assert p["stat_res"] == 4
         assert p["stat_grw"] == 6
-        assert p["stat_hmn"] == 6
+        assert p["stat_aura"] == 6
         assert p["career_title"] == "Financial Analyst"
         assert p["pentagon_svg"].lstrip().startswith("<svg")
 
     def test_pentagon_ctx_renders_em_dash_for_missing_stats(self):
         """None stats surface as "—" in the UI layer, not as None."""
         build = _build(
-            stats=PentagonStats(ern=None, roi=5, res=None, grw=5, hmn=None)
+            stats=PentagonStats(ern=None, roi=5, res=None, grw=5, aura=None)
         )
         p = wrapped_renderer._build_context(build, "x", "🐻")["pentagon"]
         assert p["stat_ern"] == "—"
         assert p["stat_roi"] == 5
         assert p["stat_res"] == "—"
-        assert p["stat_hmn"] == "—"
+        assert p["stat_aura"] == "—"
 
     def test_bosses_ctx_includes_all_fights_with_formatted_fields(self):
         build = _build()

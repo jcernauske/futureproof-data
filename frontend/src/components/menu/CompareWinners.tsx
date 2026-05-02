@@ -32,7 +32,7 @@ const STAT_GLYPHS: Record<string, { label: string; glyph: string }> = {
   ROI: { label: "ROI", glyph: "📈" },
   RES: { label: "AI Resilience", glyph: "🤖" },
   GRW: { label: "Growth", glyph: "🌱" },
-  HMN: { label: "Human Edge", glyph: "🫶" },
+  AURA: { label: "Brand Gravity", glyph: "🫶" },
 };
 
 function pickWinner(values: (number | null)[], direction: Direction): WinnerOutcome["winnerIndex"] {

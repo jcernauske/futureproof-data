@@ -72,12 +72,14 @@ interface BossBandProps {
   chatOpen?: boolean;
 }
 
+// AppliedSkill no longer has delta_hmn / delta_aura. AURA is
+// institution-level — skills can't shift it (pentagon-stat-reshape
+// Decision 4 / 9). RES absorbs the former HMN signal.
 const STAT_DELTAS: { key: string; field: keyof AppliedSkill; signMultiplier?: number }[] = [
   { key: "ern", field: "delta_ern" },
   { key: "roi", field: "delta_roi" },
   { key: "res", field: "delta_res" },
   { key: "grw", field: "delta_grw" },
-  { key: "hmn", field: "delta_hmn" },
   { key: "brn", field: "delta_burnout_raw", signMultiplier: -1 },
   { key: "ceil", field: "delta_ceiling_raw" },
 ];

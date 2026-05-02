@@ -11,7 +11,7 @@ const STAT_DOTS = [
   "text-stat-roi",
   "text-stat-res",
   "text-stat-grw",
-  "text-stat-hmn",
+  "text-stat-aura",
 ] as const;
 
 function GhostPentagon() {
@@ -34,7 +34,7 @@ function GhostPentagon() {
         { cx: 188, cy: 86, color: "var(--color-stat-roi)" },
         { cx: 158, cy: 172, color: "var(--color-stat-res)" },
         { cx: 62, cy: 172, color: "var(--color-stat-grw)" },
-        { cx: 32, cy: 86, color: "var(--color-stat-hmn)" },
+        { cx: 32, cy: 86, color: "var(--color-stat-aura)" },
       ].map((v, i) => (
         <circle key={i} cx={v.cx} cy={v.cy} r="3" fill={v.color} />
       ))}

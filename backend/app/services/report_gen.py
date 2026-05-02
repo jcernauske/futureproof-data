@@ -55,7 +55,6 @@ def _format_skill_deltas(skill: AppliedSkill) -> str:
         ("ROI", skill.delta_roi),
         ("RES", skill.delta_res),
         ("GRW", skill.delta_grw),
-        ("HMN", skill.delta_hmn),
     ):
         if val:
             parts.append(f"{label} {val:+d}")
@@ -119,7 +118,7 @@ def generate_build_report(
         ("Return on Investment (ROI)", stats.roi),
         ("AI Resilience (RES)", stats.res),
         ("Growth Outlook (GRW)", stats.grw),
-        ("Human Edge (HMN)", stats.hmn),
+        ("Brand Gravity (AURA)", stats.aura),
     ]
     for label, val in stat_labels:
         score = _stat(val)
@@ -210,7 +209,7 @@ def generate_build_report(
                     ("ROI", branch.delta_roi),
                     ("RES", branch.delta_res),
                     ("GRW", branch.delta_grw),
-                    ("HMN", branch.delta_hmn),
+                    ("AURA", branch.delta_aura),
                 )
                 if isinstance(delta, int) and delta != 0
             ) or "—"

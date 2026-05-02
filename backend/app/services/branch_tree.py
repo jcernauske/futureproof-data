@@ -90,7 +90,10 @@ def get_branches(
                 delta_roi=_derive_roi_delta(row),
                 delta_res=as_int(row.get("res_delta")),
                 delta_grw=as_int(row.get("grw_delta")),
-                delta_hmn=as_int(row.get("hmn_delta")),
+                # AURA is institution-level. Branches don't change school
+                # (consumable.career_branches has no unitid column), so
+                # delta_aura is always 0 (Decision 5).
+                delta_aura=0,
                 unlock=_format_unlock(row),
                 relatedness=row.get("best_index"),
                 experience_years=as_float(row.get("related_experience_years")),

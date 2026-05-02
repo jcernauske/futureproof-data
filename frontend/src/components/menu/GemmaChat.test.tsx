@@ -73,7 +73,7 @@ function makeBuild(overrides: Partial<BuildSummary> = {}): BuildSummary {
     roi: 7,
     res: 4,
     grw: 9,
-    hmn: 5,
+    aura: 5,
     wins: 4,
     losses: 0,
     draws: 1,

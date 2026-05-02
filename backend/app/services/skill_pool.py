@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # specific boss. Generic but structurally correct: every skill has a
 # valid target list and a non-zero delta so the reroll math still works.
 FALLBACK_POOL: list[AppliedSkill] = [
-    # --- Fight AI (RES + HMN) ----------------------------------------
+    # --- Fight AI (raw stat_res + stat_hmn — see boss_fights._score_ai) -
     AppliedSkill(
         id="data_analytics_minor",
         title="Data Analytics Minor",
@@ -71,8 +71,9 @@ FALLBACK_POOL: list[AppliedSkill] = [
             "signals human judgment employers actually value."
         ),
         targets=["ai", "burnout", "ceiling"],
-        delta_hmn=1,
-        delta_res=1,
+        # Re-bucket: legacy delta_hmn=1 + delta_res=1 → delta_res=2 (RES
+        # absorbs the former human-essential signal).
+        delta_res=2,
     ),
     AppliedSkill(
         id="design_thinking_elective",
@@ -82,7 +83,8 @@ FALLBACK_POOL: list[AppliedSkill] = [
             "discipline — the part AI can't do well."
         ),
         targets=["ai"],
-        delta_hmn=2,
+        # Re-bucket: legacy delta_hmn=2 → delta_res=2.
+        delta_res=2,
     ),
     # --- Fight Student Loans (ROI) -----------------------------------
     AppliedSkill(
@@ -179,7 +181,8 @@ FALLBACK_POOL: list[AppliedSkill] = [
         ),
         targets=["burnout"],
         delta_burnout_raw=-1,
-        delta_hmn=1,
+        # Re-bucket: legacy delta_hmn=1 → delta_res=1.
+        delta_res=1,
     ),
     AppliedSkill(
         id="cohort_study_group",
@@ -190,7 +193,8 @@ FALLBACK_POOL: list[AppliedSkill] = [
         ),
         targets=["burnout"],
         delta_burnout_raw=-1,
-        delta_hmn=1,
+        # Re-bucket: legacy delta_hmn=1 → delta_res=1.
+        delta_res=1,
     ),
     # --- Fight the Ceiling (raw ceiling / ERN trajectory) ------------
     AppliedSkill(
@@ -266,14 +270,13 @@ def get_skills_for_boss(
 
 
 def format_impact(skill: AppliedSkill) -> str:
-    """Human-readable delta summary, e.g. ``'RES+2, HMN+1'``."""
+    """Human-readable delta summary, e.g. ``'RES+2, GRW+1'``."""
     parts: list[str] = []
     for label, value in (
         ("ERN", skill.delta_ern),
         ("ROI", skill.delta_roi),
         ("RES", skill.delta_res),
         ("GRW", skill.delta_grw),
-        ("HMN", skill.delta_hmn),
     ):
         if value:
             parts.append(f"{label}{value:+d}")
@@ -308,17 +311,18 @@ def apply_skills(
     sum_roi = sum(s.delta_roi for s in skills)
     sum_res = sum(s.delta_res for s in skills)
     sum_grw = sum(s.delta_grw for s in skills)
-    sum_hmn = sum(s.delta_hmn for s in skills)
     sum_burnout = sum(s.delta_burnout_raw for s in skills)
     sum_ceiling = sum(s.delta_ceiling_raw for s in skills)
 
     stats = career.stats
+    # AURA passes through unchanged — institution-level by construction;
+    # skills cannot shift it (no delta_aura on AppliedSkill).
     new_stats = PentagonStats(
         ern=_clamp_stat(stats.ern + sum_ern) if stats.ern is not None else None,
         roi=_clamp_stat(stats.roi + sum_roi) if stats.roi is not None else None,
         res=_clamp_stat(stats.res + sum_res) if stats.res is not None else None,
         grw=_clamp_stat(stats.grw + sum_grw) if stats.grw is not None else None,
-        hmn=_clamp_stat(stats.hmn + sum_hmn) if stats.hmn is not None else None,
+        aura=stats.aura,
     )
 
     bosses = career.bosses
@@ -362,8 +366,8 @@ _POOL_SYSTEM = (
     "rationale IS for the student to read, so voice rules apply.\n\n"
     "Rationale voice rules:\n"
     "- Never use stat codes in the rationale (ERN, ROI, RES, GRW, "
-    "HMN). Explain in real-world terms — 'teaches you to direct AI "
-    "tools instead of competing with them', not 'raises RES'.\n"
+    "AURA, HMN). Explain in real-world terms — 'teaches you to direct "
+    "AI tools instead of competing with them', not 'raises RES'.\n"
     "- Never use score fractions (7/10).\n"
     "- Never use outcome labels (WIN, DRAW, LOSE, won, lost, tied).\n"
     "- Never use game framing (fight, boss, gauntlet, battle, beat, "
@@ -378,7 +382,10 @@ _POOL_SYSTEM = (
 
 
 _BOSS_DESCRIPTIONS: dict[BossId, str] = {
-    "ai": "Fight AI (tests RES + HMN — AI resilience stacked with uniquely-human work)",
+    "ai": (
+        "Fight AI (tests raw stat_res + stat_hmn — "
+        "the underlying AI resilience signals)"
+    ),
     "loans": "Fight Student Loans (tests ROI — debt-to-earnings ratio)",
     "market": "Fight the Market (tests GRW — job market demand and growth)",
     "burnout": "Fight Burnout (tests burnout risk from O*NET work context)",
@@ -396,6 +403,9 @@ _POOL_LINE = re.compile(
 
 
 _DELTA_TOKEN = re.compile(
+    # Pentagon-stat-reshape: hmn parses but folds into res (Gemma may
+    # still emit "HMN+1" for one release; we re-bucket on the parser
+    # side so the Gemma prompt change doesn't break legacy outputs).
     r"(ern|roi|res|grw|hmn|burnout|ceiling)\s*([+\-])\s*(\d+)",
     re.IGNORECASE,
 )
@@ -427,7 +437,7 @@ def _pool_prompt(
         f"- Primary career: {career.occupation_title} "
         f"(SOC {career.soc_code})\n"
         f"- Stats: ERN {stats.ern}, ROI {stats.roi}, RES {stats.res}, "
-        f"GRW {stats.grw}, HMN {stats.hmn}\n"
+        f"GRW {stats.grw}, AURA {stats.aura}\n"
         f"- Uniquely human activities in this career: "
         f"{top_human or '(none)'}\n\n"
         f"Lost or drawn boss fights — generate 3-5 skills for EACH:\n"
@@ -438,8 +448,10 @@ def _pool_prompt(
         f"that names the student's school/major/career\n\n"
         f"Rules:\n"
         f"- boss = one of: ai, loans, market, burnout, ceiling\n"
-        f"- DELTAS = comma-separated STAT+N pairs, e.g. RES+2,HMN+1\n"
-        f"- Valid stats: ERN, ROI, RES, GRW, HMN, burnout, ceiling\n"
+        f"- DELTAS = comma-separated STAT+N pairs, e.g. RES+2,GRW+1\n"
+        f"- Valid stats: ERN, ROI, RES, GRW, burnout, ceiling\n"
+        f"- DO NOT emit AURA deltas — AURA is institution-level and "
+        f"  cannot be shifted by skills.\n"
         f"- Use burnout-N (negative) to reduce burnout risk\n"
         f"- Use ceiling+N (positive) to raise the earnings ceiling\n"
         f"- Stat magnitudes should be +1 or +2 (rarely +3)\n"
@@ -448,7 +460,7 @@ def _pool_prompt(
         f"- NEVER propose changing schools or majors\n\n"
         f"Example line (for an Indiana University marketing student "
         f"losing Fight AI):\n"
-        f"ai|Kelley Business Analytics minor|RES+2,HMN+1|The Kelley "
+        f"ai|Kelley Business Analytics minor|RES+2,GRW+1|The Kelley "
         f"analytics minor teaches marketers to direct AI tools, not "
         f"compete with them.\n\n"
         f"Now generate 3-5 skills per lost boss listed above."
@@ -490,7 +502,6 @@ def _parse_pool(
             "roi": 0,
             "res": 0,
             "grw": 0,
-            "hmn": 0,
             "burnout": 0,
             "ceiling": 0,
         }
@@ -498,6 +509,11 @@ def _parse_pool(
             stat = token.group(1).lower()
             sign = 1 if token.group(2) == "+" else -1
             magnitude = int(token.group(3))
+            # Pentagon-stat-reshape: legacy HMN deltas fold into RES
+            # (RES absorbs the human-essential signal). Legacy outputs
+            # don't get silently dropped; their intended boost lands.
+            if stat == "hmn":
+                stat = "res"
             deltas[stat] += sign * magnitude
 
         if not any(deltas.values()):
@@ -518,7 +534,6 @@ def _parse_pool(
                 delta_roi=deltas["roi"],
                 delta_res=deltas["res"],
                 delta_grw=deltas["grw"],
-                delta_hmn=deltas["hmn"],
                 delta_burnout_raw=deltas["burnout"],
                 delta_ceiling_raw=deltas["ceiling"],
             )

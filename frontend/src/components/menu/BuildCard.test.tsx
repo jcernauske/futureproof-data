@@ -21,7 +21,7 @@ function makeSummary(overrides: Partial<BuildSummary> = {}): BuildSummary {
     roi: 7,
     res: 4,
     grw: 9,
-    hmn: 5,
+    aura: 5,
     wins: 4,
     losses: 1,
     draws: 2,

@@ -5,7 +5,7 @@ const AXES = [
   { label: "ROI", abbr: "ROI", color: "var(--color-stat-roi)", labelClass: "top-[28%] right-[-52px]" },
   { label: "Resilience", abbr: "RES", color: "var(--color-stat-res)", labelClass: "bottom-[2%] right-[-24px]" },
   { label: "Growth", abbr: "GRW", color: "var(--color-stat-grw)", labelClass: "bottom-[2%] left-[-24px]" },
-  { label: "Human", abbr: "HMN", color: "var(--color-stat-hmn)", labelClass: "top-[28%] left-[-52px]" },
+  { label: "Brand Gravity", abbr: "AURA", color: "var(--color-stat-aura)", labelClass: "top-[28%] left-[-52px]" },
 ] as const;
 
 // Vertex positions in SVG coordinates (220x220 viewBox)
@@ -14,7 +14,7 @@ const VERTICES = [
   { cx: 188, cy: 86 },  // ROI - top right
   { cx: 158, cy: 172 }, // RES - bottom right
   { cx: 62, cy: 172 },  // GRW - bottom left
-  { cx: 32, cy: 86 },   // HMN - top left
+  { cx: 32, cy: 86 },   // AURA - top left
 ];
 
 // Decorative data shape vertices (slightly inward, asymmetric for visual interest)
@@ -32,7 +32,7 @@ const PARTICLES = VERTICES.flatMap((_, axisIdx) => [
     "var(--color-stat-roi)",
     "var(--color-stat-res)",
     "var(--color-stat-grw)",
-    "var(--color-stat-hmn)",
+    "var(--color-stat-aura)",
   ][p.axis]!,
   delay: p.delay,
   dur: p.dur,
@@ -138,7 +138,7 @@ export function PentagonGlow({ size = 280 }: { size?: number }) {
             "var(--color-stat-roi)",
             "var(--color-stat-res)",
             "var(--color-stat-grw)",
-            "var(--color-stat-hmn)",
+            "var(--color-stat-aura)",
           ];
           const delay = `${i * 0.8}s`;
           return (

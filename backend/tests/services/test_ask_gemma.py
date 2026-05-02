@@ -5,7 +5,7 @@ HTTP). The contract is:
 
 - Each ``_context_for_*`` builder returns a string that contains the
   ``§4`` manifest's required drivers for that scope.
-- Every forbidden token (``ERN/ROI/RES/GRW/HMN/WIN/LOSE/DRAW`` etc.)
+- Every forbidden token (``ERN/ROI/RES/GRW/AURA/WIN/LOSE/DRAW`` etc.)
   appears ONLY inside ``[helper: ...]`` spans — never in the
   unbracketed prose Gemma might quote back to the student.
 
@@ -67,7 +67,7 @@ def _full_career(
         program_name=program,
         soc_code=soc,
         occupation_title=occupation,
-        stats=PentagonStats(ern=8, roi=6, res=4, grw=9, hmn=5),
+        stats=PentagonStats(ern=8, roi=6, res=4, grw=9, aura=5),
         bosses=BossScores(ai=11, loans=8, market=10, burnout=6, ceiling=7),
         median_annual_wage=127_260.0,
         earnings_1yr_median=82_500.0,
@@ -128,7 +128,7 @@ def _full_gauntlet() -> GauntletResult:
             raw_score=9,
             threshold_win=14,
             threshold_draw=10,
-            reason="RES 4 + HMN 5 = 9",
+            reason="RES 4 + AURA 5 = 9",
             narrative="The numbers point to AI eating into core tasks here.",
         ),
         BossFightResult(
@@ -158,7 +158,7 @@ def _full_gauntlet() -> GauntletResult:
             raw_score=6,
             threshold_win=7,
             threshold_draw=5,
-            reason="HMN 5",
+            reason="AURA 5",
             narrative="Sustainable, but not dramatically protective.",
         ),
         BossFightResult(
@@ -190,7 +190,6 @@ def _skill_pool() -> list[AppliedSkill]:
             rationale="Direct AI tools rather than be replaced by them.",
             targets=["ai", "market"],
             delta_res=2,
-            delta_hmn=1,
             delta_burnout_raw=-1,
         ),
         AppliedSkill(
@@ -263,7 +262,7 @@ FORBIDDEN_TOKENS: tuple[str, ...] = (
     "ROI",
     "RES",
     "GRW",
-    "HMN",
+    "AURA",
     "WIN",
     "LOSE",
     "DRAW",
@@ -305,7 +304,7 @@ def _assert_no_forbidden_outside_helpers(block: str, *, context: str) -> None:
 
 @pytest.mark.parametrize(
     "stat_code",
-    ["ERN", "ROI", "RES", "GRW", "HMN"],
+    ["ERN", "ROI", "RES", "GRW", "AURA"],
 )
 def test_context_for_stat_includes_lineage_drivers(stat_code: str) -> None:
     build = _full_build()
@@ -345,11 +344,16 @@ def test_context_for_stat_includes_lineage_drivers(stat_code: str) -> None:
     elif stat_code == "GRW":
         # qualitative growth_category renders as plain English.
         assert "growing_fast" in block or "grow much faster" in block
-    elif stat_code == "HMN":
-        # Top 3 human activities titles must appear.
-        assert "Working with Computers" in block
-        assert "Thinking Creatively" in block
-        assert "Communicating with Coworkers" in block
+    elif stat_code == "AURA":
+        # Pentagon-stat-reshape: AURA is institution-level brand gravity.
+        # Drivers surface aura_score_basis + version, not top_human_activities
+        # (which now lives on the RES side via the blended signal).
+        assert (
+            "Brand Gravity" in block
+            or "institutional" in block
+            or "endowment" in block
+            or "no institutional brand-gravity data" in block
+        )
 
     _assert_no_forbidden_outside_helpers(
         block, context=f"_context_for_stat({stat_code})"
@@ -390,7 +394,7 @@ def test_context_for_boss_includes_thresholds_and_drivers(boss_id: str) -> None:
 
     # Per-boss contributing drivers.
     if boss_id == "ai":
-        # AI fight pulls in RES + HMN components and the
+        # AI fight pulls in RES + AURA components and the
         # task_breakdown_human list (top 3, plain English).
         assert "System design under ambiguity" in block
     elif boss_id == "loans":
@@ -432,10 +436,10 @@ def test_context_for_skill_includes_deltas_and_targets() -> None:
 
     # Targets list must be in a helper block.
     assert "AI Resilience risk" in helper_text or "risk" in helper_text
-    # All non-zero stat deltas live in a helper:
-    # delta_res=2, delta_hmn=1, delta_burnout_raw=-1
+    # Pentagon-stat-reshape: AppliedSkill no longer carries delta_hmn
+    # (RES absorbed it). All non-zero deltas live in a helper:
+    # delta_res=2, delta_burnout_raw=-1
     assert "+2" in helper_text or "AI Resilience +2" in helper_text
-    assert "Human Edge +1" in helper_text or "+1" in helper_text
     assert "-1" in helper_text  # burnout raw delta
 
     # Current build stats must all be in helpers (5 stat lines).
@@ -444,7 +448,7 @@ def test_context_for_skill_includes_deltas_and_targets() -> None:
         "Return on Investment",
         "AI Resilience",
         "Growth Outlook",
-        "Human Edge",
+        "Brand Gravity",
     ):
         assert alias in helper_text, f"current stat alias {alias!r} missing"
 
@@ -481,7 +485,7 @@ def test_context_for_build_full_rich_block() -> None:
         "Return on Investment",
         "AI Resilience",
         "Growth Outlook",
-        "Human Edge",
+        "Brand Gravity",
     ):
         assert alias in helper_text, f"{alias} missing from build context helpers"
 
@@ -623,7 +627,6 @@ def _full_build_with_rich_branches() -> Build:
             delta_roi=1,
             delta_res=2,
             delta_grw=-1,
-            delta_hmn=2,
             unlock="Requires master's degree",
             relatedness=0.84,
             related_education_level="Master's degree",
@@ -643,7 +646,6 @@ def _full_build_with_rich_branches() -> Build:
             to_title="Architectural and Engineering Managers",
             delta_ern=2,
             delta_grw=1,
-            delta_hmn=1,
             relatedness=0.65,
         ),
         CareerBranch(
@@ -678,11 +680,13 @@ async def test_context_for_branch_full_record() -> None:
     assert "Computer and Information Systems Managers" in block
 
     # Stat deltas — every non-zero delta in helper bracket.
+    # Pentagon-stat-reshape Decision 5: AURA is institution-invariant,
+    # so branches never emit a Brand Gravity delta (delta_aura == 0).
     assert "Earning Power +3" in helper_text
     assert "Return on Investment +1" in helper_text
     assert "AI Resilience +2" in helper_text
     assert "Growth Outlook -1" in helper_text
-    assert "Human Edge +2" in helper_text
+    assert "Brand Gravity" not in helper_text  # institution-invariant
 
     # Education requirement — typed level preferred over unlock string.
     assert "Master's degree" in helper_text
@@ -740,7 +744,7 @@ async def test_context_for_branch_anchored_at_root() -> None:
         "Return on Investment",
         "AI Resilience",
         "Growth Outlook",
-        "Human Edge",
+        "Brand Gravity",
     ):
         assert alias in helper_text, f"{alias} missing from root anchor"
 
@@ -941,7 +945,7 @@ async def test_context_blocks_never_leak_forbidden_tokens() -> None:
         ("stat=ROI", _context_for_stat(build, "ROI")),
         ("stat=RES", _context_for_stat(build, "RES")),
         ("stat=GRW", _context_for_stat(build, "GRW")),
-        ("stat=HMN", _context_for_stat(build, "HMN")),
+        ("stat=AURA", _context_for_stat(build, "AURA")),
         ("boss=ai", _context_for_boss(build, "ai")),
         ("boss=loans", _context_for_boss(build, "loans")),
         ("boss=market", _context_for_boss(build, "market")),

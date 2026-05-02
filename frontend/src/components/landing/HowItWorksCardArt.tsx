@@ -14,7 +14,7 @@ export function PentagonArt() {
     { cx: 134, cy: 56, color: "var(--color-stat-roi)" },
     { cx: 113, cy: 116, color: "var(--color-stat-res)" },
     { cx: 47, cy: 116, color: "var(--color-stat-grw)" },
-    { cx: 26, cy: 56, color: "var(--color-stat-hmn)" },
+    { cx: 26, cy: 56, color: "var(--color-stat-aura)" },
   ];
   const polygonPoints = vertices.map((v) => `${v.cx},${v.cy}`).join(" ");
   return (

@@ -61,7 +61,7 @@ function treeNodeToCareerOutcome(
       roi: node.roi,
       res: node.res,
       grw: node.grw,
-      hmn: node.hmn,
+      aura: node.aura,
     },
     // Build-level fields — kept as-is so any future CareerCard
     // additions that read them don't crash. None are visible today.

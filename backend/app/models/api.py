@@ -109,7 +109,7 @@ _SOC_PATTERN = re.compile(r"^\d{2}-\d{4}$")
 class AskScope(BaseModel):
     """Scope discriminator for POST /chat/ask.
 
-    - kind="stat": 1 build_id, target_id in ERN/ROI/RES/GRW/HMN
+    - kind="stat": 1 build_id, target_id in ERN/ROI/RES/GRW/AURA
     - kind="boss": 1 build_id, target_id in ai/loans/market/burnout/ceiling
     - kind="skill": 1 build_id, target_id is the AppliedSkill.id
       (length-capped at 64 chars; existence is checked at the service
@@ -144,7 +144,7 @@ class AskScope(BaseModel):
                     f"{self.kind} scope requires target_id"
                 )
         if self.kind == "stat":
-            valid_stats = {"ERN", "ROI", "RES", "GRW", "HMN"}
+            valid_stats = {"ERN", "ROI", "RES", "GRW", "AURA"}
             if self.target_id not in valid_stats:
                 raise ValueError(
                     f"stat target_id must be one of {sorted(valid_stats)}"

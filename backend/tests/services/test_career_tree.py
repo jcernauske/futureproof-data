@@ -30,7 +30,7 @@ def _build(soc: str = "27-2011", title: str = "Actors") -> Build:
             program_name="Drama",
             soc_code=soc,
             occupation_title=title,
-            stats=PentagonStats(ern=3, roi=4, res=4, grw=5, hmn=9),
+            stats=PentagonStats(ern=3, roi=4, res=4, grw=5, aura=9),
             bosses=BossScores(ai=6, loans=7, market=5, burnout=3, ceiling=4),
             median_annual_wage=55600.0,
         ),
@@ -62,9 +62,9 @@ def _mock_branches(monkeypatch, branch_map: dict):
     """Patch mcp_client.call to return synthetic branch data.
 
     ``branch_map`` maps soc_code to a list of tuples. Tuples may be
-    either the legacy 5-ary ``(related_soc, related_title, grw, hmn, res)``
+    either the legacy 5-ary ``(related_soc, related_title, grw, aura, res)``
     form, or the experience-aware 7-ary
-    ``(related_soc, related_title, grw, hmn, res, exp_years, exp_tier)``
+    ``(related_soc, related_title, grw, aura, res, exp_years, exp_tier)``
     form. When the shorter form is used, experience fields are omitted
     from the row dict entirely (simulating pre-v1.2.0 responses).
     """
@@ -106,7 +106,7 @@ class TestBuildTree:
         assert root.soc_code == "27-2011"
         assert root.ern == 3
         assert root.roi == 4
-        assert root.hmn == 9
+        assert root.aura == 9
         assert root.level == 0
 
     def test_expands_one_level(self, monkeypatch):

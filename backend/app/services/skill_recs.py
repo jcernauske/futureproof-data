@@ -31,13 +31,13 @@ _SYSTEM = (
     "Title | STAT+N | Rationale\n\n"
     "The STAT+N tag is a machine-readable signal that the frontend "
     "renders as a small badge — it is NOT for the student to read. Use "
-    "ERN, ROI, RES, GRW, or HMN, with a magnitude of +1 or +2 (rarely "
+    "ERN, ROI, RES, or GRW, with a magnitude of +1 or +2 (rarely "
     "+3 for a full minor or certification). Never +4 or higher.\n\n"
     "Voice rules apply to the RATIONALE only — that is what the student "
     "actually reads. The rationale must be one plain-English sentence "
     "that names why this specific suggestion helps this specific "
     "student. In the rationale you must never use:\n"
-    "- stat codes: ERN, ROI, RES, GRW, HMN. Explain in real-world "
+    "- stat codes: ERN, ROI, RES, GRW, AURA, HMN. Explain in real-world "
     "terms — 'teaches you to direct AI tools instead of competing "
     "with them', not 'raises RES'.\n"
     "- score fractions: never '7/10' or '3 out of 10'.\n"
@@ -65,6 +65,7 @@ _REC_LINE = re.compile(
     r"^\s*[-*\d.)]*\s*"
     r"(?P<title>[^|;:()]+?)"
     r"\s*[|;:()]+\s*"
+    # HMN kept in pattern for legacy parsing; folded to RES at clamp time.
     r"(?P<impact>(?:ERN|ROI|RES|GRW|HMN)\s*[+\-]?\d+)"
     r"\s*[|;:()]+\s*"
     r"(?P<rationale>.+?)\s*$",
@@ -93,6 +94,11 @@ def _clamp_impact(raw: str) -> str:
     if not match:
         return cleaned
     stat = match.group("stat")
+    # Legacy HMN folds into RES (RES absorbs the human-essential signal
+    # post-pentagon-stat-reshape). Done at clamp time so any code path
+    # that emits HMN+N — Gemma, fallback, parsed line — lands cleanly.
+    if stat == "HMN":
+        stat = "RES"
     sign = match.group("sign") or "+"
     magnitude = int(match.group("mag"))
     if sign == "+" and magnitude > _MAX_POSITIVE_DELTA:
@@ -123,7 +129,7 @@ def _prompt(career: CareerOutcome, gauntlet: GauntletResult) -> str:
         f"Major: {career.program_name}\n"
         f"Primary career: {career.occupation_title} (SOC {career.soc_code})\n"
         f"Stats: ERN {stats.ern}, ROI {stats.roi}, RES {stats.res}, "
-        f"GRW {stats.grw}, HMN {stats.hmn}\n"
+        f"GRW {stats.grw}, AURA {stats.aura}\n"
         f"Lost boss fights: {weak_spots_str}\n"
         f"Uniquely human activities in this career: {top_human}\n\n"
         f"Generate 4 skill recommendations. Each must target a specific "
@@ -145,12 +151,12 @@ def _fallback_recs(career: CareerOutcome) -> list[SkillRec]:
         ),
         SkillRec(
             title="Internship in your field",
-            stat_impact="HMN+1",
+            stat_impact="RES+1",
             rationale="Real-world exposure beats any classroom lecture.",
         ),
         SkillRec(
             title="Communication-heavy elective",
-            stat_impact="HMN+1",
+            stat_impact="RES+1",
             rationale="The human-facing side is where careers compound.",
         ),
     ]

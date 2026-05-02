@@ -79,7 +79,7 @@ _STAT_COLORS: dict[str, dict[str, str]] = {
     "roi": {"base": "#7DD4A3", "halo": "rgba(125, 212, 163, 0.35)"},
     "res": {"base": "#B8A9E8", "halo": "rgba(184, 169, 232, 0.35)"},
     "grw": {"base": "#7BB8E0", "halo": "rgba(123, 184, 224, 0.35)"},
-    "hmn": {"base": "#E88BA9", "halo": "rgba(232, 139, 169, 0.35)"},
+    "aura": {"base": "#E8B86B", "halo": "rgba(232, 184, 107, 0.35)"},
 }
 
 _STAT_NAMES: dict[str, str] = {
@@ -87,7 +87,7 @@ _STAT_NAMES: dict[str, str] = {
     "roi": "Return on Investment",
     "res": "AI Resilience",
     "grw": "Growth Potential",
-    "hmn": "Human Edge",
+    "aura": "Brand Gravity",
 }
 
 _STAT_CONTEXT: dict[str, str] = {
@@ -95,7 +95,7 @@ _STAT_CONTEXT: dict[str, str] = {
     "roi": "The cost of the degree lines up with what you'll earn back.",
     "res": "This career depends on skills AI can't easily replicate.",
     "grw": "The field is expanding — more roles tomorrow than today.",
-    "hmn": "The work leans on human judgment, presence, and trust.",
+    "aura": "The school carries real institutional weight in this field.",
 }
 
 
@@ -118,7 +118,7 @@ def _pentagon_svg(stats: dict[str, int | None]) -> str:
     """Render a pentagon radar chart as inline SVG.
 
     5 axes at 90°, 162°, 234°, 306°, 18° (ERN top, ROI right,
-    RES bottom-right, GRW bottom-left, HMN left). Value 0-10
+    RES bottom-right, GRW bottom-left, AURA left). Value 0-10
     scaled to polygon radius. Missing stats treated as 0.
     """
     import math
@@ -133,7 +133,7 @@ def _pentagon_svg(stats: dict[str, int | None]) -> str:
         ("roi", -18, "#7DD4A3"),
         ("res", 54, "#B8A9E8"),
         ("grw", 126, "#7BB8E0"),
-        ("hmn", 198, "#E88BA9"),
+        ("aura", 198, "#E8B86B"),
     ]
 
     def _pt(angle_deg: float, radius: float) -> tuple[float, float]:
@@ -209,7 +209,7 @@ def _pick_standout_stat(build: Build) -> str:
         ("roi", stats.roi),
         ("res", stats.res),
         ("grw", stats.grw),
-        ("hmn", stats.hmn),
+        ("aura", stats.aura),
     ]
     # Tie-break: first key wins among equal values → order matters for stability
     best_key = "ern"
@@ -241,7 +241,7 @@ def _build_context(
     stats = build.career.stats
     stat_dict = {
         "ern": stats.ern, "roi": stats.roi, "res": stats.res,
-        "grw": stats.grw, "hmn": stats.hmn,
+        "grw": stats.grw, "aura": stats.aura,
     }
     pentagon_ctx = {
         "base_css": base_css,
@@ -251,7 +251,7 @@ def _build_context(
         "stat_roi": stats.roi if stats.roi is not None else "—",
         "stat_res": stats.res if stats.res is not None else "—",
         "stat_grw": stats.grw if stats.grw is not None else "—",
-        "stat_hmn": stats.hmn if stats.hmn is not None else "—",
+        "stat_aura": stats.aura if stats.aura is not None else "—",
         "school_name": build.school_name,
         "major_text": build.major_text,
         "career_title": build.career.occupation_title,

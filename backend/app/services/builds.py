@@ -127,6 +127,21 @@ def _backfill_animal_emoji(connection: duckdb.DuckDBPyConnection) -> None:
 
 
 def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    # Pentagon-stat-reshape Decision 9: saved builds are reset. Drop any
+    # existing `builds` table (which carried the legacy `hmn` column) and
+    # recreate with the new shape (`aura` in place of `hmn`). No
+    # migration code, no JSON drop-on-parse, no fold-into-`delta_res`.
+    # The on-disk JSON files under data/builds/ and backend/data/builds/
+    # are deleted as part of the same cutover.
+    cols = connection.execute(
+        "SELECT column_name FROM information_schema.columns"
+        " WHERE table_name = 'builds'"
+    ).fetchall()
+    existing = {r[0] for r in cols}
+    if existing and "aura" not in existing:
+        # Legacy table with `hmn` — wipe and recreate. New installs hit
+        # the empty `existing` branch and skip straight to CREATE TABLE.
+        connection.execute("DROP TABLE IF EXISTS builds")
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS builds (
@@ -140,7 +155,7 @@ def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
             roi INTEGER,
             res INTEGER,
             grw INTEGER,
-            hmn INTEGER,
+            aura INTEGER,
             wins INTEGER,
             losses INTEGER,
             draws INTEGER,
@@ -244,7 +259,7 @@ def save_build(build: Build) -> None:
         """
         INSERT OR REPLACE INTO builds
             (build_id, profile_name, created_at, school_name, major_text,
-             career_title, ern, roi, res, grw, hmn, wins, losses, draws,
+             career_title, ern, roi, res, grw, aura, wins, losses, draws,
              parent_build_id, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
@@ -259,7 +274,7 @@ def save_build(build: Build) -> None:
             build.career.stats.roi,
             build.career.stats.res,
             build.career.stats.grw,
-            build.career.stats.hmn,
+            build.career.stats.aura,
             build.gauntlet.wins,
             build.gauntlet.losses,
             build.gauntlet.draws,
@@ -307,7 +322,7 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
     """
     query = """
         SELECT build_id, profile_name, created_at, school_name, major_text,
-               career_title, ern, roi, res, grw, hmn, wins, losses, draws,
+               career_title, ern, roi, res, grw, aura, wins, losses, draws,
                parent_build_id,
                json_extract_string(data, '$.effort') AS effort,
                json_extract(data, '$.loan_pct') AS loan_pct,
@@ -332,7 +347,7 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
             roi=r[7],
             res=r[8],
             grw=r[9],
-            hmn=r[10],
+            aura=r[10],
             wins=r[11] or 0,
             losses=r[12] or 0,
             draws=r[13] or 0,
@@ -359,7 +374,7 @@ def compare_builds(build_ids: list[str]) -> dict[str, Any]:
         {"label": "ROI", "values": _stat_values(lambda b: b.career.stats.roi)},
         {"label": "RES", "values": _stat_values(lambda b: b.career.stats.res)},
         {"label": "GRW", "values": _stat_values(lambda b: b.career.stats.grw)},
-        {"label": "HMN", "values": _stat_values(lambda b: b.career.stats.hmn)},
+        {"label": "AURA", "values": _stat_values(lambda b: b.career.stats.aura)},
     ]
 
     boss_rows: list[dict[str, Any]] = []

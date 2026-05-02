@@ -30,7 +30,7 @@ const DATASETS: DatasetRow[] = [
     identifier: "landing-data-row-onet",
     source: "O*NET Task & Work Context",
     rows: "798",
-    powers: "HMN, Burnout",
+    powers: "AURA, Burnout",
   },
   {
     identifier: "landing-data-row-karpathy",

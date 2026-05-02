@@ -24,7 +24,7 @@ const AXES: { key: StatKey; label: string; color: string }[] = [
   { key: "roi", label: "ROI", color: "var(--color-stat-roi)" },
   { key: "res", label: "RES", color: "var(--color-stat-res)" },
   { key: "grw", label: "GRW", color: "var(--color-stat-grw)" },
-  { key: "hmn", label: "HMN", color: "var(--color-stat-hmn)" },
+  { key: "aura", label: "AURA", color: "var(--color-stat-aura)" },
 ];
 
 const CENTER = 110;
@@ -42,10 +42,21 @@ function gridPolygon(scale: number): string {
 }
 
 function dataPolygon(stats: PentagonStats): string {
-  const keys: StatKey[] = ["ern", "roi", "res", "grw", "hmn"];
+  // Missing-data treatment (revised after user feedback 2026-05-02):
+  // Null vertices collapse to radius 0 (center) so the polygon visibly
+  // shrinks at missing axes. Earlier "anchor at outer perimeter"
+  // treatment misread as "high score everywhere" because the polygon
+  // fill dominated the visual weight, even with hollow ring + em-dash
+  // label hints. Honest visual: missing data should not inflate the
+  // shape. The em-dash label below the vertex carries the
+  // "missing, not zero-scored" signal.
+  const keys: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
   return keys
     .map((key, i) => {
-      const val = Math.max(0, Math.min(10, stats[key] ?? 0));
+      const raw = stats[key];
+      const val = raw === null || raw === undefined
+        ? 0
+        : Math.max(0, Math.min(10, raw));
       return vertexPos(i, RADIUS * (val / 10)).join(",");
     })
     .join(" ");
@@ -133,7 +144,13 @@ export function PentagonChart({
                       transition={{ duration: 0.2, delay: animated ? drawDelay : 0 }}
                     />
                     {AXES.map((axis, i) => {
-                      const val = Math.max(0, Math.min(10, overlay.stats[axis.key] ?? 0));
+                      const rawVal = overlay.stats[axis.key];
+                      // Missing values render at center (radius 0) with
+                      // no dot — consistent with the single-shape branch.
+                      if (rawVal === null || rawVal === undefined) {
+                        return <motion.g key={`dot-${idx}-${i}`} />;
+                      }
+                      const val = Math.max(0, Math.min(10, rawVal));
                       const [cx, cy] = vertexPos(i, RADIUS * (val / 10));
                       return (
                         <motion.g
@@ -166,7 +183,21 @@ export function PentagonChart({
               transition={animated ? { duration: 2, delay: delay + 0.3 } : undefined}
             />
             {AXES.map((axis, i) => {
-              const val = Math.max(0, Math.min(10, stats[axis.key] ?? 0));
+              const rawVal = stats[axis.key];
+              const isAbsent = rawVal === null || rawVal === undefined;
+              // Missing vertices render at radius 0 (center) — no dot at
+              // the outer perimeter to mislead the viewer. The em-dash
+              // label below the axis carries the missing signal.
+              if (isAbsent) {
+                return (
+                  <motion.g
+                    key={`dot-${i}`}
+                    data-stat={axis.key}
+                    data-state="absent"
+                  />
+                );
+              }
+              const val = Math.max(0, Math.min(10, rawVal));
               const [cx, cy] = vertexPos(i, RADIUS * (val / 10));
               const isHighlighted = highlightStat === null || highlightStat === axis.key;
               const dotOpacity = isHighlighted ? 1 : dimOpacity;
@@ -174,6 +205,7 @@ export function PentagonChart({
               return (
                 <motion.g
                   key={`dot-${i}`}
+                  data-stat={axis.key}
                   initial={animated ? { opacity: 0, scale: 0 } : undefined}
                   animate={{ opacity: dotOpacity, scale: 1 }}
                   transition={animated ? { ...springs.bouncy, delay: delay + 0.5 + i * 0.15 } : undefined}
@@ -194,10 +226,13 @@ export function PentagonChart({
         const isHighlighted = highlightStat === null || highlightStat === axis.key;
         const pctX = (x / 220) * 100;
         const pctY = (y / 220) * 100;
+        const rawVal = stats[axis.key];
+        const isAbsent = rawVal === null || rawVal === undefined;
 
         return (
           <motion.div
             key={`label-${i}`}
+            data-stat-label={axis.key}
             className="absolute font-data text-micro tracking-[0.15em] uppercase text-center"
             style={{
               color: axis.color,
@@ -210,10 +245,13 @@ export function PentagonChart({
             animate={{ opacity: isHighlighted ? 0.8 : dimOpacity * 0.4 }}
             transition={animated ? { duration: 1, delay: delay + 0.8 + i * 0.1 } : undefined}
           >
-            {axis.label}
-            {!isOverlayMode && (
+            {/* Missing-data label: "AURA —" with em-dash suffix per §3.
+                The em-dash is read by screen readers as "AURA dash" —
+                sufficient signal that there's no number here. */}
+            {isAbsent ? `${axis.label} —` : axis.label}
+            {!isOverlayMode && !isAbsent && (
               <div className="font-data text-data-sm font-bold mt-0.5" style={{ color: axis.color }}>
-                {stats[axis.key] ?? "—"}
+                {rawVal}
               </div>
             )}
           </motion.div>

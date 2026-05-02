@@ -43,7 +43,10 @@
     --color-stat-roi: #7DD4A3;
     --color-stat-res: #B8A9E8;
     --color-stat-grw: #7BB8E0;
-    --color-stat-hmn: #E88BA9;
+    /* Pentagon-stat-reshape: AURA replaces AURA on the 5th vertex.
+       Amber-copper for "money-as-mass / institutional weight" — distinct
+       from ERN's lemon-gold. The pink stays at --color-accent-empathy. */
+    --color-stat-aura: #E8B86B;
 
     /* ==============================
        TEXT
@@ -136,6 +139,7 @@
     --shadow-glow-insight: 0 0 20px rgba(184, 169, 232, 0.3);
     --shadow-glow-info: 0 0 20px rgba(123, 184, 224, 0.3);
     --shadow-glow-empathy: 0 0 20px rgba(232, 139, 169, 0.3);
+    --shadow-glow-aura: 0 0 20px rgba(232, 184, 107, 0.3);
 
     /* ==============================
        SPACING

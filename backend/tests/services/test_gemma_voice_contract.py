@@ -4,7 +4,7 @@ to the student.
 The contract comes from the product direction: Gemma is candid,
 factual, warm, reassuring. Interpretation layer, never a judge. Plain
 teen-level English. She never uses internal app framing — stat codes
-(ERN/ROI/RES/GRW/HMN), score fractions ('7/10'), outcome labels
+(ERN/ROI/RES/GRW/AURA), score fractions ('7/10'), outcome labels
 (WIN/DRAW/LOSE), or game framing (fight/boss/gauntlet/battle).
 
 Two layers of tests here:
@@ -48,7 +48,7 @@ from app.services import (
 # Banned tokens — what Gemma must never emit to the student.
 # ---------------------------------------------------------------------------
 
-STAT_CODES = ("ERN", "ROI", "RES", "GRW", "HMN")
+STAT_CODES = ("ERN", "ROI", "RES", "GRW", "AURA")
 OUTCOME_LABELS = ("WIN", "DRAW", "LOSE")
 GAME_FRAMING = (
     "fight",
@@ -91,7 +91,7 @@ def test_system_prompt_bans_stat_codes(name: str, prompt: str) -> None:
     for code in STAT_CODES:
         assert code in prompt, (
             f"{name}: stat code {code!r} not named in system prompt — "
-            f"the explicit 'never use ERN/ROI/RES/GRW/HMN' ban is missing"
+            f"the explicit 'never use ERN/ROI/RES/GRW/AURA' ban is missing"
         )
 
 
@@ -132,7 +132,7 @@ def _career() -> CareerOutcome:
         program_name="Marketing",
         soc_code="11-2021",
         occupation_title="Marketing Managers",
-        stats=PentagonStats(ern=8, roi=9, res=3, grw=6, hmn=7),
+        stats=PentagonStats(ern=8, roi=9, res=3, grw=6, aura=7),
         bosses=BossScores(ai=7, loans=2, market=6, burnout=5, ceiling=8),
         median_annual_wage=157_620.0,
         education_level_name="Bachelor's degree",
@@ -149,7 +149,7 @@ def _gauntlet_with_ai_loss() -> GauntletResult:
                 raw_score=10,
                 threshold_win=14,
                 threshold_draw=10,
-                reason="RES 3 + HMN 7 = 10",
+                reason="RES 3 + AURA 7 = 10",
             )
         ],
         wins=0,

@@ -82,7 +82,7 @@ export const STAT_COLORS: Record<string, { text: string; bg: string }> = {
   roi: { text: "var(--color-stat-roi)", bg: "rgba(125,212,163,0.15)" },
   res: { text: "var(--color-stat-res)", bg: "rgba(184,169,232,0.15)" },
   grw: { text: "var(--color-stat-grw)", bg: "rgba(123,184,224,0.15)" },
-  hmn: { text: "var(--color-stat-hmn)", bg: "rgba(232,139,169,0.15)" },
+  aura: { text: "var(--color-stat-aura)", bg: "rgba(232,184,107,0.15)" },
   brn: { text: "var(--color-boss-burnout)", bg: "rgba(232,139,169,0.15)" },
   ceil: { text: "var(--color-boss-ceiling)", bg: "rgba(196,191,176,0.15)" },
 };
@@ -100,18 +100,18 @@ export const STAT_INFO: Record<string, { title: string; definition: string; sour
   },
   res: {
     title: "AI Resilience",
-    definition: "Estimates how resistant this career is to AI automation, based on task-level analysis of which job activities current AI systems can perform.",
-    source: "Composite AI Exposure (Gemma 4 + Karpathy + Anthropic)",
+    definition: "How well your career holds up against AI. Blends two signals: how much the work still needs people, and how poorly automation actually does it today.",
+    source: "Karpathy AI Exposure + Anthropic Economic Index + O*NET task profiles",
   },
   grw: {
     title: "Growth Potential",
     definition: "Projects how fast this occupation is expected to add jobs over the next decade, relative to the national average across all occupations.",
     source: "BLS Occupational Outlook Handbook",
   },
-  hmn: {
-    title: "Human Edge",
-    definition: "Measures how much of this job relies on interpersonal skills, empathy, creativity, and other distinctly human capabilities that AI struggles to replicate.",
-    source: "O*NET Work Context",
+  aura: {
+    title: "Brand Gravity",
+    definition: "How much weight your school's name carries — endowment per student, marketing reach, athletic budget. Real signal, not vibes. Some schools don't have it yet.",
+    source: "IPEDS Finance + EADA athletics",
   },
 };
 

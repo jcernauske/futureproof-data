@@ -45,12 +45,25 @@ _RAW_ROW = {
 }
 
 
-def _patch_mcp(monkeypatch, response):
+def _patch_mcp(monkeypatch, response, *, aura_response=None):
+    """Patch mcp_client.call to handle both tools stat_engine now calls.
+
+    ``response`` mocks ``get_career_paths`` (the existing pattern).
+    ``aura_response`` mocks ``get_institution_aura``, defaulting to a
+    structured-null payload so legacy tests that don't care about AURA
+    just see ``stats.aura is None`` on every outcome.
+    """
     from app.services import mcp_client
 
+    if aura_response is None:
+        aura_response = {"data": None, "message": "no row"}
+
     def fake_call(tool, args):
-        assert tool == "get_career_paths"
-        return response
+        if tool == "get_career_paths":
+            return response
+        if tool == "get_institution_aura":
+            return aura_response
+        raise AssertionError(f"Unexpected MCP tool called: {tool!r}")
 
     monkeypatch.setattr(mcp_client, "call", fake_call)
 
@@ -72,7 +85,12 @@ class TestComputePentagon:
         assert career.occupation_title == "Fundraisers"
         assert career.stats.ern == 8
         assert career.stats.roi == 7  # derived from dte=0.75 → band 0.5-0.75 → 7
-        assert career.stats.res == 4
+        # Pentagon-stat-reshape: stats.res is blended from stat_res=4 +
+        # stat_hmn=6 → mean=5. Raw inputs preserved on CareerOutcome.
+        assert career.stats.res == 5
+        assert career.raw_stat_res == 4
+        assert career.raw_stat_hmn == 6
+        assert career.stats.aura is None  # default mock returns no aura row
         assert career.bosses.ai == 7
         # bosses.loans derives from financed_dte at loan_pct=1.0:
         # cost_per_year = debt_median/4 = 4875; modeled = 4875*4 = 19500;
@@ -100,9 +118,11 @@ class TestComputePentagon:
         career = outcomes[0]
         assert career.stats.ern == 10  # base 8 + 2, clamped to 10
         assert career.stats.roi == 7  # unchanged by effort
-        assert career.stats.res == 4
+        # Blended RES = mean(stat_res=4, stat_hmn=6) = 5.
+        assert career.stats.res == 5
         assert career.stats.grw == 6
-        assert career.stats.hmn == 6
+        # AURA mock defaults to None when no aura_response is passed.
+        assert career.stats.aura is None
 
     def test_effort_working_drops_ern_only(self, monkeypatch):
         _patch_mcp(
@@ -171,6 +191,9 @@ class TestComputePentagon:
         from app.services import mcp_client
 
         def capture(tool, args):
+            if tool == "get_institution_aura":
+                # AURA lookup is not the subject of these tests.
+                return {"data": None, "message": "no row"}
             captured.update(args)
             return {"data": [_RAW_ROW], "substitution_applied": False}
 
@@ -188,6 +211,9 @@ class TestComputePentagon:
         from app.services import mcp_client
 
         def capture(tool, args):
+            if tool == "get_institution_aura":
+                # AURA lookup is not the subject of these tests.
+                return {"data": None, "message": "no row"}
             captured.update(args)
             return {"data": [_RAW_ROW], "substitution_applied": False}
 
@@ -301,6 +327,9 @@ class TestLoanPct:
         from app.services import mcp_client
 
         def capture(tool, args):
+            if tool == "get_institution_aura":
+                # AURA lookup is not the subject of these tests.
+                return {"data": None, "message": "no row"}
             captured.update(args)
             return {"data": [_RAW_ROW], "substitution_applied": False}
 
@@ -333,26 +362,26 @@ class TestLoanPct:
 
 class TestEffortShift:
     def test_clamp_low_end_ern(self):
-        stats = PentagonStats(ern=1, roi=4, res=5, grw=5, hmn=5)
+        stats = PentagonStats(ern=1, roi=4, res=5, grw=5, aura=5)
         shifted = stat_engine._apply_effort(stats, "working")
         assert shifted.ern == 1  # clamped, not 0
         assert shifted.roi == 4  # untouched by effort
 
     def test_clamp_high_end_ern(self):
-        stats = PentagonStats(ern=10, roi=4, res=5, grw=5, hmn=5)
+        stats = PentagonStats(ern=10, roi=4, res=5, grw=5, aura=5)
         shifted = stat_engine._apply_effort(stats, "all_in")
         assert shifted.ern == 10
         assert shifted.roi == 4  # untouched by effort
 
     def test_roi_not_shifted(self):
         """ROI must ignore effort — studying harder doesn't cut tuition."""
-        stats = PentagonStats(ern=5, roi=3, res=5, grw=5, hmn=5)
+        stats = PentagonStats(ern=5, roi=3, res=5, grw=5, aura=5)
         assert stat_engine._apply_effort(stats, "all_in").roi == 3
         assert stat_engine._apply_effort(stats, "working").roi == 3
         assert stat_engine._apply_effort(stats, "balanced").roi == 3
 
     def test_none_ern_passes_through(self):
-        stats = PentagonStats(ern=None, roi=5, res=None, grw=None, hmn=None)
+        stats = PentagonStats(ern=None, roi=5, res=None, grw=None, aura=None)
         shifted = stat_engine._apply_effort(stats, "all_in")
         assert shifted.ern is None
         assert shifted.roi == 5
