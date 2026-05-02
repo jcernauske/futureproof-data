@@ -93,14 +93,22 @@ class CareerOutcome(BaseModel):
     growth_category: str | None = None
 
     # Institution-level cost fields (raw-ingest-college-scorecard-institution).
-    # Drive the new ROI formula: net_price_annual × 4 × loan_pct.
-    # All nullable — when net_price_annual is None the stat engine falls
-    # back to the legacy debt_median × loan_pct formula.
+    # Per the 2026-05-02 cost-anchor change, ROI and Student Loans Boss are
+    # both anchored on ``published_cost_4yr`` (the residency-aware 4-year
+    # COA sticker, computed by ``stat_engine._published_cost_4yr``).
+    # ``net_price_annual`` is retained for "for context" displays only —
+    # it's the average aided student's annual price, not what this student
+    # will be charged before any aid decision.
     net_price_annual: float | None = None
     cost_of_attendance_annual: float | None = None
-    # Computed in the stat engine as net_price_annual × 4 × loan_pct
-    # (or debt_median × loan_pct on the fallback path) so receipts /
-    # narrative prompts can render the student's modeled debt directly.
+    # Residency-aware 4-year sticker (full COA × 4, plus the OOS tuition
+    # gap × 4 for out-of-state public-school applicants). Single source
+    # of truth for ROI's DTE and the Student Loans Boss's modeled debt.
+    # None when ``cost_of_attendance_annual`` is missing.
+    published_cost_4yr: float | None = None
+    # Computed in the stat engine as published_cost_4yr × loan_pct
+    # so receipts / narrative prompts can render the student's modeled
+    # debt directly.
     modeled_total_debt: float | None = None
     # Clearer-named alias for ``debt_median`` when surfaced as a "what
     # past graduates actually borrowed" reference. The legacy

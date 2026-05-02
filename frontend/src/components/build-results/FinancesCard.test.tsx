@@ -29,6 +29,7 @@ function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
     growth_category: null,
     net_price_annual: 8_500,
     cost_of_attendance_annual: null,
+    published_cost_4yr: null,
     modeled_total_debt: null,
     debt_median_reference: null,
     institution_control: "Public",
@@ -360,6 +361,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           roi_cost_basis: "cost_of_attendance",
           net_price_annual: 8_500,
           cost_of_attendance_annual: 32_000,
+          published_cost_4yr: null,
           earnings_1yr_median: 45_000,
           debt_to_earnings_annual: 0.42,
           modeled_total_debt: 18_000,
@@ -391,6 +393,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           roi_cost_basis: "debt_median",
           net_price_annual: null,
           cost_of_attendance_annual: null,
+          published_cost_4yr: null,
           debt_median_reference: 22_000,
           earnings_1yr_median: 45_000,
           debt_to_earnings_annual: 0.49,
@@ -461,6 +464,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           roi_cost_basis: "cost_of_attendance",
           net_price_annual: 0,
           cost_of_attendance_annual: null,
+          published_cost_4yr: null,
           debt_median_reference: null,
           debt_median: null,
         })}
@@ -486,6 +490,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           roi_cost_basis: "cost_of_attendance",
           net_price_annual: 12_000,
           cost_of_attendance_annual: null,
+          published_cost_4yr: null,
         })}
         loanPct={1.0}
         isInState={null}
@@ -510,6 +515,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           roi_cost_basis: "cost_of_attendance",
           net_price_annual: 8_500,
           cost_of_attendance_annual: 32_000,
+          published_cost_4yr: null,
           room_board_on_campus: 14_500,
           tuition_in_state: 10_000,
           tuition_out_of_state: 25_000,
@@ -533,6 +539,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           roi_cost_basis: "cost_of_attendance",
           net_price_annual: 8_500,
           cost_of_attendance_annual: 32_000,
+          published_cost_4yr: null,
           room_board_on_campus: null,
           tuition_in_state: null,
           tuition_out_of_state: null,
@@ -579,6 +586,7 @@ describe("FinancesCard — ROI receipt (migrated from CareerDetail)", () => {
           roi_cost_basis: "cost_of_attendance",
           net_price_annual: 8_500,
           cost_of_attendance_annual: 32_000,
+          published_cost_4yr: null,
           debt_median_reference: 22_000,
         })}
         loanPct={1.0}

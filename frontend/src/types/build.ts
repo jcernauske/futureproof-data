@@ -39,13 +39,18 @@ export interface CareerOutcome {
 
   // Cost-of-attendance fields (from raw-ingest-college-scorecard-institution).
   // Nullable for institutions where the Scorecard didn't publish institution-level
-  // cost data. Used by two separate computations after the cost-based-ROI
-  // rewrite:
-  //   - ROI stat → cost_based_dte = (net_price × 4) / earnings, loan_pct-independent.
-  //   - Loans Boss → modeled_total_debt = net_price × 4 × loan_pct.
-  // Plan: ~/.claude/plans/why-are-we-still-jaunty-curry.md
+  // cost data. Per the 2026-05-02 cost-anchor change:
+  //   - ROI stat → DTE = published_cost_4yr / earnings (loan_pct-independent).
+  //   - Loans Boss → modeled_total_debt = published_cost_4yr × loan_pct.
+  // net_price_annual is retained as a "for context" reference only —
+  // it does NOT drive scores anymore.
   net_price_annual: number | null;
   cost_of_attendance_annual: number | null;
+  // Residency-aware 4-year sticker (full COA × 4, plus the OOS tuition
+  // gap × 4 for out-of-state public-school applicants). Single source
+  // of truth for ROI's DTE and the Student Loans Boss's modeled debt.
+  // Null when cost_of_attendance_annual is missing.
+  published_cost_4yr: number | null;
   modeled_total_debt: number | null;
   debt_median_reference: number | null;
   institution_control: string | null;

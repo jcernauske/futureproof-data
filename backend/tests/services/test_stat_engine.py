@@ -35,6 +35,17 @@ _RAW_ROW = {
     "earnings_1yr_p75": 49674.0,
     "debt_median": 19500.0,
     "debt_to_earnings_annual": 0.75,
+    # Per the 2026-05-02 cost-anchor change, ROI's DTE is computed from
+    # published_cost_4yr (= COA × 4 in-state, COA × 4 + tuition gap × 4
+    # OOS at publics). Setting COA = 11_882.75 gives published_cost_4yr
+    # = 47_531 → 47_531 / 63_371 = 0.75, matching the legacy
+    # debt_to_earnings_annual value so existing ROI band assertions
+    # continue to hold.
+    "cost_of_attendance_annual": 11_882.75,
+    "institution_control": "Public",
+    "tuition_in_state": 9_800.0,
+    "tuition_out_of_state": 21_400.0,
+    "state_abbr": "IN",
     "education_level_name": "Bachelor's degree",
     "growth_category": "growing",
     "top_5_activities": [{"activity": "Interpersonal", "importance": 4.81}],
@@ -92,10 +103,13 @@ class TestComputePentagon:
         assert career.raw_stat_hmn == 6
         assert career.stats.aura is None  # default mock returns no aura row
         assert career.bosses.ai == 7
-        # bosses.loans derives from financed_dte at loan_pct=1.0:
-        # cost_per_year = debt_median/4 = 4875; modeled = 4875*4 = 19500;
-        # financed_dte = 19500/63371 ≈ 0.308 → equivalent ROI 10, boss = 1.
-        assert career.bosses.loans == 1
+        # Per the 2026-05-02 cost-anchor change, bosses.loans derives
+        # from published_cost_4yr × loan_pct / earnings:
+        # published_cost_4yr (in-state default) = 11_882.75 × 4 = 47_531
+        # modeled = 47_531 × 1.0 = 47_531
+        # financed_dte = 47_531 / 63_371 ≈ 0.75 → equivalent ROI 7,
+        # boss = 11 − 7 = 4.
+        assert career.bosses.loans == 4
         assert career.debt_to_earnings_annual == 0.75
         assert career.loan_pct == 1.0
         assert career.top_human_activities[0]["activity"] == "Interpersonal"
@@ -342,9 +356,13 @@ class TestLoanPct:
         )
         assert captured["loan_pct"] == 0.25
 
-    def test_missing_dte_falls_back_to_raw_roi(self, monkeypatch):
+    def test_missing_cost_falls_back_to_raw_roi(self, monkeypatch):
+        """When cost_of_attendance_annual is missing, published_cost_4yr
+        is None and _derive_roi falls back to the row's raw stat_roi.
+        debt_to_earnings_annual is no longer the cost-basis input.
+        """
         row = {**_RAW_ROW}
-        row["debt_to_earnings_annual"] = None
+        row["cost_of_attendance_annual"] = None
         _patch_mcp(
             monkeypatch,
             {"data": [row], "substitution_applied": False},
@@ -356,8 +374,9 @@ class TestLoanPct:
             loan_pct=0.5,
         )
         career = outcomes[0]
-        # With no DTE, _derive_roi falls back to the row's raw stat_roi.
+        # With no COA, _derive_roi falls back to the row's raw stat_roi.
         assert career.stats.roi == 6
+        assert career.published_cost_4yr is None
 
 
 class TestEffortShift:
@@ -516,25 +535,35 @@ class TestRoiWithCostOfAttendance:
         row.update(overrides)
         return row
 
-    def test_roi_derived_from_cost_based_dte(self, monkeypatch):
-        """ROI derives from the Gold DTE, not from the raw stat_roi."""
+    def test_roi_derived_from_published_cost_dte(self, monkeypatch):
+        """ROI derives from published_cost_4yr / earnings, not raw stat_roi.
+
+        Per the 2026-05-02 cost-anchor change, ROI's DTE is anchored on
+        the school's full sticker (COA × 4 in-state default), NOT on
+        net_price × 4."""
         row = self._row_with_cost()
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
         outcomes = stat_engine.compute_pentagon(
             unitid=151351, cipcode="52.14", student_major=None, loan_pct=1.0
         )
         career = outcomes[0]
-        # DTE ≈ 0.896 → in the 0.75-1.0 band, ROI should be 5-7.
+        # COA × 4 / earnings = (22,800 × 4) / 63,371 = 1.439
+        # DTE 1.439 → band 1.0-1.5 → ROI ~3.
         assert career.stats.roi is not None
-        assert 4 <= career.stats.roi <= 7
-        assert career.net_price_annual == 14_200.0
+        assert 2 <= career.stats.roi <= 4
+        assert career.published_cost_4yr == 91_200.0
+        assert career.net_price_annual == 14_200.0  # still surfaced for reference
         assert career.cost_of_attendance_annual == 22_800.0
         assert career.institution_control == "Public"
         assert career.debt_median_reference == 19_500.0
         assert career.roi_cost_basis == "cost_of_attendance"
 
-    def test_loans_boss_uses_financed_dte_with_net_price(self, monkeypatch):
-        """Loans Boss = f(net_price × 4 × loan_pct / earnings)."""
+    def test_loans_boss_uses_financed_dte_with_published_cost(self, monkeypatch):
+        """Loans Boss = f(published_cost_4yr × loan_pct / earnings).
+
+        Per the 2026-05-02 cost-anchor change, the loans boss is
+        anchored on COA × 4 (residency-aware), not on net_price × 4.
+        """
         row = self._row_with_cost()
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
         outcomes = stat_engine.compute_pentagon(
@@ -544,13 +573,15 @@ class TestRoiWithCostOfAttendance:
             loan_pct=0.5,
         )
         career = outcomes[0]
-        # 14_200 × 4 × 0.5 = 28_400; 28_400 / 63_371 ≈ 0.448 → on the
-        # 0.25-0.5 band fraction≈0.79, equivalent ROI = 9.
-        # Loans boss = 11 − 9 = 2.
-        assert career.modeled_total_debt == 14_200.0 * 4.0 * 0.5
+        # COA × 4 (in-state, no home_state passed) = 22_800 × 4 = 91_200.
+        # modeled_debt = 91_200 × 0.5 = 45_600.
+        # financed_dte = 45_600 / 63_371 ≈ 0.7196 → ROI band 0.5-0.75 → ROI ≈ 7.
+        # Loans boss = 11 − 7 = 4.
+        assert career.published_cost_4yr == 22_800.0 * 4.0
+        assert career.modeled_total_debt == 22_800.0 * 4.0 * 0.5
         assert career.financed_dte is not None
-        assert abs(career.financed_dte - (28_400.0 / 63_371.0)) < 1e-9
-        assert career.bosses.loans == 2
+        assert abs(career.financed_dte - (45_600.0 / 63_371.0)) < 1e-9
+        assert career.bosses.loans == 4
 
     def test_roi_identical_across_loan_pcts(self, monkeypatch):
         """ROI must be the same at loan_pct=0.0, 0.5, and 1.0."""
@@ -567,31 +598,41 @@ class TestRoiWithCostOfAttendance:
             rois.append(outcomes[0].stats.roi)
         assert len(set(rois)) == 1, f"ROI varied with loan_pct: {rois}"
 
-    def test_fallback_to_debt_median_basis(self, monkeypatch):
-        """Without net_price_annual, Gold stamps basis=debt_median."""
+    def test_no_debt_median_fallback_when_coa_missing(self, monkeypatch):
+        """Per the 2026-05-02 cost-anchor change, the debt_median
+        fallback is REMOVED. When cost_of_attendance_annual is missing,
+        ROI falls back to the row's raw stat_roi (the Gold-zone
+        baseline) and modeled_total_debt is None — no fabrication
+        from debt_median."""
         row = {**_RAW_ROW}
+        row.pop("cost_of_attendance_annual", None)
         row.pop("net_price_annual", None)
-        row["debt_to_earnings_annual"] = 19_500.0 / 63_371.0  # 0.308
-        row["roi_cost_basis"] = "debt_median"
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
         outcomes = stat_engine.compute_pentagon(
             unitid=151351, cipcode="52.14", student_major=None, loan_pct=1.0
         )
         career = outcomes[0]
-        # DTE 0.308 → band 0.25-0.5 → ROI 10 (excellent).
-        assert career.stats.roi == 10
-        assert career.net_price_annual is None
-        assert career.roi_cost_basis == "debt_median"
-        # modeled from (debt_median/4) × 4 × loan_pct = debt_median × loan_pct.
-        assert career.modeled_total_debt == 19_500.0
+        # No COA → published_cost_4yr is None → ROI falls back to the
+        # row's raw stat_roi (here 6, from _RAW_ROW).
+        assert career.published_cost_4yr is None
+        assert career.stats.roi == 6  # raw stat_roi from row
+        # No cost basis → no modeled debt. The debt_median fallback
+        # that USED to fabricate a number here is gone (intentionally).
+        assert career.modeled_total_debt is None
+        # debt_median is still surfaced as a "for reference" field, but
+        # it does NOT drive the score.
         assert career.debt_median_reference == 19_500.0
 
-    def test_modeled_total_debt_with_net_price(self, monkeypatch):
-        """modeled_total_debt = net_price × 4 × loan_pct."""
+    def test_modeled_total_debt_with_published_cost(self, monkeypatch):
+        """modeled_total_debt = published_cost_4yr × loan_pct.
+
+        Post-2026-05-02 cost-anchor change: net_price_annual no longer
+        drives modeled_total_debt; the school's published 4-year COA
+        does (residency-aware)."""
         _patch_mcp(
             monkeypatch,
             {
-                "data": [self._row_with_cost(net_price_annual=20_000.0)],
+                "data": [self._row_with_cost(cost_of_attendance_annual=25_000.0)],
                 "substitution_applied": False,
             },
         )
@@ -602,8 +643,10 @@ class TestRoiWithCostOfAttendance:
             loan_pct=0.75,
         )
         career = outcomes[0]
-        # 20_000 × 4 × 0.75 = 60_000 exactly.
-        assert career.modeled_total_debt == 60_000.0
+        # COA=25_000 → published_cost_4yr (in-state default) = 100_000.
+        # modeled_debt = 100_000 × 0.75 = 75_000.
+        assert career.published_cost_4yr == 100_000.0
+        assert career.modeled_total_debt == 75_000.0
 
     def test_zero_loans_zeros_modeled_debt_but_keeps_roi(self, monkeypatch):
         row = self._row_with_cost()
@@ -687,12 +730,16 @@ class TestResidencyAwareTuition:
 
     # ── P0: Out-of-state public adjusts net_price ──────────────────────
 
-    def test_out_of_state_public_adjusts_net_price(self, monkeypatch):
+    def test_out_of_state_public_adjusts_published_cost(self, monkeypatch):
         """Out-of-state at a public school: ROI, Loans Boss, and
-        modeled_debt all reflect the adjusted net_price (base + gap).
+        modeled_debt all reflect (COA + tuition_gap) × 4.
 
+        Per the 2026-05-02 cost-anchor change, residency adjustment
+        now drives published_cost_4yr (sticker), not net_price_annual.
+
+        COA_in_state = 22,800
         gap = 21,400 - 9,800 = 11,600
-        adjusted = 14,200 + 11,600 = 25,800
+        published_cost_4yr (OOS) = (22,800 + 11,600) × 4 = 137,600
         """
         row = self._row_with_cost()  # Public, state_abbr="IN"
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
@@ -706,24 +753,21 @@ class TestResidencyAwareTuition:
         )
         career = outcomes[0]
 
-        # net_price_annual carries the student's actual cost (adjusted).
-        assert career.net_price_annual == 25_800.0
-        # raw institutional median preserved in reference field.
-        assert career.net_price_annual_reference == 14_200.0
+        # published_cost_4yr carries the OOS-adjusted full sticker.
+        assert career.published_cost_4yr == 137_600.0
 
-        # modeled_total_debt uses the adjusted net_price.
-        # 25,800 * 4 * 1.0 = 103,200
-        assert career.modeled_total_debt == 25_800.0 * 4.0 * 1.0
+        # modeled_total_debt = published_cost_4yr × loan_pct.
+        assert career.modeled_total_debt == 137_600.0 * 1.0
 
-        # ROI should be worse than the unadjusted baseline (DTE ~0.896 -> 6).
-        # Adjusted DTE = (25,800 * 4) / 63,371 = 1.629 -> ROI ~3.
+        # ROI should be much worse than the unadjusted baseline.
+        # Adjusted DTE = 137_600 / 63,371 = 2.171 → ROI ~2.
         assert career.stats.roi is not None
-        assert career.stats.roi < 6  # worse than unadjusted
+        assert career.stats.roi <= 3
 
-        # Loans Boss should be harder (higher score) than unadjusted.
-        # financed_dte = 103,200 / 63,371 = 1.629 -> equiv ROI 3 -> boss 8.
+        # Loans Boss should be hard (high score).
+        # financed_dte = 137,600 / 63,371 = 2.171 → equiv ROI ~2 → boss 9+.
         assert career.bosses.loans is not None
-        assert career.bosses.loans > 5  # harder than unadjusted (was 5)
+        assert career.bosses.loans >= 8
 
     # ── P0: Out-of-state ROI uses recomputed DTE ──────────────────────
 
@@ -762,7 +806,8 @@ class TestResidencyAwareTuition:
     # ── P0: In-state public → no adjustment ───────────────────────────
 
     def test_in_state_public_no_adjustment(self, monkeypatch):
-        """When home_state matches school state_abbr, no adjustment."""
+        """When home_state matches school state_abbr, no adjustment.
+        published_cost_4yr is just COA × 4, no OOS premium added."""
         row = self._row_with_cost()  # state_abbr="IN"
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
 
@@ -774,13 +819,13 @@ class TestResidencyAwareTuition:
         )
         career = outcomes[0]
 
-        # No adjustment applied — reference field is None.
-        assert career.net_price_annual_reference is None
-        # ROI unchanged from baseline.
-        gold_dte = (14_200.0 * 4.0) / 63_371.0
+        # No OOS adjustment — published_cost_4yr is COA × 4 = 91,200.
+        assert career.published_cost_4yr == 22_800.0 * 4.0
+        # ROI derives from this in-state COA × 4 / earnings.
         from gold.futureproof_engine import compute_stat_roi
 
-        expected_roi = compute_stat_roi(gold_dte)
+        expected_dte = (22_800.0 * 4.0) / 63_371.0
+        expected_roi = compute_stat_roi(expected_dte)
         assert career.stats.roi == expected_roi
 
     # ── P0: Private school → no adjustment ────────────────────────────
@@ -812,7 +857,8 @@ class TestResidencyAwareTuition:
 
     def test_no_home_state_no_adjustment(self, monkeypatch):
         """When home_state is None (user skipped state selection),
-        behavior is identical to pre-feature baseline."""
+        published_cost_4yr defaults to in-state COA × 4 — the lower
+        of the two reasonable defaults at a public school."""
         row = self._row_with_cost()
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
 
@@ -824,12 +870,13 @@ class TestResidencyAwareTuition:
         )
         career = outcomes[0]
 
-        assert career.net_price_annual_reference is None
-        # Verify ROI matches the unadjusted Gold DTE.
-        gold_dte = (14_200.0 * 4.0) / 63_371.0
+        # In-state COA × 4 (no OOS premium without home_state).
+        assert career.published_cost_4yr == 22_800.0 * 4.0
+        # ROI derives from this in-state COA × 4 / earnings.
         from gold.futureproof_engine import compute_stat_roi
 
-        assert career.stats.roi == compute_stat_roi(gold_dte)
+        expected_dte = (22_800.0 * 4.0) / 63_371.0
+        assert career.stats.roi == compute_stat_roi(expected_dte)
 
     # ── P1: Missing tuition values → no adjustment ────────────────────
 
@@ -938,9 +985,15 @@ class TestResidencyAwareTuition:
 
     # ── P1: recompute_for_sliders uses net_price_annual (now adjusted) ──
 
-    def test_recompute_for_sliders_uses_adjusted_net_price(self, monkeypatch):
-        """net_price_annual already carries the adjusted value, so
-        recompute_for_sliders just reads it directly — no sidecar check.
+    def test_recompute_for_sliders_uses_published_cost(self, monkeypatch):
+        """published_cost_4yr persists on CareerOutcome, so
+        recompute_for_sliders reads it directly when the slider moves —
+        no sidecar fields needed.
+
+        Per the 2026-05-02 cost-anchor change, the slider-driven
+        modeled_total_debt is published_cost_4yr × loan_pct. The OOS
+        premium is baked into published_cost_4yr at build time, so
+        sliding loan_pct correctly preserves the residency premium.
         """
         row = self._row_with_cost()
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
@@ -954,7 +1007,8 @@ class TestResidencyAwareTuition:
             home_state="OH",
         )
         career = outcomes[0]
-        assert career.net_price_annual == 25_800.0
+        # OOS public: published_cost_4yr = (22,800 + 11,600) × 4 = 137,600.
+        assert career.published_cost_4yr == 137_600.0
 
         # Now rescore with a different loan_pct via the slider path.
         rescored = stat_engine.recompute_for_sliders(
@@ -964,12 +1018,11 @@ class TestResidencyAwareTuition:
             new_loan_pct=0.5,
         )
 
-        # modeled_total_debt should use adjusted net_price, not raw.
-        # adjusted: 25,800 * 4 * 0.5 = 51,600
-        # raw would be: 14,200 * 4 * 0.5 = 28,400
-        assert rescored.modeled_total_debt == 25_800.0 * 4.0 * 0.5
+        # modeled_total_debt = published_cost_4yr × loan_pct.
+        # 137,600 × 0.5 = 68,800.
+        assert rescored.modeled_total_debt == 137_600.0 * 0.5
 
-        # Loans boss at 50% financing with adjusted cost should still
-        # reflect the out-of-state premium.
+        # Loans boss at 50% financing still reflects the OOS premium —
+        # 68,800 / 63,371 = 1.086 → equiv ROI ~5 → boss 6.
         assert rescored.bosses.loans is not None
-        assert rescored.bosses.loans > 2  # proves it's NOT using raw net_price
+        assert rescored.bosses.loans >= 5

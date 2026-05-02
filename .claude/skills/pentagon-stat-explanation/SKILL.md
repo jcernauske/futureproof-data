@@ -191,6 +191,98 @@ Reference example showing the four sections applied. Use this as the calibration
 
 ---
 
+## Step 5b — Worked examples: ROI, RES, GRW, AURA
+
+Same four-section structure as the ERN example. Use these as calibration targets when writing copy for the remaining four stats.
+
+### Return on Investment (ROI)
+
+> **The one-liner.** Compares what the school will charge you for the degree against what you'll earn one year out.
+>
+> **How it works.** We compute the **debt-to-earnings ratio** (DTE) by dividing the school's published 4-year cost by your starting salary, then map it to a 1–10 score:
+>
+> | DTE ratio | What it means | ROI score |
+> |---|---|---|
+> | 0.25 or less | Cost is small fraction of starting salary | **10/10** |
+> | 0.50 | Cost = half a year's earnings | **9/10** |
+> | 0.75 | Cost = 3/4 of a year's earnings | **7/10** |
+> | 1.00 | Cost = one year's earnings | **5/10** |
+> | 1.50 | Cost = 1.5× starting salary | **3/10** |
+> | 2.50+ | Cost = 2.5× starting salary or more | **1/10** |
+>
+> **Cost basis.** ROI uses the school's **published 4-year cost of attendance** (`published_cost_4yr` in the data — full sticker price, in-state for public schools when home_state matches the school's state, out-of-state when it doesn't, single number for private schools). Per the 2026-05-02 cost-anchor change, ROI is NOT computed against average net price (the average aided student's bill across federal Title IV recipients) — at the exploration phase the student doesn't know what aid they'll receive, so the published sticker is the only honest signal.
+>
+> **Where the data comes from.** The cost numbers come from the **Integrated Postsecondary Education Data System** (IPEDS — published by the U.S. Department of Education); the earnings come from the **College Scorecard**.
+>
+> **Why we mix cost and earnings instead of just showing debt.** ROI is **financing-agnostic on purpose** — it doesn't care whether you pay cash, take loans, or get scholarships. Two students at the same school in the same career get the same ROI score, even if one borrows nothing and one borrows everything. The "did you pay this off?" question is a separate stat (the **Fight Student Loans** boss).
+
+### AI Resilience (RES)
+
+> **The one-liner.** How well this career holds up as AI gets better.
+>
+> **How it works.** RES blends two different signals about the same threat:
+> - **AI exposure** — how much of this work could AI plausibly do? Comes from a composite of three datasets that score every U.S. occupation by automation risk (Karpathy's framework, Anthropic's economic-impact index, and Google Gemma's task analysis).
+> - **Human-essential skills** — how much of the daily work genuinely requires human judgment, social awareness, or physical presence? Comes from the federal **Occupational Information Network** (O*NET — pronounced "oh-net") — a database that breaks every career into ~40 work activities and rates how much each one matters.
+>
+> We average the two (50/50 for now) and round to 1–10.
+>
+> A few examples:
+> - **Registered Nurse** scores high on both — AI can't replace bedside care, and the work depends on judgment + empathy. RES might land at **8/10**.
+> - **Bookkeeper** scores low on both — accounting tasks automate well, and the work doesn't lean heavily on human-only skills. RES might be **3/10**.
+>
+> **Where the data comes from.** Three federal/academic sources blended:
+> - **BLS Occupational Outlook Handbook** (Bureau of Labor Statistics) — base career taxonomy.
+> - **O*NET** (U.S. Department of Labor) — work-activity profiles.
+> - **Karpathy + Anthropic + Gemma composite** — AI exposure scores.
+>
+> **Why we blend two signals instead of picking one.** They measure related-but-different things. *AI exposure* is a top-down claim about what AI **could** do today; *human-essential* is a bottom-up claim about what the work **requires**. A career can score well on one and poorly on the other (data entry: humans are still doing it but AI can absolutely replace it). Blending hedges against the limits of each — if the AI-exposure side is too pessimistic, the human-essential side balances it; if O*NET is too generous, the AI-exposure score grounds it.
+
+### Growth Outlook (GRW)
+
+> **The one-liner.** Is this career adding jobs or shrinking over the next decade?
+>
+> **How it works.** Every U.S. career has an **employment-change projection** from the Bureau of Labor Statistics — a 10-year forecast saying "we expect this many more (or fewer) people to be working in this field in 2033." We map that percentage to a 1–10 score:
+>
+> | 10-year change | What it means | GRW score |
+> |---|---|---|
+> | –20% or worse | Field is collapsing | **1/10** |
+> | –10% | Real decline | **2.5/10** |
+> | 0% | Flat | **4–5/10** |
+> | +5% | Healthy growth | **6.5/10** |
+> | +10% | Strong growth | **7.5/10** |
+> | +20% or better | Booming | **9–10/10** |
+>
+> **Where the data comes from.** One source: the **BLS Occupational Outlook Handbook** — specifically the `employment_change_pct` field, updated every two years.
+>
+> **Why we use a 10-year projection instead of past growth.** Past growth tells you what already happened; a projection is BLS's best estimate of where the trend goes next. For a college decision, you care about the world you'll *enter*, not the world you'd have entered in 2018. The downside: BLS forecasts have been wrong before (they didn't predict the AI wave hitting white-collar work). It's the best available signal, not a guarantee.
+
+### Brand Gravity (AURA)
+
+> **The one-liner.** How much weight your school's name carries — and yes, this is real.
+>
+> **How it works.** Three signals, all measured **per student** so big and small schools are on the same scale:
+> 1. **Endowment per full-time student** — how much money the school has invested per kid (from the federal **Integrated Postsecondary Education Data System**, IPEDS).
+> 2. **Marketing reach** — how much the school spends on advertising and recruiting per student. Also from IPEDS.
+> 3. **Athletic spending** — how much the school invests in sports per student (from the **Equity in Athletics Disclosure Act** database, EADA).
+>
+> For each signal we compute a **percent rank** (where this school sits among all U.S. colleges with that data), then mix:
+>
+> ```
+> raw_score = 0.65 × MAX(available signals) + 0.35 × MEAN(available signals)
+> ```
+>
+> The **MAX** rewards being elite at any one of the three (Stanford has the endowment; Notre Dame has the football); the **MEAN** keeps it balanced. Final score gets stretched to a 1–10 scale.
+>
+> **Where the data comes from.** Two federal sources:
+> - **IPEDS Finance** (U.S. Department of Education) — endowment + marketing.
+> - **EADA** (U.S. Department of Education again, separate filing) — athletics.
+>
+> **Why "brand gravity" is on the pentagon at all.** Most college tools pretend prestige doesn't matter — but it absolutely does for networking, alumni access, recruiter shortlists, and graduate-school admissions. The data exists and is real money flowing into measurable things. We thought hiding it would be more dishonest than showing it.
+>
+> **Why some schools have no AURA score.** About 1 in 10 institutions has no IPEDS-Finance filing AND no EADA athletics data — usually very small schools, religious colleges that don't field NCAA teams, or specialty schools (culinary, art, trade). Those show `—` on the pentagon. Better to leave it blank than fake a number.
+
+---
+
 ## Step 6 — Before declaring done
 
 Run this checklist:
