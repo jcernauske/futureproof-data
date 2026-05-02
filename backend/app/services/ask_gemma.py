@@ -32,14 +32,20 @@ See docs/specs/feature-ask-gemma.md.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from collections.abc import AsyncIterator
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.models.api import (
     AskResponse,
     AskScope,
+    ExplainStatReceipt,
+    ReceiptSource,
+    StatComponent,
     TraceDone,
     TraceEvent,
     TraceEventPayload,
@@ -252,102 +258,212 @@ _OPENER_PROMPT_BRANCH = (
 
 
 # ---------------------------------------------------------------------------
-# ERN explain-this-stat spike (in-app spike — not a spec'd feature).
-# Strictly additive: ERN-only, gated on the sentinel opener message.
-# Voice authority: .claude/skills/pentagon-stat-explanation/SKILL.md.
-# If the spike works, a proper spec lands after the pentagon-stat-reshape
-# (HMN→AURA) work wraps up.
+# Explain-this-stat — ERN structured-receipt path
+#   spec: docs/specs/feature-explain-stat-receipt.md (DRAFT v1.3)
+#   voice authority: .claude/skills/pentagon-stat-explanation/SKILL.md
+#
+# Triggers only on the sentinel opener "[explain-this:ERN]" in the
+# stat-scope chat. Gemma is asked to emit a JSON object matching
+# ExplainStatReceipt; the server post-processes (validates, stamps
+# the build's score, builds math_line, normalizes labels) before
+# returning the receipt to the frontend.
+#
+# The original markdown spike's appendix and helper-leak stripper
+# remain in this file as the JSON-parse-failure fallback. When
+# _postprocess_ern_explain_receipt returns None, the loop runs once
+# more with the markdown appendix, reusing the cached tool_call_log
+# so no MCP re-fetch happens.
 # ---------------------------------------------------------------------------
 
 _ERN_EXPLAIN_OPENER = "[explain-this:ERN]"
 _ERN_EXPLAIN_TEMPERATURE = 0.0
 _ERN_EXPLAIN_MAX_TOKENS = 1500
+_ERN_EXPLAIN_RESPONSE_FORMAT: dict[str, Any] = {"type": "json_object"}
 
-# What we send to Gemma in place of the sentinel — a clean instruction.
+# What we send to Gemma in place of the sentinel.
 _ERN_EXPLAIN_USER_PROMPT = (
     "Explain my Earning Power score with the receipts. Show me the actual "
     "numbers behind it, not just the definition."
 )
 
+# Per-stat label allowlist (Decision 14). Keyed by weight_pct so the
+# normalizer matches the right canonical label even when Gemma swaps
+# the components (puts the 60% label on the 40% component).
+_ERN_LABEL_ALLOWLIST: dict[int, str] = {
+    60: "your school's program rank",
+    40: "this career's pay rank",
+}
 
-def _ern_explain_appendix(career: CareerOutcome) -> str:
-    """Build the system-prompt appendix that puts Gemma in ERN-explain
-    mode. Substitutes the build's identifiers so Gemma calls the tools
-    with exact arguments rather than guessing.
+# ERN's two data sources. Server-stamped; Gemma's emitted sources
+# field is discarded so the citations stay canonical across runs.
+_ERN_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
+    ReceiptSource(
+        label="Graduate earnings",
+        name="College Scorecard (U.S. Department of Education)",
+    ),
+    ReceiptSource(
+        label="Occupation wages",
+        name=(
+            "Occupational Outlook Handbook, published by the Bureau "
+            "of Labor Statistics (BLS)"
+        ),
+    ),
+)
 
-    The voice rules in `_SYSTEM_BASE` relax for this turn ONLY — see
-    the §1 paragraph below. The four-section structure mirrors the
-    worked example in `pentagon-stat-explanation/SKILL.md`.
+# Template included in the system appendix. Filled-in JSON example
+# with __FILL_IN__ sentinels for prose fields and realistic numeric
+# placeholders. Gemma 4 is a strong few-shot learner; this format
+# materially outperforms a Pydantic-model-as-Python-code template
+# (per @genai-architect v1.1 finding 2).
+_RECEIPT_JSON_TEMPLATE = """{
+  "kind": "receipt",
+  "stat_code": "ERN",
+  "stat_name": "Earning Power",
+  "score": 7,
+  "score_max": 10,
+  "one_liner": "__FILL_IN__: ONE-SENTENCE DEFINITION OF WHAT THIS SCORE MEASURES, in plain English a 16-year-old reads as English (no jargon, no /10, no percentiles).",
+  "components": [
+    {
+      "weight_pct": 60,
+      "label": "your school's program rank",
+      "explainer": "__FILL_IN__: 1-2 sentences naming the school + program + median earnings (in $) and where the program ranks against peers in the same field of study (Classification of Instructional Programs family, or CIP family). On the FIRST percentile mentioned in the response, write it INLINE as 'Nth percentile (out of 100 programs, this one ranks higher than about N-1)'. Do NOT repeat the percentile in a separate sentence. Do NOT include the X/10 score in this string.",
+      "value_pct": 87,
+      "anchor_text": "Indiana University's Computer Science grads",
+      "anchor_dollars": 94200,
+      "missing_reason": null
+    },
+    {
+      "weight_pct": 40,
+      "label": "this career's pay rank",
+      "explainer": "__FILL_IN__: 1-2 sentences naming the career + median wage (in $) and where the career ranks against all U.S. occupations (Standard Occupational Classification code, or SOC code). Do NOT repeat the percentile gloss — it was already given in the 60% bullet. Do NOT include the X/10 score in this string.",
+      "value_pct": 92,
+      "anchor_text": "Software Developer",
+      "anchor_dollars": 132270,
+      "missing_reason": null
+    }
+  ],
+  "math_line": "0.6 × 0.87 + 0.4 × 0.92 → score 9/10",
+  "sources": [
+    {"label": "Graduate earnings", "name": "College Scorecard (U.S. Department of Education)"},
+    {"label": "Occupation wages", "name": "Occupational Outlook Handbook, published by the Bureau of Labor Statistics (BLS)"}
+  ],
+  "why_mix_paragraph": "__FILL_IN__: ~3-sentence 'two students contrast' paragraph. Picture a top-ranked Computer Science program vs. a top-ranked Philosophy program. Show why using only the school rank would mislead and why the occupation blend grounds the score in real U.S. salaries. Do NOT reference the student's actual numbers — this paragraph is the universal explanation of the formula, not their personal score. Do NOT include the X/10 score in this string."
+}"""
+
+
+def _ern_explain_appendix_json(career: CareerOutcome) -> str:
+    """JSON-mode appendix for the ERN explain-this-stat receipt path.
+
+    Substitutes the build's identifiers so Gemma calls the tools with
+    exact arguments. The voice rules in ``_SYSTEM_BASE`` relax in a
+    SCOPED way for this turn (Decision 15 voice-rule split):
+      - lifted for the JSON numeric fields (value_pct, anchor_dollars)
+        which carry integers, not prose;
+      - retained for prose fields (one_liner, explainer,
+        why_mix_paragraph) which must NOT contain numeric score refs.
     """
     return f"""
 
-EXPLAIN-THIS-STAT MODE — ERN
+EXPLAIN-THIS-STAT (ERN) — JSON-MODE OUTPUT REQUIRED
 
-The student tapped 'Explain this to me' on their Earning Power score. For
-this turn ONLY the standard voice rules above relax in three specific ways:
+The student tapped 'Explain this to me' on their Earning Power score.
+You will produce a single JSON object matching the structure shown in
+the TEMPLATE below. Do not write any text outside the JSON object.
 
-1. You MUST quote the actual numeric values: percentile ranks (e.g. 0.92),
-   the X/10 score, and the 0.6 × A + 0.4 × B math. The 'never state a raw
-   score, percentile, or fraction' rule is suspended for this turn — the
-   percentiles and the math ARE the answer.
-2. Use a structured response with the four labeled sections below, not
-   4–8 sentences of prose.
-3. Reading level lifts to high-school junior. Technical terms are OK when
-   introduced in plain English first with the term in parentheses on first
-   use (e.g. 'field of study (Classification of Instructional Programs
-   family, or CIP family)'). After first use, the abbreviation is fine.
-
-REQUIRED TOOL CALLS — call BOTH before answering. Use these exact
-arguments from the student's build:
+REQUIRED TOOL CALLS — call BOTH on your first turn (in parallel). Use
+these exact arguments from the student's build:
 
   • get_career_paths(unitid={career.unitid}, cipcode="{career.cipcode}")
-    From the result, find the row where soc_code = "{career.soc_code}" and
-    pull `cip_family_earnings_rank` (the 60% input — how this program
-    ranks against peers in the same field of study) and
-    `earnings_1yr_median` (graduate earnings).
+    From the result row where soc_code = "{career.soc_code}", pull
+    `cip_family_earnings_rank` and `earnings_1yr_median`.
 
   • get_occupation_data(soc_code="{career.soc_code}")
-    Pull `wage_percentile_overall` (the 40% input — how this career's
-    median wage ranks against all U.S. occupations) and
-    `median_annual_wage`.
+    Pull `wage_percentile_overall` and `median_annual_wage`.
 
-If a tool call fails or a needed field is null, say so plainly in that
-section ('we don't have a percentile rank for this program yet'). Do not
+After both tool calls return, emit the JSON receipt. If a tool result
+field is null, set the corresponding receipt field to null and the
+matching `missing_reason` to a plain-English explanation. Do not
 hallucinate values.
 
-REQUIRED RESPONSE STRUCTURE — render exactly these four sections, in
-this order, with these section headings:
+VOICE-RULE SCOPING (this turn only):
+  • LIFTED for the numeric JSON fields `value_pct` and `anchor_dollars`:
+    quote the actual percentile and dollar values precisely.
+  • RETAINED for the prose JSON fields `one_liner`,
+    `components[*].explainer`, `components[*].anchor_text`, and
+    `why_mix_paragraph`: do NOT write 'N/10', 'your score is N',
+    or any numeric score reference. The score callout is the UI's
+    responsibility — it lives outside your prose.
+
+PERCENTILE GLOSS — on the FIRST percentile mentioned anywhere in any
+prose field, write it INLINE as a single phrase with the explanation
+in parentheses immediately after the number. Format:
+'Nth percentile (out of 100 <thing>, this one ranks higher than about
+N-1)'. Examples — substitute the actual numbers and noun:
+  ✓ "87th percentile (out of 100 programs, this one ranks higher than about 86)"
+  ✓ "92nd percentile (out of 100 careers, this one pays more than about 91)"
+  ✗ DO NOT write 'This is the Nth percentile...' as a separate sentence.
+  ✗ DO NOT mention the percentile twice in the same field.
+After the first use, later percentiles in the response stand alone:
+write "99th percentile" with no gloss.
+
+ACRONYMS — every acronym (CIP, SOC, BLS) is expanded once on first
+use, then the abbreviation is fine.
+
+TEMPLATE (replace every `__FILL_IN__` string with your written content;
+keep all other field values as shown for structure but substitute real
+data values):
+
+{_RECEIPT_JSON_TEMPLATE}
+
+CRITICAL — SENTINEL HANDLING. The strings `__FILL_IN__`, `[FILL_IN]`,
+`<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`, and `PLACEHOLDER` are
+placeholders ONLY — they MUST be replaced with your actual content.
+Echoing them back verbatim will fail validation and the receipt will
+not render. Write real prose in every prose field.
+"""
+
+
+def _ern_explain_appendix(career: CareerOutcome) -> str:
+    """Markdown-mode appendix retained as the JSON-parse-failure
+    fallback path. When `_postprocess_ern_explain_receipt` returns
+    None, the loop re-runs with this appendix and the cached
+    tool_call_log values pre-injected into the user message (so no
+    MCP re-fetch happens — see ``_format_cached_tool_values``).
+    """
+    return f"""
+
+EXPLAIN-THIS-STAT MODE — ERN (markdown fallback)
+
+The structured-JSON path failed validation; produce the markdown
+fallback. Voice rules above relax in three specific ways for this
+turn ONLY:
+
+1. You MUST quote the actual numeric values: percentile ranks (e.g. 0.92),
+   the X/10 score, and the 0.6 × A + 0.4 × B math.
+2. Use a structured response with the four labeled sections below.
+3. Reading level lifts to high-school junior. Technical terms are OK
+   when introduced in plain English first with the term in parens.
+
+The cached tool values are already injected into the user message —
+do NOT re-call get_career_paths or get_occupation_data. Read the
+percentile values from the message and produce the receipt.
+
+REQUIRED RESPONSE STRUCTURE — exactly four sections in this order:
 
 ### Earning Power — <SCORE>/10
 
 **The one-liner.** One sentence naming what the score measures.
 
-**How it works.** Two sub-bullets, then one math line:
+**How it works.**
   - **60% — your school's program rank.** {career.institution_name}'s
     {career.program_name} grads earn a median of $<earnings_1yr_median> —
     that lands at the <cip_family_earnings_rank × 100>th percentile of all
     {career.program_name} programs nationally (Classification of
     Instructional Programs family {career.cipcode}).
-  - **40% — this career's pay rank.** {career.occupation_title}'s median
-    wage is $<median_annual_wage>, which sits at the
+  - **40% — this career's pay rank.** {career.occupation_title}'s
+    median wage is $<median_annual_wage>, which sits at the
     <wage_percentile_overall × 100>th percentile of all U.S. occupations
     (Standard Occupational Classification code {career.soc_code}).
-
-  PERCENTILE GLOSS — on the FIRST percentile mentioned anywhere in the
-  response, write it INLINE as a single phrase with the explanation in
-  parentheses immediately after the number. Format:
-  '<N>th percentile (out of 100 <thing>, this one ranks higher than
-  about <N−1>)'. Examples (do not copy verbatim — substitute the actual
-  numbers and noun):
-    ✓ '87th percentile (out of 100 programs, this one ranks higher
-       than about 86)'
-    ✓ '92nd percentile (out of 100 careers, this one pays more than
-       about 91)'
-    ✗ DO NOT write a second sentence such as 'This is the Nth
-       percentile...' — that repeats the number and breaks the flow.
-    ✗ DO NOT mention the percentile twice in the same bullet.
-  After the first time, every later percentile in the response stands
-  alone: write '99th percentile' with no gloss.
 
   Math: 0.6 × <cip_family_earnings_rank> + 0.4 ×
   <wage_percentile_overall> = <raw> → rounds to <SCORE>/10.
@@ -357,21 +473,364 @@ this order, with these section headings:
   - Occupation wages: Occupational Outlook Handbook, published by the
     Bureau of Labor Statistics (BLS).
 
-**Why we mix both pieces.** A two-students contrast in ~3 sentences:
-imagine a top-ranked program in a low-paying field vs. a top-ranked
-program in a high-paying field. Show why using only the school rank
-would be misleading, and why the occupation blend grounds the score in
-real U.S. salaries. Don't compare against the student's actual
-situation — this paragraph is the universal explanation of the formula,
-not their personal score.
+**Why we mix both pieces.** A two-students contrast in ~3 sentences.
 
-VOICE — every acronym (CIP, SOC, BLS) is expanded once on first use,
-then the abbreviation is fine. Use plain language; technical terms sit
-in parentheses on first use. Don't soften 'low' or 'high' — quote the
-percentile and let it speak. The percentile-gloss rule (above) is a
-sub-case of the same first-use principle: explain the concept the FIRST
-time it appears, then trust the reader for the rest of the response.
+VOICE — every acronym (CIP, SOC, BLS) is expanded once on first use.
+On the FIRST percentile mentioned, write it INLINE as
+'Nth percentile (out of 100 <thing>, this one ranks higher than
+about N-1)'. After the first time, percentiles stand alone.
 """
+
+
+# ---------------------------------------------------------------------------
+# Receipt post-processing helpers (Decision 7, 8, 13, 14, 15 of the spec).
+# ---------------------------------------------------------------------------
+
+
+def _ordinal_suffix(n: int) -> str:
+    """Return the ordinal suffix for an integer (1 -> 'st', 2 -> 'nd', ...)."""
+    if 11 <= (n % 100) <= 13:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+
+def _format_pct(value: float | None) -> str:
+    """Render a 0-1 percentile as '87' (the integer part of value*100)
+    or 'n/a' when None. Round half-up for consistency with the Gold-zone
+    rounding convention.
+    """
+    if value is None:
+        return "n/a"
+    return str(int(value * 100 + 0.5))
+
+
+def _extract_tool_results(
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    soc_code: str,
+) -> tuple[float | None, int | None, float | None, int | None]:
+    """Pull the four needed values out of the tool_call_log.
+
+    Returns (cip_family_earnings_rank, earnings_1yr_median,
+             wage_percentile_overall, median_annual_wage). Any value
+    not found in the log is None.
+    """
+    cip_rank: float | None = None
+    earnings: int | None = None
+    wage_pct: float | None = None
+    wage: int | None = None
+    for turn in tool_call_log:
+        if turn.error:
+            continue
+        try:
+            preview = json.loads(turn.tool_result_preview)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if turn.tool_name == "get_career_paths":
+            rows = preview.get("results") if isinstance(preview, dict) else None
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if row.get("soc_code") != soc_code:
+                    continue
+                cip_rank = row.get("cip_family_earnings_rank")
+                earn = row.get("earnings_1yr_median")
+                if isinstance(earn, (int, float)):
+                    earnings = int(earn)
+                break
+        elif turn.tool_name == "get_occupation_data":
+            row = preview if isinstance(preview, dict) else None
+            if row is None:
+                continue
+            wp = row.get("wage_percentile_overall")
+            if isinstance(wp, (int, float)):
+                wage_pct = float(wp)
+            ma = row.get("median_annual_wage")
+            if isinstance(ma, (int, float)):
+                wage = int(ma)
+    return cip_rank, earnings, wage_pct, wage
+
+
+def _render_math_line(
+    cip_rank: float | None,
+    wage_pct: float | None,
+    build_score: int,
+    score_max: int,
+    effort: str,
+) -> str:
+    """Build the receipt's math_line string from raw inputs.
+
+    Format: '0.6 × 0.87 + 0.4 × 0.92 → score 9/10'
+
+    When effort != 'balanced', appends a separate effort line on a new
+    line: 'Your **Focused** effort setting lifts this to 9/10' (Decision
+    13). The build_score is the effort-shifted authoritative value; the
+    math_line shows the unshifted derivation.
+    """
+    cip_str = f"{cip_rank:.2f}" if cip_rank is not None else "n/a"
+    wage_str = f"{wage_pct:.2f}" if wage_pct is not None else "n/a"
+
+    # Compute the unshifted score derivation when both inputs present.
+    if cip_rank is not None and wage_pct is not None:
+        raw = 0.6 * cip_rank + 0.4 * wage_pct
+        unshifted = int(1.0 + 9.0 * raw + 0.5)  # half-up round to 1-10
+        unshifted = max(1, min(score_max, unshifted))
+    else:
+        unshifted = build_score  # can't derive — fall back to authoritative
+
+    base = (
+        f"0.6 × {cip_str} + 0.4 × {wage_str} → score "
+        f"{unshifted}/{score_max}"
+    )
+
+    if effort == "balanced" or unshifted == build_score:
+        return base
+
+    effort_label = effort.capitalize()
+    direction = "lifts" if build_score > unshifted else "brings"
+    return (
+        f"{base}\n"
+        f"Your **{effort_label}** effort setting {direction} this to "
+        f"{build_score}/{score_max}"
+    )
+
+
+def _normalize_label(
+    weight_pct: int,
+    gemma_label: str,
+    allowlist: dict[int, str],
+) -> tuple[str, bool]:
+    """Match Gemma's label against the per-weight allowlist.
+
+    Returns (canonical_label, was_normalized). Match strategy:
+      1. Look up the canonical label by weight_pct (Decision 14 — match
+         by weight first to catch the swap-component-labels case).
+      2. If gemma_label != canonical, return (canonical, True) so the
+         caller can log a WARNING with both values.
+    """
+    canonical = allowlist.get(weight_pct)
+    if canonical is None:
+        # No allowlist entry — keep Gemma's label as-is.
+        return gemma_label, False
+    if gemma_label.strip().lower() == canonical.lower():
+        return canonical, False
+    return canonical, True
+
+
+def _log_receipt_parse(
+    *,
+    call_site: str,
+    parse_success: bool,
+    failure_reason: str | None,
+    json_prefix: str,
+    build_id: str,
+    backend: str,
+) -> None:
+    """Append one structured record to logs/gemma.jsonl per parse attempt.
+
+    Schema enables a parse_success_rate metric: filter records by
+    `call_site == "explain_ern_receipt"` and aggregate.
+    """
+    record = {
+        "call_site": call_site,
+        "parse_success": parse_success,
+        "failure_reason": failure_reason,
+        "json_prefix": json_prefix[:500],
+        "build_id": build_id,
+        "backend": backend,
+    }
+    if parse_success:
+        logger.info("ern_explain_receipt parsed: %s", record)
+    else:
+        logger.warning("ern_explain_receipt parse failed: %s", record)
+
+
+def _format_cached_tool_values(
+    cip_rank: float | None,
+    earnings: int | None,
+    wage_pct: float | None,
+    wage: int | None,
+) -> str:
+    """Build a string injected into the markdown-fallback user message
+    so the fallback path doesn't need to re-issue tool calls.
+    """
+    return (
+        "Cached tool values from your build (use these directly — do not "
+        "call get_career_paths or get_occupation_data again):\n"
+        f"  cip_family_earnings_rank = {cip_rank}\n"
+        f"  earnings_1yr_median = {earnings}\n"
+        f"  wage_percentile_overall = {wage_pct}\n"
+        f"  median_annual_wage = {wage}\n"
+    )
+
+
+def _postprocess_ern_explain_receipt(
+    raw: str,
+    build: Build,
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    backend: str,
+) -> ExplainStatReceipt | None:
+    """Parse Gemma's JSON output, validate via Pydantic, stamp server-
+    controlled fields, return a fully-realized ExplainStatReceipt.
+
+    Returns None on any failure — the caller falls back to the markdown
+    spike path with the cached tool_call_log injected (no MCP re-fetch).
+
+    Pipeline (10 steps; see spec §4 Architecture Overview point 3):
+      1. _extract_json_objects(raw) — strip markdown fences, brace-depth
+         extract; handles ```json{...}``` and trailing-prose wrappers.
+      2. Locate a parseable object in the candidates list.
+      3. ExplainStatReceipt.model_validate(parsed). On ValidationError
+         (including the sentinel-passthrough validator firing) -> None.
+      4. Assert receipt.stat_code == "ERN". Mismatch -> None.
+      5. If build.career.stats.ern is None -> None.
+      6. Server-stamp receipt.score = build.career.stats.ern.
+      7. Server-build receipt.math_line via _render_math_line.
+      8. Normalize each receipt.components[i].label.
+      9. For each component, server-stamp value_pct, anchor_dollars,
+         missing_reason from tool_call_log.
+     10. _log_receipt_parse appends a structured record to gemma.jsonl.
+    """
+    json_prefix = raw[:500] if raw else ""
+    build_id = build.build_id
+
+    # Step 1-2: extract + parse.
+    candidates = gemma_client._extract_json_objects(raw or "")
+    parsed: dict[str, Any] | None = next(
+        (c for c in candidates if isinstance(c, dict)), None
+    )
+    if parsed is None:
+        _log_receipt_parse(
+            call_site="explain_ern_receipt",
+            parse_success=False,
+            failure_reason="json_decode",
+            json_prefix=json_prefix,
+            build_id=build_id,
+            backend=backend,
+        )
+        return None
+
+    # Step 3: Pydantic-validate (also fires sentinel-passthrough validator).
+    try:
+        receipt = ExplainStatReceipt.model_validate(parsed)
+    except ValidationError as exc:
+        # Distinguish sentinel-passthrough from other validation errors
+        # for log granularity. Both route to the markdown fallback.
+        reason = "pydantic_validation"
+        if "unreplaced template sentinel" in str(exc):
+            reason = "sentinel_passthrough"
+        _log_receipt_parse(
+            call_site="explain_ern_receipt",
+            parse_success=False,
+            failure_reason=reason,
+            json_prefix=json_prefix,
+            build_id=build_id,
+            backend=backend,
+        )
+        return None
+
+    # Step 4: stat_code assertion (catches Gemma cross-stat drift).
+    if receipt.stat_code != "ERN":
+        _log_receipt_parse(
+            call_site="explain_ern_receipt",
+            parse_success=False,
+            failure_reason="stat_code_mismatch",
+            json_prefix=json_prefix,
+            build_id=build_id,
+            backend=backend,
+        )
+        return None
+
+    # Step 5: null-build-stat guard.
+    build_score = build.career.stats.ern
+    if build_score is None:
+        _log_receipt_parse(
+            call_site="explain_ern_receipt",
+            parse_success=False,
+            failure_reason="score_null",
+            json_prefix=json_prefix,
+            build_id=build_id,
+            backend=backend,
+        )
+        return None
+
+    # Step 6: server-stamp score.
+    receipt.score = build_score
+
+    # Step 7: server-build math_line.
+    cip_rank, earnings, wage_pct, wage = _extract_tool_results(
+        tool_call_log, build.career.soc_code
+    )
+    receipt.math_line = _render_math_line(
+        cip_rank=cip_rank,
+        wage_pct=wage_pct,
+        build_score=build_score,
+        score_max=receipt.score_max,
+        effort=getattr(build, "effort", "balanced") or "balanced",
+    )
+
+    # Step 8: normalize labels.
+    for comp in receipt.components:
+        canonical, was_normalized = _normalize_label(
+            comp.weight_pct, comp.label, _ERN_LABEL_ALLOWLIST
+        )
+        if was_normalized:
+            logger.warning(
+                "ern_explain_receipt: label normalized weight=%d "
+                "gemma=%r canonical=%r",
+                comp.weight_pct, comp.label, canonical,
+            )
+            comp.label = canonical
+
+    # Step 9: server-stamp per-component numeric fields + missing_reason.
+    for comp in receipt.components:
+        if comp.weight_pct == 60:
+            comp.value_pct = (
+                int(cip_rank * 100 + 0.5) if cip_rank is not None else None
+            )
+            comp.anchor_dollars = earnings
+            if cip_rank is None or earnings is None:
+                comp.missing_reason = (
+                    "no median earnings reported for this program yet"
+                )
+            else:
+                comp.missing_reason = None
+        elif comp.weight_pct == 40:
+            comp.value_pct = (
+                int(wage_pct * 100 + 0.5) if wage_pct is not None else None
+            )
+            comp.anchor_dollars = wage
+            if wage_pct is None or wage is None:
+                comp.missing_reason = (
+                    "no wage data for this occupation in the BLS handbook"
+                )
+            else:
+                comp.missing_reason = None
+
+    # Server-stamp sources (canonical citations; Gemma's emitted list is
+    # discarded so the citations stay consistent across runs).
+    receipt.sources = list(_ERN_RECEIPT_SOURCES)
+
+    # Step 10: structured log on success.
+    _log_receipt_parse(
+        call_site="explain_ern_receipt",
+        parse_success=True,
+        failure_reason=None,
+        json_prefix=json_prefix,
+        build_id=build_id,
+        backend=backend,
+    )
+    return receipt
+
+
+def _current_backend() -> str:
+    """Return the active inference backend label for log records."""
+    try:
+        _client, config = gemma_client._cached_client()
+        return str(config.backend)
+    except Exception:
+        return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -428,16 +887,16 @@ async def chat_ask(
     )
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
-    # ERN explain-this-stat spike: detect the sentinel, append the
-    # ERN-explain appendix to the system prompt, and substitute a clean
-    # user prompt for the loop. Strictly additive, ERN-only.
+    # ERN explain-this-stat path. JSON-mode appendix on the first
+    # attempt; markdown fallback (with cached tool values injected) on
+    # parse failure. Strictly additive, ERN-only.
     explain_ern = (
         scope.kind == "stat"
         and scope.target_id == "ERN"
         and message.strip() == _ERN_EXPLAIN_OPENER
     )
     if explain_ern:
-        system = system + _ern_explain_appendix(builds[0].career)
+        system = system + _ern_explain_appendix_json(builds[0].career)
 
     # Branch-scope opener path: when history is empty, the call is the
     # auto-fired opener from the BranchTreeScreen mount or a node click.
@@ -510,7 +969,65 @@ async def chat_ask(
         temperature=_ERN_EXPLAIN_TEMPERATURE if explain_ern else _TEMPERATURE,
         max_tokens=_ERN_EXPLAIN_MAX_TOKENS if explain_ern else 1200,
         extra=extra,
+        final_turn_response_format=(
+            _ERN_EXPLAIN_RESPONSE_FORMAT if explain_ern else None
+        ),
     )
+
+    # ERN explain-receipt post-processing. On success the receipt is
+    # the response payload; on failure we re-run the loop ONCE with
+    # the markdown appendix and the cached tool values injected (no
+    # MCP re-fetch).
+    if explain_ern and text:
+        receipt = _postprocess_ern_explain_receipt(
+            raw=text,
+            build=builds[0],
+            tool_call_log=tool_call_log,
+            backend=_current_backend(),
+        )
+        if receipt is not None:
+            tool_calls = [
+                TraceEventPayload(
+                    turn=t.dispatch_index,
+                    tool=t.tool_name,
+                    args=t.tool_args,
+                    result_preview=t.tool_result_preview,
+                    duration_ms=t.duration_ms,
+                    error=t.error,
+                )
+                for t in tool_call_log
+            ]
+            return AskResponse(response=receipt, tool_calls=tool_calls)
+        # JSON parse failed → markdown fallback retry with cached values.
+        logger.warning(
+            "ern_explain_receipt: JSON parse failed; retrying with "
+            "markdown appendix + cached tool values"
+        )
+        cip_rank, earnings, wage_pct, wage = _extract_tool_results(
+            tool_call_log, builds[0].career.soc_code
+        )
+        cached_values_block = _format_cached_tool_values(
+            cip_rank, earnings, wage_pct, wage
+        )
+        markdown_system = (
+            f"{system_base}\n\n{lang_block}\n\n{context_block}"
+            + _ern_explain_appendix(builds[0].career)
+        )
+        markdown_user = f"{cached_values_block}\n\n{_ERN_EXPLAIN_USER_PROMPT}"
+        text, fallback_tool_log = await gemma_client.generate_with_tools_loop(
+            system=markdown_system,
+            user=markdown_user,
+            tools=[],  # cached values are in the user message — no tools
+            dispatch=_dispatch,
+            max_turns=2,
+            max_wall_time_s=30.0,
+            temperature=_ERN_EXPLAIN_TEMPERATURE,
+            max_tokens=_ERN_EXPLAIN_MAX_TOKENS,
+            extra={**extra, "fallback_after_json_parse_failure": True},
+        )
+        # Trace events stay on the original tool_call_log so the
+        # frontend's post-hoc renderer shows the live calls that
+        # actually happened.
 
     if not text:
         logger.warning(
@@ -656,14 +1173,14 @@ async def chat_ask_stream(
     )
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
-    # ERN explain-this-stat spike — see chat_ask above for the gate.
+    # ERN explain-this-stat — see chat_ask above for the gate.
     explain_ern = (
         scope.kind == "stat"
         and scope.target_id == "ERN"
         and message.strip() == _ERN_EXPLAIN_OPENER
     )
     if explain_ern:
-        system = system + _ern_explain_appendix(builds[0].career)
+        system = system + _ern_explain_appendix_json(builds[0].career)
 
     # Fold history into the user message.
     user_msg = (
@@ -730,11 +1247,15 @@ async def chat_ask_stream(
                 extra=extra,
                 on_turn_start=on_start,
                 on_turn_event=on_turn,
+                final_turn_response_format=(
+                    _ERN_EXPLAIN_RESPONSE_FORMAT if explain_ern else None
+                ),
             )
         )
     )
 
     text = ""
+    tool_call_log: list[gemma_client.ToolCallTurn] = []
     try:
         # Drain queue until loop_task completes. The wait_for(timeout=...)
         # idiom interleaves queue reads with loop_task done-checks
@@ -752,10 +1273,64 @@ async def chat_ask_stream(
         # callback bug, programmer error) collapses to the fallback
         # final_text + done. Generator never raises past its boundary.
         try:
-            text, _log = await loop_task
+            text, tool_call_log = await loop_task
         except Exception as exc:  # noqa: BLE001 — boundary defense
             logger.warning("chat_ask_stream: loop_task raised — %s", exc)
             text = ""
+            tool_call_log = []
+
+        # ERN explain-receipt post-processing. On success yield the
+        # receipt as the final_text payload; on failure run the markdown
+        # fallback ONCE more with cached tool values injected.
+        if explain_ern and text:
+            receipt = _postprocess_ern_explain_receipt(
+                raw=text,
+                build=builds[0],
+                tool_call_log=tool_call_log,
+                backend=_current_backend(),
+            )
+            if receipt is not None:
+                yield TraceFinalText(response=receipt)
+                yield TraceDone()
+                return
+            # Markdown fallback — retry once with cached tool values.
+            logger.warning(
+                "ern_explain_receipt: JSON parse failed; retrying "
+                "with markdown appendix + cached tool values"
+            )
+            cip_rank, earnings, wage_pct, wage = _extract_tool_results(
+                tool_call_log, builds[0].career.soc_code
+            )
+            cached_values_block = _format_cached_tool_values(
+                cip_rank, earnings, wage_pct, wage
+            )
+            markdown_system = (
+                f"{system_base}\n\n{lang_block}\n\n{context_block}"
+                + _ern_explain_appendix(builds[0].career)
+            )
+            markdown_user = (
+                f"{cached_values_block}\n\n{_ERN_EXPLAIN_USER_PROMPT}"
+            )
+            try:
+                text, _ = await gemma_client.generate_with_tools_loop(
+                    system=markdown_system,
+                    user=markdown_user,
+                    tools=[],
+                    dispatch=_dispatch,
+                    max_turns=2,
+                    max_wall_time_s=30.0,
+                    temperature=_ERN_EXPLAIN_TEMPERATURE,
+                    max_tokens=_ERN_EXPLAIN_MAX_TOKENS,
+                    extra={
+                        **extra,
+                        "fallback_after_json_parse_failure": True,
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001 — boundary defense
+                logger.warning(
+                    "ern_explain_receipt fallback failed: %s", exc
+                )
+                text = ""
 
         if not text:
             text = fallback_text("chat_unavailable", norm_locale)

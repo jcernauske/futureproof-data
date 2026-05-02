@@ -7,12 +7,28 @@ import {
   type AskScope,
   type ChatHistoryItem,
   type BuildSummary,
+  type ExplainStatReceipt,
 } from "@/api/menu";
 import { ChatMessage } from "@/components/menu/ChatMessage";
+import { ExplainStatReceiptCard } from "@/components/menu/ExplainStatReceipt";
 import { GemmaTrace } from "@/components/menu/GemmaTrace";
 import { useProfileStore } from "@/store/profileStore";
 import { useT } from "@/i18n/useT";
 import type { GemmaTraceEvent } from "@/types/gemmaTrace";
+
+/**
+ * Build a `ChatHistoryItem` for an assistant turn. Discriminates on
+ * the response shape: a string lands as a plain-text bubble; an
+ * `ExplainStatReceipt` lands as the structured receipt card.
+ */
+function assistantHistoryItem(
+  response: string | ExplainStatReceipt,
+): ChatHistoryItem {
+  if (typeof response === "string") {
+    return { role: "assistant", kind: "text", content: response };
+  }
+  return { role: "assistant", kind: "receipt", payload: response };
+}
 
 /**
  * Per-history-index trace events. Indexed by the index in `history`
@@ -204,8 +220,12 @@ export function GemmaChat({
           locale,
         );
         if (cancelled || sessionRef.current !== session) return;
-        setHistory([{ role: "assistant", content: result.response }]);
-        onAssistantResponse?.(result.response);
+        setHistory([assistantHistoryItem(result.response)]);
+        onAssistantResponse?.(
+          typeof result.response === "string"
+            ? result.response
+            : result.response.one_liner,
+        );
       } catch (e) {
         if (cancelled || sessionRef.current !== session) return;
         setError(
@@ -236,7 +256,11 @@ export function GemmaChat({
     setDraft("");
     setError(null);
 
-    const userMsg: ChatHistoryItem = { role: "user", content: trimmed };
+    const userMsg: ChatHistoryItem = {
+      role: "user",
+      kind: "text",
+      content: trimmed,
+    };
     const priorHistory = history;
     const nextHistory = [...priorHistory, userMsg];
     setHistory(nextHistory);
@@ -259,7 +283,7 @@ export function GemmaChat({
       // the closure-captured `history`, which would be stale if the user
       // races two submissions before the first await resolves.
       const locale = useProfileStore.getState().locale;
-      let response: string;
+      let response: string | ExplainStatReceipt;
       if (scope) {
         const result = await askGemmaStream(
           scope,
@@ -284,8 +308,10 @@ export function GemmaChat({
         return;
       }
       if (sessionRef.current !== session) return;
-      setHistory([...nextHistory, { role: "assistant", content: response }]);
-      onAssistantResponse?.(response);
+      setHistory([...nextHistory, assistantHistoryItem(response)]);
+      onAssistantResponse?.(
+        typeof response === "string" ? response : response.one_liner,
+      );
     } catch (e) {
       if (sessionRef.current !== session) return;
       setError(e instanceof Error ? e.message : "Gemma couldn't respond.");
@@ -307,7 +333,11 @@ export function GemmaChat({
         {showTrace ? (
           <GemmaTrace events={events!} mode="complete" />
         ) : null}
-        <ChatMessage message={m} />
+        {m.kind === "receipt" ? (
+          <ExplainStatReceiptCard payload={m.payload} />
+        ) : (
+          <ChatMessage message={{ role: m.role, content: m.content }} />
+        )}
       </div>
     );
   }
