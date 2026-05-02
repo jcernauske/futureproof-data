@@ -3,3 +3,13 @@ line-length = 88
 
 [lint]
 select = ["E", "F", "I"]
+
+[lint.per-file-ignores]
+# `_RECEIPT_JSON_TEMPLATE` in this file is a filled-in JSON example
+# with embedded multi-sentence prose strings used as a few-shot
+# prompt template. Wrapping the JSON values would corrupt the JSON
+# AND hurt prompt quality — Gemma 4 reads the unbroken example as
+# a structural template (per @genai-architect Phase-1 finding 2 in
+# docs/specs/feature-explain-stat-receipt.md). E501 suppressed for
+# this file only.
+"app/services/ask_gemma.py" = ["E501"]

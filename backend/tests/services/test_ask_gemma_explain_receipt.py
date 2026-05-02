@@ -35,7 +35,6 @@ import pytest
 from app.models.api import (
     ExplainStatReceipt,
     ReceiptSource,
-    StatComponent,
 )
 from app.models.career import (
     BossScores,

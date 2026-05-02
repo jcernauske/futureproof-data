@@ -45,7 +45,6 @@ from app.models.api import (
     AskScope,
     ExplainStatReceipt,
     ReceiptSource,
-    StatComponent,
     TraceDone,
     TraceEvent,
     TraceEventPayload,
