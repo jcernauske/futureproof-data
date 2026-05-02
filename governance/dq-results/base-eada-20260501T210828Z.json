@@ -1,0 +1,334 @@
+{
+  "spec": "full-pipeline-eada",
+  "table": "base.eada",
+  "snapshot_id": "973879610917339278",
+  "row_count": 2040,
+  "rules_file": "governance/dq-rules/base-eada.json",
+  "executed_at": "2026-05-01T21:08:28.249017+00:00",
+  "executed_by": "@dq-engineer",
+  "rule_count": 13,
+  "summary": {
+    "overall_pass": true,
+    "p0_total": 11,
+    "p0_pass": 11,
+    "p0_fail": 0,
+    "p1_total": 2,
+    "p1_pass": 2,
+    "p1_fail": 0,
+    "p2_total": 0,
+    "p2_pass": 0,
+    "p2_fail": 0,
+    "p0_gate_blocking": false
+  },
+  "results": [
+    {
+      "rule_id": "BSE-EAD-001",
+      "name": "Row count == raw row count (conservation)",
+      "priority": "P0",
+      "dimension": "consistency",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "BSE-EAD-002",
+      "name": "unitid uniqueness (dedup grain)",
+      "priority": "P0",
+      "dimension": "uniqueness",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "unitid",
+        "cnt"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "BSE-EAD-003",
+      "name": "record_id non-null and unique",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "BSE-EAD-004",
+      "name": "athletic_spend_per_fte >= 0 where non-null",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "record_id",
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "eada_fte_headcount",
+        "total_fte_enrollment",
+        "fte_source",
+        "has_ipeds_finance_fte",
+        "has_eada_fte",
+        "athletic_spend_per_fte",
+        "athletic_revenue_per_fte",
+        "recruiting_per_fte",
+        "athletic_subsidy_ratio",
+        "source_load_date",
+        "ingested_at"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "BSE-EAD-005",
+      "name": "athletic_revenue_per_fte >= 0 where non-null",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "record_id",
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "eada_fte_headcount",
+        "total_fte_enrollment",
+        "fte_source",
+        "has_ipeds_finance_fte",
+        "has_eada_fte",
+        "athletic_spend_per_fte",
+        "athletic_revenue_per_fte",
+        "recruiting_per_fte",
+        "athletic_subsidy_ratio",
+        "source_load_date",
+        "ingested_at"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "BSE-EAD-006",
+      "name": "recruiting_per_fte >= 0 where non-null",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "record_id",
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "eada_fte_headcount",
+        "total_fte_enrollment",
+        "fte_source",
+        "has_ipeds_finance_fte",
+        "has_eada_fte",
+        "athletic_spend_per_fte",
+        "athletic_revenue_per_fte",
+        "recruiting_per_fte",
+        "athletic_subsidy_ratio",
+        "source_load_date",
+        "ingested_at"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "BSE-EAD-007",
+      "name": "athletic_subsidy_ratio in [-3.0, 1.0] where non-null",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "record_id",
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "eada_fte_headcount",
+        "total_fte_enrollment",
+        "fte_source",
+        "has_ipeds_finance_fte",
+        "has_eada_fte",
+        "athletic_spend_per_fte",
+        "athletic_revenue_per_fte",
+        "recruiting_per_fte",
+        "athletic_subsidy_ratio",
+        "source_load_date",
+        "ingested_at"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "BSE-EAD-008",
+      "name": "Arithmetic invariant: athletic_spend_per_fte * total_fte_enrollment \u2248 total_athletic_expenses within $1",
+      "priority": "P0",
+      "dimension": "consistency",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "record_id",
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "eada_fte_headcount",
+        "total_fte_enrollment",
+        "fte_source",
+        "has_ipeds_finance_fte",
+        "has_eada_fte",
+        "athletic_spend_per_fte",
+        "athletic_revenue_per_fte",
+        "recruiting_per_fte",
+        "athletic_subsidy_ratio",
+        "source_load_date",
+        "ingested_at"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "BSE-EAD-009",
+      "name": "fte_source enum membership and 'none' rate <= 1%",
+      "priority": "P0",
+      "dimension": "validity",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "BSE-EAD-010",
+      "name": "athletic_subsidy_ratio P50 == 0 with P5 < 0 and P95 == 0 (OPE ledger convention)",
+      "priority": "P1",
+      "dimension": "consistency",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "BSE-EAD-011",
+      "name": "fte_source distribution: ipeds_finance ~74.5% / eada_fte_headcount ~25.5% (\u00b15pp)",
+      "priority": "P1",
+      "dimension": "consistency",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "rule_id": "BSE-EAD-012",
+      "name": "Tautology: total_fte_enrollment IS NULL iff fte_source = 'none'",
+      "priority": "P0",
+      "dimension": "consistency",
+      "threshold": "result_count = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "record_id",
+        "unitid",
+        "institution_name",
+        "reporting_year",
+        "total_athletic_expenses",
+        "total_athletic_revenue",
+        "recruiting_expenses",
+        "eada_fte_headcount",
+        "total_fte_enrollment",
+        "fte_source",
+        "has_ipeds_finance_fte",
+        "has_eada_fte",
+        "athletic_spend_per_fte",
+        "athletic_revenue_per_fte",
+        "recruiting_per_fte",
+        "athletic_subsidy_ratio",
+        "source_load_date",
+        "ingested_at"
+      ],
+      "row_count_returned": 0,
+      "sample_rows": []
+    },
+    {
+      "rule_id": "BSE-EAD-013",
+      "name": "IPEDS-preference invariant: every IPEDS-Finance UNITID with non-null total_fte_enrollment stamps fte_source = 'ipeds_finance'",
+      "priority": "P0",
+      "dimension": "referential_integrity",
+      "threshold": "result = 0",
+      "actual": 0,
+      "passed": true,
+      "result_columns": [
+        "violation_count"
+      ],
+      "row_count_returned": 1,
+      "sample_rows": [
+        [
+          0
+        ]
+      ]
+    }
+  ]
+}
