@@ -87,7 +87,8 @@ The three raw dollar fields exposed at the consumable layer for downstream EADA 
 |-----------|--------------|-------------|----------|--------|--------|-------------|
 | instruction_expenses | BT-IPF-INSTRUCTION-EXPENSES | numeric (USD) | NULLABLE | true | false | The institution's total annual expenses for instructional divisions. Promoted verbatim from Base. Exposed at consumable for downstream EADA composite ratios. **Observed (FY23):** 100.00% non-null. **Sourced from F1A `F1C011` / F2 `F2E011` / F3 `F3E011`**. |
 | institutional_support_expenses | BT-IPF-INSTITUTIONAL-SUPPORT-EXPENSES | numeric (USD) | NULLABLE | true | false | The institution's total annual expenses for executive management, fiscal operations, public relations, fundraising, and similar administrative functions. Promoted verbatim from Base. Exposed at consumable for downstream EADA composite ratios. **Observed (FY23):** 100.00% non-null. **Sourced from F1A `F1C071` / F2 `F2E061` / F3 `F3E03C1`**. |
-| endowment_value | BT-IPF-ENDOWMENT-VALUE | numeric (USD) | NULLABLE | true | false | End-of-year market value of the institution's endowment funds. Promoted verbatim from Base. Exposed at consumable for downstream EADA composite ratios. **Observed (FY23):** 76.00% non-null overall; 100% structural NULL on F3. |
+| endowment_value | BT-IPF-ENDOWMENT-VALUE | numeric (USD) | NULLABLE | true | false | End-of-year market value of the institution's endowment funds. Promoted verbatim from Base. Exposed at consumable for downstream EADA composite ratios. **Observed (FY23):** 76.00% non-null overall; 100% structural NULL on F3. **v1.4 INTERPRETATION GUIDANCE:** read alongside `endowment_value_provenance` — only ~25–31% of non-null F1A/F2 endowment values are institution-reported. |
+| endowment_value_provenance (v1.4) | (proposed) BT-IPF-ENDOWMENT-PROVENANCE | text (enum: `R`/`A`/`P`/`Z`/`N` OR NULL) | NULLABLE | **true** | false | **NEW v1.4** — Renamed passthrough from `base.ipeds_finance.endowment_value_flag` per spec §2 Decision A. **Authoritative semantics (corrected v1.2):** `R` = Reported by institution; `A` = **Not applicable** (no endowment fund — exact `A`↔NULL coupling on `endowment_value`, invariant per BSE-IPF-020 P0); `N` = **Imputed using Nearest Neighbor procedure**; `P` = Imputed prior year; `Z` = Imputed zero. NULL on F3 by structure. **CDE per spec §6 Data Contract delta** — interpretation-changing for `endowment_value` and `endowment_per_fte`. **Longitudinal consumers must filter to `endowment_value_provenance = 'R'`** to limit to institution-reported populated values; verbatim filter-to-`R` guidance is carried at the data contract layer in `governance/data-contracts/consumable-ipeds-finance-profile.yaml::consumer_guidance.endowment_provenance`. Validated by CON-IFP-013 (P0 rename-fidelity passthrough check). |
 
 ### Per-FTE Derivations (Base Passthroughs)
 
@@ -115,7 +116,8 @@ The three per-student normalizations of the monetary inputs. Computed in Base; c
 
 | Attribute | Business Term | Type Domain | Nullable | Is CDE | Is PII | Description |
 |-----------|--------------|-------------|----------|--------|--------|-------------|
-| promoted_at | (Brightsmith convention) | timestamp | NOT NULL | false | false | UTC wall-clock recording when this consumable row was promoted from Base. Identical across all rows in a single consumable promote run. Distinct from Base's `ingested_at` (the Base promote stamp) and Bronze's `ingested_at` (the Bronze ingest stamp). |
+| source_load_date (v1.4) | (Brightsmith convention) | date | NOT NULL | false | false | **NEW v1.4** — Restored passthrough from `base.ipeds_finance.source_load_date` per spec §2 Decision G (v1.3 dropped it; v1.4 restores it as a vintage-observability metadata field). Calendar date the source bronze data was loaded (UTC). Distinct from `fiscal_year` (the IPEDS reporting cycle) and from `promoted_at` (the consumable promote run timestamp). **Explicitly NOT CDE per spec §6 Data Contract delta** — vintage-observability metadata only; does not change downstream interpretation of any analytical column. Validated by CON-IFP-015 (P0 NOT NULL) and CON-IFP-016 (P1 within 400 days of `promoted_at`). |
+| promoted_at | (Brightsmith convention) | timestamp | NOT NULL | false | false | UTC wall-clock recording when this consumable row was promoted from Base. Identical across all rows in a single consumable promote run. Distinct from Base's `ingested_at` (the Base promote stamp), Bronze's `ingested_at` (the Bronze ingest stamp), and the v1.4-restored `source_load_date` (which records the bronze ingest *date*, not the consumable promote *time*). |
 
 ---
 
@@ -200,30 +202,36 @@ All other attributes are direct passthroughs from `base.ipeds_finance` with no t
 
 | Constraint | Type | Source |
 |------------|------|--------|
-| Row count = Base row count (2,675) | Conservation | CON-IFP-001 (P0) |
+| Row count <= Base row count | Conservation (upper bound) | CON-IFP-001a (P0) — v1.4 split |
+| Row count >= Base row count - 50 (absorbs system-office filter cycle drift) | Conservation (lower bound) | CON-IFP-001b (P1) — v1.4 split |
 | `unitid IS NOT NULL` for every row | Total | CON-IFP-002 (P0) |
 | `unitid` is unique within a single `fiscal_year` | Uniqueness | CON-IFP-003 (P0) |
 | `record_id IS NOT NULL` and unique | Validity + Uniqueness | CON-IFP-004 (P0) |
 | `data_completeness_tier ∈ {high, medium, low, insufficient}` | Validity (enum) | CON-IFP-005 (P0) |
 | `data_completeness_tier` classification check (recompute and compare) | Arithmetic | CON-IFP-006 (P0) |
 | `institutional_support_per_fte / instruction_per_fte ≈ marketing_ratio` within 0.001 wherever all three non-null | Arithmetic invariant | CON-IFP-007 (P0) |
-| ≥ 88% of distinct UNITIDs in `consumable.career_outcomes` find a matching row here (FY23 measured 88.71%) | Coverage (EDA-calibrated) | CON-IFP-008 (P1) |
+| ≥ 88% of distinct UNITIDs in `consumable.career_outcomes` find a matching row here | Coverage (EDA-calibrated) | CON-IFP-008 (P1) |
 | ≥ 86% watch-line on the same coverage check | Coverage (early-warning) | CON-IFP-008b (P2) |
 | `data_completeness_tier='high'` rows ≥ 70% (FY23 measured 74.7%) | Distribution (EDA-calibrated) | CON-IFP-009 (P1) |
 | `promoted_at IS NOT NULL` | Completeness | CON-IFP-010 (P0) |
+| `fiscal_year` present + single-valued (mirrors RAW-IPF-013 at the consumer surface; closes consumable adversarial audit Gap 3 / R3) | Consistency | CON-IFP-012 (P0) — v1.4 |
+| `endowment_value_provenance` rename-passthrough fidelity (every row matches `base.ipeds_finance.endowment_value_flag` for the same UNITID; 0 mismatches) | Conservation (column-level) | CON-IFP-013 (P0) — v1.4 |
+| 0 rows match the §6 system-office filter exclusion clause (the 8-pattern AND 4-clause-numeric-proxy intersection) | Validity | CON-IFP-014 (P1) — v1.4 |
+| `source_load_date IS NOT NULL` (mirrors base's NOT NULL guarantee per §2 Decision G) | Completeness | CON-IFP-015 (P0) — v1.4 |
+| `source_load_date` within last 400 days of `promoted_at` | Freshness | CON-IFP-016 (P1) — v1.4 |
 
-All 11 rules pass against the landed table (`governance/dq-rules/consumable-ipeds-finance-profile.json`).
+All 16 rules pass against the v1.4 landed table (`governance/dq-rules/consumable-ipeds-finance-profile.json`).
 
 ---
 
 ## Cardinality
 
-- **2,675 rows** in the current FY2023 load.
-- Matches Base 1:1 (CON-IFP-001 conservation invariant).
-- Form mix: F1A 819 (30.6%) / F2 1,579 (59.0%) / F3 277 (10.4%).
-- Tier distribution: `high=1,998 (74.7%) / medium=677 (25.3%) / low=0 / insufficient=0`.
-- Per-form tier breakdown: F1A `high:706, medium:113`; F2 `high:1,292, medium:287`; F3 `high:0, medium:277`.
-- UNITID overlap with `consumable.career_outcomes`: 88.71%.
+- **2,630 rows** in the v1.4 FY2023 load (snapshot `950547093607535235`). 45 system-administrative-office rows excluded by the v1.4 row-filter against the 2,675-row base.
+- Row-count band: [base_count - 50, base_count] (CON-IFP-001a P0 upper bound + CON-IFP-001b P1 lower bound). v1.4 replaces the v1.3 strict equality with a band that absorbs system-office filter cycle drift.
+- v1.3 historical baseline (no filter): 2,675 rows.
+- Form mix (v1.4 post-filter, FY2023): F1A ~803 / F2 ~1,560 / F3 ~267.
+- Tier distribution (post-filter): `high≈1,998 / medium≈632 / low=0 / insufficient=0`.
+- UNITID overlap with `consumable.career_outcomes`: 88.71% (cross-source coverage; CON-IFP-008 P1 floor 88%, CON-IFP-008b P2 watch-line 86%).
 
 ---
 
@@ -248,6 +256,14 @@ All 11 rules pass against the landed table (`governance/dq-rules/consumable-iped
 9. **Disambiguation rename from `confidence_tier` to `data_completeness_tier` in v1.1.** Avoids collision with CIP→SOC crosswalk-confidence tiers used elsewhere in the project (e.g., `ConceptNormalizer` tiers). The downstream `raw-ingest-eada.md` is likely to introduce its own crosswalk-confidence tiers — the rename forecloses the ambiguity.
 
 10. **No SCD2.** Same as Base/Bronze; latest-snapshot-only.
+
+11. **v1.4 — `endowment_value_provenance` is a CDE renamed passthrough (NOT a derivation).** The column carries verbatim from `base.ipeds_finance.endowment_value_flag` (CON-IFP-013 P0 rename-fidelity). The CDE flag is true at consumable because the column is interpretation-changing for `endowment_value` and `endowment_per_fte` — longitudinal consumers must filter to `R`-provenance values. The verbatim filter-to-`R` guidance is carried at the data contract layer (`governance/data-contracts/consumable-ipeds-finance-profile.yaml::consumer_guidance.endowment_provenance`) per the @fp-data-reviewer disclaimer-gap concern.
+
+12. **v1.4 — `source_load_date` restored at consumable as a NOT-CDE vintage-observability passthrough.** v1.3 dropped the column at the base→consumable promote; v1.4 restores it (CON-IFP-015 P0 NOT NULL; CON-IFP-016 P1 within 400 days of `promoted_at`). NOT CDE because the column is metadata about *when bronze was loaded*, not *how to interpret an analytical column*. Compare with `endowment_value_provenance`, which IS CDE.
+
+13. **v1.4 — System-administrative-office row filter at the base→consumable promote.** This is the only row-count-changing filter in the IPEDS Finance pipeline. CON-IFP-001 split into 001a (P0 upper bound) + 001b (P1 lower bound `base_count - 50`); CON-IFP-014 (P1) verifies 0 surviving rows match the exclusion clause. The 8-pattern AND 4-clause-numeric-proxy SQL is the v1.3 final form — see consumable data dictionary "System-Office Filter" section for the verbatim SQL and the partial-enumeration of the 45 FY2023 excluded UNITIDs.
+
+14. **v1.4 — `A`/`N` semantic correction.** The v1.3 EDA §7 narrative inverted the meanings of `A` and `N`. The v1.4 amendment uses the IPEDS Finance FY2023 dictionary as the AUTHORITATIVE source — `A` = Not applicable (with exact `A`↔NULL coupling), `N` = Imputed using Nearest Neighbor procedure. Every entry in this logical model uses the corrected semantics.
 
 ---
 

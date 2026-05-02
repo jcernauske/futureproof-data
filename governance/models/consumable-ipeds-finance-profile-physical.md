@@ -23,7 +23,7 @@
 - **Storage location:** `data/gold/iceberg_warehouse/consumable/ipeds_finance_profile/`
 - **Created by:** [`src/gold/ipeds_finance_profile.py`](../../src/gold/ipeds_finance_profile.py) — `transform()` / `promote_ipeds_finance_profile()`
 - **Runner:** [`scripts/promote_ipeds_finance_profile.py`](../../scripts/promote_ipeds_finance_profile.py)
-- **Current snapshot:** `6649279885162971471` (2,675 rows, FY2023)
+- **Current snapshot:** `950547093607535235` (2,630 rows, FY2023, v1.4 with system-office filter applied + `endowment_value_provenance` + `source_load_date`); v1.3 historical snapshot `6649279885162971471` (2,675 rows, no filter)
 - **Idempotent promote:** `brightsmith.infra.promote.promote(..., dedup_on=['unitid'])` — re-running yields `0 new rows (all 2675 already exist)`
 
 ---
@@ -49,12 +49,14 @@ The schema is defined in code at `src/gold/ipeds_finance_profile.py` and materia
 | 13 | `marketing_ratio` | `DoubleType` | no | `base.ipeds_finance.marketing_ratio` (passthrough) | Institutional support / instruction. |
 | 14 | `data_completeness_tier` | `StringType` | yes | derived | `high`/`medium`/`low`/`insufficient`. CASE expression over the 4 independent raw inputs. |
 | 15 | `promoted_at` | `TimestampType` | yes | `datetime.now()` at promote time | Identical across all rows in a single consumable promote. |
+| 16 | `endowment_value_provenance` (v1.4) | `StringType` | no | `base.ipeds_finance.endowment_value_flag` (renamed passthrough) | **NEW v1.4** — Renamed passthrough from base; **CDE** per spec §6 Data Contract delta — interpretation-changing for `endowment_value` and `endowment_per_fte`. Domain `{R, A, P, Z, N}` OR NULL. **Authoritative semantics (corrected v1.2):** `R` = Reported by institution; `A` = **Not applicable** (no endowment fund — exact `A`↔NULL coupling on `endowment_value`, invariant per BSE-IPF-020); `N` = **Imputed using Nearest Neighbor procedure**; `P` = Imputed prior year; `Z` = Imputed zero. NULL on F3 by structure. Validated by CON-IFP-013 (P0 rename-fidelity). |
+| 17 | `source_load_date` (v1.4) | `DateType` | yes | `base.ipeds_finance.source_load_date` (passthrough) | **NEW v1.4** — Restored vintage-observability passthrough from base per spec §2 Decision G (v1.3 dropped this column; v1.4 restores it). **Explicitly NOT CDE** per spec §6 Data Contract delta — metadata-only. Validated by CON-IFP-015 (P0 NOT NULL) and CON-IFP-016 (P1 within 400 days of `promoted_at`). |
 
-**Total fields:** 15 (5 identity + 1 FTE + 3 raw expense passthroughs + 3 per-FTE derivations + 1 marketing-ratio + 1 tier + 1 provenance).
+**Total fields:** 17 (5 identity + 1 FTE + 3 raw expense passthroughs + 3 per-FTE derivations + 1 marketing-ratio + 1 tier + 1 promote stamp + **1 imputation provenance, v1.4** + **1 vintage-observability passthrough, v1.4**).
 
 ### Field-ID Stability
 
-Field IDs 1–15 are pinned. Future schema evolution (e.g., adding a CIP→SOC-style crosswalk-confidence tier as a separate column, or surfacing additional Bronze fields) must allocate IDs ≥ 16 and **never** rebind 1–15 to other columns. Standard Iceberg-evolution discipline.
+Field IDs 1–17 are pinned. Field IDs 1–15 are unchanged from v1.0–v1.3; field IDs 16 (`endowment_value_provenance`) and 17 (`source_load_date`) were added in v1.4 — strictly additive at the tail. Future schema evolution must allocate IDs ≥ 18 and **never** rebind 1–17 to other columns. Standard Iceberg-evolution discipline.
 
 ### Verified-Landed Schema
 
@@ -91,7 +93,11 @@ SCHEMA = Schema(
     NestedField(13, "marketing_ratio",               DoubleType(),    required=False),
     NestedField(14, "data_completeness_tier",        StringType(),    required=True),
     NestedField(15, "promoted_at",                   TimestampType(), required=True),
+    NestedField(16, "endowment_value_provenance",    StringType(),    required=False),  # v1.4 — renamed CDE passthrough from base.ipeds_finance.endowment_value_flag
+    NestedField(17, "source_load_date",              DateType(),      required=True),   # v1.4 — restored NOT-CDE vintage-observability passthrough from base
 )
+
+# v1.4 also imports DateType from pyiceberg.types
 ```
 
 ---
@@ -105,7 +111,8 @@ Per spec §6:
 - **Promote pattern:** `compute_grain_id(row, ['unitid'], prefix='ifp')`
 - **Idempotent:** Yes
 - **Source:** `base.ipeds_finance`
-- **Expected rows:** matches Base row count
+- **Expected rows (v1.4):** between (Base row count - 50) and Base row count, exclusive of the system-administrative-office cluster excluded by the v1.4 row-filter (8-pattern AND 4-clause-numeric-proxy). FY2023 measured: 2,630 rows (45 excluded against 2,675-row base).
+- **Expected rows (v1.3 historical):** matched Base row count exactly (CON-IFP-001 strict equality; replaced in v1.4 by CON-IFP-001a/001b band).
 
 ```python
 from brightsmith.infra.grain import compute_grain_id

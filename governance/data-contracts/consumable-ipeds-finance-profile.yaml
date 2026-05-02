@@ -1,11 +1,30 @@
 ---
 # Data Contract: consumable.ipeds_finance_profile
-# Spec: full-pipeline-ipeds-finance v1.3
+# Spec: full-pipeline-ipeds-finance v1.3 + ipeds-finance-v1.4 (v1.3 amendment)
 # Zone: Gold (Consumable)
 # Status: draft (pending @bs:staff-engineer post-implementation sign-off)
 # Tagged by: @cde-tagger (governance/cde-tagging/consumable-ipeds-finance-profile.md, separate companion artifact)
 # Documented by: @doc-generator
-# Date: 2026-04-30
+# Date: 2026-04-30 (v1.0); 2026-05-01 (v1.1.0 — v1.4 delta amendment)
+#
+# Version history:
+#   v1.0.0  2026-04-30  Initial contract (15 columns, 11 DQ rules, 9 CDE).
+#   v1.1.0  2026-05-01  ipeds-finance-v1.4 delta — non-breaking minor:
+#                       (a) +2 columns: endowment_value_provenance (CDE),
+#                           source_load_date (NOT CDE).
+#                       (b) Row-count guarantee changed from "matches base" to
+#                           "between (base count - 50) and base count" exclusive
+#                           of the system-administrative-office cluster.
+#                       (c) System-office row filter at promote (8-pattern AND
+#                           4-clause-numeric-proxy intersection — see
+#                           consumer_guidance.system_office_filter below).
+#                       (d) +5 net DQ rules (CON-IFP-001 split + CON-IFP-012..016).
+#                       (e) +1 business glossary term (BT-IPF-ENDOWMENT-PROVENANCE).
+#                       Per @fp-data-reviewer disclaimer-gap concern, the
+#                       longitudinal-filter-to-`R` guidance is carried VERBATIM
+#                       at the contract layer (consumer_guidance.endowment_provenance)
+#                       so contract-reading consumers receive the warning without
+#                       parsing the column docstring.
 # Parent contracts: (Base contract not yet authored — spec §8 lists base-zone artifacts under @doc-generator's scope but the data-contract checklist item names only the consumable)
 #
 # NAMING NOTE: This file is named consumable-ipeds-finance-profile.yaml per the
@@ -18,11 +37,13 @@
 table: consumable.ipeds_finance_profile
 namespace: consumable
 zone: gold
-version: "1.0.0"
+version: "1.1.0"
 grain:
   - unitid
 status: draft
-record_count: 2675
+record_count: 2630
+record_count_v1_0: 2675  # historical; pre-v1.4 system-office filter
+record_count_band: [2625, 2675]  # base_count - 50 .. base_count, per CON-IFP-001a / CON-IFP-001b
 data_vintage: >
   IPEDS Finance Survey FY2023 cycle (academic year 2022-23, fiscal year ending
   June 30 2023) joined at Bronze ingest with EFIA2023 (12-Month Instructional
@@ -67,14 +88,28 @@ quality_tier: >
   than rely on the contract-level tier alone.
 
 quality:
-  row_count_guarantee: 2675
+  row_count_guarantee: 2630
   row_count_tolerance_band: [2500, 3200]
+  row_count_v1_4_band: [2625, 2675]
+  row_count_v1_4_band_note: >
+    v1.4 amendment (ipeds-finance-v1.4 spec §6 Data Contract delta): the
+    consumable row count is no longer == base row count. The new contract is
+    "between (base count - 50) and base count, exclusive of the
+    system-administrative-office cluster." Specifically:
+      - CON-IFP-001a (P0): consumable row count <= base row count — hard upper
+        bound; any consumable row in excess of base is row leakage.
+      - CON-IFP-001b (P1): consumable row count >= base row count - 50 — wide
+        enough to absorb cycle drift in the system-office filter (the 25-40
+        named entities can fluctuate by ±5 across cycles as IPEDS reclassifies).
+    On the FY2023 landed snapshot, 45 of the 2,675 base rows were excluded by
+    the system-office filter (see consumer_guidance.system_office_filter), so
+    consumable record_count = 2,630.
   row_count_tolerance_note: >
-    Hard guarantee: row count == base.ipeds_finance row count (CON-IFP-001 P0
-    conservation invariant). Soft band [2500, 3200] inherited from RAW-IPF-001
-    (Bronze) — cycle-to-cycle drift within this band is normal IPEDS behavior
-    given non-filer rates and HD-filter narrowing; outside this band requires
-    investigation.
+    Soft band [2500, 3200] inherited from RAW-IPF-001 (Bronze) — cycle-to-cycle
+    drift within this band is normal IPEDS behavior given non-filer rates and
+    HD-filter narrowing; outside this band requires investigation. The v1.4
+    band [base_count - 50, base_count] is the authoritative consumable-zone
+    invariant; the wider Bronze band is informational.
   null_guarantee: >
     Six columns guaranteed 100% non-null (record_id, unitid, institution_name,
     report_form, fiscal_year, data_completeness_tier, promoted_at — seven
@@ -293,7 +328,61 @@ columns:
       their finance schedule and report NULL by design. Sourced from F1A F1H02
       / F2 F2H02. Promoted verbatim from base.ipeds_finance. Observed FY2023:
       76.00% non-null overall; 100% structural NULL on F3.
+
+      v1.4 INTERPRETATION GUIDANCE: read alongside endowment_value_provenance
+      (the new column added in this v1.1.0 contract amendment) — only ~25-31%
+      of non-null F1A/F2 endowment values are institution-reported; the
+      remainder are NCES-imputed via Nearest Neighbor / prior-year / zero-imputation
+      methodologies. See consumer_guidance.endowment_provenance below for the
+      verbatim longitudinal-filter guidance.
     dq_rules: []
+
+  - name: endowment_value_provenance
+    type: string
+    required: false
+    business_term: BT-IPF-ENDOWMENT-PROVENANCE
+    is_cde: true
+    cde_rationale: >
+      NEW v1.1.0 CDE per ipeds-finance-v1.4 spec §6 Data Contract delta. This
+      column changes how endowment_value AND endowment_per_fte should be
+      interpreted: only the rows with provenance = 'R' (Reported by institution)
+      carry institution-reported values suitable for longitudinal endowment
+      analyses without further qualification. Rows with provenance = 'A' (Not
+      applicable — no endowment fund) have endowment_value IS NULL by structural
+      invariant (see BSE-IPF-020 P0). Rows with provenance ∈ {'N', 'P', 'Z'}
+      carry NCES-imputed values (Nearest Neighbor / prior year / zero,
+      respectively). Longitudinal consumers MUST filter to provenance = 'R' to
+      avoid mixing institution-reported and imputed values across cycles —
+      verbatim guidance carried in consumer_guidance.endowment_provenance below.
+      CDE flag is required because misinterpretation of this column directly
+      corrupts every downstream endowment-based analysis (endowment_per_fte
+      ranks, EADA aura-score endowment plank, longitudinal trend studies).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      IPEDS-published provenance flag for the `endowment_value` field. Renamed
+      passthrough from `base.ipeds_finance.endowment_value_flag` per
+      ipeds-finance-v1.4 §2 Decision A. NULL on F3 (structural — F3 has no
+      `F3H` family on the for-profit schedule). On F1A/F2 the observed FY2023
+      domain is `{R, A, P, Z, N}` — a strict subset of the IPEDS dictionary's
+      13-code shared `Xvarname` lookup `{A, B, C, D, G, H, J, K, L, N, P, R, Z}`.
+      Authoritative semantics (corrected v1.2 against the FY2023 dictionary +
+      empirical evidence; the v1.3-EDA-§7 narrative inverted `A` and `N`):
+        R = Reported by institution (the institution-reported value, populated,
+            suitable for analysis without further qualification).
+        A = Not applicable (institution has no endowment fund — `A`↔NULL
+            coupling is invariant per BSE-IPF-020 P0; community colleges, tribal
+            colleges, theological seminaries, and other no-endowment populations).
+        N = Imputed using Nearest Neighbor procedure.
+        P = Imputed using prior year's data.
+        Z = Imputed using a zero value.
+      Source: IPEDS Finance Survey `XF1H02` (F1A) / `XF2H02` (F2). Future-cycle
+      appearance of any of the 8 unobserved dictionary codes
+      (`{B, C, D, G, H, J, K, L}`) is a Significant escalation — RAW-IPF-015's
+      allowed-set is scoped to the observed 5-code subset and does not silently
+      auto-extend.
+    dq_rules:
+      - CON-IFP-013
 
   - name: institutional_support_per_fte
     type: double
@@ -419,6 +508,36 @@ columns:
       - CON-IFP-006
       - CON-IFP-009
 
+  - name: source_load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: >
+      Explicitly NOT CDE per ipeds-finance-v1.4 §6 Data Contract delta. This
+      column is vintage-observability metadata (NCES revises previously-
+      published vintages preliminary → revised → final; source_load_date lets
+      consumers compare two cached snapshots and identify which is fresher).
+      It does not change how any analytical column should be interpreted, so
+      it does not meet the CDE bar (CDE = "changes downstream interpretation
+      of analytical columns"). Compare with endowment_value_provenance, which
+      DOES change interpretation and IS CDE.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Restored passthrough from `base.ipeds_finance.source_load_date` per
+      ipeds-finance-v1.4 §2 Decision G. Calendar date the source bronze data
+      was loaded (UTC). Documents when the bronze source was loaded — distinct
+      from `fiscal_year` (the IPEDS reporting cycle, e.g. 2023 for FY2023) and
+      from `promoted_at` (the consumable promote run timestamp, refreshed on
+      every promote). NCES revises previously-published vintages (preliminary
+      → revised → final); `source_load_date` lets downstream consumers compare
+      two cached snapshots and tell which is fresher. NOT NULL per
+      CON-IFP-015 P0 (mirrors base's NOT NULL guarantee). Within 400 days of
+      `promoted_at` per CON-IFP-016 P1 (catches stale snapshots).
+    dq_rules:
+      - CON-IFP-015
+      - CON-IFP-016
+
   - name: promoted_at
     type: timestamp
     required: true
@@ -427,30 +546,35 @@ columns:
     is_pii: false
     pii_rationale: ""
     description: >
-      Consumable promotion batch timestamp. Identical across all 2,675 rows
-      in a batch. Replaces Base's source_load_date / ingested_at operational
-      pair with a single Gold-zone timestamp. Operational observability only.
-      Distinct from base.ipeds_finance.ingested_at (Base batch stamp) and
-      bronze.ipeds_finance.ingested_at (Bronze batch stamp); downstream
-      consumers needing per-zone freshness should reference the fully-qualified
-      table name. Freshness is governed by the annual IPEDS refresh cadence,
-      not by this per-row timestamp.
+      Consumable promotion batch timestamp. Identical across all rows in a
+      batch. Operational observability only. Distinct from
+      `base.ipeds_finance.ingested_at` (Base batch stamp) and
+      `bronze.ipeds_finance.ingested_at` (Bronze batch stamp) and from the
+      v1.4-restored `source_load_date` (which records the Bronze ingest date,
+      not the consumable promote date); downstream consumers needing per-zone
+      freshness should reference the fully-qualified table name. Freshness is
+      governed by the annual IPEDS refresh cadence, not by this per-row
+      timestamp.
     dq_rules:
       - CON-IFP-010
 
 table_level_dq_rules:
-  - CON-IFP-001  # Row count == base.ipeds_finance row count (conservation invariant — table-wide)
-  - CON-IFP-008  # Cross-source coverage: ≥88% of consumable.career_outcomes UNITIDs find a matching row here
-  - CON-IFP-008b # Cross-source coverage early-warning: ≥86% watch-line on the same check (P2)
+  - CON-IFP-001a # P0: consumable row count <= base row count (upper bound; row leakage)
+  - CON-IFP-001b # P1: consumable row count >= base row count - 50 (lower bound; absorbs system-office filter cycle drift)
+  - CON-IFP-008  # P1: cross-source coverage ≥88% of consumable.career_outcomes UNITIDs find a matching row here
+  - CON-IFP-008b # P2: cross-source coverage early-warning: ≥86% watch-line on the same check
+  - CON-IFP-012  # P0: fiscal_year present + single-valued at consumable
+  - CON-IFP-014  # P1: system-office filter executed (0 rows match the §6 8-pattern AND 4-clause-numeric-proxy exclusion clause)
 
 dq_summary:
-  total_rules: 11
-  p0_count: 8
-  p1_count: 2
-  p2_count: 1
+  total_rules: 16  # v1.4: 11 v1.3 rules → CON-IFP-001 split (1→2) + 5 new (CON-IFP-012/013/014/015/016)
+  total_rules_v1_3: 11
+  p0_count: 11  # v1.4: was 8; gained CON-IFP-001a (split), CON-IFP-012, CON-IFP-013, CON-IFP-015
+  p1_count: 4   # v1.4: was 2; gained CON-IFP-001b (split), CON-IFP-014, CON-IFP-016
+  p2_count: 1   # unchanged (CON-IFP-008b)
   rules_reference: governance/dq-rules/consumable-ipeds-finance-profile.json
-  scorecard_reference: governance/dq-scorecards/full-pipeline-ipeds-finance-scorecard.md
-  current_status: 11/11 PASS (44/44 PASS across all three zones in the full-pipeline scorecard)
+  scorecard_reference: governance/dq-scorecards/ipeds-finance-v1.4-scorecard.md
+  current_status: 16/16 PASS (FY2023 v1.4 landed)
   evaluation_mode_carveouts:
     - rule_id: CON-IFP-008
       mode: production_only
@@ -466,25 +590,28 @@ dq_summary:
       reason: Same as CON-IFP-008.
 
 cde_summary:
-  total_columns: 15
-  cde_columns: 9
+  total_columns: 17  # v1.4: was 15; +2 (endowment_value_provenance, source_load_date)
+  total_columns_v1_3: 15
+  cde_columns: 10  # v1.4: was 9; +1 (endowment_value_provenance). source_load_date is NOT CDE.
   pii_columns: 0
   cde_columns_list:
     - unitid                              # Re-affirmed from Bronze/Base CDE set
-    - instruction_expenses                # NEW at consumable per spec §6 (raw passthrough exception)
-    - institutional_support_expenses      # NEW at consumable per spec §6 (raw passthrough exception)
-    - endowment_value                     # NEW at consumable per spec §6 (raw passthrough exception)
+    - instruction_expenses                # CDE at consumable per spec §6 v1.3 (raw passthrough exception)
+    - institutional_support_expenses      # CDE at consumable per spec §6 v1.3 (raw passthrough exception)
+    - endowment_value                     # CDE at consumable per spec §6 v1.3 (raw passthrough exception)
+    - endowment_value_provenance          # NEW v1.4 CDE per spec §6 Data Contract delta — interpretation-changing
     - institutional_support_per_fte       # Re-affirmed from Base CDE set
     - instruction_per_fte                 # Re-affirmed from Base CDE set
     - endowment_per_fte                   # Re-affirmed from Base CDE set
     - marketing_ratio                     # Re-affirmed from Base CDE set; primary downstream EADA composite input
-    - data_completeness_tier              # NEW at consumable; gates downstream display & Gemma hedging
+    - data_completeness_tier              # CDE at consumable v1.3; gates downstream display & Gemma hedging
   non_cde_columns:
     - record_id
     - institution_name
     - report_form
     - fiscal_year
     - total_fte_enrollment
+    - source_load_date                    # NEW v1.4 column; explicitly NOT CDE (vintage-observability metadata)
     - promoted_at
   sensitivity_classification: public
   regulatory_frameworks: []
@@ -501,6 +628,7 @@ business_terms_referenced:
   - BT-IPF-PER-FTE                         # Bronze-defined; per-FTE convention reused at consumable
   - BT-IPF-MARKETING-RATIO                 # Proposed at spec §6; deferred to silver/gold doc-generator runs (this run)
   - BT-IPF-DATA-COMPLETENESS-TIER          # Proposed at spec §6; deferred to silver/gold doc-generator runs (this run)
+  - BT-IPF-ENDOWMENT-PROVENANCE            # NEW v1.4 — added by ipeds-finance-v1.4 §6 Business Glossary Term
 
 reviewer_conditions:
   governance_reviewer_v1_1_adv_6_discharged_at_consumable:
@@ -560,3 +688,150 @@ upstream_dependencies:
     cross-source coverage; not joined into this table at promote time
 
 lineage_reference: governance/lineage/full-pipeline-ipeds-finance-{timestamp}.json
+lineage_reference_v1_4: governance/lineage/ipeds-finance-v1.4-{timestamp}.json
+
+# ────────────────────────────────────────────────────────────────────────
+# CONSUMER GUIDANCE — v1.4 amendment
+# ────────────────────────────────────────────────────────────────────────
+# Per @fp-data-reviewer disclaimer-gap concern raised at v1.0 review and
+# closed at v1.1 (see ipeds-finance-v1.4 §7), the contract carries
+# interpretation-critical guidance VERBATIM at the contract layer (not just
+# in field-level docstrings) so contract-reading downstream consumers
+# receive the warnings programmatically without parsing column descriptions.
+consumer_guidance:
+
+  endowment_provenance:
+    affected_columns:
+      - endowment_value
+      - endowment_value_provenance
+      - endowment_per_fte
+    severity: critical
+    consumer_guidance_verbatim: >
+      Consumers running longitudinal endowment analyses should filter to
+      `endowment_value_provenance = 'R'` to limit to institution-reported
+      populated values; this excludes both the no-endowment `A` population
+      (community colleges, theological seminaries, etc.) and the imputed
+      value populations (`N` / `P` / `Z`).
+    rationale: >
+      Only `R`-flagged rows carry institution-reported endowment values
+      suitable for cross-cycle longitudinal comparison. `A`-flagged rows have
+      `endowment_value IS NULL` by structural invariant (no endowment fund
+      exists; BSE-IPF-020 P0 enforces). `N` / `P` / `Z` flagged rows carry
+      NCES-imputed values (Nearest Neighbor / prior year / zero, respectively)
+      whose change-over-time reflects NCES methodology rather than the
+      institution's actual endowment dynamics. Filtering to `R` is
+      operationally close to filtering to `endowment_value IS NOT NULL`
+      because of the `A`↔NULL coupling, but the explicit `R` filter is
+      correct: it drops the small `N` / `P` / `Z` imputed-value rows that do
+      carry a populated `endowment_value`. Consumers running snapshot
+      benchmarks may use all non-NULL endowment_value rows regardless of
+      provenance.
+    semantic_correction_history: >
+      The v1.3 EDA §7 narrative inverted the meanings of `A` and `N` (`A`
+      was described as "model-imputed" and `N` as "Not applicable").
+      Authoritative semantics per the FY2023 IPEDS Finance dictionary +
+      empirical evidence: `A` = Not applicable; `N` = Imputed using Nearest
+      Neighbor procedure. Corrected throughout v1.4 v1.2.
+
+  marketing_ratio_residual_admin_entities:
+    affected_columns:
+      - marketing_ratio
+    severity: advisory
+    consumer_guidance_verbatim: >
+      Consumers ranking institutions by `marketing_ratio` may further wish
+      to inspect rows with `total_fte_enrollment IS NULL` — these are
+      typically administrative entities that the v1.4 system-office filter
+      targets, but residual cases may exist.
+    rationale: >
+      Per the v1.3 chaos closure, the v1.4 system-office filter (8-pattern
+      AND 4-clause-numeric-proxy intersection) catches the canonical
+      administrative-office cluster, but a small number of edge cases may
+      survive — e.g., institutions whose name does not match any of the 8
+      patterns yet whose `total_fte_enrollment` is NULL. CON-IFP-014 (P1)
+      enforces the filter at the contract surface; rows surviving the filter
+      with `total_fte_enrollment IS NULL` are the residual cohort consumers
+      should inspect when ranking by `marketing_ratio` outliers.
+
+  system_office_filter:
+    rule_id: CON-IFP-014  # P1 — confirms the filter ran with the correct semantic
+    rationale: >
+      Filters out IPEDS-Finance rows that represent state-system or
+      district-level administrative offices rather than degree-granting
+      institutions. These offices file F1A schedules for system-level
+      overhead; students belong to member institutions. They produce
+      distorted `marketing_ratio` outliers (e.g., UNITID 242060 Sistema
+      Universitario Ana G. Mendez at MR=5,265.5×) and have no career-outcome
+      counterpart by construction (no graduates). A row is excluded only
+      when both clauses match: (a) institution name matches one of the 8
+      organizational-name patterns, AND (b) the row has at least one of four
+      organizational-shell signals (instruction NULL, instruction < $1M,
+      FTE NULL, FTE < 50). The AND intersection is the deliberate guardrail
+      against false-positives on small teaching institutions whose name
+      happens to match a pattern (those have positive FTE).
+    name_pattern_count: 8
+    name_pattern_set:
+      - "% office"
+      - "% system"
+      - "% system %"
+      - "%chancellor%"
+      - "%central office%"
+      - "%system office%"
+      - "%district office%"
+      - "%sistema universitario%"  # 8th pattern — Spanish-language Puerto Rico system-office naming (added v1.1)
+    numeric_proxy_clause_count: 4   # v1.3 final form (extended from v1.0/v1.1/v1.2 2-clause version)
+    numeric_proxy_clauses:
+      - "instruction_expenses IS NULL"
+      - "instruction_expenses < 1000000.0"
+      - "total_fte_enrollment IS NULL"
+      - "total_fte_enrollment < 50"
+    filter_sql_verbatim: |
+      WHERE NOT (
+        (
+          LOWER(institution_name) LIKE '% office'
+          OR LOWER(institution_name) LIKE '% system'
+          OR LOWER(institution_name) LIKE '% system %'
+          OR LOWER(institution_name) LIKE '%chancellor%'
+          OR LOWER(institution_name) LIKE '%central office%'
+          OR LOWER(institution_name) LIKE '%system office%'
+          OR LOWER(institution_name) LIKE '%district office%'
+          OR LOWER(institution_name) LIKE '%sistema universitario%'
+        )
+        AND (
+          instruction_expenses IS NULL
+          OR instruction_expenses < 1000000.0
+          OR total_fte_enrollment IS NULL
+          OR total_fte_enrollment < 50
+        )
+      )
+    fy2023_excluded_count: 45
+    fy2023_landed_count: 2630
+    representative_excluded_examples:
+      - unitid: 117681
+        name: "Los Angeles Community College District Office"
+        rationale: "Name matches '% office'; FTE NULL; MR=84.34"
+      - unitid: 195827
+        name: "SUNY-System Office"
+        rationale: "Name matches '%system office%'; FTE NULL; MR=62.14"
+      - unitid: 166665
+        name: "University of Massachusetts-Central Office"
+        rationale: "Name matches '%central office%'; FTE NULL; MR=13.66"
+      - unitid: 144777
+        name: "DeVry University-Administrative Office"
+        rationale: "Name matches '% office'; FTE NULL; MR=8.56"
+      - unitid: 242060
+        name: "Sistema Universitario Ana G. Mendez"
+        rationale: "Name matches '%sistema universitario%'; FTE NULL; MR=5,265.5 (the #1 marketing_ratio outlier in FY2023)"
+    chaos_closure_reference: governance/chaos-reports/ipeds-finance-v1.4-chaos.md
+
+  endowment_provenance_dictionary_subset:
+    affected_columns:
+      - endowment_value_provenance
+    severity: advisory
+    consumer_guidance_verbatim: >
+      The observed FY2023 domain `{R, A, P, Z, N}` is a strict subset of
+      the IPEDS dictionary's 13-code shared `Xvarname` lookup
+      `{A, B, C, D, G, H, J, K, L, N, P, R, Z}`. The remaining 8 dictionary
+      codes (`B, C, D, G, H, J, K, L`) are unobserved in FY2023 endowment
+      data but are dictionary-legitimate. Future-cycle appearance of any of
+      the 8 unobserved codes is a Significant escalation per RAW-IPF-015 —
+      no silent allowed-set extension.

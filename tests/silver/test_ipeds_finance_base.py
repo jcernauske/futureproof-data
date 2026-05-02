@@ -70,6 +70,8 @@ def _stanford_bronze_row() -> dict:
       endowment_per_fte = 1,911,327.80
       marketing_ratio = 0.30192890033486947
     Expected record_id: ipf-267f20f48b4b772f
+
+    v1.4: ``endowment_value_flag`` = ``R`` (institution-reported).
     """
     return {
         "unitid": 243744,
@@ -84,6 +86,7 @@ def _stanford_bronze_row() -> dict:
         "ingested_at": INGESTED_AT,
         "source_url": "https://nces.ed.gov/ipeds/datacenter/data/F2223_F1A.zip|...",
         "source_method": "csv_cache",
+        "endowment_value_flag": "R",
     }
 
 
@@ -92,6 +95,9 @@ def _f3_bronze_row(unitid: int = 199193) -> dict:
 
     Real reported F3 institution: instruction $50M, inst-support $55M, FTE 504.
     Expected: marketing_ratio = 1.10, endowment_per_fte = NULL.
+
+    v1.4: ``endowment_value_flag`` is structurally NULL on F3 (no F3H
+    family per v1.3 §3, raw §4).
     """
     return {
         "unitid": unitid,
@@ -106,6 +112,7 @@ def _f3_bronze_row(unitid: int = 199193) -> dict:
         "ingested_at": INGESTED_AT,
         "source_url": "...",
         "source_method": "csv_cache",
+        "endowment_value_flag": None,  # v1.4: F3 structural NULL
     }
 
 
@@ -127,6 +134,7 @@ def _zero_instruction_bronze_row() -> dict:
         "ingested_at": INGESTED_AT,
         "source_url": "...",
         "source_method": "csv_cache",
+        "endowment_value_flag": "R",  # v1.4
     }
 
 
@@ -437,8 +445,8 @@ class TestBaseSchema:
         assert isinstance(get_base_schema(), Schema)
 
     def test_field_count(self):
-        """Spec §5: 15 columns."""
-        assert len(get_base_schema().fields) == 15
+        """Spec §5 (v1.4): 16 columns (15 v1.3 + endowment_value_flag)."""
+        assert len(get_base_schema().fields) == 16
 
     def test_field_names_match_spec(self):
         names = [f.name for f in get_base_schema().fields]
@@ -449,6 +457,8 @@ class TestBaseSchema:
             "institutional_support_per_fte", "instruction_per_fte",
             "endowment_per_fte", "marketing_ratio",
             "source_load_date", "ingested_at",
+            # v1.4 §5 addition (field-id 16)
+            "endowment_value_flag",
         ]
         assert names == expected
 
@@ -482,6 +492,8 @@ class TestBaseSchema:
         assert types_by_name["marketing_ratio"] is DoubleType
         assert types_by_name["source_load_date"] is DateType
         assert types_by_name["ingested_at"] is TimestampType
+        # v1.4 §5
+        assert types_by_name["endowment_value_flag"] is StringType
 
 
 class TestModuleConstants:
@@ -502,7 +514,11 @@ class TestModuleConstants:
 
 
 def _bronze_schema() -> Schema:
-    """Minimal bronze schema sufficient for the silver transformer's reads."""
+    """Minimal bronze schema sufficient for the silver transformer's reads.
+
+    v1.4 §4: bronze adds ``endowment_value_flag`` at field-id 13 (string,
+    nullable).
+    """
     return Schema(
         NestedField(1, "unitid", LongType(), required=True),
         NestedField(2, "institution_name", StringType(), required=True),
@@ -516,6 +532,7 @@ def _bronze_schema() -> Schema:
         NestedField(10, "source_method", StringType(), required=True),
         NestedField(11, "ingested_at", TimestampType(), required=True),
         NestedField(12, "load_date", DateType(), required=True),
+        NestedField(13, "endowment_value_flag", StringType(), required=False),
     )
 
 
@@ -611,3 +628,264 @@ class TestIntegration:
         )
         assert result["form_counts"]["F1A"] == 2
         assert result["form_counts"]["F3"] == 1
+
+
+# ---------------------------------------------------------------------------
+# v1.4 §5 — endowment_value_flag passthrough + A↔NULL coupling preview
+# ---------------------------------------------------------------------------
+
+
+def _f1a_a_flag_bronze_row(unitid: int = 100001) -> dict:
+    """F1A row with flag = 'A' (Not applicable) — endowment_value MUST be NULL.
+
+    Per v1.4 §3: every ``A``-flagged row has ``endowment_value IS NULL``
+    (the BSE-IPF-020 invariant).  Models a community college / tribal
+    college / theological seminary that has no endowment fund.
+    """
+    return {
+        "unitid": unitid,
+        "institution_name": "Test Community College",
+        "report_form": "F1A",
+        "fiscal_year": 2023,
+        "institutional_support_expenses": 5_000_000.0,
+        "instruction_expenses": 30_000_000.0,
+        "endowment_value": None,  # A↔NULL coupling
+        "total_fte_enrollment": 2_000.0,
+        "load_date": LOAD_DATE,
+        "ingested_at": INGESTED_AT,
+        "source_url": "...",
+        "source_method": "csv_cache",
+        "endowment_value_flag": "A",
+    }
+
+
+def _f2_imputed_n_flag_bronze_row(unitid: int = 100002) -> dict:
+    """F2 row with flag = 'N' (Imputed Nearest Neighbor).
+
+    Per v1.4 §3: ``N`` rows have a populated ``endowment_value`` (NCES-
+    imputed via Nearest Neighbor procedure when the institution missed
+    reporting).  Filtering to ``R`` for longitudinal accuracy excludes
+    these rows.
+    """
+    return {
+        "unitid": unitid,
+        "institution_name": "Test Private Nonprofit College",
+        "report_form": "F2",
+        "fiscal_year": 2023,
+        "institutional_support_expenses": 8_000_000.0,
+        "instruction_expenses": 25_000_000.0,
+        "endowment_value": 50_000_000.0,  # imputed value, populated
+        "total_fte_enrollment": 1_500.0,
+        "load_date": LOAD_DATE,
+        "ingested_at": INGESTED_AT,
+        "source_url": "...",
+        "source_method": "csv_cache",
+        "endowment_value_flag": "N",
+    }
+
+
+class TestEndowmentValueFlagPassthrough:
+    """v1.4 §5 BSE-IPF-018 preview — passthrough fidelity at the row level.
+
+    The base transformer must carry ``endowment_value_flag`` from raw
+    verbatim — no derivation, no rename, no transformation.
+    """
+
+    def test_r_flag_preserved_verbatim(self):
+        """F1A row with flag ``'R'`` (Reported) round-trips through transform_row."""
+        row = transform_row(_stanford_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] == "R"
+
+    def test_a_flag_preserved_verbatim(self):
+        """F1A row with flag ``'A'`` (Not applicable) round-trips."""
+        row = transform_row(_f1a_a_flag_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] == "A"
+
+    def test_n_flag_preserved_verbatim(self):
+        """F2 row with flag ``'N'`` (Imputed Nearest Neighbor) round-trips."""
+        row = transform_row(_f2_imputed_n_flag_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] == "N"
+
+    @pytest.mark.parametrize("flag", ["R", "A", "N", "P", "Z"])
+    def test_all_five_observed_codes_pass_through(self, flag):
+        """Every code in the FY2023 observed domain {R, A, P, Z, N} round-trips."""
+        bronze = _stanford_bronze_row()
+        bronze["endowment_value_flag"] = flag
+        row = transform_row(bronze, ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] == flag
+
+    def test_f3_row_flag_is_null(self):
+        """v1.4 §5: F3 ``endowment_value_flag`` is structurally NULL."""
+        row = transform_row(_f3_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] is None
+
+    def test_missing_flag_key_yields_none(self):
+        """If the bronze row dict has no key, base writes NULL (not raises)."""
+        bronze = _stanford_bronze_row()
+        del bronze["endowment_value_flag"]
+        row = transform_row(bronze, ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] is None
+
+    def test_explicit_none_flag_yields_none(self):
+        """``flag=None`` explicit (e.g., F3) writes NULL at base."""
+        bronze = _stanford_bronze_row()
+        bronze["endowment_value_flag"] = None
+        row = transform_row(bronze, ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] is None
+
+
+class TestEndowmentValueFlagAnNullCoupling:
+    """v1.4 §5 BSE-IPF-020 preview — ``A``↔NULL coupling invariant.
+
+    Both directions must hold:
+      (1) every flag = 'A' row has endowment_value IS NULL.
+      (2) every F1A/F2 NULL-endowment row has flag = 'A'.
+
+    These row-level fixtures preview the rule; the rule itself runs at
+    DQ-time over the whole landed table.
+    """
+
+    def test_a_flag_implies_null_endowment_value(self):
+        """``A``-flagged row → ``endowment_value`` is NULL."""
+        row = transform_row(_f1a_a_flag_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] == "A"
+        assert row["endowment_value"] is None
+
+    def test_n_flag_with_populated_endowment_value(self):
+        """``N`` rows have a populated value (NCES-imputed) — NOT coupled to NULL."""
+        row = transform_row(_f2_imputed_n_flag_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] == "N"
+        assert row["endowment_value"] is not None
+        assert row["endowment_value"] == 50_000_000.0
+
+    def test_r_flag_with_populated_endowment_value(self):
+        """``R`` rows are institution-reported with populated values."""
+        row = transform_row(_stanford_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] == "R"
+        assert row["endowment_value"] is not None
+        assert row["endowment_value"] == 36_494_893_000.0
+
+    def test_f3_exempt_from_coupling(self):
+        """F3 rows have BOTH flag=NULL and value=NULL — exempt by structure."""
+        row = transform_row(_f3_bronze_row(), ingested_at=INGESTED_AT)
+        assert row["endowment_value_flag"] is None
+        assert row["endowment_value"] is None
+
+
+class TestEndowmentValueFlagSchema:
+    """v1.4 §5: schema-level facts about the new field."""
+
+    def test_endowment_value_flag_is_field_id_16(self):
+        """v1.4 §5 appends at field-id 16 (next sequential after v1.3's 15)."""
+        schema = get_base_schema()
+        flag_field = next(
+            f for f in schema.fields if f.name == "endowment_value_flag"
+        )
+        assert flag_field.field_id == 16
+
+    def test_endowment_value_flag_is_string_type(self):
+        """v1.4 §5: type is ``StringType`` (not numeric — it's an enum code)."""
+        schema = get_base_schema()
+        flag_field = next(
+            f for f in schema.fields if f.name == "endowment_value_flag"
+        )
+        assert isinstance(flag_field.field_type, StringType)
+
+    def test_endowment_value_flag_is_nullable(self):
+        """v1.4 §5: NULL on F3 (structural) — the column must be nullable."""
+        schema = get_base_schema()
+        flag_field = next(
+            f for f in schema.fields if f.name == "endowment_value_flag"
+        )
+        assert not flag_field.required
+
+
+class TestEndowmentValueFlagIntegration:
+    """v1.4 §5 — bronze → base end-to-end with the new flag column."""
+
+    def test_end_to_end_flag_passthrough(self, tmp_path):
+        """Mixed batch — R, A, N, F3-NULL — round-trips through promote."""
+        from brightsmith.infra.iceberg_setup import get_catalog, read_with_duckdb
+
+        bronze = [
+            _stanford_bronze_row(),                # F1A R
+            _f1a_a_flag_bronze_row(100001),        # F1A A (NULL value)
+            _f2_imputed_n_flag_bronze_row(100002),  # F2 N (imputed value)
+            _f3_bronze_row(199193),                # F3 NULL (structural)
+        ]
+        bronze_wh, base_wh, catalog_path = _seed_temp_bronze(tmp_path, bronze)
+
+        promote_ipeds_finance_base(
+            bronze_warehouse=bronze_wh,
+            base_warehouse=base_wh,
+            catalog_path=catalog_path,
+            ingested_at=INGESTED_AT,
+        )
+
+        catalog = get_catalog(base_wh, catalog_path)
+        rows = read_with_duckdb(
+            catalog.load_table(f"{BASE_NAMESPACE}.{BASE_TABLE_NAME}")
+        )
+        by_unitid = {r["unitid"]: r for r in rows}
+
+        assert by_unitid[243744]["endowment_value_flag"] == "R"
+        assert by_unitid[100001]["endowment_value_flag"] == "A"
+        assert by_unitid[100001]["endowment_value"] is None  # A↔NULL
+        assert by_unitid[100002]["endowment_value_flag"] == "N"
+        assert by_unitid[100002]["endowment_value"] == 50_000_000.0
+        assert by_unitid[199193]["endowment_value_flag"] is None  # F3 structural
+
+    def test_idempotent_re_promote_preserves_flag(self, tmp_path):
+        """Idempotent re-promote: same bronze snapshot → 0 new rows; flags unchanged."""
+        from brightsmith.infra.iceberg_setup import get_catalog, read_with_duckdb
+
+        bronze = [_stanford_bronze_row(), _f1a_a_flag_bronze_row(100001)]
+        bronze_wh, base_wh, catalog_path = _seed_temp_bronze(tmp_path, bronze)
+
+        r1 = promote_ipeds_finance_base(
+            bronze_warehouse=bronze_wh, base_warehouse=base_wh,
+            catalog_path=catalog_path, ingested_at=INGESTED_AT,
+        )
+        r2 = promote_ipeds_finance_base(
+            bronze_warehouse=bronze_wh, base_warehouse=base_wh,
+            catalog_path=catalog_path, ingested_at=INGESTED_AT,
+        )
+        assert r1["promoted"] == 2
+        assert r2["promoted"] == 0
+        assert r2["skipped_dedup"] == 2
+
+        # Read final state — flags must still match the bronze source.
+        catalog = get_catalog(base_wh, catalog_path)
+        rows = read_with_duckdb(
+            catalog.load_table(f"{BASE_NAMESPACE}.{BASE_TABLE_NAME}")
+        )
+        by_unitid = {r["unitid"]: r for r in rows}
+        assert by_unitid[243744]["endowment_value_flag"] == "R"
+        assert by_unitid[100001]["endowment_value_flag"] == "A"
+
+    def test_passthrough_fidelity_against_bronze(self, tmp_path):
+        """BSE-IPF-018 preview: every base row's flag matches bronze on UNITID."""
+        from brightsmith.infra.iceberg_setup import get_catalog, read_with_duckdb
+
+        bronze = [
+            _stanford_bronze_row(),
+            _f1a_a_flag_bronze_row(100001),
+            _f2_imputed_n_flag_bronze_row(100002),
+            _f3_bronze_row(199193),
+        ]
+        bronze_wh, base_wh, catalog_path = _seed_temp_bronze(tmp_path, bronze)
+
+        promote_ipeds_finance_base(
+            bronze_warehouse=bronze_wh, base_warehouse=base_wh,
+            catalog_path=catalog_path, ingested_at=INGESTED_AT,
+        )
+
+        catalog = get_catalog(base_wh, catalog_path)
+        base_rows = read_with_duckdb(
+            catalog.load_table(f"{BASE_NAMESPACE}.{BASE_TABLE_NAME}")
+        )
+
+        # Build expected map from the bronze fixtures themselves.
+        expected_flags = {row["unitid"]: row["endowment_value_flag"] for row in bronze}
+        actual_flags = {row["unitid"]: row["endowment_value_flag"] for row in base_rows}
+        assert actual_flags == expected_flags

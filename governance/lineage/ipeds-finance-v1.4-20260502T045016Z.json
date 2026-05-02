@@ -1,0 +1,643 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-02T04:50:16.000000Z",
+    "run": {
+      "runId": "56186d70-dc96-4f56-8cb1-c0482cc89f5c",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/ipeds-finance-v1.4.md",
+          "specVersion": "1.3",
+          "specZone": "bronze",
+          "versionNote": "v1.4 spec is delta-only over v1.3 (snapshot 2955168649587464831). The bronze delta is one new column: endowment_value_flag (string, nullable, field id 13) sourced from F1A's XF1H02 and F2's XF2H02; F3 is structurally NULL (no F3H family). The v1.3 column lineage for the 12 baseline fields is unchanged and preserved verbatim from full-pipeline-ipeds-finance-20260501T203128Z.json — only the new field's column lineage is added here, plus the new RAW-IPF-015 enum gate. Within v1.4, the spec was internally amended v1.0 → v1.1 → v1.2 → v1.3 (chaos-monkey R1 extension to the consumable filter); the bronze ingest is unchanged across those internal amendments — the bronze snapshot 8612278722865929234 services all four internal versions."
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@bs:lineage-tracker",
+          "reasoning": "Bronze re-ingest of IPEDS Finance for FY2023 to land the v1.4 endowment_value_flag column at field id 13. The IpedsFinanceIngestor performs the same 5-input fan-in as v1.3 — F2223_F1A.zip (GASB public), F2223_F2.zip (FASB nonprofit), F2223_F3.zip (for-profit), EFIA2023.zip (FTE source), HD2023.zip (Header file for institution_name + ICLEVEL=1 AND HLOFFER>=5 4-year-bachelor's-or-above filter) — but with two new column-extraction codes wired into _flatten_one(): XF1H02 on F1A and XF2H02 on F2, coalesced into a single canonical endowment_value_flag string column. F3 rows pass an explicit None to the flag parameter (structural NULL — for-profits have no F3H family in the IPEDS Finance schema, locked v1.3). Sentinel handling for the flag column is intentionally restricted to the suppression set ('', '.', 'PrivacySuppressed' → NULL) and does NOT scrub numeric -1/-2 — those are pass-through-verbatim so RAW-IPF-015's enum gate fires loudly on any anomalous code rather than silently dropping the value. The four canonical raw monetary fields (institutional_support_expenses, instruction_expenses, endowment_value) and total_fte_enrollment are produced by the unchanged v1.3 logic; only the flag is additive.",
+          "reasoningContinued": "Output: 2,675 rows / 13 columns / snapshot 8612278722865929234 — row count is unchanged from v1.3 baseline 2955168649587464831 (the v1.4 change is additive, not row-changing). Form mix (F1A=819, F2=1579, F3=277) is unchanged. Flag distribution measured at landing: F1A R=737/A=80/N=1/P=1; F2 R=1293/A=285/P=1; F3 NULL=277. Flag prevalence-`A` rate per form: F1A 9.77% (80/819), F2 18.05% (285/1579) — both are inside the v1.2-recalibrated BSE-IPF-019 per-form bands (F1A 5-15%, F2 12-25%). The 14 v1.3 DQ rules (RAW-IPF-001..014) all PASS unchanged on the new snapshot. The new RAW-IPF-015 enum-check (flag ∈ {R, A, P, Z, N} OR NULL) PASSES with 0 violations — observed codes are a strict subset of the 5-code allowed set ({R, A, P, N} on F1A; {R, A, P} on F2; no Z observed in FY2023). Pre-flight value-domain confirmation per spec §4 EDA Req #1 published in governance/eda/ipeds-finance-v1.4-flag-eda.md."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {
+            "F2223_F1A": "varies — public/government institutions",
+            "F2223_F2": "varies — private nonprofit institutions",
+            "F2223_F3": "varies — for-profit institutions",
+            "EFIA2023": "~6,036 (one row per UNITID, no dedup needed)",
+            "HD2023": "varies — IPEDS Header file universe"
+          },
+          "rowsWritten": 2675,
+          "fourYearBachelorFilterApplied": true,
+          "snapshotId": "8612278722865929234",
+          "priorSnapshotId": "2955168649587464831",
+          "sourceMethod": "csv_cache",
+          "fiscalYear": 2023,
+          "schemaColumnCount": 13,
+          "schemaColumnCountPriorVersion": 12,
+          "newFieldsThisVersion": ["endowment_value_flag"],
+          "endowmentValueFlagDistribution": {
+            "F1A": {"R": 737, "A": 80, "N": 1, "P": 1, "NULL": 0, "rowCount": 819},
+            "F2": {"R": 1293, "A": 285, "P": 1, "NULL": 0, "rowCount": 1579},
+            "F3": {"NULL": 277, "rowCount": 277}
+          },
+          "imputedAPrevalencePercent": {
+            "F1A": 9.77,
+            "F2": 18.05
+          },
+          "dqOverallPass": true,
+          "dqP0Total": 13,
+          "dqP0Pass": 13,
+          "dqP0Fail": 0,
+          "dqP1Total": 2,
+          "dqP1Pass": 2,
+          "dqP1Fail": 0
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "raw.ingest-ipeds-finance",
+      "facets": {
+        "documentation": {
+          "description": "Land the IPEDS Finance survey for FY2023 into Iceberg table bronze.ipeds_finance with the v1.4 schema (13 fields). Five-input fan-in identical to v1.3: three form-specific finance CSVs (F1A/F2/F3), EFIA for FTE, HD2023 for institution_name + the 4-year bachelor's-or-above filter (ICLEVEL=1 AND HLOFFER>=5). The v1.4 delta is a single new column: endowment_value_flag, the IPEDS imputation flag for endowment_value, sourced verbatim from the per-form X-prefixed flag columns (XF1H02 on F1A; XF2H02 on F2; structural NULL on F3 because the IPEDS Finance schema has no F3H family for for-profits). The flag column uses a different sentinel-scrub policy than the monetary columns: only the suppression-sentinel set ('', '.', 'PrivacySuppressed') is mapped to NULL — numeric sentinels (-1/-2) pass through verbatim so RAW-IPF-015 fires loudly on anomalies rather than silently dropping the value. All v1.3 column lineage (12 fields) is preserved unchanged."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/ipeds_finance_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_f2223_f1a",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS Finance F1A FY2023 (GASB public/government institutions)",
+            "uri": "file://data/raw/ipeds_finance_cache/F2223_F1A.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/F2223_F1A.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "form": "F1A",
+            "reportingFramework": "GASB"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "F1C011", "type": "STRING", "description": "F1A Part C — Instruction, Total amount. Source for instruction_expenses."},
+              {"name": "F1C071", "type": "STRING", "description": "F1A Part C — Institutional support, Total amount. Source for institutional_support_expenses."},
+              {"name": "F1H02", "type": "STRING", "description": "F1A Part H — Endowment assets, end-of-year. Source for endowment_value."},
+              {"name": "XF1H02", "type": "STRING", "description": "v1.4 NEW INPUT — F1A Part H imputation flag for endowment assets. Source for endowment_value_flag. Domain on FY2023: {R, A, P, N} (Z not observed). May contain suppression sentinels ('', '.', 'PrivacySuppressed') which are mapped to NULL; numeric sentinels (-1/-2) are passed through verbatim for RAW-IPF-015 to flag."}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_f2223_f2",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS Finance F2 FY2023 (FASB private nonprofit institutions)",
+            "uri": "file://data/raw/ipeds_finance_cache/F2223_F2.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/F2223_F2.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "form": "F2",
+            "reportingFramework": "FASB"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "F2E011", "type": "STRING", "description": "F2 Section E — Instruction, Total amount. Source for instruction_expenses."},
+              {"name": "F2E061", "type": "STRING", "description": "F2 Section E — Institutional support, Total amount. Source for institutional_support_expenses."},
+              {"name": "F2H02", "type": "STRING", "description": "F2 Section H — Endowment assets, end-of-year. Source for endowment_value."},
+              {"name": "XF2H02", "type": "STRING", "description": "v1.4 NEW INPUT — F2 Section H imputation flag for endowment assets. Source for endowment_value_flag. Domain on FY2023: {R, A, P} (N and Z not observed)."}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_f2223_f3",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS Finance F3 FY2023 (for-profit institutions)",
+            "uri": "file://data/raw/ipeds_finance_cache/F2223_F3.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/F2223_F3.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "form": "F3"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "F3E011", "type": "STRING", "description": "F3 — Instruction, Total amount."},
+              {"name": "F3E03C1", "type": "STRING", "description": "F3 — Institutional support, Total amount (post-2014-15 schedule)."}
+            ],
+            "f3FlagAbsenceNote": "F3 has no XF3H family — for-profits do not maintain endowments. v1.4 endowment_value_flag is structurally NULL on every F3 row by passing explicit None to the _flatten_one() endowment_flag_col parameter for the F3 form (matches the v1.3 endowment_value NULL-cascade pattern)."
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_efia2023",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS EFIA 2023 (12-Month Instructional Activity — FTE source)",
+            "uri": "file://data/raw/ipeds_finance_cache/EFIA2023.zip",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/EFIA2023.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)",
+            "survey": "EFIA — 12-Month Instructional Activity"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "FTEUG", "type": "STRING", "description": "Reported undergraduate FTE."},
+              {"name": "FTEGD", "type": "STRING", "description": "Reported graduate FTE."},
+              {"name": "FTEDPP", "type": "STRING", "description": "Reported doctor's-professional-practice FTE."}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "external.ipeds_hd2023",
+        "facets": {
+          "dataSource": {
+            "name": "IPEDS HD 2023 (Header — institution lookup + 4-year filter)",
+            "uri": "file://data/raw/ipeds_finance_cache/HD2023.csv",
+            "sourceUri": "https://nces.ed.gov/ipeds/datacenter/data/HD2023.zip",
+            "provider": "U.S. Department of Education, NCES",
+            "license": "Public domain (U.S. federal government data)"
+          },
+          "schema": {
+            "fields": [
+              {"name": "UNITID", "type": "STRING", "description": "IPEDS 6-digit institution ID. Join key."},
+              {"name": "INSTNM", "type": "STRING", "description": "Institution name. Source for institution_name."},
+              {"name": "ICLEVEL", "type": "STRING", "description": "Institutional level. Filter: ICLEVEL=1 selects 4-year-or-above."},
+              {"name": "HLOFFER", "type": "STRING", "description": "Highest level of offering. Filter: HLOFFER>=5 selects bachelor's-or-above."}
+            ],
+            "filterApplied": "ICLEVEL=1 AND HLOFFER>=5 (4-year bachelor's-or-above)"
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.ipeds_finance",
+        "facets": {
+          "dataSource": {
+            "name": "Bronze Iceberg warehouse",
+            "uri": "file://data/bronze/iceberg_warehouse/bronze/ipeds_finance/",
+            "snapshotId": "8612278722865929234",
+            "priorSnapshotId": "2955168649587464831"
+          },
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG", "required": true, "description": "Iceberg field id 1. Unchanged from v1.3."},
+              {"name": "institution_name", "type": "STRING", "required": true, "description": "Iceberg field id 2. Unchanged from v1.3."},
+              {"name": "report_form", "type": "STRING", "required": true, "description": "Iceberg field id 3. Unchanged from v1.3."},
+              {"name": "fiscal_year", "type": "INTEGER", "required": true, "description": "Iceberg field id 4. Unchanged from v1.3."},
+              {"name": "institutional_support_expenses", "type": "DOUBLE", "required": false, "description": "Iceberg field id 5. Unchanged from v1.3."},
+              {"name": "instruction_expenses", "type": "DOUBLE", "required": false, "description": "Iceberg field id 6. Unchanged from v1.3."},
+              {"name": "endowment_value", "type": "DOUBLE", "required": false, "description": "Iceberg field id 7. Unchanged from v1.3."},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "required": false, "description": "Iceberg field id 8. Unchanged from v1.3."},
+              {"name": "source_url", "type": "STRING", "required": true, "description": "Iceberg field id 9. Unchanged from v1.3."},
+              {"name": "source_method", "type": "STRING", "required": true, "description": "Iceberg field id 10. Unchanged from v1.3."},
+              {"name": "ingested_at", "type": "TIMESTAMP", "required": true, "description": "Iceberg field id 11. Unchanged from v1.3."},
+              {"name": "load_date", "type": "DATE", "required": true, "description": "Iceberg field id 12. Unchanged from v1.3."},
+              {"name": "endowment_value_flag", "type": "STRING", "required": false, "description": "v1.4 NEW — Iceberg field id 13. IPEDS imputation flag for endowment_value, sourced verbatim from XF1H02 (F1A) / XF2H02 (F2) / structural NULL (F3). Observed FY2023 domain: {R, A, P, N} on F1A; {R, A, P} on F2; NULL on F3. RAW-IPF-015 (P0) enforces the {R, A, P, Z, N} OR NULL allowed set."}
+            ],
+            "fieldCount": 13
+          },
+          "version": {
+            "datasetVersion": "8612278722865929234",
+            "snapshotId": "8612278722865929234",
+            "snapshotTimestamp": "2026-05-01T21:31:00.000000Z"
+          },
+          "columnLineage": {
+            "fields": {
+              "endowment_value_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f1a", "field": "XF1H02"},
+                  {"namespace": "brightsmith", "name": "external.ipeds_f2223_f2", "field": "XF2H02"}
+                ],
+                "transformationDescription": "v1.4 NEW column. Per-form COALESCE: F1A rows take XF1H02 (F1A Part H imputation flag for endowment assets); F2 rows take XF2H02 (F2 Section H imputation flag); F3 rows take explicit None (structural NULL — F3 has no XF3H family because for-profits do not maintain endowments). Single-stage transform per row: pass through IpedsFinanceIngestor._strip_flag_sentinel() — mapping the suppression-sentinel set {'', '.', 'PrivacySuppressed'} (and whitespace-only strings) to NULL while preserving numeric sentinels (-1/-2) verbatim and preserving the alphabetic codes {R, A, P, Z, N} verbatim with no case normalization. Crucially this is NOT the same _coerce_double sentinel pipeline used for the monetary columns: numeric -1/-2 are explicitly NOT scrubbed at raw so RAW-IPF-015 fires loudly on anomalous codes rather than the value being silently dropped. The flag is never numeric-coerced — it remains a string. Bureau-imputed values (the underlying X-prefixed columns are themselves the imputation flags — they are not flagged-on-flag). RAW-IPF-015 (P0) enforces flag ∈ {R, A, P, Z, N} OR NULL.",
+                "transformationType": "DERIVED"
+              }
+            },
+            "v13FieldsPreservedNote": "Column lineage for the 12 v1.3-baseline fields (unitid, institution_name, report_form, fiscal_year, institutional_support_expenses, instruction_expenses, endowment_value, total_fte_enrollment, source_url, source_method, ingested_at, load_date) is unchanged from v1.3 (snapshot 2955168649587464831). The full column-lineage definitions are documented in governance/lineage/full-pipeline-ipeds-finance-20260501T203128Z.json — referenced by inclusion to avoid duplication. Only the new field's lineage is enumerated above."
+          },
+          "dataQualityAssertions": {
+            "rulesFile": "governance/dq-rules/raw-ipeds-finance.json",
+            "v14NewRule": "RAW-IPF-015 — endowment_value_flag ∈ {R, A, P, Z, N} OR NULL (P0)",
+            "v14NewRulePass": true,
+            "v14NewRuleViolations": 0,
+            "v13RulesPreserved": "RAW-IPF-001..014 (12 P0 + 2 P1) all PASS unchanged on snapshot 8612278722865929234.",
+            "scorecardNote": "Per spec §8 a v1.4 scorecard is being authored at governance/dq-scorecards/ipeds-finance-v1.4-scorecard.md covering all 9 net-new rules across the three zones."
+          }
+        },
+        "outputFacets": {
+          "rowCount": 2675,
+          "snapshotId": "8612278722865929234",
+          "fieldCount": 13,
+          "fieldCountDelta": "+1 (endowment_value_flag) vs v1.3",
+          "rowCountDelta": "0 (additive change, not row-changing)",
+          "fiscalYear": 2023,
+          "filterApplied": "ICLEVEL=1 AND HLOFFER>=5 (4-year bachelor's-or-above)"
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-02T04:50:16.500000Z",
+    "run": {
+      "runId": "3f7df734-cfb1-4ddd-ac8e-71785eca2c8c",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/ipeds-finance-v1.4.md",
+          "specVersion": "1.3",
+          "specZone": "base",
+          "versionNote": "v1.4 base zone delta is one passthrough column: endowment_value_flag (string, nullable, field id 16), copied verbatim from bronze.ipeds_finance.endowment_value_flag with no derivation, no rename, and no case-normalization. Schema goes 15 → 16 fields. The base table was DROP-AND-RECREATED rather than ALTER-TABLE'd because the framework's append-only promote pattern has no schema-evolution hook; v1.3 base snapshots are invalidated by the recreate. The drop+recreate is documented in spec §9 Build Accountability Log line 1534-1536."
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@bs:lineage-tracker",
+          "reasoning": "Base re-promote of base.ipeds_finance from bronze snapshot 8612278722865929234 to land the v1.4 endowment_value_flag passthrough at field id 16. The transformer at src/silver/ipeds_finance_base.py adds a single line to transform_row(): copy bronze.endowment_value_flag verbatim into base.endowment_value_flag, type-coerced to (str | None). No derivation, no rename, no normalization — pure passthrough fidelity per spec §5 Decision (no §2 decision; §5 is direct). The 15 v1.3 base fields are produced by the unchanged v1.3 logic (per-FTE derivations: instruction_per_fte, institutional_support_per_fte, endowment_per_fte; marketing_ratio derivation; data_completeness_tier synthesis; provenance columns: bronze_record_id, source_load_date, promoted_at; raw passthroughs of the four monetary fields and total_fte_enrollment from bronze). Only the new flag column is additive at base.",
+          "reasoningContinued": "Output: 2,675 rows / 16 columns / snapshot 5533921477059200416 — row count matches bronze (BSE-IPF-001 conservation passes; 2,675 == 2,675). Form mix unchanged (F1A=819, F2=1579, F3=277). Flag distribution at base mirrors bronze exactly per the BSE-IPF-018 passthrough fidelity preview (0 mismatches across all 2,675 UNITIDs). The new BSE-IPF-020 A↔NULL coupling invariant PASSES on FY2023: 80/80 F1A A-flagged rows have endowment_value NULL; 285/285 F2 A-flagged rows have endowment_value NULL; 0 F1A/F2 NULL-value rows lack the A flag (F3 rows are exempt by structure). The new BSE-IPF-019 per-form A-prevalence rate is INSIDE both bands (F1A 9.77% ∈ [5,15]; F2 18.05% ∈ [12,25]) — but DEVIATION-V14-RAW-001 is logged in the spec because these rates are below the original v1.3 single-band 20-40% (which was mis-calibrated against pre-HD-filter source-CSV measurements; v1.2 recalibrated to per-form bands against the landed-bronze post-HD-filter surface). All 17 v1.3 base DQ rules (BSE-IPF-001..017) PASS unchanged. The non-fatal pyiceberg lineage emit error 'Table object has no attribute identifier' from brightsmith.infra.promote.py line 71 fired during the re-promote — flagged in spec §9 line 1537 as pre-existing framework issue, not caused by this spec. Promote itself succeeded."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 2675,
+          "rowsWritten": 2675,
+          "rowConservationPercent": 100.0,
+          "snapshotId": "5533921477059200416",
+          "priorSnapshotId": "(v1.3 snapshots invalidated by drop+recreate per spec §9 Build Accountability)",
+          "schemaColumnCount": 16,
+          "schemaColumnCountPriorVersion": 15,
+          "newFieldsThisVersion": ["endowment_value_flag"],
+          "endowmentValueFlagPassthroughFidelityMismatches": 0,
+          "aFlagNullCouplingViolations": 0,
+          "aPrevalencePercent": {
+            "F1A": 9.77,
+            "F2": 18.05
+          },
+          "dqOverallPass": true,
+          "dqRuleCountTotal": 20,
+          "dqV14NewRules": ["BSE-IPF-018", "BSE-IPF-019", "BSE-IPF-020"]
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "base.promote-ipeds-finance",
+      "facets": {
+        "documentation": {
+          "description": "Promote bronze.ipeds_finance to base.ipeds_finance with the v1.4 schema (16 fields). The v1.4 delta is a single passthrough column: endowment_value_flag, copied verbatim from bronze with no derivation, no rename, and no case-normalization. The 15 v1.3 base fields are produced by the unchanged v1.3 logic (per-FTE derivations, marketing_ratio, data_completeness_tier, provenance columns, raw passthroughs). The base table was DROP-AND-RECREATED rather than ALTER-TABLE'd because the framework's append-only promote pattern has no schema-evolution hook for additive columns at field-id 16; on first run with the new schema, the existing v1.3 table at 15 fields cannot back-fill, so all rows dedup'd by record_id and 0 promoted. The fix (idempotent drop+recreate) is documented in spec §9 line 1534-1536. Three new DQ rules land at base: BSE-IPF-018 (passthrough fidelity), BSE-IPF-019 (per-form A-prevalence band), BSE-IPF-020 (A↔NULL coupling invariant)."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/ipeds_finance_base.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.ipeds_finance",
+        "facets": {
+          "dataSource": {
+            "name": "Bronze Iceberg warehouse",
+            "uri": "file://data/bronze/iceberg_warehouse/bronze/ipeds_finance/",
+            "snapshotId": "8612278722865929234"
+          },
+          "schema": {
+            "fields": [
+              {"name": "unitid", "type": "LONG", "required": true},
+              {"name": "institution_name", "type": "STRING", "required": true},
+              {"name": "report_form", "type": "STRING", "required": true},
+              {"name": "fiscal_year", "type": "INTEGER", "required": true},
+              {"name": "institutional_support_expenses", "type": "DOUBLE", "required": false},
+              {"name": "instruction_expenses", "type": "DOUBLE", "required": false},
+              {"name": "endowment_value", "type": "DOUBLE", "required": false},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "required": false},
+              {"name": "source_url", "type": "STRING", "required": true},
+              {"name": "source_method", "type": "STRING", "required": true},
+              {"name": "ingested_at", "type": "TIMESTAMP", "required": true},
+              {"name": "load_date", "type": "DATE", "required": true},
+              {"name": "endowment_value_flag", "type": "STRING", "required": false, "description": "v1.4 NEW — IPEDS imputation flag for endowment_value, field id 13. The single new input field for the base v1.4 delta."}
+            ],
+            "fieldCount": 13
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.ipeds_finance",
+        "facets": {
+          "dataSource": {
+            "name": "Base (Silver) Iceberg warehouse",
+            "uri": "file://data/silver/iceberg_warehouse/base/ipeds_finance/",
+            "snapshotId": "5533921477059200416",
+            "priorSnapshotId": "(v1.3 snapshots invalidated by drop+recreate per spec §9)"
+          },
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "required": true, "description": "Iceberg field id 1. compute_grain_id with prefix='ipf'. Unchanged from v1.3."},
+              {"name": "unitid", "type": "LONG", "required": true, "description": "Iceberg field id 2. Unchanged from v1.3."},
+              {"name": "institution_name", "type": "STRING", "required": true, "description": "Iceberg field id 3. Unchanged from v1.3."},
+              {"name": "report_form", "type": "STRING", "required": true, "description": "Iceberg field id 4. Unchanged from v1.3."},
+              {"name": "fiscal_year", "type": "INTEGER", "required": true, "description": "Iceberg field id 5. Unchanged from v1.3."},
+              {"name": "institutional_support_expenses", "type": "DOUBLE", "required": false, "description": "Iceberg field id 6. Raw passthrough from bronze. Unchanged from v1.3."},
+              {"name": "instruction_expenses", "type": "DOUBLE", "required": false, "description": "Iceberg field id 7. Raw passthrough from bronze. Unchanged from v1.3."},
+              {"name": "endowment_value", "type": "DOUBLE", "required": false, "description": "Iceberg field id 8. Raw passthrough from bronze. Unchanged from v1.3."},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "required": false, "description": "Iceberg field id 9. Raw passthrough from bronze. Unchanged from v1.3."},
+              {"name": "instruction_per_fte", "type": "DOUBLE", "required": false, "description": "Iceberg field id 10. Derived per-FTE. Unchanged from v1.3."},
+              {"name": "institutional_support_per_fte", "type": "DOUBLE", "required": false, "description": "Iceberg field id 11. Derived per-FTE. Unchanged from v1.3."},
+              {"name": "endowment_per_fte", "type": "DOUBLE", "required": false, "description": "Iceberg field id 12. Derived per-FTE. Unchanged from v1.3."},
+              {"name": "marketing_ratio", "type": "DOUBLE", "required": false, "description": "Iceberg field id 13. Derived ratio. Unchanged from v1.3."},
+              {"name": "data_completeness_tier", "type": "STRING", "required": true, "description": "Iceberg field id 14. Synthesized {high, medium, low, insufficient}. Unchanged from v1.3."},
+              {"name": "source_load_date", "type": "DATE", "required": true, "description": "Iceberg field id 15. Provenance — bronze load_date. Unchanged from v1.3."},
+              {"name": "endowment_value_flag", "type": "STRING", "required": false, "description": "v1.4 NEW — Iceberg field id 16. Verbatim passthrough from bronze.endowment_value_flag with no derivation, no rename, no case-normalization. Same NULL semantics as bronze (NULL on F3 structural; {R, A, P, Z, N} on F1A/F2). BSE-IPF-018 (P0) enforces 0 mismatches against bronze; BSE-IPF-019 (P1) enforces per-form A-prevalence band; BSE-IPF-020 (P0) enforces A↔NULL coupling on endowment_value."}
+            ],
+            "fieldCount": 16
+          },
+          "version": {
+            "datasetVersion": "5533921477059200416",
+            "snapshotId": "5533921477059200416",
+            "snapshotTimestamp": "2026-05-01T22:42:00.000000Z"
+          },
+          "columnLineage": {
+            "fields": {
+              "endowment_value_flag": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.ipeds_finance", "field": "endowment_value_flag"}
+                ],
+                "transformationDescription": "v1.4 NEW column. Pure verbatim passthrough from bronze.ipeds_finance.endowment_value_flag — no derivation, no rename, no case-normalization, no value mutation. transform_row() casts the bronze value to (str | None) and writes it to the same-named base field at field id 16. The NULL semantics propagate exactly: NULL on F3 (structural — bronze had structural NULL because F3 has no XF3H family); {R, A, P, Z, N} on F1A/F2 (the strict subset of the IPEDS dictionary's 13-code shared lookup observed in FY2023 endowment data). BSE-IPF-018 (P0) enforces zero passthrough-fidelity mismatches against bronze (every UNITID's flag at base must equal the bronze value joined on UNITID). BSE-IPF-019 (P1) enforces per-form A-prevalence inside the recalibrated v1.2 bands (F1A 5-15%, F2 12-25%) — landed at F1A 9.77% / F2 18.05%, both inside band. BSE-IPF-020 (P0) enforces the A↔NULL coupling invariant: every flag='A' row has endowment_value IS NULL, AND every F1A/F2 endowment_value IS NULL row has flag='A' (F3 exempt by structure). FY2023 verification: 0 violations on either direction.",
+                "transformationType": "DIRECT"
+              }
+            },
+            "v13FieldsPreservedNote": "Column lineage for the 15 v1.3-baseline base fields (record_id, unitid, institution_name, report_form, fiscal_year, the four monetary passthroughs, the three per-FTE derivations, marketing_ratio, data_completeness_tier, source_load_date) is unchanged from v1.3. Their column lineage was already canonical at v1.3 land — see governance/models/base-ipeds-finance-{conceptual,logical,physical}.md (delta-patched per spec §8) and the v1.3 lineage emit (which was lost when the v1.3 table was dropped during the v1.4 schema-evolution recreate). Only the new field's lineage is enumerated above."
+          },
+          "dataQualityAssertions": {
+            "rulesFile": "governance/dq-rules/base-ipeds-finance.json",
+            "v14NewRules": [
+              {"ruleId": "BSE-IPF-018", "name": "endowment_value_flag passthrough fidelity (0 mismatches vs bronze)", "priority": "P0", "dimension": "conservation", "status": "PASS", "violations": 0},
+              {"ruleId": "BSE-IPF-019", "name": "Per-form A-prevalence band (F1A 5-15%, F2 12-25%)", "priority": "P1", "dimension": "distribution-eda-calibrated", "status": "PASS", "actualF1A": 9.77, "actualF2": 18.05},
+              {"ruleId": "BSE-IPF-020", "name": "A↔NULL coupling invariant (bi-implication on endowment_value)", "priority": "P0", "dimension": "consistency-semantic-invariant", "status": "PASS", "violations": 0}
+            ],
+            "v13RulesPreserved": "BSE-IPF-001..017 all PASS unchanged on snapshot 5533921477059200416.",
+            "scorecardNote": "Per spec §8 a v1.4 scorecard is being authored at governance/dq-scorecards/ipeds-finance-v1.4-scorecard.md."
+          }
+        },
+        "outputFacets": {
+          "rowCount": 2675,
+          "snapshotId": "5533921477059200416",
+          "fieldCount": 16,
+          "fieldCountDelta": "+1 (endowment_value_flag) vs v1.3",
+          "rowCountDelta": "0 (additive passthrough, conservation-preserving)",
+          "rowConservation": "BSE-IPF-001 PASS — base count (2,675) == bronze count (2,675)"
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-02T04:50:17.000000Z",
+    "run": {
+      "runId": "add39641-b3c3-439b-8883-f6dc92a9eef8",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/ipeds-finance-v1.4.md",
+          "specVersion": "1.3",
+          "specZone": "consumable",
+          "versionNote": "v1.4 consumable zone delta is two schema additions plus one row-count-changing filter. Schema goes 15 → 17 fields: +endowment_value_provenance (string, nullable, field id 16) — RENAMED passthrough from base.endowment_value_flag per §2 Decision A; +source_load_date (date, NOT NULL, field id 17) — RESTORED passthrough from base.source_load_date per §2 Decision G. The filter is the §6 8-pattern AND 4-clause-numeric-proxy system-administrative-office filter, applied BEFORE the promote write so excluded rows never reach consumable. The filter SQL was internally amended v1.0 → v1.3 within this spec (chaos-monkey R1) — the v1.3-final form has 4 numeric-proxy disjuncts (instruction_expenses NULL OR < $1M OR total_fte_enrollment NULL OR < 50). The consumable table was DROP-AND-RECREATED twice: first for the schema 15 → 17 evolution at v1.0 (snapshot 8225412535835512350, 2,651 rows / 24 excluded); then again at v1.3 to apply the 4-clause filter (snapshot 950547093607535235, 2,630 rows / 45 excluded). The v1.3-final snapshot is the surface that ships."
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@bs:lineage-tracker",
+          "reasoning": "Consumable re-promote of consumable.ipeds_finance_profile from base snapshot 5533921477059200416 to land three v1.4 changes: (1) endowment_value_provenance rename passthrough from base.endowment_value_flag at field id 16, (2) source_load_date restored passthrough from base.source_load_date at field id 17, (3) system-administrative-office filter applied before promote write. The transformer at src/gold/ipeds_finance_profile.py adds two new helpers: _name_matches_system_office_pattern() (a pure-Python translation of the 8 LOWER(institution_name) LIKE patterns from §6 SQL) and is_system_office_row() (combines the name pattern match AND the 4-clause numeric proxy: instruction_expenses IS NULL OR < $1M OR total_fte_enrollment IS NULL OR < 50). transform_rows() applies is_system_office_row() as a row-filter BEFORE the per-row transform, so excluded rows never enter the per-row transform and never reach Iceberg. transform_row() emits endowment_value_provenance from base.endowment_value_flag (rename) and source_load_date from base.source_load_date (restore). The 13 v1.3 consumable fields are produced by the unchanged v1.3 logic.",
+          "reasoningContinued": "Output: 2,630 rows / 17 columns / snapshot 950547093607535235 — 45 rows excluded by the §6 v1.3-final filter (24 carried over from v1.0-v1.2 2-clause proxy + 21 additional admin entities caught by the v1.3 FTE-NULL/<50 disjunct). Drop pattern: every excluded UNITID matches one of the 8 admin-name patterns AND has either NULL/sub-$1M instruction OR NULL/sub-50 FTE. Live test target UNITID 242060 (Sistema Universitario Ana G. Mendez) is excluded by the 8th '%sistema universitario%' pattern (matched name) AND instruction_expenses=$2,565 < $1M (matched first numeric disjunct). False-positive shield holds: Stanford ($2.68B instr / 19,094 FTE), Harvard ($1.46B / 31,201), MIT ($1.09B / 11,703), Berea ($473M / 59,317) all SURVIVE because their names do not match any pattern. UNITID 195827 (SUNY-System Office, $2.21M instr / FTE NULL) was PRESERVED under v1.0-v1.2 (2-clause proxy: instr > $1M) but is now EXCLUDED under v1.3 (FTE NULL disjunct). Tier distribution: high=1981, medium=649. CON-IFP-001a (P0 upper, 2,630 <= 2,675) PASS. CON-IFP-001b (P1 lower, 2,630 >= 2,625 = base − 50) PASS with 5-row margin. CON-IFP-013 (provenance passthrough fidelity) 0 mismatches. CON-IFP-014 (filter execution: 0 surviving rows match exclusion predicate) PASS. CON-IFP-015 (source_load_date 100% non-null) PASS. The non-fatal pyiceberg lineage emit error 'Table object has no attribute identifier' fired again — pre-existing framework issue per spec §9 line 1537 / line 1608."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 2675,
+          "rowsWritten": 2630,
+          "rowsExcludedSystemOffice": 45,
+          "rowsExcludedV12Carryover": 24,
+          "rowsExcludedV13FteNullExtension": 21,
+          "rowConservationPercent": 98.32,
+          "snapshotId": "950547093607535235",
+          "intermediateSnapshotV12FormulaId": "8225412535835512350",
+          "schemaColumnCount": 17,
+          "schemaColumnCountPriorVersion": 15,
+          "newFieldsThisVersion": ["endowment_value_provenance", "source_load_date"],
+          "endowmentValueProvenancePassthroughFidelityMismatches": 0,
+          "sourceLoadDateNonNullPercent": 100.0,
+          "tierDistribution": {"high": 1981, "medium": 649, "low": 0, "insufficient": 0},
+          "dqOverallPass": true,
+          "dqV14NewRules": ["CON-IFP-001a", "CON-IFP-001b", "CON-IFP-012", "CON-IFP-013", "CON-IFP-014", "CON-IFP-015", "CON-IFP-016"]
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "consumable.promote-ipeds-finance-profile",
+      "facets": {
+        "documentation": {
+          "description": "Promote base.ipeds_finance to consumable.ipeds_finance_profile with the v1.4 schema (17 fields) and the v1.3-final system-administrative-office filter. Three v1.4 deltas: (1) endowment_value_provenance rename passthrough from base.endowment_value_flag at field id 16 — semantic rename only, no value mutation; (2) source_load_date restored passthrough from base at field id 17 NOT NULL; (3) system-office filter applied before promote write per §6 SQL. The 13 v1.3 consumable fields (record_id, unitid, institution_name, report_form, fiscal_year, total_fte_enrollment, the three raw-dollar passthroughs, the three per-FTE values, marketing_ratio, data_completeness_tier, promoted_at) are produced by the unchanged v1.3 logic. Seven new DQ rules land at consumable: CON-IFP-001a + CON-IFP-001b (split of v1.3's strict-equality CON-IFP-001 per §2 Decision E to absorb filter cycle drift); CON-IFP-012 (fiscal_year invariant at consumable surface); CON-IFP-013 (provenance passthrough fidelity); CON-IFP-014 (filter executed: 0 surviving rows match exclusion predicate); CON-IFP-015 (source_load_date 100% non-null); CON-IFP-016 (source_load_date within 400 days of promoted_at). The consumable table was DROP-AND-RECREATED twice: first for the schema 15 → 17 evolution at v1.0 (snapshot 8225412535835512350, 2,651 rows); then again at v1.3 to apply the 4-clause filter (snapshot 950547093607535235, 2,630 rows). The v1.3-final snapshot is the surface that ships."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/ipeds_finance_profile.py"
+        },
+        "transformation": {
+          "type": "ROW_FILTER + RENAME + PASSTHROUGH",
+          "filterDescription": "System-administrative-office filter applied at transform_rows() BEFORE the per-row transform. A row is excluded if and only if BOTH clauses match: (a) institution_name matches one of 8 LOWER-LIKE patterns AND (b) the row matches at least one of 4 organizational-shell numeric signals. The 4-clause numeric proxy is the v1.3 chaos-monkey R1 amendment over the v1.0-v1.2 2-clause proxy — adding the FTE-NULL/<50 disjuncts caught 21 additional admin entities (e.g., LA CCD Office UNITID 117681, SUNY-System Office UNITID 195827, UMass-Central Office UNITID 166665) whose instruction_expenses sat above the $1M floor but FTE was NULL. The §2 Decision B AND-clause is the deliberate guardrail against false-positives: a real teaching school whose legal name happens to match a pattern (e.g., a hypothetical Berea-style school named '... Office') is preserved if it has positive FTE and instruction >= $1M.",
+          "filterSql": "WHERE NOT ((LOWER(institution_name) LIKE '% office' OR LOWER(institution_name) LIKE '% system' OR LOWER(institution_name) LIKE '% system %' OR LOWER(institution_name) LIKE '%chancellor%' OR LOWER(institution_name) LIKE '%central office%' OR LOWER(institution_name) LIKE '%system office%' OR LOWER(institution_name) LIKE '%district office%' OR LOWER(institution_name) LIKE '%sistema universitario%') AND (instruction_expenses IS NULL OR instruction_expenses < 1000000.0 OR total_fte_enrollment IS NULL OR total_fte_enrollment < 50))",
+          "filterPatternCount": 8,
+          "filterNumericProxyClauseCount": 4,
+          "filterNumericProxyVersion": "v1.3 (chaos-monkey R1 — added FTE-NULL/<50 disjuncts on top of v1.0-v1.2 2-clause proxy)",
+          "moduleConstants": {
+            "SYSTEM_OFFICE_NAME_PATTERNS": [
+              "% office",
+              "% system",
+              "% system %",
+              "%chancellor%",
+              "%central office%",
+              "%system office%",
+              "%district office%",
+              "%sistema universitario%"
+            ],
+            "SYSTEM_OFFICE_INSTRUCTION_THRESHOLD": 1000000.0,
+            "SYSTEM_OFFICE_FTE_THRESHOLD": 50.0
+          },
+          "rowCountInputBaseSnapshot": 2675,
+          "rowCountOutputConsumableSnapshot": 2630,
+          "rowsExcluded": 45,
+          "rowsExcludedSampleUnitids": [
+            {"unitid": 100733, "name": "University of Alabama System Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system %"},
+            {"unitid": 103529, "name": "University of Alaska System of Higher Education", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system %"},
+            {"unitid": 108056, "name": "University of Arkansas System Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%system office%"},
+            {"unitid": 117681, "name": "Los Angeles Community College District Office", "instructionExpenses": 2910000, "totalFteEnrollment": null, "matchedPattern": "%district office%", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 126100, "name": "Yosemite Community College District Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%district office%"},
+            {"unitid": 128300, "name": "University of Colorado System Office", "instructionExpenses": 279931, "totalFteEnrollment": null, "matchedPattern": "%system office%"},
+            {"unitid": 144777, "name": "DeVry University-Administrative Office", "instructionExpenses": 6520000, "totalFteEnrollment": null, "matchedPattern": "% office", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 149240, "name": "Southern Illinois University-System Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%system office%"},
+            {"unitid": 149587, "name": "University of Illinois System Offices", "instructionExpenses": 840545, "totalFteEnrollment": null, "matchedPattern": "% system %"},
+            {"unitid": 160533, "name": "Southern University-Board and System", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system"},
+            {"unitid": 161280, "name": "University of Maine-System Central Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%central office%"},
+            {"unitid": 164146, "name": "University System of Maryland", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system %"},
+            {"unitid": 166665, "name": "University of Massachusetts-Central Office", "instructionExpenses": 6830000, "totalFteEnrollment": null, "matchedPattern": "%central office%", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 195827, "name": "SUNY-System Office", "instructionExpenses": 2210000, "totalFteEnrollment": null, "matchedPattern": "%system office%", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 199175, "name": "University of North Carolina System", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system"},
+            {"unitid": 214661, "name": "Pennsylvania State System of Higher Education-Central Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%central office%"},
+            {"unitid": 222497, "name": "Alamo Community College District Central Office", "instructionExpenses": 2720000, "totalFteEnrollment": null, "matchedPattern": "%central office%", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 228732, "name": "Texas A & M University-System Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%system office%"},
+            {"unitid": 229090, "name": "The University of Texas System Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%system office%"},
+            {"unitid": 231156, "name": "Vermont State Colleges-Office of the Chancellor", "instructionExpenses": 530646, "totalFteEnrollment": null, "matchedPattern": "%chancellor%"},
+            {"unitid": 242060, "name": "Sistema Universitario Ana G. Mendez", "instructionExpenses": 2565, "totalFteEnrollment": null, "matchedPattern": "%sistema universitario%", "matchedNumericClause": "instruction_expenses < $1M (live test target — v1.4 §6 / §7.cab.3 chaos requirement)"},
+            {"unitid": 242671, "name": "Inter American University of Puerto Rico-Central Office", "instructionExpenses": 2040000, "totalFteEnrollment": null, "matchedPattern": "%central office%", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 404480, "name": "University System of Maryland-Research Centers", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system %"},
+            {"unitid": 428453, "name": "Minnesota State Colleges and Universities System Office", "instructionExpenses": 1730000, "totalFteEnrollment": null, "matchedPattern": "%system office%", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 438665, "name": "Rancho Santiago Community College District Office", "instructionExpenses": 2110000, "totalFteEnrollment": null, "matchedPattern": "%district office%", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 439154, "name": "Texas Tech University System Administration", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system %"},
+            {"unitid": 443711, "name": "University of North Texas System", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system"},
+            {"unitid": 446978, "name": "Colorado State University-System Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "%system office%"},
+            {"unitid": 448336, "name": "Arkansas State University System", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% system"},
+            {"unitid": 454218, "name": "Chamberlain University-Administrative Office", "instructionExpenses": 2350000, "totalFteEnrollment": null, "matchedPattern": "% office", "matchedNumericClause": "FTE NULL (v1.3 extension)"},
+            {"unitid": 454689, "name": "Taft University System", "instructionExpenses": 307221, "totalFteEnrollment": null, "matchedPattern": "% system"},
+            {"unitid": 485467, "name": "Carrington College-Administrative Office", "instructionExpenses": 0, "totalFteEnrollment": null, "matchedPattern": "% office"},
+            {"unitid": 492263, "name": "The University of Tennessee System Office", "instructionExpenses": 775199, "totalFteEnrollment": null, "matchedPattern": "%system office%"}
+          ],
+          "rowsExcludedSampleNote": "33 of 45 excluded UNITIDs enumerated above (24 v1.0-v1.2 carry-overs + 9 of the 21 v1.3 FTE-NULL extensions). The remaining 12 v1.3-newly-excluded UNITIDs (e.g., CSU-Chancellor's Office UNITID 110501, UC-System Administration UNITID 124557, CUNY System Office UNITID 190035, San Diego CCD District Office UNITID 122320) all match an admin-pattern name AND have total_fte_enrollment IS NULL — same structural signature as the named 9. Full enumeration in scripts/_verify_v13_amendment.py.",
+          "falsePositiveShieldVerification": {
+            "stanford": {"unitid": 243744, "instructionExpenses": 2680000000, "totalFteEnrollment": 19094, "status": "PRESERVED", "reason": "no name pattern match"},
+            "harvard": {"unitid": 166027, "instructionExpenses": 1460000000, "totalFteEnrollment": 31201, "status": "PRESERVED", "reason": "no name pattern match"},
+            "mit": {"unitid": 166683, "instructionExpenses": 1090000000, "totalFteEnrollment": 11703, "status": "PRESERVED", "reason": "no name pattern match"},
+            "berea": {"unitid": 132903, "instructionExpenses": 473000000, "totalFteEnrollment": 59317, "status": "PRESERVED", "reason": "no name pattern match (Berea is a small teaching school whose name passes through cleanly)"}
+          }
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.ipeds_finance",
+        "facets": {
+          "dataSource": {
+            "name": "Base (Silver) Iceberg warehouse",
+            "uri": "file://data/silver/iceberg_warehouse/base/ipeds_finance/",
+            "snapshotId": "5533921477059200416"
+          },
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "required": true},
+              {"name": "unitid", "type": "LONG", "required": true},
+              {"name": "institution_name", "type": "STRING", "required": true, "description": "Used by the system-office filter (LOWER(institution_name) LIKE-pattern matching)."},
+              {"name": "report_form", "type": "STRING", "required": true},
+              {"name": "fiscal_year", "type": "INTEGER", "required": true},
+              {"name": "institutional_support_expenses", "type": "DOUBLE", "required": false},
+              {"name": "instruction_expenses", "type": "DOUBLE", "required": false, "description": "Used by the system-office filter (instruction_expenses IS NULL OR < $1M is one of 4 numeric-proxy disjuncts)."},
+              {"name": "endowment_value", "type": "DOUBLE", "required": false},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "required": false, "description": "Used by the system-office filter v1.3 extension (total_fte_enrollment IS NULL OR < 50 is one of 4 numeric-proxy disjuncts; this disjunct catches admin entities whose instruction sits above $1M but who report no students)."},
+              {"name": "instruction_per_fte", "type": "DOUBLE", "required": false},
+              {"name": "institutional_support_per_fte", "type": "DOUBLE", "required": false},
+              {"name": "endowment_per_fte", "type": "DOUBLE", "required": false},
+              {"name": "marketing_ratio", "type": "DOUBLE", "required": false},
+              {"name": "data_completeness_tier", "type": "STRING", "required": true},
+              {"name": "source_load_date", "type": "DATE", "required": true, "description": "v1.4 NEW INPUT (restored at consumable per §2 Decision G) — provenance metadata documenting when bronze was loaded."},
+              {"name": "endowment_value_flag", "type": "STRING", "required": false, "description": "v1.4 NEW INPUT — IPEDS imputation flag passed through from bronze. Renamed to endowment_value_provenance at consumable."}
+            ],
+            "fieldCount": 16
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.ipeds_finance_profile",
+        "facets": {
+          "dataSource": {
+            "name": "Consumable (Gold) Iceberg warehouse",
+            "uri": "file://data/gold/iceberg_warehouse/consumable/ipeds_finance_profile/",
+            "snapshotId": "950547093607535235",
+            "intermediateSnapshotV12FormulaId": "8225412535835512350",
+            "snapshotEvolutionNote": "Two snapshots emitted within v1.4: (1) 8225412535835512350 at v1.0 (2,651 rows / 24 excluded by 2-clause proxy); (2) 950547093607535235 at v1.3 (2,630 rows / 45 excluded by 4-clause proxy). The v1.3-final snapshot is the surface that ships."
+          },
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING", "required": true, "description": "Iceberg field id 1. compute_grain_id with prefix='ifp'. Unchanged from v1.3."},
+              {"name": "unitid", "type": "LONG", "required": true, "description": "Iceberg field id 2. Unchanged from v1.3."},
+              {"name": "institution_name", "type": "STRING", "required": true, "description": "Iceberg field id 3. Unchanged from v1.3."},
+              {"name": "report_form", "type": "STRING", "required": true, "description": "Iceberg field id 4. Unchanged from v1.3."},
+              {"name": "fiscal_year", "type": "INTEGER", "required": true, "description": "Iceberg field id 5. Unchanged from v1.3."},
+              {"name": "total_fte_enrollment", "type": "DOUBLE", "required": false, "description": "Iceberg field id 6. Unchanged from v1.3."},
+              {"name": "instruction_expenses", "type": "DOUBLE", "required": false, "description": "Iceberg field id 7. Raw passthrough. Unchanged from v1.3."},
+              {"name": "institutional_support_expenses", "type": "DOUBLE", "required": false, "description": "Iceberg field id 8. Raw passthrough. Unchanged from v1.3."},
+              {"name": "endowment_value", "type": "DOUBLE", "required": false, "description": "Iceberg field id 9. Raw passthrough. Unchanged from v1.3."},
+              {"name": "instruction_per_fte", "type": "DOUBLE", "required": false, "description": "Iceberg field id 10. Per-FTE passthrough from base. Unchanged from v1.3."},
+              {"name": "institutional_support_per_fte", "type": "DOUBLE", "required": false, "description": "Iceberg field id 11. Per-FTE passthrough from base. Unchanged from v1.3."},
+              {"name": "endowment_per_fte", "type": "DOUBLE", "required": false, "description": "Iceberg field id 12. Per-FTE passthrough from base. Unchanged from v1.3."},
+              {"name": "marketing_ratio", "type": "DOUBLE", "required": false, "description": "Iceberg field id 13. Passthrough from base. Unchanged from v1.3."},
+              {"name": "data_completeness_tier", "type": "STRING", "required": true, "description": "Iceberg field id 14. Passthrough from base. Unchanged from v1.3."},
+              {"name": "promoted_at", "type": "TIMESTAMP", "required": true, "description": "Iceberg field id 15. Consumable promote timestamp. Unchanged from v1.3."},
+              {"name": "endowment_value_provenance", "type": "STRING", "required": false, "description": "v1.4 NEW — Iceberg field id 16. Renamed passthrough from base.endowment_value_flag per §2 Decision A. NULL on F3 (structural). On F1A/F2 the FY2023 domain is {R, A, P, Z, N}. Authoritative semantics: R = Reported by institution; A = Not applicable (institution has no endowment fund); N = Imputed using Nearest Neighbor procedure; P = Imputed using prior year's data; Z = Imputed using a zero value. Longitudinal-analysis guidance: filter to endowment_value_provenance = 'R' to limit to institution-reported values. CDE flag set per §6 data contract delta. CON-IFP-013 (P0) enforces 0 mismatches against base.endowment_value_flag."},
+              {"name": "source_load_date", "type": "DATE", "required": true, "description": "v1.4 NEW — Iceberg field id 17. Restored passthrough from base.source_load_date per §2 Decision G. NOT NULL. Documents when the bronze source was loaded — distinct from fiscal_year (the IPEDS reporting cycle) and from promoted_at (the consumable promote timestamp). NCES revises previously-published vintages (preliminary → revised → final); source_load_date lets downstream consumers compare two cached snapshots and tell which is fresher. CON-IFP-015 (P0) enforces 100% non-null; CON-IFP-016 (P1) enforces within 400 days of promoted_at."}
+            ],
+            "fieldCount": 17
+          },
+          "version": {
+            "datasetVersion": "950547093607535235",
+            "snapshotId": "950547093607535235",
+            "snapshotTimestamp": "2026-05-01T22:45:00.000000Z"
+          },
+          "columnLineage": {
+            "fields": {
+              "endowment_value_provenance": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "endowment_value_flag"}
+                ],
+                "transformationDescription": "v1.4 NEW column. Semantic-rename passthrough per §2 Decision A — base.endowment_value_flag is exposed at the consumable surface as endowment_value_provenance with NO value mutation. transform_row() reads base.endowment_value_flag and writes it to consumable.endowment_value_provenance at field id 16. The rename is for downstream-consumer clarity (the consumable surface uses 'provenance' to signal the longitudinal-vs-snapshot interpretation guidance documented in the data contract YAML and field docstring); the underlying value is byte-for-byte identical. NULL semantics propagate exactly: NULL on F3 (structural — passed through from bronze to base to consumable); {R, A, P, Z, N} on F1A/F2 with FY2023 observed subset {R, A, P, N} on F1A and {R, A, P} on F2. CDE-flagged at consumable (endowment_value_provenance changes how endowment_value and endowment_per_fte should be interpreted). CON-IFP-013 (P0) enforces 0 passthrough-fidelity mismatches against base.endowment_value_flag joined on UNITID. The old base column name endowment_value_flag is NOT emitted at consumable — only the renamed column exists.",
+                "transformationType": "DIRECT"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "source_load_date"}
+                ],
+                "transformationDescription": "v1.4 RESTORED column per §2 Decision G — base.source_load_date is passed through verbatim to the consumable surface at field id 17 NOT NULL. Same value, same name, no transformation. Documents the bronze-load timestamp as observability metadata distinct from fiscal_year (the IPEDS reporting cycle, e.g., 2023) and promoted_at (the consumable-promote timestamp). The 'restored' framing reflects spec §2 Decision G — earlier consumable schemas exposed source_load_date but a previous spec dropped it; v1.4 reinstates the column based on @bs:data-steward feedback that downstream consumers need a way to compare two cached snapshots and tell which is fresher when NCES revises a vintage (preliminary → revised → final). NOT NULL is enforced by base's NOT NULL guarantee at field id 15. CON-IFP-015 (P0) enforces 100% non-null at consumable; CON-IFP-016 (P1) enforces source_load_date within 400 days of promoted_at to catch stale snapshots.",
+                "transformationType": "DIRECT"
+              }
+            },
+            "v13FieldsPreservedNote": "Column lineage for the 13 v1.3-baseline consumable fields (record_id, unitid, institution_name, report_form, fiscal_year, total_fte_enrollment, the three raw-dollar passthroughs, the three per-FTE values, marketing_ratio, data_completeness_tier, promoted_at) is unchanged from v1.3. Only the two new fields' column lineage is enumerated above. Note: every v1.3 field's value flows through the system-office filter at transform_rows() — the filter excludes rows wholesale rather than nullifying individual columns, so column lineage is unchanged but row count changes (2,675 → 2,630, 45 excluded)."
+          },
+          "dataQualityAssertions": {
+            "rulesFile": "governance/dq-rules/consumable-ipeds-finance-profile.json",
+            "v14NewRules": [
+              {"ruleId": "CON-IFP-001a", "name": "Row count <= base row count (P0 upper bound)", "priority": "P0", "dimension": "conservation-upper-bound", "status": "PASS", "actual": 2630, "threshold": "<=2675"},
+              {"ruleId": "CON-IFP-001b", "name": "Row count >= base row count - 50 (P1 lower bound)", "priority": "P1", "dimension": "conservation-lower-bound", "status": "PASS", "actual": 2630, "threshold": ">=2625", "marginRows": 5},
+              {"ruleId": "CON-IFP-012", "name": "fiscal_year present + single-valued at consumable surface", "priority": "P0", "dimension": "consistency", "status": "PASS"},
+              {"ruleId": "CON-IFP-013", "name": "endowment_value_provenance passthrough fidelity (0 mismatches vs base.endowment_value_flag)", "priority": "P0", "dimension": "conservation", "status": "PASS", "violations": 0},
+              {"ruleId": "CON-IFP-014", "name": "system-office filter executed: 0 rows match the §6 v1.3 4-clause exclusion predicate", "priority": "P1", "dimension": "validity", "status": "PASS"},
+              {"ruleId": "CON-IFP-015", "name": "source_load_date 100% non-null", "priority": "P0", "dimension": "completeness", "status": "PASS", "actual": 100.0},
+              {"ruleId": "CON-IFP-016", "name": "source_load_date within 400 days of promoted_at", "priority": "P1", "dimension": "freshness", "status": "PASS"}
+            ],
+            "v13RulesSplit": "CON-IFP-001 (v1.3 strict-equality) was split per §2 Decision E into CON-IFP-001a (P0 upper bound) + CON-IFP-001b (P1 lower bound) to absorb cycle drift in the system-office filter (the 25-40 named entities can fluctuate by ±5 across cycles as IPEDS reclassifies). The original CON-IFP-001 strict-equality rule no longer applies post-v1.4 since base count and consumable count differ by design (45 rows excluded by the filter).",
+            "v13RulesPreserved": "CON-IFP-002..010 all PASS unchanged on snapshot 950547093607535235.",
+            "scorecardNote": "Per spec §8 a v1.4 scorecard is being authored at governance/dq-scorecards/ipeds-finance-v1.4-scorecard.md."
+          }
+        },
+        "outputFacets": {
+          "rowCount": 2630,
+          "snapshotId": "950547093607535235",
+          "fieldCount": 17,
+          "fieldCountDelta": "+2 (endowment_value_provenance, source_load_date) vs v1.3",
+          "rowCountDelta": "-45 vs base (system-administrative-office filter)",
+          "rowCountDeltaVsV13Base": "-45 (2,675 base → 2,630 consumable)",
+          "rowsExcludedTotal": 45,
+          "rowsExcludedV12CarryoverCount": 24,
+          "rowsExcludedV13FteNullExtensionCount": 21,
+          "rowConservationPercent": 98.32,
+          "tierDistribution": {"high": 1981, "medium": 649, "low": 0, "insufficient": 0}
+        }
+      }
+    ]
+  }
+]

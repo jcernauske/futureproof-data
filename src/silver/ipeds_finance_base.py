@@ -80,7 +80,7 @@ BASE_TABLE_NAME = "ipeds_finance"
 
 
 def get_base_schema() -> Schema:
-    """Iceberg schema for ``base.ipeds_finance`` (15 columns).
+    """Iceberg schema for ``base.ipeds_finance`` (16 columns — v1.4 §5).
 
     Field IDs are dense and stable.  Required-vs-nullable mirrors the
     spec §5 base schema table:
@@ -89,6 +89,17 @@ def get_base_schema() -> Schema:
       - The four raw dollar / FTE passthroughs and four derivations are
         nullable (the F3-endowment and zero-FTE realities make any
         required-not-null rule false on real data).
+      - ``endowment_value_flag`` (v1.4 addition, field-id 16) is a
+        nullable string passthrough from raw — NULL on F3 (structural —
+        no F3H family); on F1A/F2 the observed FY2023 domain is
+        ``{R, A, P, Z, N}`` (a strict subset of the IPEDS dictionary's
+        13-code shared lookup).  Authoritative semantics per FY2023
+        dictionary + empirical confirmation: ``R`` = Reported by
+        institution; ``A`` = Not applicable (institution has no
+        endowment fund — exact ``A``↔NULL coupling on
+        ``endowment_value`` per BSE-IPF-020); ``N`` = Imputed using
+        Nearest Neighbor procedure; ``P`` = Imputed using prior year's
+        data; ``Z`` = Imputed using a zero value.
     """
     return Schema(
         NestedField(1, "record_id", StringType(), required=True),
@@ -106,6 +117,7 @@ def get_base_schema() -> Schema:
         NestedField(13, "marketing_ratio", DoubleType(), required=False),
         NestedField(14, "source_load_date", DateType(), required=True),
         NestedField(15, "ingested_at", TimestampType(), required=True),
+        NestedField(16, "endowment_value_flag", StringType(), required=False),
     )
 
 
@@ -219,6 +231,16 @@ def transform_row(
     endowment_per_fte = derive_per_fte(endowment, total_fte)
     marketing_ratio = derive_marketing_ratio(institutional_support, instruction)
 
+    # v1.4 §5: endowment_value_flag is a verbatim raw passthrough.  No
+    # derivation, no rename, no transformation.  NULL on F3 (structural —
+    # raw ingestor populates None for F3 because there is no F3H family);
+    # on F1A/F2 carries the bronze ``{R, A, P, Z, N}`` domain.  The
+    # passthrough fidelity is asserted at DQ-rule time by BSE-IPF-018.
+    endowment_value_flag_raw = raw.get("endowment_value_flag")
+    endowment_value_flag: str | None = (
+        str(endowment_value_flag_raw) if endowment_value_flag_raw is not None else None
+    )
+
     record: dict[str, Any] = {
         "unitid": unitid,
         "institution_name": institution_name,
@@ -234,6 +256,7 @@ def transform_row(
         "marketing_ratio": marketing_ratio,
         "source_load_date": source_load_date,
         "ingested_at": ingested_at,
+        "endowment_value_flag": endowment_value_flag,
     }
     record["record_id"] = compute_grain_id(record, GRAIN_FIELDS, prefix=GRAIN_PREFIX)
     return record

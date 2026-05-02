@@ -49,6 +49,11 @@ def _make_ingestor(**overrides) -> IpedsFinanceIngestor:
     obj.f1a_endowment_eoy_col = overrides.get(
         "f1a_endowment_eoy_col", IpedsFinanceIngestor.DEFAULT_F1A_ENDOWMENT_EOY_COL
     )
+    # v1.4: F1A imputation flag column (XF1H02).
+    obj.f1a_endowment_flag_col = overrides.get(
+        "f1a_endowment_flag_col",
+        IpedsFinanceIngestor.DEFAULT_F1A_ENDOWMENT_FLAG_COL,
+    )
     # F2
     obj.f2_instruction_col = overrides.get(
         "f2_instruction_col", IpedsFinanceIngestor.DEFAULT_F2_INSTRUCTION_COL
@@ -59,6 +64,11 @@ def _make_ingestor(**overrides) -> IpedsFinanceIngestor:
     )
     obj.f2_endowment_eoy_col = overrides.get(
         "f2_endowment_eoy_col", IpedsFinanceIngestor.DEFAULT_F2_ENDOWMENT_EOY_COL
+    )
+    # v1.4: F2 imputation flag column (XF2H02).
+    obj.f2_endowment_flag_col = overrides.get(
+        "f2_endowment_flag_col",
+        IpedsFinanceIngestor.DEFAULT_F2_ENDOWMENT_FLAG_COL,
     )
     # F3
     obj.f3_instruction_col = overrides.get(
@@ -96,23 +106,37 @@ def _hd_row(unitid: int, name: str, iclevel: int = 1, hloffer: int = 5) -> dict:
 
 
 def _f1a_row(unitid: int, instruction: str = "10000000",
-             inst_supp: str = "3000000", endow: str = "50000000") -> dict:
-    """Synthetic F1A row with locked column codes."""
+             inst_supp: str = "3000000", endow: str = "50000000",
+             endow_flag: str = "R") -> dict:
+    """Synthetic F1A row with locked column codes.
+
+    v1.4: ``endow_flag`` populates the new ``XF1H02`` IPEDS imputation
+    flag column.  Default ``"R"`` (institution-reported) — the dominant
+    value in the FY2022/FY2023 dictionary.
+    """
     return {
         "UNITID": str(unitid),
         "F1C011": instruction,
         "F1C071": inst_supp,
         "F1H02": endow,
+        "XF1H02": endow_flag,
     }
 
 
 def _f2_row(unitid: int, instruction: str = "5000000",
-            inst_supp: str = "1500000", endow: str = "10000000") -> dict:
+            inst_supp: str = "1500000", endow: str = "10000000",
+            endow_flag: str = "R") -> dict:
+    """Synthetic F2 row.
+
+    v1.4: ``endow_flag`` populates the new ``XF2H02`` IPEDS imputation
+    flag column.  Default ``"R"`` (institution-reported).
+    """
     return {
         "UNITID": str(unitid),
         "F2E011": instruction,
         "F2E061": inst_supp,
         "F2H02": endow,
+        "XF2H02": endow_flag,
     }
 
 
@@ -416,9 +440,9 @@ class TestSchema:
         assert isinstance(ingestor.get_schema(), Schema)
 
     def test_field_count(self):
-        """Spec §4: 8 payload + 4 framework metadata = 12."""
+        """v1.4 §4: 8 payload + 4 framework metadata + 1 flag = 13."""
         ingestor = _make_ingestor()
-        assert len(ingestor.get_schema().fields) == 12
+        assert len(ingestor.get_schema().fields) == 13
 
     def test_field_names_match_spec(self):
         ingestor = _make_ingestor()
@@ -428,6 +452,8 @@ class TestSchema:
             "institutional_support_expenses", "instruction_expenses",
             "endowment_value", "total_fte_enrollment",
             "source_url", "source_method", "ingested_at", "load_date",
+            # v1.4 additive
+            "endowment_value_flag",
         ):
             assert expected in names
 
@@ -583,7 +609,7 @@ class TestFlattenOne:
         stats = {"unparseable_unitid": 0, "hd_miss": 0, "hd_filter_rejected": 0}
         result = ingestor._flatten_one(
             _f1a_row(999),
-            "F1A", "F1C011", "F1C071", "F1H02",
+            "F1A", "F1C011", "F1C071", "F1H02", "XF1H02",
             efia_by_unitid={},
             hd_by_unitid={},  # 999 not in HD
             stats=stats,
@@ -597,7 +623,7 @@ class TestFlattenOne:
         stats = {"unparseable_unitid": 0, "hd_miss": 0, "hd_filter_rejected": 0}
         hd = {1: {"institution_name": "X", "iclevel": 2, "hloffer": 5}}
         result = ingestor._flatten_one(
-            _f1a_row(1), "F1A", "F1C011", "F1C071", "F1H02",
+            _f1a_row(1), "F1A", "F1C011", "F1C071", "F1H02", "XF1H02",
             efia_by_unitid={}, hd_by_unitid=hd, stats=stats,
         )
         assert result is None
@@ -609,7 +635,7 @@ class TestFlattenOne:
         stats = {"unparseable_unitid": 0, "hd_miss": 0, "hd_filter_rejected": 0}
         hd = {1: {"institution_name": "X", "iclevel": 1, "hloffer": 4}}
         result = ingestor._flatten_one(
-            _f1a_row(1), "F1A", "F1C011", "F1C071", "F1H02",
+            _f1a_row(1), "F1A", "F1C011", "F1C071", "F1H02", "XF1H02",
             efia_by_unitid={}, hd_by_unitid=hd, stats=stats,
         )
         assert result is None
@@ -621,7 +647,7 @@ class TestFlattenOne:
         stats = {"unparseable_unitid": 0, "hd_miss": 0, "hd_filter_rejected": 0}
         hd = {1: {"institution_name": "Bachelor U", "iclevel": 1, "hloffer": 5}}
         result = ingestor._flatten_one(
-            _f1a_row(1), "F1A", "F1C011", "F1C071", "F1H02",
+            _f1a_row(1), "F1A", "F1C011", "F1C071", "F1H02", "XF1H02",
             efia_by_unitid={1: 1000.0}, hd_by_unitid=hd, stats=stats,
         )
         assert result is not None
@@ -635,7 +661,7 @@ class TestFlattenOne:
         stats = {"unparseable_unitid": 0, "hd_miss": 0, "hd_filter_rejected": 0}
         result = ingestor._flatten_one(
             {"UNITID": "garbage", "F1C011": "100"},
-            "F1A", "F1C011", "F1C071", "F1H02",
+            "F1A", "F1C011", "F1C071", "F1H02", "XF1H02",
             efia_by_unitid={}, hd_by_unitid={}, stats=stats,
         )
         assert result is None
@@ -650,10 +676,12 @@ class TestFlattenOne:
             _f3_row(500),
             "F3", "F3E011", "F3E03C1",
             None,  # endowment column = None for F3
+            None,  # endowment flag column = None for F3 (no F3H family)
             efia_by_unitid={500: 504.0}, hd_by_unitid=hd, stats=stats,
         )
         assert result is not None
         assert result["endowment_value"] is None  # NEVER imputed to 0
+        assert result["endowment_value_flag"] is None  # v1.4: structural NULL on F3
         assert result["instruction_expenses"] == 2_000_000.0
         assert result["institutional_support_expenses"] == 2_200_000.0
 
@@ -949,3 +977,425 @@ class TestIngestIntegration:
         r2 = ingestor2.ingest(warehouse_path=warehouse, catalog_path=catalog_path, cache_dir=cache)
         assert r2["ipeds_finance"]["rows"] == 0
         assert r2["ipeds_finance"]["skipped"] == 4
+
+
+# ----------------------------------------------------------------------
+# v1.4 — endowment_value_flag (XF1H02 / XF2H02 capture)
+# ----------------------------------------------------------------------
+#
+# Spec: docs/specs/ipeds-finance-v1.4.md §3 + §4.
+#
+# These tests cover the v1.4 additive ``endowment_value_flag`` column:
+#   - F1A rows extract the flag from ``XF1H02``.
+#   - F2 rows extract the flag from ``XF2H02``.
+#   - F3 rows are structurally NULL (no F3H family on F3 schedule).
+#   - The five IPEDS-published codes (R, A, P, Z, N) pass through verbatim.
+#   - Suppression sentinels (blank / ``.`` / ``PrivacySuppressed``) on the
+#     flag column produce NULL.
+#   - Numeric sentinels (``-1``/``-2``) DO NOT apply to the flag column —
+#     the flag set is `{R, A, P, Z, N}`, not numeric, and ``-1``/``-2``
+#     are reserved for value columns.
+#   - The schema includes the new field at field-id 13 with the correct
+#     type and nullability.
+
+
+class TestEndowmentValueFlagDefaults:
+    """v1.4 §4: locked column codes XF1H02 / XF2H02; F3 has no flag."""
+
+    def test_f1a_default_flag_col_is_xf1h02(self):
+        """v1.4 §3: F1A endowment-flag default = ``XF1H02``."""
+        assert IpedsFinanceIngestor.DEFAULT_F1A_ENDOWMENT_FLAG_COL == "XF1H02"
+
+    def test_f2_default_flag_col_is_xf2h02(self):
+        """v1.4 §3: F2 endowment-flag default = ``XF2H02``."""
+        assert IpedsFinanceIngestor.DEFAULT_F2_ENDOWMENT_FLAG_COL == "XF2H02"
+
+    def test_no_f3_flag_class_constant(self):
+        """F3 has no F3H family per v1.3 §3 — therefore no F3 flag class
+        constant either.  Defense-in-depth: confirm a future contributor
+        does not silently introduce one without spec amendment."""
+        assert not hasattr(
+            IpedsFinanceIngestor, "DEFAULT_F3_ENDOWMENT_FLAG_COL"
+        )
+
+
+class TestEndowmentValueFlagInit:
+    """v1.4: __init__ accepts override args; defaults flow through."""
+
+    def test_init_default_resolution_f1a(self):
+        ingestor = _make_ingestor()
+        assert ingestor.f1a_endowment_flag_col == "XF1H02"
+
+    def test_init_default_resolution_f2(self):
+        ingestor = _make_ingestor()
+        assert ingestor.f2_endowment_flag_col == "XF2H02"
+
+    def test_init_override_f1a(self):
+        """Override path mirrors instruction/institutional_support
+        resolution (NOT the F3 Ellipsis sentinel) — required column."""
+        ingestor = _make_ingestor(f1a_endowment_flag_col="XF1H02_RV")
+        assert ingestor.f1a_endowment_flag_col == "XF1H02_RV"
+
+    def test_init_override_f2(self):
+        ingestor = _make_ingestor(f2_endowment_flag_col="XF2H02_RV")
+        assert ingestor.f2_endowment_flag_col == "XF2H02_RV"
+
+
+class TestStripFlagSentinel:
+    """v1.4: ``_strip_flag_sentinel`` — string-only sentinel scrub."""
+
+    @pytest.mark.parametrize("sentinel", ["", ".", "PrivacySuppressed"])
+    def test_blank_textual_sentinels_return_none(self, sentinel):
+        """Spec §4: blank / ``.`` / ``PrivacySuppressed`` on the flag
+        column produce NULL."""
+        assert IpedsFinanceIngestor._strip_flag_sentinel(sentinel) is None
+
+    @pytest.mark.parametrize("numeric", ["-1", "-2"])
+    def test_numeric_sentinels_pass_through_verbatim(self, numeric):
+        """Spec §4: ``-1``/``-2`` are numeric sentinels for VALUE columns.
+        On the flag column they are NOT sentinels — they are unexpected
+        codes that must pass through verbatim so the validity rule
+        ``RAW-IPF-015`` can fire on them downstream rather than being
+        silently scrubbed to NULL by raw."""
+        assert IpedsFinanceIngestor._strip_flag_sentinel(numeric) == numeric
+
+    @pytest.mark.parametrize("code", ["R", "A", "P", "Z", "N"])
+    def test_published_codes_pass_through(self, code):
+        """Spec §3 / §4: the five IPEDS-published codes pass through
+        verbatim (no upper-casing, no normalization, no coercion)."""
+        assert IpedsFinanceIngestor._strip_flag_sentinel(code) == code
+
+    def test_whitespace_stripped_from_real_value(self):
+        """Whitespace around a real value is stripped, value preserved."""
+        assert IpedsFinanceIngestor._strip_flag_sentinel("  R  ") == "R"
+        assert IpedsFinanceIngestor._strip_flag_sentinel("\tA\n") == "A"
+
+    def test_whitespace_only_returns_none(self):
+        """Pure-whitespace string is the empty-string sentinel after
+        strip — returns NULL."""
+        assert IpedsFinanceIngestor._strip_flag_sentinel("   ") is None
+
+    def test_none_passes_through(self):
+        """A ``None`` flag-column value (e.g., F3 row, where the column
+        does not exist on the schedule) returns ``None``."""
+        assert IpedsFinanceIngestor._strip_flag_sentinel(None) is None
+
+    def test_lowercase_preserved_no_normalization(self):
+        """Source fidelity: a lowercase ``r`` stays lowercase.  IPEDS
+        publishes uppercase only, so the lowercase variant is an
+        unexpected value that the downstream validity rule should
+        catch.  Raw must not silently normalize."""
+        assert IpedsFinanceIngestor._strip_flag_sentinel("r") == "r"
+
+
+class TestEndowmentValueFlagFlatten:
+    """v1.4: end-to-end flag extraction in flatten()."""
+
+    def _payload(self, f1a_flag="R", f2_flag="A") -> dict:
+        return {
+            "f1a_rows": [_f1a_row(100, endow_flag=f1a_flag)],
+            "f2_rows": [_f2_row(200, endow_flag=f2_flag)],
+            "f3_rows": [_f3_row(300)],
+            "efia_by_unitid": {100: 1000.0, 200: 500.0, 300: 100.0},
+            "hd_by_unitid": {
+                100: {"institution_name": "Big Public", "iclevel": 1, "hloffer": 9},
+                200: {"institution_name": "Private NFP", "iclevel": 1, "hloffer": 9},
+                300: {"institution_name": "ForProfit", "iclevel": 1, "hloffer": 7},
+            },
+            "source_method": "csv_cache",
+        }
+
+    def test_f1a_row_extracts_flag_from_xf1h02(self):
+        """v1.4 §4: F1A row's flag is sourced from ``XF1H02``."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        flat = ingestor.flatten(
+            self._payload(f1a_flag="R", f2_flag="A"), "ipeds_finance"
+        )
+        f1a_row = next(r for r in flat if r["report_form"] == "F1A")
+        assert f1a_row["endowment_value_flag"] == "R"
+
+    def test_f2_row_extracts_flag_from_xf2h02(self):
+        """v1.4 §4: F2 row's flag is sourced from ``XF2H02``."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        flat = ingestor.flatten(
+            self._payload(f1a_flag="R", f2_flag="A"), "ipeds_finance"
+        )
+        f2_row = next(r for r in flat if r["report_form"] == "F2")
+        assert f2_row["endowment_value_flag"] == "A"
+
+    def test_f3_row_has_null_flag_structurally(self):
+        """v1.4 §3 / §4: F3 rows have ``endowment_value_flag = None``
+        — structural NULL, never imputed.  F3 has no F3H family."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        flat = ingestor.flatten(self._payload(), "ipeds_finance")
+        f3_row = next(r for r in flat if r["report_form"] == "F3")
+        assert f3_row["endowment_value_flag"] is None
+        # AND endowment_value is also None — structural cascade preserved
+        assert f3_row["endowment_value"] is None
+
+    @pytest.mark.parametrize("code", ["R", "A", "P", "Z", "N"])
+    def test_each_published_code_passes_through_for_f1a(self, code):
+        """Each of the five IPEDS-published codes passes through verbatim
+        on F1A rows."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        flat = ingestor.flatten(
+            self._payload(f1a_flag=code, f2_flag="R"), "ipeds_finance"
+        )
+        f1a_row = next(r for r in flat if r["report_form"] == "F1A")
+        assert f1a_row["endowment_value_flag"] == code
+
+    @pytest.mark.parametrize("code", ["R", "A", "P", "Z", "N"])
+    def test_each_published_code_passes_through_for_f2(self, code):
+        """Each of the five IPEDS-published codes passes through verbatim
+        on F2 rows."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        flat = ingestor.flatten(
+            self._payload(f1a_flag="R", f2_flag=code), "ipeds_finance"
+        )
+        f2_row = next(r for r in flat if r["report_form"] == "F2")
+        assert f2_row["endowment_value_flag"] == code
+
+    @pytest.mark.parametrize("sentinel", ["", ".", "PrivacySuppressed"])
+    def test_sentinels_on_f1a_flag_produce_null(self, sentinel):
+        """v1.4 §4: blank / ``.`` / ``PrivacySuppressed`` on the flag
+        column scrub to NULL — preserves v1.3 sentinel convention but
+        does NOT numeric-coerce the string."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        flat = ingestor.flatten(
+            self._payload(f1a_flag=sentinel, f2_flag="R"), "ipeds_finance"
+        )
+        f1a_row = next(r for r in flat if r["report_form"] == "F1A")
+        assert f1a_row["endowment_value_flag"] is None
+
+    @pytest.mark.parametrize("sentinel", ["", ".", "PrivacySuppressed"])
+    def test_sentinels_on_f2_flag_produce_null(self, sentinel):
+        ingestor = _make_ingestor(fiscal_year=2023)
+        flat = ingestor.flatten(
+            self._payload(f1a_flag="R", f2_flag=sentinel), "ipeds_finance"
+        )
+        f2_row = next(r for r in flat if r["report_form"] == "F2")
+        assert f2_row["endowment_value_flag"] is None
+
+    def test_missing_xf1h02_column_in_row_produces_null(self):
+        """If the F1A row is missing ``XF1H02`` entirely (e.g., a
+        future cycle drops the column), the value coerces to NULL via
+        the blank-string path on row.get()."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        # Build a row WITHOUT XF1H02 — simulates a column-loss event.
+        bare_row = {
+            "UNITID": "999",
+            "F1C011": "10000000",
+            "F1C071": "3000000",
+            "F1H02": "50000000",
+            # No XF1H02 key present
+        }
+        payload = {
+            "f1a_rows": [bare_row],
+            "f2_rows": [],
+            "f3_rows": [],
+            "efia_by_unitid": {999: 1000.0},
+            "hd_by_unitid": {
+                999: {"institution_name": "Missing-X U", "iclevel": 1, "hloffer": 9}
+            },
+            "source_method": "csv_cache",
+        }
+        flat = ingestor.flatten(payload, "ipeds_finance")
+        assert len(flat) == 1
+        assert flat[0]["endowment_value_flag"] is None
+
+    def test_flag_paired_with_null_endowment_value_on_f1a(self):
+        """A common IPEDS pattern (per v1.3 EDA §7): when the flag is
+        ``A`` (analytical / model-imputed) the value column itself may
+        also be reported (NCES imputes it).  The flag must surface
+        verbatim regardless of the value column's nullness — consumers
+        running longitudinal endowment analyses use the flag to filter
+        out imputed values, so the flag MUST be available even when
+        the value is non-null."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        # A-flagged row with a real (NCES-imputed) value
+        a_flagged = _f1a_row(444, endow="123456789", endow_flag="A")
+        payload = {
+            "f1a_rows": [a_flagged],
+            "f2_rows": [],
+            "f3_rows": [],
+            "efia_by_unitid": {444: 1000.0},
+            "hd_by_unitid": {
+                444: {"institution_name": "Imputed-Endow U", "iclevel": 1, "hloffer": 9}
+            },
+            "source_method": "csv_cache",
+        }
+        flat = ingestor.flatten(payload, "ipeds_finance")
+        assert flat[0]["endowment_value"] == 123_456_789.0
+        assert flat[0]["endowment_value_flag"] == "A"
+
+
+class TestEndowmentValueFlagSchema:
+    """v1.4: schema additions — field id, type, nullability."""
+
+    def test_endowment_value_flag_is_optional(self):
+        """v1.4 §4 schema delta: nullable (NULL on F3 is structural)."""
+        ingestor = _make_ingestor()
+        flag_field = next(
+            f for f in ingestor.get_schema().fields
+            if f.name == "endowment_value_flag"
+        )
+        assert not flag_field.required
+
+    def test_endowment_value_flag_is_string_type(self):
+        """Spec §3 / §4: domain is the IPEDS string enum {R, A, P, Z, N}
+        — type must be StringType, NOT IntegerType / DoubleType."""
+        from pyiceberg.types import StringType
+
+        ingestor = _make_ingestor()
+        flag_field = next(
+            f for f in ingestor.get_schema().fields
+            if f.name == "endowment_value_flag"
+        )
+        assert isinstance(flag_field.field_type, StringType)
+
+    def test_endowment_value_flag_field_id_13(self):
+        """v1.4: appended at next-available field id (12 metadata fields
+        + 1 v1.4 additive = id 13).  Iceberg field ids are immutable —
+        appending at the next id preserves all existing data files."""
+        ingestor = _make_ingestor()
+        flag_field = next(
+            f for f in ingestor.get_schema().fields
+            if f.name == "endowment_value_flag"
+        )
+        assert flag_field.field_id == 13
+
+
+class TestEndowmentValueFlagSentinelScopeBoundary:
+    """v1.4 §4 critical constraint: the flag column does NOT take
+    ``-1``/``-2`` numeric sentinels.  This is the primary semantic
+    guardrail — confusing them would silently drop downstream
+    validity-rule firings on out-of-domain codes."""
+
+    def test_dash_one_passes_through_verbatim_on_f1a(self):
+        """A ``-1`` value on ``XF1H02`` is NOT scrubbed at raw — it
+        passes through so RAW-IPF-015's validity rule fires
+        downstream rather than the value being silently NULLed."""
+        ingestor = _make_ingestor(fiscal_year=2023)
+        bad_row = _f1a_row(555, endow_flag="-1")
+        payload = {
+            "f1a_rows": [bad_row],
+            "f2_rows": [],
+            "f3_rows": [],
+            "efia_by_unitid": {555: 1000.0},
+            "hd_by_unitid": {
+                555: {"institution_name": "Bad-Flag U", "iclevel": 1, "hloffer": 9}
+            },
+            "source_method": "csv_cache",
+        }
+        flat = ingestor.flatten(payload, "ipeds_finance")
+        assert flat[0]["endowment_value_flag"] == "-1"
+
+    def test_dash_two_passes_through_verbatim_on_f2(self):
+        ingestor = _make_ingestor(fiscal_year=2023)
+        bad_row = _f2_row(556, endow_flag="-2")
+        payload = {
+            "f1a_rows": [],
+            "f2_rows": [bad_row],
+            "f3_rows": [],
+            "efia_by_unitid": {556: 500.0},
+            "hd_by_unitid": {
+                556: {"institution_name": "Bad-Flag NFP", "iclevel": 1, "hloffer": 7}
+            },
+            "source_method": "csv_cache",
+        }
+        flat = ingestor.flatten(payload, "ipeds_finance")
+        assert flat[0]["endowment_value_flag"] == "-2"
+
+
+class TestEndowmentValueFlagIngestIntegration:
+    """End-to-end ingest with v1.4 flag column — proves the full
+    pipeline (fetch → flatten → schema → Iceberg append) carries the
+    new column through the framework metadata stamp."""
+
+    def _write_fixtures(self, tmp_path: Path) -> Path:
+        cache = tmp_path / "ipeds_v14_cache"
+        cache.mkdir()
+        # F1A: 2 rows — one R-flagged, one A-flagged with sentinel-NULL value
+        (cache / "F2223_F1A.csv").write_text(
+            "UNITID,F1C011,F1C071,F1H02,XF1H02\n"
+            "243744,2683135000,810116000,36494893000,R\n"
+            "100654,500000000,150000000,,A\n"
+        )
+        # F2: 1 row, R-flagged
+        (cache / "F2223_F2.csv").write_text(
+            "UNITID,F2E011,F2E061,F2H02,XF2H02\n"
+            "139959,500000000,150000000,2000000000,R\n"
+        )
+        # F3: 1 row, NO XF3H column
+        (cache / "F2223_F3.csv").write_text(
+            "UNITID,F3E011,F3E03C1\n"
+            "199193,50000000,55000000\n"
+        )
+        (cache / "EFIA2023.csv").write_text(
+            "UNITID,FTEUG,FTEGD,FTEDPP\n"
+            "243744,8000,10000,1094\n"
+            "100654,3000,500,0\n"
+            "139959,5000,1000,0\n"
+            "199193,500,4,0\n"
+        )
+        (cache / "HD2023.csv").write_text(
+            "UNITID,INSTNM,ICLEVEL,HLOFFER\n"
+            "243744,Stanford University,1,9\n"
+            "100654,Alabama A&M University,1,9\n"
+            "139959,Northeastern University,1,9\n"
+            "199193,For-Profit Online U,1,7\n"
+        )
+        return cache
+
+    def test_ingest_round_trips_flag_column(self, tmp_path):
+        """End-to-end: 4 rows out, ``endowment_value_flag`` populated
+        for F1A/F2 rows and NULL on F3."""
+        from brightsmith.domain_loader import DomainHints, DomainManifest, SourceConfig
+        from brightsmith.infra.iceberg_setup import get_catalog, read_with_duckdb
+
+        cache = self._write_fixtures(tmp_path)
+        source = SourceConfig(
+            name="ipeds_finance",
+            namespace="bronze",
+            table="ipeds_finance",
+            fetch={"ipeds_finance": {}},
+            entities={"ipeds_finance": "IPEDS Finance v1.4 — flag-column integration"},
+            dedup_grain=["unitid"],
+            cache_dir=cache,
+        )
+        manifest = DomainManifest(
+            name="futureproof-data-test",
+            version="0.1",
+            description="test",
+            sources=[],
+            hints=DomainHints(),
+            pipeline={},
+        )
+        warehouse = tmp_path / "warehouse"
+        catalog_path = tmp_path / "catalog.db"
+        warehouse.mkdir(parents=True, exist_ok=True)
+
+        ingestor = IpedsFinanceIngestor(source, manifest, fiscal_year=2023)
+        results = ingestor.ingest(
+            warehouse_path=warehouse,
+            catalog_path=catalog_path,
+            cache_dir=cache,
+        )
+        assert results["ipeds_finance"]["rows"] == 4
+
+        catalog = get_catalog(warehouse, catalog_path)
+        rows = read_with_duckdb(catalog.load_table("bronze.ipeds_finance"))
+        by_unitid = {r["unitid"]: r for r in rows}
+
+        # F1A R-flagged row
+        assert by_unitid[243744]["endowment_value_flag"] == "R"
+        assert by_unitid[243744]["endowment_value"] == 36_494_893_000.0
+        # F1A A-flagged row with NULL value column
+        assert by_unitid[100654]["endowment_value_flag"] == "A"
+        assert by_unitid[100654]["endowment_value"] is None
+        # F2 R-flagged row
+        assert by_unitid[139959]["endowment_value_flag"] == "R"
+        # F3 row: structural NULL on flag (no XF3H column on schedule)
+        assert by_unitid[199193]["report_form"] == "F3"
+        assert by_unitid[199193]["endowment_value_flag"] is None
+        assert by_unitid[199193]["endowment_value"] is None

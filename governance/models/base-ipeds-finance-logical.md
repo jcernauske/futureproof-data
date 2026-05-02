@@ -82,6 +82,7 @@ The three Bronze monetary fields, carried verbatim. They are the *numerator inpu
 | institutional_support_expenses | BT-IPF-INSTITUTIONAL-SUPPORT-EXPENSES | numeric (USD) | NULLABLE | false | false | The institution's total annual expenses for executive management, fiscal operations, public relations, fundraising, and similar administrative functions. Promoted verbatim from `bronze.ipeds_finance.institutional_support_expenses`. **Observed (FY23):** 100.00% non-null (2,675 / 2,675). **Sourced from F1A `F1C071` / F2 `F2E061` / F3 `F3E03C1`** (post-2014-15 schedule populated). |
 | instruction_expenses | BT-IPF-INSTRUCTION-EXPENSES | numeric (USD) | NULLABLE | false | false | The institution's total annual expenses for instructional divisions — faculty salaries, instructional materials, departmental research. Promoted verbatim from Bronze. **Observed (FY23):** 100.00% non-null. **Sourced from F1A `F1C011` / F2 `F2E011` / F3 `F3E011`**. |
 | endowment_value | BT-IPF-ENDOWMENT-VALUE | numeric (USD) | NULLABLE | false | false | End-of-year market value of the institution's endowment funds. Reported on F1A and F2 only — for-profit (F3) institutions have no `F3H` family on their finance schedule. Promoted verbatim from Bronze. **Observed (FY23):** 76.00% non-null overall; 100% structural NULL on F3 by design. **Sourced from F1A `F1H02` / F2 `F2H02`**. |
+| endowment_value_flag (v1.4) | (proposed) BT-IPF-ENDOWMENT-PROVENANCE | text (enum: `R`/`A`/`P`/`Z`/`N` OR NULL) | NULLABLE | false | false | **NEW v1.4** — IPEDS-published imputation flag for `endowment_value`, passthrough from `bronze.ipeds_finance.endowment_value_flag` per spec §5. **Authoritative semantics (corrected v1.2):** `R` = Reported by institution; `A` = **Not applicable** (no endowment fund — exact `A`↔NULL coupling on `endowment_value`, enforced by BSE-IPF-020 P0); `N` = **Imputed using Nearest Neighbor procedure**; `P` = Imputed prior year; `Z` = Imputed zero. NULL on F3 by structure (no `F3H` family). The CDE flag is `false` at base — the column becomes CDE at consumable as `endowment_value_provenance` where the rename signals consumer-facing posture. Validated by BSE-IPF-018 (P0 passthrough fidelity), BSE-IPF-019 (P1 per-form prevalence band: F1A 5–15%, F2 12–25%), BSE-IPF-020 (P0 bi-implicational `A`↔NULL coupling invariant). |
 | total_fte_enrollment | (proposed) BT-IPF-PER-FTE (the convention; this column is the denominator) | numeric (FTE) | NULLABLE | true | false | The institution's 12-month total full-time-equivalent enrollment, computed at Bronze as the NULL-safe sum `COALESCE(FTEUG,0) + COALESCE(FTEGD,0) + COALESCE(FTEDPP,0)` from EFIA. Promoted verbatim. **Observed (FY23):** 97.94% non-null (2,620 / 2,675); the 55 NULL rows cause every per-FTE value in this row to NULL-cascade. The single most load-bearing column for downstream analysis. |
 
 ### Per-FTE Derivations (NEW in Base)
@@ -209,8 +210,11 @@ A cross-field ratio with no FTE dependency. Computed in Silver via plain-double 
 | `endowment_per_fte` spot check: at least one row > $1M | Plausibility | BSE-IPF-016 (P1) |
 | `instruction_per_fte` P99 < $500,000 | Plausibility (FTE-bug tripwire) | BSE-IPF-017 (P1) |
 | Row count = Bronze row count | Conservation | BSE-IPF-001 (P0) |
+| `endowment_value_flag` passthrough fidelity (every base row matches the source bronze row, joined on `unitid`; 0 mismatches) | Conservation (column-level) | BSE-IPF-018 (P0) — v1.4 |
+| `endowment_value_flag = 'A'` rate per form: F1A within 5–15%, F2 within 12–25% (denominator: rows with `endowment_value_flag IS NOT NULL` for that form) | Distribution (EDA-calibrated v1.2 against FY2023-landed steady-state baselines F1A 9.77% / F2 18.05%) | BSE-IPF-019 (P1) — v1.4 |
+| `A`↔NULL coupling invariant (bi-implication, both directions): every row with `endowment_value_flag = 'A'` has `endowment_value IS NULL`, AND every F1A/F2 row with `endowment_value IS NULL` has `endowment_value_flag = 'A'`. F3 rows exempt by structure. | Consistency / semantic invariant | BSE-IPF-020 (P0) — v1.4 |
 
-All 19 rules pass against the landed table (`governance/dq-rules/base-ipeds-finance.json`).
+All 22 rules pass against the v1.4 landed table (`governance/dq-rules/base-ipeds-finance.json`).
 
 ---
 
@@ -244,6 +248,8 @@ All 19 rules pass against the landed table (`governance/dq-rules/base-ipeds-fina
 9. **Per-form DQ thresholds for marketing-ratio.** BSE-IPF-015 is split into a/b/c for F1A/F2/F3 because the public-system-administrative-office cluster legitimately drives F1A P99 to ~14, well above what F2 (~6) or F3 (~9) ever reach. A table-wide threshold would either fire on legitimate state-system offices or fail to catch genuine F2/F3 outliers.
 
 10. **No SCD2.** Same as Bronze: latest single-fiscal-cycle snapshot. Multi-cycle history would require partitioning on `fiscal_year` and extending the dedup grain.
+
+11. **v1.4 — `endowment_value_flag` is a passthrough, not a derivation.** The column carries verbatim from `bronze.ipeds_finance.endowment_value_flag` (BSE-IPF-018 P0 conservation). The CDE flag is intentionally false at base — the column becomes CDE at consumable as `endowment_value_provenance`, where the rename signals consumer-facing posture. The bi-implicational `A`↔NULL coupling invariant (BSE-IPF-020 P0) codifies the v1.2-corrected `A`="Not applicable" semantic at the rule layer; future-cycle NCES semantic drift (if `A` ever loses its no-endowment meaning) trips the rule before downstream consumers can misread the column.
 
 ---
 

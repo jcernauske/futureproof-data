@@ -1,0 +1,200 @@
+{
+  "spec": "ipeds-finance-v1.4",
+  "zone": "bronze",
+  "mode": "backfill",
+  "started": "2026-05-02T00:47:47.286488+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:43:19.125146+00:00",
+      "output": "docs/specs/ipeds-finance-v1.4.md",
+      "output_hash": "sha256:eba1450fe8db80fc9222d2ea84e36845c83540860d7e864e8cdae5a7d8ab5775"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T02:56:10.572689+00:00",
+      "output": "src/raw/ipeds_finance_ingestor.py",
+      "output_hash": "sha256:4162c7ad6ad93983ebd7ca22dc1aba2b5443b143d76c929bea5b4163edd2b4c5"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T03:23:12.505751+00:00",
+      "output": "governance/eda/ipeds-finance-v1.4-flag-eda.md",
+      "output_hash": "sha256:f885a2629e9a984794afd7c28be3a7ac4c184e65a9c134f0a34874b35cc3b810"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:42:45.109866+00:00",
+      "output": "governance/domain-context.md",
+      "output_hash": "sha256:ea69295b8a420f92d691cc7dd6c05d19e40957fd43c9cb161e2841e4970d9d2f"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:43:23.892767+00:00",
+      "output": "governance/dq-rules/consumable-ipeds-finance-profile.json",
+      "output_hash": "sha256:03e5fc7687cd9d9ba5ae7605a86f17a6ab798979ad814e5775f82267c0cee196"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:43:28.745639+00:00",
+      "output": "governance/dq-scorecards/ipeds-finance-v1.4-scorecard.md",
+      "output_hash": "sha256:6dbf6df088045fea9284818cf5837b82817eaeed318f10998c2cc644f5c52425"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:43:33.720800+00:00",
+      "output": "governance/chaos-reports/ipeds-finance-v1.4-chaos.md",
+      "output_hash": "sha256:fdc12edac13898502c55bbf090db660ce00ccafe7b164c898d73e49fafe961a0"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:42:49.319385+00:00",
+      "output": "governance/entity-resolution/ipeds-finance-v1.4-confirmation.md",
+      "output_hash": "sha256:93f25fa0125ae1287996490d28639b9919a4780a23a97929cecf2236e6678323"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:42:53.111018+00:00",
+      "output": "governance/pii-scans/ipeds-finance-v1.4-scan.md",
+      "output_hash": "sha256:aadd393dc1b5af390a9cd8c938f5bab8439600ed100d3c78d64922a217b98d88"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:42:56.976334+00:00",
+      "output": "governance/audit-trail/2026-05-02-temporal-modeler-ipeds-finance-v1.4-noop.md",
+      "output_hash": "sha256:73206615645ce622b9eb455c5853c80065d87b84d173515f2adec9993ca024c2"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:03:58.995990+00:00",
+      "output": "governance/lineage/ipeds-finance-v1.4-20260502T045016Z.json",
+      "output_hash": "sha256:f763e85c014eb7ef85b222820e9f1d52705a76a13b0ab56773519fb942fa741e"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:04:01.909517+00:00",
+      "output": "governance/cde-tagging/consumable-ipeds-finance-profile.md",
+      "output_hash": "sha256:19c3431d37ca630f6d5a0e8bac98831132c701b5ddd1245b3c414356ae31fc66"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:28:15.102644+00:00",
+      "output": "governance/data-contracts/consumable-ipeds-finance-profile.yaml",
+      "output_hash": "sha256:ede40e957f9d0fd415bea6802d48c4259b47090246c5979634ae94081b9ba8c0"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:43:01.067802+00:00",
+      "output": "governance/audits/ipeds-finance-v1.4-adversarial-audit-confirmation.md",
+      "output_hash": "sha256:fd0d1b11bf1fd321282db190b688e19b2335b4c2ff7e5a066dc0712e9915dec5"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:43:37.799128+00:00",
+      "output": "docs/specs/ipeds-finance-v1.4.md",
+      "output_hash": "sha256:eba1450fe8db80fc9222d2ea84e36845c83540860d7e864e8cdae5a7d8ab5775"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-02T05:43:42.178517+00:00",
+      "output": "docs/specs/ipeds-finance-v1.4.md",
+      "output_hash": "sha256:eba1450fe8db80fc9222d2ea84e36845c83540860d7e864e8cdae5a7d8ab5775"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}

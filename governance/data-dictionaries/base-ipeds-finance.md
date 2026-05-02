@@ -8,14 +8,14 @@
 **Conceptual model:** [governance/models/base-ipeds-finance-conceptual.md](../models/base-ipeds-finance-conceptual.md)
 **Logical model:** [governance/models/base-ipeds-finance-logical.md](../models/base-ipeds-finance-logical.md)
 **Physical model:** [governance/models/base-ipeds-finance-physical.md](../models/base-ipeds-finance-physical.md)
-**DQ Rules:** [governance/dq-rules/base-ipeds-finance.json](../dq-rules/base-ipeds-finance.json) (19 rules: 13 P0 + 6 P1)
+**DQ Rules:** [governance/dq-rules/base-ipeds-finance.json](../dq-rules/base-ipeds-finance.json) (22 rules — v1.4 added BSE-IPF-018 P0 + BSE-IPF-019 P1 + BSE-IPF-020 P0)
 **DQ Scorecard:** [governance/dq-scorecards/full-pipeline-ipeds-finance-scorecard.md](../dq-scorecards/full-pipeline-ipeds-finance-scorecard.md) (44/44 PASS across all three zones)
 **Bronze data dictionary:** [governance/data-dictionaries/raw-ipeds-finance.md](raw-ipeds-finance.md)
 **Domain Context:** [governance/domain-context.md](../domain-context.md) § IPEDS Finance Survey
 **EDA Report:** [governance/eda/raw-ingest-ipeds-finance-eda.md](../eda/raw-ingest-ipeds-finance-eda.md)
 **Source:** `bronze.ipeds_finance` (1:1 promote with derivations)
 **Grain:** one row per institution (`unitid`) per fiscal cycle
-**Observed rows:** 2,675 (FY2023 cycle, snapshot `1277941459950591173`)
+**Observed rows:** 2,675 (FY2023 cycle, v1.4 snapshot `5533921477059200416`; v1.3 historical snapshot `1277941459950591173`)
 **Documented by:** @doc-generator
 **Date:** 2026-04-30
 
@@ -100,18 +100,26 @@ The three per-student normalizations of the monetary inputs. Computed in Silver 
 |-------|---------------------|------|----------|-----|---------------|--------------------------|
 | `marketing_ratio` | **Derivation:** `institutional_support_expenses / NULLIF(instruction_expenses, 0)` (NULL when either operand is NULL or instruction is 0) | double | No | **Yes** | (proposed) BT-IPF-MARKETING-RATIO | The dimensionless ratio of institutional support expenses to instruction expenses. Higher = relatively more spending on administration, fundraising, marketing, and recruiting compared to teaching. Reading: `1.0` means parity (admin ≈ instruction); `5.0` means 5× as much spent on administration as instruction. Computed in this Base zone for the first time; has no FTE dependency, so its non-null rate is broader than the per-FTE rates (98.84% vs 97.94%). **NULL semantics:** NULL when either operand is NULL or instruction is exactly 0 (mirrors `NULLIF` semantics). The 31 NULL rows are the small set of zero-instruction system-office UNITIDs. **Observed (FY2023):** 98.84% non-null (2,644 / 2,675). **Per-form P99 (FY2023 actual):** F1A 14.15 / F2 6.35 / F3 8.75 — note F1A's high P99 reflects the public-system-administrative-office cluster (LA CCD Office, U Colorado System Office, etc.), which legitimately carry huge administrative spend with little instruction. The DQ thresholds in BSE-IPF-015a/b/c (15.0 / 7.0 / 11.0) are calibrated against these values with cross-vintage drift headroom. **Arithmetic invariant (BSE-IPF-010):** `marketing_ratio × instruction_expenses ≈ institutional_support_expenses` within $1 wherever all three are non-null — passes by construction. **Spot check:** Stanford UNITID 243744 = 0.30193 ($810,116,000 / $2,683,135,000) — Stanford spends ~30 cents on administration for every dollar on instruction. |
 
+### Imputation Provenance (v1.4 ADDITION)
+
+The v1.4 amendment captures the IPEDS-published endowment imputation flag as a passthrough column at base. It is not derived; it is verbatim from bronze.
+
+| Field | Source | Type | Required | CDE | Business Term | Plain-English Definition |
+|-------|--------|------|----------|-----|---------------|--------------------------|
+| `endowment_value_flag` | `bronze.ipeds_finance.endowment_value_flag` (passthrough) | string | No | No | (proposed) BT-IPF-ENDOWMENT-PROVENANCE | Raw passthrough from `bronze.ipeds_finance.endowment_value_flag` per ipeds-finance-v1.4 §5. Same NULL semantics as bronze: NULL on F3 (structural — F3 has no `F3H` family on the for-profit schedule), `{R, A, P, Z, N}` on F1A/F2 (a strict subset of the IPEDS dictionary's 13-code shared lookup). **Authoritative semantics (corrected v1.2 against the v1.3-EDA-§7 narrative inversion):** `R` = Reported by institution; `A` = **Not applicable** (institution has no endowment fund — exact `A`↔NULL coupling on `endowment_value`, enforced as a base invariant by BSE-IPF-020 P0); `N` = Imputed using Nearest Neighbor procedure; `P` = Imputed using prior year's data; `Z` = Imputed using a zero value. **Observed (FY2023):** F1A `R=737, A=80, N=1, P=1`; F2 `R=1,293, A=285, P=1`; F3 100% NULL by structure. **CDE flag is NOT set at base** — the column becomes CDE at consumable as `endowment_value_provenance` (per spec §6 Data Contract delta), where the rename signals the consumer-facing posture; at base it is a passthrough audit field. The BSE-IPF-018 P0 conservation rule pins the passthrough fidelity to bronze; BSE-IPF-019 P1 (per-form prevalence band) and BSE-IPF-020 P0 (`A`↔NULL coupling invariant) round out the v1.4 base-rule additions. |
+
 ### Pipeline Provenance
 
 | Field | Source | Type | Required | CDE | Business Term | Plain-English Definition |
 |-------|--------|------|----------|-----|---------------|--------------------------|
-| `source_load_date` | `bronze.ipeds_finance.load_date` (passthrough, cast to DATE) | date | Yes | No | (Brightsmith convention) | Calendar date the source Bronze data was loaded (UTC). Direct passthrough of `bronze.ipeds_finance.load_date`. Identical across all rows in a single Base promote run. Used by downstream freshness DQ to reach the original Bronze ingest date even after multiple Silver/Gold promote timestamps stack up. |
+| `source_load_date` | `bronze.ipeds_finance.load_date` (passthrough, cast to DATE) | date | Yes | No | (Brightsmith convention) | Calendar date the source Bronze data was loaded (UTC). Direct passthrough of `bronze.ipeds_finance.load_date`. Identical across all rows in a single Base promote run. Used by downstream freshness DQ to reach the original Bronze ingest date even after multiple Silver/Gold promote timestamps stack up. v1.4 amendment §6 restored `source_load_date` to the *consumable* layer as well (it was previously dropped at the base→consumable promote); the base-zone field is unchanged. |
 | `ingested_at` | `datetime.utcnow()` at promote time | timestamp | Yes | No | (Brightsmith convention) | UTC wall-clock recording when this Base row was promoted from Bronze. Identical across all rows in a single Base promote run. Distinct from `source_load_date` (the *Bronze* ingest date). |
 
 ---
 
 ## Data Quality Rules
 
-The 19 Base DQ rules are defined in [governance/dq-rules/base-ipeds-finance.json](../dq-rules/base-ipeds-finance.json). Summary:
+The 22 Base DQ rules are defined in [governance/dq-rules/base-ipeds-finance.json](../dq-rules/base-ipeds-finance.json). The first 19 are v1.3 (BSE-IPF-001 through BSE-IPF-017, with BSE-IPF-015 split into 015a/b/c); BSE-IPF-018 / 019 / 020 were added in v1.4. Summary:
 
 | Rule ID | Priority | Field(s) | What It Checks |
 |---------|----------|----------|----------------|
@@ -132,8 +140,11 @@ The 19 Base DQ rules are defined in [governance/dq-rules/base-ipeds-finance.json
 | BSE-IPF-015a/b/c | P1 | `marketing_ratio` (per-form) | F1A P99 < 15.0 / F2 P99 < 7.0 / F3 P99 < 11.0 (calibrated per EDA §6.5 strong recommendation; FY2023 actuals: F1A 14.15 / F2 6.35 / F3 8.75). |
 | BSE-IPF-016 | P1 | `endowment_per_fte` | At least one row > $1M (passes trivially — F2 P99 alone = $1.44M). |
 | BSE-IPF-017 | P1 | `instruction_per_fte` | P99 < $500,000 (FTE-bug tripwire; observed P99 = $78.8K). |
+| BSE-IPF-018 | P0 | `endowment_value_flag` | Passthrough fidelity: every base row has `endowment_value_flag` exactly equal to the source bronze row (joined on `unitid`); 0 mismatches. Mirrors BSE-IPF-001's conservation pattern at the column level. Catches transformer drift on the v1.4 passthrough. |
+| BSE-IPF-019 | P1 | `endowment_value_flag` (per form) | "Not applicable" prevalence per form: `flag = 'A'` rate within **5–15% on F1A** and **12–25% on F2** (denominator is rows with `endowment_value_flag IS NOT NULL` for that form). Per-form bands recalibrated v1.2 against the FY2023-landed steady-state baselines (F1A 9.77%, F2 18.05%). The original 20–40% single-band was mis-calibrated against pre-HD-filter source-CSV measurements; the landed-bronze surface (post-HD-filter) is the correct reference. ~5pp cushion absorbs cycle drift while still firing on a structural break. **NOTE:** measures "Not applicable" prevalence (institutions with no endowment fund) — corrected v1.2 from the original "model-imputed" framing per the v1.3-EDA-§7 narrative inversion. |
+| BSE-IPF-020 | P0 | `endowment_value_flag`, `endowment_value` | `A`↔NULL coupling invariant (bi-implication, both directions checked): every row with `endowment_value_flag = 'A'` has `endowment_value IS NULL`, AND every F1A/F2 row with `endowment_value IS NULL` has `endowment_value_flag = 'A'`. Codifies the `A` = "Not applicable" semantic at the rule layer. Catches: (1) future NCES-side semantic drift (if `A` ever loses its no-endowment meaning, this rule fires before downstream consumers misread the column); (2) transformer bugs that strip the flag without stripping the value or vice-versa. v1.4 EDA confirmed 0 violations on FY2023 (80/80 F1A and 285/285 F2 `A`-flagged rows have NULL value; 0 F1A/F2 NULL-value rows lack the `A` flag). F3 rows are exempt by structure (no `F3H` family — both flag and value are NULL by design). |
 
-All 19 rules pass against the landed table. Full scorecard: `governance/dq-scorecards/full-pipeline-ipeds-finance-scorecard.md` (44/44 PASS across all three zones).
+All 22 rules pass against the v1.4 landed table. Full scorecard: `governance/dq-scorecards/full-pipeline-ipeds-finance-scorecard.md` (44/44 PASS across all three zones).
 
 ---
 
@@ -166,3 +177,4 @@ All 19 rules pass against the landed table. Full scorecard: `governance/dq-score
 | Date | Change | By |
 |------|--------|-----|
 | 2026-04-30 | Initial data dictionary for Base table `base.ipeds_finance` per spec v1.3. 15 fields documented (3 identity + 2 reporting + 3 monetary inputs + 1 FTE + 4 derivations + 2 provenance), 6 flagged CDE, 0 flagged PII. Field types and nullability verified against landed Iceberg metadata (snapshot `1277941459950591173`). | @doc-generator |
+| 2026-05-01 | v1.4 DELTA — added `endowment_value_flag` field (StringType, nullable; passthrough from `bronze.ipeds_finance.endowment_value_flag`; corrected v1.2 semantics throughout). +3 DQ rules: BSE-IPF-018 P0 passthrough fidelity; BSE-IPF-019 P1 per-form prevalence bands (F1A 5–15% / F2 12–25%, recalibrated v1.2 against FY2023-landed steady-state baselines); BSE-IPF-020 P0 `A`↔NULL coupling invariant (bi-implication, both directions). New base snapshot `5533921477059200416`. Schema field IDs 1–15 unchanged; new field at ID 16. CDE flag intentionally false at base (becomes CDE at consumable as `endowment_value_provenance`). Per ipeds-finance-v1.4 spec §5. | @doc-generator |
