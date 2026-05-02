@@ -21,6 +21,44 @@ interface ExplainStatReceiptCardProps {
 }
 
 /**
+ * Short-form lookup for source pill display. Per §3 "Pill name
+ * truncation": full source names get a kebab-case slug + a short
+ * human-readable form for the pill content.
+ */
+const SOURCE_SHORT_FORMS: Array<{
+  matcher: RegExp;
+  shortForm: string;
+  slug: string;
+}> = [
+  {
+    matcher: /College Scorecard/i,
+    shortForm: "College Scorecard",
+    slug: "college-scorecard",
+  },
+  {
+    matcher: /Occupational Outlook|Bureau of Labor Statistics/i,
+    shortForm: "BLS Outlook",
+    slug: "bls-ooh",
+  },
+];
+
+function shortFormForSource(name: string): { shortForm: string; slug: string } {
+  for (const entry of SOURCE_SHORT_FORMS) {
+    if (entry.matcher.test(name)) {
+      return { shortForm: entry.shortForm, slug: entry.slug };
+    }
+  }
+  // Fallback: use the part before the first parenthesis or comma,
+  // and slugify the original.
+  const truncated = name.split(/[(,]/)[0]?.trim() ?? name;
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return { shortForm: truncated, slug };
+}
+
+/**
  * Split the server-rendered `math_line` into the arithmetic line and
  * an optional effort-line footnote (per Decision 13). When effort is
  * "balanced" or the math collapses to the build's score, the effort
@@ -59,11 +97,29 @@ function renderInlineBold(text: string): React.ReactNode {
 }
 
 /**
- * Stat-color CSS-variable lookup keyed on the stat code. Falls back to
- * the ERN gold for safety; v1.0 only ships ERN.
+ * Stat-color CSS-variable lookup keyed on the stat code. v1.0 only
+ * ships ERN.
  */
 function statColorVar(statCode: ExplainStatReceipt["stat_code"]): string {
   return `var(--color-stat-${statCode.toLowerCase()})`;
+}
+
+/**
+ * Convert an integer percentile to its ordinal form ("87th", "1st").
+ * Used for the per-component percentile callout row.
+ */
+function ordinal(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
 }
 
 function ComponentRow({
@@ -80,10 +136,11 @@ function ComponentRow({
     component.missing_reason !== null;
 
   return (
-    <li
+    <motion.li
+      variants={staggerItem}
       data-testid={`receipt-component-${statCode.toLowerCase()}-${component.weight_pct}`}
       aria-label={`${component.weight_pct} percent — ${component.label}`}
-      className="flex items-start gap-3"
+      className="flex items-start gap-3 list-none"
     >
       {/* Left-rail percentage chip — stays at full opacity even on
           missing-data rows so the visual rhythm of the bullet doesn't
@@ -104,15 +161,44 @@ function ComponentRow({
       <div
         className={`flex-1 ${isMissing ? "text-text-muted" : "text-text-secondary"}`}
       >
-        <div className="font-display font-semibold text-text-primary text-body-sm">
+        <h3 className="font-display font-semibold text-text-primary text-body-sm m-0">
           {component.label}
-        </div>
+        </h3>
         <p
           className="font-body leading-relaxed mt-1"
           style={{ fontSize: 13 }}
         >
           {component.explainer}
         </p>
+
+        {/* Percentile callout row — per §3 missing-data treatment, the
+            slot is always present; when value_pct is null it renders
+            a `◦ —` glyph in text-muted instead of the data line. */}
+        {component.value_pct === null ? (
+          <p
+            className="font-body text-text-muted mt-1"
+            style={{ fontSize: 12 }}
+            aria-label="data not available"
+          >
+            <span aria-hidden>◦ —</span>
+          </p>
+        ) : (
+          <p
+            className="font-data text-text-muted mt-1"
+            style={{ fontSize: 12 }}
+          >
+            {ordinal(component.value_pct)} percentile
+            {component.anchor_dollars !== null && (
+              <>
+                {" · "}
+                <span className="font-data">
+                  median ${component.anchor_dollars.toLocaleString()}
+                </span>
+              </>
+            )}
+          </p>
+        )}
+
         {component.missing_reason !== null && (
           <p
             role="note"
@@ -125,7 +211,7 @@ function ComponentRow({
           </p>
         )}
       </div>
-    </li>
+    </motion.li>
   );
 }
 
@@ -140,33 +226,40 @@ export function ExplainStatReceiptCard({
       data-testid="explain-stat-receipt"
       role="region"
       aria-label={`${payload.stat_name} explanation receipt`}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 12, scale: 0.985 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={springs.smooth}
-      className="bg-bp-raised border border-border-subtle rounded-xl"
+      className="bg-bp-raised border border-border-default rounded-[14px]"
       style={{
         padding: 20,
         borderLeft: `3px solid ${accent}`,
         maxWidth: "100%",
+        boxShadow: "0 8px 32px rgba(27,29,48,0.55)",
       }}
     >
-      {/* Score callout — stat-color font-data headline */}
-      <header className="flex items-baseline gap-3 flex-wrap">
-        <h3
-          className="font-display font-bold text-text-primary"
-          style={{ fontSize: 18 }}
+      {/* Score callout — eyebrow + score on the same baseline-aligned row. */}
+      <header className="flex justify-between items-baseline gap-3 flex-wrap">
+        <div
+          aria-hidden
+          className="font-display text-text-muted uppercase"
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "1.5px",
+          }}
         >
           {payload.stat_name}
-        </h3>
+        </div>
         <div
+          data-testid="receipt-score"
+          aria-label={`${payload.stat_name} score: ${payload.score} out of ${payload.score_max}`}
           className="font-data font-bold leading-none"
-          aria-label={`Score: ${payload.score} out of ${payload.score_max}`}
-          style={{ fontSize: 32, color: accent }}
+          style={{ fontSize: 44, color: accent }}
         >
           {payload.score}
           <span
-            className="font-data font-normal opacity-50"
-            style={{ fontSize: 18 }}
+            className="font-data text-text-muted"
+            style={{ fontSize: 22, fontWeight: 400 }}
           >
             /{payload.score_max}
           </span>
@@ -182,26 +275,34 @@ export function ExplainStatReceiptCard({
       </p>
 
       {/* How it works — components + math line */}
-      <section className="mt-5">
+      <section aria-labelledby="receipt-howitworks-heading" className="mt-5">
+        <h2 id="receipt-howitworks-heading" className="sr-only">
+          How it works
+        </h2>
         <div
-          className="font-display font-semibold text-text-primary"
-          style={{ fontSize: 13, letterSpacing: "0.3px" }}
+          aria-hidden
+          className="font-display text-text-muted uppercase"
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "1.5px",
+          }}
         >
           How it works
         </div>
         <motion.ul
+          data-testid="receipt-components"
           className="mt-3 space-y-4"
           variants={staggerContainer(0, 0.08)}
           initial="initial"
           animate="animate"
         >
           {payload.components.map((c) => (
-            <motion.div key={c.weight_pct} variants={staggerItem}>
-              <ComponentRow
-                component={c}
-                statCode={payload.stat_code}
-              />
-            </motion.div>
+            <ComponentRow
+              key={c.weight_pct}
+              component={c}
+              statCode={payload.stat_code}
+            />
           ))}
         </motion.ul>
 
@@ -210,6 +311,8 @@ export function ExplainStatReceiptCard({
             ChatMessage so the eye reads "this is data, not prose." */}
         <div
           data-testid="receipt-math-line"
+          role="math"
+          aria-label={`Score formula: ${arithmetic}`}
           className="bg-bp-mid rounded-lg mt-4 text-center"
           style={{
             padding: "14px 18px",
@@ -237,37 +340,60 @@ export function ExplainStatReceiptCard({
         )}
       </section>
 
-      {/* Where the data comes from */}
-      <section className="mt-5">
+      {/* Sources */}
+      <section aria-labelledby="receipt-sources-heading" className="mt-5">
+        <h2 id="receipt-sources-heading" className="sr-only">
+          Sources
+        </h2>
         <div
-          className="font-display font-semibold text-text-primary"
-          style={{ fontSize: 13, letterSpacing: "0.3px" }}
+          aria-hidden
+          className="font-display text-text-muted uppercase"
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "1.5px",
+          }}
         >
-          Where the data comes from
+          Sources
         </div>
         <ul className="mt-2 flex flex-wrap gap-2">
-          {payload.sources.map((s, i) => (
-            <li key={i}>
-              <button
-                type="button"
-                data-testid={`receipt-source-${i}`}
-                aria-label={`Source: ${s.name}`}
-                title={s.name}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border-subtle bg-bp-deep font-body text-text-secondary hover:text-text-primary hover:border-border-default transition-colors"
-                style={{ fontSize: 12 }}
-              >
-                {s.label}
-              </button>
-            </li>
-          ))}
+          {payload.sources.map((s) => {
+            const { shortForm, slug } = shortFormForSource(s.name);
+            return (
+              <li key={slug} className="list-none">
+                <button
+                  type="button"
+                  data-testid={`receipt-source-${slug}`}
+                  aria-label={`Source: ${s.name}`}
+                  title={s.name}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border-subtle bg-bp-mid hover:bg-bp-raised hover:[border-color:var(--color-stat-ern)] focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none transition-colors duration-fast"
+                  style={{ fontSize: 12 }}
+                >
+                  <span className="font-body text-text-muted">{s.label}</span>
+                  <span aria-hidden className="text-text-muted">·</span>
+                  <span className="font-body text-text-primary">
+                    {shortForm}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
       {/* Why we mix both pieces */}
-      <section className="mt-5">
+      <section aria-labelledby="receipt-why-heading" className="mt-5">
+        <h2 id="receipt-why-heading" className="sr-only">
+          Why we mix both pieces
+        </h2>
         <div
-          className="font-display font-semibold text-text-primary"
-          style={{ fontSize: 13, letterSpacing: "0.3px" }}
+          aria-hidden
+          className="font-display text-text-muted uppercase"
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "1.5px",
+          }}
         >
           Why we mix both pieces
         </div>
