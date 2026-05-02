@@ -170,13 +170,13 @@ describe("GemmaChat", () => {
     );
   });
 
-  it("renders all 6 starter pills (P1)", () => {
+  it("renders all 7 starter pills (P1)", () => {
     render(<GemmaChat open={true} build={makeBuild()} onClose={() => {}} />);
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 7; i += 1) {
       expect(screen.getByTestId(`btn-starter-${i}`)).toBeInTheDocument();
     }
-    // No 7th pill — STARTERS is exactly 6.
-    expect(screen.queryByTestId("btn-starter-6")).toBeNull();
+    // No 8th pill — STARTERS is exactly 7.
+    expect(screen.queryByTestId("btn-starter-7")).toBeNull();
   });
 
   // --- P1: maintains conversation history ---

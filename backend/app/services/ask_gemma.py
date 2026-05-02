@@ -85,6 +85,13 @@ _TOOLS: tuple[str, ...] = (
     "get_regional_price_parity",
     "compare_purchasing_power",
     "get_career_branches",
+    # School-comparison leaderboard. Powers chat questions like
+    # "what other schools lead to this career for less money" and
+    # "which schools have the highest ROI for this career". The MCP
+    # tool's own description teaches Gemma when to reach for it
+    # (compare schools FOR a career, not look up programs AT one
+    # school — that's get_career_paths).
+    "get_schools_for_career",
 )
 
 # 0.5 — middle ground. Pre-trace this was 0.4 (suppressed all
@@ -1133,8 +1140,19 @@ def _context_for_build(build: Build) -> str:
         header,
         "The student is asking about their whole build.",
         "",
-        "Pentagon stats (translate into plain English):",
     ]
+
+    # Tool-call codes — surfaced as helper-bracketed identifiers so
+    # Gemma can pass them to tools (get_schools_for_career,
+    # get_occupation_data, get_career_branches, etc.) without first
+    # firing get_career_paths to rediscover what's already loaded.
+    lines.append("Identifiers for tool calls (pass these to tools when needed):")
+    lines.append(_helper(f"unitid = {career.unitid}"))
+    lines.append(_helper(f"cipcode = {career.cipcode}"))
+    lines.append(_helper(f"soc_code = {career.soc_code}"))
+
+    lines.append("")
+    lines.append("Pentagon stats (translate into plain English):")
     for stat_code in ("ERN", "ROI", "RES", "GRW", "HMN"):
         v = _stat_value(career, stat_code)
         if v is not None:
@@ -1157,6 +1175,11 @@ def _context_for_build(build: Build) -> str:
             f"- Net price per year after aid: "
             f"{fmt_dollars(career.net_price_annual)}"
         )
+    if career.cost_of_attendance_annual is not None:
+        lines.append(
+            f"- Sticker cost of attendance per year (before aid): "
+            f"{fmt_dollars(career.cost_of_attendance_annual)}"
+        )
     if career.modeled_total_debt is not None:
         lines.append(
             f"- Modeled total student debt at graduation: "
@@ -1174,6 +1197,50 @@ def _context_for_build(build: Build) -> str:
         lines.append(f"- AI-exposure data source: {career.composite_method}")
     if career.education_level_name:
         lines.append(f"- Typical entry education: {career.education_level_name}")
+
+    # Residency + tuition detail. Critical for honest school-comparison
+    # answers — a leaderboard's "average net price" is school-wide and
+    # not residency-aware, so an OOS student comparing their personal
+    # OOS-aid-adjusted cost to a peer school's school-wide average will
+    # mislead. Expose the underlying tuition figures + the residency
+    # flag so Gemma can frame the comparison honestly.
+    lines.append("")
+    lines.append("School cost detail and student's residency:")
+    if career.institution_control:
+        lines.append(f"- Institution type: {career.institution_control}")
+    if career.is_out_of_state:
+        lines.append(
+            "- The student is paying OUT-OF-STATE tuition at this school."
+        )
+    else:
+        lines.append(
+            "- The student is paying in-state tuition at this school."
+        )
+    if career.tuition_in_state is not None:
+        lines.append(
+            f"- This school's in-state tuition: "
+            f"{fmt_dollars(career.tuition_in_state)}"
+        )
+    if career.tuition_out_of_state is not None:
+        lines.append(
+            f"- This school's out-of-state tuition: "
+            f"{fmt_dollars(career.tuition_out_of_state)}"
+        )
+    lines.append(
+        _helper(
+            "When comparing this student's costs to other schools "
+            "returned by get_schools_for_career, remember that the "
+            "leaderboard's net_price_annual is a school-wide average "
+            "across ALL students at that school. If the student is "
+            "out-of-state at their current school, they would also "
+            "pay out-of-state rates at peer schools — so a peer "
+            "school's listed average net price is NOT what this "
+            "student would actually pay. Make that distinction "
+            "explicit in your answer when comparing costs across "
+            "schools, and prefer to compare in-state-to-in-state or "
+            "out-of-state-to-out-of-state when that data is available."
+        )
+    )
 
     # Risk outcomes
     lines.append("")

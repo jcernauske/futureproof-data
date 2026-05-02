@@ -5,15 +5,17 @@ import {
   resolveToolLabel,
 } from "@/components/menu/toolLabels";
 
-// Mirrors the canonical 5-tuple in backend/app/services/ask_gemma.py
-// (_TOOLS). If a tool is added there, the corresponding entry must
-// appear here too — this test is the gate.
+// Mirrors the canonical chat-tool tuple in
+// backend/app/services/ask_gemma.py (_TOOLS). If a tool is added
+// there, the corresponding entry must appear here too — this test
+// is the gate.
 const CHAT_TOOLS = [
   "get_career_paths",
   "get_occupation_data",
   "get_regional_price_parity",
   "compare_purchasing_power",
   "get_career_branches",
+  "get_schools_for_career",
 ] as const;
 
 describe("TOOL_LABEL_MAP", () => {

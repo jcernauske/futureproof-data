@@ -82,6 +82,7 @@ const STARTERS = [
   "How would my salary feel in a few different states?",
   "Where could I live most affordably on this starting salary?",
   "What other careers branch off this one, and which ones have better stats?",
+  "What other schools give similar results for less cost, and how does cost of living compare in those states?",
   "What are the three highest-paying related careers, and what would I make in those roles in different cities?",
   "What does this work look like 10 years in versus today, and which related careers pay more?",
   "Tell me what this career pays nationally, what other careers branch off it, and how my salary would feel in a few different states.",

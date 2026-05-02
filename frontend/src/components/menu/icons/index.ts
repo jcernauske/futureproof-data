@@ -8,6 +8,7 @@ import { IconBranch } from "./IconBranch";
 import { IconBriefcaseStack } from "./IconBriefcaseStack";
 import { IconCareerCompass } from "./IconCareerCompass";
 import { IconMapPin } from "./IconMapPin";
+import { IconMortarboard } from "./IconMortarboard";
 import { IconScale } from "./IconScale";
 import { IconWrench } from "./IconWrench";
 
@@ -16,6 +17,7 @@ export {
   IconBriefcaseStack,
   IconCareerCompass,
   IconMapPin,
+  IconMortarboard,
   IconScale,
   IconWrench,
 };
@@ -33,6 +35,7 @@ export const TRACE_ICONS: Record<string, IconComponent> = {
   IconMapPin,
   IconScale,
   IconBranch,
+  IconMortarboard,
   IconWrench,
 };
 

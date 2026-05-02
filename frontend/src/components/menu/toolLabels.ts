@@ -112,6 +112,26 @@ export const TOOL_LABEL_MAP: Record<string, ToolLabel> = {
       return "Looking up career branches.";
     },
   },
+
+  get_schools_for_career: {
+    label: "Schools-for-career leaderboard",
+    icon: "IconMortarboard",
+    hint: (args) => {
+      const soc = strArg(args, "soc_code");
+      const cip = strArg(args, "cipcode");
+      const state = strArg(args, "state_abbr");
+      if (state && soc) {
+        return `Ranking schools in ${state} for occupation ${soc}.`;
+      }
+      if (cip && soc) {
+        return `Ranking schools for program ${cip} leading to occupation ${soc}.`;
+      }
+      if (soc) {
+        return `Ranking schools that lead to occupation ${soc}.`;
+      }
+      return "Ranking schools for this career.";
+    },
+  },
 };
 
 /**
