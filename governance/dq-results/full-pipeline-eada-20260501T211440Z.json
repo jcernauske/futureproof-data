@@ -1,0 +1,11 @@
+{
+  "run_id": "ed446d4f",
+  "spec": "full-pipeline-eada",
+  "executed_at": "2026-05-01T21:14:40.621418+00:00",
+  "rules_total": 0,
+  "rules_passed": 0,
+  "rules_failed": 0,
+  "rules_errored": 0,
+  "p0_passed": true,
+  "results": []
+}

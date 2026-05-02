@@ -1,0 +1,738 @@
+---
+# Data Contract: consumable.institution_aura
+# Spec: full-pipeline-eada (post-EDA v1 amendment + §5 Option-C amendment, 2026-04-30)
+# Zone: Gold (Consumable) — first cross-source fusion in the FutureProof pipeline
+# Status: draft (pending @bs:staff-engineer post-implementation sign-off)
+# Tagged by: @cde-tagger (governance/cde-tagging/consumable-institution-aura.md, separate companion artifact)
+# Documented by: @doc-generator
+# Date: 2026-04-30
+# Parent contracts:
+#   - governance/data-contracts/consumable-ipeds-finance-profile.yaml (sibling consumable; reads from same base.ipeds_finance)
+#   - (no separate base contracts authored — base.eada and base.ipeds_finance contracts are deferred per spec §8)
+#
+# NAMING NOTE: This file is named consumable-institution-aura.yaml per the project
+# convention documented in governance/data-contracts/consumable-regional-price-parities.yaml:
+# Gold/Consumable zone data contracts are named after the target Iceberg namespace
+# (`consumable-<table>.yaml`), matching consumable-ipeds-finance-profile.yaml,
+# consumable-regional-price-parities.yaml, consumable-career-outcomes.yaml,
+# consumable-career-branches.yaml, consumable-program-career-paths.yaml, etc.
+
+table: consumable.institution_aura
+namespace: consumable
+zone: gold
+version: "1.0.0"
+grain:
+  - unitid
+status: draft
+record_count: 3223
+data_vintage: >
+  IPEDS Finance Survey FY2023 cycle (academic year 2022-23, fiscal year ending
+  June 30 2023) FULL OUTER JOIN EADA 2022 reporting year on UNITID. The
+  consumable is built from base.ipeds_finance (snapshot 1277941459950591173,
+  2,675 rows) and base.eada (snapshot 973879610917339278, 2,040 rows).
+  Coverage breakdown: both 1,492 (46.3%) / finance_only 1,183 (36.7%) /
+  athletics_only 548 (17.0%). The aura_score is a v1 composite EDA-finalized
+  2026-04-30 (rejected v0-draft after 11/14 anchor failures); v1 passes 13/13
+  anchors at the §6-required aura_score >= 8 threshold. The aura_score_basis
+  column expands the spec-as-written 3-value enum to 5 values during EDA after
+  discovering 677 finance reporters with NULL endowment. The athletic_fte_source
+  column was added via the §5 Option-C amendment 2026-04-30 to surface FTE-
+  denominator methodology to downstream consumers (3 values: ipeds_finance /
+  eada_fte_headcount / NULL).
+source: >
+  base.ipeds_finance (Silver) FULL OUTER JOIN base.eada (Silver) on UNITID.
+  Cross-source fusion — first in the FutureProof pipeline that joins two
+  distinct upstream Base tables on UNITID and produces a derived composite
+  signal (aura_score). The consumable is NOT joined to any other consumable
+  table at promote time — CON-AUR-020 / CON-AUR-021 are runtime DQ checks
+  against consumable.career_outcomes, not promote-time joins.
+spec_reference: docs/specs/full-pipeline-eada.md
+parent_spec_reference: docs/specs/full-pipeline-eada.md
+owner: "@bs:data-steward"
+sla: >
+  Annual refresh aligned with the upstream IPEDS Finance + EADA cadences (IPEDS
+  Finance typically publishes in December for the previous fiscal year; EADA
+  typically publishes in October for the previous reporting year). Consumable
+  runs immediately after both Base refreshes. The full bronze->base->consumable
+  promotion chain is idempotent and re-runnable.
+
+quality_tier: >
+  partial_verification — carried forward from the v1 EDA. 14/14 P0 DQ rules pass
+  on the live snapshot 5887248523326294782; 4/5 P1 rules pass (CON-AUR-021 lands
+  0.32 pp below the spec-pinned 90% cross-source coverage threshold; live
+  measurement 89.68% — P1 warning, does NOT block the P0 gate). Aura score is
+  validated against 14 EDA-pinned anchor schools spanning three classes (extreme
+  endowment, extreme athletics, extreme marketing); 14/14 anchors match expected
+  v1 scores exactly (CON-AUR-032). The per-row provenance controls are the
+  aura_score_basis and athletic_fte_source columns (columns 15 and 11 of this
+  contract), explicitly carried forward so downstream consumers can stratify or
+  hedge cross-stratum comparisons. Every downstream consumer (the FutureProof
+  career-outcomes pentagon, future MCP tools, future cross-institution
+  comparison specs) is expected to read aura_score_basis and surface the
+  appropriate hedging language at the row level rather than rely on the
+  contract-level tier alone.
+
+quality:
+  row_count_guarantee: 3223
+  row_count_tolerance_band: [2675, 4715]
+  row_count_tolerance_note: >
+    Hard guarantee: row count in [max(N_finance, N_eada), N_finance + N_eada]
+    (CON-AUR-001 P0 FULL OUTER conservation invariant). Lower bound trips on
+    silent INNER-degradation; upper bound trips on accidental cross-join
+    multiplication. Live: 2,675 <= 3,223 <= 4,715. Soft band varies cycle-to-
+    cycle within the Base count drift (typically +/- 10% on each side).
+  null_guarantee: >
+    Eight columns guaranteed 100% non-null (record_id, unitid, institution_name,
+    aura_score_version, has_ipeds_finance, has_eada, coverage_tier,
+    promoted_at). Eleven columns are NULLABLE by design (the four finance
+    signals NULL on athletics-only rows; the three athletics signals NULL on
+    finance-only rows; athletic_fte_source NULL on finance-only rows; the four
+    aura columns aura_score / aura_score_continuous / aura_score_basis NULL
+    together on the 579 rows with no usable signal). NULLs propagate honestly
+    from Base through Consumable per the standing user constraint "no
+    substitution-based degraded states."
+  completeness_threshold: 0.62
+  completeness_threshold_note: >
+    62.0% on endowment_per_fte (1,998 / 3,223 — structural NULL on F3 + 548
+    athletics-only rows); 82.0% on marketing_ratio (2,644 / 3,223 — 31 zero-
+    instruction edge cases NULL); 63.3% on athletic_spend_per_fte (2,040 /
+    3,223). 100% non-null on the eight identity / coverage / version /
+    timestamp columns. The 62% contract-level threshold reflects the lowest-
+    completeness aura input (endowment); per-column completeness is summarized
+    by aura_score_basis at the row level.
+  validity_threshold: 1.00
+  validity_threshold_note: >
+    100% validity on the four enums (coverage_tier ∈ {both, finance_only,
+    athletics_only} via CON-AUR-005; aura_score_basis ∈ {three_term,
+    two_term_finance_only, two_term_no_endowment, one_term_marketing_only}
+    via CON-AUR-033; aura_score_version = 'v1' via CON-AUR-012;
+    athletic_fte_source ∈ {ipeds_finance, eada_fte_headcount, none} —
+    documented but not pinned via a P0 rule per spec §6).
+    100% validity on arithmetic invariants (CON-AUR-007: marketing-ratio
+    arithmetic identity within 0.001 — live observation differences within
+    1e-6 across 2,620 rows; CON-AUR-013: aura_score = ROUND(aura_score_continuous)).
+    100% validity on aura range (CON-AUR-010 / CON-AUR-014).
+    100% validity on the iff-NULL invariant (CON-AUR-011 / CON-AUR-034:
+    aura_score IS NULL ⇔ aura_score_basis IS NULL — replaces spec-as-written
+    iff has_ipeds_finance = FALSE shorthand).
+  uniqueness_guarantee:
+    - "unitid is unique (3,223 distinct values) — CON-AUR-003 P0"
+    - "record_id is unique (3,223 distinct values) — CON-AUR-004 P0"
+  freshness_sla: >
+    Annual IPEDS Finance + EADA publication cycle. Consumable runs after both
+    Base refreshes complete. promoted_at is refreshed on every Consumable
+    promote (identical across all 3,223 rows in a batch).
+  cross_source_coverage:
+    rule: ">= 90% of distinct UNITIDs in consumable.career_outcomes find a matching row here"
+    measured: "89.68% (live 2026-05-01)"
+    p1_floor: 0.90
+    p1_rule_id: CON-AUR-021
+    drift_cap_rule_id: CON-AUR-020
+    drift_cap_value: 1611
+    drift_cap_measured: 928
+    note: >
+      Spec pinned 90%; live measurement reveals 264 College Scorecard
+      institutions with program-completion rows are absent from BOTH
+      base.ipeds_finance and base.eada (mostly small religious / specialty /
+      late-filer institutions, plus institutions that don't satisfy the
+      ICLEVEL=1 AND HLOFFER>=5 4-year filter applied at the IPEDS Finance HD
+      ingest). 0.32 pp below threshold — P1 warning, does NOT block P0 gate.
+      @governance-reviewer to acknowledge as P1 and either (a) widen threshold
+      to 0.89 with rationale, or (b) enumerate the 264 missing UNITIDs as
+      documented drift in EDA. CON-AUR-020 (the inverse drift cap of 1,611)
+      passes by margin (live 928).
+  aura_score_distribution:
+    overall_buckets_populated_floor: 6
+    overall_buckets_measured: 10
+    per_stratum_buckets_populated_floor: 4
+    per_stratum_buckets_measured_min: 5
+    p1_rule_id: CON-AUR-030
+    median_band: [4, 7]
+    median_measured: 7
+    median_p1_rule_id: CON-AUR-031
+    stratification_key: aura_score_basis
+    stratification_count: 4
+    stratification_note: >
+      Stratification is by aura_score_basis (4 strata: three_term,
+      two_term_finance_only, two_term_no_endowment, one_term_marketing_only),
+      NOT by athletic_fte_source (which is structurally degenerate per EDA
+      Item 7 — every aura-computed row uses 'ipeds_finance' as its FTE source;
+      the 548 'eada_fte_headcount' rows never enter aura computation).
+  anchor_validation:
+    rule_id: CON-AUR-032
+    anchor_count: 14
+    anchors_passing: 14
+    anchors:
+      - {unitid: 166027, name: "Harvard",      class: "endowment", v1_score: 9}
+      - {unitid: 186131, name: "Princeton",    class: "endowment", v1_score: 10}
+      - {unitid: 243744, name: "Stanford",     class: "endowment", v1_score: 10}
+      - {unitid: 166683, name: "MIT",          class: "endowment", v1_score: 9}
+      - {unitid: 130794, name: "Yale",         class: "endowment", v1_score: 9}
+      - {unitid: 198419, name: "Duke",         class: "endowment", v1_score: 9}
+      - {unitid: 190415, name: "Cornell",      class: "endowment", v1_score: 9}
+      - {unitid: 147767, name: "Northwestern", class: "endowment", v1_score: 9}
+      - {unitid: 100751, name: "Alabama",      class: "athletics", v1_score: 9}
+      - {unitid: 484613, name: "U Phoenix",    class: "marketing", v1_score: 10}
+      - {unitid: 204796, name: "Ohio State",   class: "athletics", v1_score: 8}
+      - {unitid: 170976, name: "Michigan",     class: "athletics", v1_score: 9}
+      - {unitid: 104717, name: "Grand Canyon", class: "marketing", v1_score: 8}
+      - {unitid: 232557, name: "Liberty",      class: "moderate (control)", v1_score: 5}
+
+columns:
+  - name: record_id
+    type: string
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic Gold grain surrogate. Derived as
+      compute_grain_id(row, ['unitid'], prefix='aur'). 3,223 distinct values,
+      one per institution. Format: aur-<16 hex>. The 'aur' prefix is distinct
+      from upstream Base prefixes (ipf, ead) and from the sibling consumable
+      prefix (ifp) — no cross-zone hash collisions.
+    dq_rules:
+      - CON-AUR-004
+
+  - name: unitid
+    type: long
+    required: true
+    business_term: BT-001
+    is_cde: true
+    cde_rationale: >
+      Primary key of the Consumable table and dedup grain for
+      compute_grain_id(['unitid'], prefix='aur'). Join anchor for every
+      downstream consumer (the FutureProof career-outcomes pentagon, future
+      MCP tools, future cross-institution comparison specs). IPEDS UNITID is
+      the universal institution identifier across the entire pipeline.
+      Coalesced from base.ipeds_finance.unitid and base.eada.unitid (both
+      sides P0 non-null upstream).
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The 6-digit IPEDS UNITID. COALESCE(f.unitid, e.unitid) from FULL OUTER.
+      Natural key. The universal join key linking institution_aura to every
+      other institution-keyed table in the pipeline.
+    dq_rules:
+      - CON-AUR-002
+      - CON-AUR-003
+
+  - name: institution_name
+    type: string
+    required: true
+    business_term: BT-002
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The official name of the institution. COALESCE(f.institution_name,
+      e.institution_name) from FULL OUTER. Display-only — do not use for
+      joins (case, punctuation, and -Main Campus suffix conventions vary
+      across IPEDS sources).
+    dq_rules: []
+
+  - name: endowment_per_fte
+    type: double
+    required: false
+    business_term: BT-IPF-PER-FTE
+    is_cde: true
+    cde_rationale: >
+      Per-student endowment value — the "wealth backing" signal. Direct aura
+      input (feeds rp_endowment in the v1 composite). Re-affirmed CDE from
+      Base + sibling consumable.ipeds_finance_profile CDE set per spec §6
+      Data Contract. NULL on F3 (structural — no F3H family on for-profit
+      schedule) and on athletics-only rows.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student endowment value, promoted verbatim from
+      base.ipeds_finance.endowment_per_fte. Computed at Base as
+      endowment_value / total_fte_enrollment. Aura input feeds rp_endowment.
+      Observed: 1,998 / 3,223 (62.0%) non-null.
+    dq_rules: []
+
+  - name: institutional_support_per_fte
+    type: double
+    required: false
+    business_term: BT-IPF-PER-FTE
+    is_cde: true
+    cde_rationale: >
+      Per-student spending on administration. Re-affirmed CDE from Base +
+      sibling consumable.ipeds_finance_profile CDE set. NOT a direct aura
+      input — the marketing-side aura input is marketing_ratio (which is
+      derived from this column over instruction_per_fte); CON-AUR-007 cross-
+      checks the arithmetic identity.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student administrative-and-overhead spending, promoted verbatim
+      from base.ipeds_finance.institutional_support_per_fte. NOT a direct
+      aura input. Observed: 62% non-null (NULL on athletics-only rows).
+    dq_rules:
+      - CON-AUR-007
+
+  - name: instruction_per_fte
+    type: double
+    required: false
+    business_term: BT-IPF-PER-FTE
+    is_cde: true
+    cde_rationale: >
+      Per-student instructional spending. Re-affirmed CDE from Base + sibling
+      consumable.ipeds_finance_profile CDE set. NOT a direct aura input.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student spending on instructional divisions, promoted verbatim from
+      base.ipeds_finance.instruction_per_fte. NOT a direct aura input.
+      Observed: 62% non-null.
+    dq_rules:
+      - CON-AUR-007
+
+  - name: marketing_ratio
+    type: double
+    required: false
+    business_term: BT-IPF-MARKETING-RATIO
+    is_cde: true
+    cde_rationale: >
+      The most analytically loaded finance-side aura input — feeds
+      rp_marketing in the v1 composite and is the only signal that produces
+      non-NULL aura on the one_term_marketing_only basis (573 rows, mostly
+      for-profits without athletics). Re-affirmed CDE from Base + sibling
+      consumable. The CON-AUR-007 P0 invariant carries the arithmetic
+      identity forward into this consumable.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The dimensionless ratio of institutional support expenses to instruction
+      expenses. Higher = more administrative spend relative to teaching.
+      Promoted verbatim from base.ipeds_finance.marketing_ratio. Observed:
+      82.0% non-null (2,644 / 3,223; 31 zero-instruction edge cases NULL).
+      P5=0.183 / P50=0.545 / P95=2.345. Long pathological tail dominated by
+      IPEDS reporting artifacts (system offices). Aura input feeds rp_marketing.
+    dq_rules:
+      - CON-AUR-007
+
+  - name: athletic_spend_per_fte
+    type: double
+    required: false
+    business_term: BT-AUR-ATHLETIC-SPEND-PER-FTE  # proposed; final ID @bs:data-steward's call
+    is_cde: true
+    cde_rationale: >
+      Direct aura input (feeds rp_athletic in the v1 composite). New CDE at
+      consumable per spec §6 Data Contract. FTE denominator provenance is
+      stamped in athletic_fte_source — the two strata (ipeds_finance vs
+      eada_fte_headcount) differ ~3x at the median, but only the
+      ipeds_finance stratum enters aura computation per EDA Item 7.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student athletic-program expense. Sum of all sport-level athletic
+      expenses divided by the FTE denominator declared in athletic_fte_source.
+      Promoted verbatim from base.eada.athletic_spend_per_fte. Aura input
+      feeds rp_athletic. Observed: 2,040 / 3,223 (63.3%) non-null;
+      P5=$148 / P50=$1,579 / P95=$7,177.
+    dq_rules: []
+
+  - name: athletic_revenue_per_fte
+    type: double
+    required: false
+    business_term: BT-AUR-ATHLETIC-REVENUE-PER-FTE  # proposed
+    is_cde: true
+    cde_rationale: >
+      Surfaced as a CDE candidate per spec §6 (paired with athletic_spend_per_fte
+      and athletic_subsidy_ratio). Context column only — NOT an aura input.
+      Downstream consumers may compute custom revenue / spend ratios for
+      "athletics is profitable" surfaces.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Per-student athletic-program revenue, promoted verbatim from
+      base.eada.athletic_revenue_per_fte. Context column only. Observed:
+      63.3% non-null.
+    dq_rules: []
+
+  - name: athletic_subsidy_ratio
+    type: double
+    required: false
+    business_term: BT-EAD-ATHLETIC-SUBSIDY-RATIO
+    is_cde: true
+    cde_rationale: >
+      Surfaced as a CDE candidate per spec §6 because downstream consumers
+      may want a "subsidy intensity" signal. CRITICAL: this is a CONTEXT
+      column only — explicitly EXCLUDED from the aura composite per spec
+      §2 Decision 11 (the ratio encodes a normative judgment that overlaps
+      with ROI / ERN; including it in aura would remove the analytical
+      tension between aura and the rest of the pentagon). EDA Item 6
+      verified by code inspection of all four candidate formulas.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The fraction of athletic expenses not covered by athletic revenue:
+      (expenses - revenue) / expenses. Positive = institution subsidizes
+      athletics; near-zero = self-sustaining; negative = profitable.
+      Context column only — NOT an aura input. Observed: 1,284 / 2,040 rows
+      are exactly 0 (silver-zone clipping artifact at the EADA grand-total
+      grain — EADA convention requires reported revenues to at least equal
+      expenses). Promoted verbatim from base.eada.athletic_subsidy_ratio.
+    dq_rules: []
+
+  - name: athletic_fte_source
+    type: string
+    required: false
+    business_term: BT-AUR-FTE-SOURCE  # proposed
+    is_cde: true
+    cde_rationale: >
+      Methodological-provenance CDE — affects how athletic_spend_per_fte,
+      athletic_revenue_per_fte, and athletic_subsidy_ratio are interpreted
+      across rows. Added to the CDE set via the §5 Option-C amendment
+      2026-04-30 after the spec was amended to surface FTE-denominator
+      methodology to downstream consumers. The two strata (ipeds_finance
+      vs eada_fte_headcount) are NOT identical — IPEDS-Finance FTE is
+      annualized, EADA's headcount is unduplicated 12-month — and athletic_
+      spend_per_fte differs ~3x at the median between strata.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Provenance for the FTE denominator behind the three EADA per-FTE /
+      ratio columns. Enum: 'ipeds_finance' (1,492 rows, all coverage_tier=
+      'both'; preferred — matches the IPEDS-Finance FTE used by the finance-
+      side per-FTE columns in the same row), 'eada_fte_headcount' (548 rows,
+      all coverage_tier='athletics_only'; EADA's own 12-month student
+      headcount), 'none' / NULL (1,183 rows, all coverage_tier='finance_only';
+      no EADA reporting). Pass-through from base.eada.fte_source.
+      Surfaced for downstream stratification only — every aura-computed row
+      uses ipeds_finance per EDA Item 7, so the methodology mix never affects
+      the aura distribution.
+    dq_rules: []
+
+  - name: aura_score
+    type: int
+    required: false
+    business_term: BT-AUR-AURA-SCORE  # proposed
+    is_cde: true
+    cde_rationale: >
+      THE CORE consumer-facing signal of this consumable. Drives the fifth
+      point of the FutureProof pentagon (alongside ERN, ROI, GRW, RES); will
+      be surfaced via future MCP tools. Versioned via aura_score_version
+      (currently 'v1'); EDA-finalized 2026-04-30 after v0-draft failed 11/14
+      anchor schools. Validated against 14 anchor schools spanning three
+      classes (extreme endowment, extreme athletics, extreme marketing);
+      14/14 anchors match expected v1 scores exactly (CON-AUR-032).
+      Critical disambiguation: HIGHER aura is NOT "better" — it is more brand
+      presence. Whether brand gravity translates to good outcomes for students
+      emerges only when aura is read alongside ERN and ROI.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Integer 1-10 brand-gravity score, derived as ROUND(aura_score_continuous)
+      where the continuous value comes from the v1 MAX+MEAN composite over
+      the available rank-percentile inputs (marketing_ratio, endowment_per_fte,
+      athletic_spend_per_fte). NULL when no usable signal — i.e., aura_score_
+      basis IS NULL (CON-AUR-011 / CON-AUR-034 P0 invariant). Observed:
+      2,644 / 3,223 non-null; integer 1..10 all 10 buckets populated; median = 7;
+      band distribution [1,3]=17.4% / [4,6]=25.7% / [7,10]=56.9%.
+    dq_rules:
+      - CON-AUR-010
+      - CON-AUR-011
+      - CON-AUR-013
+      - CON-AUR-030
+      - CON-AUR-031
+      - CON-AUR-032
+      - CON-AUR-034
+
+  - name: aura_score_continuous
+    type: double
+    required: false
+    business_term: ""  # no separate term — same conceptual signal as aura_score
+    is_cde: true
+    cde_rationale: >
+      Pre-rounding continuous value, retained for downstream auditability and
+      for the CON-AUR-013 round-correctness invariant. Bumped to CDE because
+      it is computationally upstream of aura_score and any deviation from
+      ROUND(aura_score_continuous) would surface as a CON-AUR-013 P0 violation.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Pre-rounding continuous value in [1.0, 10.0]. Computed as
+      1.0 + 9.0 * clip((raw_score - 0.1413) / (0.9400 - 0.1413), 0, 1)
+      where raw_score = 0.65 * MAX(available_rp_*) + 0.35 * MEAN(available_rp_*).
+      The available_rp_* values are determined per-row by aura_score_basis.
+      NULL when aura_score is NULL.
+    dq_rules:
+      - CON-AUR-013
+      - CON-AUR-014
+
+  - name: aura_score_version
+    type: string
+    required: true
+    business_term: ""  # Brightsmith convention
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Provenance stamp identifying the formula version that produced the aura
+      score. Always 'v1' for rows produced by this snapshot (CON-AUR-012 P0).
+      v0-draft was rejected during EDA after failing 11/14 anchor schools
+      (composite-collapse at the tails because three near-equal weights cap
+      any one-signal-extreme school at ~7). The version stamp is for the
+      *formula*, not the score-existence — every row carries 'v1' regardless
+      of whether the score itself is NULL. A future v2 score (e.g., after a
+      P5/P95 rebound on annual refresh, or a fourth signal addition) would
+      land as a new aura_score_version stamp.
+    dq_rules:
+      - CON-AUR-012
+
+  - name: aura_score_basis
+    type: string
+    required: false
+    business_term: BT-AUR-AURA-SCORE-BASIS  # proposed
+    is_cde: true
+    cde_rationale: >
+      Gates downstream interpretation of cross-stratum aura comparison —
+      comparing a 'three_term' Stanford to a 'one_term_marketing_only'
+      Phoenix is NOT apples-to-apples in the same way as comparing two
+      'three_term' flagships. Downstream consumers (the pentagon UI, MCP
+      tools, comparison specs) MUST read the basis when surfacing aura
+      comparisons. The 5-value enum was expanded from spec-as-written 3
+      values during EDA after discovering 677 finance reporters with NULL
+      endowment.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      The 5-value enum (4 non-NULL + NULL) recording which input set was used
+      to compute the aura score for this row. Values: 'three_term' (1,417
+      rows; marketing + endowment + athletic), 'two_term_finance_only' (579
+      rows; marketing + endowment, no EADA), 'two_term_no_endowment' (75 rows;
+      marketing + athletic, NULL endowment — for-profits-with-athletics),
+      'one_term_marketing_only' (573 rows; marketing only — for-profits
+      without athletics, IPEDS shells), NULL (579 rows; aura_score itself
+      is NULL). NULL ⇔ aura_score IS NULL (CON-AUR-034 P0).
+    dq_rules:
+      - CON-AUR-011
+      - CON-AUR-030
+      - CON-AUR-033
+      - CON-AUR-034
+
+  - name: has_ipeds_finance
+    type: boolean
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      TRUE when the institution reports IPEDS Finance (f.unitid IS NOT NULL
+      after the FULL OUTER JOIN). Observed: TRUE on 2,675 rows.
+    dq_rules:
+      - CON-AUR-006
+
+  - name: has_eada
+    type: boolean
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      TRUE when the institution reports EADA (e.unitid IS NOT NULL).
+      Observed: TRUE on 2,040 rows.
+    dq_rules:
+      - CON-AUR-006
+
+  - name: coverage_tier
+    type: string
+    required: true
+    business_term: BT-AUR-COVERAGE-TIER  # proposed
+    is_cde: true
+    cde_rationale: >
+      Closed-enum domain {both, finance_only, athletics_only}. Gates whether
+      aura is computable (athletics_only rows always have NULL aura) and
+      segments downstream confidence in the composite. Different from
+      aura_score_basis (which records *which inputs computed the score*) —
+      coverage_tier records *which sources contributed*. Both columns survive
+      because they answer different consumer questions. Spec §6 explicitly
+      lists coverage_tier in the schema and CON-AUR-005 P0 enforces the enum.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      3-value enum classifying which sources contributed to this row.
+      'both' (1,492 / 46.3%): reports both IPEDS Finance AND EADA — earns
+      'three_term' aura when endowment is present. 'finance_only' (1,183 /
+      36.7%): reports IPEDS Finance only — non-athletic 4-years (most LACs/
+      SLACs, MIT, Caltech, all for-profits without athletics). 'athletics_only'
+      (548 / 17.0%): reports EADA only — institutions excluded from Finance
+      by the HD ICLEVEL=1 AND HLOFFER>=5 filter; aura is NULL for these rows.
+      CON-AUR-005 P0 enforces the closed enum; CON-AUR-006 P0 enforces that
+      every row has at least one source TRUE.
+    dq_rules:
+      - CON-AUR-005
+      - CON-AUR-006
+
+  - name: promoted_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Consumable promotion batch timestamp. Identical across all 3,223 rows
+      in a batch. Operational observability only. Distinct from upstream Base
+      ingested_at stamps; downstream consumers needing per-zone freshness
+      should reference the fully-qualified table name.
+    dq_rules: []
+
+table_level_dq_rules:
+  - CON-AUR-001  # FULL OUTER conservation row count
+  - CON-AUR-020  # Cross-source drift cap to consumable.career_outcomes
+  - CON-AUR-021  # Cross-source coverage floor (>=90%)
+  - CON-AUR-030  # Stratified bucket coverage by aura_score_basis (4 strata)
+  - CON-AUR-031  # Median aura ∈ [4, 7]
+  - CON-AUR-032  # 14 anchor schools match v1 expected scores
+
+dq_summary:
+  total_rules: 19
+  p0_count: 14
+  p1_count: 5
+  p2_count: 0
+  rules_reference: governance/dq-rules/consumable-institution-aura.json
+  scorecard_reference: governance/dq-scorecards/consumable-institution-aura-20260501T235038Z.md
+  current_status: 14/14 P0 PASS; 4/5 P1 PASS — CON-AUR-021 lands 0.32 pp below the spec-pinned 90% threshold (live 89.68%); P0 gate PASS, chaos hardening cleared.
+  evaluation_mode_carveouts:
+    - rule_id: CON-AUR-020
+      mode: production_only
+      chaos_exclude: true
+      reason: >
+        Cross-zone join against consumable.career_outcomes. Chaos harness
+        only stages shadow_consumable for institution_aura; the cross-table
+        join in shadow mode is unsupported. Same remediation pattern as
+        Bronze GLD-RPP-043 / GLD-RPP-055 and consumable.ipeds_finance_profile
+        CON-IFP-008.
+    - rule_id: CON-AUR-021
+      mode: production_only
+      chaos_exclude: true
+      reason: Same as CON-AUR-020.
+
+cde_summary:
+  total_columns: 19
+  cde_columns: 13
+  pii_columns: 0
+  cde_columns_list:
+    - unitid                              # Re-affirmed from Bronze/Base CDE set + sibling consumable
+    - endowment_per_fte                   # Re-affirmed from Base + sibling consumable; aura input
+    - institutional_support_per_fte       # Re-affirmed from Base + sibling consumable
+    - instruction_per_fte                 # Re-affirmed from Base + sibling consumable
+    - marketing_ratio                     # Re-affirmed from Base + sibling consumable; aura input
+    - athletic_spend_per_fte              # NEW at consumable per spec §6 Data Contract; aura input
+    - athletic_revenue_per_fte            # NEW at consumable per spec §6 Data Contract; CONTEXT only
+    - athletic_subsidy_ratio              # NEW at consumable per spec §6 Data Contract; CONTEXT only — explicitly NOT an aura input
+    - athletic_fte_source                 # NEW at consumable per Option-C amendment 2026-04-30; methodological-provenance CDE
+    - aura_score                          # NEW at consumable; THE CORE consumer-facing signal
+    - aura_score_continuous               # NEW at consumable; bumped to CDE (computationally upstream of aura_score)
+    - aura_score_basis                    # NEW at consumable; gates downstream cross-stratum interpretation
+    - coverage_tier                       # NEW at consumable; gates aura computability + downstream confidence
+  non_cde_columns:
+    - record_id
+    - institution_name
+    - aura_score_version
+    - has_ipeds_finance
+    - has_eada
+    - promoted_at
+  sensitivity_classification: public
+  regulatory_frameworks: []
+  k_anonymity_floor: "N/A — institution-level public data; no individual identifiers"
+  cde_reference: governance/cde-tagging/consumable-institution-aura.md
+  pii_reference: governance/pii-scans/consumable-institution-aura-pii-scan.md (N/A — no PII; institution-level by design)
+
+business_terms_referenced:
+  - BT-001                                 # UNITID
+  - BT-002                                 # Institution Name
+  - BT-IPF-PER-FTE                         # Per-FTE convention; reused at consumable
+  - BT-IPF-MARKETING-RATIO                 # Reused at consumable
+  - BT-EAD-ATHLETIC-SUBSIDY-RATIO          # Reused at consumable; CONTEXT only
+  - BT-AUR-AURA-SCORE                      # Proposed at spec §6; landed in this update via business-glossary append
+  - BT-AUR-COVERAGE-TIER                   # Proposed at spec §6; landed in this update via business-glossary append
+  - BT-AUR-FTE-SOURCE                      # NEW v1-related term proposed via Option-C amendment; landed in this update
+  - BT-AUR-AURA-SCORE-BASIS                # NEW v1-related term proposed via EDA expansion; landed in this update
+  - BT-AUR-ATHLETIC-SPEND-PER-FTE          # Proposed (athletics-side per-FTE convention); deferred steward decision
+  - BT-AUR-ATHLETIC-REVENUE-PER-FTE        # Proposed; deferred steward decision
+
+reviewer_conditions:
+  governance_reviewer_v1_eda_finalization_2026_04_30:
+    source: governance/eda/consumable-institution-aura-eda.md ("v1 Promotion Decision" section)
+    status: IMPLEMENTED HERE
+    description: >
+      The EDA promoted the aura formula from v0-draft → v1 on 2026-04-30 with
+      three prerequisite spec edits: (1) aura_score_basis enum expansion 3 → 5
+      values; (2) CON-AUR-030 stratification key switch from coverage_tier to
+      aura_score_basis; (3) population-level P5/P95 rescale bounds (0.1413 /
+      0.9400) pinned as constants in the gold transformer with annual-refresh
+      recomputation. All three edits are implemented in the landed schema and
+      DQ rules; this contract documents them explicitly.
+  governance_reviewer_option_c_amendment_2026_04_30:
+    source: docs/specs/full-pipeline-eada.md §5 Option-C amendment
+    status: IMPLEMENTED HERE
+    description: >
+      The §5 Option-C amendment introduced athletic_fte_source as a column
+      on base.eada and threaded it through to consumable.institution_aura
+      so downstream consumers can stratify on FTE-denominator methodology.
+      The column is flagged CDE per spec §6 Data Contract amendment 2026-04-30.
+      EDA Item 7 verified the 2 × 3 (aura_score_basis × athletic_fte_source)
+      interaction grid is structurally degenerate — every aura-computed row
+      uses 'ipeds_finance' as its FTE source — so CON-AUR-030 stratifies
+      by aura_score_basis (4 strata), NOT by athletic_fte_source.
+  con_aur_011_rewrite:
+    source: governance/dq-rules/consumable-institution-aura.json
+    status: IMPLEMENTED HERE
+    description: >
+      Spec-as-written CON-AUR-011 used the legacy shorthand 'aura_score IS
+      NULL exactly when has_ipeds_finance = FALSE'. EDA discovered 31 zero-
+      instruction-expense edge cases that have has_ipeds_finance=TRUE but
+      no usable aura signal (zero-instruction → NULL marketing_ratio →
+      NULL aura). The faithful invariant is 'aura_score IS NULL ⇔
+      aura_score_basis IS NULL'. CON-AUR-011 was rewritten to enforce
+      the basis-tagged form; CON-AUR-034 was added as the explicit-iff
+      redundant enforcement of the same invariant.
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Breaking changes (column removal, rename, type
+    change, grain change, reduction of the CDE set, relaxation of P0 DQ
+    thresholds, change to the aura formula constants — WEIGHT_MAX / WEIGHT_MEAN
+    / RAW_SCORE_P5 / RAW_SCORE_P95 — without bumping aura_score_version,
+    expansion or contraction of the aura_score_basis enum, change to the
+    coverage_tier enum, change to the athletic_fte_source enum) require a new
+    major version and 30-day deprecation notice. A change to the aura formula
+    constants WITH a version bump (e.g., 'v1' → 'v2') is non-breaking
+    schema-wise but changes the semantic meaning of aura_score; the version
+    stamp is what protects downstream consumers from silent score-meaning
+    drift. Non-breaking changes (column addition, description update,
+    recalibrating the CON-AUR-021 cross-source coverage floor when a new
+    cycle changes the actual coverage rate, recomputing the P5/P95 bounds
+    on annual refresh as long as the aura_score_version is bumped, extending
+    the data vintage to add a new cycle) ship as a minor bump without
+    deprecation.
+  notification: "Logged in governance/audit-trail/"
+
+downstream_consumers:
+  - FutureProof career-outcomes pentagon (frontend) — aura is the fifth point
+    of the pentagon (alongside ERN, ROI, GRW, RES). The pentagon shape encodes
+    the brand-vs-outcome tension (high-aura/low-ERN vs high-aura/high-ERN).
+  - Future MCP tools (Gemma-callable) — aura_score and aura_score_basis
+    surfaced via tool responses; basis controls hedging language.
+  - Future cross-institution comparison specs — composite signal for
+    institution clustering or cohort selection.
+
+upstream_dependencies:
+  - base.ipeds_finance — direct source via FULL OUTER on UNITID; provides the
+    4 finance signals (endowment_per_fte, institutional_support_per_fte,
+    instruction_per_fte, marketing_ratio); 2,675 rows in current snapshot.
+  - base.eada — direct source via FULL OUTER on UNITID; provides the 3
+    athletics signals + athletic_fte_source; 2,040 rows in current snapshot.
+  - consumable.career_outcomes — referenced by CON-AUR-020 / CON-AUR-021 for
+    cross-source coverage; not joined into this table at promote time.
+
+lineage_reference: governance/lineage/full-pipeline-eada-gold-{timestamp}.json

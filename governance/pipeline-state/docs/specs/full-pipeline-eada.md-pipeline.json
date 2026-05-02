@@ -1,54 +1,54 @@
 {
   "spec": "docs/specs/full-pipeline-eada.md",
-  "zone": "bronze",
+  "zone": "gold",
   "mode": "greenfield",
-  "started": "2026-05-01T03:12:55.042280+00:00",
+  "started": "2026-05-01T23:26:13.017344+00:00",
   "steps": {
     "governance-reviewer-pre": {
-      "status": "COMPLETED",
+      "status": "NOT_STARTED",
       "agent": "@governance-reviewer",
       "requires": [],
       "blocking": false,
-      "skippable": false,
-      "completed_at": "2026-05-01T03:21:03.251989+00:00",
-      "output": "docs/specs/full-pipeline-eada.md",
-      "output_hash": "sha256:1bbcb26109cc68c543675577b914055b029396b1f166a3ca325c78f6b29aff8a"
+      "skippable": false
     },
-    "primary-agent": {
-      "status": "COMPLETED",
-      "agent": "@primary-agent",
+    "data-steward": {
+      "status": "NOT_STARTED",
+      "agent": "@data-steward",
       "requires": [
         "governance-reviewer-pre"
       ],
       "blocking": false,
-      "skippable": false,
-      "completed_at": "2026-05-01T03:39:26.112348+00:00",
-      "output": "src/raw/eada_ingestor.py",
-      "output_hash": "sha256:106d184ab6e8bdab92bc47bd0692e6d9045264264b13a8e4b508cd7efd293fdf"
+      "skippable": false
+    },
+    "semantic-modeler-conceptual": {
+      "status": "NOT_STARTED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "data-steward"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "semantic-modeler-logical": {
+      "status": "NOT_STARTED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-conceptual"
+      ],
+      "blocking": false,
+      "skippable": false
     },
     "data-analyst": {
       "status": "COMPLETED",
       "agent": "@data-analyst",
       "requires": [
-        "primary-agent"
+        "semantic-modeler-logical"
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T03:56:26.848879+00:00",
-      "output": "governance/eda/full-pipeline-eada-raw-eda.md",
-      "output_hash": "sha256:85d24f0df746ea1af24f33d5145fca00f145d0fb3bb1b6dc9836db181919a70a"
-    },
-    "domain-context": {
-      "status": "COMPLETED",
-      "agent": "@domain-context",
-      "requires": [
-        "data-analyst"
-      ],
-      "blocking": false,
-      "skippable": false,
-      "completed_at": "2026-05-01T04:00:43.366471+00:00",
-      "output": "governance/domain-context.md",
-      "output_hash": "sha256:ca6cf565a78da3b7daa0e65540d8302d0aeea1b78ed142b4c5b3c7a1e4f93d37"
+      "completed_at": "2026-05-01T23:36:51.400399+00:00",
+      "output": "governance/eda/consumable-institution-aura-eda.md",
+      "output_hash": "sha256:5d8c7ea680a6be4149bf058d8054154b12f869afb87c0dd7b1aab658f4aeb3b1"
     },
     "dq-rule-writer": {
       "status": "COMPLETED",
@@ -58,21 +58,53 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:00:45.307121+00:00",
-      "output": "governance/dq-rules/raw-eada.json",
-      "output_hash": "sha256:c9eb22a5ce754715a21cde405e0212b758a289d9df822788be5b7e66396bb265"
+      "completed_at": "2026-05-01T23:46:54.338889+00:00",
+      "output": "governance/dq-rules/consumable-institution-aura.json",
+      "output_hash": "sha256:2e6fa887924e28ce88442737f4d0a924a8065789c4d09d1df05e3c75002faf38"
+    },
+    "semantic-modeler-physical": {
+      "status": "NOT_STARTED",
+      "agent": "@semantic-modeler",
+      "requires": [
+        "semantic-modeler-logical"
+      ],
+      "blocking": false,
+      "skippable": false
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "semantic-modeler-physical"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-01T23:43:13.311377+00:00",
+      "output": "src/gold/institution_aura.py",
+      "output_hash": "sha256:0440e9de7d56658aa89393d16288f49ccd2c1b1b464fa30401f4c08f31be4abc"
+    },
+    "cab-review": {
+      "status": "NOT_STARTED",
+      "agent": "@cab-agent",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": true
     },
     "dq-engineer": {
       "status": "COMPLETED",
       "agent": "@dq-engineer",
       "requires": [
-        "dq-rule-writer"
+        "dq-rule-writer",
+        "primary-agent",
+        "cab-review"
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:05:40.545978+00:00",
-      "output": "governance/dq-scorecards/raw-eada-20260501T040238Z.md",
-      "output_hash": "sha256:df919c34fe173e70a5477b91647a43c0ec1ba5519a35fcf970dd2c43d1f79cdc"
+      "completed_at": "2026-05-01T23:59:39.236306+00:00",
+      "output": "governance/dq-scorecards/consumable-institution-aura-20260501T235038Z.md",
+      "output_hash": "sha256:987d439a16cbeb1090bae94dbb1cd2a8cbdb587c979e64dee2a37f87efac14c7"
     },
     "chaos-monkey": {
       "status": "COMPLETED",
@@ -82,9 +114,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:05:42.517156+00:00",
-      "output": "governance/chaos-reports/raw-eada-chaos.md",
-      "output_hash": "sha256:566757225fe89eaf6b24278137c8e4c330d4ea90778db11bdf6c189c9b10f615"
+      "completed_at": "2026-05-01T23:59:41.686180+00:00",
+      "output": "governance/chaos-reports/consumable-institution-aura-chaos.md",
+      "output_hash": "sha256:34d018a5fbc298b40948da38fa0613c6a38953a783d0668718758e4d18f64792"
     },
     "entity-resolver": {
       "status": "COMPLETED",
@@ -94,9 +126,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:12:24.002444+00:00",
-      "output": "governance/entity-resolution/raw-eada-er-assessment.md",
-      "output_hash": "sha256:6dc636b5c03420390ac5a267985147019d0e2508cdbdf03091b15645637c54ca"
+      "completed_at": "2026-05-02T00:20:45.968591+00:00",
+      "output": "governance/entity-resolution/consumable-institution-aura-er-assessment.md",
+      "output_hash": "sha256:85d3dfb7bc9ac805dca640b4e1242a4ef7d3c1f2e5722f609f0960f975cdf0a4"
     },
     "pii-scanner": {
       "status": "COMPLETED",
@@ -106,9 +138,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:12:25.955075+00:00",
-      "output": "governance/pii-scans/raw-eada-pii-scan.md",
-      "output_hash": "sha256:735164f4dffac61b421edab6d21bbcfb75392adae510b6c3588dd99ef975d4ee"
+      "completed_at": "2026-05-02T00:20:50.896135+00:00",
+      "output": "governance/pii-scans/consumable-institution-aura-pii-scan.md",
+      "output_hash": "sha256:42f950e925cc1f8a1098e8835979cc70e7eeb4f4624f861ff519674ce73e935f"
     },
     "temporal-modeler": {
       "status": "COMPLETED",
@@ -118,9 +150,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:12:27.875524+00:00",
-      "output": "governance/temporal-models/raw-eada-temporal-assessment.md",
-      "output_hash": "sha256:82a1e36bba44055ecf1674fed86984221c086ec51bfeb57cd2213ef28ae58f8f"
+      "completed_at": "2026-05-02T00:20:48.635613+00:00",
+      "output": "governance/temporal-models/consumable-institution-aura-temporal-assessment.md",
+      "output_hash": "sha256:828b68f84fe96d27ad5de94704b4d5c00f96c2a1aa2c5d6579d1063659a243b7"
     },
     "lineage-tracker": {
       "status": "COMPLETED",
@@ -130,9 +162,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:21:06.227691+00:00",
-      "output": "governance/lineage/full-pipeline-eada-20260501T040238Z.json",
-      "output_hash": "sha256:a72202201ea56e5851531a104675326ed0029632a47524188b8c58724a02f311"
+      "completed_at": "2026-05-02T00:20:55.457528+00:00",
+      "output": "governance/lineage/full-pipeline-eada-gold-20260502T000048Z.json",
+      "output_hash": "sha256:bac2d1fe2ac4b4ea5c7bf3a7427c7dc8fe29b22f124fd8c4099187df3dfb6e55"
     },
     "cde-tagger": {
       "status": "COMPLETED",
@@ -142,9 +174,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:21:08.142691+00:00",
-      "output": "governance/cde-tagging/raw-eada.md",
-      "output_hash": "sha256:d3d29c5f9ce375a65f9100a16bcf9898bb7162e91280b0556bf74eb2bc3d647d"
+      "completed_at": "2026-05-02T00:20:57.762911+00:00",
+      "output": "governance/cde-tagging/consumable-institution-aura.md",
+      "output_hash": "sha256:a8174d672fa3960070a9ad7d5896b3bfff4ffb686d17f7b8ec90e80f6e01edbb"
     },
     "doc-generator": {
       "status": "COMPLETED",
@@ -154,9 +186,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:21:10.039797+00:00",
-      "output": "governance/data-dictionaries/raw-eada.md",
-      "output_hash": "sha256:61afe31bac4c1b9fb6c4469241e99c9acde2ff78f9a8c8420364d74c33034d72"
+      "completed_at": "2026-05-02T00:21:00.005881+00:00",
+      "output": "governance/data-contracts/consumable-institution-aura.yaml",
+      "output_hash": "sha256:c68cb292e6a17255382ffe4d1e7ec22c1bdeec68701b752f031b71d779dc9ea0"
     },
     "adversarial-auditor": {
       "status": "COMPLETED",
@@ -166,21 +198,22 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:12:29.812420+00:00",
-      "output": "governance/adversarial-audits/raw-eada-bronze-audit.md",
-      "output_hash": "sha256:57d7c3c5bdb008a18c0265915ac96dd2fff1a298f10a4a3f679807279724ab29"
+      "completed_at": "2026-05-02T00:20:53.179752+00:00",
+      "output": "governance/adversarial-audits/consumable-institution-aura-audit.md",
+      "output_hash": "sha256:4f78d5d258e195e2bf6fce39cdd4663162e59e3586adf50d637f322c5986eaf2"
     },
     "governance-reviewer-post": {
       "status": "COMPLETED",
       "agent": "@governance-reviewer",
       "requires": [
-        "doc-generator"
+        "doc-generator",
+        "cab-review"
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:23:28.972934+00:00",
+      "completed_at": "2026-05-02T00:25:47.954484+00:00",
       "output": "docs/specs/full-pipeline-eada.md",
-      "output_hash": "sha256:b5f4794e03ea27bd23c52163313fd8ef45907b72bacab20753f098db71535c7a"
+      "output_hash": "sha256:6e7abac853acb796b768e160593f230868f7304fb053c6b7af2882b81ce0b49c"
     },
     "staff-engineer": {
       "status": "COMPLETED",
@@ -190,9 +223,9 @@
       ],
       "blocking": false,
       "skippable": false,
-      "completed_at": "2026-05-01T04:27:20.514101+00:00",
+      "completed_at": "2026-05-02T00:30:35.599195+00:00",
       "output": "docs/specs/full-pipeline-eada.md",
-      "output_hash": "sha256:2bff1fea26ec6008a04b2d57b11a05a92c53af34d187caf40254496b7a97e497"
+      "output_hash": "sha256:32609252fb46ea94cd6e0602a09cfb7f9308c06ed84c8af672d6d3f22d920f04"
     }
   },
   "skipped_steps": {},

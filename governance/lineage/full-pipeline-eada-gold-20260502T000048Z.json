@@ -1,0 +1,357 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-01T23:50:38.020146+00:00",
+    "producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+    "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+    "run": {
+      "runId": "34eb0f56-e4d5-48bf-9dae-504c411bd053",
+      "facets": {
+        "brightsmith_specReference": {
+          "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+          "_schemaURL": "https://github.com/jcernauske/brightsmith/lineage/v1/spec-reference.json",
+          "specFile": "docs/specs/full-pipeline-eada.md",
+          "specSection": "§6 Zone 3 — Consumable",
+          "specVersion": "1.0",
+          "specAmendment": "v1 EDA-finalized 2026-04-30 (v0-draft → v1 promotion; v0-draft 0.40/0.40/0.20 weights with min/max rescale FAILED 11/14 anchor schools and was replaced with the MAX+MEAN composite per `governance/eda/consumable-institution-aura-eda.md`)",
+          "auraScoreVersion": "v1"
+        },
+        "brightsmith_agentAttribution": {
+          "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+          "_schemaURL": "https://github.com/jcernauske/brightsmith/lineage/v1/agent-attribution.json",
+          "agentId": "@bs:cast",
+          "reasoning": "Gold-zone promotion per §6: FULL OUTER JOIN base.ipeds_finance and base.eada on unitid; compute v1 aura_score (0.65·MAX(rp_*) + 0.35·MEAN(rp_*) over available signals per aura_score_basis, then linear stretch [P5=0.1413, P95=0.9400] → [1, 10] with clamp + ROUND); stamp coverage_tier, has_*, aura_score_basis, athletic_fte_source provenance.",
+          "executedBy": "@dq-engineer (DQ scorecard timestamp 2026-05-01T23:50:38Z)"
+        },
+        "brightsmith_auraScoreParameters": {
+          "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+          "_schemaURL": "https://github.com/jcernauske/brightsmith/lineage/v1/aura-score-parameters.json",
+          "version": "v1",
+          "edaFinalizedAt": "2026-04-30",
+          "edaReport": "governance/eda/consumable-institution-aura-eda.md",
+          "composite": "0.65 * MAX(rp_signals) + 0.35 * MEAN(rp_signals)",
+          "rescale": {
+            "method": "P5/P95 percentile linear stretch with clamp + ROUND",
+            "rawScoreP5": 0.1413,
+            "rawScoreP95": 0.9400,
+            "targetMin": 1,
+            "targetMax": 10,
+            "rationale": "v0-draft min/max rescale compressed 53% of rows into [4,6]; P5/P95 bounds restore usable 1-10 spread. Anchor validation: Harvard=10, Princeton=10, Alabama=8, Phoenix=8, Stanford=8, MIT=8."
+          },
+          "inputs": [
+            {"signal": "rp_marketing", "source": "base.ipeds_finance.marketing_ratio"},
+            {"signal": "rp_endowment", "source": "base.ipeds_finance.endowment_per_fte"},
+            {"signal": "rp_athletic", "source": "base.eada.athletic_spend_per_fte"}
+          ],
+          "deliberatelyExcluded": ["athletic_subsidy_ratio (encodes normative judgment overlapping with ROI/ERN per §2 Decision 11)"]
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.promote-institution-aura",
+      "facets": {
+        "documentation": {
+          "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DocumentationJobFacet.json",
+          "description": "Promote consumable.institution_aura: FULL OUTER JOIN base.ipeds_finance + base.eada on unitid, compute v1 aura_score with P5/P95 rescale, stamp coverage_tier / aura_score_basis / athletic_fte_source provenance per §6 EDA-finalized 2026-04-30."
+        },
+        "sourceCode": {
+          "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SourceCodeJobFacet.json",
+          "language": "python",
+          "sourceCodeLocation": "src/gold/institution_aura.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.eada",
+        "facets": {
+          "version": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DatasetVersionDatasetFacet.json",
+            "datasetVersion": "973879610917339278"
+          },
+          "schema": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SchemaDatasetFacet.json",
+            "fields": [
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "fte_source", "type": "STRING"},
+              {"name": "athletic_spend_per_fte", "type": "DOUBLE"},
+              {"name": "athletic_revenue_per_fte", "type": "DOUBLE"},
+              {"name": "athletic_subsidy_ratio", "type": "DOUBLE"}
+            ]
+          },
+          "fieldCount": 17
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.ipeds_finance",
+        "facets": {
+          "version": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DatasetVersionDatasetFacet.json",
+            "datasetVersion": "1277941459950591173"
+          },
+          "schema": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SchemaDatasetFacet.json",
+            "fields": [
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "endowment_per_fte", "type": "DOUBLE"},
+              {"name": "institutional_support_per_fte", "type": "DOUBLE"},
+              {"name": "instruction_per_fte", "type": "DOUBLE"},
+              {"name": "marketing_ratio", "type": "DOUBLE"}
+            ]
+          },
+          "fieldCount": 15
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.institution_aura",
+        "facets": {
+          "version": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DatasetVersionDatasetFacet.json",
+            "datasetVersion": "5887248523326294782"
+          },
+          "schema": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SchemaDatasetFacet.json",
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "unitid", "type": "LONG"},
+              {"name": "institution_name", "type": "STRING"},
+              {"name": "endowment_per_fte", "type": "DOUBLE"},
+              {"name": "institutional_support_per_fte", "type": "DOUBLE"},
+              {"name": "instruction_per_fte", "type": "DOUBLE"},
+              {"name": "marketing_ratio", "type": "DOUBLE"},
+              {"name": "athletic_spend_per_fte", "type": "DOUBLE"},
+              {"name": "athletic_revenue_per_fte", "type": "DOUBLE"},
+              {"name": "athletic_subsidy_ratio", "type": "DOUBLE"},
+              {"name": "athletic_fte_source", "type": "STRING"},
+              {"name": "aura_score", "type": "INT"},
+              {"name": "aura_score_continuous", "type": "DOUBLE"},
+              {"name": "aura_score_version", "type": "STRING"},
+              {"name": "aura_score_basis", "type": "STRING"},
+              {"name": "has_ipeds_finance", "type": "BOOLEAN"},
+              {"name": "has_eada", "type": "BOOLEAN"},
+              {"name": "coverage_tier", "type": "STRING"},
+              {"name": "promoted_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "fieldCount": 19,
+          "rowCount": 3223,
+          "outputStatistics": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/OutputStatisticsOutputDatasetFacet.json",
+            "rowCount": 3223
+          },
+          "columnLineage": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "unitid"},
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "unitid"}
+                ],
+                "transformationDescription": "Generated as 'aur-' || COALESCE(base.ipeds_finance.unitid, base.eada.unitid)",
+                "transformationType": "DERIVED"
+              },
+              "unitid": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "unitid"},
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "unitid"}
+                ],
+                "transformationDescription": "COALESCE(base.ipeds_finance.unitid, base.eada.unitid) — full-outer join key resolved from whichever side has the row",
+                "transformationType": "DERIVED"
+              },
+              "institution_name": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "institution_name"},
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "institution_name"}
+                ],
+                "transformationDescription": "COALESCE(base.ipeds_finance.institution_name, base.eada.institution_name) — IPEDS-Finance preferred, EADA fallback",
+                "transformationType": "DERIVED"
+              },
+              "endowment_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "endowment_per_fte"}
+                ],
+                "transformationDescription": "Direct pass-through from base.ipeds_finance",
+                "transformationType": "DIRECT"
+              },
+              "institutional_support_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "institutional_support_per_fte"}
+                ],
+                "transformationDescription": "Direct pass-through from base.ipeds_finance",
+                "transformationType": "DIRECT"
+              },
+              "instruction_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "instruction_per_fte"}
+                ],
+                "transformationDescription": "Direct pass-through from base.ipeds_finance",
+                "transformationType": "DIRECT"
+              },
+              "marketing_ratio": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "marketing_ratio"}
+                ],
+                "transformationDescription": "Direct pass-through from base.ipeds_finance; aura input signal (rp_marketing source)",
+                "transformationType": "DIRECT"
+              },
+              "athletic_spend_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "athletic_spend_per_fte"}
+                ],
+                "transformationDescription": "Direct pass-through from base.eada; aura input signal (rp_athletic source). FTE denominator provenance carried in athletic_fte_source.",
+                "transformationType": "DIRECT"
+              },
+              "athletic_revenue_per_fte": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "athletic_revenue_per_fte"}
+                ],
+                "transformationDescription": "Direct pass-through from base.eada; context column only, NOT an aura input",
+                "transformationType": "DIRECT"
+              },
+              "athletic_subsidy_ratio": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "athletic_subsidy_ratio"}
+                ],
+                "transformationDescription": "Direct pass-through from base.eada; deliberately excluded from aura_score per §2 Decision 11 (encodes normative judgment overlapping with ROI/ERN)",
+                "transformationType": "DIRECT"
+              },
+              "athletic_fte_source": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "fte_source"}
+                ],
+                "transformationDescription": "Pass-through from base.eada.fte_source — methodological-provenance CDE for the FTE denominator behind the three EADA per-FTE columns ('ipeds_finance' / 'eada_fte_headcount' / 'none'). NULL when has_eada = FALSE.",
+                "transformationType": "DIRECT"
+              },
+              "aura_score": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "marketing_ratio"},
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "endowment_per_fte"},
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "athletic_spend_per_fte"}
+                ],
+                "transformationDescription": "v1 (EDA-finalized 2026-04-30): rp_marketing/rp_endowment/rp_athletic = rank-percentile of each non-null input within its column over the consumable population; raw_score = 0.65 * MAX(rp_*) + 0.35 * MEAN(rp_*) over signals available per aura_score_basis; t = (raw_score - 0.1413) / (0.9400 - 0.1413); aura_score_continuous = clamp(1 + 9*t, 1, 10); aura_score = ROUND(aura_score_continuous). NULL only when ALL three signals are NULL.",
+                "transformationType": "DERIVED"
+              },
+              "aura_score_continuous": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "marketing_ratio"},
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "endowment_per_fte"},
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "athletic_spend_per_fte"}
+                ],
+                "transformationDescription": "Pre-rounding continuous value of the v1 composite; same derivation as aura_score but without ROUND(). Surfaced for auditability.",
+                "transformationType": "DERIVED"
+              },
+              "aura_score_version": {
+                "inputFields": [],
+                "transformationDescription": "Constant 'v1' literal stamped on every row (EDA-finalized 2026-04-30; v0-draft replaced after failing 11/14 anchors)",
+                "transformationType": "DERIVED"
+              },
+              "aura_score_basis": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "marketing_ratio"},
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "endowment_per_fte"},
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "athletic_spend_per_fte"}
+                ],
+                "transformationDescription": "Derived from null-pattern of (marketing_ratio, endowment_per_fte, athletic_spend_per_fte). 5-value enum: 'three_term' (all three non-null), 'two_term_finance_only' (marketing+endowment, athletic NULL), 'two_term_no_endowment' (marketing+athletic, endowment NULL — ~75 rows), 'one_term_marketing_only' (only marketing — ~602 rows), or NULL when all three are NULL (then aura_score is also NULL).",
+                "transformationType": "DERIVED"
+              },
+              "has_ipeds_finance": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "unitid"}
+                ],
+                "transformationDescription": "TRUE iff base.ipeds_finance row present for unitid (FULL OUTER side flag)",
+                "transformationType": "DERIVED"
+              },
+              "has_eada": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "unitid"}
+                ],
+                "transformationDescription": "TRUE iff base.eada row present for unitid (FULL OUTER side flag)",
+                "transformationType": "DERIVED"
+              },
+              "coverage_tier": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.ipeds_finance", "field": "unitid"},
+                  {"namespace": "brightsmith", "name": "base.eada", "field": "unitid"}
+                ],
+                "transformationDescription": "CASE WHEN has_ipeds_finance AND has_eada THEN 'both' WHEN has_ipeds_finance THEN 'finance_only' ELSE 'athletics_only' END",
+                "transformationType": "DERIVED"
+              },
+              "promoted_at": {
+                "inputFields": [],
+                "transformationDescription": "Job execution timestamp (constant per run)",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "dataQualityAssertions": {
+            "_producer": "https://github.com/jcernauske/brightsmith/lineage/v1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DataQualityAssertionsDatasetFacet.json",
+            "scorecardFile": "governance/dq-scorecards/consumable-institution-aura-20260501T235038Z.json",
+            "rulesFile": "governance/dq-rules/consumable-institution-aura.json",
+            "resultsFile": "governance/dq-results/full-pipeline-eada-20260501T234758Z.json",
+            "executedAt": "2026-05-01T23:50:38.020146+00:00",
+            "executedBy": "@dq-engineer",
+            "rulesTotal": 19,
+            "rulesPassed": 18,
+            "rulesFailed": 1,
+            "p0Total": 14,
+            "p0Passed": 14,
+            "p1Total": 5,
+            "p1Passed": 4,
+            "p0GatePass": true,
+            "overallPass": false,
+            "subThresholdRules": [
+              {
+                "ruleId": "CON-AUR-021",
+                "name": "career_outcomes UNITIDs found in aura (>=90%)",
+                "priority": "P1",
+                "category": "coverage",
+                "violations": 1,
+                "rationale": "P1 sub-threshold; promotion permitted under P0 gate. Coverage gap to be enumerated in EDA report per CON-AUR-020 disposition note."
+              }
+            ],
+            "assertions": [
+              {"assertion": "CON-AUR-001", "name": "Row count within FULL OUTER JOIN bounds", "priority": "P0", "success": true, "column": null},
+              {"assertion": "CON-AUR-002", "name": "unitid non-null (100%)", "priority": "P0", "success": true, "column": "unitid"},
+              {"assertion": "CON-AUR-003", "name": "unitid uniqueness (dedup grain)", "priority": "P0", "success": true, "column": "unitid"},
+              {"assertion": "CON-AUR-004", "name": "record_id non-null and unique", "priority": "P0", "success": true, "column": "record_id"},
+              {"assertion": "CON-AUR-005", "name": "coverage_tier in {both, finance_only, athletics_only}", "priority": "P0", "success": true, "column": "coverage_tier"},
+              {"assertion": "CON-AUR-006", "name": "Every row has at least one source TRUE", "priority": "P0", "success": true, "column": null},
+              {"assertion": "CON-AUR-007", "name": "marketing_ratio arithmetic identity", "priority": "P0", "success": true, "column": "marketing_ratio"},
+              {"assertion": "CON-AUR-010", "name": "aura_score in [1, 10] where non-null", "priority": "P0", "success": true, "column": "aura_score"},
+              {"assertion": "CON-AUR-011", "name": "aura_score NULL iff aura_score_basis NULL (v1 invariant)", "priority": "P0", "success": true, "column": "aura_score"},
+              {"assertion": "CON-AUR-012", "name": "aura_score_version = 'v1' for all rows", "priority": "P0", "success": true, "column": "aura_score_version"},
+              {"assertion": "CON-AUR-013", "name": "aura_score = ROUND(aura_score_continuous)", "priority": "P0", "success": true, "column": "aura_score"},
+              {"assertion": "CON-AUR-014", "name": "aura_score_continuous in [1.0, 10.0] where non-null", "priority": "P0", "success": true, "column": "aura_score_continuous"},
+              {"assertion": "CON-AUR-020", "name": "Aura UNITIDs join to career_outcomes (or are documented drift)", "priority": "P1", "success": true, "column": "unitid"},
+              {"assertion": "CON-AUR-021", "name": "career_outcomes UNITIDs found in aura (>=90%)", "priority": "P1", "success": false, "column": "unitid"},
+              {"assertion": "CON-AUR-030", "name": "aura_score distribution: stratified bucket coverage by aura_score_basis", "priority": "P1", "success": true, "column": "aura_score"},
+              {"assertion": "CON-AUR-031", "name": "aura_score median in [4, 7]", "priority": "P1", "success": true, "column": "aura_score"},
+              {"assertion": "CON-AUR-032", "name": "Anchor school spot checks (14 EDA-validated)", "priority": "P1", "success": true, "column": null},
+              {"assertion": "CON-AUR-033", "name": "aura_score_basis enum validity (5-value v1 enum)", "priority": "P0", "success": true, "column": "aura_score_basis"},
+              {"assertion": "CON-AUR-034", "name": "aura_score NULL iff aura_score_basis NULL (explicit v1 invariant)", "priority": "P0", "success": true, "column": null}
+            ]
+          }
+        }
+      }
+    ]
+  }
+]
