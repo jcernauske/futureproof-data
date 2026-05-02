@@ -23,7 +23,7 @@
 - **Storage location:** `data/silver/iceberg_warehouse/base/ipeds_finance/`
 - **Created by:** [`src/silver/ipeds_finance_base.py`](../../src/silver/ipeds_finance_base.py) — `promote_ipeds_finance_base()`
 - **Runner:** [`scripts/promote_ipeds_finance_base.py`](../../scripts/promote_ipeds_finance_base.py)
-- **Current snapshot:** `1277941459950591173` (2,675 rows, FY2023)
+- **Current snapshot:** `5533921477059200416` (2,675 rows, FY2023, v1.4 with `endowment_value_flag` passthrough); v1.3 historical snapshot `1277941459950591173`
 - **Idempotent promote:** `brightsmith.infra.promote.promote(..., dedup_on=['unitid'])` — re-running yields `0 new rows (all 2675 already exist)`
 
 ---
@@ -49,12 +49,13 @@ The schema is defined in code at `src/silver/ipeds_finance_base.py` and material
 | 13 | `marketing_ratio` | `DoubleType` | no | derived | `institutional_support_expenses / NULLIF(instruction_expenses, 0)`. NULL when either operand is NULL or instruction is 0. |
 | 14 | `source_load_date` | `DateType` | yes | `bronze.ipeds_finance.load_date` (passthrough, cast to DATE) | Identical across all rows in a batch. |
 | 15 | `ingested_at` | `TimestampType` | yes | `datetime.now()` at promote time | Identical across all rows in a single Base promote run. |
+| 16 | `endowment_value_flag` (v1.4) | `StringType` | no | `bronze.ipeds_finance.endowment_value_flag` (passthrough) | **NEW v1.4** — IPEDS-published imputation flag for `endowment_value`. Verbatim passthrough from bronze. Domain `{R, A, P, Z, N}` OR NULL. **Authoritative semantics (corrected v1.2):** `R` = Reported by institution; `A` = **Not applicable** (no endowment fund — exact `A`↔NULL coupling enforced by BSE-IPF-020 P0); `N` = **Imputed using Nearest Neighbor procedure**; `P` = Imputed prior year; `Z` = Imputed zero. F3 NULL by structure. Validated by BSE-IPF-018 (P0 passthrough fidelity), BSE-IPF-019 (P1 per-form prevalence band), BSE-IPF-020 (P0 bi-implicational `A`↔NULL coupling invariant). |
 
-**Total fields:** 15 (5 identity + 4 monetary inputs + 4 derivations + 2 provenance).
+**Total fields:** 16 (5 identity + 4 monetary inputs + 4 derivations + 2 provenance + **1 imputation provenance, v1.4**).
 
 ### Field-ID Stability
 
-Field IDs 1–15 are pinned. Future schema evolution (e.g., adding raw expense passthroughs that do not yet exist in Bronze, or a per-form data-quality flag) must allocate IDs ≥ 16 and **never** rebind 1–15 to other columns. Standard Iceberg-evolution discipline used across the project.
+Field IDs 1–16 are pinned. Field IDs 1–15 are unchanged from v1.0–v1.3; field ID 16 (`endowment_value_flag`) was added in v1.4 — strictly additive at the tail. Future schema evolution must allocate IDs ≥ 17 and **never** rebind 1–16 to other columns. Standard Iceberg-evolution discipline used across the project.
 
 ### Verified-Landed Schema
 
@@ -92,6 +93,7 @@ SCHEMA = Schema(
     NestedField(13, "marketing_ratio",               DoubleType(),    required=False),
     NestedField(14, "source_load_date",              DateType(),      required=True),
     NestedField(15, "ingested_at",                   TimestampType(), required=True),
+    NestedField(16, "endowment_value_flag",          StringType(),    required=False),  # v1.4 — passthrough from bronze
 )
 ```
 

@@ -43,12 +43,13 @@ The schema is defined in code at `IpedsFinanceIngestor._build_iceberg_schema()` 
 | 10 | `source_method` | `StringType` | yes | Stamped — `"bulk_csv_download"` | Constant per batch. |
 | 11 | `ingested_at` | `TimestampType` | yes | Stamped — UTC wall-clock | Identical across all rows in a single batch. |
 | 12 | `load_date` | `DateType` | yes | Stamped — UTC calendar date | Identical across all rows in a single batch; powers freshness DQ guardrails. |
+| 13 | `endowment_value_flag` (v1.4) | `StringType` | no | F1A `XF1H02` / F2 `XF2H02` / F3 N/A | **NEW v1.4** — IPEDS-published imputation flag for `endowment_value`. Coalesced from the two source columns into a single string column in the same UNION-ALL across forms that produces `endowment_value`. Domain `{R, A, P, Z, N}` OR NULL. **Sentinel handling:** never sentinel-scrubbed (string enum, not numeric); blank / `.` / `PrivacySuppressed` mapped to NULL. **Authoritative semantics (corrected v1.2 against v1.3-EDA-§7 narrative inversion):** `R` = Reported by institution; `A` = **Not applicable** (no endowment fund — exact `A`↔NULL coupling on `endowment_value`); `N` = **Imputed using Nearest Neighbor procedure**; `P` = Imputed prior year; `Z` = Imputed zero. F3 NULL by structure (no `F3H` family). Validated by RAW-IPF-015 (P0). |
 
-**Total fields:** 12 (4 identity + 3 monetary + 1 enrollment + 4 provenance).
+**Total fields:** 13 (4 identity + 3 monetary + 1 enrollment + 4 provenance + **1 imputation provenance, v1.4**).
 
 ### Field-ID Stability
 
-Field IDs 1–12 are pinned. Future schema evolution (adding HD columns like `SECTOR` / `CONTROL`, or adding the imputation-flag columns if NCES imputation prevalence rises above ~5%) must allocate IDs ≥ 13 and **never** rebind 1–12 to other columns. This is the standard Iceberg-evolution discipline used across the project (compare `bronze.college_scorecard_institution`, where field IDs 1–24 are similarly pinned, and `bronze.eada` where field IDs 1–10 are pinned).
+Field IDs 1–13 are pinned. Field IDs 1–12 are unchanged from v1.0–v1.3; field ID 13 (`endowment_value_flag`) was added in v1.4 — strictly additive at the tail. Future schema evolution (adding HD columns like `SECTOR` / `CONTROL`, or capturing additional `X*` imputation-flag columns if a future cycle's prevalence on a non-endowment field rises above ~5%) must allocate IDs ≥ 14 and **never** rebind 1–13 to other columns. This is the standard Iceberg-evolution discipline used across the project (compare `bronze.college_scorecard_institution`, where field IDs 1–24 are similarly pinned, and `bronze.eada` where field IDs 1–10 are pinned).
 
 ---
 
@@ -163,6 +164,6 @@ Source: `governance/eda/full-pipeline-ipeds-finance-raw-eda.md`.
 
 8. **No `record_id` column at Bronze.** The Brightsmith convention reserves `record_id` for Silver+ promotion grain hashing. Bronze keeps the natural key (`unitid`) only. The Silver layer (`base.ipeds_finance`) computes `record_id` via `compute_grain_id(row, ['unitid'], prefix='ipf')`.
 
-9. **No imputation-flag columns at v1.0.** Per spec §2 Decision #8, `X*`-prefixed bureau-imputation flag columns are not stored. EDA Req 7 measured prevalence ≤1.22% — well below the threshold (~5%) where the cost of a flag-column schema change would be justified. Field IDs ≥ 13 are reserved for future imputation flags if a cycle's prevalence climbs.
+9. **No imputation-flag columns at v1.0–v1.3 (revised v1.4 narrowly).** Per v1.3 §2 Decision #8, `X*`-prefixed bureau-imputation flag columns are not stored. EDA Req 7 measured prevalence ≤1.22% on instruction / institutional support — well below the threshold (~5%) where the cost of a flag-column schema change would be justified. **v1.4 amends this narrowly for the endowment flag pair only** (field ID 13, `endowment_value_flag`) because endowment carries a 25–31% imputation prevalence on F1A/F2 — meaningful for longitudinal consumers. The other `X*` flag columns remain unstored. The v1.4 column is `StringType` (not numeric) and never sentinel-scrubbed.
 
 10. **`source_url` as a single pipe-delimited string, not an array.** Iceberg supports list types, but pipe-delimited strings match the convention used by `bronze.eada` and `bronze.college_scorecard_institution` for multi-file lineage, and they are easier for downstream consumers to inspect via simple SQL `CONTAINS` checks. The cost is that consumers must split on `|` if they want individual URLs — that is acceptable given multi-file lineage is a Bronze-zone concern only.

@@ -127,6 +127,16 @@ class IpedsFinanceIngestor(BaseIngestor):
       may flip in a future revision, in which case both the raw schema
       and §2 Decision #8 must be revisited.
 
+      **v1.4 amendment** (`docs/specs/ipeds-finance-v1.4.md`): the
+      "X* prefix columns are stripped at bronze" policy is amended for
+      ``XF1H02`` and ``XF2H02`` ONLY.  These two columns are captured
+      as ``endowment_value_flag`` (string, nullable) so that downstream
+      consumers can distinguish institution-reported (`R`) endowment
+      values from NCES-imputed (`A`/`P`/`Z`/`N`) values.  All other X*
+      flag columns remain unstored.  F3 has no ``F3H`` family on the
+      F3 schedule (for-profits do not maintain endowments), so the
+      flag is structurally NULL on F3 rows.
+
     - **Sentinel handling.**  IPEDS sentinels ``-1``, ``-2``, ``"."``
       (single period — legacy "not applicable" marker still appearing
       in modern releases), blank, and ``"PrivacySuppressed"`` map to
@@ -198,15 +208,21 @@ class IpedsFinanceIngestor(BaseIngestor):
     DEFAULT_F1A_INSTRUCTION_COL = "F1C011"
     DEFAULT_F1A_INSTITUTIONAL_SUPPORT_COL = "F1C071"
     DEFAULT_F1A_ENDOWMENT_EOY_COL = "F1H02"
+    # v1.4: IPEDS imputation flag for F1A endowment (XF1H02).
+    DEFAULT_F1A_ENDOWMENT_FLAG_COL = "XF1H02"
 
     # F2 (private nonprofit, FASB) — Section E functional expenses + H endowment.
     DEFAULT_F2_INSTRUCTION_COL = "F2E011"
     DEFAULT_F2_INSTITUTIONAL_SUPPORT_COL = "F2E061"
     DEFAULT_F2_ENDOWMENT_EOY_COL = "F2H02"
+    # v1.4: IPEDS imputation flag for F2 endowment (XF2H02).
+    DEFAULT_F2_ENDOWMENT_FLAG_COL = "XF2H02"
 
     # F3 (private for-profit) — post-2014-15 schedule has the same six
     # functional categories as F1A/F2.  Endowment is genuinely N/A
-    # (no F3H family on the F3 form) and stays NULL.
+    # (no F3H family on the F3 form) and stays NULL.  By extension,
+    # there is no F3 endowment-flag column either: ``endowment_value_flag``
+    # is structurally NULL on every F3 row.  v1.4 §3 / §4 confirm.
     DEFAULT_F3_INSTRUCTION_COL: str = "F3E011"
     DEFAULT_F3_INSTITUTIONAL_SUPPORT_COL: str | None = "F3E03C1"
     DEFAULT_F3_ENDOWMENT_EOY_COL: str | None = None  # N/A for for-profits
@@ -237,6 +253,16 @@ class IpedsFinanceIngestor(BaseIngestor):
         {"", "-1", "-2", ".", "PrivacySuppressed"}
     )
 
+    # v1.4: sentinel set for the string flag column.  IPEDS does not
+    # publish ``-1``/``-2`` on the X* flag columns (those are numeric
+    # sentinels for value columns).  The flag-column sentinel set
+    # therefore drops the numeric sentinels and keeps only the
+    # blank-and-textual markers.  See `docs/specs/ipeds-finance-v1.4.md`
+    # §4 ("the flag column does NOT take ``-1``/``-2``").
+    FLAG_SUPPRESSION_SENTINELS: frozenset[str] = frozenset(
+        {"", ".", "PrivacySuppressed"}
+    )
+
     # Row-source tags written into the ``report_form`` column.
     REPORT_FORM_F1A = "F1A"
     REPORT_FORM_F2 = "F2"
@@ -255,10 +281,12 @@ class IpedsFinanceIngestor(BaseIngestor):
         f1a_instruction_col: str | None = None,
         f1a_institutional_support_col: str | None = None,
         f1a_endowment_eoy_col: str | None = None,
+        f1a_endowment_flag_col: str | None = None,
         # F2 overrides
         f2_instruction_col: str | None = None,
         f2_institutional_support_col: str | None = None,
         f2_endowment_eoy_col: str | None = None,
+        f2_endowment_flag_col: str | None = None,
         # F3 overrides — Ellipsis sentinel so callers can pass None
         # explicitly to mean "column does not exist on F3".
         f3_instruction_col: str | None | object = ...,
@@ -289,12 +317,21 @@ class IpedsFinanceIngestor(BaseIngestor):
                 column.  Default ``F1C071``.
             f1a_endowment_eoy_col: F1A end-of-year endowment column.
                 Default ``F1H02``.
+            f1a_endowment_flag_col: F1A IPEDS imputation flag column for
+                ``endowment_value`` (v1.4 addition).  Default ``XF1H02``.
+                String enum: ``{R, A, P, Z, N}`` per IPEDS dictionary;
+                NULL after sentinel scrub on blank / ``.`` /
+                ``PrivacySuppressed``.
             f2_instruction_col: F2 instruction-expenses column.
                 Default ``F2E011``.
             f2_institutional_support_col: F2 institutional-support
                 column.  Default ``F2E061``.
             f2_endowment_eoy_col: F2 end-of-year endowment column.
                 Default ``F2H02``.
+            f2_endowment_flag_col: F2 IPEDS imputation flag column for
+                ``endowment_value`` (v1.4 addition).  Default ``XF2H02``.
+                String enum: ``{R, A, P, Z, N}`` per IPEDS dictionary;
+                NULL after sentinel scrub.
             f3_instruction_col: F3 instruction-expenses column.
                 Default ``F3E011``.  Pass ``None`` to suppress the F3
                 lookup.  Pass the literal sentinel ``...`` (Ellipsis,
@@ -332,6 +369,12 @@ class IpedsFinanceIngestor(BaseIngestor):
         self.f1a_endowment_eoy_col: str = (
             f1a_endowment_eoy_col or self.DEFAULT_F1A_ENDOWMENT_EOY_COL
         )
+        # v1.4: F1A imputation flag (XF1H02).  String column; required
+        # (mirrors instruction/institutional_support default-or-override
+        # resolution, NOT the F3 Ellipsis-sentinel pattern).
+        self.f1a_endowment_flag_col: str = (
+            f1a_endowment_flag_col or self.DEFAULT_F1A_ENDOWMENT_FLAG_COL
+        )
 
         # F2
         self.f2_instruction_col: str = (
@@ -343,6 +386,10 @@ class IpedsFinanceIngestor(BaseIngestor):
         )
         self.f2_endowment_eoy_col: str = (
             f2_endowment_eoy_col or self.DEFAULT_F2_ENDOWMENT_EOY_COL
+        )
+        # v1.4: F2 imputation flag (XF2H02).
+        self.f2_endowment_flag_col: str = (
+            f2_endowment_flag_col or self.DEFAULT_F2_ENDOWMENT_FLAG_COL
         )
 
         # F3 — Ellipsis sentinel handling so None means "not present".
@@ -821,7 +868,8 @@ class IpedsFinanceIngestor(BaseIngestor):
         }
 
         def process(rows: list[dict], form: str, instr: str | None,
-                    inst_supp: str | None, endow: str | None) -> None:
+                    inst_supp: str | None, endow: str | None,
+                    endow_flag: str | None) -> None:
             nonlocal cross_form_duplicates
             for row in rows:
                 record = self._flatten_one(
@@ -830,6 +878,7 @@ class IpedsFinanceIngestor(BaseIngestor):
                     instr,
                     inst_supp,
                     endow,
+                    endow_flag,
                     efia_by_unitid,
                     hd_by_unitid,
                     stats,
@@ -856,6 +905,7 @@ class IpedsFinanceIngestor(BaseIngestor):
             self.f1a_instruction_col,
             self.f1a_institutional_support_col,
             self.f1a_endowment_eoy_col,
+            self.f1a_endowment_flag_col,
         )
         process(
             f2_rows,
@@ -863,13 +913,18 @@ class IpedsFinanceIngestor(BaseIngestor):
             self.f2_instruction_col,
             self.f2_institutional_support_col,
             self.f2_endowment_eoy_col,
+            self.f2_endowment_flag_col,
         )
+        # F3 has no F3H endowment family (per v1.3 §3); the v1.4
+        # endowment_value_flag is therefore structurally NULL on every
+        # F3 row.  Pass ``None`` for ``endow_flag``.
         process(
             f3_rows,
             self.REPORT_FORM_F3,
             self.f3_instruction_col,
             self.f3_institutional_support_col,
             self.f3_endowment_eoy_col,
+            None,
         )
 
         if stats["unparseable_unitid"]:
@@ -909,6 +964,7 @@ class IpedsFinanceIngestor(BaseIngestor):
         instruction_col: str | None,
         institutional_support_col: str | None,
         endowment_col: str | None,
+        endowment_flag_col: str | None,
         efia_by_unitid: dict[int, float | None],
         hd_by_unitid: dict[int, dict[str, Any]],
         stats: dict[str, int],
@@ -917,6 +973,14 @@ class IpedsFinanceIngestor(BaseIngestor):
 
         Returns ``None`` to indicate a drop (unparseable UNITID, HD
         miss, or HD filter reject).
+
+        v1.4 adds the ``endowment_flag_col`` parameter — when ``None``
+        (F3) or absent from the input row, ``endowment_value_flag`` is
+        emitted as NULL.  When present, the value is sentinel-scrubbed
+        (blank / ``.`` / ``PrivacySuppressed`` → NULL) and emitted
+        verbatim as a string (NO numeric coercion — the column is a
+        small enumerated string domain ``{R, A, P, Z, N}`` per the
+        IPEDS Finance dictionary).
         """
         unitid = self._coerce_long(row.get(self.UNITID_COLUMN))
         if unitid is None:
@@ -953,6 +1017,16 @@ class IpedsFinanceIngestor(BaseIngestor):
             if endowment_col
             else None
         )
+        # v1.4: endowment_value_flag — string passthrough, sentinel-
+        # scrubbed but NOT numeric-coerced.  ``None`` flag column means
+        # "structurally N/A on this form" (F3); a missing value on a
+        # form that does carry the flag falls through to NULL via the
+        # sentinel scrub on blank.
+        endowment_flag = self._strip_flag_sentinel(
+            row.get(endowment_flag_col)
+            if endowment_flag_col
+            else None
+        )
         total_fte = efia_by_unitid.get(unitid)
 
         return {
@@ -963,6 +1037,7 @@ class IpedsFinanceIngestor(BaseIngestor):
             "institutional_support_expenses": institutional_support,
             "instruction_expenses": instruction,
             "endowment_value": endowment,
+            "endowment_value_flag": endowment_flag,
             "total_fte_enrollment": total_fte,
         }
 
@@ -1004,6 +1079,36 @@ class IpedsFinanceIngestor(BaseIngestor):
                 return None
             return stripped
         return value
+
+    @classmethod
+    def _strip_flag_sentinel(cls, value: Any) -> str | None:
+        """Replace IPEDS string-flag sentinels with ``None`` (v1.4).
+
+        The flag column ``endowment_value_flag`` (sourced from F1A
+        ``XF1H02`` / F2 ``XF2H02``) is a small enumerated string
+        domain (``{R, A, P, Z, N}`` per IPEDS dictionary).  Unlike the
+        numeric value columns, the flag does NOT take ``-1``/``-2``
+        sentinels — those are numeric markers reserved for value
+        columns.  This helper applies only the blank-and-textual
+        sentinels (``''`` / ``'.'`` / ``'PrivacySuppressed'``) and
+        returns the stripped string verbatim otherwise (no numeric
+        coercion, no upper-casing — preserve source fidelity).
+
+        ``None`` returns ``None`` (e.g., F3 rows where the flag column
+        does not exist on the schedule).
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped in cls.FLAG_SUPPRESSION_SENTINELS:
+                return None
+            return stripped
+        # Defensive: a non-string value is unexpected on a flag column
+        # but coerce to string for downstream consumers — mirrors the
+        # passthrough semantics on the numeric SUPPRESSION_SENTINELS
+        # path which lets non-strings flow through.
+        return str(value)
 
     @staticmethod
     def _coerce_long(value: Any) -> int | None:
@@ -1094,7 +1199,10 @@ class IpedsFinanceIngestor(BaseIngestor):
 
         Matches the spec §4 Raw Schema exactly.  Field IDs 1-8 are the
         IPEDS Finance payload; 9-12 are framework metadata stamped by
-        ``BaseIngestor.ingest()``.
+        ``BaseIngestor.ingest()``; field id 13 is the v1.4 additive
+        ``endowment_value_flag`` column (string, nullable; sourced from
+        ``XF1H02`` / ``XF2H02`` on F1A / F2; NULL on F3 — no ``F3H``
+        family).
         """
         return Schema(
             # Grain field
@@ -1114,4 +1222,6 @@ class IpedsFinanceIngestor(BaseIngestor):
             NestedField(10, "source_method", StringType(), required=True),
             NestedField(11, "ingested_at", TimestampType(), required=True),
             NestedField(12, "load_date", DateType(), required=True),
+            # v1.4 additive — IPEDS imputation flag for endowment_value.
+            NestedField(13, "endowment_value_flag", StringType(), required=False),
         )

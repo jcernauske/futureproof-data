@@ -7,5 +7,16 @@
     "classification": "MINOR",
     "decision": "APPROVED",
     "file": "CAB-001-gold-futureproof-engine-backfill-ai.json"
+  },
+  {
+    "decision_id": "CAB-002",
+    "spec": "ipeds-finance-v1.4",
+    "timestamp": "2026-05-01T00:00:00Z",
+    "tables": ["base.ipeds_finance", "consumable.ipeds_finance_profile"],
+    "classification": "MEDIUM",
+    "classification_driver": "Item 2 (system-office filter row-count contract change)",
+    "decision": "APPROVED",
+    "file": "CAB-002-ipeds-finance-v1.4.json",
+    "blast_radius_md": "governance/cab/ipeds-finance-v1.4.md"
   }
 ]

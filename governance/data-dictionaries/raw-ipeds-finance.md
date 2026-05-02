@@ -7,7 +7,7 @@
 **Conceptual model:** [governance/models/raw-ipeds-finance-conceptual.md](../models/raw-ipeds-finance-conceptual.md)
 **Logical model:** [governance/models/raw-ipeds-finance-logical.md](../models/raw-ipeds-finance-logical.md)
 **Physical model:** [governance/models/raw-ipeds-finance-physical.md](../models/raw-ipeds-finance-physical.md)
-**DQ Rules:** [governance/dq-rules/raw-ipeds-finance.json](../dq-rules/raw-ipeds-finance.json) (14 rules)
+**DQ Rules:** [governance/dq-rules/raw-ipeds-finance.json](../dq-rules/raw-ipeds-finance.json) (15 rules — v1.4 added RAW-IPF-015)
 **DQ Scorecard:** [governance/dq-scorecards/raw-ipeds-finance-20260501T202737Z.md](../dq-scorecards/raw-ipeds-finance-20260501T202737Z.md) (14/14 PASS)
 **Chaos:** [governance/chaos-reports/raw-ipeds-finance-chaos.md](../chaos-reports/raw-ipeds-finance-chaos.md)
 **Lineage:** `governance/lineage/full-pipeline-ipeds-finance-{timestamp}.json` (Bronze run; produced by lineage-tracker)
@@ -77,6 +77,14 @@ The three institution-totals dollar columns published by IPEDS Finance. All thre
 |-------|--------------|------|----------|-----|---------------|--------------------------|
 | `total_fte_enrollment` | EFIA `COALESCE(FTEUG,0) + COALESCE(FTEGD,0) + COALESCE(FTEDPP,0)` (computed at ingest) | double | No | **Yes** | (proposed) BT-IPF-PER-FTE (the convention; this column is the denominator) | The institution's 12-month total full-time-equivalent (FTE) enrollment for the fiscal cycle, sourced from the IPEDS EFIA (12-Month Instructional Activity) survey. Computed as the NULL-safe sum of three EFIA component columns: `FTEUG` (undergraduate FTE) + `FTEGD` (graduate FTE) + `FTEDPP` (doctor's-professional-practice FTE). NULL only when all three components are NULL. **Critical taxonomy clarification:** the source file is **EFIA** (12-Month Instructional Activity), NOT EFFY (which is unduplicated 12-month *headcount*, broken out by `EFFYALEV` and at the wrong grain — would inflate per-FTE rates if used) and NOT EF Part A `EFTOTLT` (which is fall-snapshot headcount, not 12-month FTE — would systematically deflate per-FTE rates for institutions with large part-time populations). EFIA publishes one row per UNITID — no dedup filter is required (verified 5,959/5,959 unique on EFIA2023). Uses *reported* FTE columns (`FTEUG`/`FTEGD`/`FTEDPP`); per the IPEDS dictionary, reported FTE defaults to NCES *estimated* FTE (`EFTEUG`/`EFTEGD`) when the institution did not provide a reported figure, so reported values preserve institution-confirmed FTE where given and fall back to NCES's estimate elsewhere. **EDA-observed (FY23):** range 6 – 135,698; p50 1,514; p95 21,975; non-null 97.94% (2,620 / 2,675). The 55 NULL rows are UNITIDs in the finance forms but absent from EFIA2023 (newly-opened in FY23 or late filers). Min FTE=6 is SUNY Empire State College (UNITID 196097, FY23 transition year, mostly online graduate students — verified plausible). Drives every per-FTE derivation downstream. RAW-IPF-008 enforces `> 0` where non-null (no zero-FTE institution can exist in EFIA). |
 
+### Imputation Provenance (v1.4 ADDITION)
+
+The IPEDS Finance Survey publishes a parallel `X{varname}` flag column for every numeric field, indicating the value's provenance. Per v1.3 §2 Decision #8, the FutureProof bronze ingest deliberately strips all `X*` flag columns — *except* for the two endowment-flag columns added in this v1.4 amendment. Imputation prevalence on the other analytical fields is ≤1.22% (immaterial); endowment carries a 25-31%-imputation profile that is decision-relevant for longitudinal consumers, so the flag is captured at bronze for downstream propagation.
+
+| Field | Source Column | Type | Required | CDE | Business Term | Plain-English Definition |
+|-------|--------------|------|----------|-----|---------------|--------------------------|
+| `endowment_value_flag` | F1A `XF1H02` / F2 `XF2H02` / F3 N/A | string | No | No | (proposed) BT-IPF-ENDOWMENT-PROVENANCE | The IPEDS-published imputation flag for `endowment_value`. Captures *how* the endowment value was sourced for this institution-cycle. **NULL on F3 — structural** (F3 has no `F3H` family on the for-profit schedule, so neither `endowment_value` nor its flag exists; both are NULL by design). On F1A and F2 the observed FY2023 domain is `{R, A, P, Z, N}` — a strict subset of the IPEDS dictionary's 13-code shared `Xvarname` lookup `{A, B, C, D, G, H, J, K, L, N, P, R, Z}` (the remaining 8 codes `B, C, D, G, H, J, K, L` are unobserved in FY2023 endowment data; future-cycle appearance is a Significant escalation, not a silent allowed-set extension). **Authoritative semantics (per the FY2023 IPEDS Finance dictionary, with empirical confirmation in `governance/eda/ipeds-finance-v1.4-flag-eda.md` §3):** `R` = **Reported by institution** (institution-reported value, populated, suitable for analysis without further qualification); `A` = **Not applicable** (the institution has no endowment fund — exact `A`↔NULL coupling on `endowment_value`; populations include community colleges, tribal colleges, theological seminaries, and system offices that do not maintain endowments); `N` = **Imputed using Nearest Neighbor procedure** (NCES imputation methodology); `P` = **Imputed using prior year's data**; `Z` = **Imputed using a zero value**. **Sentinel handling:** the column is never sentinel-scrubbed (it is a string with a small enumerated domain, not a numeric coercion target); blank / `.` / `"PrivacySuppressed"` are mapped to NULL. **Semantic correction history (v1.4 v1.2):** the v1.3-EDA-§7 narrative inverted the meanings of `A` and `N` (it described `A` as "model-imputed" and `N` as "not applicable") — corrected against the FY2023 dictionary and FY2023 empirical evidence (every `A`-flagged row has NULL endowment, decisively confirming `A`="Not applicable"). **EDA-observed (FY2023):** F1A 819 rows split as `R=737 (90.0%)`, `A=80 (9.77%)`, `N=1 (0.12%)`, `P=1 (0.12%)`, `Z=0`; F2 1,579 rows split as `R=1,293 (81.9%)`, `A=285 (18.05%)`, `P=1 (0.06%)`, `N=0`, `Z=0`; F3 277 rows all NULL by structure. **Validated by RAW-IPF-015 (P0)** — domain ∈ `{R, A, P, Z, N}` OR NULL. |
+
 ### Pipeline Provenance
 
 Every row carries pipeline-stamped provenance. These fields are required at the Iceberg level and identical across all rows in a single batch. This Bronze ingest fans out across **five source files** (3 finance forms + EFIA + HD), so the `source_url` column is a pipe-delimited list reflecting that fan-out.
@@ -92,7 +100,7 @@ Every row carries pipeline-stamped provenance. These fields are required at the 
 
 ## Data Quality Rules
 
-The 14 DQ rules covering this table are defined in [governance/dq-rules/raw-ipeds-finance.json](../dq-rules/raw-ipeds-finance.json). Summary:
+The 15 DQ rules covering this table are defined in [governance/dq-rules/raw-ipeds-finance.json](../dq-rules/raw-ipeds-finance.json). The first 14 are v1.3; RAW-IPF-015 was added in v1.4. Summary:
 
 | Rule ID | Priority | Field(s) | What It Checks |
 |---------|----------|----------|----------------|
@@ -110,8 +118,9 @@ The 14 DQ rules covering this table are defined in [governance/dq-rules/raw-iped
 | RAW-IPF-012 | P1 | `endowment_value` | Non-null `≥ 60%` (observed 76.0%; the floor is intentionally below the F3 + F2-small-private structural-NULL floor). |
 | RAW-IPF-013 | P0 | `fiscal_year` | Single value across all rows in a load (single-vintage invariant). |
 | RAW-IPF-014 | P1 | `instruction_expenses` | At least one row exceeds $100M (R1 anchor; observed: 365 rows). |
+| RAW-IPF-015 | P0 | `endowment_value_flag` | Domain ∈ `{R, A, P, Z, N}` OR NULL. NULL is allowed unconditionally (covers structural F3 NULLs and any non-imputed-flag-source rows); non-NULL must be one of the five codes. The 5-code allowed set is a strict subset of the IPEDS dictionary's 13-code shared `Xvarname` lookup `{A, B, C, D, G, H, J, K, L, N, P, R, Z}` — only the codes observed in FY2023 endowment data are admitted. Future-cycle appearance of any of the 8 unobserved dictionary codes is a Significant escalation per the v1.4 spec §4 EDA Requirements (no silent allowed-set extension). |
 
-All 14 rules PASS as of 2026-05-01T20:27:37Z (`governance/dq-scorecards/raw-ipeds-finance-20260501T202737Z.md`). Adversarial chaos cleared (`governance/chaos-reports/raw-ipeds-finance-chaos.md`).
+All 15 rules PASS on the v1.4 landed bronze (snapshot `8612278722865929234`, 2,675 rows). Adversarial chaos cleared (`governance/chaos-reports/raw-ipeds-finance-chaos.md` + `governance/chaos-reports/ipeds-finance-v1.4-chaos.md`).
 
 ---
 
@@ -153,3 +162,4 @@ All 14 rules PASS as of 2026-05-01T20:27:37Z (`governance/dq-scorecards/raw-iped
 | Date | Change | By |
 |------|--------|-----|
 | 2026-04-30 | Initial data dictionary for Bronze table `raw.ipeds_finance`. 12 fields documented (4 identity + 3 monetary + 1 enrollment + 4 provenance), 5 flagged CDE, 0 flagged PII. EDA-confirmed column codes pinned (F3 instruction `F3E011`, F3 institutional support `F3E03C1`, EFIA NULL-safe three-column FTE sum). | @doc-generator |
+| 2026-05-01 | v1.4 DELTA — added `endowment_value_flag` field (StringType, nullable; source `XF1H02` (F1A) / `XF2H02` (F2); F3 NULL structural; observed FY2023 domain `{R, A, P, Z, N}` as strict subset of IPEDS dictionary's 13-code shared lookup; corrected v1.2 semantics — `A`="Not applicable", `N`="Imputed using Nearest Neighbor", refuting the v1.3-EDA-§7 narrative inversion). +1 DQ rule (RAW-IPF-015 P0 enum check). New bronze snapshot `8612278722865929234` (2,675 rows). Schema field IDs 1–12 unchanged; new field at ID 13. Per ipeds-finance-v1.4 spec §3+§4. EDA: `governance/eda/ipeds-finance-v1.4-flag-eda.md`. | @doc-generator |

@@ -26,6 +26,7 @@ The Bronze zone is a flattened representation of the conceptual `Finance Report`
 | `institutional_support_expenses` | Monetary Measurement | Administration / fundraising / executive expenses (USD) | Decimal Money | No | F1A `F1C071` / F2 `F2E061` / F3 `F3E03C1` (post-2014-15 schedule) |
 | `instruction_expenses` | Monetary Measurement | Teaching delivery expenses (USD) | Decimal Money | No | F1A `F1C011` / F2 `F2E011` / F3 `F3E011` |
 | `endowment_value` | Monetary Measurement | End-of-year endowment market value (USD) | Decimal Money | No | F1A `F1H02` / F2 `F2H02` / F3 N/A (no `F3H` family — structural NULL) |
+| `endowment_value_flag` (v1.4) | Imputation Provenance | IPEDS-published imputation flag for `endowment_value`. Domain `{R, A, P, Z, N}` OR NULL. **Authoritative semantics (corrected v1.2):** `R` = Reported by institution; `A` = **Not applicable** (no endowment fund — exact `A`↔NULL coupling); `N` = **Imputed using Nearest Neighbor procedure**; `P` = Imputed prior year; `Z` = Imputed zero. | Text (enum) | No | F1A `XF1H02` / F2 `XF2H02` / F3 N/A (structural NULL — no `F3H` family) |
 | `total_fte_enrollment` | Enrollment Denominator | 12-month total FTE | Decimal | No | EFIA `COALESCE(FTEUG,0) + COALESCE(FTEGD,0) + COALESCE(FTEDPP,0)` (NULL only when all three components are NULL) |
 | `source_url` | Ingest Provenance | Provenance — pipe-delimited list of all 5 source URLs (F1A / F2 / F3 / EFIA / HD) | Text (URL list) | Yes | Stamped by ingestor; constant per batch |
 | `source_method` | Ingest Provenance | Provenance — fetch path used | Text (enum-like) | Yes | Stamped by ingestor; current value `bulk_csv_download` |
@@ -83,12 +84,13 @@ All other values are either passthroughs from the IPEDS source files, pinned ing
 | `endowment_value` non-null ≥ 60% (observed 76.0%; the 24% NULL is mostly structural F3 + ~16% small F2) | Completeness | RAW-IPF-012 (P1) |
 | `COUNT(DISTINCT fiscal_year) == 1` per load | Consistency (single-vintage invariant) | RAW-IPF-013 (P0) |
 | ≥1 row with `instruction_expenses > $100M` (R1 anchor; observed 269 rows) | Plausibility | RAW-IPF-014 (P1) |
+| `endowment_value_flag ∈ {R, A, P, Z, N}` OR NULL — strict subset of the IPEDS dictionary's 13-code shared `Xvarname` lookup (the remaining 8 codes `B, C, D, G, H, J, K, L` are unobserved on FY2023 endowment data and trigger Significant escalation if observed in a future cycle) | Validity (enum) | RAW-IPF-015 (P0) — v1.4 |
 
 ---
 
 ## Data Quality Summary
 
-- 14/14 DQ rules PASS against the FY23 cycle (scorecard `governance/dq-scorecards/raw-ipeds-finance-20260501T202737Z.{json,md}`).
+- 15/15 DQ rules PASS against the v1.4-landed bronze (snapshot `8612278722865929234`, 2,675 rows; v1.4 added RAW-IPF-015 for `endowment_value_flag`).
 - Adversarial chaos (raw): 6/6 caught (`governance/chaos-reports/raw-ipeds-finance-chaos.md`).
 - PII scan: N/A (institution-level data, no individual identifiers).
 - Entity resolution: N/A (single-key UNITID across all five source files).
@@ -110,7 +112,7 @@ All other values are either passthroughs from the IPEDS source files, pinned ing
 
 6. **Provenance fields are `Required: Yes` even though they are stamped, not sourced.** Bronze policy: every row carries provenance. A NULL `source_url` or `ingested_at` would mean the row bypassed the ingestor entirely (e.g., manual SQL append) and is a governance violation regardless of payload validity.
 
-7. **No `imputation_flag_*` columns.** Per §2 Decision #8, IPEDS publishes parallel `X*`-prefixed flag columns indicating bureau-imputation; we accept imputed values as raw and do not store the flags. EDA Req 7 measured prevalence ≤1.22% on every field — well below the threshold (~5%) where the cost of a flag-column schema change would be justified.
+7. **No generic `imputation_flag_*` columns at v1.0–v1.3 (revised v1.4 narrowly).** Per v1.3 §2 Decision #8, IPEDS publishes parallel `X*`-prefixed flag columns indicating bureau-imputation; v1.0–v1.3 deliberately did not store these flags (≤1.22% prevalence on instruction / institutional support — schema-change cost outweighed the marginal completeness gain). **v1.4 amends this narrowly for the endowment-flag pair only:** the `XF1H02` / `XF2H02` columns are captured at bronze as a single coalesced `endowment_value_flag` string column (field ID 13) because endowment imputation prevalence is 25–31% on F1A/F2 — meaningful for longitudinal consumers. The other `X*` flag columns remain unstored. The v1.4 capture is a `string` enum-typed column, not a numeric coercion target — the column is never sentinel-scrubbed; blank / `.` / `PrivacySuppressed` are mapped to NULL.
 
 8. **No SCD2.** Bronze keeps the latest single-fiscal-cycle snapshot. Multi-cycle history is a future-amendment concern (would require a partition spec on `fiscal_year` and an extension of the dedup grain to `[unitid, fiscal_year]`).
 

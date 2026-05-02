@@ -234,6 +234,24 @@
       "proposed_at": "2026-04-30T00:00:00Z",
       "approved_by": "human",
       "approved_at": "2026-05-01T20:48:44.007691+00:00"
+    },
+    {
+      "rule_id": "RAW-IPF-015",
+      "name": "endowment_value_flag in {R, A, P, Z, N} OR NULL",
+      "dimension": "validity",
+      "category": "validity",
+      "priority": "P0",
+      "table": "bronze.ipeds_finance",
+      "sql": "SELECT * FROM bronze.ipeds_finance WHERE endowment_value_flag IS NOT NULL AND endowment_value_flag NOT IN ('R', 'A', 'P', 'Z', 'N')",
+      "threshold": "result_count = 0",
+      "description": "endowment_value_flag is the IPEDS imputation/provenance flag for endowment_value, sourced from XF1H02 (F1A) and XF2H02 (F2). NULL is allowed unconditionally (NULL is structural on F3 because F3 has no F3H family, and NULL is also the legitimate sentinel-coerced value when the source cell is blank / '.' / 'PrivacySuppressed'). When non-NULL the value must be one of the five codes observed in the FY2023 IPEDS Finance dictionary on F1A/F2: R = Reported by institution; A = Not applicable (institution has no endowment fund); N = Imputed using Nearest Neighbor procedure; P = Imputed using prior year's data; Z = Imputed using a zero value. Mirrors RAW-IPF-004's enum-check pattern.",
+      "rationale": "Spec \u00a74 DQ Rule Delta: 'RAW-IPF-015 endowment_value_flag in {R, A, P, Z, N} OR NULL (P0, Validity).' Mirrors RAW-IPF-004's enum-check pattern. The 5-code allowed set is a strict subset of the IPEDS dictionary's 13-code shared `Xvarname` lookup `{A, B, C, D, G, H, J, K, L, N, P, R, Z}` -- only the five codes observed in FY2023 endowment data are admitted. Per spec \u00a74 EDA Req: future-cycle appearance of any of the 8 unobserved dictionary codes ({B, C, D, G, H, J, K, L}) is a Significant escalation -- the rule must NOT be silently extended without explicit spec amendment. v1.4 narrow EDA confirmed FY2023 domain on F1A/F2 is exactly {R, A, P, Z, N} with no undocumented codes. Threshold: 0 violations (NULL passes; non-NULL must be in the allowed set).",
+      "notes": "Allowed set {R, A, P, Z, N} is a STRICT SUBSET of the IPEDS dictionary's 13-code shared Xvarname lookup {A, B, C, D, G, H, J, K, L, N, P, R, Z}. Only the 5 codes empirically observed in FY2023 endowment data are admitted at the rule layer. If a future cycle's source CSV surfaces any of the 8 unobserved dictionary codes (B, C, D, G, H, J, K, L) for endowment_value_flag, this rule will fire and it MUST be treated as a Significant escalation per \u00a74 EDA Requirements -- escalate to spec authors and amend the rule explicitly; do not auto-extend the allowed set. F3 rows are NULL by structure (no F3H family) and pass unconditionally.",
+      "status": "active",
+      "proposed_by": "@dq-rule-writer",
+      "proposed_at": "2026-05-01T21:00:00Z",
+      "approved_by": "human",
+      "approved_at": "2026-05-02T04:15:33.332404+00:00"
     }
   ]
 }

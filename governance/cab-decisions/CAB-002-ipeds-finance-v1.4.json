@@ -1,0 +1,103 @@
+{
+  "decision_id": "CAB-002",
+  "spec": "ipeds-finance-v1.4",
+  "spec_path": "docs/specs/ipeds-finance-v1.4.md",
+  "timestamp": "2026-05-01T00:00:00Z",
+  "agent": "@bs:cab-agent",
+  "tables_reviewed": [
+    "base.ipeds_finance",
+    "consumable.ipeds_finance_profile"
+  ],
+  "tables_in_scope": [
+    "consumable.ipeds_finance_profile"
+  ],
+  "tables_out_of_scope": [
+    "bronze.ipeds_finance"
+  ],
+  "contracts_checked": [
+    "governance/data-contracts/consumable-ipeds-finance-profile.yaml",
+    "governance/data-contracts/consumable-institution-aura.yaml"
+  ],
+  "changes": [
+    {
+      "item": 1,
+      "table": "consumable.ipeds_finance_profile",
+      "change_type": "new_nullable_column",
+      "column": "endowment_value_provenance",
+      "classification": "MINOR",
+      "spec_proposed": "MINOR-ADDITIVE",
+      "match": true,
+      "rationale": "New nullable string column at consumable (renamed passthrough from base.endowment_value_flag). Pure additive surface change. CDE flag set on a newly-introduced column (not a CDE flag change on an existing contract column, which would have triggered MAJOR)."
+    },
+    {
+      "item": 2,
+      "table": "consumable.ipeds_finance_profile",
+      "change_type": "row_count_contract_change",
+      "filter": "system-administrative-office filter (name pattern AND instruction_expenses < $1M)",
+      "classification": "MEDIUM",
+      "spec_proposed": "MEDIUM",
+      "match": true,
+      "rationale": "Deliberate row-count drop of ~25-40 rows. Three v1.3 contract assertions become false: contract YAML record_count: 2675, row_count_guarantee: 2675, and CON-IFP-001 strict equality with base. Spec correctly schedules contract amendment (§6, §8) and CON-IFP-001 split (§2 Decision E) into 001a (upper bound, P0) + 001b (lower bound, P1). Below MAJOR threshold because no fork (v1/v2 coexistence) is required — the named primary downstream consumer reads base, not consumable."
+    },
+    {
+      "item": 3,
+      "table": "consumable.ipeds_finance_profile",
+      "change_type": "new_dq_rule",
+      "rule": "CON-IFP-012",
+      "classification": "PATCH",
+      "spec_proposed": "TRIVIAL",
+      "match": true,
+      "rationale": "Pure additive DQ rule mirroring RAW-IPF-013 at the consumer surface. No schema change, no row-count change, no transformer change."
+    },
+    {
+      "item": 4,
+      "table": "consumable.ipeds_finance_profile",
+      "change_type": "new_required_column",
+      "column": "source_load_date",
+      "classification": "MINOR",
+      "spec_proposed": "MINOR-ADDITIVE",
+      "match": true,
+      "rationale": "New non-null date column at consumable (restored passthrough from base). Pure additive surface change. NOT NULL preserves the upstream base guarantee."
+    }
+  ],
+  "overall_classification": "MEDIUM",
+  "overall_classification_driver": "Item 2 (system-office filter row-count contract change)",
+  "blast_radius": {
+    "named_primary_consumer": {
+      "table": "consumable.institution_aura",
+      "spec": "docs/specs/full-pipeline-eada.md",
+      "reads_from": "base.ipeds_finance (NOT consumable.ipeds_finance_profile)",
+      "evidence": [
+        "EADA spec §5 Sources line 247: raw.eada LEFT JOIN base.ipeds_finance on UNITID",
+        "EADA spec §6 Sources line 336: base.ipeds_finance FULL OUTER JOIN base.eada on UNITID",
+        "consumable-institution-aura.json CON-AUR-001 SQL computes bound from (SELECT COUNT(*) FROM base.ipeds_finance), not consumable"
+      ],
+      "impact": "ZERO — base zone is pure-additive under v1.4 (one column passthrough). Base row count unchanged at 2,675. CON-AUR-001 row-count tolerance band [2675, 4715] continues to hold."
+    },
+    "other_consumers_swept": {
+      "backend_services": "0 hits on consumable.ipeds_finance_profile",
+      "mcp_server": "0 hits on consumable.ipeds_finance_profile",
+      "domain_manifest": "0 hits on consumable.ipeds_finance_profile",
+      "scripts": "1 hit (promote_ipeds_finance_profile.py — producer, not consumer)",
+      "other_gold_tables": "0 cross-table joins target this consumable; CON-IFP-008/008b reference consumable.career_outcomes which carries no system-office UNITIDs"
+    },
+    "hardcoded_2675_assertions": {
+      "this_table_contract": "WILL BREAK without amendment — spec §6 / §8 schedules update",
+      "this_table_dq_rule_CON_IFP_001": "WILL BREAK without split — spec §2 Decision E schedules split",
+      "institution_aura_contract": "NO BREAK — references base.ipeds_finance row count, not consumable",
+      "career_outcomes_overlap_CON_IFP_008": "NO BREAK — system-office UNITIDs are not in career_outcomes; numerator + denominator + ratio unchanged",
+      "golden_datasets": "0 hits — system-office UNITIDs are not anchor schools"
+    },
+    "fork_required": false,
+    "fork_rationale": "MEDIUM, not MAJOR. Forking (v1/v2 coexistence) would be over-engineering. The named primary downstream consumer reads base, not consumable. The contract amendment + CON-IFP-001 split is sufficient."
+  },
+  "decision": "APPROVED",
+  "decision_rationale": "All four item classifications match the spec's §7 expected severity table. Overall MEDIUM is below MAJOR threshold; no fork required. Row-count contract change is contained to this table's own YAML and own CON-IFP-001 rule (both scheduled for amendment in §6/§8/Decision E). Zero third-party consumer breaks. Standing user constraints all PASS. Chaos scoped to 5 new rules + filter inverse-misclassification scenario.",
+  "conditions": [
+    "Contract amendment to governance/data-contracts/consumable-ipeds-finance-profile.yaml per §6 Data Contract delta table (record_count, row_count_guarantee, row_count_tolerance_note, new column entries, cde_columns_list update)",
+    "CON-IFP-001 split in governance/dq-rules/consumable-ipeds-finance-profile.json per §2 Decision E (001a upper bound P0; 001b lower bound P1)",
+    "Chaos pass must include the inverse-misclassification scenario: a real teaching institution with 'Office' or 'System' in legal name plus instruction expenses >= $1M must survive the filter (§2 Decision B AND-clause empirical confirmation)"
+  ],
+  "blast_radius_assessment_path": "governance/cab/ipeds-finance-v1.4.md",
+  "human_override": null
+}
