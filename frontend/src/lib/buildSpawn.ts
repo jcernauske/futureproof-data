@@ -38,6 +38,22 @@ interface SpawnContext {
   locale: AppLocale;
 }
 
+function publishedCost4yrForRow(
+  row: SchoolForCareerRow,
+  homeState: string | null,
+): number | null {
+  const coa = row.cost_of_attendance_annual;
+  if (coa === null || coa <= 0) return null;
+  if (!row.institution_control?.startsWith("Public")) return coa * 4;
+  if (!homeState || !row.state_abbr) return coa * 4;
+  if (homeState === row.state_abbr) return coa * 4;
+  const inState = row.tuition_in_state;
+  const outState = row.tuition_out_of_state;
+  if (inState === null || outState === null) return coa * 4;
+  const gap = outState - inState;
+  return gap > 0 ? (coa + gap) * 4 : coa * 4;
+}
+
 /**
  * Build a minimal CareerOutcome from a leaderboard row. Most fields default
  * to null/[] — the streaming build response replaces the entire object on
@@ -91,6 +107,7 @@ export async function spawnBuildFromRow(
   row: SchoolForCareerRow,
   ctx: SpawnContext,
 ): Promise<void> {
+  const publishedCost4yr = publishedCost4yrForRow(row, ctx.homeState);
   const buildInputStore = useBuildInputStore.getState();
   const buildStore = useBuildStore.getState();
 
@@ -138,6 +155,7 @@ export async function spawnBuildFromRow(
     student_cip: null,
     home_state: ctx.homeState,
     school_state: row.state_abbr,
+    published_cost_4yr: publishedCost4yr,
     animal_emoji: ctx.animalEmoji,
     locale: ctx.locale,
   };
@@ -207,6 +225,7 @@ export async function spawnBuildFromRow(
         undefined,
         ctx.homeState ?? undefined,
         row.state_abbr ?? undefined,
+        publishedCost4yr,
         ctx.animalEmoji ?? undefined,
         ctx.locale,
       );

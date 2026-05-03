@@ -92,8 +92,8 @@ interface RoiReceiptProps {
 function RoiReceipt({ career, loanPct, t }: RoiReceiptProps) {
   const basis = career.roi_cost_basis ?? null;
   const fourYearCost =
-    typeof career.net_price_annual === "number" && career.net_price_annual > 0
-      ? career.net_price_annual * 4
+    typeof career.published_cost_4yr === "number" && career.published_cost_4yr > 0
+      ? career.published_cost_4yr
       : null;
   const medianRef = career.debt_median_reference ?? career.debt_median ?? null;
   const modeled = career.modeled_total_debt ?? null;
@@ -107,7 +107,7 @@ function RoiReceipt({ career, loanPct, t }: RoiReceiptProps) {
       {basis === "cost_of_attendance" && fourYearCost !== null ? (
         <>
           <p>
-            {fill(t("build.roi.netPriceYear"), { value: fmtMoney(career.net_price_annual) })}
+            {fill(t("build.roi.costOfAttendance4yr"), { value: fmtMoney(fourYearCost) })}
           </p>
           {career.cost_of_attendance_annual !== null && (
             <p>
@@ -116,7 +116,6 @@ function RoiReceipt({ career, loanPct, t }: RoiReceiptProps) {
               })}
             </p>
           )}
-          <p>{fill(t("build.roi.costOfAttendance4yr"), { value: fmtMoney(fourYearCost) })}</p>
         </>
       ) : basis === "debt_median" && medianRef !== null ? (
         <p>
@@ -228,14 +227,10 @@ function DebtVsMedianIndicator({
 
 export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) {
   const t = useT();
-  const isPrivate = career.institution_control?.startsWith("Private") ?? false;
-  const yoursLabel = t("build.yours");
 
   const startingSalary = career.earnings_1yr_median;
   const medianSalary = career.median_annual_wage;
-  const tuitionInState = career.tuition_in_state;
-  const tuitionOutOfState = career.tuition_out_of_state;
-  const netPriceAnnual = career.net_price_annual;
+  const publishedCost4yr = career.published_cost_4yr;
 
   const p25 = career.earnings_1yr_p25;
   const p75 = career.earnings_1yr_p75;
@@ -263,29 +258,12 @@ export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) 
         value={`${fmt(medianSalary)} / yr`}
         subtitle={salarySubtitle}
       />
-      {isPrivate ? (
-        <Row label={t("build.tuition4yr")} value={fmt(tuitionInState, 4)} />
-      ) : (
-        <>
-          <Row
-            label={t("build.inStateTuition")}
-            value={fmt(tuitionInState, 4)}
-            highlight={isInState === true}
-            highlightLabel={yoursLabel}
-          />
-          <Row
-            label={t("build.outStateTuition")}
-            value={fmt(tuitionOutOfState, 4)}
-            highlight={isInState === false}
-            highlightLabel={yoursLabel}
-          />
-        </>
-      )}
-      {netPriceAnnual !== null && netPriceAnnual > 0 && (
+      {publishedCost4yr !== null && publishedCost4yr !== undefined && (
         <Row
-          label={t("build.avgNetPrice")}
-          value={fmt(netPriceAnnual, 4)}
-          subtitle={t("build.afterGrants")}
+          label={t("build.publishedCost4yr")}
+          value={fmtMoney(publishedCost4yr)}
+          highlight
+          highlightLabel={isInState === false ? t("build.outOfStateApplied") : undefined}
         />
       )}
       <Row label={t("build.financing")} value={pct(loanPct)} muted={loanPct === 1} />

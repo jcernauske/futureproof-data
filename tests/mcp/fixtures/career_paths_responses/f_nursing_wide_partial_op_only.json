@@ -7,62 +7,37 @@
   "response": {
     "data": [
       {
-        "adoption_percentile": 30.2504816955684,
-        "ai_adoption_share": 0.012222226787012805,
+        "unitid": 145637,
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "cipcode": "51.00",
+        "program_name": "Health Services/Allied Health/Health Sciences, General.",
+        "cip_family_name": "Health Professions and Related Programs",
+        "soc_code": "21-1094",
+        "occupation_title": "Community health workers",
+        "soc_major_group_name": "Community and Social Service",
+        "stat_ern": 3,
+        "stat_roi": 2,
+        "stat_res": 9,
+        "stat_grw": 8,
+        "stat_hmn": 5,
         "boss_ai_score": 2,
-        "boss_burnout_score": 5,
-        "boss_ceiling_score": 5,
         "boss_loans_score": 9,
         "boss_market_score": 7,
-        "bosses_available_count": 5,
-        "burnout_drivers": [
-          {
-            "element": "Importance of Being Exact or Accurate",
-            "value": 0.73
-          },
-          {
-            "element": "Impact of Decisions on Co-workers or Company Results",
-            "value": 0.71
-          },
-          {
-            "element": "Frequency of Decision Making",
-            "value": 0.71
-          }
-        ],
-        "cip_family_name": "Health Professions and Related Programs",
-        "cipcode": "51.00",
-        "composite_method": "three_signal",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 32134.0,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": 5,
+        "earnings_1yr_median": 29149.0,
+        "earnings_1yr_p25": 32935.0,
+        "earnings_1yr_p75": 62573.0,
         "debt_median": 20250.0,
         "debt_p25": null,
         "debt_p75": null,
         "debt_to_earnings_annual": 2.0859720745137054,
-        "earnings_1yr_median": 29149.0,
-        "earnings_1yr_p25": 32935.0,
-        "earnings_1yr_p75": 62573.0,
-        "education_level_name": "High school diploma or equivalent",
-        "employment_current": 65100,
-        "growth_category": "growing_fast",
-        "institution_control": "Public",
-        "institution_name": "University of Illinois Urbana-Champaign",
-        "match_quality": "full",
+        "cip_family_earnings_rank": 0.15187713310580206,
+        "confidence_tier_program": "high",
         "median_annual_wage": 51030.0,
-        "net_price_4yr": 60804.0,
-        "net_price_annual": 15201.0,
-        "occupation_title": "Community health workers",
-        "overall_confidence": "high",
-        "program_name": "Health Services/Allied Health/Health Sciences, General.",
-        "roi_cost_basis": "cost_of_attendance",
-        "room_board_on_campus": 13938.0,
-        "soc_code": "21-1094",
-        "soc_major_group_name": "Community and Social Service",
-        "stat_ern": 3,
-        "stat_grw": 8,
-        "stat_hmn": 5,
-        "stat_res": 9,
-        "stat_roi": 2,
-        "stats_available_count": 5,
+        "growth_category": "growing_fast",
+        "employment_current": 65100,
+        "education_level_name": "High school diploma or equivalent",
         "top_5_activities": [
           {
             "activity": "Communicating with People Outside the Organization",
@@ -107,68 +82,70 @@
             "importance": 4.02
           }
         ],
-        "tuition_in_state": 16004.0,
-        "tuition_out_of_state": 34501.0,
-        "unitid": 145637,
-        "velocity_label": "nascent"
-      },
-      {
-        "adoption_percentile": 59.34489402697495,
-        "ai_adoption_share": 0.046629335809275745,
-        "boss_ai_score": 4,
-        "boss_burnout_score": 6,
-        "boss_ceiling_score": 8,
-        "boss_loans_score": 9,
-        "boss_market_score": 6,
-        "bosses_available_count": 5,
         "burnout_drivers": [
           {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.73
+          },
+          {
             "element": "Impact of Decisions on Co-workers or Company Results",
-            "value": 0.77
+            "value": 0.71
           },
           {
             "element": "Frequency of Decision Making",
-            "value": 0.7
-          },
-          {
-            "element": "Importance of Being Exact or Accurate",
-            "value": 0.7
+            "value": 0.71
           }
         ],
-        "cip_family_name": "Health Professions and Related Programs",
-        "cipcode": "51.00",
-        "composite_method": "three_signal",
-        "confidence_tier_program": "high",
+        "match_quality": "full",
+        "stats_available_count": 5,
+        "bosses_available_count": 5,
+        "overall_confidence": "high",
+        "institution_control": "Public",
+        "state_abbr": "IL",
+        "net_price_annual": 15201.0,
         "cost_of_attendance_annual": 32134.0,
+        "net_price_4yr": 60804.0,
+        "tuition_in_state": 16004.0,
+        "tuition_out_of_state": 34501.0,
+        "room_board_on_campus": 13938.0,
+        "ai_adoption_share": 0.012222226787012805,
+        "velocity_label": "nascent",
+        "composite_method": "three_signal",
+        "adoption_percentile": 30.2504816955684,
+        "roi_cost_basis": "cost_of_attendance"
+      },
+      {
+        "unitid": 145637,
+        "institution_name": "University of Illinois Urbana-Champaign",
+        "cipcode": "51.00",
+        "program_name": "Health Services/Allied Health/Health Sciences, General.",
+        "cip_family_name": "Health Professions and Related Programs",
+        "soc_code": "21-1091",
+        "occupation_title": "Health education specialists",
+        "soc_major_group_name": "Community and Social Service",
+        "stat_ern": 4,
+        "stat_roi": 2,
+        "stat_res": 7,
+        "stat_grw": 6,
+        "stat_hmn": 5,
+        "boss_ai_score": 4,
+        "boss_loans_score": 9,
+        "boss_market_score": 6,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": 8,
+        "earnings_1yr_median": 29149.0,
+        "earnings_1yr_p25": 32935.0,
+        "earnings_1yr_p75": 62573.0,
         "debt_median": 20250.0,
         "debt_p25": null,
         "debt_p75": null,
         "debt_to_earnings_annual": 2.0859720745137054,
-        "earnings_1yr_median": 29149.0,
-        "earnings_1yr_p25": 32935.0,
-        "earnings_1yr_p75": 62573.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 71800,
-        "growth_category": "growing",
-        "institution_control": "Public",
-        "institution_name": "University of Illinois Urbana-Champaign",
-        "match_quality": "full",
+        "cip_family_earnings_rank": 0.15187713310580206,
+        "confidence_tier_program": "high",
         "median_annual_wage": 63000.0,
-        "net_price_4yr": 60804.0,
-        "net_price_annual": 15201.0,
-        "occupation_title": "Health education specialists",
-        "overall_confidence": "high",
-        "program_name": "Health Services/Allied Health/Health Sciences, General.",
-        "roi_cost_basis": "cost_of_attendance",
-        "room_board_on_campus": 13938.0,
-        "soc_code": "21-1091",
-        "soc_major_group_name": "Community and Social Service",
-        "stat_ern": 4,
-        "stat_grw": 6,
-        "stat_hmn": 5,
-        "stat_res": 7,
-        "stat_roi": 2,
-        "stats_available_count": 5,
+        "growth_category": "growing",
+        "employment_current": 71800,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Communicating with Supervisors, Peers, or Subordinates",
@@ -213,10 +190,37 @@
             "importance": 4.23
           }
         ],
+        "burnout_drivers": [
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.77
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.7
+          },
+          {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.7
+          }
+        ],
+        "match_quality": "full",
+        "stats_available_count": 5,
+        "bosses_available_count": 5,
+        "overall_confidence": "high",
+        "institution_control": "Public",
+        "state_abbr": "IL",
+        "net_price_annual": 15201.0,
+        "cost_of_attendance_annual": 32134.0,
+        "net_price_4yr": 60804.0,
         "tuition_in_state": 16004.0,
         "tuition_out_of_state": 34501.0,
-        "unitid": 145637,
-        "velocity_label": "emerging"
+        "room_board_on_campus": 13938.0,
+        "ai_adoption_share": 0.046629335809275745,
+        "velocity_label": "emerging",
+        "composite_method": "three_signal",
+        "adoption_percentile": 59.34489402697495,
+        "roi_cost_basis": "cost_of_attendance"
       }
     ],
     "row_count": 2,

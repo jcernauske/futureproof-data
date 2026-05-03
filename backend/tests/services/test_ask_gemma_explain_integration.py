@@ -90,13 +90,14 @@ def _make_tool_log() -> list[gemma_client.ToolCallTurn]:
             duration_ms=12,
             error=None,
             tool_result_preview=json.dumps({
-                "results": [
+                "data": [
                     {
                         "soc_code": _IU_SOC,
                         "cip_family_earnings_rank": 0.87,
                         "earnings_1yr_median": 94_200,
                     }
-                ]
+                ],
+                "row_count": 1,
             }),
             dispatch_index=0,
         ),
@@ -108,8 +109,11 @@ def _make_tool_log() -> list[gemma_client.ToolCallTurn]:
             duration_ms=15,
             error=None,
             tool_result_preview=json.dumps({
-                "wage_percentile_overall": 0.92,
-                "median_annual_wage": 132_270,
+                "data": {
+                    "wage_percentile_overall": 0.92,
+                    "median_annual_wage": 132_270,
+                },
+                "row_count": 1,
             }),
             dispatch_index=1,
         ),
@@ -333,25 +337,88 @@ async def test_chat_ask_ern_explain_fallback_uses_cached_tool_log(
     assert dispatch_calls == []
 
 
+# ---------------------------------------------------------------------------
+# Score-null receipt path (server-built, no Gemma call)
+# Spec: docs/specs/bugfix-explain-stat-trigger-null-score-guard.md
+# ---------------------------------------------------------------------------
+
+
+def _occupation_payload(
+    *, wage_pct: float | None = 0.92, wage: int | None = 132_270
+) -> dict[str, Any]:
+    return {
+        "data": {
+            "wage_percentile_overall": wage_pct,
+            "median_annual_wage": wage,
+        },
+        "row_count": 1,
+    }
+
+
+def _career_paths_payload(
+    *, cip_rank: float | None = 0.87, earnings: int | None = 94_200
+) -> dict[str, Any]:
+    return {
+        "data": [
+            {
+                "soc_code": _IU_SOC,
+                "cip_family_earnings_rank": cip_rank,
+                "earnings_1yr_median": earnings,
+            }
+        ],
+        "row_count": 1,
+    }
+
+
+def _patch_dispatch(
+    monkeypatch,
+    *,
+    career_paths: dict[str, Any],
+    occupation: dict[str, Any],
+) -> dict[str, list]:
+    """Patch ask_gemma._dispatch to return canned MCP responses without
+    hitting the real MCP server. Returns a dict tracking call counts so
+    tests can assert each tool was called exactly once."""
+    calls: dict[str, list[dict[str, Any]]] = {
+        "get_career_paths": [],
+        "get_occupation_data": [],
+    }
+
+    async def _fake_dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.setdefault(name, []).append(args)
+        if name == "get_career_paths":
+            return career_paths
+        if name == "get_occupation_data":
+            return occupation
+        raise AssertionError(f"unexpected dispatch: {name}")
+
+    monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch)
+    return calls
+
+
 @pytest.mark.asyncio
-async def test_chat_ask_ern_explain_returns_string_when_build_score_null(
+async def test_chat_ask_ern_explain_returns_missing_receipt_when_score_null(
     monkeypatch,
 ) -> None:
-    """Build with stats.ern=None → postprocess returns None (score_null
-    failure_reason) → fallback fires (P0)."""
+    """Build with stats.ern=None + sentinel opener → response is an
+    ExplainStatReceipt with score=None, the universal one-liner /
+    sources / why-mix paragraph, and per-input missing_reason lines.
+    NO Gemma call (fake loop asserts call_count == 0)."""
     build = _make_build(ern=None)
 
-    call_count = {"n": 0}
+    loop_calls = {"n": 0}
 
     async def _fake_loop(**kwargs: Any) -> tuple[str, list]:
-        call_count["n"] += 1
-        if call_count["n"] == 1:
-            # Even valid JSON fails postprocess because ern is None.
-            return (json.dumps(_good_receipt_payload()), _make_tool_log())
-        return ("Markdown fallback after score_null.", [])
+        loop_calls["n"] += 1
+        return ("should not be reached", [])
 
-    monkeypatch.setattr(
-        gemma_client, "generate_with_tools_loop", _fake_loop
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", _fake_loop)
+    # Earnings missing (the Millikin-class case): cip_rank null, BLS
+    # values present.
+    dispatch_calls = _patch_dispatch(
+        monkeypatch,
+        career_paths=_career_paths_payload(cip_rank=None, earnings=None),
+        occupation=_occupation_payload(),
     )
 
     response = await ask_gemma.chat_ask(
@@ -362,8 +429,201 @@ async def test_chat_ask_ern_explain_returns_string_when_build_score_null(
         locale="en",
     )
 
-    assert isinstance(response.response, str)
-    assert "fallback" in response.response.lower()
+    assert loop_calls["n"] == 0, "score-null path must NOT call Gemma"
+    assert len(dispatch_calls["get_career_paths"]) == 1
+    assert len(dispatch_calls["get_occupation_data"]) == 1
+
+    assert isinstance(response.response, ExplainStatReceipt)
+    receipt = response.response
+    assert receipt.kind == "receipt"
+    assert receipt.stat_code == "ERN"
+    assert receipt.score is None
+    assert receipt.score_max == 10
+    # Universal prose (always rendered, regardless of which input is null).
+    assert "Earning Power" in receipt.stat_name
+    assert receipt.one_liner
+    assert receipt.why_mix_paragraph
+    assert len(receipt.sources) == 2
+
+    # Per-component fields. 60% bullet → school+earnings missing.
+    school_comp = next(c for c in receipt.components if c.weight_pct == 60)
+    assert school_comp.value_pct is None
+    assert school_comp.anchor_dollars is None
+    assert school_comp.missing_reason is not None
+    assert "College Scorecard" in school_comp.missing_reason
+    assert build.career.institution_name in school_comp.missing_reason
+
+    # 40% bullet → present, has values.
+    career_comp = next(c for c in receipt.components if c.weight_pct == 40)
+    assert career_comp.value_pct == 92
+    assert career_comp.anchor_dollars == 132_270
+    assert career_comp.missing_reason is None
+
+    # math_line shows the missing input as 'n/a'.
+    assert "n/a" in receipt.math_line
+    assert "no score available" in receipt.math_line
+
+    # Tool calls surface so the trace rail can render them.
+    assert len(response.tool_calls) == 2
+    tool_names = sorted(tc.tool for tc in response.tool_calls)
+    assert tool_names == ["get_career_paths", "get_occupation_data"]
+
+
+@pytest.mark.asyncio
+async def test_chat_ask_ern_explain_missing_receipt_handles_both_inputs_null(
+    monkeypatch,
+) -> None:
+    """Both inputs null → both component bullets carry missing_reason
+    lines naming their respective data sources."""
+    build = _make_build(ern=None)
+
+    async def _fake_loop(**kwargs: Any) -> tuple[str, list]:
+        raise AssertionError("must not call Gemma on score-null path")
+
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", _fake_loop)
+    _patch_dispatch(
+        monkeypatch,
+        career_paths=_career_paths_payload(cip_rank=None, earnings=None),
+        occupation=_occupation_payload(wage_pct=None, wage=None),
+    )
+
+    response = await ask_gemma.chat_ask(
+        scope=AskScope(kind="stat", build_ids=[build.build_id], target_id="ERN"),
+        builds=[build],
+        message=_OPENER,
+        history=[],
+        locale="en",
+    )
+
+    assert isinstance(response.response, ExplainStatReceipt)
+    receipt = response.response
+    assert receipt.score is None
+    school = next(c for c in receipt.components if c.weight_pct == 60)
+    career = next(c for c in receipt.components if c.weight_pct == 40)
+    assert school.missing_reason and "College Scorecard" in school.missing_reason
+    assert career.missing_reason and "BLS" in career.missing_reason
+    # Math line: both placeholders.
+    assert receipt.math_line.count("n/a") == 2
+
+
+@pytest.mark.asyncio
+async def test_chat_ask_stream_ern_explain_emits_missing_receipt(
+    monkeypatch,
+) -> None:
+    """Stream variant: emits two trace turn pairs (one per MCP fetch)
+    + one TraceFinalText carrying the receipt + one TraceDone."""
+    from app.models.api import TraceDone, TraceTurnComplete, TraceTurnStart
+
+    build = _make_build(ern=None)
+
+    async def _fake_loop(**kwargs: Any) -> tuple[str, list]:
+        raise AssertionError("must not call Gemma on score-null path")
+
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", _fake_loop)
+    _patch_dispatch(
+        monkeypatch,
+        career_paths=_career_paths_payload(cip_rank=None, earnings=None),
+        occupation=_occupation_payload(),
+    )
+
+    events = []
+    async for ev in ask_gemma.chat_ask_stream(
+        scope=AskScope(kind="stat", build_ids=[build.build_id], target_id="ERN"),
+        builds=[build],
+        message=_OPENER,
+        history=[],
+        locale="en",
+    ):
+        events.append(ev)
+
+    finals = [e for e in events if isinstance(e, TraceFinalText)]
+    dones = [e for e in events if isinstance(e, TraceDone)]
+    starts = [e for e in events if isinstance(e, TraceTurnStart)]
+    completes = [e for e in events if isinstance(e, TraceTurnComplete)]
+
+    assert len(finals) == 1
+    assert len(dones) == 1
+    assert len(starts) == 2
+    assert len(completes) == 2
+    payload = finals[0].response
+    assert isinstance(payload, ExplainStatReceipt)
+    assert payload.score is None
+
+
+@pytest.mark.asyncio
+async def test_score_null_path_logs_structured_record(monkeypatch) -> None:
+    """Score-null path appends one record to gemma.jsonl with
+    call_site='explain_ern_missing_receipt' and the input-null state."""
+    build = _make_build(ern=None)
+
+    captured: list[dict[str, Any]] = []
+
+    def _fake_log_exchange(record: dict[str, Any]) -> None:
+        captured.append(record)
+
+    monkeypatch.setattr(gemma_client, "_log_exchange", _fake_log_exchange)
+
+    async def _fake_loop(**kwargs: Any) -> tuple[str, list]:
+        raise AssertionError("must not call Gemma on score-null path")
+
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", _fake_loop)
+    _patch_dispatch(
+        monkeypatch,
+        career_paths=_career_paths_payload(cip_rank=None, earnings=None),
+        occupation=_occupation_payload(),
+    )
+
+    await ask_gemma.chat_ask(
+        scope=AskScope(kind="stat", build_ids=[build.build_id], target_id="ERN"),
+        builds=[build],
+        message=_OPENER,
+        history=[],
+        locale="en",
+    )
+
+    matches = [
+        r for r in captured
+        if r.get("call_site") == "explain_ern_missing_receipt"
+    ]
+    assert len(matches) == 1
+    rec = matches[0]
+    assert rec["build_id"] == build.build_id
+    assert rec["reason"] == "build_score_null"
+    assert rec["cip_rank"] is None
+    assert rec["wage_pct"] == 0.92
+
+
+@pytest.mark.asyncio
+async def test_score_present_path_unchanged(monkeypatch) -> None:
+    """Build with non-null stats.ern → the JSON path runs normally; the
+    score-null branch is not entered."""
+    build = _make_build(ern=7)
+
+    async def _fake_loop(**kwargs: Any) -> tuple[str, list]:
+        return (json.dumps(_good_receipt_payload()), _make_tool_log())
+
+    monkeypatch.setattr(gemma_client, "generate_with_tools_loop", _fake_loop)
+
+    # Patch dispatch with a sentinel that fails if the score-null branch
+    # tries to use it (the score-present path goes through Gemma's tool
+    # loop, not the direct dispatch).
+    async def _fail_dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
+        raise AssertionError(
+            f"score-present path must not direct-dispatch {name}"
+        )
+
+    monkeypatch.setattr(ask_gemma, "_dispatch", _fail_dispatch)
+
+    response = await ask_gemma.chat_ask(
+        scope=AskScope(kind="stat", build_ids=[build.build_id], target_id="ERN"),
+        builds=[build],
+        message=_OPENER,
+        history=[],
+        locale="en",
+    )
+
+    assert isinstance(response.response, ExplainStatReceipt)
+    assert response.response.score == 7
 
 
 # ---------------------------------------------------------------------------

@@ -468,17 +468,13 @@ class TestOccupationTitleFallback:
 class TestPcpSchemaAndRecordIds:
     """Tests for Table 1 schema and record ID generation."""
 
-    def test_schema_has_53_columns(self):
-        """Cost-based ROI rewrite (plan why-are-we-still-jaunty-curry)
-        extends the PCP physical model to 53 columns. Fields 41-44 are
-        S4 Option B composite provenance; field 45 is roi_cost_basis;
-        fields 46-52 thread institution-level cost fields through from
-        consumable.career_outcomes so the backend can drive cost-based
-        stat_roi + financing-aware boss_loans_score without refetching;
-        field 53 is state_abbr for regional price parity lookups.
+    def test_schema_has_54_columns(self):
+        """PCP physical model has 54 columns. Field 54 is
+        cip_family_earnings_rank, persisted so the MCP response can
+        surface it for ERN explain-stat receipts.
         """
         schema = get_pcp_schema()
-        assert len(schema.fields) == 53
+        assert len(schema.fields) == 54
 
     def test_record_id_deterministic(self):
         """record_id is deterministic for same grain."""

@@ -35,8 +35,10 @@ import asyncio
 import json
 import logging
 import re
-from collections.abc import AsyncIterator
-from typing import Any
+import time
+from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
@@ -45,6 +47,8 @@ from app.models.api import (
     AskScope,
     ExplainStatReceipt,
     ReceiptSource,
+    ScoringTier,
+    StatComponent,
     TraceDone,
     TraceEvent,
     TraceEventPayload,
@@ -257,11 +261,12 @@ _OPENER_PROMPT_BRANCH = (
 
 
 # ---------------------------------------------------------------------------
-# Explain-this-stat — ERN structured-receipt path
-#   spec: docs/specs/feature-explain-stat-receipt.md (DRAFT v1.3)
+# Explain-this-stat — structured-receipt path
+#   spec: docs/specs/feature-explain-stat-receipt.md (ERN, COMPLETE)
+#   spec: docs/specs/feature-explain-stat-receipt-roi-res-grw.md
 #   voice authority: .claude/skills/pentagon-stat-explanation/SKILL.md
 #
-# Triggers only on the sentinel opener "[explain-this:ERN]" in the
+# Triggers on the sentinel opener "[explain-this:{STAT}]" in the
 # stat-scope chat. Gemma is asked to emit a JSON object matching
 # ExplainStatReceipt; the server post-processes (validates, stamps
 # the build's score, builds math_line, normalizes labels) before
@@ -269,15 +274,269 @@ _OPENER_PROMPT_BRANCH = (
 #
 # The original markdown spike's appendix and helper-leak stripper
 # remain in this file as the JSON-parse-failure fallback. When
-# _postprocess_ern_explain_receipt returns None, the loop runs once
-# more with the markdown appendix, reusing the cached tool_call_log
+# a per-stat postprocessor returns None, the loop runs once more
+# with the markdown appendix, reusing the cached tool_call_log
 # so no MCP re-fetch happens.
 # ---------------------------------------------------------------------------
 
-_ERN_EXPLAIN_OPENER = "[explain-this:ERN]"
-_ERN_EXPLAIN_TEMPERATURE = 0.0
-_ERN_EXPLAIN_MAX_TOKENS = 1500
-_ERN_EXPLAIN_RESPONSE_FORMAT: dict[str, Any] = {"type": "json_object"}
+_EXPLAIN_SENTINEL_RE = re.compile(r"^\[explain-this:([A-Z]+)\]$")
+_EXPLAIN_TEMPERATURE = 0.0
+_EXPLAIN_MAX_TOKENS = 1500
+_EXPLAIN_RESPONSE_FORMAT: dict[str, Any] = {"type": "json_object"}
+
+
+# Per-stat plain-English name used by the explain-this dispatch.
+# Mirrors _STAT_ALIAS but typed for the explain-receipt path. The
+# upcoming ROI/RES/GRW/AURA receipt specs already share this mapping.
+_EXPLAIN_STAT_NAME: dict[str, str] = {
+    "ERN": "Earning Power",
+    "ROI": "Return on Investment",
+    "RES": "AI Resilience",
+    "GRW": "Growth Outlook",
+    "AURA": "Brand Gravity",
+}
+
+
+def _get_build_stat(build: Build, stat_code: str) -> int | None:
+    """Read the build's score for a given stat code (lowercase attr on
+    PentagonStats). Centralized so the explain-stat dispatch and any
+    future helper agree on the field-name mapping."""
+    return getattr(build.career.stats, stat_code.lower(), None)
+
+
+# ---------------------------------------------------------------------------
+# Score-null receipt path (server-built, no Gemma call)
+#   spec: docs/specs/bugfix-explain-stat-trigger-null-score-guard.md
+#
+# When build.career.stats.<stat> is None, the explain-this-stat path
+# can't honestly produce a score. Instead of hiding the affordance
+# (worse — the student's first question is "why don't I have a
+# score?"), we still render the receipt: open-ring score callout,
+# the universal one-liner / sources / why-mix paragraph, and per-
+# component bullets where each missing input drives a plain-English
+# missing_reason line.
+#
+# The path is fully server-deterministic: the two MCP tools fire so
+# we know which input is null, then the receipt is constructed from
+# canned templates substituted with the build's identifiers. Gemma
+# is never called → no fabrication risk.
+# ---------------------------------------------------------------------------
+
+_ERN_ONE_LINER = (
+    "Earning Power tells you how much your degree usually pays right "
+    "after graduation."
+)
+
+_ERN_WHY_MIX_PARAGRAPH = (
+    "Picture two students. One in a top-ranked Computer Science "
+    "program at a regional school, the other in a top-ranked "
+    "Philosophy program at a flagship. School rank alone would "
+    "mislead you — Computer Science pays more than Philosophy almost "
+    "everywhere. Mixing in the career's pay rank grounds the score "
+    "in real U.S. salaries."
+)
+
+
+def _render_missing_score_math_line(
+    cip_rank: float | None,
+    wage_pct: float | None,
+) -> str:
+    """Math line for the score-null path. Renders the same `0.6 × A +
+    0.4 × B` shape as the score-present path, but with `n/a` in place
+    of any missing input and a `→ no score available` tail."""
+    school_part = f"{cip_rank:.2f}" if cip_rank is not None else "n/a"
+    career_part = f"{wage_pct:.2f}" if wage_pct is not None else "n/a"
+    return f"0.6 × {school_part} + 0.4 × {career_part} → no score available"
+
+
+async def _dispatch_ern_explain_tools(
+    build: Build,
+) -> list[gemma_client.ToolCallTurn]:
+    """Fire the same two MCP tools the score-present path uses
+    (get_career_paths, get_occupation_data) so the score-null receipt
+    can read the actual null inputs from the response. Returns a
+    tool_call_log shaped like generate_with_tools_loop's so the trace
+    rail and AskResponse.tool_calls surface the calls identically."""
+    career = build.career
+    plan: list[tuple[str, dict[str, Any]]] = [
+        (
+            "get_career_paths",
+            {"unitid": career.unitid, "cipcode": career.cipcode},
+        ),
+        (
+            "get_occupation_data",
+            {"soc_code": career.soc_code},
+        ),
+    ]
+    log: list[gemma_client.ToolCallTurn] = []
+    for dispatch_index, (tool_name, args) in enumerate(plan):
+        start = time.monotonic()
+        error: str | None = None
+        try:
+            result = await _dispatch(tool_name, args)
+        except Exception as exc:  # noqa: BLE001 — boundary defense
+            logger.warning(
+                "ern missing-score receipt: %s dispatch failed — %s",
+                tool_name,
+                exc,
+            )
+            result = {}
+            error = str(exc)
+        duration_ms = int((time.monotonic() - start) * 1000)
+        result_str = json.dumps(result, default=str)
+        log.append(
+            gemma_client.ToolCallTurn(
+                turn_number=0,
+                tool_name=tool_name,
+                tool_args=args,
+                tool_result_size_bytes=len(result_str),
+                duration_ms=duration_ms,
+                error=error,
+                tool_result_preview=result_str[:500],
+                tool_result_full=result_str,
+                dispatch_index=dispatch_index,
+            )
+        )
+    return log
+
+
+def _build_ern_missing_score_receipt(
+    build: Build,
+    cip_rank: float | None,
+    earnings: int | None,
+    wage_pct: float | None,
+    wage: int | None,
+) -> ExplainStatReceipt:
+    """Construct the ExplainStatReceipt for the score-null path. Each
+    component bullet either shows its value (if the input is present)
+    or carries a plain-English missing_reason that names the absent
+    data source."""
+    career = build.career
+    school_label = career.institution_name
+    program_label = career.program_name or build.major_text
+    career_label = career.occupation_title or "this career"
+    school_anchor = f"{school_label} {program_label} grads"
+
+    # 60% bullet — school × program rank.
+    if cip_rank is not None and earnings is not None:
+        school_explainer = (
+            f"How {school_label}'s {program_label} graduates' median "
+            f"earnings rank against peers in the same field of study "
+            f"(Classification of Instructional Programs family, or CIP "
+            f"family)."
+        )
+        school_value_pct: int | None = int(cip_rank * 100 + 0.5)
+        school_missing: str | None = None
+    else:
+        school_explainer = (
+            f"How {school_label}'s {program_label} graduates' median "
+            f"earnings would rank against peers in the same field of "
+            f"study — if this number were reported."
+        )
+        school_value_pct = None
+        if earnings is None:
+            school_missing = (
+                f"College Scorecard doesn't report median earnings "
+                f"for {school_label}'s {program_label} graduates yet "
+                f"— usually because the cohort is small enough that "
+                f"publishing earnings would identify individual "
+                f"students."
+            )
+        else:
+            school_missing = (
+                f"College Scorecard reports median earnings for "
+                f"{school_label}'s {program_label} graduates "
+                f"(${earnings:,}), but doesn't yet rank that figure "
+                f"against peer programs in the same field of study."
+            )
+
+    # 40% bullet — career × occupation pay rank.
+    if wage_pct is not None and wage is not None:
+        career_explainer = (
+            f"How {career_label}'s median wage ranks against all U.S. "
+            f"occupations (Standard Occupational Classification code, "
+            f"or SOC code)."
+        )
+        career_value_pct: int | None = int(wage_pct * 100 + 0.5)
+        career_missing: str | None = None
+    else:
+        career_explainer = (
+            f"How {career_label}'s median wage would rank against all "
+            f"U.S. occupations — if this number were reported."
+        )
+        career_value_pct = None
+        if wage is None:
+            career_missing = (
+                f"The Bureau of Labor Statistics (BLS) hasn't "
+                f"published a median wage for {career_label} yet."
+            )
+        else:
+            career_missing = (
+                f"The Bureau of Labor Statistics (BLS) reports "
+                f"median pay for {career_label} (${wage:,}/year), "
+                f"but doesn't yet rank that figure against all U.S. "
+                f"occupations."
+            )
+
+    return ExplainStatReceipt(
+        kind="receipt",
+        stat_code="ERN",
+        stat_name="Earning Power",
+        score=None,
+        score_max=10,
+        one_liner=_ERN_ONE_LINER,
+        components=[
+            StatComponent(
+                weight_pct=60,
+                label="your school's program rank",
+                explainer=school_explainer,
+                value_pct=school_value_pct,
+                anchor_text=school_anchor,
+                anchor_dollars=earnings,
+                missing_reason=school_missing,
+            ),
+            StatComponent(
+                weight_pct=40,
+                label="this career's pay rank",
+                explainer=career_explainer,
+                value_pct=career_value_pct,
+                anchor_text=career_label,
+                anchor_dollars=wage,
+                missing_reason=career_missing,
+            ),
+        ],
+        math_line=_render_missing_score_math_line(cip_rank, wage_pct),
+        sources=list(_ERN_RECEIPT_SOURCES),
+        why_mix_paragraph=_ERN_WHY_MIX_PARAGRAPH,
+    )
+
+
+async def _ern_missing_score_receipt_path(
+    build: Build,
+) -> tuple[ExplainStatReceipt, list[gemma_client.ToolCallTurn]]:
+    """Score-null entry point. Dispatches the two MCP tools, extracts
+    the four input values (any may still be None), constructs the
+    receipt server-side. Returns the receipt + tool_call_log so the
+    caller can surface the trace events."""
+    tool_call_log = await _dispatch_ern_explain_tools(build)
+    cip_rank, earnings, wage_pct, wage = _extract_tool_results(tool_call_log)
+    receipt = _build_ern_missing_score_receipt(
+        build,
+        cip_rank=cip_rank,
+        earnings=earnings,
+        wage_pct=wage_pct,
+        wage=wage,
+    )
+    gemma_client._log_exchange({
+        "call_site": "explain_ern_missing_receipt",
+        "build_id": build.build_id,
+        "reason": "build_score_null",
+        "cip_rank": cip_rank,
+        "wage_pct": wage_pct,
+        "earnings": earnings,
+        "wage": wage,
+    })
+    return receipt, tool_call_log
 
 # What we send to Gemma in place of the sentinel.
 _ERN_EXPLAIN_USER_PROMPT = (
@@ -517,13 +776,26 @@ def _format_pct(value: float | None) -> str:
 
 def _extract_tool_results(
     tool_call_log: list[gemma_client.ToolCallTurn],
-    soc_code: str,
 ) -> tuple[float | None, int | None, float | None, int | None]:
     """Pull the four needed values out of the tool_call_log.
 
     Returns (cip_family_earnings_rank, earnings_1yr_median,
              wage_percentile_overall, median_annual_wage). Any value
     not found in the log is None.
+
+    All four are dimension-level values:
+      - cip_family_earnings_rank, earnings_1yr_median are
+        (school, CIP)-level — same across every soc_code fanout row
+        in a get_career_paths response.
+      - wage_percentile_overall, median_annual_wage are SOC-level
+        and come from get_occupation_data, which is queried with a
+        single SOC.
+
+    No soc_code matching is required. (An earlier version filtered
+    get_career_paths rows by soc_code before reading the CIP-level
+    fields, which silently failed under CIP substitution / SOC-format
+    drift — Gemma's prose then claimed values the server couldn't
+    surface. See bugfix-explain-stat-trigger-null-score-guard.md.)
 
     Reads ``tool_result_full`` (the un-truncated server-only string)
     rather than ``tool_result_preview``. The preview is capped at
@@ -546,22 +818,39 @@ def _extract_tool_results(
         except (json.JSONDecodeError, ValueError):
             continue
         if turn.tool_name == "get_career_paths":
-            rows = preview.get("results") if isinstance(preview, dict) else None
+            # MCP wraps list responses in {"data": [...], "row_count": N, ...};
+            # the rows we need live under "data".
+            rows = preview.get("data") if isinstance(preview, dict) else None
             if not isinstance(rows, list):
                 continue
+            # cip_family_earnings_rank and earnings_1yr_median are
+            # (school, CIP)-level — the same value lives on every
+            # soc_code fanout row for a given (unitid, cipcode). Reading
+            # only the row whose soc_code matches the build's career
+            # leaves the extractor returning None when CIP substitution
+            # or SOC-format drift means that exact soc_code isn't in the
+            # response, even though the values ARE present on every
+            # other row. Gemma's prose then claims a value the server
+            # can't surface — the 60% bullet shows ◦ — + "no median
+            # earnings reported" while the prose says "$X / Nth
+            # percentile". Read from any non-null row instead.
             for row in rows:
                 if not isinstance(row, dict):
                     continue
-                if row.get("soc_code") != soc_code:
-                    continue
-                cip_rank = row.get("cip_family_earnings_rank")
-                earn = row.get("earnings_1yr_median")
-                if isinstance(earn, (int, float)):
-                    earnings = int(earn)
-                break
+                if cip_rank is None:
+                    rank_val = row.get("cip_family_earnings_rank")
+                    if isinstance(rank_val, (int, float)):
+                        cip_rank = float(rank_val)
+                if earnings is None:
+                    earn = row.get("earnings_1yr_median")
+                    if isinstance(earn, (int, float)):
+                        earnings = int(earn)
+                if cip_rank is not None and earnings is not None:
+                    break
         elif turn.tool_name == "get_occupation_data":
-            row = preview if isinstance(preview, dict) else None
-            if row is None:
+            # MCP wraps the single-row response in {"data": {...}, "row_count": 1, ...}.
+            row = preview.get("data") if isinstance(preview, dict) else None
+            if not isinstance(row, dict):
                 continue
             wp = row.get("wage_percentile_overall")
             if isinstance(wp, (int, float)):
@@ -697,6 +986,7 @@ def _log_receipt_parse(
         logger.info("ern_explain_receipt parsed: %s", record)
     else:
         logger.warning("ern_explain_receipt parse failed: %s", record)
+    gemma_client._log_exchange(record)
 
 
 def _format_cached_tool_values(
@@ -716,6 +1006,38 @@ def _format_cached_tool_values(
         f"  wage_percentile_overall = {wage_pct}\n"
         f"  median_annual_wage = {wage}\n"
     )
+
+
+def _format_cached_tool_values_generic(
+    tool_call_log: list[gemma_client.ToolCallTurn],
+) -> str:
+    """Build a generic cached-tool-values block for the markdown fallback
+    from the full tool_call_log. Extracts all key-value pairs from the
+    tool results and formats them for the user message."""
+    lines = [
+        "Cached tool values from your build (use these directly — do not "
+        "re-call any tools):"
+    ]
+    for turn in tool_call_log:
+        if turn.error:
+            continue
+        result_json = turn.tool_result_full or turn.tool_result_preview
+        try:
+            preview = json.loads(result_json)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(preview, dict):
+            data = preview.get("data", preview)
+            if isinstance(data, list):
+                for row in data[:3]:
+                    if isinstance(row, dict):
+                        for k, v in row.items():
+                            lines.append(f"  {k} = {v}")
+                        break
+            elif isinstance(data, dict):
+                for k, v in data.items():
+                    lines.append(f"  {k} = {v}")
+    return "\n".join(lines)
 
 
 def _postprocess_ern_explain_receipt(
@@ -815,9 +1137,7 @@ def _postprocess_ern_explain_receipt(
     receipt.score_max = 10
 
     # Step 7: server-build math_line.
-    cip_rank, earnings, wage_pct, wage = _extract_tool_results(
-        tool_call_log, build.career.soc_code
-    )
+    cip_rank, earnings, wage_pct, wage = _extract_tool_results(tool_call_log)
     receipt.math_line = _render_math_line(
         cip_rank=cip_rank,
         wage_pct=wage_pct,
@@ -878,6 +1198,1309 @@ def _postprocess_ern_explain_receipt(
         backend=backend,
     )
     return receipt
+
+
+# ---------------------------------------------------------------------------
+# ROI receipt helpers
+# ---------------------------------------------------------------------------
+
+_ROI_LABEL_ALLOWLIST: dict[int, str] = {
+    100: "your debt-to-earnings ratio",
+}
+
+_ROI_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
+    ReceiptSource(
+        label="Published cost",
+        name="College Scorecard (U.S. Department of Education)",
+    ),
+    ReceiptSource(
+        label="Graduate earnings",
+        name="College Scorecard (U.S. Department of Education)",
+    ),
+)
+
+_ROI_SCORING_SCALE: list[ScoringTier] = [
+    ScoringTier(label="Excellent investment", range="≤ 0.25", score="10"),
+    ScoringTier(label="Great investment", range="0.25 – 0.50", score="10 – 9"),
+    ScoringTier(label="Good investment", range="0.50 – 0.75", score="9 – 7"),
+    ScoringTier(label="Fair investment", range="0.75 – 1.00", score="7 – 5"),
+    ScoringTier(label="Stretch investment", range="1.00 – 1.50", score="5 – 3"),
+    ScoringTier(label="Risky investment", range="1.50 – 2.50", score="3 – 1"),
+    ScoringTier(label="Very risky investment", range="≥ 2.50", score="1"),
+]
+
+_ROI_ONE_LINER = (
+    "Return on Investment divides your school's full published cost by "
+    "what you're likely to earn in your first year after graduation."
+)
+
+_ROI_WHY_MIX_PARAGRAPH = (
+    "Picture two students. One pays $40,000 total but earns $35,000 — "
+    "their cost is barely more than a year's salary. Another pays "
+    "$200,000 and earns $50,000 — four years of salary spent before "
+    "they start. Same college education, wildly different payoff "
+    "timelines. The ratio turns both into one number you can compare "
+    "across any school and career."
+)
+
+
+def _render_math_line_roi(
+    *,
+    published_cost_4yr: float | None,
+    earnings_1yr_median: float | None,
+    build_score: int,
+    score_max: int,
+) -> str:
+    """Build ROI's math-line string.
+
+    Format: '$112,400 / $78,400 = 1.43 → ROI score 4/10'
+    """
+    if published_cost_4yr is None and earnings_1yr_median is None:
+        return f"n/a / n/a = n/a → score {build_score}/{score_max}"
+    if published_cost_4yr is None:
+        earn_str = f"${int(earnings_1yr_median):,}"  # type: ignore[arg-type]
+        return f"n/a / {earn_str} = n/a → score {build_score}/{score_max}"
+    if earnings_1yr_median is None or earnings_1yr_median == 0:
+        cost_str = f"${int(published_cost_4yr):,}"
+        return f"{cost_str} / n/a = n/a → score {build_score}/{score_max}"
+    cost_str = f"${int(published_cost_4yr):,}"
+    earn_str = f"${int(earnings_1yr_median):,}"
+    dte = published_cost_4yr / earnings_1yr_median
+    return (
+        f"{cost_str} / {earn_str} = {dte:.2f} → ROI score "
+        f"{build_score}/{score_max}"
+    )
+
+
+_ROI_RECEIPT_JSON_TEMPLATE = """{
+  "kind": "receipt",
+  "stat_code": "ROI",
+  "stat_name": "Return on Investment",
+  "score": 4,
+  "score_max": 10,
+  "one_liner": "__FILL_IN__: ONE-SENTENCE DEFINITION of what this score measures. Plain English a 16-year-old reads. No jargon, no /10, no percentiles.",
+  "components": [
+    {
+      "weight_pct": 100,
+      "label": "your debt-to-earnings ratio",
+      "explainer": "__FILL_IN__: 1-3 sentences. Name the school + program + published cost over 4 years (in $) and the median starting salary 1 year after graduation (in $). State the ratio: every $X.XX of schooling cost weighs against $1.00 of starting pay. Do NOT include the X/10 score.",
+      "value_pct": null,
+      "anchor_text": "Indiana University Computer Science 4-year published cost",
+      "anchor_dollars": 112400,
+      "missing_reason": null
+    }
+  ],
+  "math_line": "$112,400 / $78,400 = 1.43 \\u2192 ROI score 4/10",
+  "sources": [
+    {"label": "Published cost", "name": "College Scorecard (U.S. Department of Education)"},
+    {"label": "Graduate earnings", "name": "College Scorecard (U.S. Department of Education)"}
+  ],
+  "why_mix_paragraph": "__FILL_IN__: ~3-sentence explanation of WHY cost-divided-by-salary is the right yardstick. Use a two-students contrast — same degree, different costs, different payoff timelines. Do NOT include the X/10 score."
+}"""
+
+
+def _roi_explain_appendix_json(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT (ROI) — JSON-MODE OUTPUT REQUIRED
+
+The student tapped 'Explain this to me' on their Return on Investment score.
+You will produce a single JSON object matching the structure shown in
+the TEMPLATE below. Do not write any text outside the JSON object.
+
+REQUIRED TOOL CALL — call on your first turn:
+
+  • get_career_paths(unitid={career.unitid}, cipcode="{career.cipcode}")
+    From the result row where soc_code = "{career.soc_code}", pull
+    `earnings_1yr_median`. The published 4-year cost is already known
+    from the build context.
+
+After the tool call returns, emit the JSON receipt. If a tool result
+field is null, set the corresponding receipt field to null and the
+matching `missing_reason` to a plain-English explanation. Do not
+hallucinate values.
+
+VOICE — this score divides the school's full 4-year published cost
+(sticker price, in-state for public schools when home_state matches
+the school's state, out-of-state when it doesn't) by your starting
+salary one year out. We use the published sticker, NOT the average
+aided net price, because at the exploration phase you don't know what
+aid you'll receive.
+
+SCORING SCALE (the UI renders this table below the math line — you may
+reference it conversationally in the explainer or why_mix_paragraph):
+  ≤ 0.25 → 10 (Excellent investment)
+  0.25–0.50 → 10–9 (Great investment)
+  0.50–0.75 → 9–7 (Good investment)
+  0.75–1.00 → 7–5 (Fair investment)
+  1.00–1.50 → 5–3 (Stretch investment)
+  1.50–2.50 → 3–1 (Risky investment)
+  ≥ 2.50 → 1 (Very risky investment)
+
+VOICE-RULE SCOPING (this turn only):
+  • LIFTED for the numeric JSON fields `anchor_dollars`: quote the
+    actual dollar values precisely.
+  • RETAINED for the prose JSON fields `one_liner`,
+    `components[*].explainer`, and `why_mix_paragraph`: do NOT write
+    'N/10', 'your score is N', or any numeric score reference.
+
+TEMPLATE (replace every `__FILL_IN__` string with your written content):
+
+{_ROI_RECEIPT_JSON_TEMPLATE}
+
+CRITICAL — SENTINEL HANDLING. The strings `__FILL_IN__`, `[FILL_IN]`,
+`<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`, and `PLACEHOLDER` are
+placeholders ONLY — they MUST be replaced with your actual content.
+Echoing them back verbatim will fail validation and the receipt will
+not render. Write real prose in every prose field.
+
+Do NOT include `[helper: ...]` blocks, `<thinking>...</thinking>` blocks,
+or any meta-commentary.
+"""
+
+
+def _roi_explain_appendix_markdown(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT MODE — ROI (markdown fallback)
+
+The structured-JSON path failed validation; produce the markdown
+fallback. Voice rules above relax for this turn ONLY.
+
+The cached tool values are already injected into the user message —
+do NOT re-call get_career_paths. Read the values from the message
+and produce the receipt.
+
+REQUIRED RESPONSE STRUCTURE — exactly four sections in this order:
+
+### Return on Investment — <SCORE>/10
+
+**The one-liner.** One sentence naming what the score measures.
+
+**How it works.**
+  - **100% — your debt-to-earnings ratio.** {career.institution_name}'s
+    {career.program_name} 4-year published cost is $<published_cost_4yr>.
+    Graduates earn a median of $<earnings_1yr_median> one year out. That
+    puts the debt-to-earnings ratio at <published_cost_4yr / earnings_1yr_median>.
+
+  Math: $<published_cost_4yr> / $<earnings_1yr_median> = <ratio> → ROI score <SCORE>/10.
+
+**Where the data comes from.**
+  - Published cost: College Scorecard (U.S. Department of Education).
+  - Graduate earnings: College Scorecard (U.S. Department of Education).
+
+**Why we use this number.** A two-students contrast in ~3 sentences.
+"""
+
+
+def _postprocess_roi_explain_receipt(
+    raw: str,
+    build: Build,
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    backend: str,
+) -> ExplainStatReceipt | None:
+    """ROI-specific 10-step pipeline. Mirrors _postprocess_ern_explain_receipt."""
+    json_prefix = raw[:500] if raw else ""
+    build_id = build.build_id
+    call_site = "explain_roi_receipt"
+
+    candidates = gemma_client._extract_json_objects(raw or "")
+    parsed: dict[str, Any] | None = next(
+        (c for c in candidates if isinstance(c, dict)), None
+    )
+    if parsed is None:
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="json_decode", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    try:
+        receipt = ExplainStatReceipt.model_validate(parsed)
+    except ValidationError as exc:
+        reason = "pydantic_validation"
+        if "unreplaced template sentinel" in str(exc):
+            reason = "sentinel_passthrough"
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason=reason, json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    if receipt.stat_code != "ROI":
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="stat_code_mismatch", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    build_score = build.career.stats.roi
+    if build_score is None:
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="score_null", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    receipt.score = build_score
+    receipt.score_max = 10
+
+    published_cost_4yr = build.career.published_cost_4yr
+    earnings_1yr_median = build.career.earnings_1yr_median
+
+    receipt.math_line = _render_math_line_roi(
+        published_cost_4yr=published_cost_4yr,
+        earnings_1yr_median=earnings_1yr_median,
+        build_score=build_score,
+        score_max=receipt.score_max,
+    )
+
+    for comp in receipt.components:
+        canonical, was_normalized = _normalize_label(
+            comp.weight_pct, comp.label, _ROI_LABEL_ALLOWLIST
+        )
+        if was_normalized:
+            logger.warning(
+                "roi_explain_receipt: label normalized weight=%d "
+                "gemma=%r canonical=%r",
+                comp.weight_pct, comp.label, canonical,
+            )
+            comp.label = canonical
+
+    for comp in receipt.components:
+        if comp.weight_pct == 100:
+            comp.value_pct = None
+            comp.anchor_dollars = (
+                int(published_cost_4yr) if published_cost_4yr is not None else None
+            )
+            if published_cost_4yr is None:
+                comp.missing_reason = (
+                    "no published cost data for this institution yet"
+                )
+            elif earnings_1yr_median is None:
+                comp.missing_reason = (
+                    "no median earnings reported for this program yet"
+                )
+            else:
+                comp.missing_reason = None
+
+    receipt.sources = list(_ROI_RECEIPT_SOURCES)
+    receipt.scoring_scale = _ROI_SCORING_SCALE
+
+    _log_receipt_parse(
+        call_site=call_site, parse_success=True,
+        failure_reason=None, json_prefix=json_prefix,
+        build_id=build_id, backend=backend,
+    )
+    return receipt
+
+
+# ---------------------------------------------------------------------------
+# RES receipt helpers
+# ---------------------------------------------------------------------------
+
+_RES_LABEL_ALLOWLIST: list[tuple[int, str]] = [
+    (50, "AI exposure"),
+    (50, "human-essential skills"),
+]
+
+_RES_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
+    ReceiptSource(
+        label="AI exposure composite",
+        name="Karpathy AI Exposure Index + Anthropic Economic Index",
+    ),
+    ReceiptSource(
+        label="Human-essential skills",
+        name="O*NET (Occupational Information Network, U.S. Department of Labor)",
+    ),
+)
+
+_RES_SCORING_SCALE: list[ScoringTier] = [
+    ScoringTier(label="AI-proof", range="9 – 10", score="9 – 10"),
+    ScoringTier(label="Well-protected", range="7 – 8", score="7 – 8"),
+    ScoringTier(label="Moderate exposure", range="5 – 6", score="5 – 6"),
+    ScoringTier(label="Vulnerable", range="3 – 4", score="3 – 4"),
+    ScoringTier(label="Highly exposed", range="1 – 2", score="1 – 2"),
+]
+
+_RES_ONE_LINER = (
+    "AI Resilience blends how automatable a career's tasks are with "
+    "how much the work depends on human judgment and social awareness."
+)
+
+_RES_WHY_MIX_PARAGRAPH = (
+    "Two signals are mixed 50/50: AI exposure (a composite of Karpathy "
+    "+ Anthropic + Gemma scoring how automatable the work is) and "
+    "human-essential ratio (from the federal Occupational Information "
+    "Network, O*NET, scoring how much the work depends on judgment, "
+    "social awareness, or physical presence). The blend hedges against "
+    "either signal being too pessimistic or too generous on its own."
+)
+
+
+def _normalize_label_by_position(
+    idx: int,
+    gemma_label: str,
+    allowlist: list[tuple[int, str]],
+) -> tuple[str, bool]:
+    """Match Gemma's label against the per-position canonical allowlist.
+
+    Used for stats where multiple components share the same weight_pct
+    (RES has two 50% components) — position is the disambiguator.
+    Returns (canonical_label, was_normalized).
+    """
+    if idx >= len(allowlist):
+        return gemma_label, False
+    _, canonical = allowlist[idx]
+    if gemma_label.strip().lower() == canonical.lower():
+        return canonical, False
+    return canonical, True
+
+
+def _render_math_line_res(
+    *,
+    stat_res_raw: int | None,
+    stat_hmn_raw: int | None,
+    build_score: int,
+    score_max: int,
+) -> str:
+    """Build RES's math-line string.
+
+    Format: '0.5 × 8 + 0.5 × 7 → score 8/10'
+    """
+    res_str = str(stat_res_raw) if stat_res_raw is not None else "n/a"
+    hmn_str = str(stat_hmn_raw) if stat_hmn_raw is not None else "n/a"
+    return (
+        f"0.5 × {res_str} + 0.5 × {hmn_str} → score "
+        f"{build_score}/{score_max}"
+    )
+
+
+def _extract_res_raw_scores(
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    soc_code: str | None = None,
+) -> tuple[int | None, int | None]:
+    """Pull stat_res and stat_hmn from the get_career_paths tool result."""
+    stat_res: int | None = None
+    stat_hmn: int | None = None
+    for turn in tool_call_log:
+        if turn.error or turn.tool_name != "get_career_paths":
+            continue
+        result_json = turn.tool_result_full or turn.tool_result_preview
+        try:
+            preview = json.loads(result_json)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        rows = preview.get("data") if isinstance(preview, dict) else None
+        if not isinstance(rows, list):
+            continue
+        matching_rows = [
+            row for row in rows
+            if isinstance(row, dict)
+            and soc_code is not None
+            and str(row.get("soc_code", "")).strip() == soc_code
+        ]
+        candidate_rows = matching_rows if matching_rows else rows
+        for row in candidate_rows:
+            if not isinstance(row, dict):
+                continue
+            if stat_res is None:
+                val = row.get("stat_res")
+                if isinstance(val, (int, float)):
+                    stat_res = int(val)
+            if stat_hmn is None:
+                val = row.get("stat_hmn")
+                if isinstance(val, (int, float)):
+                    stat_hmn = int(val)
+            if stat_res is not None and stat_hmn is not None:
+                break
+        if stat_res is not None and stat_hmn is not None:
+            break
+    return stat_res, stat_hmn
+
+
+def _clean_task_evidence(values: list[Any]) -> list[str] | None:
+    bullets: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if isinstance(value, dict):
+            text_raw = (
+                value.get("activity")
+                or value.get("task")
+                or value.get("name")
+                or value.get("title")
+                or value.get("description")
+            )
+        else:
+            text_raw = value
+        if not isinstance(text_raw, str):
+            continue
+        text = " ".join(text_raw.strip().split())
+        if not text or text.lower() in seen:
+            continue
+        seen.add(text.lower())
+        bullets.append(text)
+        if len(bullets) >= 4:
+            break
+    return bullets or None
+
+
+def _extract_res_task_evidence(
+    tool_call_log: list[gemma_client.ToolCallTurn],
+) -> tuple[list[str] | None, list[str] | None]:
+    """Pull task evidence from get_task_breakdown if Gemma called it."""
+    automatable: list[str] | None = None
+    human: list[str] | None = None
+    for turn in tool_call_log:
+        if turn.error or turn.tool_name != "get_task_breakdown":
+            continue
+        result_json = turn.tool_result_full or turn.tool_result_preview
+        try:
+            preview = json.loads(result_json)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        row = preview.get("data") if isinstance(preview, dict) else None
+        if not isinstance(row, dict):
+            continue
+        auto_raw = row.get("task_breakdown_automatable") or row.get("top_5_activities")
+        human_raw = row.get("task_breakdown_human") or row.get("top_human_activities")
+        if isinstance(auto_raw, list):
+            automatable = _clean_task_evidence(auto_raw)
+        if isinstance(human_raw, list):
+            human = _clean_task_evidence(human_raw)
+        if automatable or human:
+            break
+    return automatable, human
+
+
+def _fetch_res_task_evidence(
+    soc_code: str,
+) -> tuple[list[str] | None, list[str] | None]:
+    """Synchronously fetch task evidence for RES receipts.
+
+    This keeps task bullets deterministic. Gemma is allowed to write the
+    explainer prose, but the concrete examples should come from trusted MCP
+    data rather than from the model's choice to call a tool.
+    """
+    try:
+        result = mcp_client.call("get_task_breakdown", {"soc_code": soc_code})
+    except Exception as exc:  # noqa: BLE001 - receipt should still render
+        logger.warning(
+            "res_explain_receipt: get_task_breakdown failed for %s: %s",
+            soc_code,
+            exc,
+        )
+        return None, None
+    row = result.get("data") if isinstance(result, dict) else None
+    if not isinstance(row, dict):
+        return None, None
+    auto_raw = row.get("task_breakdown_automatable") or row.get("top_5_activities")
+    human_raw = row.get("task_breakdown_human") or row.get("top_human_activities")
+    auto = _clean_task_evidence(auto_raw) if isinstance(auto_raw, list) else None
+    human = _clean_task_evidence(human_raw) if isinstance(human_raw, list) else None
+    return auto, human
+
+
+def _resolve_res_task_evidence(
+    build: Build,
+    tool_call_log: list[gemma_client.ToolCallTurn],
+) -> tuple[list[str] | None, list[str] | None]:
+    auto_evidence = _clean_task_evidence(build.career.task_breakdown_automatable)
+    human_evidence = _clean_task_evidence(build.career.task_breakdown_human)
+    if auto_evidence is None or human_evidence is None:
+        tool_auto, tool_human = _extract_res_task_evidence(tool_call_log)
+        if auto_evidence is None:
+            auto_evidence = tool_auto
+        if human_evidence is None:
+            human_evidence = tool_human
+    if auto_evidence is None or human_evidence is None:
+        fetched_auto, fetched_human = _fetch_res_task_evidence(build.career.soc_code)
+        if auto_evidence is None:
+            auto_evidence = fetched_auto
+        if human_evidence is None:
+            human_evidence = fetched_human
+    return auto_evidence, human_evidence
+
+
+def _res_level_word(score: int | None, *, exposure: bool) -> str:
+    if score is None:
+        return "unknown"
+    if score >= 7:
+        return "high" if exposure else "strong"
+    if score >= 4:
+        return "moderate"
+    return "low" if exposure else "thin"
+
+
+def _build_res_receipt_from_context(
+    *,
+    build: Build,
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    backend: str,
+    failure_reason: str,
+    json_prefix: str,
+) -> ExplainStatReceipt | None:
+    """Build a RES receipt without trusting Gemma's JSON.
+
+    The RES explainer has enough deterministic inputs in the Build and MCP
+    task profile to avoid the markdown retry. If JSON-mode output is malformed,
+    we still return the structured receipt so the student gets the task-level
+    evidence instead of a weaker fallback paragraph.
+    """
+    build_score = build.career.stats.res
+    if build_score is None:
+        return None
+
+    stat_res_raw = build.career.raw_stat_res
+    stat_hmn_raw = build.career.raw_stat_hmn
+    if stat_res_raw is None or stat_hmn_raw is None:
+        tool_res, tool_hmn = _extract_res_raw_scores(
+            tool_call_log,
+            build.career.soc_code,
+        )
+        if stat_res_raw is None:
+            stat_res_raw = tool_res
+        if stat_hmn_raw is None:
+            stat_hmn_raw = tool_hmn
+
+    auto_evidence, human_evidence = _resolve_res_task_evidence(build, tool_call_log)
+    career_label = build.career.occupation_title or "this career"
+    exposure_word = _res_level_word(stat_res_raw, exposure=True)
+    human_word = _res_level_word(stat_hmn_raw, exposure=False)
+
+    receipt = ExplainStatReceipt(
+        kind="receipt",
+        stat_code="RES",
+        stat_name="AI Resilience",
+        score=build_score,
+        score_max=10,
+        one_liner=_RES_ONE_LINER,
+        components=[
+            StatComponent(
+                weight_pct=50,
+                label="AI exposure",
+                explainer=(
+                    f"{career_label} has {exposure_word} exposure to automation. "
+                    "The tasks listed below are the parts of the work most likely "
+                    "to be compressed by software, especially in entry-level roles."
+                ),
+                value_pct=(
+                    min(max(stat_res_raw * 10, 0), 100)
+                    if stat_res_raw is not None else None
+                ),
+                anchor_text=(
+                    f"AI-exposure rating: {stat_res_raw}/10"
+                    if stat_res_raw is not None else "AI-exposure rating unavailable"
+                ),
+                anchor_dollars=None,
+                missing_reason=(
+                    None if stat_res_raw is not None
+                    else "no AI-exposure score available for this career yet"
+                ),
+                evidence_bullets=auto_evidence,
+            ),
+            StatComponent(
+                weight_pct=50,
+                label="human-essential skills",
+                explainer=(
+                    f"{career_label} has a {human_word} human-essential buffer. "
+                    "The tasks listed below are the parts where judgment, people "
+                    "skills, or creative decisions still matter most."
+                ),
+                value_pct=(
+                    min(max(stat_hmn_raw * 10, 0), 100)
+                    if stat_hmn_raw is not None else None
+                ),
+                anchor_text=(
+                    f"Human-essential rating: {stat_hmn_raw}/10"
+                    if stat_hmn_raw is not None
+                    else "Human-essential rating unavailable"
+                ),
+                anchor_dollars=None,
+                missing_reason=(
+                    None if stat_hmn_raw is not None
+                    else "no human-essential score available for this career yet"
+                ),
+                evidence_bullets=human_evidence,
+            ),
+        ],
+        math_line=_render_math_line_res(
+            stat_res_raw=stat_res_raw,
+            stat_hmn_raw=stat_hmn_raw,
+            build_score=build_score,
+            score_max=10,
+        ),
+        sources=list(_RES_RECEIPT_SOURCES),
+        why_mix_paragraph=_RES_WHY_MIX_PARAGRAPH,
+    )
+    _log_receipt_parse(
+        call_site="explain_res_receipt",
+        parse_success=False,
+        failure_reason=f"{failure_reason}_server_built",
+        json_prefix=json_prefix,
+        build_id=build.build_id,
+        backend=backend,
+    )
+    return receipt
+
+
+_RES_RECEIPT_JSON_TEMPLATE = """{
+  "kind": "receipt",
+  "stat_code": "RES",
+  "stat_name": "AI Resilience",
+  "score": 8,
+  "score_max": 10,
+  "one_liner": "__FILL_IN__: ONE-SENTENCE DEFINITION of what this score measures. Plain English a 16-year-old reads. No jargon, no /10, no percentiles.",
+  "components": [
+    {
+      "weight_pct": 50,
+      "label": "AI exposure",
+      "explainer": "__FILL_IN__: 1-2 sentences. How automatable is this career's task profile? Reference the composite score (from Karpathy, Anthropic, and Gemma). Higher is MORE exposed to AI automation. Do NOT include the X/10 score.",
+      "value_pct": 80,
+      "anchor_text": "AI-exposure rating: 8/10",
+      "anchor_dollars": null,
+      "missing_reason": null,
+      "evidence_bullets": null
+    },
+    {
+      "weight_pct": 50,
+      "label": "human-essential skills",
+      "explainer": "__FILL_IN__: 1-2 sentences. How much does this career depend on judgment, social awareness, or physical presence that resists automation? Reference O*NET (the federal Occupational Information Network). Higher is MORE human-dependent. Do NOT include the X/10 score.",
+      "value_pct": 70,
+      "anchor_text": "Human-essential rating: 7/10",
+      "anchor_dollars": null,
+      "missing_reason": null,
+      "evidence_bullets": null
+    }
+  ],
+  "math_line": "0.5 \\u00d7 8 + 0.5 \\u00d7 7 \\u2192 score 8/10",
+  "sources": [
+    {"label": "AI exposure composite", "name": "Karpathy AI Exposure Index + Anthropic Economic Index"},
+    {"label": "Human-essential skills", "name": "O*NET (Occupational Information Network, U.S. Department of Labor)"}
+  ],
+  "why_mix_paragraph": "__FILL_IN__: ~3-sentence explanation of WHY we blend two signals (AI exposure + human-essential). Show why using only one signal would mislead. Do NOT include the X/10 score."
+}"""
+
+
+def _res_explain_appendix_json(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT (RES) — JSON-MODE OUTPUT REQUIRED
+
+The student tapped 'Explain this to me' on their AI Resilience score.
+You will produce a single JSON object matching the structure shown in
+the TEMPLATE below. Do not write any text outside the JSON object.
+
+REQUIRED TOOL CALL — call on your first turn:
+
+  • get_career_paths(unitid={career.unitid}, cipcode="{career.cipcode}")
+    From the result row where soc_code = "{career.soc_code}", pull
+    `stat_res` (AI exposure), `stat_hmn` (human-essential),
+    `task_breakdown_automatable`, and `task_breakdown_human`.
+
+After the tool call returns, emit the JSON receipt.
+
+VOICE — two signals are mixed 50/50: AI exposure (a composite of
+Karpathy + Anthropic + Gemma scoring how automatable the work is) and
+human-essential ratio (from the federal Occupational Information
+Network, O*NET, scoring how much the work depends on judgment, social
+awareness, or physical presence). The blend hedges against either
+signal being too pessimistic or too generous on its own.
+
+SCORING SCALE (the UI renders this table below the math line — you may
+reference it conversationally in the explainer or why_mix_paragraph):
+  9–10 → AI-proof
+  7–8  → Well-protected
+  5–6  → Moderate exposure
+  3–4  → Vulnerable
+  1–2  → Highly exposed
+
+TRANSPARENCY REQUIREMENT:
+  • Explain vulnerability, not just definitions. A student should leave
+    understanding which parts of the work AI can already eat and which
+    parts still require people.
+  • For the AI exposure explainer, name 2-3 concrete automatable tasks
+    from task_breakdown_automatable when available. Say that AI may reduce
+    or compress junior work even when it does not replace the whole career.
+  • For the human-essential explainer, name 2-3 concrete human-buffer tasks
+    from task_breakdown_human when available. Explain how those tasks protect
+    the career, but do not overpromise safety.
+  • Do not invent task examples. If task evidence is unavailable, say the
+    receipt has the score inputs but not task-level evidence.
+  • Leave evidence_bullets as null. The server stamps trusted task bullets
+    from the build context or deterministic MCP lookup.
+
+VOICE-RULE SCOPING (this turn only):
+  • LIFTED for the numeric JSON fields `value_pct`: quote the actual
+    percentile values precisely.
+  • RETAINED for the prose JSON fields `one_liner`,
+    `components[*].explainer`, and `why_mix_paragraph`: do NOT write
+    'N/10', 'your score is N', or any numeric score reference.
+
+TEMPLATE (replace every `__FILL_IN__` string with your written content):
+
+{_RES_RECEIPT_JSON_TEMPLATE}
+
+CRITICAL — SENTINEL HANDLING. The strings `__FILL_IN__`, `[FILL_IN]`,
+`<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`, and `PLACEHOLDER` are
+placeholders ONLY — they MUST be replaced with your actual content.
+Echoing them back verbatim will fail validation and the receipt will
+not render. Write real prose in every prose field.
+
+Do NOT include `[helper: ...]` blocks, `<thinking>...</thinking>` blocks,
+or any meta-commentary.
+"""
+
+
+def _res_explain_appendix_markdown(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT MODE — RES (markdown fallback)
+
+The structured-JSON path failed validation; produce the markdown
+fallback.
+
+The cached tool values are already injected into the user message —
+do NOT re-call get_career_paths.
+
+REQUIRED RESPONSE STRUCTURE — exactly four sections in this order:
+
+### AI Resilience — <SCORE>/10
+
+**The one-liner.** One sentence naming what the score measures.
+
+**How it works.**
+  - **50% — AI exposure.** {career.occupation_title} scores <stat_res>/10
+    on the AI-exposure side.
+  - **50% — human-essential skills.** {career.occupation_title} scores
+    <stat_hmn>/10 on the human-essential side (O*NET).
+
+  Math: 0.5 × <stat_res> + 0.5 × <stat_hmn> = <blend> → RES score <SCORE>/10.
+
+**Where the data comes from.**
+  - AI exposure composite: Karpathy AI Exposure Index + Anthropic Economic Index.
+  - Human-essential skills: O*NET (U.S. Department of Labor).
+
+**Why we mix both pieces.** A ~3-sentence explanation of the blend.
+"""
+
+
+def _postprocess_res_explain_receipt(
+    raw: str,
+    build: Build,
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    backend: str,
+) -> ExplainStatReceipt | None:
+    """RES-specific 10-step pipeline."""
+    json_prefix = raw[:500] if raw else ""
+    build_id = build.build_id
+    call_site = "explain_res_receipt"
+
+    candidates = gemma_client._extract_json_objects(raw or "")
+    parsed: dict[str, Any] | None = next(
+        (c for c in candidates if isinstance(c, dict)), None
+    )
+    if parsed is None:
+        return _build_res_receipt_from_context(
+            build=build,
+            tool_call_log=tool_call_log,
+            backend=backend,
+            failure_reason="json_decode",
+            json_prefix=json_prefix,
+        )
+
+    try:
+        receipt = ExplainStatReceipt.model_validate(parsed)
+    except ValidationError as exc:
+        reason = "pydantic_validation"
+        if "unreplaced template sentinel" in str(exc):
+            reason = "sentinel_passthrough"
+        return _build_res_receipt_from_context(
+            build=build,
+            tool_call_log=tool_call_log,
+            backend=backend,
+            failure_reason=reason,
+            json_prefix=json_prefix,
+        )
+
+    if receipt.stat_code != "RES":
+        return _build_res_receipt_from_context(
+            build=build,
+            tool_call_log=tool_call_log,
+            backend=backend,
+            failure_reason="stat_code_mismatch",
+            json_prefix=json_prefix,
+        )
+
+    build_score = build.career.stats.res
+    if build_score is None:
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="score_null", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    if len(receipt.components) != 2:
+        return _build_res_receipt_from_context(
+            build=build,
+            tool_call_log=tool_call_log,
+            backend=backend,
+            failure_reason="component_count_mismatch",
+            json_prefix=json_prefix,
+        )
+
+    receipt.score = build_score
+    receipt.score_max = 10
+
+    stat_res_raw = build.career.raw_stat_res
+    stat_hmn_raw = build.career.raw_stat_hmn
+    if stat_res_raw is None or stat_hmn_raw is None:
+        tool_res, tool_hmn = _extract_res_raw_scores(
+            tool_call_log,
+            build.career.soc_code,
+        )
+        if stat_res_raw is None:
+            stat_res_raw = tool_res
+        if stat_hmn_raw is None:
+            stat_hmn_raw = tool_hmn
+
+    receipt.math_line = _render_math_line_res(
+        stat_res_raw=stat_res_raw,
+        stat_hmn_raw=stat_hmn_raw,
+        build_score=build_score,
+        score_max=receipt.score_max,
+    )
+
+    auto_evidence, human_evidence = _resolve_res_task_evidence(build, tool_call_log)
+
+    for idx, comp in enumerate(receipt.components):
+        canonical, was_normalized = _normalize_label_by_position(
+            idx, comp.label, _RES_LABEL_ALLOWLIST
+        )
+        if was_normalized:
+            logger.warning(
+                "res_explain_receipt: label normalized idx=%d "
+                "gemma=%r canonical=%r",
+                idx, comp.label, canonical,
+            )
+            comp.label = canonical
+
+    # Position 0 = AI exposure (stat_res), Position 1 = human-essential (stat_hmn)
+    receipt.components[0].value_pct = (
+        min(max(stat_res_raw * 10, 0), 100) if stat_res_raw is not None else None
+    )
+    receipt.components[0].anchor_dollars = None
+    receipt.components[0].evidence_bullets = auto_evidence
+    if stat_res_raw is None:
+        receipt.components[0].missing_reason = (
+            "no AI-exposure score available for this career yet"
+        )
+    else:
+        receipt.components[0].missing_reason = None
+
+    receipt.components[1].value_pct = (
+        min(max(stat_hmn_raw * 10, 0), 100) if stat_hmn_raw is not None else None
+    )
+    receipt.components[1].anchor_dollars = None
+    receipt.components[1].evidence_bullets = human_evidence
+    if stat_hmn_raw is None:
+        receipt.components[1].missing_reason = (
+            "no human-essential score available for this career yet"
+        )
+    else:
+        receipt.components[1].missing_reason = None
+
+    receipt.sources = list(_RES_RECEIPT_SOURCES)
+    receipt.scoring_scale = _RES_SCORING_SCALE
+
+    _log_receipt_parse(
+        call_site=call_site, parse_success=True,
+        failure_reason=None, json_prefix=json_prefix,
+        build_id=build_id, backend=backend,
+    )
+    return receipt
+
+
+# ---------------------------------------------------------------------------
+# GRW receipt helpers
+# ---------------------------------------------------------------------------
+
+_GRW_LABEL_ALLOWLIST: dict[int, str] = {
+    100: "this career's projected employment change",
+}
+
+_GRW_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
+    ReceiptSource(
+        label="Employment projections",
+        name=(
+            "Occupational Outlook Handbook, published by the Bureau "
+            "of Labor Statistics (BLS)"
+        ),
+    ),
+)
+
+_GRW_ONE_LINER = (
+    "Growth Outlook reads the federal 10-year projection of how many "
+    "more or fewer people will work in this career a decade from now."
+)
+
+_GRW_WHY_MIX_PARAGRAPH = (
+    "This score reads BLS's 10-year employment-change projection — a "
+    "forecast of how many more (or fewer) people will be working in "
+    "this career a decade from now — and maps it through a bucket. "
+    "We use a projection (not past growth) because for a college "
+    "decision you care about the world you'll enter, not the world "
+    "you'd have entered in 2018."
+)
+
+
+def _render_math_line_grw(
+    *,
+    employment_change_pct: float | None,
+    build_score: int,
+    score_max: int,
+) -> str:
+    """Build GRW's math-line string.
+
+    Format: '+15.2% employment change → GRW score 8/10'
+    """
+    if employment_change_pct is None:
+        return f"n/a employment change → score {build_score}/{score_max}"
+    if employment_change_pct > 0:
+        pct_str = f"+{employment_change_pct:.1f}%"
+    elif employment_change_pct == 0:
+        pct_str = "0.0%"
+    else:
+        pct_str = f"{employment_change_pct:.1f}%"
+    return (
+        f"{pct_str} employment change → GRW score "
+        f"{build_score}/{score_max}"
+    )
+
+
+def _extract_grw_employment_change(
+    tool_call_log: list[gemma_client.ToolCallTurn],
+) -> float | None:
+    """Pull employment_change_pct from the get_occupation_data tool result."""
+    for turn in tool_call_log:
+        if turn.error or turn.tool_name != "get_occupation_data":
+            continue
+        result_json = turn.tool_result_full or turn.tool_result_preview
+        try:
+            preview = json.loads(result_json)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        row = preview.get("data") if isinstance(preview, dict) else None
+        if not isinstance(row, dict):
+            continue
+        val = row.get("employment_change_pct")
+        if isinstance(val, (int, float)):
+            return float(val)
+    return None
+
+
+_GRW_RECEIPT_JSON_TEMPLATE = """{
+  "kind": "receipt",
+  "stat_code": "GRW",
+  "stat_name": "Growth Outlook",
+  "score": 8,
+  "score_max": 10,
+  "one_liner": "__FILL_IN__: ONE-SENTENCE DEFINITION of what this score measures. Plain English a 16-year-old reads. No jargon, no /10, no percentiles.",
+  "components": [
+    {
+      "weight_pct": 100,
+      "label": "this career's projected employment change",
+      "explainer": "__FILL_IN__: 1-3 sentences. Name the career and the BLS 10-year employment-change projection (in %). State the BLS growth category (e.g., 'Much faster than average'). Do NOT include the X/10 score.",
+      "value_pct": null,
+      "anchor_text": "+15.2% projected change over 10 years",
+      "anchor_dollars": null,
+      "missing_reason": null
+    }
+  ],
+  "math_line": "+15.2% employment change \\u2192 GRW score 8/10",
+  "sources": [
+    {"label": "Employment projections", "name": "Occupational Outlook Handbook, published by the Bureau of Labor Statistics (BLS)"}
+  ],
+  "why_mix_paragraph": "__FILL_IN__: ~3-sentence explanation of WHY a 10-year projection matters for a college decision. Emphasize that you care about the world you'll ENTER, not past growth. Do NOT include the X/10 score."
+}"""
+
+
+def _grw_explain_appendix_json(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT (GRW) — JSON-MODE OUTPUT REQUIRED
+
+The student tapped 'Explain this to me' on their Growth Outlook score.
+You will produce a single JSON object matching the structure shown in
+the TEMPLATE below. Do not write any text outside the JSON object.
+
+REQUIRED TOOL CALL — call on your first turn:
+
+  • get_occupation_data(soc_code="{career.soc_code}")
+    Pull `employment_change_pct` and `growth_category`.
+
+After the tool call returns, emit the JSON receipt.
+
+VOICE — this score reads BLS's 10-year employment-change projection
+— a forecast of how many more (or fewer) people will be working in
+this career a decade from now — and maps it through a bucket:
+-20% or worse is a 1, flat is 4-5, +10% is 7.5, +20% or better is
+9-10. We use a projection (not past growth) because for a college
+decision you care about the world you'll enter, not the world you'd
+have entered in 2018.
+
+VOICE-RULE SCOPING (this turn only):
+  • LIFTED for the `anchor_text` JSON field: quote the actual
+    percentage precisely (e.g., "+15.2% projected change over 10 years").
+  • RETAINED for the prose JSON fields `one_liner`,
+    `components[*].explainer`, and `why_mix_paragraph`: do NOT write
+    'N/10', 'your score is N', or any numeric score reference.
+
+TEMPLATE (replace every `__FILL_IN__` string with your written content):
+
+{_GRW_RECEIPT_JSON_TEMPLATE}
+
+CRITICAL — SENTINEL HANDLING. The strings `__FILL_IN__`, `[FILL_IN]`,
+`<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`, and `PLACEHOLDER` are
+placeholders ONLY — they MUST be replaced with your actual content.
+Echoing them back verbatim will fail validation and the receipt will
+not render. Write real prose in every prose field.
+
+Do NOT include `[helper: ...]` blocks, `<thinking>...</thinking>` blocks,
+or any meta-commentary.
+"""
+
+
+def _grw_explain_appendix_markdown(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT MODE — GRW (markdown fallback)
+
+The structured-JSON path failed validation; produce the markdown
+fallback.
+
+The cached tool values are already injected into the user message —
+do NOT re-call get_occupation_data.
+
+REQUIRED RESPONSE STRUCTURE — exactly four sections in this order:
+
+### Growth Outlook — <SCORE>/10
+
+**The one-liner.** One sentence naming what the score measures.
+
+**How it works.**
+  - **100% — this career's projected employment change.**
+    {career.occupation_title}'s BLS 10-year projection: <employment_change_pct>%.
+
+  Math: <employment_change_pct>% employment change → GRW score <SCORE>/10.
+
+**Where the data comes from.**
+  - Employment projections: Occupational Outlook Handbook, published by
+    the Bureau of Labor Statistics (BLS).
+
+**Why we use this number.** A ~3-sentence explanation of the projection.
+"""
+
+
+def _postprocess_grw_explain_receipt(
+    raw: str,
+    build: Build,
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    backend: str,
+) -> ExplainStatReceipt | None:
+    """GRW-specific 10-step pipeline."""
+    json_prefix = raw[:500] if raw else ""
+    build_id = build.build_id
+    call_site = "explain_grw_receipt"
+
+    candidates = gemma_client._extract_json_objects(raw or "")
+    parsed: dict[str, Any] | None = next(
+        (c for c in candidates if isinstance(c, dict)), None
+    )
+    if parsed is None:
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="json_decode", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    try:
+        receipt = ExplainStatReceipt.model_validate(parsed)
+    except ValidationError as exc:
+        reason = "pydantic_validation"
+        if "unreplaced template sentinel" in str(exc):
+            reason = "sentinel_passthrough"
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason=reason, json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    if receipt.stat_code != "GRW":
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="stat_code_mismatch", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    build_score = build.career.stats.grw
+    if build_score is None:
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="score_null", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    receipt.score = build_score
+    receipt.score_max = 10
+
+    employment_change_pct = _extract_grw_employment_change(tool_call_log)
+
+    receipt.math_line = _render_math_line_grw(
+        employment_change_pct=employment_change_pct,
+        build_score=build_score,
+        score_max=receipt.score_max,
+    )
+
+    for comp in receipt.components:
+        canonical, was_normalized = _normalize_label(
+            comp.weight_pct, comp.label, _GRW_LABEL_ALLOWLIST
+        )
+        if was_normalized:
+            logger.warning(
+                "grw_explain_receipt: label normalized weight=%d "
+                "gemma=%r canonical=%r",
+                comp.weight_pct, comp.label, canonical,
+            )
+            comp.label = canonical
+
+    for comp in receipt.components:
+        if comp.weight_pct == 100:
+            comp.value_pct = None
+            comp.anchor_dollars = None
+            if employment_change_pct is not None:
+                if employment_change_pct > 0:
+                    pct_str = f"+{employment_change_pct:.1f}%"
+                elif employment_change_pct == 0:
+                    pct_str = "0.0%"
+                else:
+                    pct_str = f"{employment_change_pct:.1f}%"
+                comp.anchor_text = (
+                    f"{pct_str} projected change over 10 years"
+                )
+                comp.missing_reason = None
+            else:
+                comp.anchor_text = "employment projection not available"
+                comp.missing_reason = (
+                    "no 10-year employment projection reported for this "
+                    "occupation yet"
+                )
+
+    receipt.sources = list(_GRW_RECEIPT_SOURCES)
+
+    _log_receipt_parse(
+        call_site=call_site, parse_success=True,
+        failure_reason=None, json_prefix=json_prefix,
+        build_id=build_id, backend=backend,
+    )
+    return receipt
+
+
+# ---------------------------------------------------------------------------
+# Explain-stat registry (Decision 1 of feature-explain-stat-receipt-roi-res-grw)
+# ---------------------------------------------------------------------------
+
+_PostprocessFn = Callable[
+    [str, Build, list[gemma_client.ToolCallTurn], str],
+    ExplainStatReceipt | None,
+]
+_AppendixJsonFn = Callable[[CareerOutcome], str]
+_AppendixMarkdownFn = Callable[[CareerOutcome], str]
+
+
+@dataclass(frozen=True)
+class _StatExplainConfig:
+    """Per-stat dispatch config for the explain-receipt JSON path."""
+    stat_code: Literal["ERN", "ROI", "RES", "GRW"]
+    appendix_json_fn: _AppendixJsonFn
+    appendix_markdown_fn: _AppendixMarkdownFn
+    label_allowlist: dict[int, str] | list[tuple[int, str]]
+    postprocessor: _PostprocessFn
+    log_call_site: str
+    user_prompt: str
+    missing_score_one_liner: str
+    missing_score_why_mix: str
+
+
+_ROI_EXPLAIN_USER_PROMPT = (
+    "Explain my Return on Investment score with the receipts. Show me the "
+    "actual numbers behind it, not just the definition."
+)
+_RES_EXPLAIN_USER_PROMPT = (
+    "Explain my AI Resilience score with the receipts. Show me the actual "
+    "numbers behind it, not just the definition."
+)
+_GRW_EXPLAIN_USER_PROMPT = (
+    "Explain my Growth Outlook score with the receipts. Show me the actual "
+    "numbers behind it, not just the definition."
+)
+
+
+_STAT_EXPLAIN_REGISTRY: dict[str, _StatExplainConfig] = {
+    "ERN": _StatExplainConfig(
+        stat_code="ERN",
+        appendix_json_fn=_ern_explain_appendix_json,
+        appendix_markdown_fn=_ern_explain_appendix,
+        label_allowlist=_ERN_LABEL_ALLOWLIST,
+        postprocessor=_postprocess_ern_explain_receipt,
+        log_call_site="explain_ern_receipt",
+        user_prompt=_ERN_EXPLAIN_USER_PROMPT,
+        missing_score_one_liner=_ERN_ONE_LINER,
+        missing_score_why_mix=_ERN_WHY_MIX_PARAGRAPH,
+    ),
+    "ROI": _StatExplainConfig(
+        stat_code="ROI",
+        appendix_json_fn=_roi_explain_appendix_json,
+        appendix_markdown_fn=_roi_explain_appendix_markdown,
+        label_allowlist=_ROI_LABEL_ALLOWLIST,
+        postprocessor=_postprocess_roi_explain_receipt,
+        log_call_site="explain_roi_receipt",
+        user_prompt=_ROI_EXPLAIN_USER_PROMPT,
+        missing_score_one_liner=_ROI_ONE_LINER,
+        missing_score_why_mix=_ROI_WHY_MIX_PARAGRAPH,
+    ),
+    "RES": _StatExplainConfig(
+        stat_code="RES",
+        appendix_json_fn=_res_explain_appendix_json,
+        appendix_markdown_fn=_res_explain_appendix_markdown,
+        label_allowlist=_RES_LABEL_ALLOWLIST,
+        postprocessor=_postprocess_res_explain_receipt,
+        log_call_site="explain_res_receipt",
+        user_prompt=_RES_EXPLAIN_USER_PROMPT,
+        missing_score_one_liner=_RES_ONE_LINER,
+        missing_score_why_mix=_RES_WHY_MIX_PARAGRAPH,
+    ),
+    "GRW": _StatExplainConfig(
+        stat_code="GRW",
+        appendix_json_fn=_grw_explain_appendix_json,
+        appendix_markdown_fn=_grw_explain_appendix_markdown,
+        label_allowlist=_GRW_LABEL_ALLOWLIST,
+        postprocessor=_postprocess_grw_explain_receipt,
+        log_call_site="explain_grw_receipt",
+        user_prompt=_GRW_EXPLAIN_USER_PROMPT,
+        missing_score_one_liner=_GRW_ONE_LINER,
+        missing_score_why_mix=_GRW_WHY_MIX_PARAGRAPH,
+    ),
+}
 
 
 def _current_backend() -> str:
@@ -943,16 +2566,49 @@ async def chat_ask(
     )
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
-    # ERN explain-this-stat path. JSON-mode appendix on the first
-    # attempt; markdown fallback (with cached tool values injected) on
-    # parse failure. Strictly additive, ERN-only.
-    explain_ern = (
-        scope.kind == "stat"
-        and scope.target_id == "ERN"
-        and message.strip() == _ERN_EXPLAIN_OPENER
-    )
-    if explain_ern:
-        system = system + _ern_explain_appendix_json(builds[0].career)
+    # Explain-this-stat dispatch via registry. Matches sentinels like
+    # "[explain-this:ERN]", "[explain-this:ROI]", etc.
+    explain_config: _StatExplainConfig | None = None
+    if scope.kind == "stat" and scope.target_id is not None:
+        m = _EXPLAIN_SENTINEL_RE.match(message.strip())
+        if m:
+            stat_key = m.group(1)
+            explain_config = _STAT_EXPLAIN_REGISTRY.get(stat_key)
+
+    if explain_config is not None:
+        # ERN score-null path: server-built receipt, no Gemma call.
+        # Score-null server-built receipt: only ERN for now.
+        # ROI/RES/GRW fall through to Gemma markdown path when score is null.
+        if explain_config.stat_code == "ERN":
+            if _get_build_stat(builds[0], "ERN") is None:
+                missing_receipt, missing_log = (
+                    await _ern_missing_score_receipt_path(builds[0])
+                )
+                missing_tool_calls = [
+                    TraceEventPayload(
+                        turn=t.dispatch_index,
+                        tool=t.tool_name,
+                        args=t.tool_args,
+                        result_preview=t.tool_result_preview,
+                        duration_ms=t.duration_ms,
+                        error=t.error,
+                    )
+                    for t in missing_log
+                ]
+                return AskResponse(
+                    response=missing_receipt, tool_calls=missing_tool_calls
+                )
+        else:
+            stat_val = _get_build_stat(
+                builds[0], explain_config.stat_code
+            )
+            if stat_val is None:
+                logger.info(
+                    "%s_explain_receipt: score is null, falling back to "
+                    "markdown path",
+                    explain_config.stat_code.lower(),
+                )
+        system = system + explain_config.appendix_json_fn(builds[0].career)
 
     # Branch-scope opener path: when history is empty, the call is the
     # auto-fired opener from the BranchTreeScreen mount or a node click.
@@ -989,8 +2645,8 @@ async def chat_ask(
     # accepts a single user string; multi-turn fidelity for tool-loop
     # callers is a future enhancement (see spec §2 Out of Scope).
     user_msg = (
-        _ERN_EXPLAIN_USER_PROMPT
-        if explain_ern
+        explain_config.user_prompt
+        if explain_config is not None
         else _fold_history(history, message)
     )
 
@@ -1005,7 +2661,7 @@ async def chat_ask(
         "call_site": f"ask_gemma_{scope.kind}",
         "scope_target_id": scope.target_id,
         "scope_build_count": len(scope.build_ids),
-        "explain_ern": explain_ern,
+        "explain_stat": explain_config.stat_code if explain_config else None,
     }
 
     text, tool_call_log = await gemma_client.generate_with_tools_loop(
@@ -1013,33 +2669,26 @@ async def chat_ask(
         user=user_msg,
         tools=tool_schemas,
         dispatch=_dispatch,
-        # 5 = up to 4 tool turns + 1 synthesis turn. Pre-trace this
-        # was 3 because the tool_dispatched=True short-circuit forced
-        # text on turn 2; post-trace (feature-gemma-trace.md) the
-        # loop chains tool calls across turns and needs an extra
-        # budget slot for the final-text synthesis turn after the
-        # tools are spent. The 30s wall-time cap remains the
-        # load-bearing safety against runaway loops.
         max_turns=5,
         max_wall_time_s=30.0,
-        temperature=_ERN_EXPLAIN_TEMPERATURE if explain_ern else _TEMPERATURE,
-        max_tokens=_ERN_EXPLAIN_MAX_TOKENS if explain_ern else 1200,
+        temperature=_EXPLAIN_TEMPERATURE if explain_config else _TEMPERATURE,
+        max_tokens=_EXPLAIN_MAX_TOKENS if explain_config else 1200,
         extra=extra,
         final_turn_response_format=(
-            _ERN_EXPLAIN_RESPONSE_FORMAT if explain_ern else None
+            _EXPLAIN_RESPONSE_FORMAT if explain_config else None
         ),
     )
 
-    # ERN explain-receipt post-processing. On success the receipt is
-    # the response payload; on failure we re-run the loop ONCE with
-    # the markdown appendix and the cached tool values injected (no
-    # MCP re-fetch).
-    if explain_ern and text:
-        receipt = _postprocess_ern_explain_receipt(
-            raw=text,
-            build=builds[0],
-            tool_call_log=tool_call_log,
-            backend=_current_backend(),
+    # Explain-receipt post-processing via registry. On success the
+    # receipt is the response payload; on failure we re-run the loop
+    # ONCE with the markdown appendix and cached tool values (no MCP
+    # re-fetch).
+    if explain_config is not None and text:
+        receipt = explain_config.postprocessor(
+            text,
+            builds[0],
+            tool_call_log,
+            _current_backend(),
         )
         if receipt is not None:
             tool_calls = [
@@ -1056,34 +2705,31 @@ async def chat_ask(
             return AskResponse(response=receipt, tool_calls=tool_calls)
         # JSON parse failed → markdown fallback retry with cached values.
         logger.warning(
-            "ern_explain_receipt: JSON parse failed; retrying with "
-            "markdown appendix + cached tool values"
-        )
-        cip_rank, earnings, wage_pct, wage = _extract_tool_results(
-            tool_call_log, builds[0].career.soc_code
-        )
-        cached_values_block = _format_cached_tool_values(
-            cip_rank, earnings, wage_pct, wage
+            "%s: JSON parse failed; retrying with markdown appendix "
+            "+ cached tool values",
+            explain_config.log_call_site,
         )
         markdown_system = (
             f"{system_base}\n\n{lang_block}\n\n{context_block}"
-            + _ern_explain_appendix(builds[0].career)
+            + explain_config.appendix_markdown_fn(builds[0].career)
         )
-        markdown_user = f"{cached_values_block}\n\n{_ERN_EXPLAIN_USER_PROMPT}"
+        cached_values_block = _format_cached_tool_values_generic(
+            tool_call_log
+        )
+        markdown_user = (
+            f"{cached_values_block}\n\n{explain_config.user_prompt}"
+        )
         text, fallback_tool_log = await gemma_client.generate_with_tools_loop(
             system=markdown_system,
             user=markdown_user,
-            tools=[],  # cached values are in the user message — no tools
+            tools=[],
             dispatch=_dispatch,
             max_turns=2,
             max_wall_time_s=30.0,
-            temperature=_ERN_EXPLAIN_TEMPERATURE,
-            max_tokens=_ERN_EXPLAIN_MAX_TOKENS,
+            temperature=_EXPLAIN_TEMPERATURE,
+            max_tokens=_EXPLAIN_MAX_TOKENS,
             extra={**extra, "fallback_after_json_parse_failure": True},
         )
-        # Trace events stay on the original tool_call_log so the
-        # frontend's post-hoc renderer shows the live calls that
-        # actually happened.
 
     if not text:
         logger.warning(
@@ -1229,19 +2875,44 @@ async def chat_ask_stream(
     )
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
-    # ERN explain-this-stat — see chat_ask above for the gate.
-    explain_ern = (
-        scope.kind == "stat"
-        and scope.target_id == "ERN"
-        and message.strip() == _ERN_EXPLAIN_OPENER
-    )
-    if explain_ern:
-        system = system + _ern_explain_appendix_json(builds[0].career)
+    # Explain-this-stat dispatch via registry (mirrors chat_ask).
+    explain_config: _StatExplainConfig | None = None
+    if scope.kind == "stat" and scope.target_id is not None:
+        m = _EXPLAIN_SENTINEL_RE.match(message.strip())
+        if m:
+            stat_key = m.group(1)
+            explain_config = _STAT_EXPLAIN_REGISTRY.get(stat_key)
+
+    if explain_config is not None:
+        # ERN score-null path (mirror of chat_ask).
+        if explain_config.stat_code == "ERN":
+            if _get_build_stat(builds[0], "ERN") is None:
+                missing_receipt, missing_log = (
+                    await _ern_missing_score_receipt_path(builds[0])
+                )
+                for turn in missing_log:
+                    yield TraceTurnStart(
+                        turn=turn.dispatch_index,
+                        tool=turn.tool_name,
+                        args=turn.tool_args,
+                    )
+                    yield TraceTurnComplete(
+                        turn=turn.dispatch_index,
+                        tool=turn.tool_name,
+                        args=turn.tool_args,
+                        result_preview=turn.tool_result_preview,
+                        duration_ms=turn.duration_ms,
+                        error=turn.error,
+                    )
+                yield TraceFinalText(response=missing_receipt)
+                yield TraceDone()
+                return
+        system = system + explain_config.appendix_json_fn(builds[0].career)
 
     # Fold history into the user message.
     user_msg = (
-        _ERN_EXPLAIN_USER_PROMPT
-        if explain_ern
+        explain_config.user_prompt
+        if explain_config is not None
         else _fold_history(history, message)
     )
 
@@ -1256,7 +2927,7 @@ async def chat_ask_stream(
         "call_site": f"ask_gemma_stream_{scope.kind}",
         "scope_target_id": scope.target_id,
         "scope_build_count": len(scope.build_ids),
-        "explain_ern": explain_ern,
+        "explain_stat": explain_config.stat_code if explain_config else None,
     }
 
     # Per-request bounded queue. Both callbacks enqueue here; the
@@ -1291,20 +2962,19 @@ async def chat_ask_stream(
                 user=user_msg,
                 tools=tool_schemas,
                 dispatch=_dispatch,
-                # See chat_ask above — 5 = 4 tool turns + 1 synthesis.
                 max_turns=5,
                 max_wall_time_s=30.0,
                 temperature=(
-                    _ERN_EXPLAIN_TEMPERATURE if explain_ern else _TEMPERATURE
+                    _EXPLAIN_TEMPERATURE if explain_config else _TEMPERATURE
                 ),
                 max_tokens=(
-                    _ERN_EXPLAIN_MAX_TOKENS if explain_ern else 1200
+                    _EXPLAIN_MAX_TOKENS if explain_config else 1200
                 ),
                 extra=extra,
                 on_turn_start=on_start,
                 on_turn_event=on_turn,
                 final_turn_response_format=(
-                    _ERN_EXPLAIN_RESPONSE_FORMAT if explain_ern else None
+                    _EXPLAIN_RESPONSE_FORMAT if explain_config else None
                 ),
             )
         )
@@ -1312,17 +2982,10 @@ async def chat_ask_stream(
 
     text = ""
     tool_call_log: list[gemma_client.ToolCallTurn] = []
-    # Tracked separately so the `finally` block can cancel a fallback
-    # in-flight on SSE client disconnect (per @faang-staff-engineer S3
-    # finding — Decision C4 contract). Only set when the JSON path
-    # parse-fails AND the explain-receipt fallback fires.
     fallback_task: asyncio.Task[
         tuple[str, list[gemma_client.ToolCallTurn]]
     ] | None = None
     try:
-        # Drain queue until loop_task completes. The wait_for(timeout=...)
-        # idiom interleaves queue reads with loop_task done-checks
-        # without busy-spinning.
         while not loop_task.done() or not queue.empty():
             try:
                 ev = await asyncio.wait_for(
@@ -1332,9 +2995,6 @@ async def chat_ask_stream(
             except asyncio.TimeoutError:
                 continue
 
-        # Loop is done — collect its return. ANY exception (transport,
-        # callback bug, programmer error) collapses to the fallback
-        # final_text + done. Generator never raises past its boundary.
         try:
             text, tool_call_log = await loop_task
         except Exception as exc:  # noqa: BLE001 — boundary defense
@@ -1342,42 +3002,33 @@ async def chat_ask_stream(
             text = ""
             tool_call_log = []
 
-        # ERN explain-receipt post-processing. On success yield the
-        # receipt as the final_text payload; on failure run the markdown
-        # fallback ONCE more with cached tool values injected.
-        if explain_ern and text:
-            receipt = _postprocess_ern_explain_receipt(
-                raw=text,
-                build=builds[0],
-                tool_call_log=tool_call_log,
-                backend=_current_backend(),
+        # Explain-receipt post-processing via registry.
+        if explain_config is not None and text:
+            receipt = explain_config.postprocessor(
+                text,
+                builds[0],
+                tool_call_log,
+                _current_backend(),
             )
             if receipt is not None:
                 yield TraceFinalText(response=receipt)
                 yield TraceDone()
                 return
-            # Markdown fallback — retry once with cached tool values.
             logger.warning(
-                "ern_explain_receipt: JSON parse failed; retrying "
-                "with markdown appendix + cached tool values"
-            )
-            cip_rank, earnings, wage_pct, wage = _extract_tool_results(
-                tool_call_log, builds[0].career.soc_code
-            )
-            cached_values_block = _format_cached_tool_values(
-                cip_rank, earnings, wage_pct, wage
+                "%s: JSON parse failed; retrying with markdown "
+                "appendix + cached tool values",
+                explain_config.log_call_site,
             )
             markdown_system = (
                 f"{system_base}\n\n{lang_block}\n\n{context_block}"
-                + _ern_explain_appendix(builds[0].career)
+                + explain_config.appendix_markdown_fn(builds[0].career)
+            )
+            cached_values_block = _format_cached_tool_values_generic(
+                tool_call_log
             )
             markdown_user = (
-                f"{cached_values_block}\n\n{_ERN_EXPLAIN_USER_PROMPT}"
+                f"{cached_values_block}\n\n{explain_config.user_prompt}"
             )
-            # Wrap the fallback in a task so the outer `finally`
-            # block can cancel it on SSE-client disconnect (Decision
-            # C4 — semaphore must release within ~100ms, not at the
-            # 30s wall-time cap).
             fallback_task = asyncio.create_task(
                 gemma_client.generate_with_tools_loop(
                     system=markdown_system,
@@ -1386,8 +3037,8 @@ async def chat_ask_stream(
                     dispatch=_dispatch,
                     max_turns=2,
                     max_wall_time_s=30.0,
-                    temperature=_ERN_EXPLAIN_TEMPERATURE,
-                    max_tokens=_ERN_EXPLAIN_MAX_TOKENS,
+                    temperature=_EXPLAIN_TEMPERATURE,
+                    max_tokens=_EXPLAIN_MAX_TOKENS,
                     extra={
                         **extra,
                         "fallback_after_json_parse_failure": True,
@@ -1398,7 +3049,8 @@ async def chat_ask_stream(
                 text, _ = await fallback_task
             except Exception as exc:  # noqa: BLE001 — boundary defense
                 logger.warning(
-                    "ern_explain_receipt fallback failed: %s", exc
+                    "%s fallback failed: %s",
+                    explain_config.log_call_site, exc,
                 )
                 text = ""
 
@@ -1603,9 +3255,16 @@ def _context_for_stat(build: Build, stat_code: str) -> str:
     elif stat_code == "ROI":
         lines.append("")
         lines.append("Return on Investment drivers (translate into dollars):")
+        if career.published_cost_4yr is not None:
+            lines.append(
+                f"- Published 4-year cost used for ROI and modeled debt: "
+                f"{fmt_dollars(career.published_cost_4yr)} "
+                f"(tuition, fees, and living costs; residency-aware)"
+            )
         if career.net_price_annual is not None:
             lines.append(
-                f"- Net price per year after grants/scholarships: "
+                f"- Average net price per year after grants/scholarships "
+                f"(aid context only, not the scoring basis): "
                 f"{fmt_dollars(career.net_price_annual)}"
             )
         if career.cost_of_attendance_annual is not None:
@@ -1629,7 +3288,7 @@ def _context_for_stat(build: Build, stat_code: str) -> str:
             lines.append(
                 f"- Annual cost-to-earnings ratio: "
                 f"{career.debt_to_earnings_annual:.2f}x "
-                f"(annual cost divided by starting earnings)"
+                f"(4-year published cost divided by starting earnings)"
             )
         if career.financed_dte is not None:
             lines.append(
@@ -1638,7 +3297,7 @@ def _context_for_stat(build: Build, stat_code: str) -> str:
             )
         if career.roi_cost_basis:
             basis_words = {
-                "cost_of_attendance": "net price after aid (preferred)",
+                "cost_of_attendance": "published cost of attendance (preferred)",
                 "debt_median": "median past-graduate debt (fallback)",
                 "none": "neither input available",
             }
@@ -2035,9 +3694,14 @@ def _context_for_build(build: Build) -> str:
             f"- Top-quartile starting earnings from this program: "
             f"{fmt_dollars(career.earnings_1yr_p75)}"
         )
+    if career.published_cost_4yr is not None:
+        lines.append(
+            f"- Published 4-year cost used for ROI and modeled debt: "
+            f"{fmt_dollars(career.published_cost_4yr)}"
+        )
     if career.net_price_annual is not None:
         lines.append(
-            f"- Net price per year after aid: "
+            f"- Average net price per year after aid (context only): "
             f"{fmt_dollars(career.net_price_annual)}"
         )
     if career.cost_of_attendance_annual is not None:

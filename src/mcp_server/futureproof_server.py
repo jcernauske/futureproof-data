@@ -187,6 +187,13 @@ CAREER_PATHS_RESPONSE_FIELDS = [
     "debt_p25",
     "debt_p75",
     "debt_to_earnings_annual",
+    # Raw (school, CIP-family)-level earnings rank in [0, 1]. Drives
+    # the 60% term in stat_ern. Surfaced in the response so the ERN
+    # explain receipt's percentile callout matches Gemma's prose;
+    # without it, _extract_tool_results returned None and the receipt
+    # rendered "no median earnings reported" while the prose claimed
+    # a percentile (see bugfix-explain-stat-trigger-null-score-guard.md).
+    "cip_family_earnings_rank",
     "confidence_tier_program",
     "median_annual_wage",
     "growth_category",
@@ -204,6 +211,7 @@ CAREER_PATHS_RESPONSE_FIELDS = [
     # "actual school net price × loan_pct × 4 years". See spec
     # docs/specs/roi-formula-cost-of-attendance.md for the full rationale.
     "institution_control",
+    "state_abbr",
     "net_price_annual",
     "cost_of_attendance_annual",
     "net_price_4yr",
@@ -2350,6 +2358,7 @@ class FutureProofMCPServer(BaseMCPServer):
                 "debt_p25": school.get("debt_p25"),
                 "debt_p75": school.get("debt_p75"),
                 "debt_to_earnings_annual": school.get("debt_to_earnings_annual"),
+                "cip_family_earnings_rank": school.get("cip_family_earnings_rank"),
                 "confidence_tier_program": school.get("confidence_tier"),
                 # Institution-level cost fields (mirror school row).
                 "institution_control": school.get("institution_control"),
@@ -2546,6 +2555,9 @@ class FutureProofMCPServer(BaseMCPServer):
                 "debt_p25": template.get("debt_p25"),
                 "debt_p75": template.get("debt_p75"),
                 "debt_to_earnings_annual": template.get("debt_to_earnings_annual"),
+                "cip_family_earnings_rank": template.get(
+                    "cip_family_earnings_rank"
+                ),
                 "confidence_tier_program": template.get("confidence_tier_program"),
                 "institution_control": template.get("institution_control"),
                 "net_price_annual": template.get("net_price_annual"),
@@ -2792,6 +2804,9 @@ class FutureProofMCPServer(BaseMCPServer):
                 row["debt_p75"] = school_row.get("debt_p75")
                 row["debt_to_earnings_annual"] = school_row.get(
                     "debt_to_earnings_annual"
+                )
+                row["cip_family_earnings_rank"] = school_row.get(
+                    "cip_family_earnings_rank"
                 )
                 # Institution-level cost fields propagated through the
                 # Gemma SOC-resolution fallback so callers get the same

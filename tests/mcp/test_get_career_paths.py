@@ -51,6 +51,7 @@ def _make_row(
         "debt_p25": 18000.0,
         "debt_p75": 32000.0,
         "debt_to_earnings_annual": 0.45,
+        "cip_family_earnings_rank": 0.78,
         "confidence_tier_program": "high",
         "median_annual_wage": 98580.0,
         "growth_category": "Faster than average",
@@ -68,6 +69,7 @@ def _make_row(
         # response-shape assertion doesn't regress for the new fields
         # once the pre-existing debt_p25/debt_p75 fixture gap is fixed.
         "institution_control": "Public",
+        "state_abbr": "IN",
         "net_price_annual": 14_200.0,
         "cost_of_attendance_annual": 22_800.0,
         "net_price_4yr": 56_800.0,

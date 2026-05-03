@@ -321,4 +321,227 @@ describe("ExplainStatReceiptCard", () => {
     expect(mathCard.textContent ?? "").toContain("n/a");
     expect((mathCard.textContent ?? "").match(/n\/a/g)?.length).toBe(2);
   });
+
+  // -------------------------------------------------------------------------
+  // Score-null state — server can't honestly produce a score; the card
+  // renders with an open-ring callout instead of a number.
+  // Spec: docs/specs/bugfix-explain-stat-trigger-null-score-guard.md
+  // -------------------------------------------------------------------------
+
+  it("renders an open-ring score callout when score is null", () => {
+    const payload = makeHappyPayload({
+      score: null,
+      math_line: "0.6 × n/a + 0.4 × 0.92 → no score available",
+      components: [
+        {
+          weight_pct: 60,
+          label: "your school's program rank",
+          explainer:
+            "How Millikin University's Chemistry graduates' median earnings would rank against peers in the same field of study — if this number were reported.",
+          value_pct: null,
+          anchor_text: "Millikin University Chemistry grads",
+          anchor_dollars: null,
+          missing_reason:
+            "College Scorecard doesn't report median earnings for Millikin University's Chemistry graduates yet — usually because the cohort is small enough that publishing earnings would identify individual students.",
+        },
+        {
+          weight_pct: 40,
+          label: "this career's pay rank",
+          explainer:
+            "How Food Science Technicians' median wage ranks against all U.S. occupations.",
+          value_pct: 45,
+          anchor_text: "Food Science Technicians",
+          anchor_dollars: 50_300,
+          missing_reason: null,
+        },
+      ],
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const scoreEl = screen.getByTestId("receipt-score");
+    expect(scoreEl.getAttribute("data-score-missing")).toBe("true");
+    // No fabricated number — only the open ring + em-dash + score_max.
+    expect(scoreEl.textContent ?? "").not.toMatch(/\d{1,2}\/10/);
+    expect(scoreEl.textContent ?? "").toContain("/10");
+    expect(scoreEl.getAttribute("aria-label") ?? "").toMatch(
+      /not available for this combination yet/i,
+    );
+
+    // The 60% bullet renders the missing_reason; the 40% bullet shows
+    // its values normally.
+    expect(screen.getByTestId("receipt-missing-60")).toBeInTheDocument();
+    expect(screen.queryByTestId("receipt-missing-40")).toBeNull();
+
+    // Math line names the missing input + the no-score outcome.
+    const mathCard = screen.getByTestId("receipt-math-line");
+    expect(mathCard.textContent ?? "").toContain("n/a");
+    expect(mathCard.textContent ?? "").toContain("no score available");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ROI / RES / GRW receipt rendering (feature-explain-stat-receipt-roi-res-grw)
+// ---------------------------------------------------------------------------
+
+function makeROIPayload(): ExplainStatReceipt {
+  return {
+    kind: "receipt",
+    stat_code: "ROI",
+    stat_name: "Return on Investment",
+    score: 4,
+    score_max: 10,
+    one_liner: "ROI divides your school's full published cost by your starting salary.",
+    components: [
+      {
+        weight_pct: 100,
+        label: "your debt-to-earnings ratio",
+        explainer: "Indiana University CS costs $112,400 over 4 years. Grads earn $78,400.",
+        value_pct: null,
+        anchor_text: "Indiana University Computer Science 4-year published cost",
+        anchor_dollars: 112400,
+        missing_reason: null,
+      },
+    ],
+    math_line: "$112,400 / $78,400 = 1.43 → ROI score 4/10",
+    sources: [
+      { label: "Published cost", name: "College Scorecard (U.S. Department of Education)" },
+      { label: "Graduate earnings", name: "College Scorecard (U.S. Department of Education)" },
+    ],
+    why_mix_paragraph: "Same degree, different costs, different payoff timelines.",
+  };
+}
+
+function makeRESPayload(): ExplainStatReceipt {
+  return {
+    kind: "receipt",
+    stat_code: "RES",
+    stat_name: "AI Resilience",
+    score: 8,
+    score_max: 10,
+    one_liner: "AI Resilience blends automation exposure with human-essential signals.",
+    components: [
+      {
+        weight_pct: 50,
+        label: "AI exposure",
+        explainer: "Software Developers score 8/10 on AI exposure.",
+        value_pct: 80,
+        anchor_text: "AI-exposure rating: 8/10",
+        anchor_dollars: null,
+        missing_reason: null,
+        evidence_bullets: [
+          "Drafting code from a clear specification",
+          "Finding patterns in logs and test failures",
+        ],
+      },
+      {
+        weight_pct: 50,
+        label: "human-essential skills",
+        explainer: "Software Developers score 7/10 on human-essential skills.",
+        value_pct: 70,
+        anchor_text: "Human-essential rating: 7/10",
+        anchor_dollars: null,
+        missing_reason: null,
+        evidence_bullets: [
+          "Choosing the right product tradeoff",
+          "Coordinating with teammates and users",
+        ],
+      },
+    ],
+    math_line: "0.5 × 8 + 0.5 × 7 → score 8/10",
+    sources: [
+      { label: "AI exposure composite", name: "Karpathy AI Exposure Index + Anthropic Economic Index" },
+      { label: "Human-essential skills", name: "O*NET (Occupational Information Network)" },
+    ],
+    why_mix_paragraph: "Two signals blended 50/50 to hedge against either being too generous.",
+  };
+}
+
+function makeGRWPayload(): ExplainStatReceipt {
+  return {
+    kind: "receipt",
+    stat_code: "GRW",
+    stat_name: "Growth Outlook",
+    score: 8,
+    score_max: 10,
+    one_liner: "Growth Outlook reads the BLS 10-year employment projection.",
+    components: [
+      {
+        weight_pct: 100,
+        label: "this career's projected employment change",
+        explainer: "BLS expects Software Developer jobs to grow 15% over the next decade.",
+        value_pct: null,
+        anchor_text: "+15.2% projected change over 10 years",
+        anchor_dollars: null,
+        missing_reason: null,
+      },
+    ],
+    math_line: "+15.2% employment change → GRW score 8/10",
+    sources: [
+      { label: "Employment projections", name: "Occupational Outlook Handbook, published by the Bureau of Labor Statistics (BLS)" },
+    ],
+    why_mix_paragraph: "We use a projection because you care about the world you'll enter.",
+  };
+}
+
+describe("ExplainStatReceiptCard — ROI (value_pct=null, no missing_reason)", () => {
+  it("test_renders_roi_receipt_no_percentile_callout_when_value_pct_null_and_no_missing_reason", () => {
+    render(<ExplainStatReceiptCard payload={makeROIPayload()} />);
+
+    // Should NOT render the open-ring glyph (◦ —)
+    const article = screen.getByTestId("explain-stat-receipt");
+    expect(article.textContent).not.toContain("◦ —");
+
+    // Should render the anchor_dollars instead
+    expect(article.textContent).toContain("$112,400");
+
+    // Score callout uses the stat color
+    expect(screen.getByText("Return on Investment")).toBeInTheDocument();
+    expect(screen.getByText(/^4$/)).toBeInTheDocument();
+  });
+
+  it("test_renders_roi_missing_reason_still_shows_glyph", () => {
+    const payload = makeROIPayload();
+    payload.components[0]!.missing_reason = "no published cost data for this institution yet";
+    payload.components[0]!.anchor_dollars = null;
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    // When missing_reason IS set, the open-ring glyph DOES render
+    const article = screen.getByTestId("explain-stat-receipt");
+    expect(article.textContent).toContain("◦ —");
+    expect(screen.getByTestId("receipt-missing-100")).toBeInTheDocument();
+  });
+});
+
+describe("ExplainStatReceiptCard — GRW (value_pct=null, anchor_text only)", () => {
+  it("test_renders_grw_receipt_no_percentile_callout", () => {
+    render(<ExplainStatReceiptCard payload={makeGRWPayload()} />);
+
+    const article = screen.getByTestId("explain-stat-receipt");
+    // No open-ring glyph
+    expect(article.textContent).not.toContain("◦ —");
+    // anchor_text is rendered
+    expect(article.textContent).toContain("+15.2% projected change over 10 years");
+    // Score renders
+    expect(screen.getByText(/^8$/)).toBeInTheDocument();
+  });
+});
+
+describe("ExplainStatReceiptCard — RES (2 components)", () => {
+  it("test_renders_res_receipt_two_components", () => {
+    render(<ExplainStatReceiptCard payload={makeRESPayload()} />);
+
+    // Both component labels render
+    expect(screen.getByText("AI exposure")).toBeInTheDocument();
+    expect(screen.getByText("human-essential skills")).toBeInTheDocument();
+
+    // Both percentile callouts render (value_pct populated)
+    expect(screen.getByText(/80th percentile/)).toBeInTheDocument();
+    expect(screen.getByText(/70th percentile/)).toBeInTheDocument();
+    expect(screen.getByText("Drafting code from a clear specification")).toBeInTheDocument();
+    expect(screen.getByText("Choosing the right product tradeoff")).toBeInTheDocument();
+
+    // Two component rows in the list
+    const components = screen.getByTestId("receipt-components");
+    expect(components.children).toHaveLength(2);
+  });
 });

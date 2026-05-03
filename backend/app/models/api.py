@@ -27,6 +27,17 @@ class OutcomesRequest(BaseModel):
     effort: str = "balanced"
     loan_pct: float = 1.0
     intent_keywords: list[str] = Field(default_factory=list)
+    home_state: str | None = None
+
+    @field_validator("home_state", mode="before")
+    @classmethod
+    def _normalize_home_state(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        v = v.strip().upper()
+        if not re.fullmatch(r"[A-Z]{2}", v):
+            raise ValueError("must be a 2-letter state abbreviation")
+        return v
 
 
 class TierRequest(BaseModel):
@@ -56,6 +67,7 @@ class BuildRequest(BaseModel):
     intent_keywords: list[str] = Field(default_factory=list)
     home_state: str | None = None
     school_state: str | None = None
+    published_cost_4yr: float | None = None
     animal_emoji: str | None = None
     locale: AppLocale = "en"
 
@@ -246,6 +258,16 @@ def _reject_sentinel_passthrough(value: str) -> str:
     return value
 
 
+class ScoringTier(BaseModel):
+    """One row in a stat's scoring scale — maps an input range to a score."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(description="Human-readable tier name, e.g. 'Excellent'.")
+    range: str = Field(description="Input range, e.g. '≤ 0.25' or '0.25 – 0.50'.")
+    score: str = Field(description="Score or range, e.g. '10' or '9 – 7'.")
+
+
 class ReceiptSource(BaseModel):
     """A data source citation rendered as a pill in the receipt UI."""
 
@@ -330,6 +352,16 @@ class StatComponent(BaseModel):
             "from Gemma."
         ),
     )
+    evidence_bullets: list[str] | None = Field(
+        default=None,
+        max_length=6,
+        description=(
+            "Optional server-stamped concrete evidence for this component. "
+            "For RES, these are task examples such as work AI can already "
+            "handle or tasks that still require humans. Gemma may omit this; "
+            "postprocessors overwrite it from trusted build/tool data."
+        ),
+    )
 
     _reject_sentinel_explainer = field_validator("explainer")(
         _reject_sentinel_passthrough
@@ -364,13 +396,17 @@ class ExplainStatReceipt(BaseModel):
             "Mirrors ask_gemma._STAT_ALIAS but Pydantic-typed."
         )
     )
-    score: int = Field(
+    score: int | None = Field(
+        default=None,
         ge=1,
         le=10,
         description=(
             "The student's score on this stat. Server-stamped from "
             "build.career.stats.<stat>; whatever Gemma emits in this "
-            "field is overwritten unconditionally."
+            "field is overwritten unconditionally. Null when the "
+            "underlying inputs are missing — the renderer shows an "
+            "open-ring callout instead of a number, and per-component "
+            "missing_reason fields explain which input is unavailable."
         ),
     )
     score_max: int = Field(
@@ -420,6 +456,14 @@ class ExplainStatReceipt(BaseModel):
             "catches token-budget truncations as a Pydantic "
             "validation failure."
         )
+    )
+    scoring_scale: list[ScoringTier] | None = Field(
+        default=None,
+        description=(
+            "Optional scoring tier table rendered below the math "
+            "line. Server-built from the stat's breakpoint table; "
+            "Gemma never populates this. Currently ROI-only."
+        ),
     )
 
     _reject_sentinel_one_liner = field_validator("one_liner")(

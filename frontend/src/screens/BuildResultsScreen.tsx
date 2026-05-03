@@ -31,6 +31,28 @@ import { fireCheckpoint } from "@/lib/checkpoint";
 import { useT } from "@/i18n/useT";
 import type { BossFightResult, BossId, BossOutcome } from "@/types/build";
 
+function publishedCost4yrForSchool(
+  school: {
+    institutionControl: string | null;
+    stateAbbr: string | null;
+    costOfAttendanceAnnual: number | null;
+    tuitionInState: number | null;
+    tuitionOutOfState: number | null;
+  },
+  homeState: string | null,
+): number | null {
+  const coa = school.costOfAttendanceAnnual;
+  if (coa === null || coa <= 0) return null;
+  if (!school.institutionControl?.startsWith("Public")) return coa * 4;
+  if (!homeState || !school.stateAbbr) return coa * 4;
+  if (homeState === school.stateAbbr) return coa * 4;
+  const inState = school.tuitionInState;
+  const outState = school.tuitionOutOfState;
+  if (inState === null || outState === null) return coa * 4;
+  const gap = outState - inState;
+  return gap > 0 ? (coa + gap) * 4 : coa * 4;
+}
+
 // i18n keys for per-boss scope chip text. Mirrors the alias table in
 // docs/specs/feature-ask-gemma.md §3. Resolved through `t(...)` so the
 // chip prefix follows the active locale. `unknown` falls back to the
@@ -79,18 +101,21 @@ export function BuildResultsScreen() {
     setChatOpenerPrompt(null);
   }, []);
 
-  // ERN explain-this-stat spike. Sentinel string is matched in
-  // backend/app/services/ask_gemma.py (`_ERN_EXPLAIN_OPENER`).
-  const handleExplainErn = useCallback(() => {
+  // Explain-this-stat handler — triggers the structured-receipt path
+  // for any registered stat (ERN, ROI, RES, GRW).
+  const handleExplainStat = useCallback((statKey: string) => {
     if (!build) return;
+    const code = statKey.toUpperCase();
+    const info = STAT_INFO[statKey];
+    const label = info?.title ?? code;
     openChat(
       {
         kind: "stat",
         build_ids: [build.build_id],
-        target_id: "ERN" as AskStatTarget,
+        target_id: code as AskStatTarget,
       },
-      t("build.askPrefix").replace("{label}", "Earning Power"),
-      "[explain-this:ERN]",
+      t("build.askPrefix").replace("{label}", label),
+      `[explain-this:${code}]`,
     );
   }, [build, openChat, t]);
 
@@ -200,6 +225,7 @@ export function BuildResultsScreen() {
 
     const lookupCip = major.parentCip || major.cipCode;
     const studentCip = major.parentCip ? major.cipCode : undefined;
+    const publishedCost4yr = publishedCost4yrForSchool(school, homeState ?? null);
 
     const params: BuildParams = {
       profile_name: profileName,
@@ -216,6 +242,7 @@ export function BuildResultsScreen() {
       student_cip: studentCip ?? null,
       home_state: homeState ?? null,
       school_state: school.stateAbbr ?? null,
+      published_cost_4yr: publishedCost4yr,
       animal_emoji: animalEmoji ?? null,
       locale: locale ?? "en",
     };
@@ -261,6 +288,7 @@ export function BuildResultsScreen() {
             loans.percentage / 100, selectedCareer.soc_code,
             selectedCareer.occupation_title, major.rawText, studentCip,
             homeState ?? undefined, school.stateAbbr ?? undefined,
+            publishedCost4yr,
             animalEmoji ?? undefined, locale,
           ),
           minDisplayTime,
@@ -768,13 +796,14 @@ export function BuildResultsScreen() {
                           <p className="font-body text-text-secondary" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>
                             {t(stat.explanationKey)}
                           </p>
-                          {/* ERN explain-this-stat spike. ERN-only. */}
-                          {key === "ern" && (
+                          {/* Explain-this-stat trigger — available for
+                             ERN, ROI, RES, GRW (AURA gated on separate spec). */}
+                          {(key === "ern" || key === "roi" || key === "res" || key === "grw") && (
                             <button
                               type="button"
-                              onClick={handleExplainErn}
-                              data-testid="btn-explain-ern"
-                              aria-label="Explain Earning Power to me"
+                              onClick={() => handleExplainStat(key)}
+                              data-testid={`btn-explain-${key}`}
+                              aria-label={`Explain ${STAT_INFO[key]?.title ?? key.toUpperCase()} to me`}
                               disabled={chatOpen}
                               className="inline-flex items-center gap-1.5 mt-2 px-2 py-1 -mx-2 rounded-md font-body font-semibold transition-colors duration-fast cursor-pointer hover:bg-state-loading active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                               style={{ fontSize: 12, color: colors?.text }}
