@@ -91,6 +91,7 @@ export interface IntentResult {
   intent_keywords?: string[];
   remaining_count?: number;
   narrowing_hint?: string;
+  program_not_at_school?: boolean;
 }
 
 /**

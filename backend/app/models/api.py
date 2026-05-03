@@ -287,8 +287,7 @@ class ReceiptSource(BaseModel):
 class StatComponent(BaseModel):
     """One mixed-in piece of a stat's score (e.g. the 60% school-rank
     piece of ERN, or the 40% occupation-wage piece). Generic across
-    ERN/ROI/RES/GRW; AURA is out of scope for v1.0 (see spec
-    Decision 10)."""
+    all five pentagon stats (ERN/ROI/RES/GRW/AURA)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -373,8 +372,8 @@ class StatComponent(BaseModel):
 
 class ExplainStatReceipt(BaseModel):
     """Structured explainer-receipt payload for one of the five
-    pentagon stats. v1.0 ships ERN only; the schema fits ERN, ROI,
-    RES, and GRW. AURA explicitly out of scope (Decision 10)."""
+    pentagon stats (ERN, ROI, RES, GRW, AURA). AURA uses the
+    additive score_provenance field for institution-level basis."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -462,7 +461,20 @@ class ExplainStatReceipt(BaseModel):
         description=(
             "Optional scoring tier table rendered below the math "
             "line. Server-built from the stat's breakpoint table; "
-            "Gemma never populates this. Currently ROI-only."
+            "Gemma never populates this."
+        ),
+    )
+    score_provenance: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Server-stamped institution-level provenance for stat-level "
+            "metadata that doesn't fit the per-component StatComponent "
+            "shape. AURA-only in v1.0 (server-stamped from "
+            "_humanize_basis(career.aura_score_basis)); ERN/ROI/RES/GRW "
+            "emit None. The renderer surfaces this as a subtle byline "
+            "under the score callout when populated; suppresses entirely "
+            "when None. Gemma never writes this field."
         ),
     )
 
@@ -472,6 +484,13 @@ class ExplainStatReceipt(BaseModel):
     _reject_sentinel_why_mix = field_validator("why_mix_paragraph")(
         _reject_sentinel_passthrough
     )
+
+    @field_validator("score_provenance")
+    @classmethod
+    def _reject_sentinel_score_provenance(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return _reject_sentinel_passthrough(value)
 
 
 class AskResponse(BaseModel):

@@ -618,8 +618,48 @@ export function SetYourCourseScreen() {
             </section>
           </div>}
 
+          {/* Program not offered at this school */}
+          {!isAdjustMode && currentResolution?.program_not_at_school && !streaming && school && (
+            <motion.section
+              key="not-offered"
+              initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={reducedMotion ? { duration: 0 } : springs.smooth}
+              className="flex flex-col gap-4"
+              data-testid="program-not-at-school"
+            >
+              <p className="font-body text-body text-text-secondary">
+                {t("syc.notOfferedAtSchool")
+                  .replace("{school}", school.name)
+                  .replace("{program}", currentResolution.matched_title || majorText)}
+              </p>
+              {programs.length > 0 && (
+                <div>
+                  <p className="font-body text-small text-text-muted mb-3">
+                    {t("syc.tryInstead").replace("{school}", school.name)}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {programs.map((p) => (
+                      <button
+                        key={p.cipcode}
+                        type="button"
+                        onClick={() => {
+                          setMajorText(p.program_name);
+                          resolve(p.program_name);
+                        }}
+                        className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary font-body text-small ring-1 ring-white/10 hover:ring-white/20 transition-colors duration-normal"
+                      >
+                        {p.program_name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.section>
+          )}
+
           {/* ROW 2 — Career cards (full width) */}
-          {!isAdjustMode && currentResolution && !streaming && !clarifierDiverged && (
+          {!isAdjustMode && currentResolution && !currentResolution.program_not_at_school && !streaming && !clarifierDiverged && (
             <motion.section
               key={currentResolution.matched_cip}
               initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
@@ -628,9 +668,11 @@ export function SetYourCourseScreen() {
               aria-label={t("syc.aria.careerPaths")}
               className="flex flex-col gap-6"
             >
-              <p className="font-body text-small italic text-text-muted">
-                {t("syc.showingSoc")} {currentResolution.matched_cip.slice(0, 5)}.
-              </p>
+              {currentResolution.matched_cip && (
+                <p className="font-body text-small italic text-text-muted">
+                  {t("syc.showingSoc")} {currentResolution.matched_cip.slice(0, 5)}.
+                </p>
+              )}
               {displayedCareerPickChips.length > 0 && (
                 <div
                   aria-labelledby="set-your-course-ask-gemma-title"

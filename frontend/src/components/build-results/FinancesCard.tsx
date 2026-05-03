@@ -241,6 +241,7 @@ export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) 
 
   const modeledDebt = career.modeled_total_debt;
   const medianRef = career.debt_median_reference ?? career.debt_median ?? null;
+  const netPriceAnnual = career.net_price_annual;
 
   return (
     <div
@@ -266,10 +267,25 @@ export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) 
           highlightLabel={isInState === false ? t("build.outOfStateApplied") : undefined}
         />
       )}
+      {typeof netPriceAnnual === "number" && netPriceAnnual > 0 && (
+        <Row
+          label={t("build.avgNetPrice")}
+          value={fmtMoney(netPriceAnnual * 4)}
+          muted
+          subtitle={t("build.afterAidContext")}
+        />
+      )}
       <Row label={t("build.financing")} value={pct(loanPct)} muted={loanPct === 1} />
 
       {modeledDebt !== null && modeledDebt !== undefined && (
         <Row label={t("build.modeledDebt")} value={fmtMoney(modeledDebt)} />
+      )}
+      {typeof medianRef === "number" && medianRef > 0 && (
+        <Row
+          label={t("build.programMedianDebt")}
+          value={fmtMoney(medianRef)}
+          muted
+        />
       )}
       <DebtVsMedianIndicator modeled={modeledDebt} median={medianRef} t={t} />
 

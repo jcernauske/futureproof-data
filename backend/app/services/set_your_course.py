@@ -660,6 +660,20 @@ def _build_intent_result_from_tail(
     valid_6digit: set[str] = {
         c["cipcode"] for c in crosswalk_cips if c.get("cipcode")
     }
+    # Retry promotion using crosswalk leaves when school only reports
+    # 4-digit families (e.g. Stanford reports "45.06" Economics but Gemma
+    # also returns "45.06" — promote to "45.0601" via the crosswalk).
+    if (
+        not _CIP_PATTERN.match(matched_cip)
+        and len(matched_cip) == 5
+        and matched_cip[2] == "."
+    ):
+        crosswalk_leaves = sorted(
+            c for c in valid_6digit if c.startswith(matched_cip)
+        )
+        if crosswalk_leaves:
+            matched_cip = crosswalk_leaves[0]
+
     valid_4digit: set[str] = {
         c.get("cipcode", "")[:5] for c in school_cips if c.get("cipcode")
     }
@@ -667,26 +681,42 @@ def _build_intent_result_from_tail(
     # validate against. An empty crosswalk usually means the DB call
     # failed or the school has no catalog — falling back to "trust
     # Gemma" is safer than silently degrading every resolution.
-    fabricated = (
+    not_in_school_universe = (
         bool(matched_cip)
         and _CIP_PATTERN.match(matched_cip) is not None
         and bool(valid_6digit)
         and matched_cip not in valid_6digit
         and matched_cip[:5] not in valid_4digit
     )
-    if fabricated:
-        logger.warning(
-            "set_your_course: Gemma returned matched_cip=%s for %r at "
-            "unitid-unknown, not present in crosswalk or school catalog; "
-            "degrading to low confidence.",
-            matched_cip,
-            major_text,
+    program_not_at_school = False
+    if not_in_school_universe:
+        national_cips = intent._get_crosswalk_cips_for_families(
+            [matched_cip[:2]]
         )
-        confidence = "low"
-        # Drop the fabricated code so the frontend can route the
-        # student through the chip flow instead of querying a fake CIP.
-        matched_cip = ""
-        matched_title = matched_title or "Couldn't confirm a program"
+        national_6digit = {c["cipcode"] for c in national_cips if c.get("cipcode")}
+        if matched_cip in national_6digit:
+            logger.info(
+                "set_your_course: matched_cip=%s (%s) for %r is a real "
+                "program but not offered at this school.",
+                matched_cip,
+                matched_title,
+                major_text,
+            )
+            program_not_at_school = True
+            confidence = "low"
+            matched_cip = ""
+            matched_title = matched_title or "Program not offered here"
+        else:
+            logger.warning(
+                "set_your_course: Gemma returned matched_cip=%s for %r at "
+                "unitid-unknown, not present in crosswalk or school catalog; "
+                "degrading to low confidence.",
+                matched_cip,
+                major_text,
+            )
+            confidence = "low"
+            matched_cip = ""
+            matched_title = matched_title or "Couldn't confirm a program"
 
     # Always derive parent_cip from the school's programs so the frontend
     # substitution signal stays correct regardless of what Gemma emitted.
@@ -700,8 +730,6 @@ def _build_intent_result_from_tail(
     intent_keywords = _parse_intent_keywords(parsed.get("intent_keywords") or [])
 
     if not _CIP_PATTERN.match(matched_cip):
-        # Malformed primary: degrade to low-confidence placeholder but
-        # keep any prose we already streamed.
         return IntentResult(
             matched_cip="",
             matched_title=matched_title,
@@ -713,6 +741,7 @@ def _build_intent_result_from_tail(
             parent_cip="",
             student_major_text=major_text,
             intent_keywords=intent_keywords,
+            program_not_at_school=program_not_at_school,
         )
 
     careers_preview = intent._get_career_titles_for_cip(matched_cip)

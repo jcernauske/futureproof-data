@@ -545,3 +545,138 @@ describe("ExplainStatReceiptCard — RES (2 components)", () => {
     expect(components.children).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// AURA receipt + score_provenance rendering
+// Spec: docs/specs/feature-explain-stat-receipt-aura.md
+// ---------------------------------------------------------------------------
+
+function makeAURAPayload(
+  overrides: Partial<ExplainStatReceipt> = {},
+): ExplainStatReceipt {
+  return {
+    kind: "receipt",
+    stat_code: "AURA",
+    stat_name: "Brand Gravity",
+    score: 8,
+    score_max: 10,
+    one_liner:
+      "Brand Gravity measures how much weight your school's name carries for networking, alumni access, and recruiter shortlists.",
+    components: [
+      {
+        weight_pct: 100,
+        label: "your school's brand gravity",
+        explainer:
+          "Indiana University-Bloomington's per-student endowment, marketing reach, and athletic spending combine into one composite signal.",
+        value_pct: null,
+        anchor_text:
+          "IU Bloomington's endowment, marketing, and athletics per student",
+        anchor_dollars: null,
+        missing_reason: null,
+        evidence_bullets: [
+          "Endowment: $85,000/student — how much savings the school holds per student",
+          "Marketing: 0.045 ratio — how much the school spends getting its name out there, per student",
+          "Athletics: $3,200/student — how much the school puts into sports programs per student",
+        ],
+      },
+    ],
+    math_line: "composite 0.72 → AURA score 8/10",
+    sources: [
+      {
+        label: "Endowment + marketing",
+        name: "Integrated Postsecondary Education Data System (IPEDS), U.S. Department of Education",
+      },
+      {
+        label: "Athletics",
+        name: "Equity in Athletics Disclosure Act (EADA), U.S. Department of Education",
+      },
+    ],
+    why_mix_paragraph:
+      "Most college tools pretend prestige doesn't matter but it absolutely does for networking, alumni access, and recruiter shortlists.",
+    scoring_scale: [
+      { label: "Elite brand", range: "9 – 10", score: "9 – 10" },
+      { label: "Strong brand", range: "7 – 8", score: "7 – 8" },
+      { label: "Solid brand", range: "5 – 6", score: "5 – 6" },
+      { label: "Modest brand", range: "3 – 4", score: "3 – 4" },
+      { label: "Low profile", range: "1 – 2", score: "1 – 2" },
+    ],
+    score_provenance: "endowment + marketing + athletics",
+    ...overrides,
+  };
+}
+
+describe("ExplainStatReceiptCard — AURA + score_provenance", () => {
+  it("test_renders_score_provenance_byline_when_present", () => {
+    const payload = makeAURAPayload({
+      score_provenance: "endowment + marketing + athletics",
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const byline = screen.getByTestId("receipt-score-provenance");
+    expect(byline).toBeInTheDocument();
+    expect(byline.textContent).toContain(
+      "based on endowment + marketing + athletics",
+    );
+    // Verify it's a <p> tag
+    expect(byline.tagName).toBe("P");
+  });
+
+  it("test_suppresses_score_provenance_byline_when_null", () => {
+    // Use an ERN fixture which has no score_provenance
+    const payload = makeHappyPayload();
+    // Explicitly ensure score_provenance is absent
+    expect(payload.score_provenance).toBeUndefined();
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    // No receipt-score-provenance element should exist
+    expect(screen.queryByTestId("receipt-score-provenance")).toBeNull();
+  });
+
+  it("test_renders_aura_receipt_full_shape", () => {
+    const payload = makeAURAPayload();
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    // Score provenance byline renders
+    const byline = screen.getByTestId("receipt-score-provenance");
+    expect(byline).toBeInTheDocument();
+    expect(byline.textContent).toContain("based on");
+
+    // Single component renders
+    expect(
+      screen.getByText("your school's brand gravity"),
+    ).toBeInTheDocument();
+    const components = screen.getByTestId("receipt-components");
+    expect(components.children).toHaveLength(1);
+
+    // Math line renders
+    const mathCard = screen.getByTestId("receipt-math-line");
+    expect(mathCard.textContent).toContain("composite 0.72");
+    expect(mathCard.textContent).toContain("AURA score 8/10");
+
+    // Stat name renders
+    expect(screen.getByText("Brand Gravity")).toBeInTheDocument();
+    // Score renders
+    expect(screen.getByText(/^8$/)).toBeInTheDocument();
+
+    // Evidence bullets from the component render
+    expect(
+      screen.getByText(/Endowment: \$85,000\/student/),
+    ).toBeInTheDocument();
+
+    // Sources render — 2 source pills exist. IPEDS and EADA both fall
+    // through to the slugified fallback path (no hardcoded short form).
+    // The title attribute carries the full name so we check that.
+    const allSources = screen.getByTestId("explain-stat-receipt")
+      .querySelectorAll('[data-testid^="receipt-source-"]');
+    expect(allSources.length).toBe(2);
+  });
+
+  it("suppresses score_provenance byline when score_provenance is undefined", () => {
+    // Explicitly test the undefined case (Zod marks it optional)
+    const payload = makeAURAPayload();
+    delete (payload as Record<string, unknown>).score_provenance;
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    expect(screen.queryByTestId("receipt-score-provenance")).toBeNull();
+  });
+});

@@ -31,6 +31,7 @@ import logging
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from app.models.api import (
     ExplainStatReceipt,
@@ -48,14 +49,18 @@ from app.services.ask_gemma import (
     _ERN_LABEL_ALLOWLIST,
     _RES_LABEL_ALLOWLIST,
     _STAT_EXPLAIN_REGISTRY,
+    _build_aura_evidence_bullets,
+    _extract_aura_tool_data,
     _extract_tool_results,
     _normalize_label,
     _normalize_label_by_position,
+    _postprocess_aura_explain_receipt,
     _postprocess_ern_explain_receipt,
     _postprocess_grw_explain_receipt,
     _postprocess_res_explain_receipt,
     _postprocess_roi_explain_receipt,
     _render_math_line,
+    _render_math_line_aura,
     _render_math_line_grw,
     _render_math_line_res,
     _render_math_line_roi,
@@ -2053,6 +2058,48 @@ class TestRESPostprocess:
             "Make architecture decisions under tradeoffs",
         ]
 
+    def test_res_postprocess_contextualizes_microbiologist_task_evidence(
+        self,
+    ) -> None:
+        """Generic O*NET activity labels become microbiology-specific bullets."""
+        build = _make_res_build(
+            task_breakdown_automatable=[
+                "Working with Computers",
+                "Analyzing Data or Information",
+                "Getting Information",
+                "Documenting/Recording Information",
+            ],
+            task_breakdown_human=[
+                "Making Decisions and Solving Problems",
+                "Thinking Creatively",
+                "Establishing and Maintaining Interpersonal Relationships",
+                "Training and Teaching Others",
+            ],
+        )
+        build.career.occupation_title = "Microbiologists"
+
+        receipt = _postprocess_res_explain_receipt(
+            raw=_res_receipt_json(),
+            build=build,
+            tool_call_log=_make_res_tool_log(),
+            backend="ollama",
+        )
+
+        assert receipt is not None
+        assert receipt.components[0].evidence_bullets == [
+            "Running bioinformatics tools, lab databases, or genome-sequencing "
+            "analysis software",
+            "Interpreting culture results, assay readouts, or genetic data",
+            "Reviewing lab observations, research papers, and sample data",
+            "Recording protocols, sample results, and lab notes",
+        ]
+        assert receipt.components[1].evidence_bullets == [
+            "Choosing experimental methods and interpreting unexpected lab results",
+            "Designing experiments or troubleshooting contamination problems",
+            "Coordinating with lab teams, clinicians, or public-health partners",
+            "Teaching lab protocols and safety procedures",
+        ]
+
 
 # ===========================================================================
 # GRW postprocessor tests
@@ -2432,12 +2479,12 @@ class TestStatExplainRegistry:
     """Tests for _STAT_EXPLAIN_REGISTRY dispatch table."""
 
     def test_registry_dispatch_completeness(self) -> None:
-        """ERN, ROI, RES, GRW all registered; AURA is not."""
+        """All five stats registered."""
         assert "ERN" in _STAT_EXPLAIN_REGISTRY
         assert "ROI" in _STAT_EXPLAIN_REGISTRY
         assert "RES" in _STAT_EXPLAIN_REGISTRY
         assert "GRW" in _STAT_EXPLAIN_REGISTRY
-        assert "AURA" not in _STAT_EXPLAIN_REGISTRY
+        assert "AURA" in _STAT_EXPLAIN_REGISTRY
 
     def test_registry_stat_codes_match_keys(self) -> None:
         """Each registry entry's stat_code matches its dict key."""
@@ -2536,3 +2583,740 @@ class TestNormalizeLabelByPosition:
         canonical, was = _normalize_label_by_position(0, "anything", [])
         assert canonical == "anything"
         assert was is False
+
+
+# ===========================================================================
+# AURA explain-receipt tests
+#
+# Spec: docs/specs/feature-explain-stat-receipt-aura.md
+# These tests bind the postprocessor contract for the AURA (Brand Gravity)
+# receipt. AURA is institution-level (single 100% component), uses
+# score_provenance from _humanize_basis(career.aura_score_basis), and
+# renders evidence bullets from get_institution_aura tool data.
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Fixture helpers for AURA
+# ---------------------------------------------------------------------------
+
+
+def _make_aura_build(
+    *,
+    aura: int | None = 8,
+    aura_score_basis: str | None = "three_term",
+    aura_score_version: str | None = "v1",
+) -> Build:
+    """Build fixture for AURA tests."""
+    return Build(
+        build_id="iu-cs-aura-001",
+        created_at="2026-05-02T00:00:00Z",
+        school_name="Indiana University-Bloomington",
+        unitid=_IU_UNITID,
+        major_text="Computer Science",
+        cipcode=_IU_CIPCODE,
+        program_name="Computer Science",
+        effort="balanced",
+        loan_pct=1.0,
+        career=CareerOutcome(
+            unitid=_IU_UNITID,
+            institution_name="Indiana University-Bloomington",
+            cipcode=_IU_CIPCODE,
+            program_name="Computer Science",
+            soc_code=_IU_SOC,
+            occupation_title="Software Developer",
+            stats=PentagonStats(ern=7, roi=6, res=5, grw=8, aura=aura),
+            bosses=BossScores(ai=10, loans=10, market=10, burnout=10, ceiling=10),
+            median_annual_wage=132_270.0,
+            earnings_1yr_median=94_200.0,
+            aura_score_basis=aura_score_basis,
+            aura_score_version=aura_score_version,
+        ),
+        gauntlet=GauntletResult(
+            fights=[], wins=0, losses=0, draws=0, unknown=0, verdict="OK"
+        ),
+        branches=[],
+        skill_recs=[],
+        guidance="",
+        skills_crafted=[],
+        skill_pool=[],
+        profile_name="Test Profile",
+    )
+
+
+def _make_aura_tool_log(
+    *,
+    aura_score_continuous: float | None = 0.72,
+    endowment_per_fte: float | None = 85_000.0,
+    marketing_ratio: float | None = 0.045,
+    athletic_spend_per_fte: float | None = 3_200.0,
+) -> list[gemma_client.ToolCallTurn]:
+    """Tool-call log for AURA (get_institution_aura)."""
+    payload: dict[str, Any] = {
+        "data": {
+            "aura_score_continuous": aura_score_continuous,
+            "endowment_per_fte": endowment_per_fte,
+            "marketing_ratio": marketing_ratio,
+            "athletic_spend_per_fte": athletic_spend_per_fte,
+            "aura_score_basis": "three_term",
+        },
+        "row_count": 1,
+    }
+    body = json.dumps(payload)
+    return [
+        gemma_client.ToolCallTurn(
+            turn_number=0,
+            tool_name="get_institution_aura",
+            tool_args={"unitid": _IU_UNITID},
+            tool_result_size_bytes=len(body),
+            duration_ms=10,
+            error=None,
+            tool_result_preview=body[:500],
+            tool_result_full=body,
+            dispatch_index=0,
+        ),
+    ]
+
+
+def _aura_receipt_json(
+    *,
+    stat_code: str = "AURA",
+    score: int = 8,
+    override: dict[str, Any] | None = None,
+    component_overrides: list[dict[str, Any]] | None = None,
+) -> str:
+    """Build a Gemma-shaped JSON string for the AURA receipt."""
+    payload: dict[str, Any] = {
+        "kind": "receipt",
+        "stat_code": stat_code,
+        "stat_name": "Brand Gravity",
+        "score": score,
+        "score_max": 10,
+        "one_liner": (
+            "Brand Gravity measures how much weight your school's name "
+            "carries for networking, alumni access, and recruiter shortlists."
+        ),
+        "components": [
+            {
+                "weight_pct": 100,
+                "label": "your school's brand gravity",
+                "explainer": (
+                    "Indiana University-Bloomington's per-student endowment, "
+                    "marketing reach, and athletic spending combine into one "
+                    "composite signal of institutional weight."
+                ),
+                "value_pct": None,
+                "anchor_text": (
+                    "IU Bloomington's endowment, marketing, and athletics "
+                    "per student"
+                ),
+                "anchor_dollars": None,
+                "missing_reason": None,
+            },
+        ],
+        "math_line": "MAX-MEAN blend of 3 signals → composite 0.72 → AURA score 8/10",
+        "sources": [
+            {
+                "label": "Endowment + marketing",
+                "name": (
+                    "Integrated Postsecondary Education Data System (IPEDS), "
+                    "U.S. Department of Education"
+                ),
+            },
+            {
+                "label": "Athletics",
+                "name": (
+                    "Equity in Athletics Disclosure Act (EADA), "
+                    "U.S. Department of Education"
+                ),
+            },
+        ],
+        "why_mix_paragraph": (
+            "Most college tools pretend prestige doesn't matter but it "
+            "absolutely does for networking, alumni access, recruiter "
+            "shortlists, and graduate-school admissions. Three signals "
+            "measured per student keep big and small schools on the same "
+            "scale."
+        ),
+    }
+    if override:
+        payload.update(override)
+    if component_overrides:
+        for idx, patch in enumerate(component_overrides):
+            payload["components"][idx].update(patch)
+    return json.dumps(payload)
+
+
+# ===========================================================================
+# AURA postprocessor tests
+# ===========================================================================
+
+
+class TestPostprocessAURAExplainReceipt:
+    """Tests for _postprocess_aura_explain_receipt."""
+
+    def test_aura_postprocess_happy_path_three_term(self) -> None:
+        """Valid AURA JSON with aura_score_basis='three_term' → receipt has
+        score_provenance='endowment + marketing + athletics', stat_code='AURA',
+        single component, scoring scale with 5 tiers."""
+        build = _make_aura_build(aura=8, aura_score_basis="three_term")
+        log = _make_aura_tool_log()
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=_aura_receipt_json(),
+            build=build,
+            tool_call_log=log,
+            backend="ollama",
+        )
+
+        assert receipt is not None
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.stat_code == "AURA"
+        assert receipt.kind == "receipt"
+        assert receipt.score == 8  # build.career.stats.aura
+        assert receipt.score_max == 10
+        assert len(receipt.components) == 1
+        assert receipt.score_provenance == "endowment + marketing + athletics"
+
+        comp = receipt.components[0]
+        assert comp.weight_pct == 100
+        assert comp.label == "your school's brand gravity"
+        assert comp.value_pct is None  # AURA doesn't use percentiles
+        assert comp.anchor_dollars is None
+        assert comp.missing_reason is None
+
+        # Evidence bullets populated from tool data (three_term basis → 3 bullets)
+        assert comp.evidence_bullets is not None
+        assert len(comp.evidence_bullets) == 3
+
+        # Math line is server-rendered from continuous score
+        assert "composite 0.72" in receipt.math_line
+        assert "AURA score 8/10" in receipt.math_line
+        assert "→" in receipt.math_line  # → arrow
+
+        # Sources are server-stamped from _AURA_RECEIPT_SOURCES
+        assert len(receipt.sources) == 2
+        assert "IPEDS" in receipt.sources[0].name
+        assert "EADA" in receipt.sources[1].name
+
+        # Scoring scale has 5 tiers
+        assert receipt.scoring_scale is not None
+        assert len(receipt.scoring_scale) == 5
+
+    def test_aura_postprocess_happy_path_one_term_marketing_only(self) -> None:
+        """aura_score_basis='one_term_marketing_only' →
+        score_provenance='marketing reach only'."""
+        build = _make_aura_build(
+            aura=4, aura_score_basis="one_term_marketing_only"
+        )
+        log = _make_aura_tool_log(
+            endowment_per_fte=None,
+            athletic_spend_per_fte=None,
+            marketing_ratio=0.032,
+        )
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=_aura_receipt_json(score=4),
+            build=build,
+            tool_call_log=log,
+            backend="ollama",
+        )
+
+        assert receipt is not None
+        assert receipt.score_provenance == "marketing reach only"
+        assert receipt.score == 4
+
+    def test_aura_postprocess_returns_none_when_aura_score_null(self) -> None:
+        """build.career.stats.aura is None → returns None."""
+        build = _make_aura_build(aura=None)
+        log = _make_aura_tool_log()
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=_aura_receipt_json(),
+            build=build,
+            tool_call_log=log,
+            backend="ollama",
+        )
+        assert receipt is None
+
+    def test_aura_postprocess_score_from_build(self) -> None:
+        """Gemma emits score=99 → server overwrites with
+        build.career.stats.aura (8). Since Pydantic rejects 99
+        (ge=1, le=10), we also test with a valid-but-wrong score."""
+        build = _make_aura_build(aura=8)
+        log = _make_aura_tool_log()
+
+        # Valid-but-wrong score from Gemma
+        raw = _aura_receipt_json(score=3)
+        receipt = _postprocess_aura_explain_receipt(
+            raw=raw, build=build, tool_call_log=log, backend="ollama"
+        )
+        assert receipt is not None
+        assert receipt.score == 8  # build's score, not Gemma's 3
+
+    def test_aura_postprocess_score_provenance_from_humanize_basis(self) -> None:
+        """The postprocessor stamps score_provenance from
+        _humanize_basis(career.aura_score_basis) for each basis value."""
+        basis_expectations = {
+            "three_term": "endowment + marketing + athletics",
+            "two_term_finance_only": "endowment + marketing (no athletics signal)",
+            "two_term_no_endowment": "marketing + athletics (no endowment signal)",
+            "one_term_marketing_only": "marketing reach only",
+        }
+        for basis, expected_provenance in basis_expectations.items():
+            build = _make_aura_build(aura=6, aura_score_basis=basis)
+            log = _make_aura_tool_log()
+
+            receipt = _postprocess_aura_explain_receipt(
+                raw=_aura_receipt_json(score=6),
+                build=build,
+                tool_call_log=log,
+                backend="ollama",
+            )
+            assert receipt is not None, f"Failed for basis={basis}"
+            assert receipt.score_provenance == expected_provenance, (
+                f"basis={basis}: expected {expected_provenance!r}, "
+                f"got {receipt.score_provenance!r}"
+            )
+
+    def test_aura_postprocess_overwrites_gemma_score_provenance(self) -> None:
+        """Even if Gemma emits score_provenance='something custom', the
+        server overwrites it from _humanize_basis."""
+        build = _make_aura_build(aura=8, aura_score_basis="three_term")
+        log = _make_aura_tool_log()
+        # Inject score_provenance into the JSON — the postprocessor must
+        # overwrite it. Note: ExplainStatReceipt has extra='forbid', so
+        # we need to NOT include score_provenance in the Gemma JSON.
+        # The postprocessor stamps it unconditionally regardless.
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=_aura_receipt_json(),
+            build=build,
+            tool_call_log=log,
+            backend="ollama",
+        )
+        assert receipt is not None
+        # Server stamps from build, not from whatever Gemma wrote
+        assert receipt.score_provenance == "endowment + marketing + athletics"
+
+    def test_aura_postprocess_label_normalization(self) -> None:
+        """Gemma emits off-script label → _normalize_label replaces with
+        canonical 'your school's brand gravity'."""
+        build = _make_aura_build(aura=8)
+        log = _make_aura_tool_log()
+        raw = _aura_receipt_json(
+            component_overrides=[{"label": "institutional prestige score"}]
+        )
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=raw, build=build, tool_call_log=log, backend="ollama"
+        )
+        assert receipt is not None
+        assert receipt.components[0].label == "your school's brand gravity"
+
+    def test_aura_postprocess_rejects_wrong_stat_code(self) -> None:
+        """Gemma emits stat_code='ERN' for AURA dispatch → returns None."""
+        build = _make_aura_build(aura=8)
+        log = _make_aura_tool_log()
+        raw = _aura_receipt_json(stat_code="ERN")
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=raw, build=build, tool_call_log=log, backend="ollama"
+        )
+        assert receipt is None
+
+    def test_aura_postprocess_rejects_sentinel_passthrough(self) -> None:
+        """one_liner containing '__FILL_IN__' → Pydantic rejects → None."""
+        build = _make_aura_build(aura=8)
+        log = _make_aura_tool_log()
+        raw = _aura_receipt_json(override={"one_liner": "__FILL_IN__"})
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=raw, build=build, tool_call_log=log, backend="ollama"
+        )
+        assert receipt is None
+
+    def test_aura_postprocess_score_provenance_when_basis_null(self) -> None:
+        """aura_score_basis=None → score_provenance=None. The postprocessor
+        must NOT call _humanize_basis which would return 'unknown basis'."""
+        build = _make_aura_build(aura=5, aura_score_basis=None)
+        log = _make_aura_tool_log()
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw=_aura_receipt_json(score=5),
+            build=build,
+            tool_call_log=log,
+            backend="ollama",
+        )
+        assert receipt is not None
+        # Must be None, NOT "unknown basis"
+        assert receipt.score_provenance is None
+
+    def test_aura_postprocess_invalid_json_returns_none(self) -> None:
+        """Unparseable string → returns None."""
+        build = _make_aura_build(aura=8)
+        log = _make_aura_tool_log()
+
+        receipt = _postprocess_aura_explain_receipt(
+            raw="not json at all }{{{",
+            build=build,
+            tool_call_log=log,
+            backend="ollama",
+        )
+        assert receipt is None
+
+
+# ===========================================================================
+# _render_math_line_aura tests
+# ===========================================================================
+
+
+class TestRenderMathLineAURA:
+    """Tests for _render_math_line_aura."""
+
+    def test_render_math_line_aura_continuous_with_signals(self) -> None:
+        """Shows MAX-MEAN blend with signal count and continuous value."""
+        line = _render_math_line_aura(
+            aura_score_continuous=0.72,
+            build_score=8,
+            score_max=10,
+            signal_count=3,
+        )
+        assert line == (
+            "MAX-MEAN blend of 3 signals → composite 0.72 → "
+            "AURA score 8/10"
+        )
+
+    def test_render_math_line_aura_one_signal(self) -> None:
+        """Singular 'signal' when count is 1."""
+        line = _render_math_line_aura(
+            aura_score_continuous=0.31,
+            build_score=4,
+            score_max=10,
+            signal_count=1,
+        )
+        assert line == (
+            "MAX-MEAN blend of 1 signal → composite 0.31 → "
+            "AURA score 4/10"
+        )
+
+    def test_render_math_line_aura_fallback_no_continuous(self) -> None:
+        """Falls back when continuous is None but signal count present."""
+        line = _render_math_line_aura(
+            aura_score_continuous=None,
+            build_score=8,
+            score_max=10,
+            signal_count=3,
+        )
+        assert line == "MAX-MEAN blend of 3 signals → AURA score 8/10"
+
+    def test_render_math_line_aura_fallback_no_signals(self) -> None:
+        """Falls back to 'institutional signals' when signal_count is None."""
+        line = _render_math_line_aura(
+            aura_score_continuous=None,
+            build_score=8,
+            score_max=10,
+        )
+        assert line == "institutional signals → AURA score 8/10"
+
+    def test_render_math_line_aura_precision_two_decimals(self) -> None:
+        """Continuous value is formatted to exactly 2 decimal places."""
+        line = _render_math_line_aura(
+            aura_score_continuous=0.5,
+            build_score=6,
+            score_max=10,
+            signal_count=2,
+        )
+        assert "composite 0.50" in line
+
+    def test_render_math_line_aura_unicode_arrow(self) -> None:
+        """Uses → (U+2192) for the arrow."""
+        line = _render_math_line_aura(
+            aura_score_continuous=0.72,
+            build_score=8,
+            score_max=10,
+            signal_count=3,
+        )
+        assert "→" in line
+        assert "->" not in line
+
+
+# ===========================================================================
+# _extract_aura_tool_data tests
+# ===========================================================================
+
+
+class TestExtractAuraToolData:
+    """Tests for _extract_aura_tool_data."""
+
+    def test_extract_aura_tool_data_success(self) -> None:
+        """Mock tool call log with get_institution_aura → extracts data dict."""
+        log = _make_aura_tool_log(
+            aura_score_continuous=0.72,
+            endowment_per_fte=85_000.0,
+            marketing_ratio=0.045,
+            athletic_spend_per_fte=3_200.0,
+        )
+
+        data = _extract_aura_tool_data(log)
+        assert data is not None
+        assert data["aura_score_continuous"] == 0.72
+        assert data["endowment_per_fte"] == 85_000.0
+        assert data["marketing_ratio"] == 0.045
+        assert data["athletic_spend_per_fte"] == 3_200.0
+
+    def test_extract_aura_tool_data_missing(self) -> None:
+        """No get_institution_aura in log → returns None."""
+        # Use an ERN-style tool log that has get_career_paths only
+        log = _make_tool_log()
+        data = _extract_aura_tool_data(log)
+        assert data is None
+
+    def test_extract_aura_tool_data_skips_error_turn(self) -> None:
+        """A tool turn with error is skipped; subsequent valid turn is used."""
+        error_turn = gemma_client.ToolCallTurn(
+            turn_number=0,
+            tool_name="get_institution_aura",
+            tool_args={"unitid": _IU_UNITID},
+            tool_result_size_bytes=0,
+            duration_ms=5,
+            error="transport error",
+            tool_result_preview="",
+            dispatch_index=0,
+        )
+        good_log = _make_aura_tool_log()
+        # Place the error turn first, then the good turn
+        log = [error_turn] + good_log
+
+        data = _extract_aura_tool_data(log)
+        assert data is not None
+        assert data["aura_score_continuous"] == 0.72
+
+    def test_extract_aura_tool_data_bad_json(self) -> None:
+        """get_institution_aura with unparseable result → returns None."""
+        log = [
+            gemma_client.ToolCallTurn(
+                turn_number=0,
+                tool_name="get_institution_aura",
+                tool_args={"unitid": _IU_UNITID},
+                tool_result_size_bytes=10,
+                duration_ms=5,
+                error=None,
+                tool_result_preview="not json {{{",
+                dispatch_index=0,
+            ),
+        ]
+        data = _extract_aura_tool_data(log)
+        assert data is None
+
+
+# ===========================================================================
+# _build_aura_evidence_bullets tests
+# ===========================================================================
+
+
+class TestBuildAuraEvidenceBullets:
+    """Tests for _build_aura_evidence_bullets."""
+
+    def test_build_aura_evidence_bullets_three_term(self) -> None:
+        """Three signals → 3 bullets with correct format."""
+        tool_data = {
+            "endowment_per_fte": 85_000.0,
+            "marketing_ratio": 0.045,
+            "athletic_spend_per_fte": 3_200.0,
+        }
+        bullets = _build_aura_evidence_bullets(tool_data, "three_term")
+        assert bullets is not None
+        assert len(bullets) == 3
+        # Check format: "DisplayName: value — description"
+        assert "Endowment:" in bullets[0]
+        assert "$85,000/student" in bullets[0]
+        assert "Marketing:" in bullets[1]
+        assert "0.045 ratio" in bullets[1]
+        assert "Athletics:" in bullets[2]
+        assert "$3,200/student" in bullets[2]
+
+    def test_build_aura_evidence_bullets_one_term(self) -> None:
+        """one_term_marketing_only → 1 bullet for marketing only."""
+        tool_data = {
+            "marketing_ratio": 0.032,
+        }
+        bullets = _build_aura_evidence_bullets(
+            tool_data, "one_term_marketing_only"
+        )
+        assert bullets is not None
+        assert len(bullets) == 1
+        assert "Marketing:" in bullets[0]
+        assert "0.032 ratio" in bullets[0]
+
+    def test_build_aura_evidence_bullets_null_tool_data(self) -> None:
+        """tool_data is None → returns None."""
+        bullets = _build_aura_evidence_bullets(None, "three_term")
+        assert bullets is None
+
+    def test_build_aura_evidence_bullets_null_basis(self) -> None:
+        """basis is None → returns None."""
+        tool_data = {
+            "endowment_per_fte": 85_000.0,
+            "marketing_ratio": 0.045,
+        }
+        bullets = _build_aura_evidence_bullets(tool_data, None)
+        assert bullets is None
+
+    def test_build_aura_evidence_bullets_unknown_basis(self) -> None:
+        """Unknown basis string → returns None (not in _AURA_BASIS_SIGNALS)."""
+        tool_data = {
+            "endowment_per_fte": 85_000.0,
+        }
+        bullets = _build_aura_evidence_bullets(tool_data, "four_term_mega")
+        assert bullets is None
+
+    def test_build_aura_evidence_bullets_two_term_finance_only(self) -> None:
+        """two_term_finance_only → 2 bullets: endowment + marketing."""
+        tool_data = {
+            "endowment_per_fte": 120_000.0,
+            "marketing_ratio": 0.060,
+        }
+        bullets = _build_aura_evidence_bullets(
+            tool_data, "two_term_finance_only"
+        )
+        assert bullets is not None
+        assert len(bullets) == 2
+        assert "Endowment:" in bullets[0]
+        assert "Marketing:" in bullets[1]
+
+    def test_build_aura_evidence_bullets_missing_signal_value_skipped(
+        self,
+    ) -> None:
+        """When a signal key is in the basis but its value is None in
+        tool_data, that bullet is skipped."""
+        tool_data = {
+            "endowment_per_fte": None,  # missing
+            "marketing_ratio": 0.045,
+            "athletic_spend_per_fte": 3_200.0,
+        }
+        bullets = _build_aura_evidence_bullets(tool_data, "three_term")
+        assert bullets is not None
+        assert len(bullets) == 2  # endowment skipped
+        assert "Marketing:" in bullets[0]
+        assert "Athletics:" in bullets[1]
+
+
+# ===========================================================================
+# ExplainStatReceipt model validation — score_provenance field
+# ===========================================================================
+
+
+class TestExplainStatReceiptScoreProvenance:
+    """Pydantic model tests for the score_provenance field on
+    ExplainStatReceipt."""
+
+    def _minimal_receipt_dict(self, **overrides: Any) -> dict[str, Any]:
+        """Build a minimal valid ExplainStatReceipt dict for model_validate."""
+        base: dict[str, Any] = {
+            "kind": "receipt",
+            "stat_code": "AURA",
+            "stat_name": "Brand Gravity",
+            "score": 8,
+            "score_max": 10,
+            "one_liner": "Brand Gravity measures institutional weight.",
+            "components": [
+                {
+                    "weight_pct": 100,
+                    "label": "your school's brand gravity",
+                    "explainer": "Endowment, marketing, and athletics per student.",
+                    "value_pct": None,
+                    "anchor_text": "IU Bloomington institutional signals",
+                    "anchor_dollars": None,
+                    "missing_reason": None,
+                },
+            ],
+            "math_line": "MAX-MEAN blend of 3 signals → composite 0.72 → AURA score 8/10",
+            "sources": [
+                {
+                    "label": "Endowment + marketing",
+                    "name": "IPEDS, U.S. Department of Education",
+                },
+            ],
+            "why_mix_paragraph": (
+                "Prestige matters for networking and recruiter shortlists."
+            ),
+        }
+        base.update(overrides)
+        return base
+
+    def test_explain_stat_receipt_score_provenance_default_none(self) -> None:
+        """Creating a receipt without score_provenance defaults to None."""
+        data = self._minimal_receipt_dict()
+        # Explicitly omit score_provenance
+        assert "score_provenance" not in data
+        receipt = ExplainStatReceipt.model_validate(data)
+        assert receipt.score_provenance is None
+
+    def test_explain_stat_receipt_score_provenance_max_length(self) -> None:
+        """String > 200 chars raises ValidationError."""
+        data = self._minimal_receipt_dict(score_provenance="x" * 201)
+        with pytest.raises(ValidationError) as exc_info:
+            ExplainStatReceipt.model_validate(data)
+        # Verify the error is about max_length, not something else
+        errors = exc_info.value.errors()
+        provenance_errors = [
+            e for e in errors if "score_provenance" in str(e.get("loc", []))
+        ]
+        assert len(provenance_errors) >= 1
+
+    def test_explain_stat_receipt_score_provenance_rejects_sentinel(
+        self,
+    ) -> None:
+        """score_provenance='__FILL_IN__' raises ValidationError."""
+        data = self._minimal_receipt_dict(score_provenance="__FILL_IN__")
+        with pytest.raises(ValidationError) as exc_info:
+            ExplainStatReceipt.model_validate(data)
+        errors = exc_info.value.errors()
+        # Should mention sentinel
+        assert any(
+            "sentinel" in str(e.get("msg", "")).lower() for e in errors
+        )
+
+    def test_explain_stat_receipt_score_provenance_accepts_none(self) -> None:
+        """score_provenance=None is valid (the field is nullable)."""
+        data = self._minimal_receipt_dict(score_provenance=None)
+        receipt = ExplainStatReceipt.model_validate(data)
+        assert receipt.score_provenance is None
+
+    def test_explain_stat_receipt_score_provenance_accepts_valid_string(
+        self,
+    ) -> None:
+        """score_provenance with valid content is accepted."""
+        data = self._minimal_receipt_dict(
+            score_provenance="endowment + marketing + athletics"
+        )
+        receipt = ExplainStatReceipt.model_validate(data)
+        assert receipt.score_provenance == "endowment + marketing + athletics"
+
+    def test_explain_stat_receipt_score_provenance_exactly_200_chars(
+        self,
+    ) -> None:
+        """String of exactly 200 chars is accepted (boundary)."""
+        data = self._minimal_receipt_dict(score_provenance="a" * 200)
+        receipt = ExplainStatReceipt.model_validate(data)
+        assert receipt.score_provenance == "a" * 200
+
+
+# ===========================================================================
+# AURA in registry
+# ===========================================================================
+
+
+class TestAURARegistry:
+    """Verify AURA is correctly wired into the stat explain registry."""
+
+    def test_registry_aura_config_has_correct_allowlist(self) -> None:
+        """AURA config's label_allowlist has exactly the expected entry."""
+        config = _STAT_EXPLAIN_REGISTRY["AURA"]
+        assert config.label_allowlist == {100: "your school's brand gravity"}
+
+    def test_registry_aura_postprocessor_is_aura_fn(self) -> None:
+        """AURA registry points to the real _postprocess_aura_explain_receipt."""
+        config = _STAT_EXPLAIN_REGISTRY["AURA"]
+        assert config.postprocessor is _postprocess_aura_explain_receipt
