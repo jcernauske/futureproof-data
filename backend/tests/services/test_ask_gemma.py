@@ -972,3 +972,68 @@ async def test_context_blocks_never_leak_forbidden_tokens() -> None:
 
     for name, block in blocks:
         _assert_no_forbidden_outside_helpers(block, context=name)
+
+
+# ---------------------------------------------------------------------------
+# _get_build_stat helper
+# Spec: docs/specs/bugfix-explain-stat-trigger-null-score-guard.md
+# ---------------------------------------------------------------------------
+
+
+def _build_with_stat(
+    *,
+    stat_code: str,
+    score: int | None,
+) -> Build:
+    """Direct-construct a minimal Build whose only meaningful field is
+    the named stat's score. Used by the helper-level tests."""
+    stats_kwargs: dict[str, int | None] = {
+        "ern": 7,
+        "roi": 6,
+        "res": 5,
+        "grw": 8,
+        "aura": 4,
+    }
+    stats_kwargs[stat_code.lower()] = score
+    return Build(
+        build_id=f"helper-test-{stat_code.lower()}",
+        created_at="2026-05-02T00:00:00Z",
+        school_name="Test School",
+        unitid=1,
+        major_text="Test Major",
+        cipcode="00.0000",
+        program_name="Test Program",
+        effort="balanced",
+        loan_pct=1.0,
+        career=CareerOutcome(
+            unitid=1,
+            institution_name="Test School",
+            cipcode="00.0000",
+            program_name="Test Program",
+            soc_code="00-0000",
+            occupation_title="Test Occupation",
+            stats=PentagonStats(**stats_kwargs),  # type: ignore[arg-type]
+            bosses=BossScores(
+                ai=5, loans=5, market=5, burnout=5, ceiling=5
+            ),
+        ),
+        gauntlet=GauntletResult(
+            fights=[], wins=0, losses=0, draws=0, unknown=0, verdict="OK"
+        ),
+        branches=[],
+        skill_recs=[],
+        guidance="",
+        skills_crafted=[],
+        skill_pool=[],
+        profile_name="",
+    )
+
+
+@pytest.mark.parametrize(
+    "stat_code", ["ERN", "ROI", "RES", "GRW", "AURA"]
+)
+def test_get_build_stat_reads_correct_attr(stat_code: str) -> None:
+    build = _build_with_stat(stat_code=stat_code, score=3)
+    assert ask_gemma._get_build_stat(build, stat_code) == 3
+    null_build = _build_with_stat(stat_code=stat_code, score=None)
+    assert ask_gemma._get_build_stat(null_build, stat_code) is None

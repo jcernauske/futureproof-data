@@ -39,6 +39,7 @@ The primary stat-display surface. Pentagon + legend + boss-fight bands.
 - **Component:** Inline list rendering each `STAT_EXPLANATIONS` entry with score, color dot, name, blurb, "?" info button, and `<StatInfoPopover>`.
 - **What user sees:** Five rows. Each row: dot · `ERN` · "Earning Power" + one-line blurb · `?` · `10/10`.
 - **Affordance:** ✅ "?" button opens `StatInfoPopover` with long-form definition + "Ask Gemma about this" CTA. Wired via `handleAskStat` (`BuildResultsScreen.tsx:73`).
+- **"✦ Explain this to me" trigger (ERN, ROI, RES, GRW rows):** Always visible on these four rows regardless of score. Dispatches `[explain-this:{STAT}]` sentinel via `handleExplainStat`. AURA stays ⚠️ until the AURA spec ships. See `docs/specs/feature-explain-stat-receipt-roi-res-grw.md`.
 
 ### 1b. Pentagon chart itself
 - **File:** `frontend/src/components/PentagonChart.tsx`
@@ -74,12 +75,17 @@ The primary stat-display surface. Pentagon + legend + boss-fight bands.
 - **Affordance:** ⚠️ **Partial.** The popover renders, the "Ask Gemma about this" button is still active, but Gemma has no AURA score to explain. Any "explain this" affordance must detect `stats.aura === null` and either suppress itself or route to a "why doesn't my school have AURA?" explainer (different intent than the standard explainer — closer to a coverage explanation).
 - **Hard constraint** (per memory `feedback_no_substitution_caveat.md`): no banner, no toast, no card-edge tint. The em-dash on the vertex (§1b) and the appended sentence in this popover are the **only** missing-data sentences in the UI.
 
-### 1i. ExplainStatReceiptCard — structured explainer-receipt (ERN only, v1.0)
+### 1i. ExplainStatReceiptCard — structured explainer-receipt (ERN ✅, ROI ✅, RES ✅, GRW ✅, AURA ⚠️)
 - **File:** `frontend/src/components/menu/ExplainStatReceipt.tsx`
-- **When it shows:** Student clicks "✦ Explain this to me" on the ERN row → slide-in chat opens → backend's JSON-mode path returns an `ExplainStatReceipt` payload → `GemmaChat`'s renderer dispatches on `kind: "receipt"` → this component renders. v1.0 ships ERN only; ROI/RES/GRW/AURA each get their own follow-up spec.
-- **What user sees:** A card with score callout (gold for ERN), one-liner, two component bullets (60% school rank + 40% career rank) with left-rail percentage chips, recessed inset math line (`bg-bp-mid`), source pills, why-mix paragraph. Effort-line footnote when `effort != "balanced"`.
+- **When it shows:** Student clicks "✦ Explain this to me" on any stat row (ERN, ROI, RES, GRW) → slide-in chat opens → backend's JSON-mode path dispatches via `_STAT_EXPLAIN_REGISTRY` → per-stat postprocessor returns an `ExplainStatReceipt` payload → `GemmaChat`'s renderer dispatches on `kind: "receipt"` → this component renders. AURA is gated on its separate spec (`feature-explain-stat-receipt-aura.md`).
+- **What user sees per stat:**
+  - **ERN:** Gold rail, 2 components (60% school rank + 40% career rank), math line `0.6 × A + 0.4 × B → score N/10`, effort-line footnote when `effort != "balanced"`.
+  - **ROI:** Green rail, 1 component (100% DTE bucket, `value_pct=null` by design — no percentile callout, only `anchor_dollars`), math line `$X / $Y = Z.ZZ → ROI score N/10`.
+  - **RES:** Blue rail, 2 components (50% AI exposure + 50% human-essential, both with `value_pct` populated from raw 1-10 row scores × 10), math line `0.5 × A + 0.5 × B → score N/10`.
+  - **GRW:** Red rail, 1 component (100% employment-change band, `value_pct=null` by design — no percentile callout, only `anchor_text`), math line `+X.X% employment change → GRW score N/10`.
 - **Affordance:** ✅ **This IS the explain-this-stat affordance.** The card itself doesn't carry a follow-up "ask Gemma" button (the user already asked). Subsequent free-form chat in the same panel routes through the standard prose handler.
-- **Spec:** `docs/specs/feature-explain-stat-receipt.md` (DRAFT v1.3, IMPLEMENTATION).
+- **Backend null-score short-circuit (ERN only, post-bugfix):** Before the JSON-mode tool loop runs, if `build.career.stats.ern is None`, both `chat_ask` and `chat_ask_stream` return a server-built receipt with `score=None` and per-input `missing_reason` lines. No Gemma call, no MCP re-fetch. See `docs/specs/bugfix-explain-stat-trigger-null-score-guard.md`.
+- **Spec:** `docs/specs/feature-explain-stat-receipt.md` (ERN, COMPLETE); `docs/specs/feature-explain-stat-receipt-roi-res-grw.md` (ROI/RES/GRW).
 - **Schema:** Pydantic `ExplainStatReceipt` in `backend/app/models/api.py`; Zod mirror in `frontend/src/types/chat.ts`.
 
 ### 1h. RES + AURA stat tutorial cards (post-reshape, first-build only)

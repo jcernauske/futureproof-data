@@ -369,6 +369,7 @@ const STREAM_PARAMS = {
   student_cip: null,
   home_state: null,
   school_state: null,
+  published_cost_4yr: null,
   animal_emoji: null,
   locale: "en",
 };

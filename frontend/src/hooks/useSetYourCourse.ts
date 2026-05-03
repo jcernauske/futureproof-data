@@ -110,6 +110,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     clearResolution,
   } = useBuildInputStore();
   const selectedCareer = useBuildStore((s) => s.selectedCareer);
+  const homeState = useProfileStore((s) => s.homeState);
 
   const [streaming, setStreaming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -191,7 +192,8 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
 
     for (const alt of currentResolution.alternatives) {
       const altCip = alt.parent_cip || alt.cip;
-      if (outcomesCacheRef.current.has(altCip)) continue;
+      const cacheKey = `${altCip}:${homeState ?? ""}`;
+      if (outcomesCacheRef.current.has(cacheKey)) continue;
       getOutcomes(
         capturedSchool.unitid,
         altCip,
@@ -200,16 +202,18 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
         capturedMajor || undefined,
         alt.cip,
         controller.signal,
+        undefined,
+        homeState,
       ).then((outcomes) => {
         if (!controller.signal.aborted) {
-          outcomesCacheRef.current.set(altCip, outcomes);
+          outcomesCacheRef.current.set(cacheKey, outcomes);
         }
       }).catch(() => {});
     }
 
     return () => { controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentResolution?.matched_cip, school?.unitid]);
+  }, [currentResolution?.matched_cip, school?.unitid, homeState]);
 
   // --- Outcomes-first paint state machine ---
   const [socReveal, setSocReveal] = useState<SocRevealState>({ kind: "idle" });
@@ -228,11 +232,12 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
 
     const capturedSchool = school;
     const capturedCip = parentCipOrMatched;
+    const capturedCacheKey = `${capturedCip}:${homeState ?? ""}`;
     const capturedMajor = liveMajorText.trim();
     const capturedMatchedCip = currentResolution?.matched_cip;
     const capturedIntentKeywords = currentResolution?.intent_keywords;
 
-    const cachedOutcomes = outcomesCacheRef.current.get(capturedCip);
+    const cachedOutcomes = outcomesCacheRef.current.get(capturedCacheKey);
     if (cachedOutcomes) {
       setSocReveal({ kind: "outcomes-loaded", outcomes: cachedOutcomes });
       return;
@@ -251,9 +256,10 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
           capturedMatchedCip || undefined,
           controller.signal,
           capturedIntentKeywords,
+          homeState,
         );
         if (requestIdRef.current !== reqId) return;
-        outcomesCacheRef.current.set(capturedCip, outcomes);
+        outcomesCacheRef.current.set(capturedCacheKey, outcomes);
         setSocReveal({ kind: "outcomes-loaded", outcomes });
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -280,7 +286,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     }
     debouncedCareerFetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [school, parentCipOrMatched, liveMajorText, debouncedCareerFetch]);
+  }, [school, parentCipOrMatched, liveMajorText, homeState, debouncedCareerFetch]);
 
   useEffect(() => {
     return () => { outcomeAbortRef.current?.abort(); };

@@ -16,6 +16,14 @@ import { z } from "zod";
 // AURA is out of scope for v1.0 (spec Decision 10).
 // ---------------------------------------------------------------------------
 
+export const scoringTierSchema = z
+  .object({
+    label: z.string(),
+    range: z.string(),
+    score: z.string(),
+  })
+  .strict();
+
 export const receiptSourceSchema = z
   .object({
     label: z.string(),
@@ -32,6 +40,7 @@ export const statComponentSchema = z
     anchor_text: z.string(),
     anchor_dollars: z.number().int().min(0).nullable(),
     missing_reason: z.string().nullable(),
+    evidence_bullets: z.array(z.string()).max(6).nullable().optional(),
   })
   .strict();
 
@@ -40,16 +49,18 @@ export const explainStatReceiptSchema = z
     kind: z.literal("receipt"),
     stat_code: z.enum(["ERN", "ROI", "RES", "GRW", "AURA"]),
     stat_name: z.string(),
-    score: z.number().int().min(1).max(10),
+    score: z.number().int().min(1).max(10).nullable(),
     score_max: z.number().int().default(10),
     one_liner: z.string(),
     components: z.array(statComponentSchema).min(1).max(5),
     math_line: z.string(),
     sources: z.array(receiptSourceSchema).min(1),
     why_mix_paragraph: z.string().max(800),
+    scoring_scale: z.array(scoringTierSchema).nullable().optional(),
   })
   .strict();
 
+export type ScoringTier = z.infer<typeof scoringTierSchema>;
 export type ReceiptSource = z.infer<typeof receiptSourceSchema>;
 export type StatComponent = z.infer<typeof statComponentSchema>;
 export type ExplainStatReceipt = z.infer<typeof explainStatReceiptSchema>;

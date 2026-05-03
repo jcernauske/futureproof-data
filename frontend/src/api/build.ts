@@ -23,6 +23,7 @@ export async function getOutcomes(
   studentCip?: string,
   signal?: AbortSignal,
   intentKeywords?: string[],
+  homeState?: string | null,
 ): Promise<CareerOutcome[]> {
   if (USE_MOCK) return mockGetOutcomes();
   return apiPost<CareerOutcome[]>(
@@ -35,6 +36,7 @@ export async function getOutcomes(
       student_major: studentMajor ?? null,
       student_cip: studentCip ?? null,
       intent_keywords: intentKeywords ?? [],
+      home_state: homeState ?? null,
     },
     { signal },
   );
@@ -110,6 +112,7 @@ export async function createBuild(
   studentCip?: string,
   homeState?: string,
   schoolState?: string,
+  publishedCost4yr?: number | null,
   animalEmoji?: string,
   locale?: string,
 ): Promise<Build> {
@@ -129,6 +132,7 @@ export async function createBuild(
     student_cip: studentCip ?? null,
     home_state: homeState ?? null,
     school_state: schoolState ?? null,
+    published_cost_4yr: publishedCost4yr ?? null,
     animal_emoji: animalEmoji ?? null,
     locale: locale ?? "en",
   });
@@ -158,6 +162,7 @@ export interface BuildParams {
   student_cip: string | null;
   home_state: string | null;
   school_state: string | null;
+  published_cost_4yr: number | null;
   animal_emoji: string | null;
   locale: string;
 }

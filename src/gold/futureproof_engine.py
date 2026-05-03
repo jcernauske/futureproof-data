@@ -230,6 +230,7 @@ def get_pcp_schema() -> Schema:
         NestedField(51, "tuition_out_of_state", DoubleType(), required=False),
         NestedField(52, "room_board_on_campus", DoubleType(), required=False),
         NestedField(53, "state_abbr", StringType(), required=False),
+        NestedField(54, "cip_family_earnings_rank", DoubleType(), required=False),
     )
 
 
@@ -464,10 +465,12 @@ def derive_pcp_rows(
         ai_data = ai_by_soc.get(row.get("soc_code"), {})
 
         # Pentagon stats
+        cip_rank = row.pop("cip_family_earnings_rank", None)
         stat_ern = compute_stat_ern(
-            row.pop("cip_family_earnings_rank", None),
+            cip_rank,
             row.pop("wage_percentile_overall", None),
         )
+        row["cip_family_earnings_rank"] = cip_rank
         stat_roi = compute_stat_roi(row.get("debt_to_earnings_annual"))
         stat_grw = row.get("grw_score_rounded")
         stat_hmn = row.get("hmn_score_rounded")

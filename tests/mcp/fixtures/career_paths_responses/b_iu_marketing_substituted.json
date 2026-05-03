@@ -7,58 +7,44 @@
   "response": {
     "data": [
       {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
+        "cipcode": "52.14",
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "11-2011",
+        "occupation_title": "Advertising and promotions managers",
+        "soc_major_group_name": "Management",
+        "stat_ern": 10,
+        "stat_roi": 5,
+        "stat_res": 5,
+        "stat_grw": 4,
+        "stat_hmn": 5,
         "boss_ai_score": 6,
-        "boss_burnout_score": 6,
-        "boss_ceiling_score": null,
         "boss_loans_score": 6,
         "boss_market_score": 4,
-        "bosses_available_count": 4,
-        "burnout_drivers": [
-          {
-            "element": "Time Pressure",
-            "value": 0.85
-          },
-          {
-            "element": "Frequency of Decision Making",
-            "value": 0.83
-          },
-          {
-            "element": "Importance of Being Exact or Accurate",
-            "value": 0.82
-          }
-        ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
-        "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 27000,
-        "growth_category": "declining",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 126960.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Advertising and promotions managers",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "11-2011",
-        "soc_major_group_name": "Management",
-        "stat_ern": 10,
-        "stat_grw": 4,
-        "stat_hmn": 5,
-        "stat_res": 5,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 126960.0,
+        "growth_category": "declining",
+        "employment_current": 27000,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Working with Computers",
@@ -103,63 +89,64 @@
             "importance": 3.18
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 3,
-        "boss_burnout_score": 5,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 7,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
             "element": "Time Pressure",
-            "value": 0.67
+            "value": 0.85
           },
           {
             "element": "Frequency of Decision Making",
-            "value": 0.66
+            "value": 0.83
           },
           {
-            "element": "Duration of Typical Work Week",
-            "value": 0.64
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.82
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "25-1011",
+        "occupation_title": "Business teachers, postsecondary",
+        "soc_major_group_name": "Educational Instruction and Library",
+        "stat_ern": 9,
+        "stat_roi": 5,
+        "stat_res": 8,
+        "stat_grw": 7,
+        "stat_hmn": 5,
+        "boss_ai_score": 3,
+        "boss_loans_score": 6,
+        "boss_market_score": 7,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Doctoral or professional degree",
-        "employment_current": 103100,
-        "growth_category": "growing",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 97270.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Business teachers, postsecondary",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "25-1011",
-        "soc_major_group_name": "Educational Instruction and Library",
-        "stat_ern": 9,
-        "stat_grw": 7,
-        "stat_hmn": 5,
-        "stat_res": 8,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 97270.0,
+        "growth_category": "growing",
+        "employment_current": 103100,
+        "education_level_name": "Doctoral or professional degree",
         "top_5_activities": [
           {
             "activity": "Training and Teaching Others",
@@ -204,63 +191,64 @@
             "importance": 3.6
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 4,
-        "boss_burnout_score": 6,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 7,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
-            "element": "Duration of Typical Work Week",
-            "value": 0.91
-          },
-          {
-            "element": "Impact of Decisions on Co-workers or Company Results",
-            "value": 0.75
+            "element": "Time Pressure",
+            "value": 0.67
           },
           {
             "element": "Frequency of Decision Making",
-            "value": 0.67
+            "value": 0.66
+          },
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 0.64
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "13-1131",
+        "occupation_title": "Fundraisers",
+        "soc_major_group_name": "Business and Financial Operations",
+        "stat_ern": 8,
+        "stat_roi": 5,
+        "stat_res": 7,
+        "stat_grw": 6,
+        "stat_hmn": 6,
+        "boss_ai_score": 4,
+        "boss_loans_score": 6,
+        "boss_market_score": 7,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 134400,
-        "growth_category": "growing",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 66490.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Fundraisers",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "13-1131",
-        "soc_major_group_name": "Business and Financial Operations",
-        "stat_ern": 8,
-        "stat_grw": 6,
-        "stat_hmn": 6,
-        "stat_res": 7,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 66490.0,
+        "growth_category": "growing",
+        "employment_current": 134400,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Establishing and Maintaining Interpersonal Relationships",
@@ -305,63 +293,64 @@
             "importance": 4.05
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 5,
-        "boss_burnout_score": 6,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 6,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
-            "element": "Importance of Being Exact or Accurate",
-            "value": 0.84
+            "element": "Duration of Typical Work Week",
+            "value": 0.91
           },
           {
-            "element": "Duration of Typical Work Week",
-            "value": 0.82
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.75
           },
           {
             "element": "Frequency of Decision Making",
-            "value": 0.79
+            "value": 0.67
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "11-2033",
+        "occupation_title": "Fundraising managers",
+        "soc_major_group_name": "Management",
+        "stat_ern": 10,
+        "stat_roi": 5,
+        "stat_res": 6,
+        "stat_grw": 6,
+        "stat_hmn": 5,
+        "boss_ai_score": 5,
+        "boss_loans_score": 6,
+        "boss_market_score": 6,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 45700,
-        "growth_category": "growing",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 123480.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Fundraising managers",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "11-2033",
-        "soc_major_group_name": "Management",
-        "stat_ern": 10,
-        "stat_grw": 6,
-        "stat_hmn": 5,
-        "stat_res": 6,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 123480.0,
+        "growth_category": "growing",
+        "employment_current": 45700,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Establishing and Maintaining Interpersonal Relationships",
@@ -406,63 +395,64 @@
             "importance": 3.39
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 7,
-        "boss_burnout_score": 5,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 8,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
             "element": "Importance of Being Exact or Accurate",
-            "value": 0.77
+            "value": 0.84
           },
           {
             "element": "Duration of Typical Work Week",
-            "value": 0.76
+            "value": 0.82
           },
           {
-            "element": "Time Pressure",
-            "value": 0.72
+            "element": "Frequency of Decision Making",
+            "value": 0.79
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "13-1161",
+        "occupation_title": "Market research analysts and marketing specialists",
+        "soc_major_group_name": "Business and Financial Operations",
+        "stat_ern": 9,
+        "stat_roi": 5,
+        "stat_res": 4,
+        "stat_grw": 7,
+        "stat_hmn": 3,
+        "boss_ai_score": 7,
+        "boss_loans_score": 6,
+        "boss_market_score": 8,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 941700,
-        "growth_category": "growing",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 76950.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Market research analysts and marketing specialists",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "13-1161",
-        "soc_major_group_name": "Business and Financial Operations",
-        "stat_ern": 9,
-        "stat_grw": 7,
-        "stat_hmn": 3,
-        "stat_res": 4,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 76950.0,
+        "growth_category": "growing",
+        "employment_current": 941700,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Working with Computers",
@@ -507,63 +497,64 @@
             "importance": 3.17
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 5,
-        "boss_burnout_score": 6,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 8,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.77
+          },
+          {
             "element": "Duration of Typical Work Week",
-            "value": 0.89
+            "value": 0.76
           },
           {
             "element": "Time Pressure",
-            "value": 0.8
-          },
-          {
-            "element": "Impact of Decisions on Co-workers or Company Results",
-            "value": 0.79
+            "value": 0.72
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "11-2021",
+        "occupation_title": "Marketing managers",
+        "soc_major_group_name": "Management",
+        "stat_ern": 10,
+        "stat_roi": 5,
+        "stat_res": 6,
+        "stat_grw": 7,
+        "stat_hmn": 6,
+        "boss_ai_score": 5,
+        "boss_loans_score": 6,
+        "boss_market_score": 8,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 407000,
-        "growth_category": "growing",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 161030.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Marketing managers",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "11-2021",
-        "soc_major_group_name": "Management",
-        "stat_ern": 10,
-        "stat_grw": 7,
-        "stat_hmn": 6,
-        "stat_res": 6,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 161030.0,
+        "growth_category": "growing",
+        "employment_current": 407000,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Communicating with Supervisors, Peers, or Subordinates",
@@ -608,63 +599,64 @@
             "importance": 4.08
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 5,
-        "boss_burnout_score": 6,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 7,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
             "element": "Duration of Typical Work Week",
-            "value": 0.93
+            "value": 0.89
+          },
+          {
+            "element": "Time Pressure",
+            "value": 0.8
           },
           {
             "element": "Impact of Decisions on Co-workers or Company Results",
             "value": 0.79
-          },
-          {
-            "element": "Frequency of Decision Making",
-            "value": 0.77
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "11-2022",
+        "occupation_title": "Sales managers",
+        "soc_major_group_name": "Management",
+        "stat_ern": 10,
+        "stat_roi": 5,
+        "stat_res": 6,
+        "stat_grw": 6,
+        "stat_hmn": 7,
+        "boss_ai_score": 5,
+        "boss_loans_score": 6,
+        "boss_market_score": 7,
+        "boss_burnout_score": 6,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 619500,
-        "growth_category": "growing",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 138060.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Sales managers",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "11-2022",
-        "soc_major_group_name": "Management",
-        "stat_ern": 10,
-        "stat_grw": 6,
-        "stat_hmn": 7,
-        "stat_res": 6,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 138060.0,
+        "growth_category": "growing",
+        "employment_current": 619500,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Selling or Influencing Others",
@@ -709,63 +701,64 @@
             "importance": 4.57
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 7,
-        "boss_burnout_score": 5,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 3,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
-            "element": "Importance of Being Exact or Accurate",
-            "value": 0.9
-          },
-          {
-            "element": "Time Pressure",
-            "value": 0.75
+            "element": "Duration of Typical Work Week",
+            "value": 0.93
           },
           {
             "element": "Impact of Decisions on Co-workers or Company Results",
-            "value": 0.66
+            "value": 0.79
+          },
+          {
+            "element": "Frequency of Decision Making",
+            "value": 0.77
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "19-3022",
+        "occupation_title": "Survey researchers",
+        "soc_major_group_name": "Life, Physical, and Social Science",
+        "stat_ern": 8,
+        "stat_roi": 5,
+        "stat_res": 4,
+        "stat_grw": 3,
+        "stat_hmn": 4,
+        "boss_ai_score": 7,
+        "boss_loans_score": 6,
+        "boss_market_score": 3,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Master's degree",
-        "employment_current": 8800,
-        "growth_category": "declining",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 63380.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Survey researchers",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "19-3022",
-        "soc_major_group_name": "Life, Physical, and Social Science",
-        "stat_ern": 8,
-        "stat_grw": 3,
-        "stat_hmn": 4,
-        "stat_res": 4,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 63380.0,
+        "growth_category": "declining",
+        "employment_current": 8800,
+        "education_level_name": "Master's degree",
         "top_5_activities": [
           {
             "activity": "Working with Computers",
@@ -810,63 +803,64 @@
             "importance": 3.58
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
-      },
-      {
-        "boss_ai_score": 6,
-        "boss_burnout_score": 5,
-        "boss_ceiling_score": null,
-        "boss_loans_score": 6,
-        "boss_market_score": 7,
-        "bosses_available_count": 4,
         "burnout_drivers": [
           {
-            "element": "Duration of Typical Work Week",
-            "value": 1.0
+            "element": "Importance of Being Exact or Accurate",
+            "value": 0.9
           },
           {
             "element": "Time Pressure",
-            "value": 0.76
+            "value": 0.75
           },
           {
             "element": "Impact of Decisions on Co-workers or Company Results",
-            "value": 0.62
+            "value": 0.66
           }
         ],
-        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
+      },
+      {
+        "unitid": 151351,
+        "institution_name": "Indiana University-Bloomington",
         "cipcode": "52.14",
-        "confidence_tier_program": "high",
-        "cost_of_attendance_annual": 27361.0,
+        "program_name": "Marketing",
+        "cip_family_name": "Business, Management, Marketing, and Related Support Services",
+        "soc_code": "15-1255",
+        "occupation_title": "Web and digital interface designers",
+        "soc_major_group_name": "Computer and Mathematical",
+        "stat_ern": 9,
+        "stat_roi": 5,
+        "stat_res": 5,
+        "stat_grw": 7,
+        "stat_hmn": 5,
+        "boss_ai_score": 6,
+        "boss_loans_score": 6,
+        "boss_market_score": 7,
+        "boss_burnout_score": 5,
+        "boss_ceiling_score": null,
+        "earnings_1yr_median": 63371.0,
+        "earnings_1yr_p25": 38515.0,
+        "earnings_1yr_p75": 49674.0,
         "debt_median": 19500.0,
         "debt_p25": 19750.0,
         "debt_p75": 26000.0,
         "debt_to_earnings_annual": 0.9683924823657509,
-        "earnings_1yr_median": 63371.0,
-        "earnings_1yr_p25": 38515.0,
-        "earnings_1yr_p75": 49674.0,
-        "education_level_name": "Bachelor's degree",
-        "employment_current": 128900,
-        "growth_category": "growing",
+        "cip_family_earnings_rank": 0.9558117195004803,
+        "confidence_tier_program": "high",
         "institution_control": "Public",
-        "institution_name": "Indiana University-Bloomington",
-        "match_quality": "substituted_cip",
-        "median_annual_wage": 98090.0,
-        "net_price_4yr": 61368.0,
         "net_price_annual": 15342.0,
-        "occupation_title": "Web and digital interface designers",
-        "overall_confidence": "high",
-        "program_name": "Marketing",
+        "cost_of_attendance_annual": 27361.0,
+        "net_price_4yr": 61368.0,
+        "tuition_in_state": 11790.0,
+        "tuition_out_of_state": 40482.0,
         "room_board_on_campus": 13380.0,
-        "soc_code": "15-1255",
-        "soc_major_group_name": "Computer and Mathematical",
-        "stat_ern": 9,
-        "stat_grw": 7,
-        "stat_hmn": 5,
-        "stat_res": 5,
-        "stat_roi": 5,
-        "stats_available_count": 5,
+        "median_annual_wage": 98090.0,
+        "growth_category": "growing",
+        "employment_current": 128900,
+        "education_level_name": "Bachelor's degree",
         "top_5_activities": [
           {
             "activity": "Thinking Creatively",
@@ -911,24 +905,39 @@
             "importance": 3.3
           }
         ],
-        "tuition_in_state": 11790.0,
-        "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "burnout_drivers": [
+          {
+            "element": "Duration of Typical Work Week",
+            "value": 1.0
+          },
+          {
+            "element": "Time Pressure",
+            "value": 0.76
+          },
+          {
+            "element": "Impact of Decisions on Co-workers or Company Results",
+            "value": 0.62
+          }
+        ],
+        "match_quality": "substituted_cip",
+        "stats_available_count": 5,
+        "bosses_available_count": 4,
+        "overall_confidence": "high"
       }
     ],
+    "row_count": 9,
+    "substitution_applied": true,
+    "reported_cipcode": "52.01",
+    "substituted_cipcode": "52.14",
+    "student_major": "Marketing",
     "data_caveat": {
-      "career_path_specificity": "national_major_specific",
-      "earnings_specificity": "school_broad",
+      "type": "blended_substitution",
       "message": "Earnings and debt reflect all business, management, marketing, and related support services graduates at this school. Career paths reflect typical Marketing outcomes nationally. This school does not report Marketing-specific outcome data.",
       "reported_cipcode": "52.01",
       "substituted_cipcode": "52.14",
       "substituted_program": "Marketing",
-      "type": "blended_substitution"
-    },
-    "reported_cipcode": "52.01",
-    "row_count": 9,
-    "student_major": "Marketing",
-    "substituted_cipcode": "52.14",
-    "substitution_applied": true
+      "earnings_specificity": "school_broad",
+      "career_path_specificity": "national_major_specific"
+    }
   }
 }

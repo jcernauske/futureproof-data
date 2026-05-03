@@ -115,6 +115,17 @@ EFFORT_SHIFT: dict[str, int] = {
 }
 
 
+def _is_public_control(institution_control: str | None) -> bool:
+    """Return True for Scorecard public-control labels.
+
+    Upstream rows are not guaranteed to be the exact string ``"Public"``;
+    they may carry labels such as ``"Public, 4-year or above"``. The
+    frontend already uses a starts-with check, so the backend must match
+    that behavior or out-of-state public-school builds undercount cost.
+    """
+    return bool(institution_control and institution_control.startswith("Public"))
+
+
 def _clamp_stat(value: int | None) -> int | None:
     if value is None:
         return None
@@ -230,7 +241,7 @@ def _adjust_net_price_for_residency(
         return None
     if home_state is None or school_state is None:
         return net_price_annual
-    if institution_control != "Public":
+    if not _is_public_control(institution_control):
         return net_price_annual
     if home_state == school_state:
         return net_price_annual
@@ -284,12 +295,11 @@ def _published_cost_4yr(
     coa = float(cost_of_attendance_annual)
 
     # Private — single sticker number, no residency adjustment.
-    if institution_control != "Public":
+    if not _is_public_control(institution_control):
         return coa * 4.0
 
     # Public — adjust upward when the student is out-of-state.
     if home_state is None or school_state is None:
-        # Residency unknown — default to in-state COA.
         return coa * 4.0
     if home_state == school_state:
         return coa * 4.0
@@ -432,6 +442,15 @@ def _row_to_outcome(
     # confusing it with the student's modeled debt.
     debt_median_reference = debt_median_f
 
+    displayed_dte = roi_dte if roi_dte is not None else dte_f
+    displayed_roi_basis: str | None
+    if published_cost_4yr is not None:
+        displayed_roi_basis = "cost_of_attendance"
+    elif row.get("roi_cost_basis") in ("cost_of_attendance", "debt_median", "none"):
+        displayed_roi_basis = row.get("roi_cost_basis")
+    else:
+        displayed_roi_basis = "none"
+
     return CareerOutcome(
         unitid=int(row["unitid"]),
         institution_name=str(row.get("institution_name") or ""),
@@ -447,7 +466,7 @@ def _row_to_outcome(
         debt_median=debt_median_raw,
         debt_p25=row.get("debt_p25"),
         debt_p75=row.get("debt_p75"),
-        debt_to_earnings_annual=dte if isinstance(dte, (int, float)) else None,
+        debt_to_earnings_annual=displayed_dte,
         education_level_name=row.get("education_level_name"),
         growth_category=row.get("growth_category"),
         net_price_annual=(
@@ -475,6 +494,11 @@ def _row_to_outcome(
         raw_stat_hmn=raw_stat_hmn,
         aura_score_basis=aura_score_basis,
         aura_score_version=aura_score_version,
+        scoring_model=row.get("scoring_model"),
+        model_tag=row.get("model_tag"),
+        karpathy_score=as_int(row.get("karpathy_score")),
+        task_breakdown_automatable=_list_field("task_breakdown_automatable"),
+        task_breakdown_human=_list_field("task_breakdown_human"),
         top_5_activities=_list_field("top_5_activities"),
         top_human_activities=_list_field("top_human_activities"),
         burnout_drivers=_list_field("burnout_drivers"),
@@ -501,7 +525,7 @@ def _row_to_outcome(
         # _derive_loans_boss — it's the loan_pct-aware ratio that drives
         # the Student Loans Boss, distinct from debt_to_earnings_annual
         # which is the financing-agnostic cost-vs-earnings ratio.
-        roi_cost_basis=row.get("roi_cost_basis"),
+        roi_cost_basis=displayed_roi_basis,
         financed_dte=financed_dte,
         match_quality=row.get("match_quality"),
     )
@@ -557,6 +581,61 @@ def recompute_for_sliders(
                 else career.modeled_total_debt
             ),
             "financed_dte": financed_dte,
+        },
+    )
+
+
+def apply_published_cost_override(
+    career: CareerOutcome,
+    published_cost_4yr: float | None,
+    *,
+    loan_pct: float,
+) -> CareerOutcome:
+    """Force a career outcome onto a caller-supplied published 4-year cost.
+
+    The Set Your Course screen already computes the residency-aware sticker
+    total shown to the student. When that value is supplied during build
+    creation, preserve it as the single cost anchor for /my-build and Gemma.
+    """
+    if published_cost_4yr is None or published_cost_4yr <= 0:
+        return career
+
+    cost = float(published_cost_4yr)
+    earnings = (
+        float(career.earnings_1yr_median)
+        if career.earnings_1yr_median is not None
+        else None
+    )
+    dte = cost / earnings if earnings and earnings > 0 else None
+    roi = _derive_roi(cost_based_dte=dte, raw_stat_roi=career.stats.roi)
+    boss_loans, modeled_debt, financed_dte = _derive_loans_boss(
+        published_cost_4yr=cost,
+        earnings_1yr_median=earnings,
+        loan_pct=loan_pct,
+    )
+
+    return career.model_copy(
+        update={
+            "published_cost_4yr": cost,
+            "debt_to_earnings_annual": dte,
+            "modeled_total_debt": modeled_debt,
+            "roi_cost_basis": "cost_of_attendance",
+            "financed_dte": financed_dte,
+            "loan_pct": loan_pct,
+            "stats": PentagonStats(
+                ern=career.stats.ern,
+                roi=roi,
+                res=career.stats.res,
+                grw=career.stats.grw,
+                aura=career.stats.aura,
+            ),
+            "bosses": BossScores(
+                ai=career.bosses.ai,
+                loans=boss_loans if boss_loans is not None else career.bosses.loans,
+                market=career.bosses.market,
+                burnout=career.bosses.burnout,
+                ceiling=career.bosses.ceiling,
+            ),
         },
     )
 

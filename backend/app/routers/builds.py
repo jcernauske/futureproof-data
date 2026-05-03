@@ -55,6 +55,7 @@ async def compute_outcomes(request: OutcomesRequest):
             effort=request.effort,
             loan_pct=request.loan_pct,
             intent_keywords=request.intent_keywords or None,
+            home_state=request.home_state,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -183,6 +184,11 @@ async def create_build(request: BuildRequest):
 
     if not career.program_name and request.cip_title:
         career.program_name = request.cip_title
+    career = stat_engine.apply_published_cost_override(
+        career,
+        request.published_cost_4yr,
+        loan_pct=request.loan_pct,
+    )
 
     if (
         request.home_state
@@ -268,6 +274,11 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
 
     if not career.program_name and request.cip_title:
         career.program_name = request.cip_title
+    career = stat_engine.apply_published_cost_override(
+        career,
+        request.published_cost_4yr,
+        loan_pct=request.loan_pct,
+    )
     if (
         request.home_state
         and request.school_state

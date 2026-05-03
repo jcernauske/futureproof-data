@@ -130,10 +130,7 @@ function ComponentRow({
   statCode: ExplainStatReceipt["stat_code"];
 }) {
   const accent = statColorVar(statCode);
-  const isMissing =
-    component.value_pct === null ||
-    component.anchor_dollars === null ||
-    component.missing_reason !== null;
+  const isMissing = component.missing_reason !== null;
 
   return (
     <motion.li
@@ -171,18 +168,36 @@ function ComponentRow({
           {component.explainer}
         </p>
 
-        {/* Percentile callout row — per §3 missing-data treatment, the
-            slot is always present; when value_pct is null it renders
-            a `◦ —` glyph in text-muted instead of the data line. */}
-        {component.value_pct === null ? (
-          <p
-            className="font-body text-text-muted mt-1"
-            style={{ fontSize: 12 }}
-            aria-label="data not available"
+        {component.evidence_bullets && component.evidence_bullets.length > 0 && (
+          <ul
+            className="mt-2 space-y-1"
+            data-testid={`receipt-evidence-${statCode.toLowerCase()}-${component.label.replace(/\s+/g, "-").toLowerCase()}`}
+            aria-label={`Evidence for ${component.label}`}
           >
-            <span aria-hidden>◦ —</span>
-          </p>
-        ) : (
+            {component.evidence_bullets.map((bullet, idx) => (
+              <li
+                key={`${bullet}-${idx}`}
+                className="font-body text-text-secondary pl-3 relative"
+                style={{ fontSize: 12, lineHeight: 1.45 }}
+              >
+                <span
+                  aria-hidden
+                  className="absolute left-0 text-text-muted"
+                >
+                  -
+                </span>
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Percentile callout row — three states:
+            1. value_pct populated → render ordinal percentile + optional anchor_dollars
+            2. value_pct null AND missing_reason null → intentionally non-percentile
+               (ROI DTE bucket, GRW employment change). Show anchor_dollars/anchor_text only.
+            3. value_pct null AND missing_reason populated → missing data (open-ring glyph) */}
+        {component.value_pct !== null ? (
           <p
             className="font-data text-text-muted mt-1"
             style={{ fontSize: 12 }}
@@ -197,6 +212,34 @@ function ComponentRow({
               </>
             )}
           </p>
+        ) : component.missing_reason !== null ? (
+          <p
+            className="font-body text-text-muted mt-1"
+            style={{ fontSize: 12 }}
+            aria-label="data not available"
+          >
+            <span aria-hidden>◦ —</span>
+          </p>
+        ) : (
+          /* Intentionally non-percentile component — show anchor only */
+          (component.anchor_dollars !== null || component.anchor_text) && (
+            <p
+              className="font-data text-text-muted mt-1"
+              style={{ fontSize: 12 }}
+            >
+              {component.anchor_dollars !== null && (
+                <span className="font-data">
+                  ${component.anchor_dollars.toLocaleString()}
+                </span>
+              )}
+              {component.anchor_dollars !== null && component.anchor_text && (
+                <span> · </span>
+              )}
+              {component.anchor_text && (
+                <span className="font-body">{component.anchor_text}</span>
+              )}
+            </p>
+          )
         )}
 
         {component.missing_reason !== null && (
@@ -237,7 +280,10 @@ export function ExplainStatReceiptCard({
         boxShadow: "0 8px 32px rgba(27,29,48,0.55)",
       }}
     >
-      {/* Score callout — eyebrow + score on the same baseline-aligned row. */}
+      {/* Score callout — eyebrow + score on the same baseline-aligned row.
+          When score is null, render an open ring + em-dash matching the
+          pentagon vertex treatment (stat-display-surfaces.md §1b) instead
+          of a fabricated number. */}
       <header className="flex justify-between items-baseline gap-3 flex-wrap">
         <div
           aria-hidden
@@ -250,20 +296,39 @@ export function ExplainStatReceiptCard({
         >
           {payload.stat_name}
         </div>
-        <div
-          data-testid="receipt-score"
-          aria-label={`${payload.stat_name} score: ${payload.score} out of ${payload.score_max}`}
-          className="font-data font-bold leading-none"
-          style={{ fontSize: 44, color: accent }}
-        >
-          {payload.score}
-          <span
-            className="font-data text-text-muted"
-            style={{ fontSize: 22, fontWeight: 400 }}
+        {payload.score === null ? (
+          <div
+            data-testid="receipt-score"
+            data-score-missing="true"
+            aria-label={`${payload.stat_name} score not available for this combination yet`}
+            className="font-data font-bold leading-none flex items-baseline gap-1"
+            style={{ fontSize: 44, color: "var(--color-text-muted)" }}
           >
-            /{payload.score_max}
-          </span>
-        </div>
+            <span aria-hidden>◦</span>
+            <span aria-hidden>—</span>
+            <span
+              className="font-data text-text-muted"
+              style={{ fontSize: 22, fontWeight: 400 }}
+            >
+              /{payload.score_max}
+            </span>
+          </div>
+        ) : (
+          <div
+            data-testid="receipt-score"
+            aria-label={`${payload.stat_name} score: ${payload.score} out of ${payload.score_max}`}
+            className="font-data font-bold leading-none"
+            style={{ fontSize: 44, color: accent }}
+          >
+            {payload.score}
+            <span
+              className="font-data text-text-muted"
+              style={{ fontSize: 22, fontWeight: 400 }}
+            >
+              /{payload.score_max}
+            </span>
+          </div>
+        )}
       </header>
 
       {/* The one-liner */}
@@ -276,11 +341,8 @@ export function ExplainStatReceiptCard({
 
       {/* How it works — components + math line */}
       <section aria-labelledby="receipt-howitworks-heading" className="mt-5">
-        <h2 id="receipt-howitworks-heading" className="sr-only">
-          How it works
-        </h2>
-        <div
-          aria-hidden
+        <h2
+          id="receipt-howitworks-heading"
           className="font-display text-text-muted uppercase"
           style={{
             fontSize: 13,
@@ -289,7 +351,7 @@ export function ExplainStatReceiptCard({
           }}
         >
           How it works
-        </div>
+        </h2>
         <motion.ul
           data-testid="receipt-components"
           className="mt-3 space-y-4"
@@ -297,9 +359,9 @@ export function ExplainStatReceiptCard({
           initial="initial"
           animate="animate"
         >
-          {payload.components.map((c) => (
+          {payload.components.map((c, idx) => (
             <ComponentRow
-              key={c.weight_pct}
+              key={`${c.weight_pct}-${idx}`}
               component={c}
               statCode={payload.stat_code}
             />
@@ -327,6 +389,68 @@ export function ExplainStatReceiptCard({
           </span>
         </div>
 
+        {/* Scoring scale — deterministic tier table rendered below
+            the math line so students see where their ratio lands. */}
+        {payload.scoring_scale && payload.scoring_scale.length > 0 && (
+          <div
+            data-testid="receipt-scoring-scale"
+            className="bg-bp-mid rounded-lg mt-3 overflow-hidden"
+            style={{ fontSize: 12 }}
+          >
+            <table className="w-full font-data" style={{ borderSpacing: 0 }}>
+              <thead>
+                <tr className="text-text-muted">
+                  <th className="text-left px-3 py-1.5 font-semibold">
+                    {payload.scoring_scale![0]?.range === payload.scoring_scale![0]?.score ? "Score" : "Input"}
+                  </th>
+                  <th className="text-left px-3 py-1.5 font-semibold">Rating</th>
+                  {payload.scoring_scale![0]?.range !== payload.scoring_scale![0]?.score && (
+                    <th className="text-right px-3 py-1.5 font-semibold">Score</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const hideScoreCol = payload.scoring_scale![0]?.range === payload.scoring_scale![0]?.score;
+                  const activeIdx = payload.score === null ? -1 :
+                    payload.scoring_scale!.reduce((best, tier, i) => {
+                      const nums = tier.score.match(/\d+/g)?.map(Number) ?? [];
+                      return payload.score! >= Math.min(...nums) &&
+                        payload.score! <= Math.max(...nums) ? i : best;
+                    }, -1);
+                  return payload.scoring_scale!.map((tier, i) => {
+                    const active = i === activeIdx;
+                    return (
+                      <tr
+                        key={tier.label}
+                        style={active ? {
+                          background: `color-mix(in oklab, ${accent} 10%, transparent)`,
+                        } : undefined}
+                      >
+                        <td className="px-3 py-1 text-text-secondary">
+                          {tier.range}
+                        </td>
+                        <td
+                          className={`px-3 py-1 ${active ? "text-text-primary font-semibold" : "text-text-muted"}`}
+                        >
+                          {tier.label}
+                        </td>
+                        {!hideScoreCol && (
+                          <td
+                            className={`px-3 py-1 text-right ${active ? "text-text-primary font-semibold" : "text-text-muted"}`}
+                          >
+                            {tier.score}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Effort line (Decision 13) — outside the math card, italic,
             small. A footnote on the math, not another arithmetic line. */}
         {effortLine !== null && (
@@ -342,11 +466,8 @@ export function ExplainStatReceiptCard({
 
       {/* Sources */}
       <section aria-labelledby="receipt-sources-heading" className="mt-5">
-        <h2 id="receipt-sources-heading" className="sr-only">
-          Sources
-        </h2>
-        <div
-          aria-hidden
+        <h2
+          id="receipt-sources-heading"
           className="font-display text-text-muted uppercase"
           style={{
             fontSize: 13,
@@ -355,12 +476,12 @@ export function ExplainStatReceiptCard({
           }}
         >
           Sources
-        </div>
+        </h2>
         <ul className="mt-2 flex flex-wrap gap-2">
-          {payload.sources.map((s) => {
+          {payload.sources.map((s, idx) => {
             const { shortForm, slug } = shortFormForSource(s.name);
             return (
-              <li key={slug} className="list-none">
+              <li key={`${slug}-${idx}`} className="list-none">
                 <button
                   type="button"
                   data-testid={`receipt-source-${slug}`}
@@ -383,11 +504,8 @@ export function ExplainStatReceiptCard({
 
       {/* Why we mix both pieces */}
       <section aria-labelledby="receipt-why-heading" className="mt-5">
-        <h2 id="receipt-why-heading" className="sr-only">
-          Why we mix both pieces
-        </h2>
-        <div
-          aria-hidden
+        <h2
+          id="receipt-why-heading"
           className="font-display text-text-muted uppercase"
           style={{
             fontSize: 13,
@@ -396,7 +514,7 @@ export function ExplainStatReceiptCard({
           }}
         >
           Why we mix both pieces
-        </div>
+        </h2>
         <p
           className="font-body text-text-secondary leading-relaxed mt-2"
           style={{ fontSize: 14 }}

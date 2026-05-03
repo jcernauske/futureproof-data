@@ -1321,6 +1321,75 @@ describe("BuildResultsScreen -- builds-count invalidation (P1)", () => {
   });
 });
 
+describe("BuildResultsScreen -- ERN explain trigger always visible", () => {
+  // docs/specs/bugfix-explain-stat-trigger-null-score-guard.md
+  // The button stays visible even when stats.ern is null — clicking it
+  // opens the receipt with an open-ring score and per-input
+  // "missing because…" lines (server-built, no Gemma call).
+
+  it("ern_explain_link_visible_when_score_present", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: 7, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.getByTestId("btn-explain-ern")).toBeInTheDocument();
+  });
+
+  it("ern_explain_link_visible_when_score_null", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: null, roi: null, res: 6, grw: 6, aura: 7 },
+      }),
+    });
+    renderScreen();
+    expect(screen.getByTestId("btn-explain-ern")).toBeInTheDocument();
+  });
+});
+
+describe("BuildResultsScreen -- ROI/RES/GRW explain triggers (P0)", () => {
+  it("roi_explain_link_dispatches_sentinel", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: 7, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.getByTestId("btn-explain-roi")).toBeInTheDocument();
+  });
+
+  it("res_explain_link_dispatches_sentinel", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: 7, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.getByTestId("btn-explain-res")).toBeInTheDocument();
+  });
+
+  it("grw_explain_link_dispatches_sentinel", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: 7, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.getByTestId("btn-explain-grw")).toBeInTheDocument();
+  });
+
+  it("aura_explain_link_not_shown_yet", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: 7, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.queryByTestId("btn-explain-aura")).toBeNull();
+  });
+});
+
 describe("BuildResultsScreen -- Compare schools sheet trigger (P0)", () => {
   it("renders_compare_schools_trigger -- single trigger opens the in-sheet filterable leaderboard", () => {
     seedWithBuild();

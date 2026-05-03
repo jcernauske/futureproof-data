@@ -45,21 +45,10 @@ def fmt_dollars(val: float | None) -> str:
     return f"${val:,.0f}"
 
 
-def _sticker_tuition_4yr(career: CareerOutcome) -> float | None:
-    """Return the 4-year sticker tuition appropriate for this student.
-
-    Uses ``is_out_of_state`` flag on the career (set by the build
-    endpoint from the frontend's home_state vs school state comparison).
-    Falls back to ``net_price_annual_reference`` as a signal when the
-    flag isn't set.
-    """
-    out_of_state = getattr(career, "is_out_of_state", False)
-    if not out_of_state and career.net_price_annual_reference is not None:
-        out_of_state = True
-    if out_of_state and career.tuition_out_of_state is not None:
-        return career.tuition_out_of_state * 4
-    if career.tuition_in_state is not None:
-        return career.tuition_in_state * 4
+def _published_cost_4yr(career: CareerOutcome) -> float | None:
+    """Return the same 4-year published COA used by ROI and loans math."""
+    if career.published_cost_4yr is not None:
+        return career.published_cost_4yr
     if career.cost_of_attendance_annual is not None:
         return career.cost_of_attendance_annual * 4
     return None
@@ -106,15 +95,14 @@ def stat_explainer(career: CareerOutcome) -> str:
         basis = career.roi_cost_basis
         if (
             basis == "cost_of_attendance"
-            and career.net_price_annual is not None
+            and career.published_cost_4yr is not None
             and earn
         ):
             roi_parts: list[str] = []
-            sticker = _sticker_tuition_4yr(career)
-            if sticker is not None:
-                roi_parts.append(
-                    f"Published tuition is {fmt_dollars(sticker)} over 4 years"
-                )
+            sticker = _published_cost_4yr(career)
+            roi_parts.append(
+                f"Published cost is {fmt_dollars(sticker)} over 4 years"
+            )
             loan_pct = career.loan_pct
             if loan_pct < 1.0 and sticker is not None:
                 financed = sticker * loan_pct
@@ -122,11 +110,12 @@ def stat_explainer(career: CareerOutcome) -> str:
                     f"at {int(loan_pct * 100)}% loan coverage that's"
                     f" {fmt_dollars(financed)} in student loans"
                 )
-            avg_net = fmt_dollars(career.net_price_annual * 4)
-            roi_parts.append(
-                f"the institutional average net price (after typical"
-                f" financial aid) is {avg_net}"
-            )
+            if career.net_price_annual is not None:
+                avg_net = fmt_dollars(career.net_price_annual * 4)
+                roi_parts.append(
+                    f"the institutional average net price (aid context only) "
+                    f"is {avg_net}"
+                )
             roi_ctx = f" {'; '.join(roi_parts)} vs. {earn} starting salary."
         elif basis == "debt_median" and career.debt_median is not None and earn:
             # Institution-level cost data wasn't available for this
@@ -298,10 +287,10 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
         loan_pct = career.loan_pct
         pct_label = f"{int(loan_pct * 100)}%"
 
-        sticker = _sticker_tuition_4yr(career)
+        sticker = _published_cost_4yr(career)
         if sticker is not None:
             parts.append(
-                f"Published 4-year tuition (sticker price): "
+                f"Published 4-year cost (tuition, fees, and living costs): "
                 f"{fmt_dollars(sticker)}"
             )
             if loan_pct < 1.0:
