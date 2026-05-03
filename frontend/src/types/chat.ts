@@ -57,6 +57,7 @@ export const explainStatReceiptSchema = z
     sources: z.array(receiptSourceSchema).min(1),
     why_mix_paragraph: z.string().max(800),
     scoring_scale: z.array(scoringTierSchema).nullable().optional(),
+    score_provenance: z.string().max(200).nullable().optional(),
   })
   .strict();
 

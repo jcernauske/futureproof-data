@@ -39,13 +39,13 @@ The primary stat-display surface. Pentagon + legend + boss-fight bands.
 - **Component:** Inline list rendering each `STAT_EXPLANATIONS` entry with score, color dot, name, blurb, "?" info button, and `<StatInfoPopover>`.
 - **What user sees:** Five rows. Each row: dot · `ERN` · "Earning Power" + one-line blurb · `?` · `10/10`.
 - **Affordance:** ✅ "?" button opens `StatInfoPopover` with long-form definition + "Ask Gemma about this" CTA. Wired via `handleAskStat` (`BuildResultsScreen.tsx:73`).
-- **"✦ Explain this to me" trigger (ERN, ROI, RES, GRW rows):** Always visible on these four rows regardless of score. Dispatches `[explain-this:{STAT}]` sentinel via `handleExplainStat`. AURA stays ⚠️ until the AURA spec ships. See `docs/specs/feature-explain-stat-receipt-roi-res-grw.md`.
+- **"✦ Explain this to me" trigger (all five stat rows):** Always visible on ERN, ROI, RES, GRW rows regardless of score. AURA wired (gated on `stats.aura !== null` — suppressed when null per `feature-explain-stat-receipt-aura.md` Decision 7). Dispatches `[explain-this:{STAT}]` sentinel via `handleExplainStat`. See `docs/specs/feature-explain-stat-receipt-roi-res-grw.md` and `docs/specs/feature-explain-stat-receipt-aura.md`.
 
 ### 1b. Pentagon chart itself
 - **File:** `frontend/src/components/PentagonChart.tsx`
 - **What user sees:** SVG pentagon with five labeled axis points (ERN/ROI/RES/GRW/AURA) and the score number under each label.
 - **Affordance:** ⚠️ **None.** Hovering an axis only highlights the corresponding legend row. Clicking the axis label (or the dot at the axis tip) is **not currently** an explain trigger.
-- **AURA missing-data state.** When `stats.aura === null` the AURA vertex draws as an **open ring** (no fill, `text-muted` stroke) at the outer perimeter, the label reads `AURA —` (em-dash), and the polygon fill stops short of that vertex. Any explain affordance attached to this axis must remain tappable in this state and route to the AURA missing-data popover (§1g below).
+- **AURA missing-data state.** When `stats.aura === null` the AURA vertex draws as an **open ring** (no fill, `text-muted` stroke) at the outer perimeter, the label reads `AURA —` (em-dash), and the polygon fill stops short of that vertex. The explain-this affordance is suppressed in this state (the "✦ Explain this to me" trigger is gated on `stats.aura !== null`). The existing popover at §1g still handles the "why doesn't my school have AURA?" intent via "Ask Gemma about this".
 - **Note:** Per user input, axis label hover/click is a strong candidate for an inline explain affordance.
 
 ### 1c. Boss-fight stat deltas (per BossBand)
@@ -72,20 +72,21 @@ The primary stat-display surface. Pentagon + legend + boss-fight bands.
 - **File:** `frontend/src/components/build-results/StatInfoPopover.tsx` + `bossData.ts` `STAT_INFO.aura` (post-reshape).
 - **When it shows:** Student taps the `?` next to AURA on a build whose institution has no `consumable.institution_aura` row (~10% of unitids — schools with neither IPEDS-Finance nor EADA athletics coverage).
 - **What user sees:** Standard AURA popover body, then an **appended line in `font-body` 13px `text-muted`** with 8px top margin: *"Not enough institutional data for {school name} to score this yet."*
-- **Affordance:** ⚠️ **Partial.** The popover renders, the "Ask Gemma about this" button is still active, but Gemma has no AURA score to explain. Any "explain this" affordance must detect `stats.aura === null` and either suppress itself or route to a "why doesn't my school have AURA?" explainer (different intent than the standard explainer — closer to a coverage explanation).
+- **Affordance:** The popover renders and the "Ask Gemma about this" button is still active for free-form prose about the missing-data state. The "✦ Explain this to me" structured-receipt affordance is wired for non-null AURA (the trigger is suppressed when `stats.aura === null`, per Decision 7 of `feature-explain-stat-receipt-aura.md`). The existing popover continues to handle the null-AURA case via "Ask Gemma about this" → free-form prose explainer about why the school has no AURA score (a different intent than the structured receipt).
 - **Hard constraint** (per memory `feedback_no_substitution_caveat.md`): no banner, no toast, no card-edge tint. The em-dash on the vertex (§1b) and the appended sentence in this popover are the **only** missing-data sentences in the UI.
 
-### 1i. ExplainStatReceiptCard — structured explainer-receipt (ERN ✅, ROI ✅, RES ✅, GRW ✅, AURA ⚠️)
+### 1i. ExplainStatReceiptCard — structured explainer-receipt (ERN ✅, ROI ✅, RES ✅, GRW ✅, AURA ✅)
 - **File:** `frontend/src/components/menu/ExplainStatReceipt.tsx`
-- **When it shows:** Student clicks "✦ Explain this to me" on any stat row (ERN, ROI, RES, GRW) → slide-in chat opens → backend's JSON-mode path dispatches via `_STAT_EXPLAIN_REGISTRY` → per-stat postprocessor returns an `ExplainStatReceipt` payload → `GemmaChat`'s renderer dispatches on `kind: "receipt"` → this component renders. AURA is gated on its separate spec (`feature-explain-stat-receipt-aura.md`).
+- **When it shows:** Student clicks "✦ Explain this to me" on any stat row (ERN, ROI, RES, GRW, AURA) → slide-in chat opens → backend's JSON-mode path dispatches via `_STAT_EXPLAIN_REGISTRY` → per-stat postprocessor returns an `ExplainStatReceipt` payload → `GemmaChat`'s renderer dispatches on `kind: "receipt"` → this component renders.
 - **What user sees per stat:**
   - **ERN:** Gold rail, 2 components (60% school rank + 40% career rank), math line `0.6 × A + 0.4 × B → score N/10`, effort-line footnote when `effort != "balanced"`.
   - **ROI:** Green rail, 1 component (100% DTE bucket, `value_pct=null` by design — no percentile callout, only `anchor_dollars`), math line `$X / $Y = Z.ZZ → ROI score N/10`.
   - **RES:** Blue rail, 2 components (50% AI exposure + 50% human-essential, both with `value_pct` populated from raw 1-10 row scores × 10), math line `0.5 × A + 0.5 × B → score N/10`.
   - **GRW:** Red rail, 1 component (100% employment-change band, `value_pct=null` by design — no percentile callout, only `anchor_text`), math line `+X.X% employment change → GRW score N/10`.
+  - **AURA:** Purple rail, 1 component (100% institution-level brand gravity, `value_pct=null`, `anchor_dollars=null`, `missing_reason=null`), server-stamped `evidence_bullets` with actual per-student signal values + plain-English definitions (1-3 bullets depending on basis), math line `composite 0.72 → AURA score N/10`, `score_provenance` byline under the score reading e.g. "based on endowment + marketing + athletics". 5-tier scoring scale. Trigger suppressed when `stats.aura === null`.
 - **Affordance:** ✅ **This IS the explain-this-stat affordance.** The card itself doesn't carry a follow-up "ask Gemma" button (the user already asked). Subsequent free-form chat in the same panel routes through the standard prose handler.
 - **Backend null-score short-circuit (ERN only, post-bugfix):** Before the JSON-mode tool loop runs, if `build.career.stats.ern is None`, both `chat_ask` and `chat_ask_stream` return a server-built receipt with `score=None` and per-input `missing_reason` lines. No Gemma call, no MCP re-fetch. See `docs/specs/bugfix-explain-stat-trigger-null-score-guard.md`.
-- **Spec:** `docs/specs/feature-explain-stat-receipt.md` (ERN, COMPLETE); `docs/specs/feature-explain-stat-receipt-roi-res-grw.md` (ROI/RES/GRW).
+- **Spec:** `docs/specs/feature-explain-stat-receipt.md` (ERN, COMPLETE); `docs/specs/feature-explain-stat-receipt-roi-res-grw.md` (ROI/RES/GRW); `docs/specs/feature-explain-stat-receipt-aura.md` (AURA).
 - **Schema:** Pydantic `ExplainStatReceipt` in `backend/app/models/api.py`; Zod mirror in `frontend/src/types/chat.ts`.
 
 ### 1h. RES + AURA stat tutorial cards (post-reshape, first-build only)

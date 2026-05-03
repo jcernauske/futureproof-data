@@ -588,6 +588,22 @@ describe("BuildResultsScreen -- boss bands (P1)", () => {
     const results = bossBands.map((el) => el.dataset.result);
     expect(results).toEqual(["win", "lose", "win", "draw", "win"]);
   });
+
+  it("sealed_boss_band_click_reveals -- clicking sealed Burnout reveals the band", async () => {
+    seedWithBuild();
+    renderScreen();
+
+    const revealButtons = screen.getAllByRole("button", {
+      name: "Reveal Burnout fight",
+    });
+    fireEvent.click(revealButtons[0]!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+
+    expect(await screen.findByTestId("btn-ask-boss-burnout")).toBeInTheDocument();
+  });
 });
 
 describe("BuildResultsScreen -- save button (P1)", () => {
@@ -1180,6 +1196,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       undefined,               // studentCip (undefined when no parentCip)
       undefined,               // homeState (null → undefined)
       "CA",                    // schoolState from mock school
+      null,                    // publishedCost4yr unavailable for mock school
       "🐻",                    // animalEmoji
       "en",                    // locale (default)
     );
@@ -1232,6 +1249,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       "11.0701",               // studentCip = cipCode
       undefined,               // homeState
       "CA",                    // schoolState from mock school
+      null,                    // publishedCost4yr unavailable for mock school
       "🐻",                    // animalEmoji
       "en",                    // locale (default)
     );
@@ -1379,10 +1397,20 @@ describe("BuildResultsScreen -- ROI/RES/GRW explain triggers (P0)", () => {
     expect(screen.getByTestId("btn-explain-grw")).toBeInTheDocument();
   });
 
-  it("aura_explain_link_not_shown_yet", () => {
+  it("aura_explain_link_visible_when_aura_present", () => {
     seedWithBuild({
       career: makeCareer({
         stats: { ern: 7, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.getByTestId("btn-explain-aura")).toBeInTheDocument();
+  });
+
+  it("aura_explain_link_suppressed_when_aura_null", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: 7, roi: 6, res: 7, grw: 9, aura: null },
       }),
     });
     renderScreen();

@@ -796,9 +796,9 @@ export function BuildResultsScreen() {
                           <p className="font-body text-text-secondary" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>
                             {t(stat.explanationKey)}
                           </p>
-                          {/* Explain-this-stat trigger — available for
-                             ERN, ROI, RES, GRW (AURA gated on separate spec). */}
-                          {(key === "ern" || key === "roi" || key === "res" || key === "grw") && (
+                          {/* Explain-this-stat trigger — available for all
+                             five stats. AURA gated on stats.aura !== null. */}
+                          {(key === "ern" || key === "roi" || key === "res" || key === "grw" || (key === "aura" && value != null)) && (
                             <button
                               type="button"
                               onClick={() => handleExplainStat(key)}
@@ -864,6 +864,29 @@ export function BuildResultsScreen() {
                   else bandRefs.current.delete(fight.boss);
                 }}
                 data-boss={fight.boss}
+                onClick={() => {
+                  if (!revealedBands.has(fight.boss)) triggerReveal(fight.boss);
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    !revealedBands.has(fight.boss) &&
+                    (e.key === "Enter" || e.key === " ")
+                  ) {
+                    e.preventDefault();
+                    triggerReveal(fight.boss);
+                  }
+                }}
+                role={!revealedBands.has(fight.boss) ? "button" : undefined}
+                tabIndex={!revealedBands.has(fight.boss) ? 0 : undefined}
+                aria-label={
+                  !revealedBands.has(fight.boss)
+                    ? t("build.bossSealed.revealAria")
+                        .replace(
+                          "{bossName}",
+                          t(BOSS_META[fight.boss].shortNameKey),
+                        )
+                    : undefined
+                }
               >
                 <BossBand
                   fight={fight}

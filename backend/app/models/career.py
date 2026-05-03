@@ -366,6 +366,7 @@ class IntentResult(BaseModel):
     intent_keywords: list[str] = Field(default_factory=list)
     remaining_count: int = 0
     narrowing_hint: str = ""
+    program_not_at_school: bool = False
 
 
 class ProfileResult(BaseModel):

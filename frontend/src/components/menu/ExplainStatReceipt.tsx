@@ -339,6 +339,18 @@ export function ExplainStatReceiptCard({
         {payload.one_liner}
       </p>
 
+      {/* Score provenance byline — AURA-only; suppressed when null */}
+      {payload.score_provenance && (
+        <p
+          data-testid="receipt-score-provenance"
+          aria-label={`Score provenance: based on ${payload.score_provenance}`}
+          className="font-body italic text-text-muted"
+          style={{ fontSize: 13, lineHeight: 1.4, marginTop: 6 }}
+        >
+          based on {payload.score_provenance}
+        </p>
+      )}
+
       {/* How it works — components + math line */}
       <section aria-labelledby="receipt-howitworks-heading" className="mt-5">
         <h2

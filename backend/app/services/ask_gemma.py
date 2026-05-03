@@ -71,6 +71,7 @@ from app.services.locale import (
     gemma_language_instruction,
     normalize_locale,
 )
+from app.services.receipts import _humanize_basis
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,7 @@ _TOOLS: tuple[str, ...] = (
     # (compare schools FOR a career, not look up programs AT one
     # school — that's get_career_paths).
     "get_schools_for_career",
+    "get_institution_aura",
 )
 
 # 0.5 — middle ground. Pre-trace this was 0.4 (suppressed all
@@ -1705,6 +1707,60 @@ def _fetch_res_task_evidence(
     return auto, human
 
 
+def _contextualize_res_task_evidence(
+    automatable: list[str] | None,
+    human: list[str] | None,
+    occupation_title: str,
+) -> tuple[list[str] | None, list[str] | None]:
+    """Translate generic O*NET activity labels into occupation-shaped bullets.
+
+    O*NET activity labels are trustworthy but broad ("Working with Computers").
+    For receipts, those labels need enough context for a student to picture the
+    actual work. Keep the original activity meaning, but specialize known broad
+    labels for high-visibility occupations where the generic label is too vague.
+    """
+    occupation_key = occupation_title.lower()
+    if "microbiologist" not in occupation_key:
+        return automatable, human
+
+    auto_map = {
+        "working with computers": (
+            "Running bioinformatics tools, lab databases, or genome-sequencing "
+            "analysis software"
+        ),
+        "analyzing data or information": (
+            "Interpreting culture results, assay readouts, or genetic data"
+        ),
+        "getting information": (
+            "Reviewing lab observations, research papers, and sample data"
+        ),
+        "documenting/recording information": (
+            "Recording protocols, sample results, and lab notes"
+        ),
+    }
+    human_map = {
+        "making decisions and solving problems": (
+            "Choosing experimental methods and interpreting unexpected lab results"
+        ),
+        "thinking creatively": (
+            "Designing experiments or troubleshooting contamination problems"
+        ),
+        "establishing and maintaining interpersonal relationships": (
+            "Coordinating with lab teams, clinicians, or public-health partners"
+        ),
+        "training and teaching others": (
+            "Teaching lab protocols and safety procedures"
+        ),
+    }
+
+    def apply_map(values: list[str] | None, mapping: dict[str, str]) -> list[str] | None:
+        if values is None:
+            return None
+        return [mapping.get(value.lower(), value) for value in values]
+
+    return apply_map(automatable, auto_map), apply_map(human, human_map)
+
+
 def _resolve_res_task_evidence(
     build: Build,
     tool_call_log: list[gemma_client.ToolCallTurn],
@@ -1723,7 +1779,12 @@ def _resolve_res_task_evidence(
             auto_evidence = fetched_auto
         if human_evidence is None:
             human_evidence = fetched_human
-    return auto_evidence, human_evidence
+    return _contextualize_res_task_evidence(
+        auto_evidence,
+        human_evidence,
+        build.career.occupation_title or "",
+    )
+
 
 
 def _res_level_word(score: int | None, *, exposure: bool) -> str:
@@ -2446,6 +2507,377 @@ def _postprocess_grw_explain_receipt(
 
 
 # ---------------------------------------------------------------------------
+# AURA explain-stat receipt
+#   spec: docs/specs/feature-explain-stat-receipt-aura.md
+# ---------------------------------------------------------------------------
+
+_AURA_SCORING_SCALE: list[ScoringTier] = [
+    ScoringTier(label="Elite brand", range="9 – 10", score="9 – 10"),
+    ScoringTier(label="Strong brand", range="7 – 8", score="7 – 8"),
+    ScoringTier(label="Solid brand", range="5 – 6", score="5 – 6"),
+    ScoringTier(label="Modest brand", range="3 – 4", score="3 – 4"),
+    ScoringTier(label="Low profile", range="1 – 2", score="1 – 2"),
+]
+
+_AURA_LABEL_ALLOWLIST: dict[int, str] = {
+    100: "your school's brand gravity",
+}
+
+_AURA_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
+    ReceiptSource(
+        label="Endowment + marketing",
+        name=(
+            "Integrated Postsecondary Education Data System (IPEDS), "
+            "U.S. Department of Education"
+        ),
+    ),
+    ReceiptSource(
+        label="Athletics",
+        name=(
+            "Equity in Athletics Disclosure Act (EADA), "
+            "U.S. Department of Education"
+        ),
+    ),
+)
+
+_AURA_ONE_LINER = (
+    "Brand Gravity measures how much weight your school's name carries "
+    "— for networking, alumni access, recruiter shortlists, and "
+    "graduate-school admissions."
+)
+
+_AURA_WHY_MIX_PARAGRAPH = (
+    "Most college tools pretend prestige doesn't matter — but it "
+    "absolutely does for networking, alumni access, recruiter "
+    "shortlists, and graduate-school admissions. Three signals, "
+    "measured per student so big and small schools are on the same "
+    "scale: endowment per full-time student (how much money the "
+    "school has invested per kid), marketing reach per student, and "
+    "athletic spending per student. The MAX rewards being elite at "
+    "any one (Stanford has the endowment; Notre Dame has the "
+    "football); the MEAN keeps it balanced."
+)
+
+_AURA_SIGNAL_DEFINITIONS: dict[str, tuple[str, str]] = {
+    "endowment_per_fte": (
+        "Endowment",
+        "how much savings the school holds per student",
+    ),
+    "marketing_ratio": (
+        "Marketing",
+        "how much the school spends getting its name out there, per student",
+    ),
+    "athletic_spend_per_fte": (
+        "Athletics",
+        "how much the school puts into sports programs per student",
+    ),
+}
+
+_AURA_BASIS_SIGNALS: dict[str, list[str]] = {
+    "three_term": ["endowment_per_fte", "marketing_ratio", "athletic_spend_per_fte"],
+    "two_term_finance_only": ["endowment_per_fte", "marketing_ratio"],
+    "two_term_no_endowment": ["marketing_ratio", "athletic_spend_per_fte"],
+    "one_term_marketing_only": ["marketing_ratio"],
+}
+
+_AURA_EXPLAIN_USER_PROMPT = (
+    "Explain my Brand Gravity score with the receipts. Show me the "
+    "actual numbers behind it, not just the definition."
+)
+
+_AURA_RECEIPT_JSON_TEMPLATE = """{
+  "kind": "receipt",
+  "stat_code": "AURA",
+  "stat_name": "Brand Gravity",
+  "score": 8,
+  "score_max": 10,
+  "one_liner": "__FILL_IN__: ONE-SENTENCE DEFINITION of what this score measures. Plain English a 16-year-old reads. No jargon, no /10, no percentiles.",
+  "components": [
+    {
+      "weight_pct": 100,
+      "label": "your school's brand gravity",
+      "explainer": "__FILL_IN__: 1-3 sentences. Name the school and describe how endowment, marketing, and athletic spending per student combine to measure institutional weight. Do NOT include the X/10 score.",
+      "value_pct": null,
+      "anchor_text": "__FILL_IN__: Describe the school's institutional weight signals in plain English.",
+      "anchor_dollars": null,
+      "missing_reason": null
+    }
+  ],
+  "math_line": "MAX-MEAN blend of 3 signals \\u2192 composite 0.72 \\u2192 AURA score 8/10",
+  "sources": [
+    {"label": "Endowment + marketing", "name": "Integrated Postsecondary Education Data System (IPEDS), U.S. Department of Education"},
+    {"label": "Athletics", "name": "Equity in Athletics Disclosure Act (EADA), U.S. Department of Education"}
+  ],
+  "why_mix_paragraph": "__FILL_IN__: ~3-sentence explanation of WHY brand gravity matters for a college decision. Emphasize the three signals (endowment, marketing, athletics), the MAX-then-MEAN blend, and per-student normalization. Do NOT include the X/10 score."
+}"""
+
+
+def _aura_explain_appendix_json(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT (AURA) — JSON-MODE OUTPUT REQUIRED
+
+The student tapped 'Explain this to me' on their Brand Gravity score.
+You will produce a single JSON object matching the structure shown in
+the TEMPLATE below. Do not write any text outside the JSON object.
+
+REQUIRED TOOL CALL — call on your first turn:
+
+  • get_institution_aura(unitid={career.unitid})
+    Pull the school's AURA score details, basis, and signal values.
+
+After the tool call returns, emit the JSON receipt.
+
+VOICE — Brand Gravity measures how much weight the school's name
+carries. Three signals, all measured per student so big and small
+schools are on the same scale: endowment per full-time student (how
+much money the school has invested per kid), marketing reach per
+student, and athletic spending per student. The MAX rewards being elite
+at any one (Stanford has the endowment; Notre Dame has the football);
+the MEAN keeps it balanced. Final score gets stretched to a 1–10 scale.
+
+VOICE-RULE SCOPING (this turn only):
+  • LIFTED for the `anchor_text` JSON field: describe the school's
+    institutional signals plainly (e.g., the school's per-student
+    endowment, marketing reach, and athletic spending).
+  • RETAINED for the prose JSON fields `one_liner`,
+    `components[*].explainer`, and `why_mix_paragraph`: do NOT write
+    'N/10', 'your score is N', or any numeric score reference.
+
+Do NOT include a `score_provenance` field in your output. The server
+stamps this field — your job is the prose voice; the basis label is
+server-controlled.
+
+TEMPLATE (replace every `__FILL_IN__` string with your written content):
+
+{_AURA_RECEIPT_JSON_TEMPLATE}
+
+CRITICAL — SENTINEL HANDLING. The strings `__FILL_IN__`, `[FILL_IN]`,
+`<FILL_IN>`, `ONE-SENTENCE DEFINITION HERE`, and `PLACEHOLDER` are
+placeholders ONLY — they MUST be replaced with your actual content.
+Echoing them back verbatim will fail validation and the receipt will
+not render. Write real prose in every prose field.
+
+Do NOT include `[helper: ...]` blocks, `<thinking>...</thinking>` blocks,
+or any meta-commentary.
+"""
+
+
+def _aura_explain_appendix_markdown(career: CareerOutcome) -> str:
+    return f"""
+
+EXPLAIN-THIS-STAT MODE — AURA (markdown fallback)
+
+The structured-JSON path failed validation; produce the markdown
+fallback.
+
+The cached tool values are already injected into the user message —
+do NOT re-call get_institution_aura.
+
+REQUIRED RESPONSE STRUCTURE — exactly four sections in this order:
+
+### Brand Gravity — <SCORE>/10
+
+**The one-liner.** One sentence naming what the score measures.
+
+**How it works.**
+  - **100% — your school's brand gravity.**
+    {career.institution_name}'s per-student endowment, marketing reach, and
+    athletic spending combined into one composite signal.
+
+  Math: composite <value> → AURA score <SCORE>/10.
+
+**Where the data comes from.**
+  - Endowment + marketing: Integrated Postsecondary Education Data
+    System (IPEDS), U.S. Department of Education.
+  - Athletics: Equity in Athletics Disclosure Act (EADA), U.S.
+    Department of Education.
+
+**Why we use this number.** A ~3-sentence explanation of brand gravity.
+"""
+
+
+def _render_math_line_aura(
+    *,
+    aura_score_continuous: float | None,
+    build_score: int,
+    score_max: int,
+    signal_count: int | None = None,
+) -> str:
+    blend = (
+        f"MAX-MEAN blend of {signal_count} signal{'s' if signal_count != 1 else ''}"
+        if signal_count
+        else "institutional signals"
+    )
+    if aura_score_continuous is not None:
+        return (
+            f"{blend} → composite {aura_score_continuous:.2f} → AURA score "
+            f"{build_score}/{score_max}"
+        )
+    return f"{blend} → AURA score {build_score}/{score_max}"
+
+
+def _extract_aura_tool_data(
+    tool_call_log: list[gemma_client.ToolCallTurn],
+) -> dict | None:
+    for turn in tool_call_log:
+        if turn.error or turn.tool_name != "get_institution_aura":
+            continue
+        result_json = turn.tool_result_full or turn.tool_result_preview
+        try:
+            preview = json.loads(result_json)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        row = preview.get("data") if isinstance(preview, dict) else None
+        if isinstance(row, dict):
+            return row
+    return None
+
+
+def _build_aura_evidence_bullets(
+    tool_data: dict | None,
+    basis: str | None,
+) -> list[str] | None:
+    if tool_data is None or basis is None:
+        return None
+    signal_keys = _AURA_BASIS_SIGNALS.get(basis)
+    if signal_keys is None:
+        return None
+
+    bullets: list[str] = []
+    for key in signal_keys:
+        defn = _AURA_SIGNAL_DEFINITIONS.get(key)
+        if defn is None:
+            continue
+        display_name, description = defn
+        value = tool_data.get(key)
+        if value is None or not isinstance(value, (int, float)):
+            continue
+        if key == "marketing_ratio":
+            val_str = f"{value:.3f} ratio"
+        else:
+            val_str = f"${int(value):,}/student"
+        bullets.append(f"{display_name}: {val_str} — {description}")
+
+    return bullets if bullets else None
+
+
+def _postprocess_aura_explain_receipt(
+    raw: str,
+    build: Build,
+    tool_call_log: list[gemma_client.ToolCallTurn],
+    backend: str,
+) -> ExplainStatReceipt | None:
+    """AURA-specific 10-step pipeline."""
+    json_prefix = raw[:500] if raw else ""
+    build_id = build.build_id
+    call_site = "explain_aura_receipt"
+
+    candidates = gemma_client._extract_json_objects(raw or "")
+    parsed: dict[str, Any] | None = next(
+        (c for c in candidates if isinstance(c, dict)), None
+    )
+    if parsed is None:
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="json_decode", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    for comp in parsed.get("components", []):
+        if isinstance(comp, dict):
+            comp["value_pct"] = None
+
+    try:
+        receipt = ExplainStatReceipt.model_validate(parsed)
+    except ValidationError as exc:
+        reason = "pydantic_validation"
+        if "unreplaced template sentinel" in str(exc):
+            reason = "sentinel_passthrough"
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason=reason, json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    if receipt.stat_code != "AURA":
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="stat_code_mismatch", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    build_score = build.career.stats.aura
+    if build_score is None:
+        _log_receipt_parse(
+            call_site=call_site, parse_success=False,
+            failure_reason="score_null", json_prefix=json_prefix,
+            build_id=build_id, backend=backend,
+        )
+        return None
+
+    receipt.score = build_score
+    receipt.score_max = 10
+
+    # Server-stamp score_provenance from the build's aura_score_basis.
+    basis = build.career.aura_score_basis
+    if basis is not None:
+        receipt.score_provenance = _humanize_basis(basis)
+    else:
+        receipt.score_provenance = None
+
+    # Extract tool data for math line and evidence bullets.
+    tool_data = _extract_aura_tool_data(tool_call_log)
+    aura_score_continuous: float | None = None
+    if tool_data is not None:
+        raw_continuous = tool_data.get("aura_score_continuous")
+        if isinstance(raw_continuous, (int, float)):
+            aura_score_continuous = float(raw_continuous)
+
+    signal_keys = _AURA_BASIS_SIGNALS.get(basis or "") or []
+    receipt.math_line = _render_math_line_aura(
+        aura_score_continuous=aura_score_continuous,
+        build_score=build_score,
+        score_max=receipt.score_max,
+        signal_count=len(signal_keys) if signal_keys else None,
+    )
+
+    for comp in receipt.components:
+        canonical, was_normalized = _normalize_label(
+            comp.weight_pct, comp.label, _AURA_LABEL_ALLOWLIST
+        )
+        if was_normalized:
+            logger.warning(
+                "aura_explain_receipt: label normalized weight=%d "
+                "gemma=%r canonical=%r",
+                comp.weight_pct, comp.label, canonical,
+            )
+            comp.label = canonical
+
+    for comp in receipt.components:
+        if comp.weight_pct == 100:
+            comp.value_pct = None
+            comp.anchor_dollars = None
+            comp.missing_reason = None
+            comp.evidence_bullets = _build_aura_evidence_bullets(
+                tool_data, basis,
+            )
+
+    receipt.sources = list(_AURA_RECEIPT_SOURCES)
+    receipt.scoring_scale = _AURA_SCORING_SCALE
+
+    _log_receipt_parse(
+        call_site=call_site, parse_success=True,
+        failure_reason=None, json_prefix=json_prefix,
+        build_id=build_id, backend=backend,
+    )
+    return receipt
+
+
+# ---------------------------------------------------------------------------
 # Explain-stat registry (Decision 1 of feature-explain-stat-receipt-roi-res-grw)
 # ---------------------------------------------------------------------------
 
@@ -2460,7 +2892,7 @@ _AppendixMarkdownFn = Callable[[CareerOutcome], str]
 @dataclass(frozen=True)
 class _StatExplainConfig:
     """Per-stat dispatch config for the explain-receipt JSON path."""
-    stat_code: Literal["ERN", "ROI", "RES", "GRW"]
+    stat_code: Literal["ERN", "ROI", "RES", "GRW", "AURA"]
     appendix_json_fn: _AppendixJsonFn
     appendix_markdown_fn: _AppendixMarkdownFn
     label_allowlist: dict[int, str] | list[tuple[int, str]]
@@ -2529,6 +2961,17 @@ _STAT_EXPLAIN_REGISTRY: dict[str, _StatExplainConfig] = {
         user_prompt=_GRW_EXPLAIN_USER_PROMPT,
         missing_score_one_liner=_GRW_ONE_LINER,
         missing_score_why_mix=_GRW_WHY_MIX_PARAGRAPH,
+    ),
+    "AURA": _StatExplainConfig(
+        stat_code="AURA",
+        appendix_json_fn=_aura_explain_appendix_json,
+        appendix_markdown_fn=_aura_explain_appendix_markdown,
+        label_allowlist=_AURA_LABEL_ALLOWLIST,
+        postprocessor=_postprocess_aura_explain_receipt,
+        log_call_site="explain_aura_receipt",
+        user_prompt=_AURA_EXPLAIN_USER_PROMPT,
+        missing_score_one_liner=_AURA_ONE_LINER,
+        missing_score_why_mix=_AURA_WHY_MIX_PARAGRAPH,
     ),
 }
 
