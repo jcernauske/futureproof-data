@@ -1923,12 +1923,23 @@ TRANSPARENCY REQUIREMENT:
   • Explain vulnerability, not just definitions. A student should leave
     understanding which parts of the work AI can already eat and which
     parts still require people.
-  • For the AI exposure explainer, name 2-3 concrete automatable tasks
-    from task_breakdown_automatable when available. Say that AI may reduce
-    or compress junior work even when it does not replace the whole career.
-  • For the human-essential explainer, name 2-3 concrete human-buffer tasks
-    from task_breakdown_human when available. Explain how those tasks protect
-    the career, but do not overpromise safety.
+  • The task categories (e.g. "Working with Computers", "Analyzing Data")
+    come from O*NET and are generic across all occupations. Your job is to
+    make them SPECIFIC to this occupation. For every task you mention,
+    describe what it concretely looks like for a {career.occupation_title}
+    — e.g. for a microbiologist, "Working with Computers" means running
+    bioinformatics pipelines and analyzing genome sequencing data, NOT
+    just "using a computer." A student reading this should picture their
+    actual daily work, not a generic job description.
+  • For the AI exposure explainer, name 2-3 automatable tasks from
+    task_breakdown_automatable when available. For each one, say what AI
+    can already do in that area for this specific role. Say that AI may
+    reduce or compress junior work even when it does not replace the
+    whole career.
+  • For the human-essential explainer, name 2-3 human-buffer tasks from
+    task_breakdown_human when available. For each one, explain WHY this
+    specific task requires a human in this occupation — not just that it
+    does.
   • Do not invent task examples. If task evidence is unavailable, say the
     receipt has the score inputs but not task-level evidence.
   • Leave evidence_bullets as null. The server stamps trusted task bullets
@@ -2130,6 +2141,16 @@ def _postprocess_res_explain_receipt(
 # GRW receipt helpers
 # ---------------------------------------------------------------------------
 
+_GRW_SCORING_SCALE: list[ScoringTier] = [
+    ScoringTier(label="Booming", range="+20% or more", score="9 – 10"),
+    ScoringTier(label="Strong growth", range="+10% to +20%", score="8 – 9"),
+    ScoringTier(label="Above average", range="+5% to +10%", score="7 – 8"),
+    ScoringTier(label="Average growth", range="+1% to +5%", score="5 – 7"),
+    ScoringTier(label="Flat", range="-1% to +1%", score="4 – 5"),
+    ScoringTier(label="Declining", range="-10% to -1%", score="3 – 4"),
+    ScoringTier(label="Shrinking fast", range="-20% or worse", score="1 – 3"),
+]
+
 _GRW_LABEL_ALLOWLIST: dict[int, str] = {
     100: "this career's projected employment change",
 }
@@ -2330,6 +2351,14 @@ def _postprocess_grw_explain_receipt(
         )
         return None
 
+    # GRW has a single 100%-weight component; value_pct is server-
+    # stamped (always overwritten to None below). Gemma often fills it
+    # with the employment_change_pct float (e.g. 4.1), which fails
+    # Pydantic's int coercion. Null it before validation.
+    for comp in parsed.get("components", []):
+        if isinstance(comp, dict):
+            comp["value_pct"] = None
+
     try:
         receipt = ExplainStatReceipt.model_validate(parsed)
     except ValidationError as exc:
@@ -2406,6 +2435,7 @@ def _postprocess_grw_explain_receipt(
                 )
 
     receipt.sources = list(_GRW_RECEIPT_SOURCES)
+    receipt.scoring_scale = _GRW_SCORING_SCALE
 
     _log_receipt_parse(
         call_site=call_site, parse_success=True,
