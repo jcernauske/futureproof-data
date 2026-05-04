@@ -6,7 +6,7 @@ from app.services import profile
 router = APIRouter()
 
 
-@router.post("/")
+@router.post("")
 async def create_profile():
     return profile.generate_name()
 
