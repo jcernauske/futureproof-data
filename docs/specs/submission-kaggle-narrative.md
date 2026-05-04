@@ -11,6 +11,7 @@
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-19 |
+| Last Updated | 2026-04-19 (placeholder; pitch framing pinned for future writeup + video) |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.0 (stub) |
 | Deadline | 2026-05-18 (Gemma 4 Good / Kaggle) |

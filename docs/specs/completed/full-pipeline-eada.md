@@ -1,9 +1,10 @@
 # Spec: full-pipeline-eada
 
-**Status:** DRAFT
+**Status:** COMPLETE
 **Zone:** Raw → Base → Consumable
 **Primary Agent:** @primary-agent
 **Created:** 2026-04-30
+**Last Updated:** 2026-05-03 (human-reviewed and accepted; pipeline landed in commits d7bafb7, 7877938, d1ad9ac, f5967d1, 98b7994)
 **Hard Dependency (base zone only):** This spec's `raw` zone is fully independent and can run in parallel with `docs/specs/raw-ingest-ipeds-finance.md`. The dependency kicks in at the `base` zone — `base.ipeds_finance` must exist before §5 runs (`base.eada` LEFT JOINs it for FTE), and both base tables must exist before §6 runs (`consumable.institution_aura` FULL OUTER JOINs them). No dependency on Spec 1's `consumable` zone.
 
 ---
@@ -1626,7 +1627,7 @@ Spec changes applied:
 
 ## §11 Final Notes
 
-**Human Review:** PENDING
+**Human Review:** ACCEPTED 2026-05-03 (Jeff Cernauske)
 
 The `aura_score` is the project's first composite institution-level signal. Lands in the warehouse for inspection — not as a product surface. Any future surfacing (receipts, badges, stretch boss) is a separate, follow-up spec.
 

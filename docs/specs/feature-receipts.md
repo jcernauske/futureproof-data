@@ -35,6 +35,7 @@ Execute the standard FutureProof workflow:
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-19 |
+| Last Updated | 2026-04-19 (skeleton drafted; v0.5 stub carved for hackathon) |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.1 (skeleton) |
 | Blocked By | — |
