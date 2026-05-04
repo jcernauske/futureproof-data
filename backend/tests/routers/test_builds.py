@@ -666,11 +666,10 @@ class TestStreamBuildGemmaFailureFallback:
 
 
 class TestStreamBuildSavesAfterDone:
-    """Build is persisted to disk (state.store_build + builds.save_build)
-    only after all events complete — i.e. the save happens before the done
-    event is yielded but after all Gemma results are collected."""
+    """Build is persisted as a skeleton before the first event, then the
+    completed build replaces it before done."""
 
-    def test_save_called_once(self, stream_client):
+    def test_save_called_for_skeleton_and_final_build(self, stream_client):
         response = stream_client.post(
             "/build/stream",
             json=_build_request_body(),
@@ -680,15 +679,19 @@ class TestStreamBuildSavesAfterDone:
         save_spy = stream_client._save_spy  # type: ignore[attr-defined]
         store_spy = stream_client._store_spy  # type: ignore[attr-defined]
 
-        # Both must be called exactly once
-        assert save_spy.call_count == 1, (
-            "builds.save_build should be called once, "
+        assert save_spy.call_count == 2, (
+            "builds.save_build should be called for the skeleton and final build, "
             f"was called {save_spy.call_count} times"
         )
-        assert store_spy.call_count == 1, (
-            "state.store_build should be called once, "
+        assert store_spy.call_count == 2, (
+            "state.store_build should be called for the skeleton and final build, "
             f"was called {store_spy.call_count} times"
         )
+
+        skeleton_build: Build = save_spy.call_args_list[0].args[0]
+        assert skeleton_build.skill_recs == []
+        assert skeleton_build.skill_pool == []
+        assert skeleton_build.guidance == ""
 
     def test_saved_build_contains_gemma_results(self, stream_client):
         """The build passed to save_build must have Gemma results patched in,
@@ -700,7 +703,7 @@ class TestStreamBuildSavesAfterDone:
         assert response.status_code == 200
 
         save_spy = stream_client._save_spy  # type: ignore[attr-defined]
-        saved_build: Build = save_spy.call_args[0][0]
+        saved_build: Build = save_spy.call_args_list[-1].args[0]
 
         # skill_recs should not be empty (mock returns 1)
         assert len(saved_build.skill_recs) >= 1
@@ -728,7 +731,7 @@ class TestStreamBuildSavesAfterDone:
         done_build_id = done_data["build_id"]
 
         save_spy = stream_client._save_spy  # type: ignore[attr-defined]
-        saved_build: Build = save_spy.call_args[0][0]
+        saved_build: Build = save_spy.call_args_list[-1].args[0]
 
         assert saved_build.build_id == done_build_id, (
             f"Done event build_id {done_build_id!r} does not match "

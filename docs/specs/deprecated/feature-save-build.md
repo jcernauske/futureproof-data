@@ -66,7 +66,9 @@ Execute the following workflow:
 
 ---
 
-## Status: DRAFT
+## Status: DEPRECATED 2026-05-03
+
+> **Deprecated for the hackathon.** Auto-save and build versioning are nice-to-haves that don't appear in the demo path. Builds are already addressable by URL; that's enough for submission. If multi-build session management becomes a real user need post-hackathon, write fresh against actual usage signal.
 
 | Status | Meaning |
 |--------|---------|
@@ -88,9 +90,9 @@ Execute the following workflow:
 | Created | 2026-04-23 |
 | Author | Jeff + Claude Code |
 | Spec Version | 2.0 |
-| Last Updated | 2026-04-23 |
+| Last Updated | 2026-05-03 (DEPRECATED — out of hackathon scope; URL-addressable builds are sufficient) |
 | Blocked By | — |
-| Related Specs | `feature-resolution-cache.md` (DEFERRED — post-hackathon) |
+| Related Specs | `feature-resolution-cache.md` (DEPRECATED) |
 
 ---
 

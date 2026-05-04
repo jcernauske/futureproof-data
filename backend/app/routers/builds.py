@@ -310,6 +310,12 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
         locale=request.locale,
     )
 
+    # The frontend renders /my-build as soon as this skeleton event
+    # arrives. Persist it before yielding so immediate Ask Gemma actions
+    # can resolve the build_id while the slower Gemma fanout continues.
+    state.store_build(skeleton)
+    await asyncio.to_thread(builds.save_build, skeleton)
+
     yield sse_event("skeleton", skeleton.model_dump(mode="json"))
 
     locale = request.locale or "en"

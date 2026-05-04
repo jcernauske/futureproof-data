@@ -68,10 +68,65 @@ export async function mockListBuilds(_profileName: string): Promise<BuildSummary
   return SUMMARIES;
 }
 
-const MOCK_EXTRA: Record<string, { soc_code: string; wage: number | null; cost: number | null; debt: number | null }> = {
-  "berkeley-cs-001": { soc_code: "15-1252", wage: 130000, cost: 16200, debt: 32400 },
-  "iu-bloom-mkt-001": { soc_code: "11-2021", wage: 140040, cost: 11400, debt: 22800 },
-  "purdue-nursing-001": { soc_code: "29-1141", wage: 86070, cost: 9800, debt: 19600 },
+interface MockBuildExtra {
+  soc_code: string;
+  wage: number | null;
+  cost: number | null;
+  debt: number | null;
+  cost_of_attendance_annual: number | null;
+  published_cost_4yr: number | null;
+  room_board_on_campus: number | null;
+  tuition_in_state: number | null;
+  tuition_out_of_state: number | null;
+  earnings_1yr_median: number | null;
+  earnings_1yr_p25: number | null;
+  earnings_1yr_p75: number | null;
+  state_abbr: string | null;
+  fte_enrollment: number | null;
+  endowment_per_fte: number | null;
+  marketing_ratio: number | null;
+  athletic_spend_per_fte: number | null;
+  athletic_revenue_per_fte: number | null;
+  athletic_subsidy_ratio: number | null;
+  aura_score_basis: string | null;
+  coverage_tier: string | null;
+  institution_control: string | null;
+}
+
+const MOCK_EXTRA: Record<string, MockBuildExtra> = {
+  "berkeley-cs-001": {
+    soc_code: "15-1252", wage: 130000, cost: 16200, debt: 32400,
+    cost_of_attendance_annual: 38800, published_cost_4yr: 155200,
+    room_board_on_campus: 18800, tuition_in_state: 14300, tuition_out_of_state: 44000,
+    earnings_1yr_median: 130000, earnings_1yr_p25: 95000, earnings_1yr_p75: 170000,
+    state_abbr: "CA", fte_enrollment: 45057, endowment_per_fte: 68300,
+    marketing_ratio: 0.06, athletic_spend_per_fte: 2350,
+    athletic_revenue_per_fte: 3100, athletic_subsidy_ratio: 0.12,
+    aura_score_basis: "ipeds_finance+eada", coverage_tier: "full",
+    institution_control: "Public (4-year)",
+  },
+  "iu-bloom-mkt-001": {
+    soc_code: "11-2021", wage: 140040, cost: 11400, debt: 22800,
+    cost_of_attendance_annual: 27100, published_cost_4yr: 108400,
+    room_board_on_campus: 11500, tuition_in_state: 10680, tuition_out_of_state: 38300,
+    earnings_1yr_median: 140040, earnings_1yr_p25: 85000, earnings_1yr_p75: 195000,
+    state_abbr: "IN", fte_enrollment: 43503, endowment_per_fte: 42100,
+    marketing_ratio: 0.12, athletic_spend_per_fte: 1840,
+    athletic_revenue_per_fte: 2200, athletic_subsidy_ratio: 0.18,
+    aura_score_basis: "ipeds_finance+eada", coverage_tier: "full",
+    institution_control: "Public (4-year)",
+  },
+  "purdue-nursing-001": {
+    soc_code: "29-1141", wage: 86070, cost: 9800, debt: 19600,
+    cost_of_attendance_annual: 22800, published_cost_4yr: 91200,
+    room_board_on_campus: 10800, tuition_in_state: 9992, tuition_out_of_state: 28794,
+    earnings_1yr_median: 86070, earnings_1yr_p25: 65000, earnings_1yr_p75: 98000,
+    state_abbr: "IN", fte_enrollment: 50884, endowment_per_fte: 55200,
+    marketing_ratio: 0.08, athletic_spend_per_fte: 2100,
+    athletic_revenue_per_fte: 4500, athletic_subsidy_ratio: 0.08,
+    aura_score_basis: "ipeds_finance+eada", coverage_tier: "full",
+    institution_control: "Public (4-year)",
+  },
 };
 
 const MOCK_SKILL_COUNTS: Record<string, Record<string, number>> = {
@@ -85,24 +140,52 @@ export async function mockCompareBuilds(buildIds: string[]): Promise<CompareResu
   const picks = SUMMARIES.filter((s) => buildIds.includes(s.build_id));
   return {
     builds: picks.map((b) => {
-      const extra = MOCK_EXTRA[b.build_id] ?? { soc_code: "00-0000", wage: null, cost: null, debt: null };
+      const extra = MOCK_EXTRA[b.build_id];
+      const fallback: MockBuildExtra = {
+        soc_code: "00-0000", wage: null, cost: null, debt: null,
+        cost_of_attendance_annual: null, published_cost_4yr: null,
+        room_board_on_campus: null, tuition_in_state: null, tuition_out_of_state: null,
+        earnings_1yr_median: null, earnings_1yr_p25: null, earnings_1yr_p75: null,
+        state_abbr: null, fte_enrollment: null, endowment_per_fte: null,
+        marketing_ratio: null, athletic_spend_per_fte: null,
+        athletic_revenue_per_fte: null, athletic_subsidy_ratio: null,
+        aura_score_basis: null, coverage_tier: null, institution_control: null,
+      };
+      const e = extra ?? fallback;
       return {
         build_id: b.build_id,
         label: `${b.school_name} — ${b.major_text}`,
         career: b.career_title,
-        soc_code: extra.soc_code,
+        soc_code: e.soc_code,
         profile_name: b.profile_name,
         animal_emoji: b.animal_emoji,
         school_name: b.school_name,
         major_text: b.major_text,
         effort: "balanced",
         loan_pct: 0.5,
-        median_annual_wage: extra.wage,
-        net_price_annual: extra.cost,
-        modeled_total_debt: extra.debt,
-        tuition_annual: extra.cost,
+        median_annual_wage: e.wage,
+        net_price_annual: e.cost,
+        modeled_total_debt: e.debt,
+        tuition_annual: e.cost,
         is_out_of_state: false,
-        institution_control: null,
+        institution_control: e.institution_control,
+        cost_of_attendance_annual: e.cost_of_attendance_annual,
+        published_cost_4yr: e.published_cost_4yr,
+        room_board_on_campus: e.room_board_on_campus,
+        tuition_in_state: e.tuition_in_state,
+        tuition_out_of_state: e.tuition_out_of_state,
+        earnings_1yr_median: e.earnings_1yr_median,
+        earnings_1yr_p25: e.earnings_1yr_p25,
+        earnings_1yr_p75: e.earnings_1yr_p75,
+        state_abbr: e.state_abbr,
+        fte_enrollment: e.fte_enrollment,
+        endowment_per_fte: e.endowment_per_fte,
+        marketing_ratio: e.marketing_ratio,
+        athletic_spend_per_fte: e.athletic_spend_per_fte,
+        athletic_revenue_per_fte: e.athletic_revenue_per_fte,
+        athletic_subsidy_ratio: e.athletic_subsidy_ratio,
+        aura_score_basis: e.aura_score_basis,
+        coverage_tier: e.coverage_tier,
       };
     }),
     stats: [

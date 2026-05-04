@@ -431,6 +431,201 @@ class TestBuildCrud:
         assert market_boss["skill_counts"] == [0, 0]
         assert market_boss["original_values"] == ["—", "—"]
 
+    # --- P0: Cost detail fields (spec: feature-compare-screen-redesign) ---
+
+    def test_compare_builds_returns_cost_detail_fields(
+        self, isolated_builds_dir, monkeypatch
+    ):
+        """compare_builds must return new cost detail + earnings range
+        fields from CareerOutcome for the Cost Breakdown accordion."""
+        # Patch out _fetch_institution_profiles so we don't need MCP.
+        monkeypatch.setattr(
+            builds,
+            "_fetch_institution_profiles",
+            lambda _builds: {},
+        )
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        build_a = comparison["builds"][0]
+
+        # All 10 new CareerOutcome-derived fields must be present as keys.
+        cost_fields = [
+            "cost_of_attendance_annual",
+            "published_cost_4yr",
+            "room_board_on_campus",
+            "tuition_in_state",
+            "tuition_out_of_state",
+            "earnings_1yr_median",
+            "earnings_1yr_p25",
+            "earnings_1yr_p75",
+            "state_abbr",
+            "aura_score_basis",
+        ]
+        for field in cost_fields:
+            assert field in build_a, (
+                f"compare response missing cost detail field: {field}"
+            )
+
+        # The _career() fixture doesn't set these fields, so they
+        # should all be None — verifying the pipeline handles absence.
+        assert build_a["cost_of_attendance_annual"] is None
+        assert build_a["published_cost_4yr"] is None
+        assert build_a["room_board_on_campus"] is None
+        assert build_a["tuition_in_state"] is None
+        assert build_a["tuition_out_of_state"] is None
+        assert build_a["earnings_1yr_p25"] is None
+        assert build_a["earnings_1yr_p75"] is None
+        assert build_a["state_abbr"] is None
+
+    # --- P0: Institution profile fields ---
+
+    def test_compare_builds_returns_institution_profile_fields(
+        self, isolated_builds_dir, monkeypatch
+    ):
+        """compare_builds must return institution profile fields derived
+        from the MCP get_institution_aura call and Iceberg FTE query."""
+        # Mock MCP call: get_institution_aura returns realistic data.
+        mock_aura_response = {
+            "data": {
+                "endowment_per_fte": 45000.0,
+                "marketing_ratio": 0.12,
+                "athletic_spend_per_fte": 2100.0,
+                "athletic_revenue_per_fte": 3500.0,
+                "athletic_subsidy_ratio": 0.15,
+                "coverage_tier": "full",
+            },
+            "row_count": 1,
+        }
+
+        def mock_mcp_call(tool: str, args: dict):
+            if tool == "get_institution_aura":
+                return mock_aura_response
+            raise ValueError(f"Unexpected MCP tool call: {tool}")
+
+        # Mock the Iceberg query for FTE enrollment.
+        class FakeServer:
+            def query_iceberg_simple(self, table, *, filters, columns, limit):
+                if table == "consumable.ipeds_finance_profile":
+                    return [{"total_fte_enrollment": 35000}]
+                return []
+
+        monkeypatch.setattr(
+            "app.services.mcp_client.call", mock_mcp_call
+        )
+        monkeypatch.setattr(
+            "app.services.mcp_client.get_server", lambda: FakeServer()
+        )
+
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        build_a = comparison["builds"][0]
+
+        # Institution profile fields must be populated from mock data.
+        assert build_a["endowment_per_fte"] == 45000.0
+        assert build_a["marketing_ratio"] == 0.12
+        assert build_a["athletic_spend_per_fte"] == 2100.0
+        assert build_a["athletic_revenue_per_fte"] == 3500.0
+        assert build_a["athletic_subsidy_ratio"] == 0.15
+        assert build_a["coverage_tier"] == "full"
+        assert build_a["fte_enrollment"] == 35000
+
+    # --- P1: Institution profile caching by unitid ---
+
+    def test_compare_builds_caches_institution_profile_by_unitid(
+        self, isolated_builds_dir, monkeypatch
+    ):
+        """Two builds at the same school (same unitid) should trigger
+        only one MCP call for institution_aura, not two."""
+        call_count = {"aura": 0, "fte": 0}
+
+        def mock_mcp_call(tool: str, args: dict):
+            if tool == "get_institution_aura":
+                call_count["aura"] += 1
+                return {"data": {"endowment_per_fte": 10000.0}}
+            raise ValueError(f"Unexpected MCP tool call: {tool}")
+
+        class FakeServer:
+            def query_iceberg_simple(self, table, *, filters, columns, limit):
+                if table == "consumable.ipeds_finance_profile":
+                    call_count["fte"] += 1
+                    return [{"total_fte_enrollment": 20000}]
+                return []
+
+        monkeypatch.setattr(
+            "app.services.mcp_client.call", mock_mcp_call
+        )
+        monkeypatch.setattr(
+            "app.services.mcp_client.get_server", lambda: FakeServer()
+        )
+
+        # Both builds share unitid 151351 (from _make_build / _career).
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="IU-B", major="Finance")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+
+        # Only ONE aura call and ONE FTE query despite two builds.
+        assert call_count["aura"] == 1, (
+            f"Expected 1 MCP call for same unitid, got {call_count['aura']}"
+        )
+        assert call_count["fte"] == 1, (
+            f"Expected 1 FTE query for same unitid, got {call_count['fte']}"
+        )
+
+        # Both builds should still have the institution data.
+        assert comparison["builds"][0]["endowment_per_fte"] == 10000.0
+        assert comparison["builds"][1]["endowment_per_fte"] == 10000.0
+
+    # --- P2: Missing institution AURA data ---
+
+    def test_compare_builds_handles_missing_institution_aura(
+        self, isolated_builds_dir, monkeypatch
+    ):
+        """When the MCP call and Iceberg query both fail, institution
+        profile fields should be absent (merged from empty dict)."""
+
+        def mock_mcp_call(tool: str, args: dict):
+            raise RuntimeError("MCP server unavailable")
+
+        class FakeServer:
+            def query_iceberg_simple(self, table, *, filters, columns, limit):
+                raise RuntimeError("Iceberg unavailable")
+
+        monkeypatch.setattr(
+            "app.services.mcp_client.call", mock_mcp_call
+        )
+        monkeypatch.setattr(
+            "app.services.mcp_client.get_server", lambda: FakeServer()
+        )
+
+        a = _make_build(school="IU-B", major="Marketing")
+        builds.save_build(a)
+        b = _make_build(school="Purdue", major="Engineering")
+        builds.save_build(b)
+
+        comparison = builds.compare_builds([a.build_id, b.build_id])
+        build_a = comparison["builds"][0]
+
+        # Institution profile fields should be null or absent.
+        # _fetch_institution_profiles returns {} for each unitid on
+        # exception, so the ** merge adds no keys. These keys won't
+        # exist in build_a.
+        assert build_a.get("endowment_per_fte") is None
+        assert build_a.get("marketing_ratio") is None
+        assert build_a.get("athletic_spend_per_fte") is None
+        assert build_a.get("fte_enrollment") is None
+        assert build_a.get("coverage_tier") is None
+
 
 # ---------------------------------------------------------------------------
 # /build async fan-out tests (spec: docs/specs/perf-reveal-loading-screen.md)

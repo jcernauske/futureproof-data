@@ -1,6 +1,8 @@
 # Feature: Chat Guardrails (PLACEHOLDER)
 
-## Status: TODO — scope narrowed 2026-04-19
+## Status: DEPRECATED 2026-05-03
+
+> **Deprecated for the hackathon.** Set Your Course replaced the open chat surface with three fixed chips + one scoped clarifier; most of what a guardrails spec would cover no longer applies. The scoped clarifier already inherits voice rules from the Gemma system prompt. Adversarial-input hardening belongs in production, not a hackathon submission.
 
 > **This is a placeholder, not a spec.** It exists to capture the guardrails obligation introduced by `feature-set-your-course.md`.
 >
@@ -17,7 +19,7 @@
 | Created | 2026-04-19 |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.0 (stub) |
-| Last Updated | 2026-04-19 |
+| Last Updated | 2026-05-03 (DEPRECATED — scope evaporated after Set Your Course narrowed the chat surface) |
 | Blocks | Shipping `feature-set-your-course.md` to any audience outside the dev team |
 | Related Specs | `docs/specs/feature-set-your-course.md` (primary consumer — introduces the two input surfaces this spec guards), `docs/specs/feature-receipts.md` (citation discipline IS the first line of hallucination defense — if Gemma must cite a real source, it can't invent claims), `docs/specs/feature-gemma-availability.md` (outage fallbacks must respect the same guardrails), `docs/specs/completed/feature-gemma-tiered-matching.md` (existing intent prompt + audit prompt are the v0 hardening this spec extends) |
 | Mockup reference | `docs/specs/design/set-your-course-mockup/index.html` — **Scenarios 6 & 7** show the clarifier input (the one scoped free-text surface that requires injection defense); **Scenarios 8 & 9** show the chip debug trace (where prompt-injection-into-clarifier would surface); **Scenarios 10 & 11** show the community-suggestions cards (the poisoning vector the feasibility-mode gate defends against) |

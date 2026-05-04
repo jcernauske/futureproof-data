@@ -91,7 +91,9 @@ Execute the following workflow:
 
 ---
 
-## Status: DRAFT
+## Status: DEPRECATED 2026-05-03
+
+> **Deprecated for the hackathon.** Out of scope before May 18 — the data-grid framing is interesting but adds a new agentic surface that doesn't earn its keep against the existing demo flow. If revived post-hackathon, write fresh against then-current product state rather than reviving this draft.
 
 | Status | Meaning |
 |--------|---------|
@@ -113,7 +115,7 @@ Execute the following workflow:
 | Created | 2026-05-01 |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 1.0 |
-| Last Updated | 2026-05-01 (data-grid framing, per fp-product-partner) |
+| Last Updated | 2026-05-03 (DEPRECATED — out of hackathon scope) |
 | Blocked By | Phase 0 spike acceptance (internal blocker, not external) |
 | Related Specs | `docs/specs/feature-ask-gemma.md` (chat surface using Gemma), `docs/specs/cloud-gemma-deployment.md` (OpenRouter backend) |
 

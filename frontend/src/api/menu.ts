@@ -63,6 +63,23 @@ export interface CompareBuild {
   tuition_annual: number | null;
   is_out_of_state: boolean;
   institution_control: string | null;
+  cost_of_attendance_annual: number | null;
+  published_cost_4yr: number | null;
+  room_board_on_campus: number | null;
+  tuition_in_state: number | null;
+  tuition_out_of_state: number | null;
+  earnings_1yr_median: number | null;
+  earnings_1yr_p25: number | null;
+  earnings_1yr_p75: number | null;
+  state_abbr: string | null;
+  fte_enrollment: number | null;
+  endowment_per_fte: number | null;
+  marketing_ratio: number | null;
+  athletic_spend_per_fte: number | null;
+  athletic_revenue_per_fte: number | null;
+  athletic_subsidy_ratio: number | null;
+  aura_score_basis: string | null;
+  coverage_tier: string | null;
 }
 
 export interface CompareStatRow {

@@ -74,6 +74,23 @@ function makeBuild(
     tuition_annual: cost,
     is_out_of_state: false,
     institution_control: null,
+    cost_of_attendance_annual: cost ? cost * 1.5 : null,
+    published_cost_4yr: cost ? cost * 4 * 1.5 : null,
+    room_board_on_campus: 10500,
+    tuition_in_state: cost,
+    tuition_out_of_state: cost ? cost * 2.5 : null,
+    earnings_1yr_median: wage,
+    earnings_1yr_p25: wage ? wage * 0.7 : null,
+    earnings_1yr_p75: wage ? wage * 1.3 : null,
+    state_abbr: "IN",
+    fte_enrollment: 35000,
+    endowment_per_fte: 45000,
+    marketing_ratio: 0.1,
+    athletic_spend_per_fte: 2000,
+    athletic_revenue_per_fte: 3000,
+    athletic_subsidy_ratio: 0.15,
+    aura_score_basis: "ipeds_finance+eada",
+    coverage_tier: "full",
   };
 }
 
@@ -309,6 +326,31 @@ describe("CompareView", () => {
     );
   });
 
+  it("uses Gemma's pivotal tradeoff as the top Big Choice headline", async () => {
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+    mockCompareInsights.mockResolvedValue(
+      makeInsights({
+        compare_summary: "The surface tradeoff is simple.",
+        pivotal: {
+          meta_tradeoff: "Big Debt, Big Brand, or High Pay",
+          meta_explanation: "Pick the pressure you are willing to carry.",
+          decade_projection: "The ten-year path depends on execution.",
+          pivot_question: "Which tradeoff still feels worth it?",
+        },
+      }),
+    );
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Big Debt, Big Brand, or High Pay").length).toBeGreaterThanOrEqual(2);
+    });
+
+    expect(screen.getAllByText("Big Choice").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/lowers pressure/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raises upside/i)).not.toBeInTheDocument();
+  });
+
   it("falls back to loading placeholder when insights fail (saboteur)", async () => {
     mockCompareBuilds.mockResolvedValue(makeCompareResult());
     mockCompareInsights.mockRejectedValue(new Error("model unavailable"));
@@ -317,6 +359,19 @@ describe("CompareView", () => {
 
     await screen.findByTestId("region-gemma-compare");
     expect(screen.getByText(/Reading the tradeoffs/i)).toBeInTheDocument();
+  });
+
+  it("shows a Big Choice loading state instead of fallback copy while Gemma is thinking", async () => {
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+    mockCompareInsights.mockReturnValue(new Promise(() => {}));
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await screen.findByTestId("region-compare");
+
+    expect(screen.getByRole("status", { name: /loading big choice/i })).toBeInTheDocument();
+    expect(screen.queryByText(/lowers pressure/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raises upside/i)).not.toBeInTheDocument();
   });
 
   // ===========================================================================
@@ -417,6 +472,236 @@ describe("CompareView", () => {
         expect(chip.textContent).toContain("UC Berkeley");
         expect(chip.textContent).toContain("IU Bloomington");
       });
+    });
+  });
+
+  // ===========================================================================
+  // Compare Screen Redesign — feature-compare-screen-redesign §4
+  // ===========================================================================
+
+  // --- P0: CompareWinners rendered before Character Cards ---
+
+  it("renders CompareWinners before Character Cards in the DOM (P0)", async () => {
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("region-compare-winners")).toBeInTheDocument();
+    });
+
+    // Verify DOM order: region-compare-winners appears before the first character card.
+    const winnersSection = screen.getByTestId("region-compare-winners");
+    const characterCard = screen.getByTestId("card-character-berkeley-cs-001");
+
+    // compareDocumentPosition returns a bitmask; bit 4 (DOCUMENT_POSITION_FOLLOWING)
+    // means the argument node follows the reference node in the document.
+    const position = winnersSection.compareDocumentPosition(characterCard);
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // --- P0: Cost Breakdown accordion collapsed by default ---
+
+  it("renders Cost Breakdown accordion collapsed by default (P0)", async () => {
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("accordion-cost-breakdown")).toBeInTheDocument();
+    });
+
+    // The toggle button should indicate collapsed state.
+    const toggle = screen.getByTestId("btn-toggle-accordion-cost-breakdown");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    // The cost detail content should NOT be visible when collapsed.
+    expect(screen.queryByText("Sticker Price vs Avg After-Aid Cost")).not.toBeInTheDocument();
+  });
+
+  // --- P0: School Profile accordion collapsed by default ---
+
+  it("renders School Profile accordion collapsed by default (P0)", async () => {
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("accordion-school-profile")).toBeInTheDocument();
+    });
+
+    // The toggle button should indicate collapsed state.
+    const toggle = screen.getByTestId("btn-toggle-accordion-school-profile");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    // The school profile content should NOT be visible when collapsed.
+    expect(screen.queryByText("Institutional X-Ray")).not.toBeInTheDocument();
+  });
+
+  // --- P1: Cost accordion expands and shows cost table ---
+
+  it("expands Cost Breakdown accordion to reveal cost table (P1)", async () => {
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("accordion-cost-breakdown")).toBeInTheDocument();
+    });
+
+    // Click the toggle to expand.
+    const toggle = screen.getByTestId("btn-toggle-accordion-cost-breakdown");
+    fireEvent.click(toggle);
+
+    // After expanding, the cost detail content should be visible.
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+    });
+
+    // The cost table should show line items.
+    await waitFor(() => {
+      expect(screen.getByText("Sticker Price vs Avg After-Aid Cost")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/reported average annual net price for eligible aid-recipient undergraduates/i)).toBeInTheDocument();
+    expect(screen.getByText("Cost Detail")).toBeInTheDocument();
+  });
+
+  // --- P1: School Profile accordion expands and shows AURA breakdown ---
+
+  it("expands School Profile accordion to reveal AURA breakdown (P1)", async () => {
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("accordion-school-profile")).toBeInTheDocument();
+    });
+
+    // Click the toggle to expand.
+    const toggle = screen.getByTestId("btn-toggle-accordion-school-profile");
+    fireEvent.click(toggle);
+
+    // After expanding, the AURA breakdown content should be visible.
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Institutional X-Ray")).toBeInTheDocument();
+    });
+
+    // The school identity cards should show enrollment for both builds.
+    // Both builds have fte_enrollment=35000, so there will be two "35,000" texts.
+    const enrollmentTexts = screen.getAllByText("35,000");
+    expect(enrollmentTexts.length).toBe(2);
+  });
+
+  // --- P1: Salary section shows p25/p75 range ---
+
+  it("renders p25/p75 salary range bars in MoneySection (P1)", async () => {
+    // The default makeBuild sets earnings_1yr_p25 and p75 to non-null values
+    // (wage * 0.7 and wage * 1.3), so the range bars should render.
+    mockCompareBuilds.mockResolvedValue(makeCompareResult());
+
+    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("salary-berkeley-cs-001")).toBeInTheDocument();
+    });
+
+    // The salary bar for Berkeley should show a range aria-label.
+    // Berkeley: wage=130000, p25=91000, p75=169000
+    const berkeleySalary = screen.getByTestId("salary-berkeley-cs-001");
+    const rangeLabel = berkeleySalary.querySelector('[aria-label*="Salary range"]');
+    expect(rangeLabel).not.toBeNull();
+
+    // The p25/p75 formatted values should appear as range labels.
+    // p25 = 130000 * 0.7 = 91000 -> "$91K", p75 = 130000 * 1.3 = 169000 -> "$169K"
+    expect(screen.getByText("$91K")).toBeInTheDocument();
+    expect(screen.getByText("$169K")).toBeInTheDocument();
+  });
+
+  // --- P2: Cost accordion handles null cost data ---
+
+  it("renders em-dash for null cost data in expanded Cost Breakdown (P2)", async () => {
+    // Create builds with null cost data.
+    const nullCostResult = makeCompareResult({
+      builds: [
+        makeBuild("null-cost-001", "School A", "Major A", "Career A", "11-0001", 80000, null, null),
+        makeBuild("null-cost-002", "School B", "Major B", "Career B", "11-0002", 90000, null, null),
+      ],
+    });
+    mockCompareBuilds.mockResolvedValue(nullCostResult);
+
+    renderCV(["null-cost-001", "null-cost-002"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("accordion-cost-breakdown")).toBeInTheDocument();
+    });
+
+    // Expand the accordion.
+    fireEvent.click(screen.getByTestId("btn-toggle-accordion-cost-breakdown"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Cost Detail")).toBeInTheDocument();
+    });
+
+    // With null net_price_annual and null published_cost_4yr, the component
+    // should show "Cost data unavailable" for each build.
+    // makeBuild sets cost=null -> net_price_annual=null, cost_of_attendance_annual=null,
+    // published_cost_4yr=null, room_board_on_campus still defaults to 10500.
+    // But the bar section checks published_cost_4yr OR net_price_annual.
+    // With both null, it should show the fallback message.
+    const unavailableMessages = screen.getAllByText("Cost data unavailable");
+    expect(unavailableMessages.length).toBe(2);
+  });
+
+  // --- P2: School profile handles missing AURA data ---
+
+  it("renders fallback when all AURA data is missing in School Profile (P2)", async () => {
+    // Create builds with all institution profile fields nulled out.
+    const noAuraBuilds = [
+      {
+        ...makeBuild("no-aura-001", "School A", "Major A", "Career A", "11-0001"),
+        endowment_per_fte: null,
+        marketing_ratio: null,
+        athletic_spend_per_fte: null,
+        athletic_revenue_per_fte: null,
+        athletic_subsidy_ratio: null,
+        fte_enrollment: null,
+        aura_score_basis: null,
+        coverage_tier: null,
+      },
+      {
+        ...makeBuild("no-aura-002", "School B", "Major B", "Career B", "11-0002"),
+        endowment_per_fte: null,
+        marketing_ratio: null,
+        athletic_spend_per_fte: null,
+        athletic_revenue_per_fte: null,
+        athletic_subsidy_ratio: null,
+        fte_enrollment: null,
+        aura_score_basis: null,
+        coverage_tier: null,
+      },
+    ];
+    const noAuraResult = makeCompareResult({ builds: noAuraBuilds });
+    mockCompareBuilds.mockResolvedValue(noAuraResult);
+
+    renderCV(["no-aura-001", "no-aura-002"]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("accordion-school-profile")).toBeInTheDocument();
+    });
+
+    // Expand the School Profile accordion.
+    fireEvent.click(screen.getByTestId("btn-toggle-accordion-school-profile"));
+
+    // The CompareSchoolProfile component renders a fallback message
+    // when all builds lack institution profile data.
+    await waitFor(() => {
+      expect(
+        screen.getByText("Institution profile data is not available for these schools."),
+      ).toBeInTheDocument();
     });
   });
 });

@@ -36,7 +36,9 @@ agent gates:
 
 ---
 
-## Status: REDRAFT SKELETON (do not execute workflow)
+## Status: DEPRECATED 2026-05-03
+
+> **Deprecated.** This was a redraft skeleton after the original spec was lost. Career search is already reachable through the live product surfaces (Set Your Course chip flow, branch tree, compare). Reconstructing the original from sibling references isn't worth the effort before submission. If a dedicated header-menu career-search page is wanted later, write fresh against the shipped UI.
 
 | Status | Meaning |
 |--------|---------|
@@ -59,7 +61,7 @@ agent gates:
 | Created | 2026-04-29 |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.1 (redraft skeleton — original lost) |
-| Last Updated | 2026-04-29 |
+| Last Updated | 2026-05-03 (DEPRECATED — redraft skeleton abandoned; career search already reachable through shipped surfaces) |
 | Blocked By | Original file content needs to be recovered or rewritten |
 | Related Specs | `docs/specs/feature-compare-schools-for-career.md` (sibling — Spec A; click-through destination from this spec's career-search results is Spec A's `by_soc` mode), `docs/specs/feature-header-persistent-actions.md` (header-menu entry-point host), `docs/specs/feature-ask-gemma.md` (Gemma chat surface that this spec's intent-resolution model may share patterns with) |
 

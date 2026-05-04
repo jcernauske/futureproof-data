@@ -24,9 +24,11 @@ Execute the standard FutureProof workflow:
 
 ---
 
-## Status: DRAFT (SKELETON) + v0.5 STUB carved for hackathon
+## Status: DEPRECATED 2026-05-03
 
-> **Full spec is post-hackathon.** §1–§4 below describe the complete feature. A **v0.5 stub** was carved out on 2026-04-19 to ship the minimum viable receipts surface alongside `feature-set-your-course.md` — inline citations in Gemma prose + subtle card footer attribution + acronym-spell-out rule baked into prompts. Hover tooltips, vintage on every number, and the "Our Sources" page are post-May-18.
+> **Deprecated.** The v0.5 hackathon slice (acronym spell-out rule + canonical source registry + card-footer attribution) shipped alongside `feature-set-your-course.md` and is sufficient for submission. The post-hackathon full scope (per-stat hover tooltips, vintage on every number, "Our Sources" page, citation discipline at every Gemma site) is **not being pursued**. If the receipts surface needs to expand later, write a new spec scoped to that specific addition rather than reviving this skeleton.
+>
+> §1–§4 below describe the original full vision and are preserved for historical reference only.
 
 ---
 
@@ -35,7 +37,7 @@ Execute the standard FutureProof workflow:
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-19 |
-| Last Updated | 2026-04-19 (skeleton drafted; v0.5 stub carved for hackathon) |
+| Last Updated | 2026-05-03 (DEPRECATED — v0.5 stub already shipped is sufficient; full spec abandoned) |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.1 (skeleton) |
 | Blocked By | — |

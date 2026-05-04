@@ -21,7 +21,9 @@ Execute the standard FutureProof workflow:
 
 ---
 
-## Status: BACKLOG (SKELETON) + v0.5 STUB carved for hackathon
+## Status: DEPRECATED 2026-05-03
+
+> **Deprecated.** The v0.5 stub already shipped (top-schools-for-a-program surface inside Set Your Course) is sufficient for submission. The full skeleton's larger discovery surface is post-hackathon and not being pursued — if a dedicated discovery page is wanted later, write fresh against the shipped UI.
 
 > **Full spec is post-hackathon.** §1–§4 below describe the complete feature. A **v0.5 stub** was carved out on 2026-04-19 to satisfy Set Your Course's `school_gap` CTA without building the full screen — see §v0.5 Stub Scope immediately below.
 
@@ -86,7 +88,7 @@ When the full spec is promoted from backlog, the v0.5 stub evolves in-place: sam
 | Created | 2026-04-19 |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.1 (skeleton) |
-| Last Updated | 2026-04-19 |
+| Last Updated | 2026-05-03 (DEPRECATED — v0.5 stub already shipped is sufficient; full discovery page abandoned) |
 | Blocked By | Design tokens for list/card treatment (none new; reuse Brightpath) |
 | Related Specs | `docs/specs/feature-set-your-course.md` (entry point — school_gap feasibility mode links here), `docs/specs/feature-gemma-tool-calling-migration.md` (the new MCP tool becomes another Gemma-callable surface), `docs/specs/feature-receipts.md` (stub card footer carries source attribution per §2 Decision #7 of receipts spec + §2 Decisions #13/#14 of Set Your Course), `docs/specs/feature-chat-guardrails.md` (School Discovery surfaces inherit the voice rules: no taxonomy codes, acronym spell-out on first reference) |
 | Mockup reference | `docs/specs/design/set-your-course-mockup/index.html` — **Scenario 13** shows the `school_gap` CTA tile that links to this screen's v0.5 stub |
