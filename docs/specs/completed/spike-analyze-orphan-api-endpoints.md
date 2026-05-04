@@ -47,7 +47,7 @@ NO CODE CHANGES IN THIS SPEC. If you catch yourself editing a router, stop.
 
 ---
 
-## Status: AWAITING HUMAN REVIEW
+## Status: COMPLETE
 
 ## Metadata
 
@@ -55,10 +55,10 @@ NO CODE CHANGES IN THIS SPEC. If you catch yourself editing a router, stop.
 |-------|-------|
 | Created | 2026-04-26 |
 | Author | Jeff + Claude (staff-engineer audit + Codex verification) |
-| Spec Version | 1.0 |
-| Last Updated | 2026-04-26 |
+| Spec Version | 1.1 |
+| Last Updated | 2026-05-03 (re-verified — endpoints 1 & 2 already removed in dead-code cleanup pass; rescoreBuild frontend export also gone; endpoints 3-7 verdicts re-confirmed and approved by Jeff) |
 | Blocked By | — |
-| Related Specs | `refactor-remove-dead-frontend-code.md` (gates CONDITIONAL items there) |
+| Related Specs | `refactor-remove-dead-frontend-code.md` (completed; handled endpoints 1 & 2 indirectly via MajorInput.tsx + intent.py removal) |
 
 ---
 
@@ -177,8 +177,9 @@ None.
 
 **Status:** COMPLETE
 
-### Endpoint 1: `POST /intent/`
-- **Router:** `backend/app/routers/intent.py`
+### Endpoint 1: `POST /intent/` — **ALREADY REMOVED (2026-05-03 verification)**
+> Re-verified 2026-05-03: `backend/app/routers/intent.py` no longer exists; `MajorInput.tsx` no longer exists; `/intent` prefix in `main.py:113` now routes to `set_your_course.router`. The dead-code cleanup pass (commit `b2f5ea0` / `d3d8d9c`) handled this. **No further action needed.**
+- **Router:** `backend/app/routers/intent.py` (deleted)
 - **Frontend callers:** Only `frontend/src/components/school/MajorInput.tsx:49` — dead code being deleted in `refactor-remove-dead-frontend-code.md`. Zero live callers.
 - **Archived CLI callers:** `archive/spikes/cli/cli.py:609` references the intent system prompt but imports `intent.resolve_intent` as a Python function — it does not HTTP-call `/intent/`. No HTTP caller.
 - **Scripts callers:** `scripts/yaml_regression.py` imports `intent.resolve_intent` directly (Python import, not HTTP call).
@@ -190,8 +191,9 @@ None.
 - **Notes:** The live flow uses `/intent/stream` + `/intent/chip` + `/intent/commit` (routed via `set_your_course.py`). This legacy endpoint was the synchronous predecessor. PRD v8 references are historical — the design evolved.
 - **Recommendation:** **REMOVE**
 
-### Endpoint 2: `POST /intent/confirm`
-- **Router:** `backend/app/routers/intent.py`
+### Endpoint 2: `POST /intent/confirm` — **ALREADY REMOVED (2026-05-03 verification)**
+> Re-verified 2026-05-03: same as Endpoint 1 — file deleted. **No further action needed.**
+- **Router:** `backend/app/routers/intent.py` (deleted)
 - **Frontend callers:** Only `frontend/src/components/school/MajorInput.tsx:87` — dead code being deleted. Zero live callers.
 - **Archived CLI callers:** None. The CLI imported the service function directly.
 - **Scripts callers:** None.
@@ -243,8 +245,9 @@ None.
 - **Recommendation:** **REMOVE**
 
 ### Endpoint 6: `POST /build/{id}/rescore`
+> Re-verified 2026-05-03: the `rescoreBuild` export has been deleted from `frontend/src/api/gauntlet.ts`. Endpoint is now even more orphaned (zero callers AND no client export). Verdict stands.
 - **Router:** `backend/app/routers/gauntlet.py`
-- **Frontend callers:** `frontend/src/api/gauntlet.ts:42-51` exports `rescoreBuild` which calls this endpoint — but `rescoreBuild` itself has **zero importers**. Both `GauntletScreen.tsx` and `BossBand.tsx` use `rerollFight` which calls `POST /build/{id}/reroll` (a different endpoint). The `rescoreBuild` export is dead.
+- **Frontend callers:** Originally exported as dead `rescoreBuild` in `frontend/src/api/gauntlet.ts`; that export is now also gone. Zero callers remain anywhere in `frontend/src/`. The `rescore` text matches that surface in a re-grep are state vars (`rescoreError`) and i18n strings, not HTTP calls.
 - **Archived CLI callers:** Zero.
 - **Scripts callers:** Zero.
 - **Documentation references:** `docs/specs/feature-save-build.md:174` ("Student adjusts sliders → preview via existing POST /build/{id}/rescore") — but that spec is DRAFT and was never implemented. `docs/specs/feature-residency-aware-tuition.md:582,597` discusses a residency gap in `recompute_for_sliders` — architectural commentary, not a caller.
@@ -278,8 +281,8 @@ None.
 
 | # | Endpoint | Verdict | One-Line Justification |
 |---|----------|---------|------------------------|
-| 1 | `POST /intent/` | **REMOVE** | Superseded by `/intent/stream` + `/intent/chip` + `/intent/commit`. Only caller is dead `MajorInput.tsx`. |
-| 2 | `POST /intent/confirm` | **REMOVE** | Superseded by `/intent/commit`. Only caller is dead `MajorInput.tsx`. |
+| 1 | `POST /intent/` | **DONE** | Already removed in the dead-code cleanup pass — `intent.py` and `MajorInput.tsx` are gone. |
+| 2 | `POST /intent/confirm` | **DONE** | Already removed alongside endpoint 1. |
 | 3 | `GET /build/{id}/report` | **REMOVE** | Zero callers anywhere. Was "stretch" in a deprecated spec. Service layer survives. |
 | 4 | `GET /builds/compare/report` | **REMOVE** | Zero callers anywhere. No spec ever planned to use it. Service layer survives. |
 | 5 | `POST /profile/lookup` | **REMOVE** | Zero callers. Service function stays — trivial to re-add (3 router lines) if needed. |
@@ -317,12 +320,12 @@ None.
 ## §8 Reviews
 
 ### Code Review
-**Status:** SKIPPED (no code changes)
+**Status:** SKIPPED (no code changes in this spec — deletions tracked in the executing refactor)
 
 ### Human Review
-**Status:** AWAITING HUMAN REVIEW (Jeff)
+**Status:** ACCEPTED 2026-05-03 (Jeff Cernauske)
 
-Jeff makes the final call on each endpoint's verdict. The investigation produces evidence; Jeff produces the decision. After approval, the REMOVE verdicts feed into the deletion spec.
+Jeff approved REMOVE verdicts for endpoints 3-7 after re-verification. Endpoints 1 & 2 had already been swept up in the dead-code cleanup pass. Deletions executed inline (lightweight scope: ~5 endpoints, services preserved).
 
 ---
 
@@ -348,8 +351,12 @@ Document the finding in §6 and recommend KEEP. The audit was wrong about that o
 
 ## §11 Final Notes
 
-**Human Review:** AWAITING
+**Human Review:** ACCEPTED 2026-05-03 (Jeff Cernauske)
 
-This spec is intentionally the "slow path." The fast path (`refactor-remove-dead-frontend-code.md`) handles
+This spec is intentionally the "slow path." The fast path (`refactor-remove-dead-frontend-code.md`) handled
 ~95% of the cleanup in one pass with low risk. This spike handles the remaining ~5% — public API surface —
 with deliberate caution because the cost of removing an endpoint a judge or beta tester depends on is high.
+
+**Execution note (2026-05-03):** Endpoints 1 & 2 had already been removed by the dead-code cleanup pass that
+deleted `MajorInput.tsx` and `intent.py`. Endpoints 3-7 were deleted inline immediately following Jeff's
+approval. Service-layer functions preserved per §7 second-order analysis.

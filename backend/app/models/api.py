@@ -93,11 +93,6 @@ class WrapupRequest(BaseModel):
     all_narratives: list[str]
 
 
-class RescoreRequest(BaseModel):
-    effort: str = "balanced"
-    loan_pct: float = 1.0
-
-
 class ChatRequest(BaseModel):
     message: str
     history: list[dict] = []
@@ -585,10 +580,6 @@ TraceEvent = Annotated[
 
 class CompareRequest(BaseModel):
     build_ids: list[str] = Field(min_length=2, max_length=4)
-
-
-class ProfileLookupRequest(BaseModel):
-    name_query: str = Field(..., max_length=200)
 
 
 class ProfileRerollRequest(BaseModel):

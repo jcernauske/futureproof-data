@@ -1,45 +1,10 @@
 from fastapi import APIRouter, HTTPException
 
 from app import state
-from app.models.api import RerollRequest, RescoreRequest, WrapupRequest
-from app.services import boss_fights, skill_pool, stat_engine
+from app.models.api import RerollRequest, WrapupRequest
+from app.services import boss_fights, skill_pool
 
 router = APIRouter()
-
-
-@router.post("/{build_id}/gauntlet")
-async def run_gauntlet(build_id: str):
-    build = state.get_build(build_id)
-    if build is None:
-        raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
-    gauntlet = boss_fights.run_gauntlet(build.career)
-    build.gauntlet = gauntlet
-    state.update_build(build_id, build)
-    return gauntlet
-
-
-@router.post("/{build_id}/rescore")
-async def rescore_build(build_id: str, request: RescoreRequest):
-    build = state.get_build(build_id)
-    if build is None:
-        raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
-
-    updated_career = stat_engine.recompute_for_sliders(
-        career=build.career,
-        original_effort=build.effort,
-        new_effort=request.effort,
-        new_loan_pct=request.loan_pct,
-    )
-    gauntlet = boss_fights.score_gauntlet(updated_career)
-
-    return {
-        "stats": updated_career.stats.model_dump(),
-        "bosses": updated_career.bosses.model_dump(),
-        "loan_pct": updated_career.loan_pct,
-        "modeled_total_debt": updated_career.modeled_total_debt,
-        "financed_dte": updated_career.financed_dte,
-        "gauntlet": gauntlet.model_dump(),
-    }
 
 
 @router.post("/{build_id}/reroll")

@@ -93,7 +93,7 @@ Execute the following workflow:
 | Created | 2026-04-28 |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 1.0 |
-| Last Updated | 2026-04-28 (advanced to ARCH REVIEW; precondition feature-ask-gemma.md COMPLETE verified) |
+| Last Updated | 2026-04-28 (COMPLETE — full pipeline executed end-to-end; precondition feature-ask-gemma.md COMPLETE verified) |
 | Blocked By | `feature-ask-gemma.md` (must ship first — provides POST /chat/ask, AskScope discriminator, askGemma() frontend client, and GemmaChat scope prop) |
 | Related Specs | `feature-chat-guardrails.md` (voice rules — inherited verbatim), `feature-ask-gemma.md` (per-element Ask Gemma pattern this extends), `feature-build-results-screen.md` (the /my-build screen with per-element entry points), `screen-branch-tree.md` in `docs/specs/completed/` (the v1 tree this spec restructures) |
 

@@ -11,6 +11,7 @@
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-19 |
+| Last Updated | 2026-04-19 (placeholder created; not promoted) |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.0 (stub) |
 | Deadline pressure | 2026-05-18 (Kaggle submission) — demo must be judge-proof |

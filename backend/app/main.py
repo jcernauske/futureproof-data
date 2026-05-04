@@ -18,7 +18,6 @@ from app.routers import (
     guidance_router,
     health,
     profile,
-    reports,
     schools,
     sessions,
     set_your_course,
@@ -127,7 +126,6 @@ def create_app() -> FastAPI:
     application.include_router(
         sessions.router, prefix="/session", tags=["Session"]
     )
-    application.include_router(reports.router, tags=["Reports"])
     application.include_router(ask_gemma_router.router, tags=["AskGemma"])
 
     return application
