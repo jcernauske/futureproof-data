@@ -6,6 +6,7 @@ interface CharacterCardProps {
   buildIndex: number;
   highlighted?: boolean;
   onOpen?: () => void;
+  showStats?: boolean;
 }
 
 const STAT_BARS: { label: string; color: string }[] = [
@@ -21,7 +22,14 @@ function formatCost(val: number | null): string {
   return `$${val.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
-export function CharacterCard({ build, stats, buildIndex, highlighted = true, onOpen }: CharacterCardProps) {
+export function CharacterCard({
+  build,
+  stats,
+  buildIndex,
+  highlighted = true,
+  onOpen,
+  showStats = true,
+}: CharacterCardProps) {
   const statMap: Record<string, number | null> = {};
   for (const row of stats) {
     statMap[row.label] = row.values[buildIndex] ?? null;
@@ -56,52 +64,54 @@ export function CharacterCard({ build, stats, buildIndex, highlighted = true, on
       </div>
       <p className="text-sm text-text-secondary mb-4">{build.major_text}</p>
 
-      <div className="flex flex-col gap-2 mb-4">
-        {STAT_BARS.map(({ label, color: statColor }) => {
-          // Pentagon-stat-reshape §3 missing-data treatment: surface
-          // null AURA (and any other absent stat) as em-dash + hollow
-          // track instead of a "0" with empty bar.
-          const raw = statMap[label];
-          const isAbsent = raw === null || raw === undefined;
-          const val = isAbsent ? 0 : Math.max(0, Math.min(10, raw));
-          const pct = (val / 10) * 100;
-          return (
-            <div
-              key={label}
-              className="flex items-center gap-2"
-              data-state={isAbsent ? "absent" : undefined}
-            >
-              <span
-                className="font-data text-[10px] font-bold uppercase tracking-wider w-8 shrink-0"
-                style={{ color: statColor }}
-              >
-                {label}
-              </span>
+      {showStats && (
+        <div className="flex flex-col gap-2 mb-4">
+          {STAT_BARS.map(({ label, color: statColor }) => {
+            // Pentagon-stat-reshape §3 missing-data treatment: surface
+            // null AURA (and any other absent stat) as em-dash + hollow
+            // track instead of a "0" with empty bar.
+            const raw = statMap[label];
+            const isAbsent = raw === null || raw === undefined;
+            const val = isAbsent ? 0 : Math.max(0, Math.min(10, raw));
+            const pct = (val / 10) * 100;
+            return (
               <div
-                className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden"
-                style={
-                  isAbsent
-                    ? { border: "1px dashed var(--color-text-muted)", opacity: 0.4 }
-                    : undefined
-                }
+                key={label}
+                className="flex items-center gap-2"
+                data-state={isAbsent ? "absent" : undefined}
               >
-                {!isAbsent && (
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${pct}%`, background: statColor }}
-                  />
-                )}
+                <span
+                  className="font-data text-[10px] font-bold uppercase tracking-wider w-8 shrink-0"
+                  style={{ color: statColor }}
+                >
+                  {label}
+                </span>
+                <div
+                  className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden"
+                  style={
+                    isAbsent
+                      ? { border: "1px dashed var(--color-text-muted)", opacity: 0.4 }
+                      : undefined
+                  }
+                >
+                  {!isAbsent && (
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, background: statColor }}
+                    />
+                  )}
+                </div>
+                <span
+                  className="font-data text-[11px] font-bold w-6 text-right shrink-0"
+                  style={{ color: statColor }}
+                >
+                  {isAbsent ? "—" : val}
+                </span>
               </div>
-              <span
-                className="font-data text-[11px] font-bold w-6 text-right shrink-0"
-                style={{ color: statColor }}
-              >
-                {isAbsent ? "—" : val}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="border-t border-border-subtle mt-auto" />
       <div className="flex justify-between items-baseline pt-3">

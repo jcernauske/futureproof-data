@@ -11,7 +11,7 @@
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-19 |
-| Last Updated | 2026-04-19 (placeholder; pitch framing pinned for future writeup + video) |
+| Last Updated | 2026-05-03 (kaggle guidance integration analysis appended as §7; structural decisions pending Jeff input) |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.0 (stub) |
 | Deadline | 2026-05-18 (Gemma 4 Good / Kaggle) |
@@ -123,3 +123,114 @@ script. Narrative precision decays between now (2026-04-19) and
 submission day (2026-05-18), and the writeup always gets drafted when
 everyone is tired. This placeholder is the insurance policy.
 ```
+
+---
+
+## §7 Kaggle Guidance Integration Analysis (2026-05-03)
+
+**Source:** `docs/reference/kaggle-writeup-guidance.md` — researched playbook synthesizing the Gemma 3n predecessor winners (Dec 2025), the concurrent Gemini 3 hackathon's published rubric (40/30/30), and Google's announcement framing.
+
+**Status:** Analysis complete; structural decisions pending Jeff input (see §7.6). Writeup draft has NOT started.
+
+### §7.1 Where the guidance reinforces this spec
+
+The new guidance validates many of the spec's instincts:
+
+| Topic | Spec says | Guidance says | Net |
+|---|---|---|---|
+| Tool-calling on local Ollama | "Architectural showcase" — visible mid-demo | Ollama must be **architecturally non-substitutable** for the Ollama prize | Same insight; guidance is sharper on prize implications |
+| Local-first | "Any school, any hardware" closer | LENTERA pattern (literal 2025 Ollama winner): offline classroom on cheap hardware | Guidance proves the spec's intuition was right — this is the exact pattern Google rewards |
+| Voice / no hype | Cool, data-honest, never hype | "Generic chatbot framing loses"; "write like a Google blog post, not a NeurIPS paper" | Same posture |
+| Length | 1,500–2,500 words | 1,500–2,500 words, 8 sections | Identical |
+| Quantitative anchors | CIP/SOC counts, row counts, wall time | Tokens/sec on named hardware, RAM, cold-start | Both required; guidance adds the **performance** numbers the spec missed |
+
+### §7.2 What the guidance adds (not in this spec)
+
+1. **Inferred rubric weights** — Impact 35–40% / Video 25–30% / Tech 25–30% / Repro 10%. **This changes the work calculus**: most effort goes into video + impact framing, not the technical writeup.
+2. **The video is THE deliverable, not supporting evidence.** Spec treats the writeup as primary. Guidance is unambiguous: judges may not watch past minute 2.
+3. **Named-human-protagonist pattern** — every 3n winner had one (Eva, the developer's blind brother, Aisha-archetype). Spec's "Marketing-at-IU pioneer" is a *system behavior*, not a *named human*.
+4. **Rubric-mirroring section headers** — winners literally use H2s like `## Impact & Vision` / `## Video Pitch` / `## Technical Depth & Execution` / `## Reproducibility`. Hand judges the scorecard. Spec's §3 spine uses different headers.
+5. **Multi-track submission strategy** — name Main + Future of Education + Ollama explicitly in closing. Gemma Vision won Main + Google AI Edge with one submission.
+6. **Multilingual as force multiplier** — Gemma 4 supports 140+ languages; non-English demo = instant differentiation. README has Spanish + Arabic; the writeup should foreground them, not bury them.
+7. **Evaluation table** — 15–20 personas, sanity-checked, presented as a small table. Required for "serious entry" perception. (`scripts/stress_recon*.py` outputs may already feed this.)
+8. **Custom Ollama Modelfile** + **multi-model routing** (E2B for fast paths / 26B MoE for hard reasoning) — extra credit for Ollama prize. README mentions both models but not as a routing strategy.
+9. **Real third party on camera** (teacher/counselor saying "this would help me") — flagged as **the single highest-leverage tactic this week**. Worth 10× a feature list.
+10. **One-command setup** — `git clone && ollama pull && pip install && python app.py` in 5 minutes. Current Quickstart is correct but multi-step (separate backend + frontend + uv sync). A **one-command demo path** would help reproducibility scoring.
+11. **14-day day-by-day timeline** — operational schedule.
+12. **WiFi-visibly-disabled moment in the video** — the LENTERA / Gemma Vision move. Massively credible.
+
+### §7.3 Where they tension (decisions Jeff needs to make)
+
+#### §7.3.1 Thesis-first vs. persona-first opening — the biggest tension
+
+The spec's flagship thesis sentence:
+> *"Gemma 4 is FutureProof's reasoning bridge across fragmented public data. Five federal taxonomies were never designed to fit together."*
+
+The guidance's exemplar opener:
+> *"Aisha, 17, lives in [place]. Her school's career counselor sees 800 students. Internet at school cuts out by 2pm."*
+
+**Guidance wins this argument unambiguously**: every 3n winner opened with a person, not a thesis. The spec's framing isn't wrong — it's the *second paragraph*, not the *opening line*. This is a real edit to spec §3.1.
+
+#### §7.3.2 Do we have a real named protagonist?
+
+Spec uses "the pioneer at IU Marketing" as an abstract role. Guidance demands a *named person with a specific geography*. Possible angles:
+- **Jeff's daughter** (the family-decision origin in the README's "The problem" paragraph). Most authentic. Already shipped product.
+- **A real student you can recruit and record this week** — highest-leverage AI-for-Good move per guidance, but expensive in time.
+- **A composite archetype with a name** — riskier (judges may smell stock-photo persona).
+
+#### §7.3.3 Is Marketing-at-IU the right demo case?
+
+Spec locks Marketing-at-IU as THE money shot (a `crosswalk_quirk` system behavior). Guidance suggests something with **higher human stakes** — deaf education, special ed, first-gen-college, rural-CTE. The reinforcement-loop story works for any of these; Marketing-at-IU is the safest data case but the lowest emotional stake.
+
+#### §7.3.4 Inverse proof — keep or cut?
+
+Spec's "without Gemma, FutureProof is a 300-entry lookup table" is intellectual credibility. Guidance is silent on inverse-proof framings — judges want the wow demo, not the contrastive argument. **Recommendation:** keep it in the writeup as a one-line aside; cut it from the video.
+
+#### §7.3.5 Reinforcement-loop / community suggestions
+
+Spec's strongest narrative beat — and **guidance's archetype doesn't cover it**. No 3n winner had this. This is genuinely differentiating: a self-improving local product. **Recommendation:** lead Technical Depth section with this; it's the unique technical move the guidance demands ("one unique technical move — fine-tuning, novel cascade, etc. Not 'we wrapped Gemma in a chatbot'").
+
+### §7.4 What's missing from BOTH that we need
+
+- **Performance benchmark on named consumer hardware** — both call for it; we don't have a clean number anywhere. Pick a target (M2 Air? Lenovo IdeaPad?) and measure tok/s + cold-start + RAM peak.
+- **Evaluation table** — guidance requires it. We have stress-recon scripts in `scripts/` (`stress_recon.py` through `stress_recon6.py`, `stress_data_recon.py`, plus `reports/stress-test-findings.md`) that probably already contain this work — needs tabulation for the writeup.
+- **Third-party validation footage** — guidance flags as highest-leverage; neither artifact accounts for whether Jeff has access to a teacher/counselor.
+
+### §7.5 Synthesized writeup structure (merging both)
+
+The recommended structure when drafting begins:
+
+```
+## Hook — [named persona] [PERSONA-FIRST per guidance]
+## The Problem — Impact & Vision [RUBRIC HEADER per guidance]
+   - 1.6B students globally; X million lack a real counselor
+   - Spec's "fragmented federal data" thesis as PARAGRAPH 2 [SPEC §1 thesis]
+## The Solution: FutureProof in 60 seconds [GUIDANCE §A.3]
+## Why Gemma 4 (and why local) [GUIDANCE §A.4 + SPEC's "Built on Gemma" framing]
+## Technical Depth & Execution [RUBRIC HEADER per guidance]
+   - Reinforcement-loop architecture (THE unique technical move) [SPEC strongest beat]
+   - Tool-calling on local Ollama, MCP server, 10 tools [SPEC + README]
+   - Multi-model routing (E2B / 26B MoE) [GUIDANCE §F]
+   - Performance: tok/s on M2 Air, RAM, cold-start [GUIDANCE]
+## Demo & Evaluation [RUBRIC HEADER per guidance]
+   - Embedded video at top
+   - Marketing-at-IU pioneer correction as the demo beat [SPEC §2.1]
+   - Eval table: N personas, accuracy, latency dist [GUIDANCE §A.6]
+   - Multilingual demo (Spanish + Arabic) [GUIDANCE §E]
+## Impact Story & Roadmap [RUBRIC HEADER per guidance]
+## Reproducibility [RUBRIC HEADER per guidance]
+   - One-command setup [GUIDANCE]
+   - Apache 2.0, repo link, video link
+   - Closing: "Built for Gemma 4 Good Hackathon — Main + Future of Education + Ollama tracks" [GUIDANCE multi-track]
+```
+
+### §7.6 Open questions for Jeff (resolve before drafting)
+
+1. **Persona** — daughter (most authentic), a recruited student, or a named archetype?
+2. **Demo case** — keep Marketing-at-IU per spec, or pick something with higher emotional stakes (deaf education / special ed / first-gen)?
+3. **Hardware floor** — what machine to benchmark on? (Need tok/s, RAM, cold-start.)
+4. **Eval table** — do the existing `scripts/stress_recon*.py` outputs already give us a 15–20-persona table, or do we need to run a fresh one?
+5. **Third-party footage** — do you have access to a teacher/counselor willing to record 30 seconds this week?
+6. **Multi-track** — Main + Future of Education + Ollama, or narrower?
+
+Once these are answered, the writeup itself can be drafted in a single pass against §7.5.

@@ -1,19 +1,32 @@
 import { useMemo } from "react";
+import { motion } from "framer-motion";
 import type { CompareResult } from "@/api/menu";
+import { springs, staggerContainer, staggerItem } from "@/styles/motion";
 
-const BUILD_COLORS = [
-  "var(--color-accent-thrive)",
-  "var(--color-accent-info)",
-  "var(--color-accent-caution)",
-  "var(--color-accent-empathy)",
+/* ------------------------------------------------------------------ */
+/*  Build Colors — one per compared build (max 4)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Tailwind classes for each build-color dot.
+ * We use bg-accent-* so everything goes through the design system.
+ */
+const BUILD_DOT_CLASSES = [
+  "bg-accent-thrive",
+  "bg-accent-info",
+  "bg-accent-caution",
+  "bg-accent-empathy",
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Stat / Dimension metadata                                         */
+/* ------------------------------------------------------------------ */
 
 type Direction = "max" | "min";
 
 interface Dimension {
   code: string;
   label: string;
-  glyph: string;
   direction: Direction;
   values: (number | null)[];
   format: (v: number) => string;
@@ -27,13 +40,73 @@ interface WinnerOutcome {
   runnerUpValue: number | null;
 }
 
-const STAT_GLYPHS: Record<string, { label: string; glyph: string }> = {
-  ERN: { label: "Earnings", glyph: "💰" },
-  ROI: { label: "ROI", glyph: "📈" },
-  RES: { label: "AI Resilience", glyph: "🤖" },
-  GRW: { label: "Growth", glyph: "🌱" },
-  AURA: { label: "Brand Gravity", glyph: "🫶" },
+/**
+ * Design-system class mappings per stat dimension.
+ *
+ * Every value here is a Tailwind utility that traces to a token in
+ * DESIGN.md / tokens.css / tailwind.config.ts. No raw hex or rgba().
+ *
+ * - borderClass:    Left accent bar — 3px stat-colored border
+ * - textClass:      Stat label text color
+ * - glowClass:      Shadow glow for the highlighted state
+ * - valueTextClass: Value number color (same as textClass)
+ */
+interface DimStyle {
+  borderClass: string;
+  textClass: string;
+  glowClass: string;
+}
+
+const DIM_STYLES: Record<string, DimStyle> = {
+  ERN: {
+    borderClass: "border-l-stat-ern",
+    textClass: "text-stat-ern",
+    glowClass: "shadow-glow-caution",
+  },
+  ROI: {
+    borderClass: "border-l-stat-roi",
+    textClass: "text-stat-roi",
+    glowClass: "shadow-glow-thrive",
+  },
+  RES: {
+    borderClass: "border-l-stat-res",
+    textClass: "text-stat-res",
+    glowClass: "shadow-glow-insight",
+  },
+  GRW: {
+    borderClass: "border-l-stat-grw",
+    textClass: "text-stat-grw",
+    glowClass: "shadow-glow-info",
+  },
+  AURA: {
+    borderClass: "border-l-stat-aura",
+    textClass: "text-stat-aura",
+    glowClass: "shadow-glow-aura",
+  },
+  COST: {
+    borderClass: "border-l-accent-alert",
+    textClass: "text-accent-alert",
+    glowClass: "shadow-glow-alert",
+  },
 };
+
+const FALLBACK_STYLE: DimStyle = {
+  borderClass: "border-l-stat-ern",
+  textClass: "text-stat-ern",
+  glowClass: "shadow-glow-caution",
+};
+
+const STAT_LABELS: Record<string, string> = {
+  ERN: "Earnings",
+  ROI: "ROI",
+  RES: "AI Resilience",
+  GRW: "Growth",
+  AURA: "Brand Gravity",
+};
+
+/* ------------------------------------------------------------------ */
+/*  Winner computation (pure functions)                                */
+/* ------------------------------------------------------------------ */
 
 function pickWinner(values: (number | null)[], direction: Direction): WinnerOutcome["winnerIndex"] {
   const entries = values
@@ -60,12 +133,11 @@ function buildDimensions(result: CompareResult): Dimension[] {
   const dims: Dimension[] = [];
 
   for (const row of result.stats) {
-    const meta = STAT_GLYPHS[row.label];
-    if (!meta) continue;
+    const label = STAT_LABELS[row.label];
+    if (!label) continue;
     dims.push({
       code: row.label,
-      label: meta.label,
-      glyph: meta.glyph,
+      label,
       direction: "max",
       values: row.values,
       format: (v) => v.toFixed(0),
@@ -79,7 +151,6 @@ function buildDimensions(result: CompareResult): Dimension[] {
     dims.push({
       code: "COST",
       label: "Lower 4-yr cost",
-      glyph: "💵",
       direction: "min",
       values: costValues,
       format: (v) => `$${Math.round(v / 1000).toLocaleString()}k`,
@@ -89,10 +160,14 @@ function buildDimensions(result: CompareResult): Dimension[] {
   return dims;
 }
 
-function shortBuildLabel(name: string, maxLen = 22): string {
+function shortBuildLabel(name: string, maxLen = 24): string {
   if (name.length <= maxLen) return name;
   return name.slice(0, maxLen - 1).trimEnd() + "…";
 }
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                         */
+/* ------------------------------------------------------------------ */
 
 interface CompareWinnersProps {
   result: CompareResult;
@@ -131,75 +206,145 @@ export function CompareWinners({
   if (outcomes.length === 0) return null;
 
   return (
-    <div
+    <motion.div
       data-testid="compare-winners-grid"
-      className="grid grid-cols-2 tablet:grid-cols-3 gap-3"
+      className="grid grid-cols-2 tablet:grid-cols-3 gap-4"
+      variants={staggerContainer(0)}
+      initial="hidden"
+      animate="visible"
     >
       {outcomes.map(({ dim, winnerIndex, tied, winnerValue, runnerUpValue }) => {
         const winnerBuild = winnerIndex !== null ? result.builds[winnerIndex] : null;
-        const winnerColor = winnerIndex !== null ? BUILD_COLORS[winnerIndex] : undefined;
-        const dim_unavailable = winnerIndex === null;
+        const dimUnavailable = winnerIndex === null;
         const isHighlighted =
           highlightIndex !== null && highlightIndex === winnerIndex;
+        const isDimmed =
+          highlightIndex !== null && highlightIndex !== winnerIndex;
 
         const delta =
           winnerValue !== null && runnerUpValue !== null
             ? Math.abs(winnerValue - runnerUpValue)
             : null;
 
+        const style = DIM_STYLES[dim.code] ?? FALLBACK_STYLE;
+
         return (
-          <button
+          <motion.button
             type="button"
             key={dim.code}
             data-testid={`winner-chip-${dim.code.toLowerCase()}`}
-            disabled={dim_unavailable || !onSelectWinner || !winnerBuild}
+            disabled={dimUnavailable || !onSelectWinner || !winnerBuild}
             onClick={() => {
               if (winnerBuild && onSelectWinner) {
                 onSelectWinner(winnerBuild.build_id, dim.label);
               }
             }}
+            variants={staggerItem}
+            whileHover={
+              !dimUnavailable
+                ? { scale: 1.02, transition: springs.snappy }
+                : undefined
+            }
+            whileTap={
+              !dimUnavailable
+                ? { scale: 0.98, transition: springs.snappy }
+                : undefined
+            }
             className={[
-              "text-left rounded-xl p-3 border transition-all duration-normal",
-              "bg-bp-deep/50 border-border-subtle",
-              "enabled:hover:border-accent-thrive enabled:hover:bg-bp-surface enabled:cursor-pointer",
-              "disabled:opacity-50 disabled:cursor-default",
-              isHighlighted ? "ring-1 ring-accent-thrive/60" : "",
+              // Layout
+              "relative text-left overflow-hidden",
+              // Shape — plush card feel
+              "rounded-xl",
+              // Left accent bar — stat-colored, 3px, the horizon-map lane pattern
+              "border-l-[3px]",
+              style.borderClass,
+              // Remaining borders — subtle default
+              "border border-border-subtle",
+              // Background — elevated mid surface
+              "bg-bp-mid",
+              // Shadow — medium card shadow
+              "shadow-md",
+              // Padding — generous, breathable
+              "p-5",
+              // Transitions
+              "transition-all duration-normal",
+              // Hover — lift to surface tier, strengthen border
+              "enabled:hover:bg-bp-surface enabled:hover:border-border enabled:hover:shadow-lg enabled:hover:-translate-y-0.5",
+              "enabled:cursor-pointer",
+              "disabled:cursor-default",
+              // Focus ring — accessibility
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-focus-ring)]",
+              // Highlight system
+              isHighlighted ? style.glowClass : "",
+              isDimmed ? "opacity-50" : "",
             ].join(" ")}
-            style={{
-              borderLeftColor: winnerColor,
-              borderLeftWidth: winnerColor ? 3 : undefined,
-            }}
           >
-            <div className="flex items-center gap-1.5 text-text-muted font-data text-micro uppercase tracking-widest">
-              <span aria-hidden>{dim.glyph}</span>
-              <span>{dim.label}</span>
-            </div>
-            {dim_unavailable ? (
-              <p className="font-body text-small text-text-muted mt-2">
+            {/* Stat dimension label */}
+            <p
+              className={[
+                "font-body text-body-sm font-bold uppercase tracking-widest mb-3",
+                style.textClass,
+              ].join(" ")}
+            >
+              {dim.label}
+            </p>
+
+            {dimUnavailable ? (
+              /* ---- UNAVAILABLE STATE ---- */
+              <p className="font-body text-body-sm text-text-muted">
                 Insufficient data
               </p>
             ) : tied ? (
-              <p className="font-body text-small font-semibold text-text-primary mt-2">
-                Tied across builds
-              </p>
-            ) : (
-              <>
-                <p className="font-body text-small font-semibold text-text-primary mt-2 line-clamp-1">
-                  {winnerBuild ? shortBuildLabel(winnerBuild.school_name) : ""}
+              /* ---- TIED STATE ---- */
+              <div>
+                <p className="font-body text-body-lg font-bold text-text-primary mb-1">
+                  Tied
                 </p>
-                <p className="font-data text-micro text-text-secondary mt-0.5">
-                  {winnerValue !== null ? dim.format(winnerValue) : "—"}
+                {winnerValue !== null && (
+                  <p className="font-data text-data-sm text-text-secondary">
+                    Both at {dim.format(winnerValue)}
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* ---- WINNER STATE ---- */
+              <div>
+                {/* Winner build name with color dot */}
+                <div className="flex items-center gap-2 mb-2">
+                  {winnerIndex !== null && (
+                    <span
+                      className={[
+                        "inline-block w-2.5 h-2.5 rounded-full shrink-0",
+                        BUILD_DOT_CLASSES[winnerIndex] ?? "bg-accent-thrive",
+                      ].join(" ")}
+                    />
+                  )}
+                  <p className="font-body text-body-lg font-bold text-text-primary truncate">
+                    {winnerBuild ? shortBuildLabel(winnerBuild.school_name) : ""}
+                  </p>
+                </div>
+
+                {/* Value + delta */}
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={[
+                      "font-data text-data-lg font-bold",
+                      style.textClass,
+                    ].join(" ")}
+                  >
+                    {winnerValue !== null ? dim.format(winnerValue) : "—"}
+                  </span>
                   {delta !== null && delta > 0.5 && (
-                    <span className="text-text-muted ml-1.5">
-                      · +{dim.format(delta)} vs runner-up
+                    <span className="font-data text-data-sm text-text-secondary">
+                      +{dim.format(delta)} ahead
                     </span>
                   )}
-                </p>
-              </>
+                </div>
+              </div>
             )}
-          </button>
+          </motion.button>
         );
       })}
-    </div>
+    </motion.div>
   );
 }

@@ -83,9 +83,9 @@ Never improvise synonyms. These terms are the product.
 **Stats (always this casing and order in sequences):**
 - **ERN** — Earning Power
 - **ROI** — Return on Investment
-- **RES** — AI Resilience
+- **RES** — AI Resilience *(blended: AI-exposure composite + the O\*NET human-essential signal that used to be HMN)*
 - **GRW** — Growth Outlook
-- **HMN** — Human Edge
+- **AURA** — Brand Gravity *(institution-level — one value per school, shared by every career in a build; can be null when the institution lacks EADA/IPEDS-Finance coverage, in which case copy says nothing rather than hedging)*
 
 **Bosses (always "Fight [X]"):**
 - Fight AI

@@ -8,7 +8,9 @@
 
 ---
 
-## Status: DEFERRED
+## Status: DEPRECATED 2026-05-03
+
+> **Deprecated.** Was already DEFERRED post-hackathon. Caching Gemma responses is a production-stage optimization, not a hackathon concern. If response latency becomes a real problem in deployment, write fresh against measured bottlenecks.
 
 > **Deferred rationale:** Caching Gemma responses bypasses Gemma for cache-hit students, which undermines the Gemma 4 Good hackathon demo. Every student should experience Gemma resolving their major in real time. This spec will be detailed and executed post-hackathon when scale matters more than demo impact.
 
@@ -19,7 +21,7 @@
 | Created | 2026-04-23 |
 | Author | Jeff + Claude Code |
 | Spec Version | 0.1 (skeleton) |
-| Last Updated | 2026-04-23 |
+| Last Updated | 2026-05-03 (DEPRECATED — production-stage optimization, not a hackathon concern) |
 | Blocked By | Hackathon deadline (2026-05-18) — execute after |
 | Related Specs | `feature-save-build.md` |
 

@@ -1,8 +1,12 @@
 # Feature: Gemma Availability / Outage Mitigation (PLACEHOLDER)
 
-## Status: TODO
+## Status: DEPRECATED 2026-05-03
 
-> **This is a placeholder, not a spec.** It exists to capture a new architectural risk introduced by `feature-set-your-course.md`: Gemma is now on the critical path of the product, not a decorative overlay. A Gemma outage (OpenRouter 502, Ollama crash, rate-limit burst during a judge demo) becomes a product outage, and unlike the old narrative-layer Gemma, we have no cheap deterministic fallback for *reasoning*. The real spec must pick a strategy and implement it before submission.
+> **Deprecated for the hackathon.** Engineering an outage-mitigation framework around Gemma is over-engineering for a one-shot Kaggle submission. The hackathon premise is "Gemma 4 powers this" — Gemma being available is the demo, not a risk to architect around. We accept the risk: pre-test the demo path on the actual inference backend, do not ship outage-fallback infrastructure.
+>
+> If Gemma availability becomes a real concern after the hackathon (e.g., school deployment with reliability SLAs), write a fresh spec with concrete failure modes from production telemetry rather than reviving this pre-hackathon risk register.
+>
+> §1–§3 below preserved for historical reference only.
 
 ---
 
@@ -11,7 +15,7 @@
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-19 |
-| Last Updated | 2026-04-19 (placeholder created; not promoted) |
+| Last Updated | 2026-05-03 (DEPRECATED — over-engineering for a hackathon; Gemma availability is the demo premise, not a risk to architect around) |
 | Author | Jeff Cernauske + Claude Code |
 | Spec Version | 0.0 (stub) |
 | Deadline pressure | 2026-05-18 (Kaggle submission) — demo must be judge-proof |

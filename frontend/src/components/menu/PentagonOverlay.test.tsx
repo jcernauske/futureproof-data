@@ -28,6 +28,23 @@ function makeBuild(id: string, label: string) {
     tuition_annual: null,
     is_out_of_state: false,
     institution_control: null,
+    cost_of_attendance_annual: null,
+    published_cost_4yr: null,
+    room_board_on_campus: null,
+    tuition_in_state: null,
+    tuition_out_of_state: null,
+    earnings_1yr_median: null,
+    earnings_1yr_p25: null,
+    earnings_1yr_p75: null,
+    state_abbr: null,
+    fte_enrollment: null,
+    endowment_per_fte: null,
+    marketing_ratio: null,
+    athletic_spend_per_fte: null,
+    athletic_revenue_per_fte: null,
+    athletic_subsidy_ratio: null,
+    aura_score_basis: null,
+    coverage_tier: null,
   };
 }
 

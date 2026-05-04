@@ -1,0 +1,39 @@
+# FutureProof — environment configuration template
+#
+# To use: copy this file to `.env.example` at the repo root, then to `.env`:
+#   cp docs/env-template.txt .env.example
+#   cp .env.example .env
+#
+# The default config (Ollama + gemma4:e4b) runs the entire product locally
+# with no API keys.
+
+# --------------------------------------------------------------------------
+# Inference backend
+# --------------------------------------------------------------------------
+# Which inference path Gemma 4 calls go to.
+#   ollama      -> local inference at OLLAMA_BASE_URL (default)
+#   openrouter  -> hosted inference at openrouter.ai/api/v1
+INFERENCE_BACKEND=ollama
+
+# --------------------------------------------------------------------------
+# Ollama (local) — used when INFERENCE_BACKEND=ollama
+# --------------------------------------------------------------------------
+# Override only if Ollama runs on a non-default host or port. Keep the /v1
+# suffix; the backend derives native /api/chat from this value for local calls.
+# OLLAMA_BASE_URL=http://localhost:11434/v1
+
+# Local Gemma 4 variant. Pull it first with `ollama pull <tag>`.
+#   gemma4:e4b   -> 4.5B effective params, 128K context (default; 8 GB RAM)
+#   gemma4:26b   -> 26B MoE, 256K context (higher quality; 20 GB+ RAM)
+# OLLAMA_MODEL=gemma4:e4b
+
+# --------------------------------------------------------------------------
+# OpenRouter (cloud) — used when INFERENCE_BACKEND=openrouter
+# --------------------------------------------------------------------------
+# Required only when INFERENCE_BACKEND=openrouter. Get a key at
+# https://openrouter.ai/keys. Never commit a real key.
+# OPENROUTER_API_KEY=sk-or-v1-REPLACE_ME
+
+# Hosted Gemma 4 model. Override only if OpenRouter changes the slug or you
+# intentionally choose a different Gemma 4 variant.
+# OPENROUTER_MODEL=google/gemma-4-26b-a4b-it

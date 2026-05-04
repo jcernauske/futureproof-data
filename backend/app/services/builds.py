@@ -360,6 +360,58 @@ def list_builds(profile_name: str | None = None) -> list[BuildSummary]:
     ]
 
 
+def _fetch_institution_profiles(builds: list[Build]) -> dict[int, dict[str, Any]]:
+    """Fetch institution_aura + FTE for each unique unitid. Cached per unitid."""
+    from app.services import mcp_client
+
+    profiles: dict[int, dict[str, Any]] = {}
+    seen_unitids: set[int] = set()
+
+    for build in builds:
+        unitid = build.career.unitid
+        if unitid in seen_unitids:
+            continue
+        seen_unitids.add(unitid)
+
+        aura_data: dict[str, Any] = {}
+        try:
+            result = mcp_client.call("get_institution_aura", {"unitid": unitid})
+            row = result.get("data")
+            if row:
+                aura_data = row
+        except Exception:
+            logger.warning("institution_aura failed unitid=%s", unitid)
+
+        fte: int | None = None
+        try:
+            rows = mcp_client.get_server().query_iceberg_simple(
+                "consumable.ipeds_finance_profile",
+                filters={"unitid": unitid},
+                columns=["total_fte_enrollment"],
+                limit=1,
+            )
+            if rows and "error" not in rows[0]:
+                fte = rows[0].get("total_fte_enrollment")
+            elif rows and "error" in rows[0]:
+                logger.warning(
+                    "FTE error unitid=%s: %s", unitid, rows[0]["error"],
+                )
+        except Exception:
+            logger.warning("FTE query failed unitid=%s", unitid)
+
+        profiles[unitid] = {
+            "endowment_per_fte": aura_data.get("endowment_per_fte"),
+            "marketing_ratio": aura_data.get("marketing_ratio"),
+            "athletic_spend_per_fte": aura_data.get("athletic_spend_per_fte"),
+            "athletic_revenue_per_fte": aura_data.get("athletic_revenue_per_fte"),
+            "athletic_subsidy_ratio": aura_data.get("athletic_subsidy_ratio"),
+            "coverage_tier": aura_data.get("coverage_tier"),
+            "fte_enrollment": fte,
+        }
+
+    return profiles
+
+
 def compare_builds(build_ids: list[str]) -> dict[str, Any]:
     """Return comparison data for 2-4 builds."""
     builds = [load_build(bid) for bid in build_ids]
@@ -427,6 +479,8 @@ def compare_builds(build_ids: list[str]) -> dict[str, Any]:
             "destinations": destinations,
         })
 
+    institution_profiles = _fetch_institution_profiles(builds)
+
     return {
         "builds": [
             {
@@ -450,6 +504,19 @@ def compare_builds(build_ids: list[str]) -> dict[str, Any]:
                 ),
                 "is_out_of_state": b.career.is_out_of_state,
                 "institution_control": b.career.institution_control,
+                # Cost detail (from CareerOutcome — zero-cost, already in memory)
+                "cost_of_attendance_annual": b.career.cost_of_attendance_annual,
+                "published_cost_4yr": b.career.published_cost_4yr,
+                "room_board_on_campus": b.career.room_board_on_campus,
+                "tuition_in_state": b.career.tuition_in_state,
+                "tuition_out_of_state": b.career.tuition_out_of_state,
+                "earnings_1yr_median": b.career.earnings_1yr_median,
+                "earnings_1yr_p25": b.career.earnings_1yr_p25,
+                "earnings_1yr_p75": b.career.earnings_1yr_p75,
+                "state_abbr": b.career.state_abbr,
+                "aura_score_basis": b.career.aura_score_basis,
+                # Institution profile (from MCP + Iceberg)
+                **institution_profiles.get(b.career.unitid, {}),
             }
             for b in builds
         ],
