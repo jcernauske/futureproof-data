@@ -30,6 +30,11 @@ export interface CompareSchoolsAnchor {
   stateAbbr?: string | null;
   earnings1yrMedian?: number | null;
   netPriceAnnual?: number | null;
+  // Residency-aware 4-year sticker — what the FINANCES card shows.
+  // When the build's (unitid, cipcode) is absent from the leaderboard
+  // universe and the panel renders a synthetic anchor row, this drives
+  // the "Cost (4 yr)" column so the value matches the FINANCES card.
+  publishedCost4yr?: number | null;
 }
 
 export interface CompareSchoolsPanelProps {
@@ -40,6 +45,11 @@ export interface CompareSchoolsPanelProps {
   occupationTitle: string;
   programName?: string;
   anchor?: CompareSchoolsAnchor;
+  // Two-letter US state code for the student's home state. When set,
+  // each row's stat_roi and published_cost_4yr are residency-adjusted
+  // by the backend so the leaderboard is apples-to-apples with the
+  // anchor build's FINANCES card (spec roi-net-lifetime-value followup).
+  homeState?: string | null;
   // Sheet only.
   open?: boolean;
   onClose?: () => void;
@@ -108,6 +118,9 @@ export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
           minConfidence: confidence,
           buildUnitid: a?.unitid,
           buildCipcode: a?.cipcode,
+          // Forward home_state so each row's published_cost_4yr and
+          // stat_roi are residency-aware (matches the FINANCES card).
+          homeState: props.homeState ?? undefined,
           // Send build-time stats so the backend can compute
           // anchor_estimated_rank when the (unitid, cipcode) is absent
           // from the filtered universe. Both must be present and finite.
@@ -152,6 +165,7 @@ export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
       props.cipcode ?? "",
       props.anchor?.unitid ?? "",
       props.anchor?.cipcode ?? "",
+      props.homeState ?? "",
       minConfidence,
     ].join("|");
     if (fetchedKeyRef.current === key) return;
@@ -165,6 +179,7 @@ export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
     props.cipcode,
     props.anchor?.unitid,
     props.anchor?.cipcode,
+    props.homeState,
     load,
   ]);
 
@@ -208,6 +223,13 @@ export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
       cost_of_attendance_annual: null,
       tuition_in_state: null,
       tuition_out_of_state: null,
+      // Use the build's residency-aware 4-year sticker (already
+      // computed by the backend stat_engine for the user's anchor).
+      // Falls back to null if the host didn't pass it; the cost cell
+      // then renders "—" rather than a wrong value.
+      published_cost_4yr: a.publishedCost4yr ?? null,
+      stat_roi_in_state: null,
+      roi_residency_adjusted: false,
       overall_confidence: "low",
       confidence_tier_program: null,
       match_quality: "estimated",
@@ -762,10 +784,10 @@ function CardRow({
         </div>
         <div className="flex flex-col items-end min-w-0">
           <span className="font-data text-micro uppercase tracking-wider text-text-muted">
-            {t("compareSchools.column.netPrice")}
+            {t("compareSchools.column.cost4yr")}
           </span>
           <span className="font-data text-data text-text-secondary truncate">
-            {fmtMoney(row.net_price_annual)}
+            {fmtMoney(row.published_cost_4yr)}
           </span>
         </div>
       </div>
@@ -813,7 +835,7 @@ function RowHeader() {
       <Cell head>{t("compareSchools.column.ern")}</Cell>
       <Cell head>{t("compareSchools.column.roi")}</Cell>
       <Cell head>{t("compareSchools.column.earnings")}</Cell>
-      <Cell head>{t("compareSchools.column.netPrice")}</Cell>
+      <Cell head>{t("compareSchools.column.cost4yr")}</Cell>
     </>
   );
 }
@@ -909,7 +931,7 @@ function DataRow({
       </Cell>
       <Cell tone={anchorBg}>
         <span className="font-data text-text-primary">
-          {fmtMoney(row.net_price_annual)}
+          {fmtMoney(row.published_cost_4yr)}
         </span>
       </Cell>
     </div>

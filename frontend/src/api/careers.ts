@@ -9,6 +9,11 @@ interface FetchOpts {
   minConfidence?: ConfidenceTier;
   minProgramConfidence?: ConfidenceTier;
   stateAbbr?: string;
+  // Two-letter US state code for the student's home state. When set,
+  // the backend recomputes published_cost_4yr and stat_roi residency-
+  // aware so the leaderboard matches the FINANCES card's "Cost (4 yr)"
+  // line on /my-build (spec roi-net-lifetime-value followup).
+  homeState?: string;
   buildUnitid?: number;
   buildCipcode?: string;
   // Build's stat_ern + stat_roi (0-10). When both are passed alongside
@@ -27,6 +32,7 @@ function buildQuery(opts: FetchOpts | undefined): string {
   if (opts.minProgramConfidence)
     params.set("min_program_confidence", opts.minProgramConfidence);
   if (opts.stateAbbr) params.set("state_abbr", opts.stateAbbr);
+  if (opts.homeState) params.set("home_state", opts.homeState);
   if (opts.buildUnitid !== undefined)
     params.set("build_unitid", String(opts.buildUnitid));
   if (opts.buildCipcode) params.set("build_cipcode", opts.buildCipcode);

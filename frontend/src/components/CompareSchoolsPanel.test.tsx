@@ -54,6 +54,9 @@ function makeRow(overrides: Partial<SchoolForCareerRow> = {}): SchoolForCareerRo
     cost_of_attendance_annual: 30000,
     tuition_in_state: 9000,
     tuition_out_of_state: 21000,
+    published_cost_4yr: 120000,
+    stat_roi_in_state: 9,
+    roi_residency_adjusted: false,
     overall_confidence: "high",
     confidence_tier_program: "high",
     match_quality: "full",
@@ -476,7 +479,7 @@ describe("CompareSchoolsPanel — pentagon-free contract", () => {
 describe("CompareSchoolsPanel — money formatting", () => {
   it("formats_money_via_existing_helper", async () => {
     const earnings = 87654;
-    const netPrice = 12345;
+    const cost4yr = 123456;
     mockFetchBySoc.mockResolvedValueOnce(
       makeResponse({
         rows: [
@@ -484,7 +487,7 @@ describe("CompareSchoolsPanel — money formatting", () => {
             rank: 1,
             unitid: 110001,
             earnings_1yr_median: earnings,
-            net_price_annual: netPrice,
+            published_cost_4yr: cost4yr,
           }),
         ],
       }),
@@ -504,13 +507,13 @@ describe("CompareSchoolsPanel — money formatting", () => {
 
     // The same helper used elsewhere in the app is the source of truth.
     expect(fmtMoney(earnings)).toBe("$87,654");
-    expect(fmtMoney(netPrice)).toBe("$12,345");
+    expect(fmtMoney(cost4yr)).toBe("$123,456");
 
     // Both values appear in the rendered DOM in this exact format.
     // The grid AND the card-stack render the row in jsdom (Tailwind
     // doesn't evaluate media queries), so each value appears twice.
     expect(screen.getAllByText(fmtMoney(earnings)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(fmtMoney(netPrice)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(fmtMoney(cost4yr)).length).toBeGreaterThan(0);
   });
 
   it("formats_null_money_as_em_dash_via_helper", async () => {
@@ -602,7 +605,7 @@ describe("CompareSchoolsPanel — narrow viewport collapses columns (P2)", () =>
     expect(within(cardStack).getByText("Bronze U")).toBeInTheDocument();
   });
 
-  it("card_renders_rank_school_state_ern_roi_earnings_netPrice — every data point preserved", async () => {
+  it("card_renders_rank_school_state_ern_roi_earnings_cost4yr — every data point preserved", async () => {
     mockFetchBySoc.mockResolvedValueOnce(
       makeResponse({
         rows: [
@@ -615,7 +618,7 @@ describe("CompareSchoolsPanel — narrow viewport collapses columns (P2)", () =>
             stat_ern: 9,
             stat_roi: 8,
             earnings_1yr_median: 120000,
-            net_price_annual: 20000,
+            published_cost_4yr: 234567,
           }),
         ],
       }),
@@ -634,7 +637,7 @@ describe("CompareSchoolsPanel — narrow viewport collapses columns (P2)", () =>
     await waitFor(() => expect(mockFetchBySoc).toHaveBeenCalled());
 
     const cardStack = await screen.findByTestId("compare-card-stack");
-    // Rank, school name, program subtitle, state, ERN, ROI, earnings, net price.
+    // Rank, school name, program subtitle, state, ERN, ROI, earnings, cost (4 yr).
     expect(within(cardStack).getByText("1")).toBeInTheDocument();
     expect(within(cardStack).getByText("Top Tech")).toBeInTheDocument();
     expect(within(cardStack).getByText("Computer Science")).toBeInTheDocument();
@@ -642,7 +645,7 @@ describe("CompareSchoolsPanel — narrow viewport collapses columns (P2)", () =>
     expect(within(cardStack).getByText("9")).toBeInTheDocument(); // ERN
     expect(within(cardStack).getByText("8")).toBeInTheDocument(); // ROI
     expect(within(cardStack).getByText(fmtMoney(120000))).toBeInTheDocument();
-    expect(within(cardStack).getByText(fmtMoney(20000))).toBeInTheDocument();
+    expect(within(cardStack).getByText(fmtMoney(234567))).toBeInTheDocument();
   });
 
   it("card_renders_anchor_variant_with_thrive_left_border", async () => {

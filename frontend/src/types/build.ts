@@ -214,6 +214,16 @@ export interface SchoolForCareerRow {
   cost_of_attendance_annual: number | null;
   tuition_in_state: number | null;
   tuition_out_of_state: number | null;
+  // Residency-aware fields stamped by the backend when home_state is
+  // passed (spec roi-net-lifetime-value followup, "apples-to-apples
+  // leaderboard"). published_cost_4yr is the residency-aware 4-year
+  // sticker; the leaderboard's "Cost (4 yr)" column displays this so
+  // it matches the FINANCES card. stat_roi_in_state preserves the
+  // pre-adjustment score for transparency. roi_residency_adjusted is
+  // the boolean flag.
+  published_cost_4yr: number | null;
+  stat_roi_in_state: number | null;
+  roi_residency_adjusted: boolean;
   overall_confidence: ConfidenceTier;
   confidence_tier_program: string | null;
   match_quality: LeaderboardMatchQuality;

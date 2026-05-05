@@ -32,6 +32,7 @@ def rank_schools_for_career(
     min_confidence: ConfidenceTier = "medium",
     min_program_confidence: ConfidenceTier = "low",
     state_abbr: str | None = None,
+    home_state: str | None = None,
     anchor: AnchorBuild | None = None,
     anchor_stat_ern: int | None = None,
     anchor_stat_roi: int | None = None,
@@ -58,6 +59,8 @@ def rank_schools_for_career(
         args["cipcode"] = cipcode
     if state_abbr is not None:
         args["state_abbr"] = state_abbr
+    if home_state is not None:
+        args["home_state"] = home_state
     if anchor is not None:
         args["build_unitid"] = anchor.unitid
         args["build_cipcode"] = anchor.cipcode
