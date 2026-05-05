@@ -372,6 +372,7 @@ const STREAM_PARAMS = {
   published_cost_4yr: null,
   animal_emoji: null,
   locale: "en",
+  intent_keywords: [],
 };
 
 describe("build.ts — createBuildStream SSE parsing", () => {

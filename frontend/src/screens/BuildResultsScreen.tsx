@@ -245,6 +245,11 @@ export function BuildResultsScreen() {
       published_cost_4yr: publishedCost4yr,
       animal_emoji: animalEmoji ?? null,
       locale: locale ?? "en",
+      // Forward the same intent_keywords /build/outcomes used to populate
+      // the career list. Without this, SOC expansion picks (e.g.
+      // 41-3011 for an Advertising major) survive on /outcomes but
+      // disappear on /build → 404 LookupError.
+      intent_keywords: major.intentKeywords ?? [],
     };
 
     const onEvent = (event: BuildStreamEvent) => {
@@ -290,6 +295,9 @@ export function BuildResultsScreen() {
             homeState ?? undefined, school.stateAbbr ?? undefined,
             publishedCost4yr,
             animalEmoji ?? undefined, locale,
+            // Forward intent_keywords so the /build call sees the same
+            // SOC-expansion universe /build/outcomes saw — see api/build.ts.
+            major.intentKeywords ?? [],
           ),
           minDisplayTime,
         ]);
@@ -698,7 +706,13 @@ export function BuildResultsScreen() {
               stateAbbr: school?.stateAbbr ?? null,
               earnings1yrMedian: career.earnings_1yr_median,
               netPriceAnnual: career.net_price_annual,
+              // Residency-aware 4-yr sticker for the synthetic anchor
+              // row's "Cost (4 yr)" cell — matches the FINANCES card.
+              publishedCost4yr: career.published_cost_4yr,
             }}
+            // Forward the user's home state so each leaderboard row's
+            // cost + ROI come back residency-aware (matches FINANCES card).
+            homeState={homeState ?? null}
             open={compareOpen}
             onClose={() => setCompareOpen(false)}
             onBuildAtRow={(row: SchoolForCareerRow) => {

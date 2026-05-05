@@ -158,6 +158,10 @@ export async function spawnBuildFromRow(
     published_cost_4yr: publishedCost4yr,
     animal_emoji: ctx.animalEmoji,
     locale: ctx.locale,
+    // Branch-spawned builds re-enter the same SOC the user clicked
+    // (no chip flow, no resolved intent). Empty list — backend skips
+    // SOC expansion and uses the crosswalk verbatim.
+    intent_keywords: [],
   };
 
   const onEvent = (event: BuildStreamEvent) => {

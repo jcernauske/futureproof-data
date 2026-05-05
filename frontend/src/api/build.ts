@@ -115,6 +115,7 @@ export async function createBuild(
   publishedCost4yr?: number | null,
   animalEmoji?: string,
   locale?: string,
+  intentKeywords?: string[],
 ): Promise<Build> {
   if (USE_MOCK) return mockCreateBuild(selectedSoc, profileName, schoolName);
   return apiPost<Build>("/build", {
@@ -135,6 +136,13 @@ export async function createBuild(
     published_cost_4yr: publishedCost4yr ?? null,
     animal_emoji: animalEmoji ?? null,
     locale: locale ?? "en",
+    // Forward the same intent_keywords /build/outcomes already uses to
+    // drive SOC expansion. Without this, a SOC the expansion path
+    // surfaced (e.g. "Advertising sales agents" 41-3011 for an
+    // Advertising major) appears in the user's career list but the
+    // /build call can't find it — LookupError → 404. The user sees
+    // "Something went wrong building your profile."
+    intent_keywords: intentKeywords ?? [],
   });
 }
 
@@ -165,6 +173,8 @@ export interface BuildParams {
   published_cost_4yr: number | null;
   animal_emoji: string | null;
   locale: string;
+  // Must match what /build/outcomes received — see createBuild() above.
+  intent_keywords: string[];
 }
 
 export type BuildStreamEvent =

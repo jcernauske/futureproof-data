@@ -1199,6 +1199,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       null,                    // publishedCost4yr unavailable for mock school
       "🐻",                    // animalEmoji
       "en",                    // locale (default)
+      [],                      // intentKeywords (empty when major.intentKeywords is unset)
     );
 
     // Clean up.
@@ -1252,6 +1253,7 @@ describe("BuildResultsScreen -- createBuild is called with correct params", () =
       null,                    // publishedCost4yr unavailable for mock school
       "🐻",                    // animalEmoji
       "en",                    // locale (default)
+      [],                      // intentKeywords (empty when major.intentKeywords is unset)
     );
 
     await act(async () => {
