@@ -45,6 +45,13 @@ vi.mock("@/api/gauntlet", () => ({
   rerollFight: (...args: unknown[]) => mockRerollFight(...args),
 }));
 
+// renderWrapped is the persistence trigger fired by the in-place Save
+// button on the /my-build action bar. Default to immediate success.
+const mockRenderWrapped = vi.fn().mockResolvedValue({ status: "ok", frame_count: 6 });
+vi.mock("@/api/wrapped", () => ({
+  renderWrapped: (...args: unknown[]) => mockRenderWrapped(...args),
+}));
+
 // Ask Gemma — patch the askGemma client at the module boundary so we
 // can assert which scope payload reaches the API when the user clicks
 // each entry point. Other @/api/menu exports remain real.
@@ -332,7 +339,7 @@ describe("BuildResultsScreen -- loading state (P0)", () => {
 
     // The build content is NOT yet visible.
     expect(screen.queryByText("Software Developers")).toBeNull();
-    expect(screen.queryByText("Save This Build")).toBeNull();
+    expect(screen.queryByTestId("btn-save-build-bar")).toBeNull();
 
     // createBuild was called.
     expect(mockCreateBuild).toHaveBeenCalledTimes(1);
@@ -390,8 +397,8 @@ describe("BuildResultsScreen -- full render (P0)", () => {
     // Verdict badge: "CAREER READINESS" label is present.
     expect(screen.getByText("CAREER READINESS")).toBeInTheDocument();
 
-    // Save button.
-    expect(screen.getByText("Save This Build")).toBeInTheDocument();
+    // Save button (in the action bar).
+    expect(screen.getByTestId("btn-save-build-bar")).toBeInTheDocument();
   });
 });
 
@@ -607,12 +614,26 @@ describe("BuildResultsScreen -- boss bands (P1)", () => {
 });
 
 describe("BuildResultsScreen -- save button (P1)", () => {
-  it("save_button_navigates_to_save -- clicking Save This Build navigates to /save", () => {
+  it("save_button_calls_renderWrapped_in_place -- clicking Save fires renderWrapped without navigating", async () => {
     seedWithBuild();
     renderScreen();
 
-    const saveButton = screen.getByText("Save This Build");
-    fireEvent.click(saveButton);
+    const saveButton = screen.getByTestId("btn-save-build-bar");
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    const seededBuildId = useBuildStore.getState().build?.build_id;
+    expect(mockRenderWrapped).toHaveBeenCalledWith(seededBuildId);
+    expect(mockNavigate).not.toHaveBeenCalledWith("/save");
+  });
+
+  it("share_button_navigates_to_save -- clicking Share navigates to /save (wrapped flow)", () => {
+    seedWithBuild();
+    renderScreen();
+
+    const shareButton = screen.getByTestId("btn-share-build-bar");
+    fireEvent.click(shareButton);
 
     expect(mockNavigate).toHaveBeenCalledWith("/save");
   });
@@ -621,7 +642,7 @@ describe("BuildResultsScreen -- save button (P1)", () => {
     seedWithBuild();
     renderScreen();
 
-    const branchLink = screen.getByText(/See where this could lead/);
+    const branchLink = screen.getByTestId("btn-see-future-bar");
     fireEvent.click(branchLink);
 
     expect(mockNavigate).toHaveBeenCalledWith("/future");

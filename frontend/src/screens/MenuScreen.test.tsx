@@ -292,8 +292,11 @@ describe("MenuScreen", () => {
 
   // --- P1: New Build clears inputs and navigates ---
 
-  it('"New Build" calls resetInputs() then navigates to /profile (P1)', async () => {
-    mockListBuilds.mockResolvedValue([makeSummary()]);
+  it('"New Build" (empty-state CTA) calls resetInputs() then navigates to /profile (P1)', async () => {
+    // The screen-local New Build button now only renders in the empty
+    // state — for non-empty /builds the action lives exclusively in the
+    // global AppHeader. Seed zero builds to hit the empty-state CTA.
+    mockListBuilds.mockResolvedValue([]);
 
     // Pollute build inputs first so we can prove the reset.
     useBuildInputStore.setState({
@@ -314,10 +317,7 @@ describe("MenuScreen", () => {
 
     renderScreen();
 
-    // Wait for builds to land so the action region renders the screen-local btn.
-    await screen.findByTestId("card-build-berkeley-cs-001");
-
-    fireEvent.click(screen.getByTestId("btn-new-build"));
+    fireEvent.click(await screen.findByTestId("btn-new-build"));
 
     expect(mockNavigate).toHaveBeenCalledWith("/profile");
     const after = useBuildInputStore.getState();

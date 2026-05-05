@@ -769,8 +769,8 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       ref={containerRef}
       data-testid="region-compare"
       aria-label={`Comparison of ${buildCount} builds`}
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       transition={springs.smooth}
       className="flex flex-col gap-0"
       onMouseOver={handleMouseOver}

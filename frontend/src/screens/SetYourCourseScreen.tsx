@@ -347,7 +347,7 @@ export function SetYourCourseScreen() {
   if (!profileName) return null;
 
   return (
-    <div className="min-h-screen relative pt-14 pb-10">
+    <div className="min-h-screen relative pt-14 pb-32">
       <PageContainer variant="centered" className="py-10">
         <div className="flex flex-col gap-8">
           <header className="max-w-[560px]">
@@ -765,7 +765,7 @@ export function SetYourCourseScreen() {
             />
           )}
 
-          {/* ROW 3 — Effort/loans sliders + actions (two-column) */}
+          {/* ROW 3 — Effort/loans sliders */}
           <AnimatePresence>
             {(isAdjustMode || (hasOutcomes && currentResolution && !streaming && !clarifierDiverged)) && (
               <motion.section
@@ -796,34 +796,61 @@ export function SetYourCourseScreen() {
                     {softNudge}
                   </p>
                 )}
-                <div className="mt-4 grid grid-cols-[1fr_2fr] gap-4">
-                  <Button
-                    variant="ghost"
-                    onClick={handleStartOverRequest}
-                    disabled={busy}
-                    data-testid="btn-start-over"
-                    className="w-full h-12"
-                  >
-                    {t("syc.startOver")}
-                  </Button>
-                  <motion.button
-                    onClick={() => void commit()}
-                    disabled={busy}
-                    className="w-full bg-accent-thrive text-text-inverse font-body font-bold text-cta h-12 rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-60 disabled:cursor-not-allowed"
-                    whileTap={busy ? undefined : { scale: 0.97 }}
-                    transition={springs.snappy}
-                    data-testid="btn-spec-build-bottom"
-                  >
-                    {busy
-                      ? t("syc.specing").replace("{profileName}", profileName ?? "")
-                      : t("syc.specBuild")}
-                  </motion.button>
-                </div>
               </motion.section>
             )}
           </AnimatePresence>
         </div>
       </PageContainer>
+
+      {/* Sticky bottom action bar — sibling of PageContainer so framer transforms
+          on inner sections don't promote it into a transformed containing block
+          and break `position: fixed`. */}
+      <AnimatePresence>
+        {(isAdjustMode || (hasOutcomes && currentResolution && !streaming && !clarifierDiverged)) && (
+          <motion.div
+            key="action-bar"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={springs.smooth}
+            className="fixed inset-x-0 bottom-0 z-40 bg-bp-deep/85 backdrop-blur-lg"
+            style={{
+              boxShadow:
+                "inset 0 1px 0 0 rgba(245, 240, 232, 0.06), 0 -12px 32px -8px rgba(0, 0, 0, 0.45), 0 -1px 0 0 rgba(0, 0, 0, 0.4)",
+            }}
+            data-testid="action-bar"
+          >
+            <PageContainer variant="centered" className="py-4">
+              <div
+                className="grid grid-cols-[1fr_2fr] gap-4"
+                style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
+              >
+                <Button
+                  variant="ghost"
+                  onClick={handleStartOverRequest}
+                  disabled={busy}
+                  data-testid="btn-start-over"
+                  className="w-full h-12"
+                >
+                  {t("syc.startOver")}
+                </Button>
+                <motion.button
+                  onClick={() => void commit()}
+                  disabled={busy}
+                  className="w-full bg-accent-thrive text-text-inverse font-body font-bold text-cta h-12 rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-60 disabled:cursor-not-allowed"
+                  whileTap={busy ? undefined : { scale: 0.97 }}
+                  transition={springs.snappy}
+                  data-testid="btn-spec-build-bottom"
+                >
+                  {busy
+                    ? t("syc.specing").replace("{profileName}", profileName ?? "")
+                    : t("syc.specBuild")}
+                </motion.button>
+              </div>
+            </PageContainer>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Start-over confirm dialog. */}
       <AnimatePresence>

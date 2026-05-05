@@ -219,12 +219,16 @@ export function AppHeader() {
           </div>
         </div>
 
-        {/* Phase accent line */}
+        {/* Phase accent line — wipes outward from horizontal center on mount.
+            No layoutId: it caused Framer to animate the line from an
+            uninitialized layout origin (visually, a sweep up from mid-screen). */}
         {phaseAccent && (
           <motion.div
             className={`h-[2px] ${phaseAccent} opacity-40`}
-            layoutId="phase-accent"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
             transition={springs.smooth}
+            style={{ transformOrigin: "center" }}
           />
         )}
       </motion.header>

@@ -20,7 +20,10 @@ import { BossBand } from "@/components/build-results/BossBand";
 import { VerdictBadge } from "@/components/build-results/VerdictBadge";
 import { BOSS_META, STAT_COLORS, STAT_INFO } from "@/components/build-results/bossData";
 import { GemmaChat } from "@/components/menu/GemmaChat";
-import { AskGemmaFab } from "@/components/menu/AskGemmaFab";
+import { AnimatePresence, motion } from "framer-motion";
+import { springs } from "@/styles/motion";
+import { PageContainer } from "@/components/ui/PageContainer";
+import { renderWrapped } from "@/api/wrapped";
 import { CompareSchoolsPanel } from "@/components/CompareSchoolsPanel";
 import { spawnBuildFromRow } from "@/lib/buildSpawn";
 import type { SchoolForCareerRow } from "@/types/build";
@@ -173,6 +176,38 @@ export function BuildResultsScreen() {
       t("build.askWholeBuild"),
     );
   }, [build, openChat, t]);
+
+  // Save state for the in-place Save button on the action bar.
+  // renderWrapped is the persistence trigger today (it also pre-renders
+  // the Wrapped frames, which is fine — caches them so Share is fast).
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const savedResetTimerRef = useRef<number | null>(null);
+  const handleSave = useCallback(async () => {
+    if (!build) return;
+    if (saveState === "saving") return;
+    if (savedResetTimerRef.current !== null) {
+      window.clearTimeout(savedResetTimerRef.current);
+      savedResetTimerRef.current = null;
+    }
+    setSaveState("saving");
+    try {
+      await renderWrapped(build.build_id);
+      setSaveState("saved");
+      savedResetTimerRef.current = window.setTimeout(() => {
+        setSaveState("idle");
+        savedResetTimerRef.current = null;
+      }, 1500);
+    } catch {
+      setSaveState("error");
+    }
+  }, [build, saveState]);
+  useEffect(() => {
+    return () => {
+      if (savedResetTimerRef.current !== null) {
+        window.clearTimeout(savedResetTimerRef.current);
+      }
+    };
+  }, []);
 
   const cancelledRef = useRef(false);
 
@@ -499,96 +534,87 @@ export function BuildResultsScreen() {
   // Guards
   if (!build && (!selectedCareer || !school || !major)) return null;
 
-  // Loading state
-  if (isBuilding || !build) {
-    return (
-      <div className="min-h-screen pt-14">
-        <div
-          className="w-full bg-bp-surface"
-          style={{
-            height: 280,
-            backgroundImage: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)",
-            backgroundSize: "200% 100%",
-            animation: "shimmer 1.5s ease-in-out infinite",
-          }}
-        />
-        <div className="flex flex-col items-center justify-center py-16">
-          <span style={{ fontSize: 56, animation: "emojiFloat 2s ease-in-out infinite", marginTop: -40 }}>
-            {animalEmoji ?? "🐻"}
-          </span>
-          <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16 }}>
-            {t("build.analyzing")}
-          </p>
-          <div
-            className="mt-4 rounded-full"
-            style={{
-              width: 32,
-              height: 32,
-              border: "3px solid var(--color-bg-surface)",
-              borderTopColor: "var(--color-accent-insight)",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          {error && (
-            <div className="mt-8 bg-bp-mid rounded-xl p-8 border border-border-subtle max-w-md mx-auto text-center">
-              <div className="text-accent-alert" style={{ fontSize: 48 }}>⚠</div>
-              <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16, lineHeight: 1.5 }}>
-                {t("build.error")}
-              </p>
-              <div className="flex gap-3 justify-center mt-6">
-                <Button variant="primary" onClick={runBuild}>
-                  {t("build.tryAgain")}
-                </Button>
-                <Button variant="ghost" onClick={() => navigate("/set-your-course")}>
-                  {t("build.goBack")}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-        <style>{`
-          @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-          }
-          @keyframes emojiFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  // Error state (no build, not loading)
-  if (error && !build) {
-    return (
-      <div className="min-h-screen pt-14 flex items-start justify-center" style={{ marginTop: 80 }}>
-        <div className="bg-bp-mid rounded-xl p-8 border border-border-subtle max-w-md mx-auto text-center">
-          <div className="text-accent-alert" style={{ fontSize: 48 }}>⚠</div>
-          <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16, lineHeight: 1.5 }}>
-            {t("build.error")}
-          </p>
-          <div className="flex gap-3 justify-center mt-6">
-            <Button variant="primary" onClick={runBuild}>
-              {t("build.tryAgain")}
-            </Button>
-            <Button variant="ghost" onClick={() => navigate("/set-your-course")}>
-              {t("build.goBack")}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const career = build.career;
-
   return (
-    <div className="min-h-screen pt-14">
+    <>
+    <AnimatePresence mode="wait">
+      {(isBuilding || !build) ? (
+        <motion.div
+          key="loading"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="min-h-screen pt-14">
+            <div
+              className="w-full bg-bp-surface"
+              style={{
+                height: 280,
+                backgroundImage: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)",
+                backgroundSize: "200% 100%",
+                animation: "shimmer 1.5s ease-in-out infinite",
+              }}
+            />
+            <div className="flex flex-col items-center justify-center py-16">
+              <span style={{ fontSize: 56, animation: "emojiFloat 2s ease-in-out infinite", marginTop: -40 }}>
+                {animalEmoji ?? "🐻"}
+              </span>
+              <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16 }}>
+                {t("build.analyzing")}
+              </p>
+              <div
+                className="mt-4 rounded-full"
+                style={{
+                  width: 32,
+                  height: 32,
+                  border: "3px solid var(--color-bg-surface)",
+                  borderTopColor: "var(--color-accent-insight)",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+              {error && (
+                <div className="mt-8 bg-bp-mid rounded-xl p-8 border border-border-subtle max-w-md mx-auto text-center">
+                  <div className="text-accent-alert" style={{ fontSize: 48 }}>⚠</div>
+                  <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16, lineHeight: 1.5 }}>
+                    {t("build.error")}
+                  </p>
+                  <div className="flex gap-3 justify-center mt-6">
+                    <Button variant="primary" onClick={runBuild}>
+                      {t("build.tryAgain")}
+                    </Button>
+                    <Button variant="ghost" onClick={() => navigate("/set-your-course")}>
+                      {t("build.goBack")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <style>{`
+              @keyframes shimmer {
+                0% { background-position: -200% 0; }
+                100% { background-position: 200% 0; }
+              }
+              @keyframes emojiFloat {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-8px); }
+              }
+              @keyframes spin {
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+          </div>
+        </motion.div>
+      ) : (() => {
+        const career = build.career;
+        return (
+          <motion.div
+            key={build.build_id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+    <div className="min-h-screen pt-14 pb-32">
       {/* Section 1: Campus Hero Banner */}
       <CampusHeroBanner />
 
@@ -936,30 +962,8 @@ export function BuildResultsScreen() {
           />
         </div>
 
-        {/* Section 6: Save CTA */}
-        <div
-          className="text-center"
-          style={{ marginTop: 48, marginBottom: 64, animation: "sectionFadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) 1.2s both" }}
-        >
-          <Button
-            variant="primary"
-            className="w-full font-bold"
-            style={{ maxWidth: 480, height: 48, fontSize: 17 }}
-            onClick={() => navigate("/save")}
-          >
-            {t("build.saveBuild")}
-          </Button>
-          <div style={{ marginTop: 14 }}>
-            <button
-              type="button"
-              className="font-body text-accent-info hover:underline hover:brightness-125 transition-colors duration-150 bg-transparent border-none cursor-pointer"
-              style={{ fontSize: 14 }}
-              onClick={() => navigate("/future")}
-            >
-              {t("build.seeFuture")}
-            </button>
-          </div>
-        </div>
+        {/* Section 6 (Save CTA + See the future link) lifted into the
+            sticky bottom action bar below — outside this content column. */}
       </div>
 
       {/* Responsive overrides + shared keyframes */}
@@ -979,10 +983,119 @@ export function BuildResultsScreen() {
         }
       `}</style>
 
-      {/* Ask Gemma — sticky FAB and the scope-aware chat panel.
-          The FAB is hidden when the chat is open (per §3 entry point #4).
-          GemmaChat handles its own AnimatePresence; we just toggle `open`. */}
-      <AskGemmaFab visible={!chatOpen && build !== null} onOpen={handleAskBuild} />
+    </div>
+          </motion.div>
+        );
+      })()}
+    </AnimatePresence>
+
+      <AnimatePresence>
+        {!chatOpen && build !== null && !isBuilding && (
+          <motion.div
+            key="my-build-action-bar"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={springs.smooth}
+            className="fixed inset-x-0 bottom-0 z-40 bg-bp-deep/85 backdrop-blur-lg"
+            style={{
+              boxShadow:
+                "inset 0 1px 0 0 rgba(245, 240, 232, 0.06), 0 -12px 32px -8px rgba(0, 0, 0, 0.45), 0 -1px 0 0 rgba(0, 0, 0, 0.4)",
+            }}
+            data-testid="my-build-action-bar"
+          >
+            <PageContainer variant="centered" className="py-4">
+              <div
+                className="grid grid-cols-2 gap-3 tablet:grid-cols-[2fr_1fr_1fr] tablet:gap-3"
+                style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
+              >
+                {/* All four share anatomy: h-12 rounded-lg, font-body font-bold
+                    text-cta, centered flex, snappy whileTap. Save+Share are
+                    visually paired — same green family — and tighter together
+                    on tablet+ via a nested 2-col sub-grid (gap-1.5 inside,
+                    gap-3 outside). On mobile (< tablet), `contents` flattens
+                    them into the outer 2-col grid for a clean 2x2 of buttons. */}
+                <div className="contents tablet:grid tablet:grid-cols-2 tablet:gap-1.5">
+                  <motion.button
+                    onClick={handleSave}
+                    disabled={saveState === "saving"}
+                    aria-live="polite"
+                    aria-busy={saveState === "saving"}
+                    className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-thrive text-text-inverse hover:bg-[#6bc494] hover:shadow-glow-thrive disabled:cursor-wait disabled:opacity-90"
+                    whileTap={saveState === "idle" || saveState === "error" ? { scale: 0.97 } : undefined}
+                    transition={springs.snappy}
+                    data-testid="btn-save-build-bar"
+                  >
+                    <span className="w-5 h-5 flex-none flex items-center justify-center">
+                      {saveState === "saving" && (
+                        <svg viewBox="0 0 20 20" className="w-5 h-5 animate-spin" fill="none" aria-hidden>
+                          <circle cx="10" cy="10" r="7" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                          <path d="M17 10a7 7 0 0 0-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      )}
+                      {saveState === "saved" && (
+                        <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" aria-hidden>
+                          <path d="M5 10.5l3.5 3.5L15 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                      {saveState === "error" && (
+                        <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" aria-hidden>
+                          <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="min-w-[5.5rem] text-center">
+                      {saveState === "saving"
+                        ? t("build.savingBuild")
+                        : saveState === "saved"
+                          ? t("build.savedBuild")
+                          : saveState === "error"
+                            ? t("build.retryBuild")
+                            : t("build.saveBuild")}
+                    </span>
+                  </motion.button>
+
+                  <motion.button
+                    onClick={() => navigate("/save")}
+                    className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-thrive/15 text-accent-thrive border border-accent-thrive/40 hover:bg-accent-thrive/25 hover:border-accent-thrive/70 hover:shadow-glow-thrive"
+                    whileTap={{ scale: 0.97 }}
+                    transition={springs.snappy}
+                    data-testid="btn-share-build-bar"
+                  >
+                    <span aria-hidden className="font-display text-[18px] leading-none">↗</span>
+                    {t("build.shareBuild")}
+                  </motion.button>
+                </div>
+
+                <motion.button
+                  onClick={() => navigate("/future")}
+                  className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-bp-raised text-text-primary border border-border-subtle hover:bg-bp-elevated hover:border-border-strong"
+                  whileTap={{ scale: 0.97 }}
+                  transition={springs.snappy}
+                  data-testid="btn-see-future-bar"
+                >
+                  {t("build.seeFuture")}
+                </motion.button>
+
+                <motion.button
+                  onClick={handleAskBuild}
+                  aria-label={t("chat.askAboutBuild")}
+                  className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-insight/15 text-accent-insight border border-accent-insight/40 hover:bg-accent-insight/25 hover:border-accent-insight/70 hover:shadow-glow-insight"
+                  whileTap={{ scale: 0.97 }}
+                  transition={springs.snappy}
+                  data-testid="btn-ask-build"
+                >
+                  <span aria-hidden className="font-display text-[18px] leading-none">
+                    ✦
+                  </span>
+                  {t("build.askGemma")}
+                </motion.button>
+              </div>
+            </PageContainer>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <GemmaChat
         open={chatOpen}
         build={null}
@@ -991,6 +1104,6 @@ export function BuildResultsScreen() {
         openerPrompt={chatOpenerPrompt ?? undefined}
         onClose={closeChat}
       />
-    </div>
+    </>
   );
 }

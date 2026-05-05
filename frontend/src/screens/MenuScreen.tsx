@@ -206,35 +206,43 @@ export function MenuScreen() {
     <>
       <AnimatePresence mode="wait">
         {mode === "compare" && compareIds.length > 0 ? (
-          <PageContainer variant="grid" testId="screen-menu" className="pt-24 pb-16" key="compare-container">
-            <motion.div
-              key="compare"
-              className="col-span-12 desktop:col-span-10 desktop:col-start-2"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-            >
-              <CompareView buildIds={compareIds} onBack={handleBackFromCompare} />
-            </motion.div>
-          </PageContainer>
+          <motion.div
+            key="compare-container"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.25 } }}
+            exit={{ opacity: 0, transition: { duration: 0.18, ease: "easeIn" } }}
+          >
+            <PageContainer variant="grid" testId="screen-menu" className="pt-24 pb-16">
+              <div className="col-span-12 desktop:col-span-10 desktop:col-start-2">
+                <CompareView buildIds={compareIds} onBack={handleBackFromCompare} />
+              </div>
+            </PageContainer>
+          </motion.div>
         ) : (
-          <PageContainer variant="centered" testId="screen-menu" className="pt-24 pb-16" key="list-container">
-            <motion.div
-              key="list"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={springs.smooth}
-              className="flex flex-col gap-8"
-            >
+          <motion.div
+            key="list-container"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0, transition: springs.smooth }}
+            exit={{ opacity: 0, y: -8, transition: { duration: 0.18, ease: "easeIn" } }}
+          >
+          <PageContainer variant="centered" testId="screen-menu" className="pt-24 pb-32">
+            <div className="flex flex-col gap-8">
             <header className="flex flex-col gap-2">
               <p className="font-data text-micro uppercase tracking-[2px] text-text-muted">
                 {t("menu.kicker")}
               </p>
-              <h1 className="font-display text-display text-text-primary">
-                {mode === "select" ? t("menu.headingCompare") : t("menu.headingView")}
-              </h1>
+              <AnimatePresence mode="wait">
+                <motion.h1
+                  key={mode === "select" ? "heading-select" : "heading-list"}
+                  className="font-display text-display text-text-primary"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {mode === "select" ? t("menu.headingCompare") : t("menu.headingView")}
+                </motion.h1>
+              </AnimatePresence>
               <p className="font-body text-body text-text-secondary">
                 {t("menu.subtitle")}
               </p>
@@ -313,66 +321,110 @@ export function MenuScreen() {
               )}
             </section>
 
-            {builds.length > 0 && (
-              <section
-                aria-label={t("menu.actionsAria")}
-                className="flex flex-col tablet:flex-row gap-3 tablet:items-center tablet:justify-between"
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    variant="primary"
-                    onClick={handleNewBuild}
-                    data-testid="btn-new-build"
-                  >
-                    {t("menu.newBuild")}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={handleNewBuild}
-                    data-testid="btn-new-build-set-course"
-                  >
-                    {t("menu.tryNewFlow")}
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {mode === "select" ? (
-                    <>
-                      <Button
-                        variant="primary"
-                        onClick={handleCompareGo}
-                        disabled={selectedIds.length < 2 || selectedIds.length > 4}
-                        data-testid="btn-compare"
-                      >
-                        {t("menu.compareCount").replace("{count}", String(selectedIds.length))}
-                      </Button>
-                      <Button variant="ghost" onClick={handleCancelSelect}>
-                        {t("menu.cancel")}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        variant="secondary"
-                        onClick={handleEnterSelect}
-                        disabled={builds.length < 2}
-                        data-testid="btn-enter-compare"
-                      >
-                        {t("menu.compareBuilds")}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={handleAskGemma}
-                        data-testid="btn-ask-gemma"
-                      >
-                        {t("menu.askGemma")}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </section>
-            )}
-            </motion.div>
+            {/* In-flow footer actions removed — list-mode actions now live in
+                the sticky bottom bar below (outside this PageContainer so
+                fixed positioning isn't trapped by ancestor transforms). */}
+            </div>
           </PageContainer>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sticky bottom action bar — list-mode and select-mode actions for
+          /builds. Hidden in compare view (CompareView has its own back) and
+          in empty state (the hero card owns that surface). */}
+      <AnimatePresence>
+        {mode !== "compare" && builds.length > 0 && (
+          <motion.div
+            key="builds-action-bar"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0, transition: springs.smooth }}
+            exit={{ opacity: 0, y: 24, transition: { duration: 0.15, ease: "easeIn" } }}
+            className="fixed inset-x-0 bottom-0 z-40 bg-bp-deep/85 backdrop-blur-lg"
+            style={{
+              boxShadow:
+                "inset 0 1px 0 0 rgba(245, 240, 232, 0.06), 0 -12px 32px -8px rgba(0, 0, 0, 0.45), 0 -1px 0 0 rgba(0, 0, 0, 0.4)",
+            }}
+            data-testid="builds-action-bar"
+          >
+            <PageContainer variant="centered" className="py-4">
+              <div
+                className="grid grid-cols-3 gap-3"
+                style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
+              >
+                {/* Slot 1: Cancel in select mode, blank placeholder otherwise. */}
+                <AnimatePresence mode="wait">
+                  {mode === "select" ? (
+                    <motion.button
+                      key="cancel-btn"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={springs.snappy}
+                      onClick={handleCancelSelect}
+                      className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-bp-raised text-text-primary border border-border-subtle hover:bg-bp-elevated hover:border-border-strong"
+                      whileTap={{ scale: 0.97 }}
+                      data-testid="btn-cancel-select"
+                    >
+                      {t("menu.cancel")}
+                    </motion.button>
+                  ) : (
+                    <motion.div
+                      key="cancel-placeholder"
+                      aria-hidden
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                    />
+                  )}
+                </AnimatePresence>
+
+                {/* Slot 2: Compare. Single button — visual state crossfades
+                    via CSS transition; no DOM swap so tests stay stable. */}
+                <motion.button
+                  onClick={mode === "select" ? handleCompareGo : handleEnterSelect}
+                  disabled={
+                    mode === "select"
+                      ? selectedIds.length < 2 || selectedIds.length > 4
+                      : builds.length < 2
+                  }
+                  className={`w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${
+                    mode === "select"
+                      ? "bg-accent-thrive text-text-inverse border-transparent hover:bg-[#6bc494]"
+                      : "bg-bp-raised text-text-primary border-border-subtle hover:bg-bp-elevated hover:border-border-strong"
+                  }`}
+                  whileTap={
+                    mode === "select"
+                      ? selectedIds.length >= 2 && selectedIds.length <= 4
+                        ? { scale: 0.97 }
+                        : undefined
+                      : builds.length >= 2
+                        ? { scale: 0.97 }
+                        : undefined
+                  }
+                  transition={springs.snappy}
+                  data-testid={mode === "select" ? "btn-compare" : "btn-enter-compare"}
+                >
+                  {mode === "select"
+                    ? t("menu.compareCount").replace("{count}", String(selectedIds.length))
+                    : t("menu.compareBuilds")}
+                </motion.button>
+
+                {/* Slot 3: Ask Gemma — same in both modes. */}
+                <motion.button
+                  onClick={handleAskGemma}
+                  aria-label={t("menu.askGemma")}
+                  className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-insight/15 text-accent-insight border border-accent-insight/40 hover:bg-accent-insight/25 hover:border-accent-insight/70"
+                  whileTap={{ scale: 0.97 }}
+                  transition={springs.snappy}
+                  data-testid="btn-ask-gemma"
+                >
+                  <span aria-hidden className="font-display text-[18px] leading-none">✦</span>
+                  {t("menu.askGemma")}
+                </motion.button>
+              </div>
+            </PageContainer>
+          </motion.div>
         )}
       </AnimatePresence>
 
