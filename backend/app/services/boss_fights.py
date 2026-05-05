@@ -354,6 +354,30 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
             parts.append(
                 f"First-year earnings: {fmt_dollars(career.earnings_1yr_median)}"
             )
+        # Total interest paid drives the Student Loans Boss power
+        # (spec roi-net-lifetime-value, 2026-05-04). Surface it next to
+        # the principal so the narrative reflects the real cost of the
+        # financing choice, not just the borrowed amount.
+        if (
+            career.total_interest_paid is not None
+            and career.total_interest_paid > 0
+            and career.term_months is not None
+            and career.term_months > 0
+        ):
+            term_years = career.term_months // 12
+            interest = fmt_dollars(career.total_interest_paid)
+            monthly_part = ""
+            if (
+                career.monthly_payment is not None
+                and career.monthly_payment > 0
+            ):
+                monthly_part = (
+                    f" Monthly payment: {fmt_dollars(career.monthly_payment)}."
+                )
+            parts.append(
+                f"Modeled interest paid over the {term_years}-year "
+                f"repayment term: {interest}.{monthly_part}"
+            )
         # Financed DTE (loan_pct-aware) drives the Loans Boss score.
         # The debt_to_earnings_annual ratio is the cost-vs-earnings
         # "ROI DTE" — it belongs in the ROI narrative, not here. We

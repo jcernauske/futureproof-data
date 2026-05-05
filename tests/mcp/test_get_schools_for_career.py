@@ -58,6 +58,11 @@ _PCP_COLUMNS = [
     "cost_of_attendance_annual",
     "tuition_in_state",
     "tuition_out_of_state",
+    # Spec: roi-net-lifetime-value followup ("apples-to-apples
+    # leaderboard"). The handler SELECTs lifetime_earnings_15yr so the
+    # residency adjustment can recompute roi_raw_multiplier and
+    # stat_roi when home_state is provided.
+    "lifetime_earnings_15yr",
     "overall_confidence",
     "confidence_tier_program",
     "match_quality",
@@ -65,6 +70,7 @@ _PCP_COLUMNS = [
 
 
 def _row(**overrides) -> dict:
+    earnings = overrides.get("earnings_1yr_median", 60000.0)
     base = {
         "unitid": 100000,
         "institution_name": "Test University",
@@ -81,6 +87,12 @@ def _row(**overrides) -> dict:
         "cost_of_attendance_annual": 28000.0,
         "tuition_in_state": 9000.0,
         "tuition_out_of_state": 21000.0,
+        # Auto-derive lifetime_earnings_15yr from earnings (matches the
+        # Gold pipeline's closed-form constant 18.5989). Override
+        # explicitly to test edge cases.
+        "lifetime_earnings_15yr": (
+            round(earnings * 18.5989, 2) if earnings is not None else None
+        ),
         "overall_confidence": "high",
         "confidence_tier_program": "high",
         "match_quality": "full",
@@ -243,6 +255,7 @@ class _DuckDBEngineShim:
                 "cost_of_attendance_annual DOUBLE",
                 "tuition_in_state DOUBLE",
                 "tuition_out_of_state DOUBLE",
+                "lifetime_earnings_15yr DOUBLE",
                 "overall_confidence VARCHAR",
                 "confidence_tier_program VARCHAR",
                 "match_quality VARCHAR",

@@ -153,12 +153,12 @@ class TestGoldSchema:
     def test_schema_field_count(self):
         schema = get_gold_schema()
         # 31 original career-outcomes columns + 6 CSI enrichment columns
-        # (field IDs 32-37) + 1 roi_cost_basis column (field ID 38, added
-        # by plan ~/.claude/plans/why-are-we-still-jaunty-curry.md so
-        # downstream can tell which numerator drove the cost-based DTE)
-        # + 1 state_abbr column (field ID 39, added for regional price
-        # parity lookups).
-        assert len(schema.fields) == 39
+        # (field IDs 32-37) + 1 roi_cost_basis column (field ID 38)
+        # + 1 state_abbr column (field ID 39) + 3 ROI Net Lifetime Value
+        # columns (field IDs 40-42, added by spec roi-net-lifetime-value
+        # 2026-05-04: lifetime_earnings_15yr, roi_raw_multiplier,
+        # roi_multiplier_basis).
+        assert len(schema.fields) == 42
 
     def test_required_fields(self):
         schema = get_gold_schema()

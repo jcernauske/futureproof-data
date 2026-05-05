@@ -25,6 +25,7 @@ from brightsmith.mcp.base_mcp_server import BaseMCPServer, ResourceDef, ToolDef
 from mcp_server._query_engine import QueryEngine
 from mcp_server._state_input import FIPS_TO_STATE_NAME, normalize_state_input
 from mcp_server._telemetry import timed
+from mcp_server.residency import is_public_control, published_cost_4yr
 
 # Fields in program_career_paths and onet_work_profiles that are
 # persisted as JSON-encoded strings but should be returned to callers
@@ -229,6 +230,14 @@ CAREER_PATHS_RESPONSE_FIELDS = [
     # Cost-based ROI provenance. Plan:
     # ~/.claude/plans/why-are-we-still-jaunty-curry.md
     "roi_cost_basis",
+    # ROI Net Lifetime Value (spec roi-net-lifetime-value, 2026-05-04).
+    # Required so `_apply_residency_to_row` can recompute the residency-
+    # aware multiplier when home_state is supplied. Also surfaced
+    # directly to Gemma's tool response so the explain receipt can cite
+    # cumulative earnings without recomputing.
+    "lifetime_earnings_15yr",
+    "roi_raw_multiplier",
+    "roi_multiplier_basis",
 ]
 
 # Defensive LIMIT cap on the standard-path program_career_paths query.
@@ -260,6 +269,16 @@ SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_HTTP = [
     "cost_of_attendance_annual",
     "tuition_in_state",
     "tuition_out_of_state",
+    # Residency-aware fields stamped by `_apply_residency_to_row` when
+    # the caller passes `home_state` (spec roi-net-lifetime-value
+    # followup, "apples-to-apples leaderboard"). published_cost_4yr is
+    # the residency-aware sticker × 4 — the FE's "Cost (4 yr)" column
+    # uses this so the leaderboard matches the FINANCES card on
+    # /my-build. stat_roi_in_state preserves the pre-adjustment score
+    # for transparency. roi_residency_adjusted is the boolean flag.
+    "published_cost_4yr",
+    "stat_roi_in_state",
+    "roi_residency_adjusted",
     "overall_confidence",
     "confidence_tier_program",
     "match_quality",
@@ -353,8 +372,9 @@ _SUB_CO_FIELDS = [
     "cip_family_earnings_rank",
     "confidence_tier",
     # Institution-level cost fields propagated into substituted rows
-    # so the new ROI formula can use net_price_annual × loan_pct × 4
-    # rather than median debt × loan_pct.
+    # so the backend stat_engine can compute residency-aware ROI and
+    # the Student Loans Boss from real cost components rather than
+    # an MCP-side approximation.
     "institution_control",
     "net_price_annual",
     "cost_of_attendance_annual",
@@ -362,6 +382,13 @@ _SUB_CO_FIELDS = [
     "tuition_in_state",
     "tuition_out_of_state",
     "room_board_on_campus",
+    "state_abbr",
+    # ROI Net Lifetime Value (spec roi-net-lifetime-value). The
+    # Gold-precomputed in-state baseline; the backend overrides
+    # residency-aware at runtime via stat_engine._derive_roi.
+    "lifetime_earnings_15yr",
+    "roi_raw_multiplier",
+    "roi_multiplier_basis",
 ]
 
 # Fields to pull from consumable.occupation_profiles per SOC.
@@ -973,6 +1000,26 @@ class FutureProofMCPServer(BaseMCPServer):
                                 "as-is."
                             ),
                         },
+                        "home_state": {
+                            "type": "string",
+                            "description": (
+                                "Optional. Two-letter US state code "
+                                "(e.g., 'IL', 'CA') for the student's "
+                                "home state. When provided, ROI-related "
+                                "fields apply residency-aware cost: at "
+                                "public schools where home_state differs "
+                                "from the school's state_abbr, the "
+                                "out-of-state tuition premium is added "
+                                "to the published 4-year sticker before "
+                                "computing the payback multiplier. The "
+                                "returned `roi_raw_multiplier` reflects "
+                                "this adjustment; an additional "
+                                "`roi_raw_multiplier_in_state` field "
+                                "carries the pre-adjustment value for "
+                                "transparency. Without home_state, the "
+                                "in-state baseline is returned."
+                            ),
+                        },
                     },
                     "required": ["unitid", "cipcode"],
                 },
@@ -1194,6 +1241,26 @@ class FutureProofMCPServer(BaseMCPServer):
                             "description": (
                                 "Optional. The build's stat_roi (0-10). Pair "
                                 "with anchor_stat_ern."
+                            ),
+                        },
+                        "home_state": {
+                            "type": "string",
+                            "description": (
+                                "Optional. Two-letter US state code "
+                                "(e.g., 'IL', 'CA') for the student's "
+                                "home state. When provided, ROI and cost "
+                                "fields apply residency-aware adjustment: "
+                                "at public schools where home_state "
+                                "differs from the school's state_abbr, "
+                                "the out-of-state tuition premium is "
+                                "added to the published 4-year sticker, "
+                                "and stat_roi is recomputed against the "
+                                "adjusted cost. Returned `published_cost_4yr` "
+                                "matches the FINANCES card's cost line "
+                                "for true apples-to-apples comparison "
+                                "against the user's anchor build. "
+                                "`stat_roi_in_state` carries the "
+                                "pre-adjustment value for transparency."
                             ),
                         },
                     },
@@ -2184,7 +2251,10 @@ class FutureProofMCPServer(BaseMCPServer):
         """
         # Lazy import to avoid a hard dependency on the gold module at
         # server import time.
-        from gold.futureproof_engine import compute_stat_ern, compute_stat_roi
+        from gold.futureproof_engine import (
+            compute_stat_ern,
+            compute_stat_roi_from_multiplier,
+        )
 
         # 1. School's broad-CIP row from career_outcomes.
         #    career_outcomes is stored at 4-digit granularity; canonicalize
@@ -2208,16 +2278,12 @@ class FutureProofMCPServer(BaseMCPServer):
             )
         school = co_rows[0]
         cip_fam_rank = school.get("cip_family_earnings_rank")
-        dte = school.get("debt_to_earnings_annual")
-        # loan_pct scales the student's debt before ROI/loans-boss are
-        # derived. 1.0 = full published debt (no-op), 0.0 = no loans
-        # taken (DTE pinned to 0, ROI saturates at 10). Applied here so
-        # the substitution path's inline stat_roi matches what
-        # stat_engine derives for the main path.
-        if dte is not None and 0.0 <= loan_pct < 1.0:
-            adj_dte: float | None = float(dte) * float(loan_pct)
-        else:
-            adj_dte = dte
+        # ROI is financing-agnostic (spec roi-net-lifetime-value
+        # Decision #1) — the slider/loan_pct does NOT move it. The
+        # in-state-baseline multiplier is read from Gold; the backend
+        # stat_engine.apply_published_cost_override applies residency
+        # awareness at runtime when it has the user's home_state.
+        roi_raw_multiplier = school.get("roi_raw_multiplier")
 
         # 2. Substituted SOCs from the crosswalk.
         socs = self._fetch_crosswalk_socs(substituted_cipcode)
@@ -2308,8 +2374,17 @@ class FutureProofMCPServer(BaseMCPServer):
             xw_title = j.get("crosswalk_title")
 
             stat_ern = compute_stat_ern(cip_fam_rank, j.get("wage_percentile_overall"))
-            stat_roi = compute_stat_roi(adj_dte)
-            boss_loans_sub = (11 - stat_roi) if stat_roi is not None else None
+            # In-state-baseline ROI from the Gold-precomputed multiplier.
+            # The backend's apply_published_cost_override recomputes a
+            # residency-aware ROI from `lifetime_earnings_15yr` + cost
+            # components when the user's home_state is known.
+            stat_roi = compute_stat_roi_from_multiplier(roi_raw_multiplier)
+            # Boss Debt is financing-aware. The MCP substitution path
+            # has no home_state (and therefore no residency-aware
+            # cost), so we cannot compute the boss locally. Returning
+            # None lets the backend's _derive_loans_boss produce the
+            # canonical score from cost components + loan_pct.
+            boss_loans_sub: int | None = None
             stat_grw = j.get("grw_score_rounded")
             stat_hmn = j.get("hmn_score_rounded")
             stat_res = j.get("stat_res")
@@ -2368,6 +2443,13 @@ class FutureProofMCPServer(BaseMCPServer):
                 "tuition_in_state": school.get("tuition_in_state"),
                 "tuition_out_of_state": school.get("tuition_out_of_state"),
                 "room_board_on_campus": school.get("room_board_on_campus"),
+                "state_abbr": school.get("state_abbr"),
+                # ROI Net Lifetime Value (spec roi-net-lifetime-value).
+                # In-state-baseline values from career_outcomes; backend
+                # overrides residency-aware at runtime.
+                "lifetime_earnings_15yr": school.get("lifetime_earnings_15yr"),
+                "roi_raw_multiplier": roi_raw_multiplier,
+                "roi_multiplier_basis": school.get("roi_multiplier_basis"),
                 "median_annual_wage": j.get("median_annual_wage"),
                 "growth_category": j.get("growth_category"),
                 "employment_current": j.get("employment_current"),
@@ -2679,7 +2761,10 @@ class FutureProofMCPServer(BaseMCPServer):
         Returns (rows, caveat_dict) on success or (None, None) if Gemma
         fails or returns no usable SOCs.
         """
-        from gold.futureproof_engine import compute_stat_ern, compute_stat_roi
+        from gold.futureproof_engine import (
+            compute_stat_ern,
+            compute_stat_roi_from_multiplier,
+        )
 
         try:
             from app.services.gemma_client import generate as gemma_generate
@@ -2820,16 +2905,31 @@ class FutureProofMCPServer(BaseMCPServer):
                 row["tuition_in_state"] = school_row.get("tuition_in_state")
                 row["tuition_out_of_state"] = school_row.get("tuition_out_of_state")
                 row["room_board_on_campus"] = school_row.get("room_board_on_campus")
+                row["state_abbr"] = school_row.get("state_abbr")
+                # ROI Net Lifetime Value (spec roi-net-lifetime-value).
+                # In-state-baseline multiplier from Gold; the backend
+                # applies residency awareness at runtime.
+                row["lifetime_earnings_15yr"] = school_row.get(
+                    "lifetime_earnings_15yr"
+                )
+                row["roi_raw_multiplier"] = school_row.get("roi_raw_multiplier")
+                row["roi_multiplier_basis"] = school_row.get(
+                    "roi_multiplier_basis"
+                )
                 ern = compute_stat_ern(
                     school_row.get("cip_family_earnings_rank"),
                     op.get("wage_percentile_overall"),
                 )
-                dte = school_row.get("debt_to_earnings_annual")
-                if dte is not None and 0.0 <= loan_pct < 1.0:
-                    dte = float(dte) * loan_pct
-                roi = compute_stat_roi(dte)
+                # ROI is financing-agnostic — slider/loan_pct does not
+                # move it (spec Decision #1). Boss Debt is the
+                # financing-aware surface; backend computes it from
+                # cost components.
+                roi = compute_stat_roi_from_multiplier(
+                    school_row.get("roi_raw_multiplier")
+                )
                 row["stat_ern"] = ern
                 row["stat_roi"] = roi
+                row["boss_loans_score"] = None
             else:
                 row["unitid"] = unitid
                 row["cipcode"] = cipcode
@@ -2858,6 +2958,76 @@ class FutureProofMCPServer(BaseMCPServer):
             "ai_estimated": True,
         }
         return rows, caveat
+
+    def _apply_residency_to_row(
+        self, row: dict, home_state: str | None
+    ) -> None:
+        """Apply residency-aware ROI adjustment to a single row in-place.
+
+        Spec: docs/specs/roi-net-lifetime-value.md Decision #11 followup
+        ("Explain this to me" cost-mismatch fix).
+
+        When ``home_state`` is provided, recompute ``roi_raw_multiplier``
+        and ``stat_roi`` against the residency-aware 4-year published
+        cost. The pre-adjustment values are preserved as
+        ``roi_raw_multiplier_in_state`` and ``stat_roi_in_state`` so
+        callers can still cite the in-state baseline for transparency.
+        Adds ``published_cost_4yr`` (residency-aware) and
+        ``roi_residency_adjusted`` (bool) to the row.
+
+        No-op when ``home_state`` is None, when the school is not a
+        public institution, when COA data is missing, or when the
+        student is in-state — the in-state baseline is correct in
+        those cases.
+        """
+        if home_state is None:
+            return
+        coa = row.get("cost_of_attendance_annual")
+        tuition_in = row.get("tuition_in_state")
+        tuition_out = row.get("tuition_out_of_state")
+        control = row.get("institution_control")
+        school_state = row.get("state_abbr")
+        lifetime = row.get("lifetime_earnings_15yr")
+
+        new_cost = published_cost_4yr(
+            cost_of_attendance_annual=coa,
+            tuition_in_state=tuition_in,
+            tuition_out_of_state=tuition_out,
+            institution_control=control,
+            home_state=home_state,
+            school_state=school_state,
+        )
+
+        # Always stamp the residency-aware sticker for caller transparency,
+        # even when no adjustment fires (in-state, private, or no COA).
+        row["published_cost_4yr"] = (
+            round(float(new_cost), 2) if new_cost is not None else None
+        )
+
+        # Preserve in-state-baseline values as shadow fields.
+        row["roi_raw_multiplier_in_state"] = row.get("roi_raw_multiplier")
+        row["stat_roi_in_state"] = row.get("stat_roi")
+
+        is_oos_public = (
+            is_public_control(control)
+            and school_state is not None
+            and home_state != school_state
+        )
+        if (
+            is_oos_public
+            and new_cost is not None
+            and new_cost > 0
+            and lifetime is not None
+        ):
+            new_mult = round(float(lifetime) / float(new_cost), 4)
+            row["roi_raw_multiplier"] = new_mult
+            from gold.futureproof_engine import (  # type: ignore[import-not-found]
+                compute_stat_roi_from_multiplier,
+            )
+            row["stat_roi"] = compute_stat_roi_from_multiplier(new_mult)
+            row["roi_residency_adjusted"] = True
+        else:
+            row["roi_residency_adjusted"] = False
 
     @timed(
         "career_paths_handler",
@@ -2896,11 +3066,21 @@ class FutureProofMCPServer(BaseMCPServer):
         raw_student_cip = input_dict.get("student_cip")
         raw_loan_pct = input_dict.get("loan_pct", 1.0)
         raw_intent_keywords = input_dict.get("intent_keywords", [])
+        raw_home_state = input_dict.get("home_state")
         intent_keywords: list[str] = (
             [str(k) for k in raw_intent_keywords]
             if isinstance(raw_intent_keywords, list)
             else []
         )
+
+        # Optional residency-aware ROI input. Two-letter US state code,
+        # uppercased; anything else (None, empty, malformed) disables
+        # the adjustment and falls back to the in-state baseline.
+        home_state: str | None = None
+        if isinstance(raw_home_state, str):
+            stripped = raw_home_state.strip().upper()
+            if len(stripped) == 2 and stripped.isalpha():
+                home_state = stripped
 
         # loan_pct is optional; clamp to [0.0, 1.0] and fall back to 1.0
         # on garbage input so the tool remains permissive.
@@ -3050,6 +3230,7 @@ class FutureProofMCPServer(BaseMCPServer):
             rows.sort(key=_sub_sort_key)
             for row in rows:
                 _decode_json_struct_fields(row)
+                self._apply_residency_to_row(row, home_state)
 
             # Caller may pass student_cip without student_major (new
             # Gemma-resolution flow has the CIP before the student's
@@ -3113,6 +3294,7 @@ class FutureProofMCPServer(BaseMCPServer):
             if broadened_rows:
                 for r in broadened_rows:
                     _decode_json_struct_fields(r)
+                    self._apply_residency_to_row(r, home_state)
                 broadened_rows.sort(
                     key=lambda r: (
                         -(r.get("stats_available_count") or 0),
@@ -3150,6 +3332,8 @@ class FutureProofMCPServer(BaseMCPServer):
                 loan_pct=loan_pct_value,
             )
             if gemma_rows:
+                for r in gemma_rows:
+                    self._apply_residency_to_row(r, home_state)
                 return self.enrich_response(
                     {
                         "data": gemma_rows,
@@ -3205,6 +3389,7 @@ class FutureProofMCPServer(BaseMCPServer):
 
         for row in rows:
             _decode_json_struct_fields(row)
+            self._apply_residency_to_row(row, home_state)
 
         response = {
             "data": rows,
@@ -3468,6 +3653,17 @@ class FutureProofMCPServer(BaseMCPServer):
             if len(candidate) == 2 and candidate.isalpha():
                 state_abbr = candidate
 
+        # Optional residency-aware ROI/cost input. Two-letter US state code,
+        # uppercased; anything else (None, empty, malformed) disables the
+        # adjustment and falls back to the in-state baseline. Mirrors the
+        # parsing used in _handle_get_career_paths.
+        raw_home_state = input_dict.get("home_state")
+        home_state: str | None = None
+        if isinstance(raw_home_state, str):
+            stripped = raw_home_state.strip().upper()
+            if len(stripped) == 2 and stripped.isalpha():
+                home_state = stripped
+
         raw_unitid = input_dict.get("build_unitid")
         raw_anchor_cip = input_dict.get("build_cipcode")
         anchor_unitid: int | None = None
@@ -3524,6 +3720,11 @@ class FutureProofMCPServer(BaseMCPServer):
                 anchor_stat_roi = stat_candidate
 
         # ---- Cache lookup ---------------------------------------------
+        # home_state is part of the key because residency adjustment
+        # changes stat_roi (and therefore the composite ranking) per row.
+        # An IL student and an OH student looking at the same SOC see
+        # different ranks for OH publics, so they cannot share a cache
+        # entry. Keyspace is bounded (~52 home_states max).
         engine = self._get_query_engine()
         cache_key = (
             id(engine),
@@ -3533,6 +3734,7 @@ class FutureProofMCPServer(BaseMCPServer):
             min_confidence,
             min_program_confidence,
             state_abbr or "",
+            home_state or "",
             limit,
         )
         cache_enabled = os.environ.get("FUTUREPROOF_OUTCOMES_CACHE") == "1"
@@ -3595,6 +3797,7 @@ class FutureProofMCPServer(BaseMCPServer):
                         cost_of_attendance_annual,
                         tuition_in_state,
                         tuition_out_of_state,
+                        lifetime_earnings_15yr,
                         overall_confidence,
                         confidence_tier_program,
                         match_quality,
@@ -3631,6 +3834,43 @@ class FutureProofMCPServer(BaseMCPServer):
                 )
                 return {"error": "leaderboard_query_failed"}
             materialized = [dict(r) for r in rows]
+            # Apply residency-aware adjustment per row BEFORE caching, so
+            # cached entries already reflect the home_state in the cache
+            # key. The helper recomputes stat_roi against the residency-
+            # aware sticker; we then re-rank by the adjusted composite
+            # (spec: roi-net-lifetime-value followup, "apples-to-apples
+            # leaderboard"). No-op when home_state is None.
+            if home_state is not None:
+                for row in materialized:
+                    self._apply_residency_to_row(row, home_state)
+                # Recompute composite from the post-adjustment stat_roi
+                # and re-rank stable: composite DESC, earnings DESC,
+                # net_price ASC. Mirrors the SQL CTE's ORDER BY exactly.
+                for row in materialized:
+                    s_ern = row.get("stat_ern")
+                    s_roi = row.get("stat_roi")
+                    row["composite_score"] = (
+                        (float(s_ern) + float(s_roi)) / 2.0
+                        if s_ern is not None and s_roi is not None
+                        else None
+                    )
+                materialized.sort(
+                    key=lambda r: (
+                        -(r["composite_score"] if r.get("composite_score") is not None else -1),
+                        -(r["earnings_1yr_median"] if r.get("earnings_1yr_median") is not None else -1),
+                        (r["net_price_annual"] if r.get("net_price_annual") is not None else float("inf")),
+                    )
+                )
+                # Dense-rank-equivalent re-numbering: ties share a rank,
+                # next rank skips by tie size. Matches RANK() OVER.
+                prev_score: float | None = object()  # type: ignore[assignment]
+                current_rank = 0
+                for idx, row in enumerate(materialized, start=1):
+                    score = row.get("composite_score")
+                    if score != prev_score:
+                        current_rank = idx
+                        prev_score = score
+                    row["abs_rank"] = current_rank
             if cache_enabled:
                 snapshot = tuple(dict(r) for r in materialized)
                 _cache_put(

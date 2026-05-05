@@ -19,6 +19,17 @@ import logging
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+# Residency adjustment moved to the MCP layer per spec
+# roi-net-lifetime-value followup ("Explain this to me" cost-mismatch fix).
+# Import the shared helpers so both layers compute the same residency-aware
+# cost without drift.
+from mcp_server.residency import (  # type: ignore[import-not-found]
+    is_public_control as _shared_is_public_control,
+)
+from mcp_server.residency import (
+    published_cost_4yr as _shared_published_cost_4yr,
+)
+
 from app.models.career import (
     BossScores,
     CareerOutcome,
@@ -27,6 +38,7 @@ from app.models.career import (
 )
 from app.services import mcp_client
 from app.services._coercion import as_int
+from app.services.loan_math import amortize, repayment_term_months
 
 logger = logging.getLogger(__name__)
 
@@ -116,14 +128,14 @@ EFFORT_SHIFT: dict[str, int] = {
 
 
 def _is_public_control(institution_control: str | None) -> bool:
-    """Return True for Scorecard public-control labels.
+    """Backwards-compat wrapper for `mcp_server.residency.is_public_control`.
 
-    Upstream rows are not guaranteed to be the exact string ``"Public"``;
-    they may carry labels such as ``"Public, 4-year or above"``. The
-    frontend already uses a starts-with check, so the backend must match
-    that behavior or out-of-state public-school builds undercount cost.
+    The canonical implementation now lives in the MCP layer (per spec
+    roi-net-lifetime-value followup). This shim keeps existing backend
+    callers working during the transition.
     """
-    return bool(institution_control and institution_control.startswith("Public"))
+    result: bool = _shared_is_public_control(institution_control)
+    return result
 
 
 def _clamp_stat(value: int | None) -> int | None:
@@ -146,28 +158,77 @@ def _apply_effort(stats: PentagonStats, effort: EffortLevel) -> PentagonStats:
     )
 
 
+# Closed-form geometric-series multiplier for 15 years at 3% growth:
+#     ((1 + WAGE_GROWTH_RATE)^ROI_WINDOW_YEARS - 1) / WAGE_GROWTH_RATE
+# Equivalent to summing earnings × 1.03^(t-1) for t in [1..15].
+# See docs/specs/roi-net-lifetime-value.md §2 Decision #10.
+WAGE_GROWTH_RATE: float = 0.03
+ROI_WINDOW_YEARS: int = 15
+LIFETIME_EARNINGS_MULTIPLIER: float = (
+    (1 + WAGE_GROWTH_RATE) ** ROI_WINDOW_YEARS - 1
+) / WAGE_GROWTH_RATE
+
+
 def _derive_roi(
     *,
-    cost_based_dte: float | None,
+    published_cost_4yr: float | None,
+    earnings_1yr_median: float | None,
     raw_stat_roi: int | None,
 ) -> int | None:
-    """Compute stat_roi from the Gold-level cost-based DTE.
+    """Compute stat_roi as a 15-year payback multiplier mapped to 1-10.
 
-    ``cost_based_dte`` is already cost-of-attendance-vs-earnings (or
-    debt_median-vs-earnings on the fallback row). loan_pct is NOT an
-    argument — ROI reflects the economic value of the program, not how
-    the student chooses to pay.
+    ROI is financing-agnostic — ``loan_pct`` is NOT an argument. The
+    formula is:
 
-    Falls back to ``raw_stat_roi`` (from the row) when the DTE is
-    missing, so occupation-only rows in the substitution path don't
-    lose their pre-computed score.
+        lifetime_earnings_15yr = earnings_1yr_median × 18.5989
+        roi_raw = lifetime_earnings_15yr / published_cost_4yr
+        stat_roi = compute_stat_roi_from_multiplier(roi_raw)
+
+    where ``published_cost_4yr`` is the residency-aware sticker per
+    ``_published_cost_4yr``. Falls back to ``raw_stat_roi`` (from the
+    Gold row, in-state baseline) when residency-aware inputs are
+    missing — see spec roi-net-lifetime-value.md Decision #11.
     """
-    if cost_based_dte is None:
+    if published_cost_4yr is None or earnings_1yr_median is None:
         return raw_stat_roi
-    from gold.futureproof_engine import (
-        compute_stat_roi,  # type: ignore[import-not-found]
+    if published_cost_4yr <= 0 or earnings_1yr_median <= 0:
+        return raw_stat_roi
+    from gold.futureproof_engine import (  # type: ignore[import-not-found]
+        compute_stat_roi_from_multiplier,
     )
-    return compute_stat_roi(cost_based_dte)
+    lifetime_earnings_15yr = (
+        float(earnings_1yr_median) * LIFETIME_EARNINGS_MULTIPLIER
+    )
+    roi_raw = lifetime_earnings_15yr / float(published_cost_4yr)
+    score: int | None = compute_stat_roi_from_multiplier(roi_raw)
+    return score
+
+
+# Total-interest-paid as multiple of first-year salary → boss power (1-10).
+# Calibrated against the OBBBA Tiered Standard term tiers — interest burden
+# scales with both principal (because longer-tier loans accrue more) and
+# the cost-vs-earnings spread. See spec roi-net-lifetime-value.md §4.
+_INTEREST_BURDEN_THRESHOLDS: list[tuple[float, int]] = [
+    (0.05, 1),
+    (0.10, 2),
+    (0.20, 3),
+    (0.30, 4),
+    (0.45, 5),
+    (0.60, 6),
+    (0.75, 7),
+    (0.90, 8),
+    (1.00, 9),
+]
+
+
+def _interest_burden_to_score(burden: float) -> int:
+    """Map total_interest_paid / first_year_salary to a 1-10 boss score."""
+    if burden <= 0:
+        return 1
+    for upper_bound, score in _INTEREST_BURDEN_THRESHOLDS:
+        if burden < upper_bound:
+            return score
+    return 10
 
 
 def _derive_loans_boss(
@@ -175,48 +236,52 @@ def _derive_loans_boss(
     published_cost_4yr: float | None,
     earnings_1yr_median: float | None,
     loan_pct: float,
-) -> tuple[int | None, float | None, float | None]:
-    """Compute (boss_loans_score, modeled_total_debt, financed_dte).
+) -> tuple[
+    int | None, float | None, float | None, float | None, float | None, int | None
+]:
+    """Compute Student Loans Boss + amortization byproducts.
 
-    Unlike ROI (which is financing-agnostic), the Student Loans Boss IS
-    financing-aware. The math is:
+    Returns
+    ``(boss_loans_score, modeled_total_debt, financed_dte,
+       total_interest_paid, monthly_payment, term_months)``.
 
-        modeled_total_debt = published_cost_4yr * loan_pct
-        financed_dte       = modeled_total_debt / earnings_1yr_median
-        boss_loans_score   = 11 - compute_stat_roi(financed_dte)
+    Unlike ROI (financing-agnostic, see ``_derive_roi``), the Student
+    Loans Boss IS financing-aware. Power scales with **total interest
+    paid** under the OBBBA Tiered Standard term:
 
-    where ``published_cost_4yr`` is the school's 4-year sticker cost of
-    attendance (residency-aware) per ``_published_cost_4yr``. This is
-    the post-2026-05-02 cost anchor — net_price/debt_median are no
-    longer used (see _published_cost_4yr docstring for rationale).
+        modeled_total_debt   = published_cost_4yr × loan_pct
+        (term, monthly, interest) = amortize(modeled_total_debt)
+        interest_burden      = total_interest_paid / earnings_1yr_median
+        boss_loans_score     = _interest_burden_to_score(interest_burden)
 
     Special cases:
-    - loan_pct <= 0.0: no debt, boss is trivially auto-win (score 1).
+    - loan_pct <= 0.0:  no debt, boss is auto-win (score 1).
     - published_cost_4yr is None: caller substitutes the row value.
-    - earnings missing or zero: can't compute a DTE — caller handles.
-
-    Returns ``(boss_loans_score, modeled_total_debt, financed_dte)``.
+    - earnings missing or zero: can't form an interest burden — caller
+      handles fallback.
     """
-    from gold.futureproof_engine import (
-        compute_stat_roi,  # type: ignore[import-not-found]
-    )
-
     # No-loans branch — no debt, trivially win the loans boss.
     if loan_pct <= 0.0:
-        return 1, 0.0, 0.0
+        return 1, 0.0, 0.0, 0.0, 0.0, 0
 
     if published_cost_4yr is None:
-        return None, None, None
-    if earnings_1yr_median is None or float(earnings_1yr_median) <= 0:
-        # We know the modeled debt but can't form a DTE.
-        modeled_debt = float(published_cost_4yr) * float(loan_pct)
-        return None, modeled_debt, None
+        return None, None, None, None, None, None
 
     modeled_debt = float(published_cost_4yr) * float(loan_pct)
-    financed_dte = modeled_debt / float(earnings_1yr_median)
-    equivalent_roi = compute_stat_roi(financed_dte)
-    boss_loans = (11 - equivalent_roi) if equivalent_roi is not None else None
-    return boss_loans, modeled_debt, financed_dte
+    term = repayment_term_months(modeled_debt)
+    monthly, _total_repayment, total_interest = amortize(
+        modeled_debt, term_months=term
+    )
+
+    if earnings_1yr_median is None or float(earnings_1yr_median) <= 0:
+        # We have the loan math but can't form a financed DTE or burden.
+        return None, modeled_debt, None, total_interest, monthly, term
+
+    earnings = float(earnings_1yr_median)
+    financed_dte = modeled_debt / earnings
+    interest_burden = total_interest / earnings
+    boss_loans = _interest_burden_to_score(interest_burden)
+    return boss_loans, modeled_debt, financed_dte, total_interest, monthly, term
 
 
 def _adjust_net_price_for_residency(
@@ -262,55 +327,24 @@ def _published_cost_4yr(
     home_state: str | None,
     school_state: str | None,
 ) -> float | None:
-    """Return the school's published 4-year cost of attendance (full
-    sticker), residency-aware for public schools.
+    """Backwards-compat wrapper for `mcp_server.residency.published_cost_4yr`.
 
-    This is the cost basis for ROI and the Student Loans Boss. Replaces
-    the pre-2026-05-02 ``net_price_annual`` × 4 anchor — net price is an
-    average across federally-aided students, which obscures what the
-    school will actually charge a particular applicant before any aid
-    decision. At the exploration phase (pre-application) the only
-    honest signal is the published sticker.
-
-    Math:
-
-      Private:                                COA × 4
-      Public, in-state (home == school):       COA × 4
-      Public, out-of-state (home != school):   (COA + (OOS_tuition - IS_tuition)) × 4
-      Public, residency unknown:               COA × 4   (defaults to in-state)
-      COA missing or non-positive:             None      (caller renders "—")
-
-    The OOS adjustment adds the full tuition gap to the in-state COA
-    (which already includes tuition + room/board + fees). IPEDS reports
-    a single ``cost_of_attendance_annual`` per institution, which is the
-    in-state figure for publics; the out-of-state COA is reconstructed
-    by adding the OOS tuition premium.
-
-    Returns the 4-YEAR total. The caller divides by 4 if it needs an
-    annual figure (e.g. modeled_total_debt = published_cost_4yr ×
-    loan_pct).
+    The canonical implementation now lives in the MCP layer (per spec
+    roi-net-lifetime-value followup, "Explain this to me" cost-mismatch
+    fix). Single source of truth — both the MCP server and the backend
+    `_row_to_outcome` / `apply_published_cost_override` callers compute
+    the same residency-aware sticker without drift. Kept under this name
+    so existing imports in tests and call-sites don't churn.
     """
-    if cost_of_attendance_annual is None or cost_of_attendance_annual <= 0:
-        return None
-    coa = float(cost_of_attendance_annual)
-
-    # Private — single sticker number, no residency adjustment.
-    if not _is_public_control(institution_control):
-        return coa * 4.0
-
-    # Public — adjust upward when the student is out-of-state.
-    if home_state is None or school_state is None:
-        return coa * 4.0
-    if home_state == school_state:
-        return coa * 4.0
-    if tuition_in_state is None or tuition_out_of_state is None:
-        # OOS resident at a public school but tuition split is missing.
-        # Use in-state COA as the lower bound rather than fabricating.
-        return coa * 4.0
-    gap = float(tuition_out_of_state) - float(tuition_in_state)
-    if gap <= 0:
-        return coa * 4.0
-    return (coa + gap) * 4.0
+    result: float | None = _shared_published_cost_4yr(
+        cost_of_attendance_annual=cost_of_attendance_annual,
+        tuition_in_state=tuition_in_state,
+        tuition_out_of_state=tuition_out_of_state,
+        institution_control=institution_control,
+        home_state=home_state,
+        school_state=school_state,
+    )
+    return result
 
 
 def _row_to_outcome(
@@ -379,9 +413,9 @@ def _row_to_outcome(
         school_state=school_state,
     )
 
-    # ROI's DTE is published_cost_4yr / earnings (sticker-anchored,
-    # financing-agnostic). When published cost is missing, ROI is None
-    # and the legacy Gold-level dte_f / raw_stat_roi falls through.
+    # Legacy DTE (deprecated) — kept on the model for one release cycle.
+    # Computed from residency-aware cost when available; falls through to
+    # the Gold-precomputed value otherwise.
     roi_dte: float | None = None
     if (
         published_cost_4yr is not None
@@ -391,12 +425,24 @@ def _row_to_outcome(
         roi_dte = published_cost_4yr / earnings_f
 
     # ROI is loan_pct-independent — it reflects program cost vs earnings.
+    # The 15-year payback multiplier (= cumulative earnings ÷ sticker cost)
+    # is computed from raw inputs inside _derive_roi; falls back to the
+    # Gold-precomputed in-state-baseline ``raw_stat_roi`` when residency-
+    # aware inputs are missing (spec roi-net-lifetime-value Decision #11).
     adj_stat_roi = _derive_roi(
-        cost_based_dte=roi_dte,
+        published_cost_4yr=published_cost_4yr,
+        earnings_1yr_median=earnings_f,
         raw_stat_roi=raw_stat_roi,
     )
     # Student Loans Boss IS loan_pct-aware — it reflects financing choices.
-    boss_loans_derived, modeled_total_debt, financed_dte = _derive_loans_boss(
+    (
+        boss_loans_derived,
+        modeled_total_debt,
+        financed_dte,
+        total_interest_paid,
+        monthly_payment,
+        term_months,
+    ) = _derive_loans_boss(
         published_cost_4yr=published_cost_4yr,
         earnings_1yr_median=earnings_f,
         loan_pct=loan_pct,
@@ -477,6 +523,9 @@ def _row_to_outcome(
         cost_of_attendance_annual=row.get("cost_of_attendance_annual"),
         published_cost_4yr=published_cost_4yr,
         modeled_total_debt=modeled_total_debt,
+        total_interest_paid=total_interest_paid,
+        monthly_payment=monthly_payment,
+        term_months=term_months,
         debt_median_reference=debt_median_reference,
         institution_control=inst_control,
         state_abbr=school_state,
@@ -552,7 +601,14 @@ def recompute_for_sliders(
     else:
         new_ern = career.stats.ern
 
-    boss_loans, modeled_debt, financed_dte = _derive_loans_boss(
+    (
+        boss_loans,
+        modeled_debt,
+        financed_dte,
+        total_interest,
+        monthly,
+        term,
+    ) = _derive_loans_boss(
         published_cost_4yr=career.published_cost_4yr,
         earnings_1yr_median=career.earnings_1yr_median,
         loan_pct=new_loan_pct,
@@ -581,6 +637,15 @@ def recompute_for_sliders(
                 else career.modeled_total_debt
             ),
             "financed_dte": financed_dte,
+            "total_interest_paid": (
+                total_interest
+                if total_interest is not None
+                else career.total_interest_paid
+            ),
+            "monthly_payment": (
+                monthly if monthly is not None else career.monthly_payment
+            ),
+            "term_months": term if term is not None else career.term_months,
         },
     )
 
@@ -607,8 +672,19 @@ def apply_published_cost_override(
         else None
     )
     dte = cost / earnings if earnings and earnings > 0 else None
-    roi = _derive_roi(cost_based_dte=dte, raw_stat_roi=career.stats.roi)
-    boss_loans, modeled_debt, financed_dte = _derive_loans_boss(
+    roi = _derive_roi(
+        published_cost_4yr=cost,
+        earnings_1yr_median=earnings,
+        raw_stat_roi=career.stats.roi,
+    )
+    (
+        boss_loans,
+        modeled_debt,
+        financed_dte,
+        total_interest,
+        monthly,
+        term,
+    ) = _derive_loans_boss(
         published_cost_4yr=cost,
         earnings_1yr_median=earnings,
         loan_pct=loan_pct,
@@ -622,6 +698,15 @@ def apply_published_cost_override(
             "roi_cost_basis": "cost_of_attendance",
             "financed_dte": financed_dte,
             "loan_pct": loan_pct,
+            "total_interest_paid": (
+                total_interest
+                if total_interest is not None
+                else career.total_interest_paid
+            ),
+            "monthly_payment": (
+                monthly if monthly is not None else career.monthly_payment
+            ),
+            "term_months": term if term is not None else career.term_months,
             "stats": PentagonStats(
                 ern=career.stats.ern,
                 roi=roi,

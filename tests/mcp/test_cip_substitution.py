@@ -55,6 +55,9 @@ FAKE_LOOKUP = [
 
 
 # IU-B broad-CIP row used as the substitution earnings basis.
+# Includes ROI Net Lifetime Value columns (spec roi-net-lifetime-value):
+#   lifetime_earnings_15yr = 63_371 × 18.5989 = 1_178_628.55
+#   roi_raw_multiplier = 1_178_628.55 / (11_882.75 × 4) = 24.7976
 IUB_CO_ROW = {
     "unitid": 151351,
     "institution_name": "Indiana University-Bloomington",
@@ -68,6 +71,12 @@ IUB_CO_ROW = {
     "debt_to_earnings_annual": 0.3077,
     "cip_family_earnings_rank": 0.9558,
     "confidence_tier": "high",
+    "cost_of_attendance_annual": 11_882.75,
+    "lifetime_earnings_15yr": round(63_371.0 * 18.5989, 2),
+    "roi_raw_multiplier": round(
+        (63_371.0 * 18.5989) / (11_882.75 * 4.0), 4
+    ),
+    "roi_multiplier_basis": "sticker_4yr",
 }
 
 
@@ -361,14 +370,19 @@ class TestBlendedStats:
             raw = 0.6*0.9558 + 0.4*0.72 = 0.85348
             1 + 9*0.85348 = 8.68
             round half-up → 9
-        ROI with dte = 0.3077 → piecewise linear from Gold engine.
-        We just assert the values match the engine, not a specific int,
-        to avoid duplicating the breakpoint table here.
+        ROI = compute_stat_roi_from_multiplier(roi_raw_multiplier) per
+        spec roi-net-lifetime-value (in-state baseline; backend overrides
+        residency-aware at runtime).
         """
-        from gold.futureproof_engine import compute_stat_ern, compute_stat_roi
+        from gold.futureproof_engine import (
+            compute_stat_ern,
+            compute_stat_roi_from_multiplier,
+        )
 
         expected_ern = compute_stat_ern(0.9558, 0.72)
-        expected_roi = compute_stat_roi(0.3077)
+        expected_roi = compute_stat_roi_from_multiplier(
+            IUB_CO_ROW["roi_raw_multiplier"]
+        )
 
         server = _make_server()
         xw_patch, q_patch, j_patch = _patch_substitution(server, ["13-1161"])

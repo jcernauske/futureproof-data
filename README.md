@@ -121,6 +121,24 @@ flowchart LR
 
 ---
 
+## Methodology: How We Score Programs
+
+### The 15-year window
+
+FutureProof's ROI score uses a fixed 15-year earnings window for every program in the database. This is a deliberate choice. The federal standard repayment plan is 10 years, but in reality the median bachelor's-degree borrower takes 17–21 years to pay off their loans (Education Data Initiative, The College Investor 2026, ELFI). Fifteen years splits the difference between contractual ideal and lived experience. It also matches the OBBBA Tiered Standard term for a typical $25–50K debt load and captures the years when career trajectory becomes clear — by year 15, lawyers make partner, doctors finish residency, and engineers reach senior IC. Long-horizon outcomes beyond this window — late-career earnings, market projections, full lifetime trajectory — are captured by the GRW stat and the Stage 3 career tree, not by ROI. Keeping ROI focused on a fixed comparison window is what makes the compare screen actually useful for picking between schools.
+
+### The ROI formula
+
+ROI is computed as a payback multiplier: cumulative 15-year earnings (starting from each program's actual year-one median salary, applied at a flat 3% nominal annual growth — the long-run U.S. wage-growth average) divided by the program's 4-year sticker cost (residency-aware for public schools). A multiplier of 5x means a graduate of this program will earn 5x the cost of the degree over the typical 15-year repayment window. The multiplier is mapped to a 1–10 stat using calibrated thresholds. ROI is **financing-agnostic**: it doesn't matter whether the student pays cash, takes loans, or has a full scholarship — the question "is this program priced fairly relative to what it produces?" has the same answer regardless of who's paying. Financing realities show up in two other places: Boss Debt (where the loan slider scales the boss's power based on actual interest paid) and the First Home Race visualization.
+
+### What ROI does and doesn't model
+
+ROI projects 15 years of earnings starting from the program's actual year-one median salary, applied at flat 3% annual nominal growth. **It does not model career progression, promotions, or the gap between entry-level and senior pay.** Those depend on what graduates do after they're hired — certifications, performance, switching employers, going to grad school — none of which are properties of the program itself. ROI is a measure of what the *degree* delivers, which is the first job. What students do with that first job is up to them. We chose this conservative approach deliberately: modeling career progression we can't honestly project would mean the stat measures graduate effort instead of program quality. If you want to understand long-horizon outcomes, look at the Stage 3 career tree, which explicitly branches on grad-school and career-pivot decisions.
+
+For the full technical specification including formula derivation, threshold calibration, and migration notes, see [`docs/specs/roi-net-lifetime-value.md`](docs/specs/roi-net-lifetime-value.md).
+
+---
+
 ## Quickstart
 
 Five commands once prerequisites are installed. Total time is dominated by the first `ollama pull gemma4:e4b` model download.

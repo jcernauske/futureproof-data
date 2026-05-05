@@ -89,12 +89,13 @@ def compute_stat_ern(
     return _round_half_up(1.0 + 9.0 * raw)
 
 
-def compute_stat_roi(debt_to_earnings_annual: float | None) -> int | None:
-    """Compute Return on Investment stat (1-10).
+def compute_stat_roi_from_dte(debt_to_earnings_annual: float | None) -> int | None:
+    """DEPRECATED — use ``compute_stat_roi_from_multiplier``.
 
-    Piecewise linear mapping from debt-to-earnings ratio.
-    Lower DTE = better ROI = higher score.
-    Returns None if input is None.
+    Legacy DTE-ratio mapping. Retained for one release cycle so any
+    out-of-tree consumer that imports it does not break. Replaced by
+    the 15-year payback-multiplier formula per
+    ``docs/specs/roi-net-lifetime-value.md``.
     """
     if debt_to_earnings_annual is None:
         return None
@@ -113,6 +114,56 @@ def compute_stat_roi(debt_to_earnings_annual: float | None) -> int | None:
 
     # Cap: very poor ROI
     return 1
+
+
+# DEPRECATED back-compat alias. New code should call
+# ``compute_stat_roi_from_multiplier``. Removed in the next ROI cleanup spec.
+compute_stat_roi = compute_stat_roi_from_dte
+
+
+# Threshold ladder for the 15-year payback multiplier (cumulative 15-year
+# earnings ÷ 4-year sticker cost). Calibrated for a 15-year window at flat
+# 3% nominal wage growth (closed-form constant 18.5989).
+#
+#   Public in-state ($108K sticker), $60K starting:  $1.116M / $108K = 10.3x → 8
+#   Private nonprofit ($240K),       $60K starting:  $1.116M / $240K =  4.6x → 5
+#   Expensive private ($280K),       $35K starting:  $0.651M / $280K =  2.3x → 2
+#   Cheap public ($80K),             $50K starting:  $0.930M /  $80K = 11.6x → 8
+ROI_MULTIPLIER_THRESHOLDS: list[tuple[float, int]] = [
+    (1.5, 1),    # < 1.5x   → 1   (degree underwater over 15 yrs)
+    (2.5, 2),    # 1.5-2.5  → 2   (poor return)
+    (3.5, 3),    # 2.5-3.5  → 3   (below-average return)
+    (4.5, 4),    # 3.5-4.5  → 4   (modest return)
+    (5.5, 5),    # 4.5-5.5  → 5   (average return)
+    (7.0, 6),    # 5.5-7.0  → 6   (above-average return)
+    (9.0, 7),    # 7.0-9.0  → 7   (strong return)
+    (12.0, 8),   # 9.0-12.0 → 8   (excellent return)
+    (16.0, 9),   # 12.0-16.0→ 9   (exceptional return)
+]
+# >= 16.0 → 10   (elite return — typically cheap-public + high-earning major)
+
+
+def compute_stat_roi_from_multiplier(roi_raw: float | None) -> int | None:
+    """Compute Return on Investment stat (1-10) from the payback multiplier.
+
+    ``roi_raw`` is cumulative 15-year earnings ÷ 4-year sticker cost. Higher
+    multiplier = stronger return = higher score. Threshold-based mapping per
+    ``ROI_MULTIPLIER_THRESHOLDS`` — see
+    ``docs/specs/roi-net-lifetime-value.md`` §2 Decision #4 for why
+    threshold-based rather than linear.
+
+    Returns None when ``roi_raw`` is None (cost or earnings missing).
+    Negative or zero values map to 1 (sanity floor — should not occur in
+    practice given the Gold-pipeline guards).
+    """
+    if roi_raw is None:
+        return None
+    if roi_raw <= 0.0:
+        return 1
+    for upper_bound, score in ROI_MULTIPLIER_THRESHOLDS:
+        if roi_raw < upper_bound:
+            return score
+    return 10
 
 
 def compute_boss_ceiling(
@@ -231,6 +282,13 @@ def get_pcp_schema() -> Schema:
         NestedField(52, "room_board_on_campus", DoubleType(), required=False),
         NestedField(53, "state_abbr", StringType(), required=False),
         NestedField(54, "cip_family_earnings_rank", DoubleType(), required=False),
+        # ROI Net Lifetime Value (spec roi-net-lifetime-value, 2026-05-04).
+        # Threaded through from consumable.career_outcomes so the backend
+        # stat_engine can drive the residency-aware payback-multiplier ROI
+        # without falling back to the deprecated DTE column.
+        NestedField(55, "lifetime_earnings_15yr", DoubleType(), required=False),
+        NestedField(56, "roi_raw_multiplier", DoubleType(), required=False),
+        NestedField(57, "roi_multiplier_basis", StringType(), required=False),
     )
 
 
@@ -333,6 +391,13 @@ joined AS (
         co.tuition_out_of_state,
         co.room_board_on_campus,
         co.state_abbr,
+        -- ROI Net Lifetime Value (spec roi-net-lifetime-value).
+        -- Threaded through to consumable.program_career_paths so the
+        -- backend stat_engine drives the multiplier-based ROI without
+        -- a second career_outcomes lookup.
+        co.lifetime_earnings_15yr,
+        co.roi_raw_multiplier,
+        co.roi_multiplier_basis,
         -- Occupation context (from occupation_profiles)
         op.median_annual_wage,
         op.wage_percentile_overall,
@@ -471,7 +536,11 @@ def derive_pcp_rows(
             row.pop("wage_percentile_overall", None),
         )
         row["cip_family_earnings_rank"] = cip_rank
-        stat_roi = compute_stat_roi(row.get("debt_to_earnings_annual"))
+        # ROI is the in-state-baseline payback multiplier (spec
+        # roi-net-lifetime-value Decision #11). The backend overrides
+        # this with a residency-aware multiplier at runtime when it
+        # has the user's home_state.
+        stat_roi = compute_stat_roi_from_multiplier(row.get("roi_raw_multiplier"))
         stat_grw = row.get("grw_score_rounded")
         stat_hmn = row.get("hmn_score_rounded")
         stat_res = ai_data.get("stat_res")  # From ai_exposure lookup, None if no match

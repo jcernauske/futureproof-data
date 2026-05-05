@@ -1539,17 +1539,17 @@ class TestROIPostprocess:
 
         comp = receipt.components[0]
         assert comp.weight_pct == 100
-        assert comp.label == "your debt-to-earnings ratio"
+        assert comp.label == "your 15-year payback multiplier"
         # anchor_dollars = published_cost_4yr
         assert comp.anchor_dollars == 112_400
-        # value_pct is always None for ROI (ratio, not percentile)
+        # value_pct is always None for ROI (multiplier, not percentile)
         assert comp.value_pct is None
         assert comp.missing_reason is None
 
-        # Math line format: '$112,400 / $78,400 = 1.43 → ROI score 4/10'
-        assert "$112,400" in receipt.math_line
-        assert "$78,400" in receipt.math_line
-        assert "1.43" in receipt.math_line
+        # Math line: 'Lifetime $1,458,154 ÷ Cost $112,400 = 12.97x → ROI score 4/10'
+        assert "Lifetime $1,458,154" in receipt.math_line
+        assert "Cost $112,400" in receipt.math_line
+        assert "12.97x" in receipt.math_line
         assert "ROI score 4/10" in receipt.math_line
         assert "→" in receipt.math_line
 
@@ -1621,7 +1621,7 @@ class TestROIPostprocess:
         assert "n/a" in receipt.math_line
 
     def test_roi_postprocess_both_null(self) -> None:
-        """Both published_cost_4yr and earnings None → n/a / n/a."""
+        """Both published_cost_4yr and earnings None → all n/a."""
         build = _make_roi_build(published_cost_4yr=None, earnings_1yr_median=None)
         log = _make_tool_log()
 
@@ -1632,7 +1632,9 @@ class TestROIPostprocess:
             backend="ollama",
         )
         assert receipt is not None
-        assert "n/a / n/a = n/a" in receipt.math_line
+        assert "Lifetime n/a" in receipt.math_line
+        assert "Cost n/a" in receipt.math_line
+        assert "= n/a" in receipt.math_line
 
     def test_roi_postprocess_label_normalization(self) -> None:
         """Off-script label at weight=100 → replaced with canonical."""
@@ -1644,7 +1646,7 @@ class TestROIPostprocess:
             raw=raw, build=build, tool_call_log=log, backend="ollama"
         )
         assert receipt is not None
-        assert receipt.components[0].label == "your debt-to-earnings ratio"
+        assert receipt.components[0].label == "your 15-year payback multiplier"
 
     def test_roi_postprocess_rejects_wrong_stat_code(self) -> None:
         """stat_code='ERN' in ROI dispatch → None."""
@@ -2282,67 +2284,89 @@ class TestRenderMathLineROI:
     """Tests for _render_math_line_roi."""
 
     def test_render_math_line_roi_happy(self) -> None:
-        """Normal case: both values present."""
+        """Normal case: both values present.
+
+        Under the 15-year payback multiplier formula:
+            lifetime = 78_400 × 18.5989 ≈ 1_458_154
+            multiplier = 1_458_154 / 112_400 ≈ 12.97x
+        """
         line = _render_math_line_roi(
             published_cost_4yr=112_400.0,
             earnings_1yr_median=78_400.0,
-            build_score=4,
+            build_score=8,
             score_max=10,
         )
-        assert line == "$112,400 / $78,400 = 1.43 → ROI score 4/10"
+        assert "Lifetime $1,458,154" in line
+        assert "Cost $112,400" in line
+        assert "= 12.97x" in line
+        assert "→ ROI score 8/10" in line
 
     def test_render_math_line_roi_cost_null(self) -> None:
-        """published_cost_4yr None → n/a / $X."""
+        """published_cost_4yr None → Lifetime $X ÷ Cost n/a = n/a."""
         line = _render_math_line_roi(
             published_cost_4yr=None,
             earnings_1yr_median=78_400.0,
             build_score=4,
             score_max=10,
         )
-        assert line == "n/a / $78,400 = n/a → score 4/10"
+        assert "Lifetime $1,458,154" in line
+        assert "Cost n/a" in line
+        assert "= n/a" in line
+        assert "ROI score 4/10" in line
 
     def test_render_math_line_roi_earnings_null(self) -> None:
-        """earnings None → $X / n/a."""
+        """earnings None → Lifetime n/a ÷ Cost $X = n/a."""
         line = _render_math_line_roi(
             published_cost_4yr=112_400.0,
             earnings_1yr_median=None,
             build_score=4,
             score_max=10,
         )
-        assert line == "$112,400 / n/a = n/a → score 4/10"
+        assert "Lifetime n/a" in line
+        assert "Cost $112,400" in line
+        assert "= n/a" in line
+        assert "ROI score 4/10" in line
 
     def test_render_math_line_roi_both_null(self) -> None:
-        """Both None → n/a / n/a."""
+        """Both None → all n/a."""
         line = _render_math_line_roi(
             published_cost_4yr=None,
             earnings_1yr_median=None,
             build_score=4,
             score_max=10,
         )
-        assert line == "n/a / n/a = n/a → score 4/10"
+        assert line == "Lifetime n/a ÷ Cost n/a = n/a → ROI score 4/10"
 
     def test_render_math_line_roi_ratio_precision(self) -> None:
-        """Ratio uses exactly 2 decimal places."""
+        """Multiplier uses exactly 2 decimal places.
+
+        lifetime = 33_333 × 18.5989 ≈ 619_955
+        multiplier = 619_955 / 100_000 = 6.20
+        """
         line = _render_math_line_roi(
             published_cost_4yr=100_000.0,
             earnings_1yr_median=33_333.0,
-            build_score=2,
+            build_score=6,
             score_max=10,
         )
-        # 100000 / 33333 = 3.00003... → "3.00"
-        assert "= 3.00" in line
-        assert "ROI score 2/10" in line
+        assert "= 6.20x" in line
+        assert "ROI score 6/10" in line
 
     def test_render_math_line_roi_large_values(self) -> None:
-        """Comma formatting on large dollar amounts."""
+        """Comma formatting on large dollar amounts.
+
+        lifetime = 45_000 × 18.5989 ≈ 836_951
+        multiplier = 836_951 / 250_000 ≈ 3.35
+        """
         line = _render_math_line_roi(
             published_cost_4yr=250_000.0,
             earnings_1yr_median=45_000.0,
-            build_score=1,
+            build_score=3,
             score_max=10,
         )
         assert "$250,000" in line
-        assert "$45,000" in line
+        assert "$836,951" in line
+        assert "3.35x" in line
 
     def test_render_math_line_roi_earnings_zero(self) -> None:
         """Zero earnings treated as n/a to prevent division by zero."""
@@ -2353,7 +2377,7 @@ class TestRenderMathLineROI:
             score_max=10,
         )
         assert "n/a" in line
-        assert "score 4/10" in line
+        assert "ROI score 4/10" in line
 
 
 class TestRenderMathLineRES:
@@ -2504,7 +2528,7 @@ class TestStatExplainRegistry:
     def test_registry_roi_config_has_correct_allowlist(self) -> None:
         """ROI config's label_allowlist has exactly the expected entry."""
         config = _STAT_EXPLAIN_REGISTRY["ROI"]
-        assert config.label_allowlist == {100: "your debt-to-earnings ratio"}
+        assert config.label_allowlist == {100: "your 15-year payback multiplier"}
 
     def test_registry_res_config_has_correct_allowlist(self) -> None:
         """RES config's label_allowlist is the position-based list."""

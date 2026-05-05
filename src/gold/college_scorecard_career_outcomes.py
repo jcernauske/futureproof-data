@@ -123,6 +123,17 @@ def get_gold_schema() -> Schema:
         #   'none'               — neither input available (DTE is null)
         NestedField(38, "roi_cost_basis", StringType(), required=False),
         NestedField(39, "state_abbr", StringType(), required=False),
+        # ROI Net Lifetime Value (spec roi-net-lifetime-value, 2026-05-04).
+        # 15-year cumulative earnings + payback multiplier + provenance.
+        # Formula: lifetime_earnings_15yr = earnings_1yr_median × 18.5989
+        #          roi_raw_multiplier = lifetime_earnings_15yr
+        #                               / COALESCE(coa × 4, net_price_4yr)
+        # Per Decision #11, the multiplier is the in-state baseline; the
+        # backend's stat_engine._derive_roi applies the residency-aware
+        # override at runtime.
+        NestedField(40, "lifetime_earnings_15yr", DoubleType(), required=False),
+        NestedField(41, "roi_raw_multiplier", DoubleType(), required=False),
+        NestedField(42, "roi_multiplier_basis", StringType(), required=False),
     )
 
 
@@ -268,6 +279,48 @@ joined AS (
             WHEN b.debt_median IS NOT NULL THEN 'debt_median'
             ELSE 'none'
         END AS roi_cost_basis,
+        -- 15-year cumulative earnings at flat 3% nominal growth.
+        -- Closed-form geometric series: earnings × ((1.03^15 - 1) / 0.03)
+        --                             = earnings × 18.5989
+        -- Spec: docs/specs/roi-net-lifetime-value.md §2 Decision #10.
+        CASE
+            WHEN b.earnings_1yr_median IS NOT NULL
+                THEN ROUND(b.earnings_1yr_median * 18.5989, 2)
+            ELSE NULL
+        END AS lifetime_earnings_15yr,
+        -- Cost-basis provenance for the new payback-multiplier ROI.
+        -- 'sticker_4yr'   = cost_of_attendance_annual × 4 (preferred; in-state baseline)
+        -- 'net_price_4yr' = net_price_4yr fallback when COA missing
+        -- 'none'          = neither cost input available (multiplier is NULL)
+        CASE
+            WHEN i.cost_of_attendance_annual IS NOT NULL
+                 AND i.cost_of_attendance_annual > 0 THEN 'sticker_4yr'
+            WHEN i.net_price_4yr IS NOT NULL AND i.net_price_4yr > 0
+                 THEN 'net_price_4yr'
+            ELSE 'none'
+        END AS roi_multiplier_basis,
+        -- Payback multiplier (in-state baseline). Backend overrides residency-
+        -- aware at runtime via stat_engine._derive_roi. See spec Decision #11.
+        -- NULLIF on cost_of_attendance_annual prevents COALESCE(0 * 4.0,
+        -- net_price_4yr) returning 0 — zero is not NULL, so the fallback
+        -- wouldn't fire and we'd divide by zero. Belt + suspenders with
+        -- the > 0 guards above (M1 from @faang-staff-engineer review).
+        CASE
+            WHEN b.earnings_1yr_median IS NOT NULL
+                 AND b.earnings_1yr_median > 0
+                 AND (
+                     (i.cost_of_attendance_annual IS NOT NULL
+                      AND i.cost_of_attendance_annual > 0)
+                     OR (i.net_price_4yr IS NOT NULL AND i.net_price_4yr > 0)
+                 )
+                THEN ROUND(
+                    (b.earnings_1yr_median * 18.5989)
+                    / COALESCE(NULLIF(i.cost_of_attendance_annual, 0) * 4.0,
+                               NULLIF(i.net_price_4yr, 0)),
+                    4
+                )
+            ELSE NULL
+        END AS roi_raw_multiplier,
         -- Earnings growth rate (null-safe)
         CASE WHEN b.earnings_1yr_median IS NOT NULL AND b.earnings_2yr_median IS NOT NULL
             THEN (b.earnings_2yr_median - b.earnings_1yr_median) / b.earnings_1yr_median

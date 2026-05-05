@@ -95,7 +95,7 @@ export const STAT_INFO: Record<string, { title: string; definition: string; sour
   },
   roi: {
     title: "Return on Investment",
-    definition: "Compares what you'll earn against what you'll owe. Factors in tuition, typical debt load, and expected starting salary to estimate how quickly the degree pays for itself.",
+    definition: "A 15-year payback multiplier. Projects cumulative earnings over a typical 15-year repayment window (starting salary grown at flat 3% annually) and divides by the program's 4-year published cost. Higher = better. Financing-agnostic — the loan slider doesn't move it.",
     source: "College Scorecard",
   },
   res: {

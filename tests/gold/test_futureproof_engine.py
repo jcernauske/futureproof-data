@@ -16,11 +16,13 @@ from gold.futureproof_engine import (
     BR_GRAIN_PREFIX,
     PCP_GRAIN_FIELDS,
     PCP_GRAIN_PREFIX,
+    ROI_MULTIPLIER_THRESHOLDS,
     add_br_record_ids,
     add_pcp_record_ids,
     compute_boss_ceiling,
     compute_stat_ern,
     compute_stat_roi,
+    compute_stat_roi_from_multiplier,
     derive_br_rows,
     derive_match_quality,
     derive_overall_confidence,
@@ -59,7 +61,27 @@ def _make_career_outcome(
     tuition_out_of_state=None,
     room_board_on_campus=None,
     state_abbr="IN",
+    lifetime_earnings_15yr=None,
+    roi_raw_multiplier=None,
+    roi_multiplier_basis="none",
 ):
+    # ROI Net Lifetime Value (spec roi-net-lifetime-value, 2026-05-04):
+    # When the caller doesn't specify the new columns, derive them from
+    # earnings + cost basis so PCP_SQL's SELECT picks up real values.
+    if lifetime_earnings_15yr is None and earnings_1yr_median is not None:
+        lifetime_earnings_15yr = round(earnings_1yr_median * 18.5989, 2)
+    if roi_raw_multiplier is None and lifetime_earnings_15yr is not None:
+        cost_basis: float | None
+        if cost_of_attendance_annual and cost_of_attendance_annual > 0:
+            cost_basis = cost_of_attendance_annual * 4.0
+            roi_multiplier_basis = "sticker_4yr"
+        elif net_price_4yr and net_price_4yr > 0:
+            cost_basis = net_price_4yr
+            roi_multiplier_basis = "net_price_4yr"
+        else:
+            cost_basis = None
+        if cost_basis:
+            roi_raw_multiplier = round(lifetime_earnings_15yr / cost_basis, 4)
     return {
         "unitid": unitid,
         "institution_name": institution_name,
@@ -87,6 +109,10 @@ def _make_career_outcome(
         "tuition_out_of_state": tuition_out_of_state,
         "room_board_on_campus": room_board_on_campus,
         "state_abbr": state_abbr,
+        # ROI Net Lifetime Value (spec roi-net-lifetime-value).
+        "lifetime_earnings_15yr": lifetime_earnings_15yr,
+        "roi_raw_multiplier": roi_raw_multiplier,
+        "roi_multiplier_basis": roi_multiplier_basis,
     }
 
 
@@ -287,14 +313,25 @@ class TestBossScores:
     """Tests for boss fight score derivations."""
 
     def test_boss_loans_inverse_of_roi(self):
-        """boss_loans_score = 11 - stat_roi."""
-        rows = _simple_pcp_derive(debt_to_earnings_annual=0.10)
+        """Gold-precomputed boss_loans_score = 11 - stat_roi (placeholder
+        only; the backend recomputes financing-aware via _derive_loans_boss
+        per spec roi-net-lifetime-value Decision #5)."""
+        # Cheap public + high earnings → multiplier saturates at 10 → boss 1.
+        rows = _simple_pcp_derive(
+            earnings_1yr_median=80_000.0,
+            cost_of_attendance_annual=10_000.0,  # sticker_4yr = 40_000
+        )
         assert rows[0]["stat_roi"] == 10
         assert rows[0]["boss_loans_score"] == 1
 
     def test_boss_loans_null_when_roi_null(self):
-        """boss_loans_score is null when stat_roi is null."""
-        rows = _simple_pcp_derive(debt_to_earnings_annual=None)
+        """boss_loans_score is null when stat_roi is null (no roi_raw_multiplier)."""
+        rows = _simple_pcp_derive(
+            earnings_1yr_median=None,
+            cost_of_attendance_annual=None,
+            net_price_4yr=None,
+        )
+        assert rows[0]["stat_roi"] is None
         assert rows[0]["boss_loans_score"] is None
 
     def test_boss_ceiling_basic(self):
@@ -468,13 +505,14 @@ class TestOccupationTitleFallback:
 class TestPcpSchemaAndRecordIds:
     """Tests for Table 1 schema and record ID generation."""
 
-    def test_schema_has_54_columns(self):
-        """PCP physical model has 54 columns. Field 54 is
-        cip_family_earnings_rank, persisted so the MCP response can
-        surface it for ERN explain-stat receipts.
+    def test_schema_has_57_columns(self):
+        """PCP physical model has 57 columns. Fields 55-57 are the
+        ROI Net Lifetime Value triplet (lifetime_earnings_15yr,
+        roi_raw_multiplier, roi_multiplier_basis) added by spec
+        roi-net-lifetime-value (2026-05-04).
         """
         schema = get_pcp_schema()
-        assert len(schema.fields) == 54
+        assert len(schema.fields) == 57
 
     def test_record_id_deterministic(self):
         """record_id is deterministic for same grain."""
@@ -492,13 +530,15 @@ class TestPcpSchemaAndRecordIds:
 
     def test_stats_available_count(self):
         """stats_available_count counts non-null pentagon stats."""
-        rows = _simple_pcp_derive()
+        # Provide cost basis so the new payback-multiplier ROI is non-null
+        # (spec roi-net-lifetime-value).
+        rows = _simple_pcp_derive(cost_of_attendance_annual=20_000.0)
         # With full data: stat_ern, stat_roi, stat_grw, stat_hmn are non-null; stat_res is null
         assert rows[0]["stats_available_count"] == 4
 
     def test_bosses_available_count(self):
         """bosses_available_count counts non-null boss scores."""
-        rows = _simple_pcp_derive()
+        rows = _simple_pcp_derive(cost_of_attendance_annual=20_000.0)
         # boss_loans, boss_market, boss_burnout, boss_ceiling non-null; boss_ai null
         assert rows[0]["bosses_available_count"] == 4
 
@@ -768,7 +808,9 @@ class TestPcpAiExposureBackfill:
 
     def test_stats_available_count_increments_with_ai(self):
         """stats_available_count increases by 1 when stat_res is populated."""
-        co = [_make_career_outcome()]
+        # Provide cost basis so the new payback-multiplier ROI is non-null
+        # (spec roi-net-lifetime-value).
+        co = [_make_career_outcome(cost_of_attendance_annual=20_000.0)]
         xw = [_make_crosswalk()]
         op = [_make_occupation_profile()]
         onet = [_make_onet_profile()]
@@ -784,7 +826,7 @@ class TestPcpAiExposureBackfill:
 
     def test_bosses_available_count_increments_with_ai(self):
         """bosses_available_count increases by 1 when boss_ai_score is populated."""
-        co = [_make_career_outcome()]
+        co = [_make_career_outcome(cost_of_attendance_annual=20_000.0)]
         xw = [_make_crosswalk()]
         op = [_make_occupation_profile()]
         onet = [_make_onet_profile()]
@@ -910,3 +952,84 @@ class TestBrAiExposureBackfill:
         assert "related_ai_boss" in field_names
         assert "res_delta" in field_names
         assert "ai_boss_delta" in field_names
+
+
+# ---------------------------------------------------------------------------
+# ROI multiplier-based scoring (spec roi-net-lifetime-value, 2026-05-04)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeStatRoiFromMultiplier:
+    """Threshold-ladder mapping from 15-year payback multiplier to 1-10.
+
+    Spec: docs/specs/roi-net-lifetime-value.md §4 New Tests Required.
+
+    The ladder is non-linear by design (Decision #4): a 1.5x multiplier
+    is genuinely "underwater over 15 yrs" and a 16x multiplier is
+    "elite" — equal-spaced bands would compress most real-world programs
+    into the 5-7 band and lose discrimination at the extremes.
+
+    These tests pin the boundary mapping so any future band recalibration
+    is intentional.
+    """
+
+    def test_compute_stat_roi_threshold_boundaries(self):
+        """Every threshold boundary maps to the correct integer score.
+
+        ROI_MULTIPLIER_THRESHOLDS (upper-exclusive bounds):
+          < 1.5  → 1     1.5 ≤ x < 2.5  → 2     2.5 ≤ x < 3.5  → 3
+          3.5 ≤ x < 4.5  → 4     4.5 ≤ x < 5.5  → 5     5.5 ≤ x < 7.0  → 6
+          7.0 ≤ x < 9.0  → 7     9.0 ≤ x < 12.0 → 8     12.0 ≤ x < 16.0 → 9
+          ≥ 16.0  → 10
+        """
+        # Just-below each boundary stays in the lower band.
+        assert compute_stat_roi_from_multiplier(1.49) == 1
+        assert compute_stat_roi_from_multiplier(2.49) == 2
+        assert compute_stat_roi_from_multiplier(3.49) == 3
+        assert compute_stat_roi_from_multiplier(4.49) == 4
+        assert compute_stat_roi_from_multiplier(5.49) == 5
+        assert compute_stat_roi_from_multiplier(6.99) == 6
+        assert compute_stat_roi_from_multiplier(8.99) == 7
+        assert compute_stat_roi_from_multiplier(11.99) == 8
+        assert compute_stat_roi_from_multiplier(15.99) == 9
+
+        # Exactly-at each boundary jumps to the higher band (upper-exclusive).
+        assert compute_stat_roi_from_multiplier(1.5) == 2
+        assert compute_stat_roi_from_multiplier(2.5) == 3
+        assert compute_stat_roi_from_multiplier(3.5) == 4
+        assert compute_stat_roi_from_multiplier(4.5) == 5
+        assert compute_stat_roi_from_multiplier(5.5) == 6
+        assert compute_stat_roi_from_multiplier(7.0) == 7
+        assert compute_stat_roi_from_multiplier(9.0) == 8
+        assert compute_stat_roi_from_multiplier(12.0) == 9
+        assert compute_stat_roi_from_multiplier(16.0) == 10
+
+        # Above the top band stays at 10 (no overflow).
+        assert compute_stat_roi_from_multiplier(20.0) == 10
+        assert compute_stat_roi_from_multiplier(100.0) == 10
+
+        # Below-zero / zero clamps to 1 (sanity floor — should not occur
+        # in practice given Gold-pipeline guards).
+        assert compute_stat_roi_from_multiplier(0.0) == 1
+        assert compute_stat_roi_from_multiplier(-1.0) == 1
+        assert compute_stat_roi_from_multiplier(-100.0) == 1
+
+    def test_compute_stat_roi_none_input(self):
+        """Returns None when input is None (cost or earnings missing)."""
+        assert compute_stat_roi_from_multiplier(None) is None
+
+    def test_thresholds_are_strictly_monotonic(self):
+        """Sanity: the threshold table itself is strictly increasing.
+
+        If anyone accidentally re-orders the table, every other test on
+        this stat falls apart silently. Lock the invariant in.
+        """
+        bounds = [b for b, _score in ROI_MULTIPLIER_THRESHOLDS]
+        scores = [s for _b, s in ROI_MULTIPLIER_THRESHOLDS]
+        assert bounds == sorted(bounds)
+        assert len(set(bounds)) == len(bounds)  # no duplicates
+        assert scores == sorted(scores)
+        assert len(set(scores)) == len(scores)
+        # Score 10 is implicit (>= last bound), so the table itself
+        # should cap at 9.
+        assert scores[-1] == 9

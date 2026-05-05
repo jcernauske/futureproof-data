@@ -38,7 +38,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from pydantic import ValidationError
 
@@ -623,7 +623,7 @@ _RECEIPT_JSON_TEMPLATE = """{
 }"""
 
 
-def _ern_explain_appendix_json(career: CareerOutcome) -> str:
+def _ern_explain_appendix_json(career: CareerOutcome, *, home_state: str | None = None) -> str:
     """JSON-mode appendix for the ERN explain-this-stat receipt path.
 
     Substitutes the build's identifiers so Gemma calls the tools with
@@ -695,7 +695,7 @@ not render. Write real prose in every prose field.
 """
 
 
-def _ern_explain_appendix(career: CareerOutcome) -> str:
+def _ern_explain_appendix(career: CareerOutcome, *, home_state: str | None = None) -> str:
     """Markdown-mode appendix retained as the JSON-parse-failure
     fallback path. When `_postprocess_ern_explain_receipt` returns
     None, the loop re-runs with this appendix and the cached
@@ -1207,7 +1207,7 @@ def _postprocess_ern_explain_receipt(
 # ---------------------------------------------------------------------------
 
 _ROI_LABEL_ALLOWLIST: dict[int, str] = {
-    100: "your debt-to-earnings ratio",
+    100: "your 15-year payback multiplier",
 }
 
 _ROI_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
@@ -1221,28 +1221,75 @@ _ROI_RECEIPT_SOURCES: tuple[ReceiptSource, ...] = (
     ),
 )
 
-_ROI_SCORING_SCALE: list[ScoringTier] = [
-    ScoringTier(label="Excellent investment", range="≤ 0.25", score="10"),
-    ScoringTier(label="Great investment", range="0.25 – 0.50", score="10 – 9"),
-    ScoringTier(label="Good investment", range="0.50 – 0.75", score="9 – 7"),
-    ScoringTier(label="Fair investment", range="0.75 – 1.00", score="7 – 5"),
-    ScoringTier(label="Stretch investment", range="1.00 – 1.50", score="5 – 3"),
-    ScoringTier(label="Risky investment", range="1.50 – 2.50", score="3 – 1"),
-    ScoringTier(label="Very risky investment", range="≥ 2.50", score="1"),
-]
+_ROI_TIER_LABELS: tuple[str, ...] = (
+    "Underwater",
+    "Poor return",
+    "Below average",
+    "Modest return",
+    "Average return",
+    "Above average",
+    "Strong return",
+    "Excellent return",
+    "Exceptional return",
+    "Elite return",
+)
+
+
+def _build_roi_scoring_scale() -> list[ScoringTier]:
+    """Derive the ROI scoring scale from `ROI_MULTIPLIER_THRESHOLDS`.
+
+    Single source of truth — if the calibration ladder is retuned, this
+    table updates without a manual edit. Each threshold entry maps a
+    multiplier upper bound to a score; the bottom band starts at 0 and
+    the top band starts at the last threshold (16.0x → score 10).
+    """
+    from gold.futureproof_engine import (  # type: ignore[import-not-found]
+        ROI_MULTIPLIER_THRESHOLDS,
+    )
+
+    tiers: list[ScoringTier] = []
+    lower = 0.0
+    for upper, score in ROI_MULTIPLIER_THRESHOLDS:
+        if score == 1:
+            range_str = f"< {upper}x"
+        else:
+            range_str = f"{lower:g} – {upper:g}x"
+        tiers.append(
+            ScoringTier(
+                label=_ROI_TIER_LABELS[score - 1],
+                range=range_str,
+                score=str(score),
+            )
+        )
+        lower = upper
+    # Top band — no upper bound.
+    tiers.append(
+        ScoringTier(
+            label=_ROI_TIER_LABELS[9],
+            range=f"≥ {lower:g}x",
+            score="10",
+        )
+    )
+    return tiers
+
+
+_ROI_SCORING_SCALE: list[ScoringTier] = _build_roi_scoring_scale()
 
 _ROI_ONE_LINER = (
-    "Return on Investment divides your school's full published cost by "
-    "what you're likely to earn in your first year after graduation."
+    "Return on Investment is a 15-year payback multiplier — projected "
+    "cumulative earnings over a typical 15-year repayment window divided "
+    "by the program's 4-year published cost. A higher multiplier means "
+    "the degree pays back faster relative to what it costs."
 )
 
 _ROI_WHY_MIX_PARAGRAPH = (
-    "Picture two students. One pays $40,000 total but earns $35,000 — "
-    "their cost is barely more than a year's salary. Another pays "
-    "$200,000 and earns $50,000 — four years of salary spent before "
-    "they start. Same college education, wildly different payoff "
-    "timelines. The ratio turns both into one number you can compare "
-    "across any school and career."
+    "Picture two students at the 15-year mark. One pays $80,000 total and "
+    "earns about $50,000/yr to start — over fifteen years their earnings "
+    "cumulate to roughly $930,000, an 11.6x payback. Another pays "
+    "$240,000 and starts at the same $50,000 — same cumulative earnings, "
+    "but only a 3.9x payback. Same career, wildly different value. The "
+    "multiplier turns long-horizon program value into one number you can "
+    "compare across any school and career."
 )
 
 
@@ -1253,24 +1300,37 @@ def _render_math_line_roi(
     build_score: int,
     score_max: int,
 ) -> str:
-    """Build ROI's math-line string.
+    """Build ROI's math-line string under the 15-year payback multiplier.
 
-    Format: '$112,400 / $78,400 = 1.43 → ROI score 4/10'
+    Format: 'Lifetime $1,458,154 ÷ Cost $112,400 = 12.97x → ROI score 8/10'
+
+    Lifetime earnings = earnings_1yr_median × 18.5989 (closed-form sum at
+    flat 3% nominal growth, see spec roi-net-lifetime-value §2 Decision #10).
     """
+    from app.services.stat_engine import LIFETIME_EARNINGS_MULTIPLIER
+
     if published_cost_4yr is None and earnings_1yr_median is None:
-        return f"n/a / n/a = n/a → score {build_score}/{score_max}"
+        return f"Lifetime n/a ÷ Cost n/a = n/a → ROI score {build_score}/{score_max}"
     if published_cost_4yr is None:
-        earn_str = f"${int(earnings_1yr_median):,}"  # type: ignore[arg-type]
-        return f"n/a / {earn_str} = n/a → score {build_score}/{score_max}"
+        lifetime = earnings_1yr_median * LIFETIME_EARNINGS_MULTIPLIER  # type: ignore[operator]
+        lifetime_str = f"${int(lifetime):,}"
+        return (
+            f"Lifetime {lifetime_str} ÷ Cost n/a = n/a → ROI score "
+            f"{build_score}/{score_max}"
+        )
     if earnings_1yr_median is None or earnings_1yr_median == 0:
         cost_str = f"${int(published_cost_4yr):,}"
-        return f"{cost_str} / n/a = n/a → score {build_score}/{score_max}"
+        return (
+            f"Lifetime n/a ÷ Cost {cost_str} = n/a → ROI score "
+            f"{build_score}/{score_max}"
+        )
+    lifetime = earnings_1yr_median * LIFETIME_EARNINGS_MULTIPLIER
+    multiplier = lifetime / published_cost_4yr
+    lifetime_str = f"${int(lifetime):,}"
     cost_str = f"${int(published_cost_4yr):,}"
-    earn_str = f"${int(earnings_1yr_median):,}"
-    dte = published_cost_4yr / earnings_1yr_median
     return (
-        f"{cost_str} / {earn_str} = {dte:.2f} → ROI score "
-        f"{build_score}/{score_max}"
+        f"Lifetime {lifetime_str} ÷ Cost {cost_str} = {multiplier:.2f}x → "
+        f"ROI score {build_score}/{score_max}"
     )
 
 
@@ -1278,30 +1338,50 @@ _ROI_RECEIPT_JSON_TEMPLATE = """{
   "kind": "receipt",
   "stat_code": "ROI",
   "stat_name": "Return on Investment",
-  "score": 4,
+  "score": 8,
   "score_max": 10,
-  "one_liner": "__FILL_IN__: ONE-SENTENCE DEFINITION of what this score measures. Plain English a 16-year-old reads. No jargon, no /10, no percentiles.",
+  "one_liner": "__FILL_IN__: ONE-SENTENCE DEFINITION of what this score measures. Plain English a 16-year-old reads. Frame it as a 15-year payback multiplier — projected lifetime earnings vs. 4-year sticker cost. No jargon, no /10, no percentiles.",
   "components": [
     {
       "weight_pct": 100,
-      "label": "your debt-to-earnings ratio",
-      "explainer": "__FILL_IN__: 1-3 sentences. Name the school + program + published cost over 4 years (in $) and the median starting salary 1 year after graduation (in $). State the ratio: every $X.XX of schooling cost weighs against $1.00 of starting pay. Do NOT include the X/10 score.",
+      "label": "your 15-year payback multiplier",
+      "explainer": "__FILL_IN__: 1-3 sentences. Name the school + program + 4-year published cost (in $), the median starting salary one year after graduation (in $), and the resulting 15-year cumulative earnings (in $) at flat 3% wage growth. State the multiplier: lifetime earnings divided by cost = X.XXx, meaning the program returns roughly $X.XX for every $1 of cost over the typical repayment window. Do NOT include the X/10 score.",
       "value_pct": null,
       "anchor_text": "Indiana University Computer Science 4-year published cost",
       "anchor_dollars": 112400,
       "missing_reason": null
     }
   ],
-  "math_line": "$112,400 / $78,400 = 1.43 \\u2192 ROI score 4/10",
+  "math_line": "Lifetime $1,458,154 \\u00f7 Cost $112,400 = 12.97x \\u2192 ROI score 8/10",
   "sources": [
     {"label": "Published cost", "name": "College Scorecard (U.S. Department of Education)"},
     {"label": "Graduate earnings", "name": "College Scorecard (U.S. Department of Education)"}
   ],
-  "why_mix_paragraph": "__FILL_IN__: ~3-sentence explanation of WHY cost-divided-by-salary is the right yardstick. Use a two-students contrast — same degree, different costs, different payoff timelines. Do NOT include the X/10 score."
+  "why_mix_paragraph": "__FILL_IN__: ~3-sentence explanation of WHY a 15-year payback multiplier is the right yardstick. Use a two-students contrast at the 15-year mark — same career, different costs, different cumulative payoffs. Do NOT include the X/10 score."
 }"""
 
 
-def _roi_explain_appendix_json(career: CareerOutcome) -> str:
+def _roi_explain_appendix_json(career: CareerOutcome, *, home_state: str | None = None) -> str:
+    home_state_kwarg = (
+        f', home_state="{home_state}"' if home_state else ""
+    )
+    home_state_note = (
+        (
+            f"The build's home_state is {home_state!r}. Pass it to "
+            f"get_career_paths so the MCP server applies the residency "
+            f"adjustment server-side and returns the same residency-aware "
+            f"cost the user sees in the FINANCES card. Without "
+            f"home_state, the tool returns the in-state baseline — "
+            f"which is fine for in-state students but understates the "
+            f"cost for out-of-state public-school applicants."
+        )
+        if home_state
+        else (
+            "The student has not set a home state. The tool returns "
+            "the in-state baseline; that is the correct value to cite. "
+            "Do NOT invent a home_state."
+        )
+    )
     return f"""
 
 EXPLAIN-THIS-STAT (ROI) — JSON-MODE OUTPUT REQUIRED
@@ -1312,32 +1392,52 @@ the TEMPLATE below. Do not write any text outside the JSON object.
 
 REQUIRED TOOL CALL — call on your first turn:
 
-  • get_career_paths(unitid={career.unitid}, cipcode="{career.cipcode}")
+  • get_career_paths(unitid={career.unitid}, cipcode="{career.cipcode}"{home_state_kwarg})
+    {home_state_note}
     From the result row where soc_code = "{career.soc_code}", pull
-    `earnings_1yr_median`. The published 4-year cost is already known
-    from the build context.
+    `earnings_1yr_median`, `lifetime_earnings_15yr` (= earnings × 18.5989),
+    `roi_raw_multiplier` (residency-aware when you passed home_state),
+    and `published_cost_4yr` (residency-aware sticker; this is the cost
+    figure to cite in your prose). The row also carries
+    `roi_raw_multiplier_in_state` and `stat_roi_in_state` shadow fields
+    if the user is OOS at a public school — only mention them if the
+    student would benefit from the contrast.
 
 After the tool call returns, emit the JSON receipt. If a tool result
 field is null, set the corresponding receipt field to null and the
 matching `missing_reason` to a plain-English explanation. Do not
 hallucinate values.
 
-VOICE — this score divides the school's full 4-year published cost
-(sticker price, in-state for public schools when home_state matches
-the school's state, out-of-state when it doesn't) by your starting
-salary one year out. We use the published sticker, NOT the average
-aided net price, because at the exploration phase you don't know what
-aid you'll receive.
+VOICE — ROI is a 15-year payback multiplier. We project starting
+salary forward at flat 3% nominal annual growth for fifteen years
+(matching the OBBBA Tiered Standard repayment term for a typical debt
+load and the realistic median time-to-payoff for bachelor's borrowers,
+17–21 years per Education Data Initiative / The College Investor 2026
+/ ELFI). That cumulative earnings figure is divided by the school's
+4-year published cost (sticker price — in-state for public schools
+when home_state matches the school's state, out-of-state when it
+doesn't). We use the published sticker, NOT the average aided net
+price, because at the exploration phase you don't know what aid you
+will receive. ROI is **financing-agnostic** — the loan slider does
+not move it. The score answers "is this program priced fairly
+relative to what it produces?", not "can I afford the loans?". ROI
+deliberately does NOT model career progression — it measures what the
+*program* delivers (the first job); what graduates do after that is
+their outcome, not the program's. See spec
+`docs/specs/roi-net-lifetime-value.md` §2 Decision #10.
 
 SCORING SCALE (the UI renders this table below the math line — you may
 reference it conversationally in the explainer or why_mix_paragraph):
-  ≤ 0.25 → 10 (Excellent investment)
-  0.25–0.50 → 10–9 (Great investment)
-  0.50–0.75 → 9–7 (Good investment)
-  0.75–1.00 → 7–5 (Fair investment)
-  1.00–1.50 → 5–3 (Stretch investment)
-  1.50–2.50 → 3–1 (Risky investment)
-  ≥ 2.50 → 1 (Very risky investment)
+  < 1.5x   → 1  (Underwater — degree underwater over 15 yrs)
+  1.5–2.5x → 2  (Poor return)
+  2.5–3.5x → 3  (Below average)
+  3.5–4.5x → 4  (Modest return)
+  4.5–5.5x → 5  (Average return)
+  5.5–7.0x → 6  (Above average)
+  7.0–9.0x → 7  (Strong return)
+  9.0–12.0x → 8 (Excellent return)
+  12.0–16.0x → 9 (Exceptional return)
+  ≥ 16.0x   → 10 (Elite return — typically cheap-public + high-earning major)
 
 VOICE-RULE SCOPING (this turn only):
   • LIFTED for the numeric JSON fields `anchor_dollars`: quote the
@@ -1361,7 +1461,7 @@ or any meta-commentary.
 """
 
 
-def _roi_explain_appendix_markdown(career: CareerOutcome) -> str:
+def _roi_explain_appendix_markdown(career: CareerOutcome, *, home_state: str | None = None) -> str:
     return f"""
 
 EXPLAIN-THIS-STAT MODE — ROI (markdown fallback)
@@ -1377,21 +1477,31 @@ REQUIRED RESPONSE STRUCTURE — exactly four sections in this order:
 
 ### Return on Investment — <SCORE>/10
 
-**The one-liner.** One sentence naming what the score measures.
+**The one-liner.** One sentence naming what the score measures —
+a 15-year payback multiplier (projected lifetime earnings ÷ 4-year
+sticker cost).
 
 **How it works.**
-  - **100% — your debt-to-earnings ratio.** {career.institution_name}'s
+  - **100% — your 15-year payback multiplier.** {career.institution_name}'s
     {career.program_name} 4-year published cost is $<published_cost_4yr>.
-    Graduates earn a median of $<earnings_1yr_median> one year out. That
-    puts the debt-to-earnings ratio at <published_cost_4yr / earnings_1yr_median>.
+    Graduates start at $<earnings_1yr_median>/yr; grown at flat 3% per
+    year for fifteen years that cumulates to $<lifetime_earnings_15yr>.
+    Multiplier = $<lifetime_earnings_15yr> / $<published_cost_4yr> =
+    <multiplier>x.
 
-  Math: $<published_cost_4yr> / $<earnings_1yr_median> = <ratio> → ROI score <SCORE>/10.
+  Math: Lifetime $<lifetime_earnings_15yr> ÷ Cost $<published_cost_4yr> =
+  <multiplier>x → ROI score <SCORE>/10.
 
 **Where the data comes from.**
   - Published cost: College Scorecard (U.S. Department of Education).
   - Graduate earnings: College Scorecard (U.S. Department of Education).
+  - 15-year window: spec roi-net-lifetime-value §2 Decision #3, calibrated
+    against actual median bachelor's-degree payoff timelines (17–21 years
+    per Education Data Initiative / The College Investor 2026 / ELFI).
 
-**Why we use this number.** A two-students contrast in ~3 sentences.
+**Why we use this number.** A two-students contrast at the 15-year
+mark in ~3 sentences. Same career, different costs, different cumulative
+payoffs.
 """
 
 
@@ -1947,7 +2057,7 @@ _RES_RECEIPT_JSON_TEMPLATE = """{
 }"""
 
 
-def _res_explain_appendix_json(career: CareerOutcome) -> str:
+def _res_explain_appendix_json(career: CareerOutcome, *, home_state: str | None = None) -> str:
     return f"""
 
 EXPLAIN-THIS-STAT (RES) — JSON-MODE OUTPUT REQUIRED
@@ -2028,7 +2138,7 @@ or any meta-commentary.
 """
 
 
-def _res_explain_appendix_markdown(career: CareerOutcome) -> str:
+def _res_explain_appendix_markdown(career: CareerOutcome, *, home_state: str | None = None) -> str:
     return f"""
 
 EXPLAIN-THIS-STAT MODE — RES (markdown fallback)
@@ -2312,7 +2422,7 @@ _GRW_RECEIPT_JSON_TEMPLATE = """{
 }"""
 
 
-def _grw_explain_appendix_json(career: CareerOutcome) -> str:
+def _grw_explain_appendix_json(career: CareerOutcome, *, home_state: str | None = None) -> str:
     return f"""
 
 EXPLAIN-THIS-STAT (GRW) — JSON-MODE OUTPUT REQUIRED
@@ -2358,7 +2468,7 @@ or any meta-commentary.
 """
 
 
-def _grw_explain_appendix_markdown(career: CareerOutcome) -> str:
+def _grw_explain_appendix_markdown(career: CareerOutcome, *, home_state: str | None = None) -> str:
     return f"""
 
 EXPLAIN-THIS-STAT MODE — GRW (markdown fallback)
@@ -2612,7 +2722,7 @@ _AURA_RECEIPT_JSON_TEMPLATE = """{
 }"""
 
 
-def _aura_explain_appendix_json(career: CareerOutcome) -> str:
+def _aura_explain_appendix_json(career: CareerOutcome, *, home_state: str | None = None) -> str:
     return f"""
 
 EXPLAIN-THIS-STAT (AURA) — JSON-MODE OUTPUT REQUIRED
@@ -2663,7 +2773,7 @@ or any meta-commentary.
 """
 
 
-def _aura_explain_appendix_markdown(career: CareerOutcome) -> str:
+def _aura_explain_appendix_markdown(career: CareerOutcome, *, home_state: str | None = None) -> str:
     return f"""
 
 EXPLAIN-THIS-STAT MODE — AURA (markdown fallback)
@@ -2885,8 +2995,21 @@ _PostprocessFn = Callable[
     [str, Build, list[gemma_client.ToolCallTurn], str],
     ExplainStatReceipt | None,
 ]
-_AppendixJsonFn = Callable[[CareerOutcome], str]
-_AppendixMarkdownFn = Callable[[CareerOutcome], str]
+# Callable signature includes the keyword-only ``home_state`` so the ROI
+# appendix can pass the user's home state through to Gemma's tool call,
+# enabling residency-aware ROI in the receipt (spec roi-net-lifetime-value
+# Decision #11 followup). Stats that don't need home_state accept the kwarg
+# and ignore it.
+class _AppendixJsonFn(Protocol):
+    def __call__(
+        self, career: CareerOutcome, *, home_state: str | None = None
+    ) -> str: ...
+
+
+class _AppendixMarkdownFn(Protocol):
+    def __call__(
+        self, career: CareerOutcome, *, home_state: str | None = None
+    ) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -3081,7 +3204,7 @@ async def chat_ask(
                     "markdown path",
                     explain_config.stat_code.lower(),
                 )
-        system = system + explain_config.appendix_json_fn(builds[0].career)
+        system = system + explain_config.appendix_json_fn(builds[0].career, home_state=builds[0].home_state)
 
     # Branch-scope opener path: when history is empty, the call is the
     # auto-fired opener from the BranchTreeScreen mount or a node click.
@@ -3184,7 +3307,7 @@ async def chat_ask(
         )
         markdown_system = (
             f"{system_base}\n\n{lang_block}\n\n{context_block}"
-            + explain_config.appendix_markdown_fn(builds[0].career)
+            + explain_config.appendix_markdown_fn(builds[0].career, home_state=builds[0].home_state)
         )
         cached_values_block = _format_cached_tool_values_generic(
             tool_call_log
@@ -3380,7 +3503,7 @@ async def chat_ask_stream(
                 yield TraceFinalText(response=missing_receipt)
                 yield TraceDone()
                 return
-        system = system + explain_config.appendix_json_fn(builds[0].career)
+        system = system + explain_config.appendix_json_fn(builds[0].career, home_state=builds[0].home_state)
 
     # Fold history into the user message.
     user_msg = (
@@ -3494,7 +3617,7 @@ async def chat_ask_stream(
             )
             markdown_system = (
                 f"{system_base}\n\n{lang_block}\n\n{context_block}"
-                + explain_config.appendix_markdown_fn(builds[0].career)
+                + explain_config.appendix_markdown_fn(builds[0].career, home_state=builds[0].home_state)
             )
             cached_values_block = _format_cached_tool_values_generic(
                 tool_call_log
@@ -3728,56 +3851,40 @@ def _context_for_stat(build: Build, stat_code: str) -> str:
     elif stat_code == "ROI":
         lines.append("")
         lines.append("Return on Investment drivers (translate into dollars):")
-        if career.published_cost_4yr is not None:
-            lines.append(
-                f"- Published 4-year cost used for ROI and modeled debt: "
-                f"{fmt_dollars(career.published_cost_4yr)} "
-                f"(tuition, fees, and living costs; residency-aware)"
-            )
-        if career.net_price_annual is not None:
-            lines.append(
-                f"- Average net price per year after grants/scholarships "
-                f"(aid context only, not the scoring basis): "
-                f"{fmt_dollars(career.net_price_annual)}"
-            )
         if career.cost_of_attendance_annual is not None:
             lines.append(
                 f"- Sticker cost of attendance per year (before aid): "
                 f"{fmt_dollars(career.cost_of_attendance_annual)}"
             )
-        if career.modeled_total_debt is not None:
+        if career.net_price_annual is not None:
             lines.append(
-                f"- Modeled total student debt at graduation: "
-                f"{fmt_dollars(career.modeled_total_debt)} "
-                f"(based on the student's chosen loan share of "
-                f"{int(career.loan_pct * 100)}%)"
+                f"- Average net price per year after grants/scholarships "
+                f"(aid context only, NOT the scoring basis): "
+                f"{fmt_dollars(career.net_price_annual)}"
             )
         if career.earnings_1yr_median is not None:
             lines.append(
-                f"- Starting median earnings: "
+                f"- Starting median earnings (year 1): "
                 f"{fmt_dollars(career.earnings_1yr_median)}"
             )
-        if career.debt_to_earnings_annual is not None:
-            lines.append(
-                f"- Annual cost-to-earnings ratio: "
-                f"{career.debt_to_earnings_annual:.2f}x "
-                f"(4-year published cost divided by starting earnings)"
-            )
-        if career.financed_dte is not None:
-            lines.append(
-                f"- Financed debt-to-earnings ratio (loan-pct aware): "
-                f"{career.financed_dte:.2f}x"
-            )
-        if career.roi_cost_basis:
-            basis_words = {
-                "cost_of_attendance": "published cost of attendance (preferred)",
-                "debt_median": "median past-graduate debt (fallback)",
-                "none": "neither input available",
-            }
-            lines.append(
-                "- Cost basis used in the math: "
-                f"{basis_words.get(career.roi_cost_basis, career.roi_cost_basis)}"
-            )
+        # Intentionally NOT precomputing the residency-aware
+        # published_cost_4yr, the projected 15-year cumulative earnings,
+        # or the payback multiplier here. The student tapped "Explain
+        # this to me" to see the model use a tool — `get_career_paths`
+        # returns those values residency-aware (when home_state is
+        # passed) so Gemma quotes verifiable, single-source numbers
+        # rather than recomputing in prose.
+        lines.append(
+            "- This stat is financing-agnostic by design — the loan slider "
+            "does NOT move it. Modeled debt and the financed debt-to-earnings "
+            "ratio belong to the Student Loans Boss."
+        )
+        lines.append(
+            "- The stat does NOT model career progression. It captures what "
+            "the *program* delivers (the first job, per College Scorecard "
+            "earnings_1yr_median); years 2-15 are projected at flat 3% "
+            "growth, no occupation-specific curve."
+        )
 
     elif stat_code == "RES":
         lines.append("")

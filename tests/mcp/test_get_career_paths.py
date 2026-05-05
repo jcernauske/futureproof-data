@@ -83,6 +83,13 @@ def _make_row(
         "adoption_percentile": 58,
         # Cost-based ROI provenance.
         "roi_cost_basis": "net_price_annual",
+        # ROI Net Lifetime Value (spec roi-net-lifetime-value).
+        # earnings_1yr_median × 18.5989 closed-form constant.
+        "lifetime_earnings_15yr": round(55000.0 * 18.5989, 2),
+        "roi_raw_multiplier": round(
+            (55000.0 * 18.5989) / (22_800.0 * 4), 4
+        ),
+        "roi_multiplier_basis": "sticker_4yr",
     }
     row.update(overrides)
     return row

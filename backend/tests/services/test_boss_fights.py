@@ -205,6 +205,124 @@ def _run_one(career: CareerOutcome, boss_id: str):
     return next(f for f in gauntlet.fights if f.boss == boss_id)
 
 
+# ---------------------------------------------------------------------------
+# Loans-boss narrative includes total_interest_paid (spec roi-net-lifetime-value)
+# ---------------------------------------------------------------------------
+
+
+class TestLoansBossNarrativeInterest:
+    """Loans-boss context block surfaces total_interest_paid, term, and
+    monthly payment — the real cost of the financing choice.
+
+    Spec: docs/specs/roi-net-lifetime-value.md §4 P1 New Tests Required.
+
+    Why this matters: the pre-spec narrative cited only the principal
+    ("$45K in debt") which lets a student misread a 25-year loan as
+    cheap. Surfacing total interest (for $45K @ 6.39% over 15 yrs ≈
+    $26K) makes the cost of financing visible in the coach text.
+    """
+
+    def test_narrative_includes_total_interest(self):
+        """_boss_context for the loans boss must include the interest
+        paid, the dollar amount (within rounding), and the repayment
+        term in years."""
+        # Construct a CareerOutcome with the spec's example values:
+        #   modeled_debt=$45,600, term=180mo (15yr), monthly=$411.18,
+        #   interest=$26,481. (The amortize() call against $45,600 @
+        #   6.39%/180mo produces these values to within a few dollars;
+        #   we set the byproducts directly rather than recompute so
+        #   this test pins narrative behavior, not loan math.)
+        career = CareerOutcome(
+            unitid=151351,
+            institution_name="Indiana University",
+            cipcode="52.14",
+            program_name="Marketing",
+            soc_code="13-1131",
+            occupation_title="Fundraisers",
+            earnings_1yr_median=63_371.0,
+            modeled_total_debt=45_600.0,
+            total_interest_paid=26_481.0,
+            monthly_payment=411.18,
+            term_months=180,
+            financed_dte=45_600.0 / 63_371.0,
+            cost_of_attendance_annual=22_800.0,
+            published_cost_4yr=91_200.0,
+            institution_control="Public",
+            stats=PentagonStats(ern=8, roi=9, res=5, grw=6, aura=None),
+            bosses=BossScores(
+                ai=None, loans=5, market=None, burnout=None, ceiling=None
+            ),
+            loan_pct=0.5,
+        )
+
+        context = boss_fights._boss_context(career, "loans")
+
+        # The narrative must mention the interest paid by name so the
+        # student knows what the dollar figure refers to (not principal).
+        assert "interest paid" in context.lower(), (
+            f"Loans context missing 'interest paid' phrase: {context!r}"
+        )
+
+        # The actual dollar figure must appear, formatted by fmt_dollars
+        # ($XX,XXX). fmt_dollars rounds to nearest dollar with comma
+        # grouping — for total_interest_paid=26_481.0 that's "$26,481".
+        assert "$26,481" in context, (
+            f"Loans context missing total interest dollar amount: {context!r}"
+        )
+
+        # The repayment term must appear in years (180 months → 15 years).
+        assert "15-year" in context, (
+            f"Loans context missing 15-year term: {context!r}"
+        )
+
+        # And the monthly payment ($411 rounded) — fmt_dollars rounds
+        # 411.18 to "$411".
+        assert "$411" in context, (
+            f"Loans context missing monthly payment: {context!r}"
+        )
+
+    def test_narrative_omits_interest_when_zero(self):
+        """No-loans student (loan_pct=0.0): interest=0, term=0.
+
+        The narrative branch is gated on
+        ``total_interest_paid > 0 AND term_months > 0`` so the auto-win
+        student does NOT see "Modeled interest paid over the 0-year
+        repayment term: $0" — that would be a nonsense sentence.
+        """
+        career = CareerOutcome(
+            unitid=151351,
+            institution_name="Indiana University",
+            cipcode="52.14",
+            program_name="Marketing",
+            soc_code="13-1131",
+            occupation_title="Fundraisers",
+            earnings_1yr_median=63_371.0,
+            modeled_total_debt=0.0,
+            total_interest_paid=0.0,
+            monthly_payment=0.0,
+            term_months=0,
+            financed_dte=0.0,
+            cost_of_attendance_annual=22_800.0,
+            published_cost_4yr=91_200.0,
+            institution_control="Public",
+            stats=PentagonStats(ern=8, roi=9, res=5, grw=6, aura=None),
+            bosses=BossScores(
+                ai=None, loans=1, market=None, burnout=None, ceiling=None
+            ),
+            loan_pct=0.0,
+        )
+
+        context = boss_fights._boss_context(career, "loans")
+        # No interest sentence should leak through.
+        assert "interest paid" not in context.lower(), (
+            f"No-loans context should not mention interest: {context!r}"
+        )
+        # And no "0-year" garbage.
+        assert "0-year" not in context, (
+            f"No-loans context should not say 0-year: {context!r}"
+        )
+
+
 class TestScoreAndNarrateSplit:
     """The /build async path splits run_gauntlet into a pure scorer
     (``score_gauntlet``) + a per-fight async narrator (``narrate_one``)

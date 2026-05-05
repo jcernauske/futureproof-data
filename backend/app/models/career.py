@@ -110,6 +110,14 @@ class CareerOutcome(BaseModel):
     # so receipts / narrative prompts can render the student's modeled
     # debt directly.
     modeled_total_debt: float | None = None
+    # Loan-math byproducts of the Student Loans Boss calculation
+    # (spec roi-net-lifetime-value, 2026-05-04). Computed via
+    # backend.app.services.loan_math.amortize over modeled_total_debt
+    # at the OBBBA Tiered Standard term. None when modeled_total_debt
+    # is None (no published_cost_4yr or loan_pct == 0).
+    total_interest_paid: float | None = None
+    monthly_payment: float | None = None
+    term_months: int | None = None
     # Clearer-named alias for ``debt_median`` when surfaced as a "what
     # past graduates actually borrowed" reference. The legacy
     # ``debt_median`` field above stays populated for backward compat.
@@ -425,6 +433,16 @@ class SchoolForCareerRow(BaseModel):
     cost_of_attendance_annual: float | None = None
     tuition_in_state: float | None = None
     tuition_out_of_state: float | None = None
+    # Residency-aware fields stamped by the MCP server when the caller
+    # passes home_state (spec roi-net-lifetime-value followup,
+    # "apples-to-apples leaderboard"). published_cost_4yr is the
+    # residency-aware 4-year sticker — the FE renders this as the "Cost
+    # (4 yr)" column so the leaderboard matches the FINANCES card on
+    # /my-build. stat_roi_in_state preserves the pre-adjustment score
+    # for transparency. roi_residency_adjusted is the boolean flag.
+    published_cost_4yr: float | None = None
+    stat_roi_in_state: int | None = None
+    roi_residency_adjusted: bool = False
     overall_confidence: ConfidenceTier
     # Open-typed: upstream `consumable.career_outcomes` reserves the right
     # to add tiers without a schema change. Frontend treats unknown values

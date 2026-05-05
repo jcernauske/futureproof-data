@@ -95,7 +95,11 @@ class TestComputePentagon:
         career = outcomes[0]
         assert career.occupation_title == "Fundraisers"
         assert career.stats.ern == 8
-        assert career.stats.roi == 7  # derived from dte=0.75 → band 0.5-0.75 → 7
+        # ROI is the 15-yr payback multiplier (spec roi-net-lifetime-value).
+        # earnings × 18.5989 / published_cost_4yr
+        #   = 63_371 × 18.5989 / 47_531
+        #   = 24.80x → score 10 (≥ 16x).
+        assert career.stats.roi == 10
         # Pentagon-stat-reshape: stats.res is blended from stat_res=4 +
         # stat_hmn=6 → mean=5. Raw inputs preserved on CareerOutcome.
         assert career.stats.res == 5
@@ -103,14 +107,19 @@ class TestComputePentagon:
         assert career.raw_stat_hmn == 6
         assert career.stats.aura is None  # default mock returns no aura row
         assert career.bosses.ai == 7
-        # Per the 2026-05-02 cost-anchor change, bosses.loans derives
-        # from published_cost_4yr × loan_pct / earnings:
-        # published_cost_4yr (in-state default) = 11_882.75 × 4 = 47_531
-        # modeled = 47_531 × 1.0 = 47_531
-        # financed_dte = 47_531 / 63_371 ≈ 0.75 → equivalent ROI 7,
-        # boss = 11 − 7 = 4.
-        assert career.bosses.loans == 4
-        assert career.debt_to_earnings_annual == 0.75
+        # Boss Debt = f(total_interest_paid / earnings) under the new
+        # interest-burden formula:
+        #   modeled_debt = 47_531 × 1.0 = 47_531
+        #   term_months  = 180 (OBBBA Tiered Standard, 25K-50K tier)
+        #   amortize at 6.39%: total_interest ≈ 26_481
+        #   burden       = 26_481 / 63_371 = 0.418
+        #   < 0.45 → boss score 5.
+        assert career.bosses.loans == 5
+        # debt_to_earnings_annual is the deprecated cost-vs-earnings ratio,
+        # now computed from published_cost_4yr / earnings_1yr_median.
+        # 47_531 / 63_371 ≈ 0.75 (within rounding tolerance).
+        assert career.debt_to_earnings_annual is not None
+        assert abs(career.debt_to_earnings_annual - 0.75) < 0.001
         assert career.loan_pct == 1.0
         assert career.top_human_activities[0]["activity"] == "Interpersonal"
         assert career.substitution_applied is False
@@ -131,7 +140,7 @@ class TestComputePentagon:
         )
         career = outcomes[0]
         assert career.stats.ern == 10  # base 8 + 2, clamped to 10
-        assert career.stats.roi == 7  # unchanged by effort
+        assert career.stats.roi == 10  # unchanged by effort
         # Blended RES = mean(stat_res=4, stat_hmn=6) = 5.
         assert career.stats.res == 5
         assert career.stats.grw == 6
@@ -151,7 +160,7 @@ class TestComputePentagon:
         )
         career = outcomes[0]
         assert career.stats.ern == 7
-        assert career.stats.roi == 7  # unchanged by effort
+        assert career.stats.roi == 10  # unchanged by effort
 
     def test_effort_balanced_is_pass_through(self, monkeypatch):
         _patch_mcp(
@@ -165,7 +174,7 @@ class TestComputePentagon:
             effort="balanced",
         )
         assert outcomes[0].stats.ern == 8
-        assert outcomes[0].stats.roi == 7
+        assert outcomes[0].stats.roi == 10
 
     def test_empty_result_raises_value_error(self, monkeypatch):
         _patch_mcp(
@@ -247,8 +256,9 @@ class TestLoanPct:
     independent of loan_pct. The slider only scales modeled debt +
     financed DTE, which drive boss_loans_score.
 
-    ``_RAW_ROW``'s ``debt_to_earnings_annual`` = 0.75 is treated as the
-    Gold-level cost-based DTE → compute_stat_roi(0.75) = 7.
+    Under the new payback-multiplier formula (spec roi-net-lifetime-value),
+    ``_RAW_ROW``'s COA=11_882.75 produces a 15-year multiplier of 24.80x
+    → score 10. ROI is unchanged by ``loan_pct``; only Boss Debt moves.
     """
 
     def test_default_loan_pct_yields_derived_roi(self, monkeypatch):
@@ -260,8 +270,8 @@ class TestLoanPct:
             unitid=151351, cipcode="52.14", student_major=None
         )
         career = outcomes[0]
-        # ROI derived from dte=0.75 → compute_stat_roi(0.75) = 7.
-        assert career.stats.roi == 7
+        # 63_371 × 18.5989 / 47_531 = 24.80x → score 10.
+        assert career.stats.roi == 10
         assert career.loan_pct == 1.0
 
     def test_roi_is_independent_of_loan_pct(self, monkeypatch):
@@ -536,21 +546,17 @@ class TestRoiWithCostOfAttendance:
         return row
 
     def test_roi_derived_from_published_cost_dte(self, monkeypatch):
-        """ROI derives from published_cost_4yr / earnings, not raw stat_roi.
+        """ROI derives from the 15-year payback multiplier, not raw stat_roi.
 
-        Per the 2026-05-02 cost-anchor change, ROI's DTE is anchored on
-        the school's full sticker (COA × 4 in-state default), NOT on
-        net_price × 4."""
+        Spec: roi-net-lifetime-value. ROI = earnings × 18.5989 ÷ sticker_4yr."""
         row = self._row_with_cost()
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
         outcomes = stat_engine.compute_pentagon(
             unitid=151351, cipcode="52.14", student_major=None, loan_pct=1.0
         )
         career = outcomes[0]
-        # COA × 4 / earnings = (22,800 × 4) / 63,371 = 1.439
-        # DTE 1.439 → band 1.0-1.5 → ROI ~3.
-        assert career.stats.roi is not None
-        assert 2 <= career.stats.roi <= 4
+        # 63_371 × 18.5989 / 91_200 = 12.92x → score 9 (band 12.0-16.0).
+        assert career.stats.roi == 9
         assert career.published_cost_4yr == 91_200.0
         assert career.net_price_annual == 14_200.0  # still surfaced for reference
         assert career.cost_of_attendance_annual == 22_800.0
@@ -559,10 +565,8 @@ class TestRoiWithCostOfAttendance:
         assert career.roi_cost_basis == "cost_of_attendance"
 
     def test_loans_boss_uses_financed_dte_with_published_cost(self, monkeypatch):
-        """Loans Boss = f(published_cost_4yr × loan_pct / earnings).
-
-        Per the 2026-05-02 cost-anchor change, the loans boss is
-        anchored on COA × 4 (residency-aware), not on net_price × 4.
+        """Loans Boss = f(total_interest_paid / earnings) under the new
+        interest-burden formula (spec roi-net-lifetime-value).
         """
         row = self._row_with_cost()
         _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
@@ -574,14 +578,17 @@ class TestRoiWithCostOfAttendance:
         )
         career = outcomes[0]
         # COA × 4 (in-state, no home_state passed) = 22_800 × 4 = 91_200.
-        # modeled_debt = 91_200 × 0.5 = 45_600.
-        # financed_dte = 45_600 / 63_371 ≈ 0.7196 → ROI band 0.5-0.75 → ROI ≈ 7.
-        # Loans boss = 11 − 7 = 4.
+        # modeled_debt = 91_200 × 0.5 = 45_600 → 25K-50K tier → 180mo.
+        # amortize at 6.39%: total_interest ≈ 25_405.
+        # interest_burden = 25_405 / 63_371 = 0.401 → boss score 5.
         assert career.published_cost_4yr == 22_800.0 * 4.0
         assert career.modeled_total_debt == 22_800.0 * 4.0 * 0.5
         assert career.financed_dte is not None
         assert abs(career.financed_dte - (45_600.0 / 63_371.0)) < 1e-9
-        assert career.bosses.loans == 4
+        assert career.bosses.loans == 5
+        assert career.term_months == 180
+        assert career.total_interest_paid is not None
+        assert 25_000 < career.total_interest_paid < 26_000
 
     def test_roi_identical_across_loan_pcts(self, monkeypatch):
         """ROI must be the same at loan_pct=0.0, 0.5, and 1.0."""
@@ -759,15 +766,15 @@ class TestResidencyAwareTuition:
         # modeled_total_debt = published_cost_4yr × loan_pct.
         assert career.modeled_total_debt == 137_600.0 * 1.0
 
-        # ROI should be much worse than the unadjusted baseline.
-        # Adjusted DTE = 137_600 / 63,371 = 2.171 → ROI ~2.
-        assert career.stats.roi is not None
-        assert career.stats.roi <= 3
+        # 15-yr payback multiplier under residency adjustment:
+        #   63_371 × 18.5989 / 137_600 = 8.57x → score 7.
+        assert career.stats.roi == 7
 
-        # Loans Boss should be hard (high score).
-        # financed_dte = 137,600 / 63,371 = 2.171 → equiv ROI ~2 → boss 9+.
-        assert career.bosses.loans is not None
-        assert career.bosses.loans >= 8
+        # Loans Boss is hard: debt 137_600 → 100K+ tier → 300mo.
+        # amortize at 6.39%: total_interest ≈ 138_295.
+        # interest_burden = 138_295 / 63_371 = 2.18 → > 1.0 → boss 10.
+        assert career.bosses.loans == 10
+        assert career.term_months == 300
 
     # ── P0: Out-of-state ROI uses recomputed DTE ──────────────────────
 
@@ -821,11 +828,12 @@ class TestResidencyAwareTuition:
 
         # No OOS adjustment — published_cost_4yr is COA × 4 = 91,200.
         assert career.published_cost_4yr == 22_800.0 * 4.0
-        # ROI derives from this in-state COA × 4 / earnings.
-        from gold.futureproof_engine import compute_stat_roi
+        # ROI derives from the in-state-baseline 15-year payback
+        # multiplier (63_371 × 18.5989 / 91_200 = 12.92x → score 9).
+        from gold.futureproof_engine import compute_stat_roi_from_multiplier
 
-        expected_dte = (22_800.0 * 4.0) / 63_371.0
-        expected_roi = compute_stat_roi(expected_dte)
+        expected_mult = (63_371.0 * 18.5989) / 91_200.0
+        expected_roi = compute_stat_roi_from_multiplier(expected_mult)
         assert career.stats.roi == expected_roi
 
     # ── P0: Private school → no adjustment ────────────────────────────
@@ -872,11 +880,11 @@ class TestResidencyAwareTuition:
 
         # In-state COA × 4 (no OOS premium without home_state).
         assert career.published_cost_4yr == 22_800.0 * 4.0
-        # ROI derives from this in-state COA × 4 / earnings.
-        from gold.futureproof_engine import compute_stat_roi
+        # ROI derives from the in-state-baseline 15-year payback multiplier.
+        from gold.futureproof_engine import compute_stat_roi_from_multiplier
 
-        expected_dte = (22_800.0 * 4.0) / 63_371.0
-        assert career.stats.roi == compute_stat_roi(expected_dte)
+        expected_mult = (63_371.0 * 18.5989) / (22_800.0 * 4.0)
+        assert career.stats.roi == compute_stat_roi_from_multiplier(expected_mult)
 
     # ── P1: Missing tuition values → no adjustment ────────────────────
 
@@ -1026,3 +1034,243 @@ class TestResidencyAwareTuition:
         # 68,800 / 63,371 = 1.086 → equiv ROI ~5 → boss 6.
         assert rescored.bosses.loans is not None
         assert rescored.bosses.loans >= 5
+
+
+# ---------------------------------------------------------------------------
+# Net Lifetime Value ROI (spec roi-net-lifetime-value, 2026-05-04)
+# ---------------------------------------------------------------------------
+
+
+class TestNetLifetimeValueRoi:
+    """ROI is the 15-year payback multiplier — flat 3% nominal growth.
+
+    Spec: docs/specs/roi-net-lifetime-value.md §4 New Tests Required.
+
+    Three invariants:
+    1. The closed-form constant (~18.5989) matches the per-year sum
+       Σ (1.03^t) for t in [0..14] within 1e-4 (no off-by-one).
+    2. For published_cost_4yr=$100K and earnings=$50K, lifetime earnings
+       are ~$929,945, multiplier is 9.30, score is 8 (band 9.0-12.0).
+    3. ROI is financing-agnostic — same school+major produces the same
+       integer score for loan_pct ∈ {0.0, 0.5, 1.0}. (Bosses still move;
+       ROI does not.)
+    """
+
+    def test_compute_nlv_roi_15_year_window(self):
+        """The closed-form multiplier = sum(1.03^t for t in range(15)).
+
+        Catches any future drift if someone changes WAGE_GROWTH_RATE or
+        ROI_WINDOW_YEARS without updating callsites that hardcoded the
+        constant. Also verifies the indexing convention: t in [0..14] is
+        15 terms (year 1 grows at 1.03^0 = 1.0, year 15 grows at 1.03^14).
+        """
+        from app.services.stat_engine import (
+            LIFETIME_EARNINGS_MULTIPLIER,
+            ROI_WINDOW_YEARS,
+            WAGE_GROWTH_RATE,
+        )
+
+        per_year_sum = sum(
+            (1.0 + WAGE_GROWTH_RATE) ** t for t in range(ROI_WINDOW_YEARS)
+        )
+        assert abs(LIFETIME_EARNINGS_MULTIPLIER - per_year_sum) < 1e-4
+        # Pin the documented value so a future config tweak would have to
+        # be intentional (and would force a recalibration of the
+        # ROI_MULTIPLIER_THRESHOLDS in the Gold layer).
+        assert ROI_WINDOW_YEARS == 15
+        assert WAGE_GROWTH_RATE == 0.03
+        assert abs(LIFETIME_EARNINGS_MULTIPLIER - 18.5989) < 1e-3
+
+    def test_compute_nlv_roi_uses_flat_3pct_growth(self, monkeypatch):
+        """Reference fixture: AVERAGE_PUBLIC from spec §4 Test Data.
+
+        COA=$25K/yr (sticker $100K), earnings=$50K.
+          lifetime_earnings_15yr ≈ $50,000 × 18.5989 = $929,945
+          roi_raw                ≈ 9.30x
+          stat_roi               = 8  (band 9.0-12.0)
+        """
+        from app.services.stat_engine import LIFETIME_EARNINGS_MULTIPLIER
+
+        # Closed-form expectation, not a hardcoded number — if the
+        # multiplier ever changes, this test surfaces the dependency.
+        expected_lifetime = 50_000.0 * LIFETIME_EARNINGS_MULTIPLIER
+        expected_multiplier = expected_lifetime / 100_000.0
+        # Sanity: the spec's published numbers should match within
+        # rounding tolerance.
+        assert abs(expected_lifetime - 929_945.0) < 1.0
+        assert abs(expected_multiplier - 9.30) < 0.01
+
+        row = {
+            **_RAW_ROW,
+            "earnings_1yr_median": 50_000.0,
+            "cost_of_attendance_annual": 25_000.0,  # ×4 = published $100K
+            "institution_control": "Public",
+            "tuition_in_state": 9_800.0,
+            "tuition_out_of_state": 21_400.0,
+            "state_abbr": "IN",
+            "stat_roi": 6,  # Gold-baseline; should be overridden by NLV.
+        }
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            loan_pct=1.0,
+        )
+        career = outcomes[0]
+        # In-state default → published_cost_4yr = COA × 4 = $100K.
+        assert career.published_cost_4yr == 100_000.0
+        # 9.30x → score 8.
+        assert career.stats.roi == 8
+
+    def test_compute_nlv_roi_financing_agnostic(self, monkeypatch):
+        """ROI must be identical across every legal loan_pct value.
+
+        Already partly covered by ``test_roi_is_independent_of_loan_pct``
+        and ``test_roi_identical_across_loan_pcts``, but those use the
+        _RAW_ROW fixture (24.80x → 10) and the IndianaState fixture
+        (12.92x → 9), which both saturate one end of the ladder. This
+        test uses the AVERAGE_PUBLIC fixture (9.30x → 8) so the
+        invariant is checked in the middle of the band where there's
+        the most room for an off-by-one to leak in.
+        """
+        row = {
+            **_RAW_ROW,
+            "earnings_1yr_median": 50_000.0,
+            "cost_of_attendance_annual": 25_000.0,
+            "institution_control": "Public",
+            "tuition_in_state": 9_800.0,
+            "tuition_out_of_state": 21_400.0,
+            "state_abbr": "IN",
+            "stat_roi": 6,
+        }
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        rois: dict[float, int | None] = {}
+        bosses: dict[float, int | None] = {}
+        for loan_pct in (0.0, 0.5, 1.0):
+            outcomes = stat_engine.compute_pentagon(
+                unitid=151351,
+                cipcode="52.14",
+                student_major=None,
+                loan_pct=loan_pct,
+            )
+            rois[loan_pct] = outcomes[0].stats.roi
+            bosses[loan_pct] = outcomes[0].bosses.loans
+
+        # ROI must collapse to a single value across all loan_pcts.
+        assert len(set(rois.values())) == 1, (
+            f"ROI varied with loan_pct: {rois}"
+        )
+        assert rois[0.0] == 8  # AVERAGE_PUBLIC → score 8 regardless of financing
+
+        # Sanity check: bosses MUST move (otherwise the test is masking
+        # a regression where ROI and Boss Debt are entangled).
+        assert bosses[0.0] is not None
+        assert bosses[1.0] is not None
+        assert bosses[0.0] < bosses[1.0]
+
+
+# ---------------------------------------------------------------------------
+# Boss Debt — interest-burden formula (spec roi-net-lifetime-value)
+# ---------------------------------------------------------------------------
+
+
+class TestBossLoansInterestBurden:
+    """Boss Debt power scales with total interest paid, not principal.
+
+    Spec: docs/specs/roi-net-lifetime-value.md §4 P1 New Tests Required.
+
+    Two invariants beyond what TestRoiWithCostOfAttendance already locks in:
+
+    1. zero loans → boss=1, modeled_debt=0, total_interest_paid=0,
+       term_months=0 (the fully-trivial branch of _derive_loans_boss).
+    2. Boss power monotonically increases with loan_pct, holding
+       cost+earnings fixed.
+    """
+
+    def test_boss_loans_zero_loans(self, monkeypatch):
+        """loan_pct=0.0 produces the auto-win branch.
+
+        Mirrors the spec's "Boss Debt fixtures" test data:
+          STANDARD_PROGRAM with loan_pct=0.0 → boss score 1.
+
+        We also pin the loan-math byproducts (modeled_debt, interest,
+        term_months all zero) to lock in the no-debt branch of
+        _derive_loans_boss — if anyone refactors that branch and lets
+        a NaN or None leak through, downstream narrative code would
+        crash on the dollar-formatter.
+        """
+        # STANDARD_PROGRAM-shaped row: $27K/yr COA, $60K earnings.
+        row = {
+            **_RAW_ROW,
+            "earnings_1yr_median": 60_000.0,
+            "cost_of_attendance_annual": 27_000.0,
+            "institution_control": "Public",
+            "tuition_in_state": 9_800.0,
+            "tuition_out_of_state": 21_400.0,
+            "state_abbr": "IN",
+        }
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351,
+            cipcode="52.14",
+            student_major=None,
+            loan_pct=0.0,
+        )
+        career = outcomes[0]
+        assert career.bosses.loans == 1
+        assert career.modeled_total_debt == 0.0
+        assert career.total_interest_paid == 0.0
+        assert career.term_months == 0
+        # The auto-win path returns 0.0 for monthly_payment, not None.
+        assert career.monthly_payment == 0.0
+
+    def test_boss_loans_scales_with_loan_pct(self, monkeypatch):
+        """Boss power monotonically increases with loan_pct.
+
+        STANDARD_PROGRAM at three financing levels — the spec's test
+        data calls for boss scores ~{1, ~5, ~7} for loan_pct ∈ {0.0,
+        0.5, 1.0}. We assert monotonicity (the band edges drift across
+        OBBBA-tier boundaries, so pinning exact integers couples this
+        test to amortization internals — monotonicity is the contract).
+        """
+        row = {
+            **_RAW_ROW,
+            "earnings_1yr_median": 60_000.0,
+            "cost_of_attendance_annual": 27_000.0,
+            "institution_control": "Public",
+            "tuition_in_state": 9_800.0,
+            "tuition_out_of_state": 21_400.0,
+            "state_abbr": "IN",
+        }
+        _patch_mcp(monkeypatch, {"data": [row], "substitution_applied": False})
+
+        scores: dict[float, int | None] = {}
+        for loan_pct in (0.0, 0.25, 0.5, 0.75, 1.0):
+            outcomes = stat_engine.compute_pentagon(
+                unitid=151351,
+                cipcode="52.14",
+                student_major=None,
+                loan_pct=loan_pct,
+            )
+            scores[loan_pct] = outcomes[0].bosses.loans
+
+        # Every score is populated.
+        assert all(v is not None for v in scores.values())
+        # Strictly non-decreasing.
+        ordered = [scores[k] for k in (0.0, 0.25, 0.5, 0.75, 1.0)]
+        for i in range(1, len(ordered)):
+            assert ordered[i] >= ordered[i - 1], (
+                f"Boss debt regressed at loan_pct={[0.0, 0.25, 0.5, 0.75, 1.0][i]}: "
+                f"{ordered}"
+            )
+        # And the endpoints actually move (otherwise test is vacuous).
+        assert ordered[0] < ordered[-1]
+        # Spec calls for ~{1, ~5, ~7} at {0.0, 0.5, 1.0} — pin the
+        # endpoint shape (full-financing student should be in real
+        # trouble, no-loans student auto-wins).
+        assert scores[0.0] == 1
+        assert scores[1.0] >= 6

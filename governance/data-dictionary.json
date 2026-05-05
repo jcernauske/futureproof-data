@@ -809,9 +809,11 @@
         },
         "debt_to_earnings_annual": {
           "type": "DOUBLE",
-          "description": "The ratio of a program's median debt to its median first-year earnings (debt_median / earnings_1yr_median). This is a key affordability metric: values below 1.0 mean debt is less than one year of earnings (manageable); values above 2.0 mean debt significantly exceeds first-year earnings (concerning). Null when either debt or earnings data is missing due to privacy suppression.",
+          "deprecated": true,
+          "removal_target": "next-roi-cleanup-spec",
+          "description": "[DEPRECATED — see roi_raw_multiplier] The ratio of a program's median debt to its median first-year earnings (debt_median / earnings_1yr_median). Stat_roi no longer derives from this field per docs/specs/roi-net-lifetime-value.md (replaced by the 15-year payback multiplier). Retained one release cycle for backward compat with downstream Brightsmith consumers.",
           "is_cde": true,
-          "cde_rationale": "Key affordability metric aligned with Department of Education Gainful Employment rule methodology. Directly consumed by the MCP layer and product UI.",
+          "cde_rationale": "Historical affordability metric. Stat_roi has migrated to the multiplier formula; this column survives one release cycle for downstream compatibility.",
           "is_pii": false,
           "nullable": true,
           "source_column": "Derived: debt_median / earnings_1yr_median (null if either input null)",
@@ -5277,17 +5279,17 @@
         },
         "stat_roi": {
           "type": "INTEGER",
-          "description": "Return on Investment score (1-10). Piecewise linear inverse of debt-to-earnings ratio, aligned with Department of Education Gainful Employment methodology. Null if debt_to_earnings_annual is null.",
+          "description": "Return on Investment score (1-10). 15-year payback multiplier (lifetime_earnings_15yr / cost_basis_4yr) mapped via threshold ladder per docs/specs/roi-net-lifetime-value.md. Cost basis is in-state baseline at the Gold layer; backend overrides residency-aware at runtime. Financing-agnostic: loan_pct does not affect this value. Null when earnings or cost is missing.",
           "is_cde": true,
-          "cde_rationale": "Return on Investment is one of the five pentagon stats. Maps debt-to-earnings ratio to a 1-10 scale. Directly consumed by the MCP layer and frontend. Also feeds boss_loans_score derivation (inverse relationship).",
+          "cde_rationale": "Return on Investment is one of the five pentagon stats. Compares cumulative 15-year earnings against 4-year sticker cost. Directly consumed by the MCP layer and frontend. Boss Loans no longer derived from this stat (replaced by interest-burden formula).",
           "is_pii": false,
           "nullable": true,
-          "source_column": "Derived: piecewise linear inverse of debt_to_earnings_annual",
+          "source_column": "Derived: compute_stat_roi_from_multiplier(roi_raw_multiplier)",
           "business_term": "BT-079 (ROI Score)",
-          "dq_rules": [],
+          "dq_rules": ["GLD-CO-051"],
           "lineage": "governance/models/gold-futureproof-engine-physical.md",
-          "last_updated": "2026-04-09",
-          "updated_by": "@doc-generator"
+          "last_updated": "2026-05-04",
+          "updated_by": "@spec-implementor"
         },
         "stat_res": {
           "type": "INTEGER",
@@ -5347,17 +5349,17 @@
         },
         "boss_loans_score": {
           "type": "INTEGER",
-          "description": "Student Loans Boss strength (1-10). Computed as 11 - stat_roi. Represents the financial challenge a student faces from debt burden relative to earnings. Null when stat_roi is null.",
+          "description": "Student Loans Boss strength (1-10). Computed at runtime from total_interest_paid / earnings_1yr_median (interest-burden ratio) per docs/specs/roi-net-lifetime-value.md. modeled_total_debt = published_cost_4yr * loan_pct; total_interest_paid = amortize(modeled_total_debt) at OBBBA Tiered Standard term and 6.39% federal rate. The Gold-precomputed value remains 11 - stat_roi as a placeholder; the canonical value comes from the backend.",
           "is_cde": true,
-          "cde_rationale": "Student Loans Boss is one of five boss fight scores powering the gamified career guidance UI. Derived as 11 - stat_roi. Directly consumed by the MCP layer and frontend boss fight rendering.",
+          "cde_rationale": "Student Loans Boss is one of five boss fight scores powering the gamified career guidance UI. Now financing-aware (slider moves it). Distinct from ROI which is financing-agnostic.",
           "is_pii": false,
           "nullable": true,
-          "source_column": "Derived: 11 - stat_roi",
+          "source_column": "Derived: stat_engine._derive_loans_boss (interest-burden formula)",
           "business_term": "BT-084 (Student Loans Boss Score)",
           "dq_rules": [],
           "lineage": "governance/models/gold-futureproof-engine-physical.md",
-          "last_updated": "2026-04-09",
-          "updated_by": "@doc-generator"
+          "last_updated": "2026-05-04",
+          "updated_by": "@spec-implementor"
         },
         "boss_market_score": {
           "type": "INTEGER",
