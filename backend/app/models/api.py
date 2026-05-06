@@ -104,7 +104,9 @@ class ChatRequest(BaseModel):
 # See docs/specs/feature-ask-gemma.md §4.
 # ---------------------------------------------------------------------------
 
-AskScopeKind = Literal["stat", "boss", "skill", "build", "compare", "branch"]
+AskScopeKind = Literal[
+    "stat", "boss", "skill", "build", "compare", "branch", "career"
+]
 
 # SOC codes follow the BLS XX-XXXX shape exactly. branch scope target_id
 # flows directly into a parameterized DuckDB lookup; rejecting non-SOC
@@ -127,10 +129,17 @@ class AskScope(BaseModel):
       the build's root soc_code for the anchor-at-root case). Must
       match the SOC ``\\d{2}-\\d{4}`` shape; existence is then checked
       at the service layer against build.branches / build.career.
+    - kind="career": no build_ids (the student is exploring a SOC
+      before they've built anything). target_id is the SOC code; must
+      match the ``\\d{2}-\\d{4}`` shape. Used by the SetYourCourse
+      career-pick sparkle.
     """
 
     kind: AskScopeKind
-    build_ids: list[str] = Field(min_length=1)
+    # ``career`` scope explicitly allows an empty list because the
+    # student is exploring a SOC before any build exists. Every other
+    # kind requires at least one build_id (validated below).
+    build_ids: list[str] = Field(default_factory=list)
     target_id: str | None = None
 
     @model_validator(mode="after")
@@ -140,12 +149,15 @@ class AskScope(BaseModel):
                 raise ValueError("compare scope requires at least 2 build_ids")
             if self.target_id is not None:
                 raise ValueError("compare scope must not set target_id")
+        elif self.kind == "career":
+            if self.build_ids:
+                raise ValueError("career scope must not set build_ids")
         else:
             if len(self.build_ids) != 1:
                 raise ValueError(
                     f"{self.kind} scope requires exactly 1 build_id"
                 )
-        if self.kind in ("stat", "boss", "skill", "branch"):
+        if self.kind in ("stat", "boss", "skill", "branch", "career"):
             if not self.target_id:
                 raise ValueError(
                     f"{self.kind} scope requires target_id"
@@ -162,13 +174,14 @@ class AskScope(BaseModel):
                 raise ValueError(
                     f"boss target_id must be one of {sorted(valid_bosses)}"
                 )
-        if self.kind == "branch":
+        if self.kind in ("branch", "career"):
             # fullmatch (not match): Python's `$` in re.match allows a
             # trailing newline, so "11-3021\n" would otherwise slip
             # through this security-critical validator.
             if not _SOC_PATTERN.fullmatch(self.target_id or ""):
                 raise ValueError(
-                    "branch target_id must match SOC pattern \\d{2}-\\d{4}"
+                    f"{self.kind} target_id must match SOC pattern "
+                    "\\d{2}-\\d{4}"
                 )
         if self.kind == "skill":
             # Defense-in-depth length cap. AppliedSkill.id is a

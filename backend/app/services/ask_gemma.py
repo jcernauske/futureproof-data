@@ -3163,6 +3163,9 @@ async def chat_ask(
     elif scope.kind == "branch":
         assert scope.target_id is not None
         context_block = await _context_for_branch(builds[0], scope.target_id)
+    elif scope.kind == "career":
+        assert scope.target_id is not None
+        context_block = _context_for_career(scope.target_id)
     else:  # compare
         context_block = _context_for_compare(builds)
 
@@ -3393,6 +3396,15 @@ _THINKING_PREFIXES: tuple[str, ...] = (
 
 _HELPER_LEAK_RE = re.compile(r"\A\s*\[helper:.*?\]\s*", re.DOTALL)
 
+# Gemma 4 occasionally hallucinates a stray HTML/XML tag at the start of
+# its answer (most often ``</div>``, sometimes ``<p>`` or ``</p>``). The
+# downstream Markdown renderer escapes these to literal text, so the
+# student sees raw "</div>" before the prose. Strip leading tags
+# defensively at the boundary. Conservative pattern: anchored to start,
+# matches a single tag of letters-only (no attributes, no content), with
+# optional surrounding whitespace. Loops to handle a stack of stray tags.
+_LEADING_HTML_TAG_RE = re.compile(r"\A\s*</?[a-zA-Z][a-zA-Z0-9]*\s*/?>\s*")
+
 
 def _strip_thinking_prefix(text: str) -> str:
     """Strip any chain-of-thought marker token Gemma may have emitted
@@ -3402,18 +3414,24 @@ def _strip_thinking_prefix(text: str) -> str:
 
     Also strips any leading ``[helper: ...]`` scratchpad block(s) Gemma
     occasionally leaks despite the system prompt's "never reproduce
-    helper annotations" clause. Multi-line; loops in case Gemma emits
-    more than one consecutive block. Anchored to the start, so helper-
-    bracketed text appearing inside the body of the answer (rare but
-    possible) is left alone.
+    helper annotations" clause, plus any leading stray HTML/XML tag
+    Gemma occasionally hallucinates. Multi-line; loops in case Gemma
+    emits more than one consecutive block. Anchored to the start, so
+    helper-bracketed text or HTML appearing inside the body of the
+    answer (rare but possible) is left alone.
     """
     if not text:
         return text
     while True:
         m = _HELPER_LEAK_RE.match(text)
-        if not m:
-            break
-        text = text[m.end():]
+        if m:
+            text = text[m.end():]
+            continue
+        m = _LEADING_HTML_TAG_RE.match(text)
+        if m:
+            text = text[m.end():]
+            continue
+        break
     stripped = text.lstrip()
     lowered = stripped.lower()
     for prefix in _THINKING_PREFIXES:
@@ -3747,6 +3765,9 @@ async def _build_context_block(
     if scope.kind == "branch":
         assert scope.target_id is not None
         return await _context_for_branch(builds_in_scope[0], scope.target_id)
+    if scope.kind == "career":
+        assert scope.target_id is not None
+        return _context_for_career(scope.target_id)
     return _context_for_compare(builds_in_scope)
 
 
@@ -4409,6 +4430,36 @@ def _context_for_build(build: Build) -> str:
         for rec in build.skill_recs[:5]:
             lines.append(f"- {rec.title}: {rec.rationale}")
 
+    return "\n".join(lines)
+
+
+def _context_for_career(soc_code: str) -> str:
+    """Career-pick scope: the student is exploring a SOC before they've
+    built anything, so we have no school/program context yet.
+
+    Hand Gemma the SOC code as a tool-callable identifier and trust the
+    tool loop to fill in occupation detail (``get_occupation_data``,
+    ``get_task_breakdown``, ``get_career_branches``). No synthetic
+    fallback data — every concrete number Gemma cites should come from
+    a real tool call so we don't lie to the student during pick.
+    """
+    lines: list[str] = [
+        "[CONTEXT — already loaded, no tool call needed for this data]",
+        "",
+        "The student is exploring a career before they've built anything.",
+        "There is no school or major context yet — they're deciding.",
+        "",
+        "Identifiers for tool calls (pass these to tools when needed):",
+        _helper(f"soc_code = {soc_code}"),
+        "",
+        (
+            "To answer well, call get_occupation_data and get_task_breakdown "
+            "for this SOC to pull the day-to-day work, growth, and "
+            "wage detail. If the student asks about adjacent paths, "
+            "call get_career_branches. If they ask which schools "
+            "produce this career, call get_schools_for_career."
+        ),
+    ]
     return "\n".join(lines)
 
 
