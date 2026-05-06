@@ -130,14 +130,14 @@ class AskScope(BaseModel):
     """
 
     kind: AskScopeKind
-    build_ids: list[str] = Field(min_length=1, max_length=4)
+    build_ids: list[str] = Field(min_length=1)
     target_id: str | None = None
 
     @model_validator(mode="after")
     def _validate_cardinality(self) -> "AskScope":
         if self.kind == "compare":
-            if not (2 <= len(self.build_ids) <= 4):
-                raise ValueError("compare scope requires 2-4 build_ids")
+            if len(self.build_ids) < 2:
+                raise ValueError("compare scope requires at least 2 build_ids")
             if self.target_id is not None:
                 raise ValueError("compare scope must not set target_id")
         else:

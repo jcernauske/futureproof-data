@@ -79,6 +79,7 @@ interface GemmaChatProps {
    * presentational side-channels like BranchHighlightDriver.
    */
   onAssistantResponse?: (text: string) => void;
+  starters?: string[];
   /** Optional close handler. Required for slide-in; ignored in embedded mode. */
   onClose?: () => void;
 }
@@ -112,6 +113,7 @@ export function GemmaChat({
   variant = "slide-in",
   skeletonHint,
   openerPrompt,
+  starters: startersProp,
   onAssistantResponse,
   onClose,
 }: GemmaChatProps) {
@@ -573,7 +575,7 @@ export function GemmaChat({
                     {t("chat.tryOne")}
                   </p>
                   <div className="flex flex-col gap-2 items-start">
-                    {STARTERS.map((q, i) => (
+                    {(startersProp && startersProp.length > 0 ? startersProp : STARTERS).map((q, i) => (
                       <motion.button
                         type="button"
                         key={q}

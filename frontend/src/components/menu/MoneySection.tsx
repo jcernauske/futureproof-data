@@ -161,11 +161,11 @@ function SalaryBar({ build, buildIndex, scaleMin, scaleMax, highlighted }: Salar
                 left: `${Math.max(Math.min(medianPct - 4, 94), 0)}%`,
                 minWidth: "64px",
                 background: programMedian != null
-                  ? "rgba(242, 212, 119, 0.30)"
-                  : "rgba(123, 184, 224, 0.18)",
+                  ? "rgba(92, 80, 42, 1)"
+                  : "rgba(45, 70, 90, 1)",
                 borderColor: programMedian != null
-                  ? "rgba(242, 212, 119, 0.70)"
-                  : "rgba(123, 184, 224, 0.65)",
+                  ? "rgba(242, 212, 119, 0.9)"
+                  : "rgba(123, 184, 224, 0.8)",
               }}
             >
               <span className="font-data text-[15px] font-bold text-stat-ern whitespace-nowrap">

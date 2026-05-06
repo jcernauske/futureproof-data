@@ -11,7 +11,7 @@ import { listBuilds, type BuildSummary } from "@/api/menu";
 import { deleteBuild, getBuild } from "@/api/build";
 import { BuildCard } from "@/components/menu/BuildCard";
 import { CompareView } from "@/components/menu/CompareView";
-import { GemmaChat } from "@/components/menu/GemmaChat";
+
 import { PageContainer } from "@/components/ui/PageContainer";
 import { useT } from "@/i18n/useT";
 
@@ -32,8 +32,6 @@ export function MenuScreen() {
   const [mode, setMode] = useState<Mode>("list");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatBuild, setChatBuild] = useState<BuildSummary | null>(null);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
   // Lock as a ref so a fast double-click can't race two getBuild calls
   // and land at /my-build with the wrong build's payload.
@@ -117,17 +115,6 @@ export function MenuScreen() {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const handleEnterSelect = useCallback(() => {
-    if (builds.length < 2) return;
-    setMode("select");
-    setSelectedIds([]);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("select", "1");
-      return next;
-    }, { replace: true });
-  }, [builds.length, setSearchParams]);
-
   const handleCancelSelect = useCallback(() => {
     setMode("list");
     setSelectedIds([]);
@@ -193,12 +180,6 @@ export function MenuScreen() {
     }
   }, []);
 
-  const handleAskGemma = useCallback(() => {
-    if (!builds.length) return;
-    const first = builds[0]!;
-    setChatBuild(first);
-    setChatOpen(true);
-  }, [builds]);
 
   if (!profileName) return null;
 
@@ -334,12 +315,12 @@ export function MenuScreen() {
           /builds. Hidden in compare view (CompareView has its own back) and
           in empty state (the hero card owns that surface). */}
       <AnimatePresence>
-        {mode !== "compare" && builds.length > 0 && (
+        {mode === "select" && (
           <motion.div
             key="builds-action-bar"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0, transition: springs.smooth }}
-            exit={{ opacity: 0, y: 24, transition: { duration: 0.15, ease: "easeIn" } }}
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1, transition: springs.smooth }}
+            exit={{ y: 80, opacity: 0, transition: { duration: 0.15, ease: "easeIn" } }}
             className="fixed inset-x-0 bottom-0 z-40 bg-bp-deep/85 backdrop-blur-lg"
             style={{
               boxShadow:
@@ -349,90 +330,39 @@ export function MenuScreen() {
           >
             <PageContainer variant="centered" className="py-4">
               <div
-                className="grid grid-cols-3 gap-3"
+                className="grid gap-3 grid-cols-[1fr_3fr]"
                 style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
               >
-                {/* Slot 1: Cancel in select mode, blank placeholder otherwise. */}
-                <AnimatePresence mode="wait">
-                  {mode === "select" ? (
-                    <motion.button
-                      key="cancel-btn"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={springs.snappy}
-                      onClick={handleCancelSelect}
-                      className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-bp-raised text-text-primary border border-border-subtle hover:bg-bp-elevated hover:border-border-strong"
-                      whileTap={{ scale: 0.97 }}
-                      data-testid="btn-cancel-select"
-                    >
-                      {t("menu.cancel")}
-                    </motion.button>
-                  ) : (
-                    <motion.div
-                      key="cancel-placeholder"
-                      aria-hidden
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 0 }}
-                      exit={{ opacity: 0 }}
-                    />
-                  )}
-                </AnimatePresence>
-
-                {/* Slot 2: Compare. Single button — visual state crossfades
-                    via CSS transition; no DOM swap so tests stay stable. */}
                 <motion.button
-                  onClick={mode === "select" ? handleCompareGo : handleEnterSelect}
-                  disabled={
-                    mode === "select"
-                      ? selectedIds.length < 2 || selectedIds.length > 4
-                      : builds.length < 2
-                  }
-                  className={`w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${
-                    mode === "select"
-                      ? "bg-accent-thrive text-text-inverse border-transparent hover:bg-[#6bc494]"
-                      : "bg-bp-raised text-text-primary border-border-subtle hover:bg-bp-elevated hover:border-border-strong"
-                  }`}
-                  whileTap={
-                    mode === "select"
-                      ? selectedIds.length >= 2 && selectedIds.length <= 4
-                        ? { scale: 0.97 }
-                        : undefined
-                      : builds.length >= 2
-                        ? { scale: 0.97 }
-                        : undefined
-                  }
-                  transition={springs.snappy}
-                  data-testid={mode === "select" ? "btn-compare" : "btn-enter-compare"}
-                >
-                  {mode === "select"
-                    ? t("menu.compareCount").replace("{count}", String(selectedIds.length))
-                    : t("menu.compareBuilds")}
-                </motion.button>
-
-                {/* Slot 3: Ask Gemma — same in both modes. */}
-                <motion.button
-                  onClick={handleAskGemma}
-                  aria-label={t("menu.askGemma")}
-                  className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-insight/15 text-accent-insight border border-accent-insight/40 hover:bg-accent-insight/25 hover:border-accent-insight/70"
+                  onClick={handleCancelSelect}
+                  className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-bp-raised text-text-primary border border-border-subtle hover:bg-bp-elevated hover:border-border-strong"
                   whileTap={{ scale: 0.97 }}
                   transition={springs.snappy}
-                  data-testid="btn-ask-gemma"
+                  data-testid="btn-cancel-select"
                 >
-                  <span aria-hidden className="font-display text-[18px] leading-none">✦</span>
-                  {t("menu.askGemma")}
+                  {t("menu.cancel")}
                 </motion.button>
+
+                <motion.button
+                  onClick={handleCompareGo}
+                  disabled={selectedIds.length < 2 || selectedIds.length > 4}
+                  className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 bg-accent-thrive text-text-inverse border-transparent hover:bg-[#6bc494]"
+                  whileTap={
+                    selectedIds.length >= 2 && selectedIds.length <= 4
+                      ? { scale: 0.97 }
+                      : undefined
+                  }
+                  transition={springs.snappy}
+                  data-testid="btn-compare"
+                >
+                  {t("menu.compareCount").replace("{count}", String(selectedIds.length))}
+                </motion.button>
+
               </div>
             </PageContainer>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <GemmaChat
-        open={chatOpen}
-        build={chatBuild}
-        onClose={() => setChatOpen(false)}
-      />
     </>
   );
 }

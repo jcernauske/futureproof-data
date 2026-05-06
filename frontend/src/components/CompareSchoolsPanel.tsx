@@ -233,6 +233,7 @@ export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
       overall_confidence: "low",
       confidence_tier_program: null,
       match_quality: "estimated",
+      family_size: 1,
       is_anchor: true,
     };
     return {
@@ -619,14 +620,17 @@ function PanelTable({
           ) : null}
         </div>
       ) : null}
-      {/* Tablet+ desktop: 7-column CSS grid table. */}
+      {/* Tablet+ desktop: 8-column CSS grid table.
+          Columns: rank | school/program | state | campuses | ern | roi | earnings | cost4yr.
+          Spec: feature-branch-campus-suppression.md. */}
       <div
         role="grid"
         aria-label={t("compareSchools.toggle")}
         data-testid="compare-grid"
         className="hidden tablet:grid gap-x-4 gap-y-2 text-small"
         style={{
-          gridTemplateColumns: "auto minmax(0, 1fr) auto auto auto auto auto",
+          gridTemplateColumns:
+            "auto minmax(0, 1fr) auto auto auto auto auto auto",
         }}
       >
         <RowHeader />
@@ -740,6 +744,15 @@ function CardRow({
           <span className="block font-body text-small text-text-secondary truncate mt-1">
             {row.program_name}
           </span>
+          {/* Multi-campus family size on the mobile card — always rendered
+              so the educational signal carries to the card stack. Spec:
+              feature-branch-campus-suppression.md. */}
+          <span
+            className="block font-data text-micro uppercase tracking-wider text-text-muted mt-1"
+            data-testid={`card-campuses-${row.unitid}-${row.cipcode}`}
+          >
+            {t("compareSchools.column.campuses")}: {row.family_size}
+          </span>
         </div>
         <span className="shrink-0 font-data text-text-secondary">
           {row.state_abbr ?? "—"}
@@ -832,6 +845,7 @@ function RowHeader() {
       <Cell head>{t("compareSchools.column.rank")}</Cell>
       <Cell head>{t("compareSchools.column.school")}</Cell>
       <Cell head>{t("compareSchools.column.state")}</Cell>
+      <Cell head>{t("compareSchools.column.campuses")}</Cell>
       <Cell head>{t("compareSchools.column.ern")}</Cell>
       <Cell head>{t("compareSchools.column.roi")}</Cell>
       <Cell head>{t("compareSchools.column.earnings")}</Cell>
@@ -915,6 +929,17 @@ function DataRow({
         </span>
       </Cell>
       <Cell tone={anchorBg}>
+        {/* Multi-campus family size. Spec: feature-branch-campus-suppression.md.
+            Always render the integer — the asymmetry of mostly-1s with the
+            occasional larger number is itself the visual signal. */}
+        <span
+          className="font-data text-text-primary"
+          data-testid={`row-campuses-${row.unitid}-${row.cipcode}`}
+        >
+          {row.family_size}
+        </span>
+      </Cell>
+      <Cell tone={anchorBg}>
         <span className="font-data text-stat-ern">
           {row.stat_ern ?? "—"}
         </span>
@@ -962,7 +987,7 @@ function Cell({
 function YourSchoolDivider() {
   const t = useT();
   return (
-    <div className="col-span-7 mt-3 mb-1 flex items-center gap-3 text-micro uppercase tracking-wider text-text-muted">
+    <div className="col-span-8 mt-3 mb-1 flex items-center gap-3 text-micro uppercase tracking-wider text-text-muted">
       <span
         aria-hidden="true"
         className="flex-1 border-t border-dashed border-border-subtle"

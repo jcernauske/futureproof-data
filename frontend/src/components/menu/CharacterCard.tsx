@@ -62,7 +62,15 @@ export function CharacterCard({
           </button>
         )}
       </div>
-      <p className="text-sm text-text-secondary mb-4">{build.major_text}</p>
+      <p className="text-sm text-text-secondary">{build.major_text}</p>
+      <p className="text-sm text-text-primary font-medium mt-1">{build.career}</p>
+      {build.earnings_1yr_median != null && (
+        <p className="font-data text-[13px] text-stat-ern mt-0.5 mb-4">
+          {`$${build.earnings_1yr_median.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+          <span className="text-text-muted font-body text-[11px]"> starting</span>
+        </p>
+      )}
+      {build.earnings_1yr_median == null && <div className="mb-4" />}
 
       {showStats && (
         <div className="flex flex-col gap-2 mb-4">

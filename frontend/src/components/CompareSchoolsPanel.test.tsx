@@ -61,6 +61,7 @@ function makeRow(overrides: Partial<SchoolForCareerRow> = {}): SchoolForCareerRo
     confidence_tier_program: "high",
     match_quality: "full",
     is_anchor: false,
+    family_size: 1,
     ...overrides,
   };
 }
@@ -723,5 +724,142 @@ describe("CompareSchoolsPanel — narrow viewport collapses columns (P2)", () =>
     // inside the card-stack DOM specifically.
     const dividerInCardStack = within(cardStack).getAllByText(/your school/i);
     expect(dividerInCardStack.length).toBeGreaterThan(0);
+  });
+});
+
+// ===========================================================================
+// P1 — Campuses column (multi-campus family size)
+// ===========================================================================
+//
+// Spec: feature-branch-campus-suppression.md.
+// The "Campuses" column is the educational signal — students see "6"
+// next to Ohio University and learn it's a multi-campus system. The
+// column sits between STATE and ERN in the desktop grid; the mobile
+// card-stack carries the same info as a labelled `Campuses: N` line.
+//
+// Tests below assert the integer renders for both the multi-campus
+// case (family_size: 6) and the standalone case (family_size: 1) on
+// each surface. The desktop cell carries
+// `data-testid="row-campuses-{unitid}-{cipcode}"` and the mobile card
+// carries `data-testid="card-campuses-{unitid}-{cipcode}"`.
+
+describe("CompareSchoolsPanel — campuses column", () => {
+  it("test_campuses_column_renders_family_size — desktop grid cell shows the count for a multi-campus family", async () => {
+    // Ohio University–Main Campus stand-in: flagship row with 6 in
+    // the family. The mock row carries an explicit unitid + cipcode
+    // so we can target the data-testid deterministically.
+    mockFetchBySoc.mockResolvedValueOnce(
+      makeResponse({
+        rows: [
+          makeRow({
+            rank: 1,
+            unitid: 204857,
+            cipcode: "52.03",
+            institution_name: "Ohio University-Main Campus",
+            family_size: 6,
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <CompareSchoolsPanel
+        mode="by_soc"
+        enclosure="sheet"
+        socCode="13-2011"
+        occupationTitle="Accountants and Auditors"
+        open
+      />,
+    );
+
+    await waitFor(() => expect(mockFetchBySoc).toHaveBeenCalled());
+
+    const cell = await screen.findByTestId("row-campuses-204857-52.03");
+    // Cell renders the integer family_size.
+    expect(cell).toHaveTextContent("6");
+    // Defensive: the cell should not display something like "1" by
+    // accident if a future refactor reads the wrong field.
+    expect(cell).not.toHaveTextContent(/^1$/);
+  });
+
+  it("test_campuses_column_renders_one_for_standalone — desktop grid cell shows '1' when no family is mapped", async () => {
+    // Default fixture sets family_size: 1, modeling a standalone
+    // school not in the frozen INSTITUTION_FAMILIES config.
+    mockFetchBySoc.mockResolvedValueOnce(
+      makeResponse({
+        rows: [
+          makeRow({
+            rank: 1,
+            unitid: 110001,
+            cipcode: "11.0701",
+            institution_name: "Standalone College",
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <CompareSchoolsPanel
+        mode="by_soc"
+        enclosure="sheet"
+        socCode="15-1252"
+        occupationTitle="Software Developers"
+        open
+      />,
+    );
+
+    await waitFor(() => expect(mockFetchBySoc).toHaveBeenCalled());
+
+    const cell = await screen.findByTestId("row-campuses-110001-11.0701");
+    // Standalone schools always show "1" — the honest "we don't
+    // know of any branches" answer per Decision #6.
+    expect(cell).toHaveTextContent("1");
+  });
+
+  it("test_card_view_shows_campuses_label — mobile card carries the labelled campuses line", async () => {
+    // The mobile card stack renders a labelled line with the
+    // localized "Campuses" word + the integer count, so the
+    // educational signal carries when the desktop grid is hidden
+    // by the responsive class wiring.
+    mockFetchBySoc.mockResolvedValueOnce(
+      makeResponse({
+        rows: [
+          makeRow({
+            rank: 1,
+            unitid: 204857,
+            cipcode: "52.03",
+            institution_name: "Ohio University-Main Campus",
+            family_size: 6,
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <CompareSchoolsPanel
+        mode="by_soc"
+        enclosure="sheet"
+        socCode="13-2011"
+        occupationTitle="Accountants and Auditors"
+        open
+      />,
+    );
+
+    await waitFor(() => expect(mockFetchBySoc).toHaveBeenCalled());
+
+    // Card-stack carries the labelled Campuses line.
+    const cardLine = await screen.findByTestId(
+      "card-campuses-204857-52.03",
+    );
+    // The label is the localized "Campuses" word followed by the
+    // integer count. We assert both: label keyword + the number.
+    expect(cardLine).toHaveTextContent(/Campuses/);
+    expect(cardLine).toHaveTextContent(/6/);
+
+    // The card line lives inside the card-stack DOM (the surface
+    // that's visible on mobile), not just floating in the document.
+    const cardStack = screen.getByTestId("compare-card-stack");
+    expect(within(cardStack).getByTestId("card-campuses-204857-52.03"))
+      .toBe(cardLine);
   });
 });

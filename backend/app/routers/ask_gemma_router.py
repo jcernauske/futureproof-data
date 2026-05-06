@@ -23,10 +23,29 @@ from fastapi.responses import StreamingResponse
 from app.models.api import AskRequest, AskResponse
 from app.services import ask_gemma, builds
 from app.services._sse import sse_event
+from app.services.builds import Build
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+async def _load_builds(scope_kind: str, build_ids: list[str]) -> list[Build]:
+    """Load builds, skipping missing ones for compare scope."""
+    if scope_kind == "compare":
+        results = await asyncio.gather(
+            *(asyncio.to_thread(builds.load_build, bid) for bid in build_ids),
+            return_exceptions=True,
+        )
+        loaded = [r for r in results if isinstance(r, Build)]
+        if len(loaded) < 2:
+            raise FileNotFoundError("Not enough builds could be loaded for comparison")
+        return loaded
+
+    loaded = await asyncio.gather(
+        *(asyncio.to_thread(builds.load_build, bid) for bid in build_ids)
+    )
+    return list(loaded)
 
 
 @router.post("/chat/ask")
@@ -35,15 +54,7 @@ async def chat_ask(request: AskRequest) -> AskResponse:
     already enforces cardinality and target_id constraints, so a 422
     from FastAPI fires before this handler runs on bad payloads."""
     try:
-        # load_build is sync DuckDB; run it on a worker thread (and fan
-        # out across compare-scope's 2-4 build_ids in parallel) so the
-        # FastAPI event loop isn't blocked while the lookups serialize.
-        loaded = await asyncio.gather(
-            *(
-                asyncio.to_thread(builds.load_build, bid)
-                for bid in request.scope.build_ids
-            )
-        )
+        loaded = await _load_builds(request.scope.kind, request.scope.build_ids)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -72,12 +83,7 @@ async def chat_ask_stream(request: AskRequest) -> StreamingResponse:
     Changes — frontend askGemmaStream).
     """
     try:
-        loaded = await asyncio.gather(
-            *(
-                asyncio.to_thread(builds.load_build, bid)
-                for bid in request.scope.build_ids
-            )
-        )
+        loaded = await _load_builds(request.scope.kind, request.scope.build_ids)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

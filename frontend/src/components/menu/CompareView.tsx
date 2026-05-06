@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { springs, stagger } from "@/styles/motion";
 import { getBuild } from "@/api/build";
 import { useBuildStore } from "@/store/buildStore";
@@ -23,6 +23,7 @@ import { CompareCostBreakdown } from "@/components/menu/CompareCostBreakdown";
 import { CompareSchoolProfile } from "@/components/menu/CompareSchoolProfile";
 import { Button } from "@/components/ui/Button";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
+import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { useT } from "@/i18n/useT";
 
@@ -32,6 +33,13 @@ interface CompareViewProps {
 }
 
 type Phase = "loading" | "ready" | "error";
+
+const COMPARE_STARTERS = [
+  "Which one would you pick?",
+  "Where does the cheaper one catch up?",
+  "What's the real cost difference?",
+  "Which career is safer long-term?",
+];
 
 const BUILD_COLORS = [
   "var(--color-accent-thrive)",
@@ -607,6 +615,24 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pentagonSectionRef = useRef<HTMLDivElement>(null);
+
+  const handlePentagonMouseOver = useCallback((e: React.MouseEvent) => {
+    let target = e.target as HTMLElement | null;
+    while (target && target !== pentagonSectionRef.current) {
+      const col = target.getAttribute?.("data-col");
+      if (col) {
+        setHighlightIndex(parseInt(col, 10) - 1);
+        return;
+      }
+      target = target.parentElement;
+    }
+    setHighlightIndex(null);
+  }, []);
+
+  const handlePentagonMouseLeave = useCallback(() => {
+    setHighlightIndex(null);
+  }, []);
 
   // Compare-scope chip text per docs/specs/feature-ask-gemma.md §3.
   // School names truncated at 24 chars; N≥3 uses summary form.
@@ -629,22 +655,6 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     };
   }, [buildIds]);
 
-  const handleMouseOver = useCallback((e: React.MouseEvent) => {
-    let target = e.target as HTMLElement | null;
-    while (target && target !== containerRef.current) {
-      const col = target.getAttribute?.("data-col");
-      if (col) {
-        setHighlightIndex(parseInt(col, 10) - 1);
-        return;
-      }
-      target = target.parentElement;
-    }
-    setHighlightIndex(null);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setHighlightIndex(null);
-  }, []);
 
   const handleOpenBuild = useCallback(async (buildId: string) => {
     try {
@@ -773,8 +783,6 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       animate={{ y: 0 }}
       transition={springs.smooth}
       className="flex flex-col gap-0"
-      onMouseOver={handleMouseOver}
-      onMouseLeave={handleMouseLeave}
     >
       <section className="pt-6 pb-5">
         <div className="-mx-4 tablet:mx-0 mb-5 border-y tablet:border border-border-subtle bg-bp-void/75 tablet:rounded-lg shadow-md">
@@ -856,7 +864,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
             buildColors={buildColors}
             costValues={costValues}
             upsideValues={upsideValues}
-            highlightIndex={highlightIndex}
+            highlightIndex={null}
             maxCost={maxCost}
           />
         </div>
@@ -869,7 +877,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           labelRight="Early pay"
           builds={result.builds}
           buildColors={buildColors}
-          highlightIndex={highlightIndex}
+          highlightIndex={null}
           values={result.builds.map((build, idx) => ({
             primary: costValues[idx] ?? null,
             primaryText: formatMoney(costValues[idx] ?? null, true),
@@ -883,12 +891,12 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           bosses={result.bosses}
           builds={result.builds}
           buildColors={buildColors}
-          highlightIndex={highlightIndex}
+          highlightIndex={null}
         />
         <StatMatrix
           result={result}
           buildColors={buildColors}
-          highlightIndex={highlightIndex}
+          highlightIndex={null}
         />
       </section>
 
@@ -905,10 +913,15 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
             Click a path in the rail to pin focus.
           </p>
         </div>
-        <CompareWinners result={result} highlightIndex={highlightIndex} />
+        <CompareWinners result={result} highlightIndex={null} />
       </section>
 
-      <section className="mb-8 grid gap-5 desktop:grid-cols-[360px_minmax(0,1fr)] desktop:items-start">
+      <section
+        ref={pentagonSectionRef}
+        onMouseOver={handlePentagonMouseOver}
+        onMouseLeave={handlePentagonMouseLeave}
+        className="mb-8 grid gap-5 desktop:grid-cols-[360px_minmax(0,1fr)] desktop:items-start"
+      >
         <div>
           <p className="font-body text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3 pl-1">
             Builds
@@ -962,7 +975,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
               bosses={result.bosses}
               builds={result.builds}
               buildColors={buildColors}
-              highlightIndex={highlightIndex}
+              highlightIndex={null}
             />
           </section>
 
@@ -970,7 +983,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
             <p className="font-body text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3 pl-1">
               Early Salary
             </p>
-            <MoneySection builds={result.builds} highlightIndex={highlightIndex} />
+            <MoneySection builds={result.builds} highlightIndex={null} />
           </section>
         </div>
       </section>
@@ -983,7 +996,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           testId="accordion-cost-breakdown"
           ariaLabel="Cost breakdown comparison"
         >
-          <CompareCostBreakdown builds={result.builds} highlightIndex={highlightIndex} />
+          <CompareCostBreakdown builds={result.builds} highlightIndex={null} />
         </CompareAccordion>
       </section>
 
@@ -998,7 +1011,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           <CompareSchoolProfile
             builds={result.builds}
             stats={result.stats}
-            highlightIndex={highlightIndex}
+            highlightIndex={null}
           />
         </CompareAccordion>
       </section>
@@ -1012,134 +1025,246 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           <BranchPreview
             branches={result.branches}
             buildColors={buildColors}
-            highlightIndex={highlightIndex}
+            highlightIndex={null}
           />
         </section>
       )}
 
-      {/* Gemma's Take */}
-      <section
+      {/* ================================================================
+       * Gemma's Verdict — editorial climax of the comparison.
+       *
+       * Visual hierarchy:
+       *   1. Accent divider + GemmaStar header
+       *   2. Summary lede (one-sentence read)
+       *   3. Big Choice — thesis callout with insight accent bar
+       *   4. Pros/Cons — editorial prose cards per build
+       *   5. Decade Projection — "In ten years" with info accent bar
+       *   6. Pivot Question — mic-drop moment with thrive glow
+       *
+       * Each element staggers in at 100ms (stagger.slow) for cinematic
+       * pacing. The section breathes with generous vertical spacing so
+       * the student can absorb each insight before the next arrives.
+       * ================================================================ */}
+      <motion.section
         data-testid="region-gemma-compare"
         aria-label="Gemma's comparison analysis"
-        className="border-t border-border-subtle pt-6"
+        className="mt-4 pt-6 pb-2"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: { transition: { staggerChildren: stagger.slow } },
+        }}
       >
-        <div className="flex items-center justify-center gap-2.5 mb-5">
-          <span className="w-8 h-8 rounded-md bg-accent-info/15 flex items-center justify-center font-data text-data-sm font-bold text-accent-info">
-            AI
-          </span>
-          <span className="font-display font-semibold text-xl text-text-primary">
-            Gemma's Take
-          </span>
-        </div>
+        {/* Accent divider — fades from insight to thrive, ~40% width, centered */}
+        <motion.div
+          className="mx-auto mb-8"
+          variants={{
+            hidden: { opacity: 0, scaleX: 0 },
+            visible: { opacity: 1, scaleX: 1, transition: { ...springs.gentle, duration: 0.6 } },
+          }}
+        >
+          <div
+            className="mx-auto h-px w-[40%] max-w-[280px]"
+            style={{
+              background: "linear-gradient(90deg, transparent, var(--color-accent-insight), var(--color-accent-thrive), transparent)",
+            }}
+          />
+        </motion.div>
 
-        <div className="max-w-[720px] mx-auto flex flex-col gap-5">
-          {insights?.compare_summary ? (
-            <p className="font-body text-[15px] text-text-secondary leading-relaxed text-center">
-              {(() => {
-                const trimmed = insights.compare_summary.trim();
-                const sentenceMatch = trimmed.match(/^[^.!?]+[.!?]/);
-                return sentenceMatch ? sentenceMatch[0] : trimmed;
-              })()}
-            </p>
-          ) : (
-            <motion.p
-              animate={{ opacity: [0.4, 0.9, 0.4] }}
-              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              className="font-body text-body text-text-muted text-center"
-            >
-              Reading the tradeoffs…
-            </motion.p>
-          )}
+        {/* Header — GemmaStar + "Gemma's Verdict" left-aligned editorial style */}
+        <motion.div
+          className="flex items-center gap-3 mb-6"
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            visible: { opacity: 1, y: 0, transition: springs.smooth },
+          }}
+        >
+          <motion.div
+            animate={{ rotate: [0, 8, -4, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <GemmaStar size={22} className="opacity-80" />
+          </motion.div>
+          <h2 className="font-display text-heading font-semibold text-text-primary">
+            Gemma's Verdict
+          </h2>
+        </motion.div>
 
+        <div className="flex flex-col gap-8">
+          {/* Summary lede — magazine lead paragraph */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: springs.smooth },
+            }}
+          >
+            {insights?.compare_summary ? (
+              <p className="font-body text-body-lg text-text-secondary leading-relaxed">
+                {(() => {
+                  const trimmed = insights.compare_summary.trim();
+                  const sentenceMatch = trimmed.match(/^[^.!?]+[.!?]/);
+                  return sentenceMatch ? sentenceMatch[0] : trimmed;
+                })()}
+              </p>
+            ) : (
+              <motion.p
+                animate={{ opacity: [0.4, 0.9, 0.4] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                className="font-body text-body text-text-muted"
+              >
+                Reading the tradeoffs…
+              </motion.p>
+            )}
+          </motion.div>
+
+          {/* Big Choice — editorial thesis callout */}
           {insights?.pivotal?.meta_tradeoff && (
-            <div
+            <motion.article
               data-testid="pivotal-meta-tradeoff"
-              className="self-center inline-flex flex-col items-center gap-1.5 px-5 py-3 rounded-full bg-bp-deep/60 border border-border-subtle"
+              className="relative rounded-lg border border-border-subtle bg-bp-mid/60 shadow-glow-insight overflow-hidden"
+              variants={{
+                hidden: { opacity: 0, y: 24 },
+                visible: { opacity: 1, y: 0, transition: springs.smooth },
+              }}
             >
-              <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted">
-                Big Choice
-              </p>
-              <p className="font-display text-heading text-text-primary">
-                {insights.pivotal.meta_tradeoff}
-              </p>
-              {insights.pivotal.meta_explanation && (
-                <p className="font-body text-small text-text-secondary text-center max-w-[520px] leading-snug">
-                  {insights.pivotal.meta_explanation}
+              {/* Left accent bar — insight purple */}
+              <div
+                className="absolute left-0 top-0 bottom-0 w-[3px]"
+                style={{
+                  background: "linear-gradient(180deg, var(--color-accent-insight), var(--color-accent-insight) 60%, transparent)",
+                }}
+              />
+              <div className="pl-6 pr-5 py-5 tablet:pl-7 tablet:pr-6 tablet:py-6">
+                <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-insight mb-3">
+                  Big Choice
                 </p>
-              )}
-            </div>
+                <p className="font-display text-[24px] font-bold leading-snug text-text-primary tablet:text-heading">
+                  {insights.pivotal.meta_tradeoff}
+                </p>
+                {insights.pivotal.meta_explanation && (
+                  <p className="mt-3 font-body text-[15px] text-text-secondary leading-relaxed">
+                    {insights.pivotal.meta_explanation}
+                  </p>
+                )}
+              </div>
+            </motion.article>
           )}
 
+          {/* Pros/Cons — editorial prose per build */}
           {insights?.pros_cons && insights.pros_cons.length > 0 && (
-            <CompareProsCons
-              builds={result.builds}
-              prosCons={insights.pros_cons}
-              highlightIndex={highlightIndex}
-            />
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 24 },
+                visible: { opacity: 1, y: 0, transition: springs.smooth },
+              }}
+            >
+              <CompareProsCons
+                builds={result.builds}
+                prosCons={insights.pros_cons}
+                highlightIndex={null}
+              />
+            </motion.div>
           )}
 
+          {/* Decade Projection — "In ten years" editorial moment */}
           {insights?.pivotal?.decade_projection && (
-            <article
+            <motion.article
               data-testid="pivotal-decade-projection"
-              className="rounded-xl p-5 bg-bp-deep/60 border border-border-subtle relative"
+              className="relative rounded-lg border border-border-subtle bg-bp-mid/40 overflow-hidden"
+              variants={{
+                hidden: { opacity: 0, y: 24 },
+                visible: { opacity: 1, y: 0, transition: springs.smooth },
+              }}
             >
-              <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-accent-info to-accent-info/20 rounded-l-xl" />
-              <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted mb-2">
-                In ten years
-              </p>
-              <p className="font-body text-[15px] text-text-primary leading-relaxed">
-                {insights.pivotal.decade_projection}
-              </p>
-            </article>
+              {/* Left accent bar — info blue */}
+              <div
+                className="absolute left-0 top-0 bottom-0 w-[3px]"
+                style={{
+                  background: "linear-gradient(180deg, var(--color-accent-info), var(--color-accent-info) 60%, transparent)",
+                }}
+              />
+              <div className="pl-6 pr-5 py-5 tablet:pl-7 tablet:pr-6 tablet:py-6">
+                <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-info mb-3">
+                  In ten years
+                </p>
+                <p className="font-body text-body-lg text-text-primary leading-relaxed">
+                  {insights.pivotal.decade_projection}
+                </p>
+              </div>
+            </motion.article>
           )}
 
+          {/* Pivot Question — mic-drop moment. Extra padding, thrive glow,
+              display-weight text. This is the last thing the student reads
+              before deciding to ask Gemma or walk away. Make it count. */}
           {insights?.pivotal?.pivot_question && (
-            <article
+            <motion.article
               data-testid="pivotal-question"
-              className="rounded-xl p-5 bg-gradient-to-br from-accent-thrive/10 to-accent-insight/10 border border-accent-thrive/30 relative"
+              className="relative rounded-xl border border-accent-thrive/20 bg-bp-mid/30 shadow-glow-thrive overflow-hidden"
+              variants={{
+                hidden: { opacity: 0, y: 28, scale: 0.98 },
+                visible: { opacity: 1, y: 0, scale: 1, transition: springs.smooth },
+              }}
             >
-              <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-thrive mb-2">
-                Sit with this
-              </p>
-              <p className="font-display text-heading text-text-primary leading-snug">
-                {insights.pivotal.pivot_question}
-              </p>
-            </article>
+              {/* Left accent bar — thrive green */}
+              <div
+                className="absolute left-0 top-0 bottom-0 w-[3px]"
+                style={{
+                  background: "linear-gradient(180deg, var(--color-accent-thrive), var(--color-accent-thrive) 60%, transparent)",
+                }}
+              />
+              {/* Subtle ambient glow behind the question */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: "radial-gradient(ellipse 80% 60% at 20% 80%, rgba(125, 212, 163, 0.06), transparent 70%)",
+                }}
+              />
+              <div className="relative pl-7 pr-6 py-8 tablet:pl-8 tablet:pr-8">
+                <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-thrive mb-4">
+                  Sit with this
+                </p>
+                <p className="font-display text-[22px] font-semibold leading-snug text-text-primary tablet:text-heading">
+                  {insights.pivotal.pivot_question}
+                </p>
+              </div>
+            </motion.article>
           )}
         </div>
+      </motion.section>
 
-        {insights?.compare_summary && compareScope && (
-          <button
+      <AnimatePresence>
+        {!chatOpen && compareScope && (
+          <motion.button
+            key="compare-fab"
             type="button"
             onClick={() => setChatOpen(true)}
-            disabled={chatOpen}
-            data-testid="btn-ask-compare"
             aria-label={t("chat.compareEntry")}
-            className={[
-              "w-full max-w-[420px] mx-auto mt-5 block",
-              "inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg",
-              "bg-accent-thrive text-text-inverse font-body text-cta",
-              "hover:bg-[#6bc494]",
-              "active:scale-[0.97]",
-              "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
-              "disabled:bg-bp-surface disabled:text-text-muted disabled:cursor-not-allowed",
-              "transition-colors duration-fast",
-              "cursor-pointer",
-            ].join(" ")}
+            data-testid="btn-ask-compare"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={springs.snappy}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-accent-insight/15 text-accent-insight border border-accent-insight/40 px-5 py-3.5 font-body font-bold text-cta shadow-lg backdrop-blur-md hover:bg-accent-insight/25 hover:border-accent-insight/70 hover:shadow-glow-insight cursor-pointer"
+            style={{ paddingBottom: "max(14px, calc(env(safe-area-inset-bottom) + 14px))" }}
           >
-            <span aria-hidden className="text-text-inverse text-[16px] leading-none">
-              AI
+            <span aria-hidden className="font-display text-[18px] leading-none">
+              ✦
             </span>
             {t("chat.compareEntry")}
-          </button>
+          </motion.button>
         )}
-      </section>
+      </AnimatePresence>
 
       <GemmaChat
         open={chatOpen}
         build={null}
         scope={compareScope}
         chipText={compareChipText}
+        starters={COMPARE_STARTERS}
         onClose={() => setChatOpen(false)}
       />
     </motion.article>

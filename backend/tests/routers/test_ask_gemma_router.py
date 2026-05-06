@@ -252,12 +252,7 @@ def test_post_chat_ask_compare_scope(
         # Compare with 1 build.
         (
             {"kind": "compare", "build_ids": ["x"]},
-            "compare scope requires 2-4 build_ids",
-        ),
-        # Compare with 5 builds.
-        (
-            {"kind": "compare", "build_ids": ["a", "b", "c", "d", "e"]},
-            None,  # min/max length error from Field(max_length=4)
+            "compare scope requires at least 2 build_ids",
         ),
         # Compare with target_id set.
         (
@@ -305,7 +300,6 @@ def test_post_chat_ask_compare_scope(
     ],
     ids=[
         "compare_one_build",
-        "compare_five_builds",
         "compare_with_target",
         "stat_no_target",
         "stat_bad_target",

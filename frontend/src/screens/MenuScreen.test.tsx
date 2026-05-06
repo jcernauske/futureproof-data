@@ -153,9 +153,9 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
   } as Build;
 }
 
-function renderScreen() {
+function renderScreen(initialEntries = ["/builds"]) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <MenuScreen />
     </MemoryRouter>,
   );
@@ -329,23 +329,25 @@ describe("MenuScreen", () => {
 
   // --- P1: Compare disabled with fewer than 2 builds ---
 
-  it('"Compare Builds" is disabled when only 1 build exists (P1)', async () => {
+  it("select mode does NOT activate with only 1 build even when ?select=1 (P1)", async () => {
     mockListBuilds.mockResolvedValue([makeSummary()]);
-    renderScreen();
+    renderScreen(["/builds?select=1"]);
 
-    const enterCompare = await screen.findByTestId("btn-enter-compare");
-    expect(enterCompare).toBeDisabled();
+    await screen.findByTestId("card-build-berkeley-cs-001");
+    expect(screen.queryByTestId("builds-action-bar")).not.toBeInTheDocument();
   });
 
-  it('"Compare Builds" is enabled when 2+ builds exist (P1)', async () => {
+  it("select mode activates when 2+ builds exist and ?select=1 (P1)", async () => {
     mockListBuilds.mockResolvedValue([
       makeSummary(),
       makeSummary({ build_id: "iu-bloom-mkt-001", school_name: "IU" }),
     ]);
-    renderScreen();
+    renderScreen(["/builds?select=1"]);
 
-    const enterCompare = await screen.findByTestId("btn-enter-compare");
-    expect(enterCompare).not.toBeDisabled();
+    await screen.findByTestId("card-build-berkeley-cs-001");
+    await waitFor(() => {
+      expect(screen.getByTestId("builds-action-bar")).toBeInTheDocument();
+    });
   });
 
   // --- P1: select mode caps at 4 builds (Party Select) ---
@@ -359,13 +361,13 @@ describe("MenuScreen", () => {
       makeSummary({ build_id: "build-e", school_name: "School E" }),
     ];
     mockListBuilds.mockResolvedValue(fiveBuilds);
-    renderScreen();
+    renderScreen(["/builds?select=1"]);
 
-    // Wait for builds to render.
+    // Wait for builds to render and select mode to activate.
     await screen.findByTestId("card-build-build-a");
-
-    // Enter select mode.
-    fireEvent.click(screen.getByTestId("btn-enter-compare"));
+    await waitFor(() => {
+      expect(screen.getByTestId("builds-action-bar")).toBeInTheDocument();
+    });
 
     // Select 4 builds — all should succeed.
     fireEvent.click(screen.getByTestId("card-build-build-a"));
@@ -394,10 +396,12 @@ describe("MenuScreen", () => {
       makeSummary({ build_id: "build-e", school_name: "School E" }),
     ];
     mockListBuilds.mockResolvedValue(fourBuilds);
-    renderScreen();
+    renderScreen(["/builds?select=1"]);
 
     await screen.findByTestId("card-build-build-a");
-    fireEvent.click(screen.getByTestId("btn-enter-compare"));
+    await waitFor(() => {
+      expect(screen.getByTestId("builds-action-bar")).toBeInTheDocument();
+    });
 
     // Select 4.
     fireEvent.click(screen.getByTestId("card-build-build-a"));

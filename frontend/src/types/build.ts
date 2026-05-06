@@ -228,6 +228,11 @@ export interface SchoolForCareerRow {
   confidence_tier_program: string | null;
   match_quality: LeaderboardMatchQuality;
   is_anchor: boolean;
+  // Number of institutions in this row's multi-campus family
+  // (flagship + branches). 1 for standalone schools and any school not
+  // in the frozen family config. Spec:
+  // feature-branch-campus-suppression.md.
+  family_size: number;
 }
 
 export interface SchoolsForCareerResponse {

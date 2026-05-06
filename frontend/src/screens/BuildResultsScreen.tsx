@@ -67,6 +67,27 @@ const BOSS_CHIP_PREFIX_KEY: Record<BossOutcome, string> = {
   unknown: "build.askBoss.draw",
 };
 
+const STAT_STARTERS = [
+  "How can I improve this?",
+  "How does this compare nationally?",
+];
+
+function bossStarters(outcome: BossOutcome): string[] {
+  const chip1 =
+    outcome === "win" ? "Why did I win this?"
+    : outcome === "lose" ? "What makes this hard?"
+    : "What tipped the scale?";
+  const chips = [chip1];
+  if (outcome !== "win") {
+    chips.push("Who wins this fight?");
+  }
+  return chips;
+}
+
+const SKILL_STARTERS = [
+  "Where do I learn this?",
+];
+
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
 
 export function BuildResultsScreen() {
@@ -88,13 +109,15 @@ export function BuildResultsScreen() {
   // opener automatically. Cleared on close so a manual reopen doesn't
   // replay the explanation. ERN-only for now.
   const [chatOpenerPrompt, setChatOpenerPrompt] = useState<string | null>(null);
+  const [chatStarters, setChatStarters] = useState<string[] | undefined>();
   const [compareOpen, setCompareOpen] = useState(false);
 
   const openChat = useCallback(
-    (scope: AskScope, chipText: string, openerPrompt?: string) => {
+    (scope: AskScope, chipText: string, openerPrompt?: string, starters?: string[]) => {
       setChatScope(scope);
       setChatChipText(chipText);
       setChatOpenerPrompt(openerPrompt ?? null);
+      setChatStarters(starters);
       setChatOpen(true);
     },
     [],
@@ -131,6 +154,8 @@ export function BuildResultsScreen() {
       openChat(
         { kind: "stat", build_ids: [build.build_id], target_id: target },
         t("build.askPrefix").replace("{label}", label),
+        undefined,
+        STAT_STARTERS,
       );
     },
     [build, openChat, t],
@@ -146,6 +171,8 @@ export function BuildResultsScreen() {
       openChat(
         { kind: "boss", build_ids: [build.build_id], target_id: bossId },
         `${prefix}: ${t(meta.shortNameKey)}`,
+        undefined,
+        bossStarters(result),
       );
     },
     [build, fights, openChat, t],
@@ -164,6 +191,8 @@ export function BuildResultsScreen() {
       openChat(
         { kind: "skill", build_ids: [build.build_id], target_id: skillId },
         t("build.askPrefix").replace("{label}", truncated),
+        undefined,
+        SKILL_STARTERS,
       );
     },
     [build, openChat, t],
@@ -210,6 +239,10 @@ export function BuildResultsScreen() {
   }, []);
 
   const cancelledRef = useRef(false);
+  // Fire-once guard for the build-trigger effect below. Prevents StrictMode's
+  // simulated mount→unmount→mount from POSTing /build twice and persisting two
+  // separate build_ids for the same screen visit.
+  const buildTriggeredRef = useRef(false);
 
   // Boss band reveal state
   const [revealedBands, setRevealedBands] = useState<Set<string>>(new Set());
@@ -351,6 +384,8 @@ export function BuildResultsScreen() {
   }, [selectedCareer, school, major, profileName, effort, loans, homeState, locale, animalEmoji, setBuild, updateBuild, setIsBuilding]);
 
   useEffect(() => {
+    if (buildTriggeredRef.current) return;
+    buildTriggeredRef.current = true;
     if (!build && !isBuilding && selectedCareer) {
       runBuild();
     } else if (build) {
@@ -1101,6 +1136,7 @@ export function BuildResultsScreen() {
         build={null}
         scope={chatScope ?? undefined}
         chipText={chatChipText}
+        starters={chatStarters}
         openerPrompt={chatOpenerPrompt ?? undefined}
         onClose={closeChat}
       />

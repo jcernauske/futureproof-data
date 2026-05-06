@@ -86,10 +86,9 @@ logger = logging.getLogger(__name__)
 # chat (feature-tree-as-map.md Decision #2), on-demand branch fetching
 # matters for "what if I pivoted to X" questions where X is not in the
 # loaded build's tree, so the tool is now allowlisted at chat time.
-# Excluded tools still have explicit reachability paths via these five:
+# Excluded tools still have explicit reachability paths via these:
 #   - get_school_programs is fuzzy-search front-door (resolved via get_career_paths).
-#   - get_task_breakdown / get_ai_exposure are inputs to context-builders,
-#     not chat-time fetches.
+#   - get_ai_exposure data is already embedded in the build context.
 _TOOLS: tuple[str, ...] = (
     "get_career_paths",
     "get_occupation_data",
@@ -104,6 +103,7 @@ _TOOLS: tuple[str, ...] = (
     # school — that's get_career_paths).
     "get_schools_for_career",
     "get_institution_aura",
+    "get_task_breakdown",
 )
 
 # 0.5 — middle ground. Pre-trace this was 0.4 (suppressed all
@@ -237,6 +237,21 @@ _BRANCH_VOICE_APPENDIX = (
     "education-requirement is a description, not a game mechanic — "
     "say 'requires a master's degree' or 'most people who do this "
     "have a graduate degree' instead."
+)
+
+_COMPARE_VOICE_APPENDIX = (
+    "\n\nCompare-specific rules for this conversation:\n"
+    "- The context block contains MULTIPLE builds — the student's full "
+    "portfolio of explored paths. Answer about all of them, not just one.\n"
+    "- When the student asks a question, compare across all builds in "
+    "context. Rank, contrast, and recommend — don't ask which build "
+    "they mean.\n"
+    "- Refer to each build by school name and career title so the "
+    "student can tell them apart.\n"
+    "- If a tool call would help compare (e.g. get_career_branches for "
+    "each career's SOC code), call it for the most relevant builds — "
+    "you don't need to call it for all of them if the answer is clear "
+    "from a subset."
 )
 
 
@@ -3151,15 +3166,15 @@ async def chat_ask(
     else:  # compare
         context_block = _context_for_compare(builds)
 
-    # Assemble the full system prompt. Branch scope appends the
-    # branch-specific voice appendix to keep the shared voice rules
-    # untouched (feature-tree-as-map.md §4 voice-rule extensions).
+    # Assemble the full system prompt. Branch and compare scopes append
+    # voice appendixes to keep the shared voice rules untouched.
     lang_block = gemma_language_instruction(norm_locale)
-    system_base = (
-        _SYSTEM_BASE + _BRANCH_VOICE_APPENDIX
-        if scope.kind == "branch"
-        else _SYSTEM_BASE
-    )
+    if scope.kind == "branch":
+        system_base = _SYSTEM_BASE + _BRANCH_VOICE_APPENDIX
+    elif scope.kind == "compare":
+        system_base = _SYSTEM_BASE + _COMPARE_VOICE_APPENDIX
+    else:
+        system_base = _SYSTEM_BASE
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
     # Explain-this-stat dispatch via registry. Matches sentinels like
@@ -3462,13 +3477,14 @@ async def chat_ask_stream(
     # Build context block per scope kind. Mirrors chat_ask exactly.
     context_block = await _build_context_block(scope, builds)
 
-    # Assemble system prompt (branch-scope adds the appendix).
+    # Assemble system prompt (branch/compare scopes add appendixes).
     lang_block = gemma_language_instruction(norm_locale)
-    system_base = (
-        _SYSTEM_BASE + _BRANCH_VOICE_APPENDIX
-        if scope.kind == "branch"
-        else _SYSTEM_BASE
-    )
+    if scope.kind == "branch":
+        system_base = _SYSTEM_BASE + _BRANCH_VOICE_APPENDIX
+    elif scope.kind == "compare":
+        system_base = _SYSTEM_BASE + _COMPARE_VOICE_APPENDIX
+    else:
+        system_base = _SYSTEM_BASE
     system = f"{system_base}\n\n{lang_block}\n\n{context_block}"
 
     # Explain-this-stat dispatch via registry (mirrors chat_ask).
