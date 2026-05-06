@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiGet } from "@/api/client";
-import { askCareerPickChip, getCareerPickChips } from "@/api/careerPick";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
@@ -11,8 +10,6 @@ import { useSetYourCourse } from "@/hooks/useSetYourCourse";
 import { SchoolSearch } from "@/components/school/SchoolSearch";
 import { EffortLoansPanel } from "@/components/school/EffortLoansPanel";
 import { AskGemmaChip } from "@/components/school/AskGemmaChip";
-import { AskGemmaChipRow } from "@/components/AskGemmaChipRow";
-import { AskGemmaResponseCard } from "@/components/AskGemmaResponseCard";
 import { CareerListSkeleton } from "@/components/school/CareerListSkeleton";
 import { CareerTierSection } from "@/components/CareerTierSection";
 import { CipPicker } from "@/components/school/CipPicker";
@@ -22,6 +19,7 @@ import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SealedBuildContext } from "@/components/school/SealedBuildContext";
+import { GemmaChat } from "@/components/menu/GemmaChat";
 import { fireCheckpoint } from "@/lib/checkpoint";
 import { useT } from "@/i18n/useT";
 import type {
@@ -29,7 +27,7 @@ import type {
   SchoolSelection,
 } from "@/types/buildInput";
 import type { CareerOutcome } from "@/types/build";
-import type { CareerPickChip } from "@/types/careerPick";
+import type { AskScope } from "@/api/menu";
 
 const isPostgrad = (c: CareerOutcome) =>
   c.education_level_name != null &&
@@ -39,7 +37,6 @@ export function SetYourCourseScreen() {
   const navigate = useNavigate();
   const profileName = useProfileStore((s) => s.profileName);
   const homeState = useProfileStore((s) => s.homeState);
-  const locale = useProfileStore((s) => s.locale);
   const t = useT();
   const {
     school,
@@ -59,11 +56,34 @@ export function SetYourCourseScreen() {
   const setSelectedCareer = useBuildStore((s) => s.setSelectedCareer);
 
   const [majorText, setMajorText] = useState("");
-  const [careerPickChips, setCareerPickChips] = useState<CareerPickChip[]>([]);
-  const [activeCareerPickChipId, setActiveCareerPickChipId] = useState<string | null>(null);
-  const [careerPickAnswer, setCareerPickAnswer] = useState<string | null>(null);
-  const [careerPickAnswerLoading, setCareerPickAnswerLoading] = useState(false);
-  const careerPickElevationHintId = useId();
+
+  // Scope-aware Ask Gemma chat — opens from the per-career sparkle on
+  // CareerCard with a "Describe in detail what this career does" opener
+  // that fires automatically. No build_id yet (the student is picking).
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatScope, setChatScope] = useState<AskScope | null>(null);
+  const [chatChipText, setChatChipText] = useState<string>("");
+  const [chatOpenerPrompt, setChatOpenerPrompt] = useState<string | null>(null);
+
+  const handleAskCareer = useCallback((career: CareerOutcome) => {
+    setChatScope({
+      kind: "career",
+      build_ids: [],
+      target_id: career.soc_code,
+    });
+    setChatChipText(`Asking about: ${career.occupation_title}`);
+    setChatOpenerPrompt(
+      `Describe in detail what a ${career.occupation_title} does day-to-day, ` +
+      "what kind of person fits this work, and what makes it pay what it " +
+      "pays. Pull occupation data so the description is grounded.",
+    );
+    setChatOpen(true);
+  }, []);
+
+  const closeChat = useCallback(() => {
+    setChatOpen(false);
+    setChatOpenerPrompt(null);
+  }, []);
 
   const {
     resolve,
@@ -268,81 +288,6 @@ export function SetYourCourseScreen() {
   );
 
   const hasOutcomes = careerPaths.length > 0 || postgradCareers.length > 0;
-  const renderedSocCodes = useMemo(
-    () => [...careerPaths, ...postgradCareers].map((career) => career.soc_code),
-    [careerPaths, postgradCareers],
-  );
-  const displayedCareerPickChips = useMemo(
-    () =>
-      careerPickChips.map((chip) => {
-        const key = `careerPick.chip.${chip.id}`;
-        const label = t(key);
-        return { ...chip, label: label === key ? chip.label : label };
-      }),
-    [careerPickChips, t],
-  );
-
-  useEffect(() => {
-    if (!currentResolution || renderedSocCodes.length === 0) {
-      setCareerPickChips((current) => (current.length === 0 ? current : []));
-      return;
-    }
-    let cancelled = false;
-    getCareerPickChips({
-      cipcode: currentResolution.parent_cip || currentResolution.matched_cip,
-      majorText: majorText || currentResolution.matched_title,
-      socCodes: renderedSocCodes,
-    })
-      .then((result) => {
-        if (!cancelled) setCareerPickChips(result);
-      })
-      .catch(() => {
-        if (!cancelled) setCareerPickChips([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentResolution, majorText, renderedSocCodes]);
-
-  function handleCareerPickChip(chip: CareerPickChip) {
-    if (!currentResolution) return;
-    setActiveCareerPickChipId(chip.id);
-    setCareerPickAnswer(null);
-    setCareerPickAnswerLoading(true);
-    askCareerPickChip({
-      chipId: chip.id,
-      cipcode: currentResolution.parent_cip || currentResolution.matched_cip,
-      majorText: majorText || currentResolution.matched_title,
-      socCodes: renderedSocCodes,
-      selectedSoc: selectedCareer?.soc_code ?? null,
-      terminalTitle: chip.terminal_title,
-      locale,
-    })
-      .then((response) => {
-        setCareerPickAnswer(response.answer);
-      })
-      .catch((err: unknown) => {
-        const message =
-          err instanceof Error ? err.message : "Gemma couldn't answer.";
-        setCareerPickAnswer(message);
-      })
-      .finally(() => {
-        setCareerPickAnswerLoading(false);
-      });
-  }
-
-  function handleRegenerateCareerPickAnswer() {
-    if (!activeCareerPickChipId) return;
-    const chip = displayedCareerPickChips.find((candidate) => candidate.id === activeCareerPickChipId);
-    if (!chip) return;
-    handleCareerPickChip(chip);
-  }
-
-  function handleCloseCareerPickAnswer() {
-    setActiveCareerPickChipId(null);
-    setCareerPickAnswer(null);
-    setCareerPickAnswerLoading(false);
-  }
 
   if (!profileName) return null;
 
@@ -673,49 +618,6 @@ export function SetYourCourseScreen() {
                   {t("syc.showingSoc")} {currentResolution.matched_cip.slice(0, 5)}.
                 </p>
               )}
-              {displayedCareerPickChips.length > 0 && (
-                <div
-                  aria-labelledby="set-your-course-ask-gemma-title"
-                  className="flex flex-col gap-2"
-                >
-                  <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
-                    <div>
-                      <p className="font-data text-micro font-bold uppercase tracking-[2px] text-accent-insight mb-1">
-                        {t("careerPick.askGemma")}
-                      </p>
-                      <h2
-                        id="set-your-course-ask-gemma-title"
-                        className="font-display font-semibold text-subheading text-text-primary"
-                      >
-                        {t("careerPick.makeSense")}
-                      </h2>
-                    </div>
-                    <AskGemmaChipRow
-                      chips={displayedCareerPickChips}
-                      activeChipId={activeCareerPickChipId}
-                      onChipClick={handleCareerPickChip}
-                      elevationHintId={careerPickElevationHintId}
-                      ariaLabel="Ask Gemma about these career paths"
-                      className="py-1"
-                    />
-                  </div>
-                  <span id={careerPickElevationHintId} className="sr-only">
-                    Gemma thinks this question might be relevant based on your
-                    program and career results.
-                  </span>
-                  <AnimatePresence initial={false}>
-                    {activeCareerPickChipId !== null ? (
-                      <AskGemmaResponseCard
-                        key={activeCareerPickChipId}
-                        loading={careerPickAnswerLoading}
-                        answer={careerPickAnswer}
-                        onRegenerate={handleRegenerateCareerPickAnswer}
-                        onClose={handleCloseCareerPickAnswer}
-                      />
-                    ) : null}
-                  </AnimatePresence>
-                </div>
-              )}
               {socReveal.kind === "outcomes-loading" && <CareerListSkeleton />}
               {socReveal.kind === "error" && (
                 <p className="font-body text-small text-accent-alert">
@@ -732,6 +634,7 @@ export function SetYourCourseScreen() {
                   pickedSoc={selectedCareer?.soc_code ?? null}
                   onSelect={handleCareerSelect}
                   ernShift={effort.ernShift}
+                  onAskGemma={handleAskCareer}
                 />
               )}
               {postgradCareers.length > 0 && (
@@ -744,6 +647,7 @@ export function SetYourCourseScreen() {
                   pickedSoc={selectedCareer?.soc_code ?? null}
                   onSelect={handleCareerSelect}
                   ernShift={effort.ernShift}
+                  onAskGemma={handleAskCareer}
                 />
               )}
             </motion.section>
@@ -903,6 +807,18 @@ export function SetYourCourseScreen() {
       <span className="sr-only" data-testid="normalized-input">
         {normalizedInput}
       </span>
+
+      {/* Scope-aware Ask Gemma slide-in. Build is null because no build
+          exists yet at this stage; the chat opens with a "career" scope
+          plus the auto-fired opener prompt set by handleAskCareer. */}
+      <GemmaChat
+        open={chatOpen}
+        build={null}
+        scope={chatScope ?? undefined}
+        chipText={chatChipText}
+        openerPrompt={chatOpenerPrompt ?? undefined}
+        onClose={closeChat}
+      />
     </div>
   );
 }

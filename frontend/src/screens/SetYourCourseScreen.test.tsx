@@ -12,7 +12,7 @@
  *   - 4fr_8fr grid renders at desktop viewport, collapses to 1-col below 1200px.
  */
 
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -81,12 +81,39 @@ vi.mock("@/api/build", () => ({
     stretch: [],
   }),
 }));
-const mockGetCareerPickChips = vi.fn();
-const mockAskCareerPickChip = vi.fn();
+// `getCareerPickChips` / `askCareerPickChip` are no longer consumed
+// by SetYourCourseScreen — replaced by per-career sparkle that fires
+// the scoped Ask Gemma chat. Mock left in place defensively in case any
+// transitive import still pulls the module.
 vi.mock("@/api/careerPick", () => ({
-  getCareerPickChips: (...args: unknown[]) => mockGetCareerPickChips(...args),
-  askCareerPickChip: (...args: unknown[]) => mockAskCareerPickChip(...args),
+  getCareerPickChips: vi.fn().mockResolvedValue([]),
+  askCareerPickChip: vi.fn(),
 }));
+
+// askGemmaStream — the per-career sparkle opens GemmaChat with a
+// career-scope opener that fires this immediately. Stub to a happy
+// SSE-equivalent default so the auto-fire doesn't blow up in jsdom.
+const mockAskGemmaStream = vi.fn().mockImplementation(
+  async (..._args: unknown[]) => {
+    const final = { type: "final_text" as const, response: "ok" };
+    const done = { type: "done" as const };
+    const onEvent = _args[3] as ((e: unknown) => void) | undefined;
+    if (onEvent) {
+      onEvent(final);
+      onEvent(done);
+    }
+    return { response: "ok", events: [final, done] };
+  },
+);
+vi.mock("@/api/menu", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
+  return {
+    ...actual,
+    askGemmaStream: (...args: Parameters<typeof import("@/api/menu").askGemmaStream>) =>
+      mockAskGemmaStream(...args),
+  };
+});
 vi.mock("@/api/client", () => ({
   apiGet: vi.fn().mockResolvedValue([]),
   apiPost: vi.fn().mockResolvedValue({ committed: true, logged: false }),
@@ -153,12 +180,7 @@ function seedState(overrides: Partial<ReturnType<typeof useBuildInputStore.getSt
 beforeEach(() => {
   window.scrollTo = vi.fn();
   mockNavigate.mockReset();
-  mockGetCareerPickChips.mockReset().mockResolvedValue([]);
-  mockAskCareerPickChip.mockReset().mockResolvedValue({
-    chip_id: "why_these_tiers",
-    answer: "Gemma explains these paths.",
-    fallback_fired: false,
-  });
+  mockAskGemmaStream.mockClear();
   vi.mocked(commitResolution).mockReset();
   vi.mocked(commitResolution).mockResolvedValue({
     committed: true,
@@ -402,80 +424,49 @@ describe("TestSocRevealStates", () => {
     expect(screen.getByText(/Spec my build/)).toBeInTheDocument();
   });
 
-  it("renders Ask Gemma chips above Where this leads when outcomes load", async () => {
+  it("renders a per-career Ask Gemma sparkle button", async () => {
     const careers = makeCareers();
     vi.mocked(getOutcomes).mockResolvedValue(careers);
-    mockGetCareerPickChips.mockResolvedValueOnce([
-      {
-        id: "why_these_tiers",
-        label: "Why are some careers 'Common' and some 'Stretch'?",
-        elevated: false,
-        terminal_title: null,
-      },
-    ]);
     seedWithResolvedMajor();
     renderScreen();
 
-    const group = await screen.findByRole("group", {
-      name: "Ask Gemma about these career paths",
-    });
+    // One sparkle button per rendered career.
     expect(
-      within(group).getByRole("button", {
-        name: "Why are some careers 'Common' and some 'Stretch'?",
-      }),
+      await screen.findByTestId("btn-ask-career-19-4021"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Make sense of these paths")).toBeInTheDocument();
-    expect(mockGetCareerPickChips).toHaveBeenCalledWith({
-      cipcode: "52.1401",
-      majorText: "Marketing",
-      socCodes: ["19-4021", "11-9121"],
-    });
+    expect(screen.getByTestId("btn-ask-career-11-9121")).toBeInTheDocument();
   });
 
-  it("asks Gemma from the Set Your Course chip row with rendered SOC context", async () => {
+  it("clicking the career sparkle opens the chat and auto-fires a career-scope opener", async () => {
     const careers = makeCareers();
     vi.mocked(getOutcomes).mockResolvedValue(careers);
-    mockGetCareerPickChips.mockResolvedValueOnce([
-      {
-        id: "why_these_tiers",
-        label: "Why are some careers 'Common' and some 'Stretch'?",
-        elevated: false,
-        terminal_title: null,
-      },
-    ]);
-    mockAskCareerPickChip.mockResolvedValueOnce({
-      chip_id: "why_these_tiers",
-      answer: "Gemma explains how these paths relate to the program.",
-      fallback_fired: false,
-    });
     seedWithResolvedMajor();
     renderScreen();
 
-    const group = await screen.findByRole("group", {
-      name: "Ask Gemma about these career paths",
-    });
-    fireEvent.click(
-      within(group).getByRole("button", {
-        name: "Why are some careers 'Common' and some 'Stretch'?",
-      }),
-    );
+    const sparkle = await screen.findByTestId("btn-ask-career-19-4021");
+    mockAskGemmaStream.mockClear();
+    fireEvent.click(sparkle);
 
+    // Chat dialog mounts (the slide-in's role=dialog).
     await waitFor(() => {
-      expect(mockAskCareerPickChip).toHaveBeenCalledWith({
-        chipId: "why_these_tiers",
-        cipcode: "52.1401",
-        majorText: "Marketing",
-        socCodes: ["19-4021", "11-9121"],
-        selectedSoc: null,
-        terminalTitle: null,
-        locale: "en",
-      });
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
     });
-    expect(
-      await screen.findByText(
-        "Gemma explains how these paths relate to the program.",
-      ),
-    ).toBeInTheDocument();
+
+    // The opener fires askGemmaStream with kind="career", target_id=SOC,
+    // and a prompt that includes the occupation title.
+    await waitFor(() => {
+      expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
+    });
+    const openerCall = mockAskGemmaStream.mock.calls[0]!;
+    const scope = openerCall[0] as {
+      kind: string;
+      target_id: string;
+      build_ids: string[];
+    };
+    expect(scope.kind).toBe("career");
+    expect(scope.target_id).toBe("19-4021");
+    expect(scope.build_ids).toEqual([]);
+    expect(openerCall[1]).toMatch(/describe in detail/i);
   });
 });
 
