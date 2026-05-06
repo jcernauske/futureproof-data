@@ -517,8 +517,33 @@ export function BossBand({
                       }
                     }}
                   >
-                    <div className="font-display font-semibold text-text-primary pr-16" style={{ fontSize: 14 }}>
+                    <div className="font-display font-semibold text-text-primary pr-12" style={{ fontSize: 14 }}>
                       {skill.title}
+                      {onAskSkill && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAskSkill(skill.id);
+                          }}
+                          disabled={chatOpen}
+                          data-testid={`btn-ask-skill-${skill.id}`}
+                          aria-label={`Ask Gemma about ${skill.title}`}
+                          className={[
+                            "inline-flex items-center justify-center align-middle ml-1.5",
+                            "w-5 h-5 rounded-full",
+                            "bg-bp-deep/80 border border-border-subtle",
+                            "hover:bg-state-loading hover:border-accent-insight/40 hover:scale-110",
+                            "active:scale-100",
+                            "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
+                            "disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100",
+                            "transition-all duration-fast",
+                            "cursor-pointer",
+                          ].join(" ")}
+                        >
+                          <span aria-hidden className="text-accent-insight text-[11px]">✦</span>
+                        </button>
+                      )}
                     </div>
                     <div className="font-body text-text-secondary mt-1" style={{ fontSize: 13, lineHeight: 1.5 }}>
                       {skill.rationale}
@@ -529,31 +554,6 @@ export function BossBand({
                         return val !== 0 ? <SkillStatBadge key={key} stat={key} delta={val} /> : null;
                       })}
                     </div>
-                    {onAskSkill && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAskSkill(skill.id);
-                        }}
-                        disabled={chatOpen}
-                        data-testid={`btn-ask-skill-${skill.id}`}
-                        aria-label={`Ask Gemma about ${skill.title}`}
-                        className={[
-                          "absolute top-3 right-10 -m-2 p-2",
-                          "w-6 h-6 box-content flex items-center justify-center rounded-full",
-                          "bg-bp-deep/80 border border-border-subtle",
-                          "hover:bg-state-loading hover:border-accent-insight/40 hover:scale-110",
-                          "active:scale-100",
-                          "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
-                          "disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100",
-                          "transition-all duration-fast",
-                          "cursor-pointer",
-                        ].join(" ")}
-                      >
-                        <span aria-hidden className="text-accent-insight text-[12px]">✦</span>
-                      </button>
-                    )}
                     <div
                       className="absolute top-3 right-3 flex-shrink-0 rounded-full flex items-center justify-center"
                       style={{
