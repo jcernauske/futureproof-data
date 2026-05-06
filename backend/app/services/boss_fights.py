@@ -649,15 +649,103 @@ _NARRATIVE_SYSTEM = (
     "keep going', 'follow your passion', 'unfortunately'.\n\n"
     "Structure each response as 2-3 sentences of prose, written at a "
     "7th-grade reading level. First, say what the data means in real "
-    "life. Then, either name one concrete thing that keeps a strong "
-    "outcome strong, one lever that could shift a mixed outcome, or "
-    "one real next step for a tough outcome. Never doom-frame — a "
+    "life. Then, be specific about WHY the outcome happened and WHAT "
+    "could change it:\n"
+    "- For a strong outcome: name the specific strength that carried "
+    "it — 'your AI resilience score is high because most of this work "
+    "still requires a person.'\n"
+    "- For a borderline outcome: say exactly how close it was and "
+    "what would tip it — 'you were one point short; picking up skills "
+    "in human-centered work could push you over.'\n"
+    "- For a tough outcome: name the specific gap and what kind of "
+    "skill or change would close it — 'the AI exposure on this role "
+    "is high and the human-essential score is low; skills in creative "
+    "problem-solving or client relationships would help.'\n"
+    "The prompt gives you a Scoring section with the exact threshold "
+    "and gap. Use it to ground your advice in specifics, but translate "
+    "the numbers into plain language — never echo stat codes or raw "
+    "scores.\n"
+    "Never doom-frame — a "
     "student can always change school, major, or path.\n\n"
     "If the prompt tells you there is no data for this piece of the "
     "career path, say so plainly. Do not invent a number, do not "
     "guess, do not fill silence with generic advice. A short, honest "
     "'there isn't enough data to say' is better than a made-up answer."
 )
+
+_BOSS_LEVER_HINT: dict[str, str] = {
+    "ai": (
+        "This score comes from two inputs: how exposed the occupation is "
+        "to AI automation, and how much of the daily work requires "
+        "uniquely human skills (creativity, empathy, physical presence, "
+        "judgment). Skills that strengthen the human side raise the score."
+    ),
+    "loans": (
+        "This score reflects how manageable the debt is relative to "
+        "starting earnings. A lower loan percentage, scholarships, or a "
+        "less expensive school would improve it. Skills don't directly "
+        "change this — it's about the financing plan."
+    ),
+    "market": (
+        "This score is driven by how fast the job market for this "
+        "occupation is growing according to BLS projections. Picking a "
+        "specialization within the field that's in higher demand can help."
+    ),
+    "burnout": (
+        "This score reflects how demanding the daily work environment is "
+        "— long hours, physical strain, high-stakes pressure. Skills in "
+        "stress management, work-life boundaries, or moving into less "
+        "intense specializations can shift it."
+    ),
+    "ceiling": (
+        "This score reflects how high earnings can go in this career — "
+        "the gap between entry-level and experienced pay. Advanced "
+        "credentials, leadership skills, or specializing in high-value "
+        "niches can raise the ceiling."
+    ),
+}
+
+
+def _scoring_explanation(fight: BossFightResult) -> str:
+    """Plain-English scoring context: threshold, raw score, and what
+    the inputs mean so Gemma can give specific guidance."""
+    if fight.raw_score is None:
+        return "No score data available for this risk."
+    return (
+        f"The student scored {fight.raw_score}. "
+        f"Needed {fight.threshold_win} or higher to pass, "
+        f"{fight.threshold_draw} or higher for borderline."
+    )
+
+
+def _gap_description(fight: BossFightResult) -> str:
+    """How far the student is from the next threshold, plus the
+    lever hint for this boss."""
+    if fight.raw_score is None:
+        return ""
+    lever = _BOSS_LEVER_HINT.get(fight.boss, "")
+    if fight.result == "win":
+        margin = fight.raw_score - fight.threshold_win
+        gap_line = (
+            f"The student cleared the threshold by {margin} point(s). "
+            "Explain what strength carried them."
+        )
+    elif fight.result == "draw":
+        needed = fight.threshold_win - fight.raw_score
+        gap_line = (
+            f"The student is {needed} point(s) short of passing. "
+            "Name what specific improvement would close that gap."
+        )
+    else:
+        needed = fight.threshold_draw - fight.raw_score
+        gap_line = (
+            f"The student is {needed} point(s) below borderline and "
+            f"{fight.threshold_win - fight.raw_score} point(s) from "
+            f"passing. Name the biggest lever to close the gap."
+        )
+    if lever:
+        return f"{gap_line}\n{lever}"
+    return gap_line
 
 
 def _narrative_prompt(
@@ -676,10 +764,20 @@ def _narrative_prompt(
     if context:
         parts.append("")
         parts.append(context)
+    scoring = _scoring_explanation(fight)
+    gap = _gap_description(fight)
+
     parts.extend([
         "",
         f"Fight: {fight.label}",
         f"Result: {fight.result.upper()} — {fight.reason}",
+        "",
+        "Scoring:",
+        scoring,
+    ])
+    if gap:
+        parts.append(gap)
+    parts.extend([
         "",
         instructions,
     ])
