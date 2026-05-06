@@ -157,7 +157,10 @@ export type AskScope =
   | { kind: "skill"; build_ids: [string]; target_id: string }
   | { kind: "build"; build_ids: [string]; target_id?: null }
   | { kind: "compare"; build_ids: string[]; target_id?: null }
-  | { kind: "branch"; build_ids: [string]; target_id: string };
+  | { kind: "branch"; build_ids: [string]; target_id: string }
+  // Career-pick scope: the student is exploring a SOC before any build
+  // exists, so build_ids is always empty. target_id is the SOC code.
+  | { kind: "career"; build_ids: []; target_id: string };
 
 /**
  * One enriched tool-call entry on `AskResponse.tool_calls` — mirrors

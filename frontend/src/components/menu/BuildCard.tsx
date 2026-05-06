@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { MiniPentagon } from "@/components/menu/MiniPentagon";
+import { VERDICT_TIERS } from "@/components/build-results/bossData";
+import { useT } from "@/i18n/useT";
 import type { BuildSummary } from "@/api/menu";
 
 interface BuildCardProps {
@@ -33,10 +35,20 @@ export function BuildCard({
   onTap,
   onDelete,
 }: BuildCardProps) {
+  const t = useT();
   const labelColor = isMostRecent ? "text-accent-thrive" : "text-text-primary";
   const borderClass = selected
     ? "border-accent-thrive/40 shadow-glow-thrive"
     : "border-border-subtle";
+
+  // Final career-readiness verdict (matches the big VerdictBadge on
+  // /my-build, just smaller). Hidden until at least one fight has
+  // resolved — a fresh build with all-zero gauntlet should not flash
+  // "VULNERABLE" before the student has even played a round.
+  const totalScored = build.wins + build.losses + build.draws;
+  const verdictTier = VERDICT_TIERS.find((tier) => build.wins >= tier.min)
+    ?? VERDICT_TIERS[VERDICT_TIERS.length - 1]!;
+  const showVerdict = totalScored > 0;
 
   return (
     <motion.div
@@ -96,6 +108,16 @@ export function BuildCard({
           {build.major_text} · {build.career_title}
         </div>
       </div>
+
+      {showVerdict && (
+        <div
+          className={`shrink-0 font-display font-bold ${verdictTier.accentClass}`}
+          style={{ fontSize: 11, letterSpacing: 1 }}
+          data-testid={`build-verdict-${build.build_id}`}
+        >
+          {t(verdictTier.wordShortKey)}
+        </div>
+      )}
 
       <div className="shrink-0 flex items-center gap-3">
         <MiniPentagon stats={build} />

@@ -11,11 +11,22 @@ import { listBuilds, type BuildSummary } from "@/api/menu";
 import { deleteBuild, getBuild } from "@/api/build";
 import { BuildCard } from "@/components/menu/BuildCard";
 import { CompareView } from "@/components/menu/CompareView";
+import { VERDICT_TIERS } from "@/components/build-results/bossData";
 
 import { PageContainer } from "@/components/ui/PageContainer";
 import { useT } from "@/i18n/useT";
 
 type Mode = "list" | "select" | "compare";
+
+// Status filter values mirror VERDICT_TIERS — matching is by `min` so the
+// filter picks builds whose `wins` resolve to that exact tier.
+type StatusFilter = "all" | (typeof VERDICT_TIERS)[number]["wordShortKey"];
+
+function buildStatusKey(wins: number): (typeof VERDICT_TIERS)[number]["wordShortKey"] {
+  const tier = VERDICT_TIERS.find((t) => wins >= t.min)
+    ?? VERDICT_TIERS[VERDICT_TIERS.length - 1]!;
+  return tier.wordShortKey;
+}
 
 export function MenuScreen() {
   const navigate = useNavigate();
@@ -33,6 +44,8 @@ export function MenuScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   // Lock as a ref so a fast double-click can't race two getBuild calls
   // and land at /my-build with the wrong build's payload.
   const navigatingRef = useRef<string | null>(null);
@@ -76,6 +89,36 @@ export function MenuScreen() {
     // listBuilds returns newest first, so position 0 is the most recent.
     return builds[0]!.build_id;
   }, [builds]);
+
+  // Filter builds by free-text search (school OR career, case-insensitive
+  // substring) and by build status (verdict tier). Builds with zero
+  // scored fights collapse into the lowest tier (VULNERABLE) — same
+  // grouping the BuildCard verdict label uses, but they are kept out of
+  // *all* status-tier filters except "all" so a fresh build doesn't get
+  // tagged as VULNERABLE in the filter pills.
+  const filteredBuilds = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return builds.filter((b) => {
+      if (query) {
+        const inSchool = b.school_name.toLowerCase().includes(query);
+        const inCareer = b.career_title.toLowerCase().includes(query);
+        if (!inSchool && !inCareer) return false;
+      }
+      if (statusFilter !== "all") {
+        const totalScored = b.wins + b.losses + b.draws;
+        if (totalScored === 0) return false;
+        if (buildStatusKey(b.wins) !== statusFilter) return false;
+      }
+      return true;
+    });
+  }, [builds, searchQuery, statusFilter]);
+
+  const filtersActive = searchQuery.trim().length > 0 || statusFilter !== "all";
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery("");
+    setStatusFilter("all");
+  }, []);
 
   const handleViewBuild = useCallback(
     async (build: BuildSummary) => {
@@ -265,6 +308,100 @@ export function MenuScreen() {
                 </div>
               )}
               {!loadingList && !listError && builds.length > 0 && (
+                <div
+                  data-testid="builds-filters"
+                  role="search"
+                  aria-label={t("menu.filterStatusAria")}
+                  className="flex flex-col gap-3 mb-3"
+                >
+                  <div
+                    role="radiogroup"
+                    aria-label={t("menu.filterStatusAria")}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={t("menu.filterSearchPlaceholder")}
+                      data-testid="input-builds-filter-search"
+                      className="h-9 px-4 bg-bp-deep border border-border-subtle rounded-md font-body text-body text-text-primary placeholder:text-text-muted focus:border-accent-info focus:outline-none focus:shadow-[0_0_0_3px_rgba(123,184,224,0.15)] transition-all duration-normal flex-1 min-w-[200px]"
+                    />
+                    {(["all", ...VERDICT_TIERS.map((tt) => tt.wordShortKey)] as const).map((value) => {
+                      const isActive = statusFilter === value;
+                      const isAll = value === "all";
+                      const tier = isAll
+                        ? null
+                        : VERDICT_TIERS.find((tt) => tt.wordShortKey === value)!;
+                      const label = isAll
+                        ? t("menu.filterStatusAll")
+                        : t(tier!.wordShortKey);
+                      const accent = tier?.accentClass ?? "text-text-primary";
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          role="radio"
+                          aria-checked={isActive}
+                          data-testid={`filter-status-${isAll ? "all" : tier!.wordShortKey.split(".").pop()}`}
+                          onClick={() =>
+                            setStatusFilter(value as StatusFilter)
+                          }
+                          className={`px-3 py-1.5 rounded-full font-data font-bold uppercase border transition-colors duration-normal cursor-pointer ${
+                            isActive
+                              ? `${accent} border-current bg-bp-surface`
+                              : "text-text-muted border-border-subtle hover:text-text-secondary hover:border-border"
+                          }`}
+                          style={{ fontSize: 11, letterSpacing: 1 }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                    {filtersActive && (
+                      <button
+                        type="button"
+                        onClick={clearFilters}
+                        data-testid="btn-clear-filters"
+                        className="ml-auto px-3 py-1.5 rounded-full font-body text-small text-text-secondary hover:text-text-primary cursor-pointer"
+                      >
+                        {t("menu.filterClear")}
+                      </button>
+                    )}
+                  </div>
+                  {filtersActive && (
+                    <p
+                      data-testid="builds-filter-count"
+                      className="font-data text-micro text-text-muted"
+                    >
+                      {t("menu.filterCount")
+                        .replace("{count}", String(filteredBuilds.length))
+                        .replace("{total}", String(builds.length))}
+                    </p>
+                  )}
+                </div>
+              )}
+              {!loadingList && !listError && builds.length > 0 && filteredBuilds.length === 0 && (
+                <div
+                  className="flex flex-col items-center gap-3 py-12 text-center"
+                  data-testid="builds-filter-empty"
+                >
+                  <p className="font-display text-heading text-text-primary">
+                    {t("menu.filterEmptyTitle")}
+                  </p>
+                  <p className="font-body text-body text-text-secondary">
+                    {t("menu.filterEmptyDescription")}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    onClick={clearFilters}
+                    data-testid="btn-clear-filters-empty"
+                  >
+                    {t("menu.filterClear")}
+                  </Button>
+                </div>
+              )}
+              {!loadingList && !listError && filteredBuilds.length > 0 && (
                 <motion.div
                   className="flex flex-col gap-2"
                   initial="hidden"
@@ -274,7 +411,7 @@ export function MenuScreen() {
                     visible: { transition: { staggerChildren: stagger.normal } },
                   }}
                 >
-                  {builds.map((build) => (
+                  {filteredBuilds.map((build) => (
                     <motion.div
                       key={build.build_id}
                       variants={{
