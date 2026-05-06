@@ -23,6 +23,14 @@ interface CareerCardProps {
    * and L2 nodes (program-specific data only available at the root).
    */
   hideNullStats?: boolean;
+  /**
+   * Optional Ask-Gemma handler. When provided, the card renders an
+   * inline sparkle button next to the occupation title; clicking it
+   * opens the chat with a career-scope opener (mirrors the skill
+   * sparkle on /my-build). Click is stopPropagation'd so the card's
+   * onSelect doesn't also fire.
+   */
+  onAskGemma?: (career: CareerOutcome) => void;
 }
 
 const STAT_ORDER: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
@@ -108,17 +116,30 @@ export function CareerCard({
   ernShift = 0,
   educationLabel,
   hideNullStats = false,
+  onAskGemma,
 }: CareerCardProps) {
   const wage = career.median_annual_wage;
   const reducedMotion = useReducedMotion() ?? false;
 
+  // role="button" + tabIndex (instead of <button>) so the sparkle can
+  // nest as a real <button> inside without violating button-in-button
+  // semantics. Keyboard activation (Enter/Space → onSelect) is wired
+  // explicitly. Same pattern the skill card uses on BossBand.
   return (
-    <motion.button
-      type="button"
+    <motion.div
       id={`career-${career.soc_code}`}
+      role="button"
+      tabIndex={0}
       aria-label={`${career.occupation_title}${picked ? " (selected)" : ""}`}
       aria-pressed={picked}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={`w-full text-left rounded-xl p-5 border cursor-pointer transition-all duration-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-focus-ring)] ${
         picked
           ? "bg-bp-surface border-accent-thrive/40 shadow-glow-thrive -translate-y-0.5"
@@ -136,9 +157,40 @@ export function CareerCard({
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-body font-bold text-body-lg text-text-primary line-clamp-2">
-              {career.occupation_title}
-            </h3>
+            {/* Title + sparkle live in the same flex row. The sparkle is
+                a sibling of the h3 (not nested inside) so the h3's
+                ``line-clamp-2`` truncation can't clip the button when the
+                title overflows. ``shrink-0`` reserves the button's width
+                so the title takes whatever's left. ``mt-0.5`` aligns the
+                button's optical center with the first text line. */}
+            <div className="flex items-start gap-1.5 min-w-0 flex-1">
+              <h3 className="font-body font-bold text-body-lg text-text-primary line-clamp-2 min-w-0">
+                {career.occupation_title}
+              </h3>
+              {onAskGemma && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAskGemma(career);
+                  }}
+                  data-testid={`btn-ask-career-${career.soc_code}`}
+                  aria-label={`Ask Gemma about ${career.occupation_title}`}
+                  className={[
+                    "shrink-0 mt-0.5 inline-flex items-center justify-center",
+                    "w-5 h-5 rounded-full",
+                    "bg-bp-deep/80 border border-border-subtle",
+                    "hover:bg-state-loading hover:border-accent-insight/40 hover:scale-110",
+                    "active:scale-100",
+                    "focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none",
+                    "transition-all duration-fast",
+                    "cursor-pointer",
+                  ].join(" ")}
+                >
+                  <span aria-hidden className="text-accent-insight text-[11px]">✦</span>
+                </button>
+              )}
+            </div>
             {picked && (
               <span
                 aria-hidden="true"
@@ -179,6 +231,6 @@ export function CareerCard({
           );
         })}
       </div>
-    </motion.button>
+    </motion.div>
   );
 }

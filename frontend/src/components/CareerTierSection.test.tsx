@@ -98,7 +98,13 @@ describe("CareerTierSection", () => {
         onSelect={onSelect}
       />,
     );
-    screen.getByText("Software Developer").closest("button")!.click();
+    // CareerCard is a `<div role="button">` (so it can nest a real
+    // sparkle <button> for Ask Gemma without violating button-in-button
+    // semantics) — match by role, not tag.
+    screen
+      .getByText("Software Developer")
+      .closest("[role=\"button\"]")!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onSelect).toHaveBeenCalledWith(careers[0]);
   });
 });

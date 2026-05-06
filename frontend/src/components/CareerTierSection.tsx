@@ -20,6 +20,7 @@ interface CareerTierSectionProps {
   pickedSoc: string | null;
   onSelect: (career: CareerOutcome) => void;
   ernShift?: number;
+  onAskGemma?: (career: CareerOutcome) => void;
 }
 
 export function CareerTierSection({
@@ -31,6 +32,7 @@ export function CareerTierSection({
   pickedSoc,
   onSelect,
   ernShift = 0,
+  onAskGemma,
 }: CareerTierSectionProps) {
   if (careers.length === 0) return null;
 
@@ -67,6 +69,7 @@ export function CareerTierSection({
               picked={pickedSoc === career.soc_code}
               onSelect={() => onSelect(career)}
               ernShift={ernShift}
+              onAskGemma={onAskGemma}
             />
           </motion.div>
         ))}
