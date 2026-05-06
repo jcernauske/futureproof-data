@@ -775,6 +775,9 @@ export function BuildResultsScreen() {
             // cost + ROI come back residency-aware (matches FINANCES card).
             homeState={homeState ?? null}
             open={compareOpen}
+            // Slide the leaderboard left when Ask Gemma is open so the
+            // chat drawer doesn't cover the right-side columns.
+            chatOpen={chatOpen}
             onClose={() => setCompareOpen(false)}
             onBuildAtRow={(row: SchoolForCareerRow) => {
               if (!profileName) return;

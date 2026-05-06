@@ -58,6 +58,11 @@ export interface CompareSchoolsPanelProps {
   // Optional: when provided, each row gets a "build at this school" action.
   // The host owns the actual build-spawn logic + sheet close.
   onBuildAtRow?: (row: SchoolForCareerRow) => void;
+  // When true, slide the sheet left by the Ask Gemma drawer's 360px
+  // tablet+ width and clamp max-width so the panel doesn't overflow into
+  // the chat surface. No-op below the tablet breakpoint where chat is a
+  // full-screen modal. Sheet-enclosure only.
+  chatOpen?: boolean;
 }
 
 function interpolate(
@@ -84,7 +89,7 @@ interface PanelDataState {
 const INITIAL: PanelDataState = { status: "idle", response: null, error: null };
 
 export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
-  const { enclosure, open, onClose, defaultExpanded } = props;
+  const { enclosure, open, onClose, defaultExpanded, chatOpen } = props;
   const isOpen = enclosure === "sheet" ? Boolean(open) : true;
   const [expanded, setExpanded] = useState<boolean>(
     enclosure === "inline" ? Boolean(defaultExpanded) : true,
@@ -268,7 +273,10 @@ export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
     const sheetTree = (
       <AnimatePresence>
         {isOpen ? (
-          <SheetEnclosure onClose={onClose ?? (() => undefined)}>
+          <SheetEnclosure
+            onClose={onClose ?? (() => undefined)}
+            chatOpen={chatOpen ?? false}
+          >
             {body}
           </SheetEnclosure>
         ) : null}
@@ -291,9 +299,11 @@ export function CompareSchoolsPanel(props: CompareSchoolsPanelProps) {
 function SheetEnclosure({
   children,
   onClose,
+  chatOpen,
 }: {
   children: React.ReactNode;
   onClose: () => void;
+  chatOpen: boolean;
 }) {
   const reduce = useReducedMotion();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
@@ -324,7 +334,17 @@ function SheetEnclosure({
         aria-modal="true"
         aria-label={t("compareSchools.toggle")}
         data-testid="panel-compare-schools"
-        className="fixed inset-y-0 right-0 w-full sm:w-[640px] max-w-full bg-bp-mid shadow-lg z-50 flex flex-col"
+        // Sheet slides in from the right and is pinned to the right edge.
+        // When chatOpen, offset by 360px (the Ask Gemma drawer's tablet+
+        // width) so the leaderboard isn't covered. The `max-w-[calc(...)]`
+        // clamp prevents the panel from extending past where the chat
+        // drawer starts on narrow desktops. Below the tablet breakpoint
+        // chat is a full-screen modal, so no offset is needed.
+        className={`fixed inset-y-0 w-full sm:w-[640px] lg:w-[880px] xl:w-[980px] bg-bp-mid shadow-lg z-50 flex flex-col transition-[right,max-width] duration-200 ease-out ${
+          chatOpen
+            ? "right-0 tablet:right-[360px] max-w-full tablet:max-w-[calc(100vw-360px)]"
+            : "right-0 max-w-full"
+        }`}
         initial={{ x: reduce ? 0 : "100%", opacity: reduce ? 0 : 1 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: reduce ? 0 : "100%", opacity: reduce ? 0 : 1 }}
