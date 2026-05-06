@@ -17,6 +17,7 @@ interface PentagonChartProps {
   highlightStat?: StatKey | null;
   dimOpacity?: number;
   overlays?: PentagonOverlayShape[];
+  onHoverStat?: (key: StatKey | null) => void;
 }
 
 const AXES: { key: StatKey; label: string; color: string }[] = [
@@ -70,6 +71,7 @@ export function PentagonChart({
   highlightStat = null,
   dimOpacity = 1,
   overlays,
+  onHoverStat,
 }: PentagonChartProps) {
   const isOverlayMode = overlays && overlays.length > 0;
   return (
@@ -200,6 +202,7 @@ export function PentagonChart({
               const val = Math.max(0, Math.min(10, rawVal));
               const [cx, cy] = vertexPos(i, RADIUS * (val / 10));
               const isHighlighted = highlightStat === null || highlightStat === axis.key;
+              const isActive = highlightStat === axis.key;
               const dotOpacity = isHighlighted ? 1 : dimOpacity;
 
               return (
@@ -207,12 +210,34 @@ export function PentagonChart({
                   key={`dot-${i}`}
                   data-stat={axis.key}
                   initial={animated ? { opacity: 0, scale: 0 } : undefined}
-                  animate={{ opacity: dotOpacity, scale: 1 }}
-                  transition={animated ? { ...springs.bouncy, delay: delay + 0.5 + i * 0.15 } : undefined}
+                  animate={{
+                    opacity: dotOpacity,
+                    scale: isActive ? [1, 1.3, 1] : 1,
+                  }}
+                  transition={animated && !isActive
+                    ? { ...springs.bouncy, delay: delay + 0.5 + i * 0.15 }
+                    : isActive
+                      ? { scale: { duration: 1.2, repeat: Infinity, ease: "easeInOut" } }
+                      : undefined}
                   style={{ transformOrigin: `${cx}px ${cy}px` }}
                 >
+                  {isActive && (
+                    <circle cx={cx} cy={cy} r="14" fill={axis.color} opacity="0.08">
+                      <animate attributeName="r" values="10;18;10" dur="1.2s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.12;0.03;0.12" dur="1.2s" repeatCount="indefinite" />
+                    </circle>
+                  )}
                   <circle cx={cx} cy={cy} r="10" fill={axis.color} opacity="0.12" />
                   <circle cx={cx} cy={cy} r="5" fill={axis.color} opacity="0.9" />
+                  {onHoverStat && (
+                    <circle
+                      cx={cx} cy={cy} r="16"
+                      fill="transparent"
+                      style={{ cursor: "pointer" }}
+                      onMouseEnter={() => onHoverStat(axis.key)}
+                      onMouseLeave={() => onHoverStat(null)}
+                    />
+                  )}
                 </motion.g>
               );
             })}
