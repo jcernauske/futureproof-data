@@ -123,8 +123,8 @@ export const RESULT_COLORS = {
 };
 
 export const VERDICT_TIERS = [
-  { min: 5, word: "DOMINANT BUILD", wordKey: "build.verdictDominant", subtitle: "Unstoppable", subtitleKey: "build.verdictSubDominant", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.3)", glow: "0 0 20px rgba(125,212,163,0.15)" },
-  { min: 3, word: "SOLID BUILD", wordKey: "build.verdictSolid", subtitle: "Strong across the board", subtitleKey: "build.verdictSubSolid", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.25)", glow: "0 0 16px rgba(125,212,163,0.10)" },
-  { min: 2, word: "MIXED BUILD", wordKey: "build.verdictMixed", subtitle: "Real strengths, real challenges", subtitleKey: "build.verdictSubMixed", accentClass: "text-accent-caution", border: "rgba(242,212,119,0.25)", glow: "0 0 16px rgba(242,212,119,0.10)" },
-  { min: 0, word: "VULNERABLE BUILD", wordKey: "build.verdictVulnerable", subtitle: "Eyes open", subtitleKey: "build.verdictSubVulnerable", accentClass: "text-accent-alert", border: "rgba(244,169,126,0.25)", glow: "0 0 16px rgba(244,169,126,0.10)" },
+  { min: 5, word: "DOMINANT BUILD", wordKey: "build.verdictDominant", wordShortKey: "build.verdictShortDominant", subtitle: "Unstoppable", subtitleKey: "build.verdictSubDominant", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.3)", glow: "0 0 20px rgba(125,212,163,0.15)" },
+  { min: 3, word: "SOLID BUILD", wordKey: "build.verdictSolid", wordShortKey: "build.verdictShortSolid", subtitle: "Strong across the board", subtitleKey: "build.verdictSubSolid", accentClass: "text-accent-thrive", border: "rgba(125,212,163,0.25)", glow: "0 0 16px rgba(125,212,163,0.10)" },
+  { min: 2, word: "MIXED BUILD", wordKey: "build.verdictMixed", wordShortKey: "build.verdictShortMixed", subtitle: "Real strengths, real challenges", subtitleKey: "build.verdictSubMixed", accentClass: "text-accent-caution", border: "rgba(242,212,119,0.25)", glow: "0 0 16px rgba(242,212,119,0.10)" },
+  { min: 0, word: "VULNERABLE BUILD", wordKey: "build.verdictVulnerable", wordShortKey: "build.verdictShortVulnerable", subtitle: "Eyes open", subtitleKey: "build.verdictSubVulnerable", accentClass: "text-accent-alert", border: "rgba(244,169,126,0.25)", glow: "0 0 16px rgba(244,169,126,0.10)" },
 ] as const;
