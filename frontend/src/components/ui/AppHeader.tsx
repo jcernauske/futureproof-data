@@ -46,12 +46,7 @@ export function AppHeader() {
     navLockRef.current = false;
   }, [location.pathname]);
 
-  // TODO (spec §11 post-hackathon): replace this pathname-based marketing gate
-  // with an InAppLayout wrapper route once a second marketing route lands
-  // (e.g., /privacy, /about). The current "/"-only check does not scale past
-  // one marketing surface. Tracked under `landing-page-and-design-polish.md`
-  // §11 Follow-ups + staff-engineer Finding 5.
-  const isMarketing = location.pathname === "/";
+  const isMarketing = false;
   const isGauntlet = location.pathname === "/gauntlet";
   // Active-fight tunnel-vision rule: hide right-zone CTAs only while a fight
   // is mid-animation. The header bar itself stays at 0.55 opacity for the

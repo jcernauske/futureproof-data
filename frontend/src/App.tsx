@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Landing } from "@/pages/Landing";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SetYourCourseScreen } from "@/screens/SetYourCourseScreen";
 import { GauntletScreen } from "@/screens/GauntletScreen";
@@ -20,8 +19,7 @@ export function AppRoutes() {
       <GlobalChrome />
       <AppHeader />
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/app" element={<Navigate to="/set-your-course" replace />} />
+        <Route path="/" element={<Navigate to="/set-your-course" replace />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/set-your-course" element={<SetYourCourseScreen />} />
         <Route path="/my-build" element={<BuildResultsScreen />} />

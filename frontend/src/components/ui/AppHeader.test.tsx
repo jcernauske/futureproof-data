@@ -114,9 +114,9 @@ describe("AppHeader — right-zone visibility rules", () => {
     resetStores();
   });
 
-  it("does not render header on marketing landing /", () => {
+  it("renders header on / (no landing page)", () => {
     renderHeader("/");
-    expect(document.querySelector("header")).not.toBeInTheDocument();
+    expect(document.querySelector("header")).toBeInTheDocument();
   });
 
   it("hides all right-zone CTAs during active gauntlet fight", () => {

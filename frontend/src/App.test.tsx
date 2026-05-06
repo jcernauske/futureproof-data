@@ -30,17 +30,7 @@ describe("App routes", () => {
     });
   });
 
-  it("marketing Landing is rendered at /", () => {
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <AppRoutes />
-      </MemoryRouter>,
-    );
-    expect(document.getElementById("landing-root")).toBeInTheDocument();
-    expect(document.getElementById("landing-hero-cta")).toBeInTheDocument();
-  });
-
-  it("/app redirects to /set-your-course which bounces to /profile for auto-generation", async () => {
+  it("/ redirects to /set-your-course which bounces to /profile for auto-generation", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: () =>
@@ -51,7 +41,7 @@ describe("App routes", () => {
         }),
     });
     render(
-      <MemoryRouter initialEntries={["/app"]}>
+      <MemoryRouter initialEntries={["/"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
@@ -97,36 +87,6 @@ describe("App routes", () => {
     expect(screen.queryByText(/Spec my build/i)).not.toBeInTheDocument();
   });
 
-  // Regression guard for refactor-prune-deprecated-build-flow Decision #4.
-  // /app used to mount LandingScreen (12-line useEffect → navigate).
-  // It now mounts <Navigate to="/set-your-course" replace />. This test
-  // pins the *redirect target* — if someone re-introduces a LandingScreen
-  // element on /app, this test catches it because /app must transitively
-  // land on /profile (via the /set-your-course → /profile auto-generate
-  // bounce) and render the auto-generated profile name. A LandingScreen
-  // re-introduction with a different target would render different text.
-  it("/app does not mount LandingScreen — Navigate route lands on /set-your-course flow", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          profile_name: "still wise stag",
-          animal_emoji: "🦌",
-          animal_name: "stag",
-        }),
-    });
-    render(
-      <MemoryRouter initialEntries={["/app"]}>
-        <AppRoutes />
-      </MemoryRouter>,
-    );
-    // The /set-your-course → /profile bounce should auto-generate this name.
-    expect(await screen.findByText("still wise stag")).toBeInTheDocument();
-    // LandingScreen's only render output was nothing visible (it called
-    // useEffect → navigate). If anyone re-adds a LandingScreen with
-    // diagnostic copy, this guard fires.
-    expect(screen.queryByText(/Redirecting/i)).not.toBeInTheDocument();
-  });
 });
 
 describe("AppHeader visibility by route", () => {
@@ -140,13 +100,22 @@ describe("AppHeader visibility by route", () => {
     useBuildsCountStore.setState({ count: 0, loading: false, error: null });
   });
 
-  it("does not render on marketing landing /", () => {
+  it("renders header on / (redirects to app)", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          profile_name: "calm true owl",
+          animal_emoji: "🦉",
+          animal_name: "owl",
+        }),
+    });
     render(
       <MemoryRouter initialEntries={["/"]}>
         <AppRoutes />
       </MemoryRouter>,
     );
-    expect(document.querySelector("header")).not.toBeInTheDocument();
+    expect(document.querySelector("header")).toBeInTheDocument();
   });
 
   it("renders header on /profile", async () => {
