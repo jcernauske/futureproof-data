@@ -450,6 +450,11 @@ class SchoolForCareerRow(BaseModel):
     confidence_tier_program: str | None = None
     match_quality: LeaderboardMatchQuality
     is_anchor: bool = False
+    # Number of institutions in this row's multi-campus family
+    # (flagship + branches). 1 for standalone schools and any school not
+    # in `backend/app/config/branch_campuses.py`. Spec:
+    # feature-branch-campus-suppression.md.
+    family_size: int = 1
 
 
 class SchoolsForCareerResponse(BaseModel):

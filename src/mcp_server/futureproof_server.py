@@ -27,6 +27,15 @@ from mcp_server._state_input import FIPS_TO_STATE_NAME, normalize_state_input
 from mcp_server._telemetry import timed
 from mcp_server.residency import is_public_control, published_cost_4yr
 
+# Multi-campus suppression for the schools-for-career leaderboard
+# (spec: feature-branch-campus-suppression.md). Import-time load so the
+# frozen config is in memory before the first request — no per-call
+# disk read or YAML parse.
+from app.config.branch_campuses import (  # noqa: E402
+    FAMILY_SIZE_BY_FLAGSHIP_UNITID,
+    SUPPRESSED_BRANCH_UNITIDS,
+)
+
 # Fields in program_career_paths and onet_work_profiles that are
 # persisted as JSON-encoded strings but should be returned to callers
 # as native Python objects. task_breakdown_* added in v4 of
@@ -283,6 +292,10 @@ SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_HTTP = [
     "confidence_tier_program",
     "match_quality",
     "is_anchor",
+    # Multi-campus family size (flagship + suppressed branches). 1 for
+    # standalone schools and any school not in the frozen family config.
+    # Spec: feature-branch-campus-suppression.md.
+    "family_size",
 ]
 
 SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_MCP = [
@@ -303,6 +316,8 @@ SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_MCP = [
     "confidence_tier_program",
     "match_quality",
     "is_anchor",
+    # See HTTP whitelist note above.
+    "family_size",
 ]
 
 _LEADERBOARD_MODES = ("by_soc", "by_cip_and_soc")
@@ -3777,7 +3792,44 @@ class FutureProofMCPServer(BaseMCPServer):
                     + ", ".join(f"'{tier}'" for tier in allowed_program)
                     + ")"
                 )
+            # Multi-campus suppression: drop branch-campus rows so a
+            # university system collapses to one flagship row on the
+            # leaderboard. Values come from a frozen, version-controlled
+            # Python config (trusted ints, never user input — safe to
+            # interpolate). The ``int(u)`` cast is belt-and-suspenders
+            # against a future config edit slipping a string through;
+            # the config module's import-time validator is the primary
+            # gate. Skip the clause when the set is empty so the SQL
+            # stays valid. Spec: feature-branch-campus-suppression.md.
+            if SUPPRESSED_BRANCH_UNITIDS:
+                where_parts.append(
+                    "unitid NOT IN ("
+                    + ", ".join(str(int(u)) for u in sorted(SUPPRESSED_BRANCH_UNITIDS))
+                    + ")"
+                )
             where_clause = " AND ".join(where_parts)
+
+            # Family-size column: flagship UNITIDs report the count of
+            # institutions in their family (flagship + suppressed
+            # branches); everyone else collapses to 1. The CASE chain is
+            # ~38 rows wide today and DuckDB folds it into a constant
+            # lookup, so the per-row cost is negligible at this scale.
+            # If the config ever crosses ~100 families, refactor to a
+            # ``LEFT JOIN (VALUES ...) f(unitid, family_size)`` so the
+            # planner can use a hash lookup instead of walking the CASE
+            # for every row in the CTE.
+            if FAMILY_SIZE_BY_FLAGSHIP_UNITID:
+                family_size_cases = " ".join(
+                    f"WHEN {int(flagship)} THEN {int(size)}"
+                    for flagship, size in sorted(
+                        FAMILY_SIZE_BY_FLAGSHIP_UNITID.items()
+                    )
+                )
+                family_size_expr = (
+                    f"CASE unitid {family_size_cases} ELSE 1 END AS family_size"
+                )
+            else:
+                family_size_expr = "1 AS family_size"
 
             sql = f"""
                 WITH ranked AS (
@@ -3801,6 +3853,7 @@ class FutureProofMCPServer(BaseMCPServer):
                         overall_confidence,
                         confidence_tier_program,
                         match_quality,
+                        {family_size_expr},
                         (CAST(stat_ern AS DOUBLE)
                          + CAST(stat_roi AS DOUBLE)) / 2.0 AS composite_score,
                         RANK() OVER (
@@ -3863,13 +3916,16 @@ class FutureProofMCPServer(BaseMCPServer):
                 )
                 # Dense-rank-equivalent re-numbering: ties share a rank,
                 # next rank skips by tie size. Matches RANK() OVER.
-                prev_score: float | None = object()  # type: ignore[assignment]
+                # First iteration always starts a new rank, so the
+                # ``idx == 1`` short-circuit replaces the older sentinel
+                # pattern (which lied about ``prev_score``'s type).
+                prev_score: float | None = None
                 current_rank = 0
                 for idx, row in enumerate(materialized, start=1):
                     score = row.get("composite_score")
-                    if score != prev_score:
+                    if idx == 1 or score != prev_score:
                         current_rank = idx
-                        prev_score = score
+                    prev_score = score
                     row["abs_rank"] = current_rank
             if cache_enabled:
                 snapshot = tuple(dict(r) for r in materialized)
