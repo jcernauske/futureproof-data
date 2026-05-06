@@ -628,16 +628,6 @@ describe("BuildResultsScreen -- save button (P1)", () => {
     expect(mockNavigate).not.toHaveBeenCalledWith("/save");
   });
 
-  it("share_button_navigates_to_save -- clicking Share navigates to /save (wrapped flow)", () => {
-    seedWithBuild();
-    renderScreen();
-
-    const shareButton = screen.getByTestId("btn-share-build-bar");
-    fireEvent.click(shareButton);
-
-    expect(mockNavigate).toHaveBeenCalledWith("/save");
-  });
-
   it("future_tree_link_navigates -- clicking future tree link navigates to /future", () => {
     seedWithBuild();
     renderScreen();
@@ -1082,20 +1072,37 @@ describe("BuildResultsScreen -- per-skill ask dispatches skill scope (P0)", () =
       expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
     });
 
+    // The skill ask button fires an openerPrompt automatically so the
+    // student gets an answer immediately instead of facing a single chip
+    // + empty input. The opener call carries scope.kind=skill and
+    // target_id=sk1, plus a prompt that includes the skill title.
+    await waitFor(() => {
+      expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
+    });
+    const openerCall = mockAskGemmaStream.mock.calls[0]!;
+    const openerScope = openerCall[0] as {
+      kind: string;
+      target_id: string;
+    };
+    expect(openerScope.kind).toBe("skill");
+    expect(openerScope.target_id).toBe("sk1");
+    expect(openerCall[1]).toMatch(/learn/i);
+
     fireEvent.change(screen.getByTestId("input-chat"), {
       target: { value: "Why this skill?" },
     });
     fireEvent.click(screen.getByTestId("btn-chat-send"));
 
     await waitFor(() => {
-      expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
+      expect(mockAskGemmaStream).toHaveBeenCalledTimes(2);
     });
-    const scope = mockAskGemmaStream.mock.calls[0]![0] as {
+    const sendCall = mockAskGemmaStream.mock.calls[1]!;
+    const sendScope = sendCall[0] as {
       kind: string;
       target_id: string;
     };
-    expect(scope.kind).toBe("skill");
-    expect(scope.target_id).toBe("sk1");
+    expect(sendScope.kind).toBe("skill");
+    expect(sendScope.target_id).toBe("sk1");
   });
 });
 

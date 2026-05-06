@@ -72,14 +72,41 @@ const STAT_STARTERS = [
   "How does this compare nationally?",
 ];
 
-function bossStarters(outcome: BossOutcome): string[] {
-  const chip1 =
-    outcome === "win" ? "Why did I win this?"
-    : outcome === "lose" ? "What makes this hard?"
-    : "What tipped the scale?";
-  const chips = [chip1];
+const BOSS_LOSS_CHIPS: Record<BossId, string> = {
+  ai: "What skills would help me beat AI?",
+  loans: "How can I lower this debt burden?",
+  market: "What specializations are growing?",
+  burnout: "What makes this career so demanding?",
+  ceiling: "How do I raise my earning ceiling?",
+};
+
+const BOSS_WIN_CHIPS: Record<BossId, string> = {
+  ai: "What makes this career AI-proof?",
+  loans: "What keeps my debt manageable?",
+  market: "Why is this field growing?",
+  burnout: "What keeps burnout low here?",
+  ceiling: "What drives the high earning potential?",
+};
+
+const BOSS_DRAW_CHIPS: Record<BossId, string> = {
+  ai: "How close am I to beating AI?",
+  loans: "What would tip the debt balance?",
+  market: "What would push growth higher?",
+  burnout: "What's driving the burnout risk?",
+  ceiling: "What would raise the ceiling?",
+};
+
+function bossStarters(outcome: BossOutcome, bossId: BossId): string[] {
+  const chips: string[] = [];
+  if (outcome === "win") {
+    chips.push(BOSS_WIN_CHIPS[bossId]);
+  } else if (outcome === "lose") {
+    chips.push(BOSS_LOSS_CHIPS[bossId]);
+  } else {
+    chips.push(BOSS_DRAW_CHIPS[bossId]);
+  }
   if (outcome !== "win") {
-    chips.push("Who wins this fight?");
+    chips.push("What skills should I pick to win?");
   }
   return chips;
 }
@@ -172,7 +199,7 @@ export function BuildResultsScreen() {
         { kind: "boss", build_ids: [build.build_id], target_id: bossId },
         `${prefix}: ${t(meta.shortNameKey)}`,
         undefined,
-        bossStarters(result),
+        bossStarters(result, bossId),
       );
     },
     [build, fights, openChat, t],
@@ -188,10 +215,15 @@ export function BuildResultsScreen() {
       const skill = allSkills.find((s) => s.id === skillId);
       const title = skill?.title ?? "this skill";
       const truncated = title.length > 40 ? title.slice(0, 39).trimEnd() + "…" : title;
+      // Auto-fire a question so the student gets an answer immediately
+      // instead of facing a single chip + empty input. Same UX shape as
+      // the boss "Why this is X" buttons. The opener is sent over the
+      // wire to Gemma but never shown to the student — only the
+      // assistant response renders.
       openChat(
         { kind: "skill", build_ids: [build.build_id], target_id: skillId },
         t("build.askPrefix").replace("{label}", truncated),
-        undefined,
+        `Where can I learn ${title}, and how would it help my career?`,
         SKILL_STARTERS,
       );
     },
@@ -812,6 +844,7 @@ export function BuildResultsScreen() {
                   animated
                   delay={0.3}
                   highlightStat={highlightStat}
+                  onHoverStat={setHighlightStat}
                 />
               </div>
 
@@ -845,7 +878,14 @@ export function BuildResultsScreen() {
                         {/* Name + explanation */}
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-display font-semibold text-text-primary" style={{ fontSize: 15 }}>
+                            <span
+                              className="font-display font-semibold transition-colors duration-150"
+                              style={{
+                                fontSize: 15,
+                                color: highlightStat === key ? colors?.text : "var(--color-text-primary)",
+                                animation: highlightStat === key ? "statPulse 1.2s ease-in-out infinite" : undefined,
+                              }}
+                            >
                               {t(stat.nameKey)}
                             </span>
                             {/* Info trigger */}
@@ -1010,6 +1050,10 @@ export function BuildResultsScreen() {
           from { opacity: 0; transform: translateY(24px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes statPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
         @media (max-width: 899px) {
           .path-institution-grid { grid-template-columns: 1fr !important; }
         }
@@ -1047,63 +1091,44 @@ export function BuildResultsScreen() {
                 className="grid grid-cols-2 gap-3 tablet:grid-cols-[2fr_1fr_1fr] tablet:gap-3"
                 style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
               >
-                {/* All four share anatomy: h-12 rounded-lg, font-body font-bold
-                    text-cta, centered flex, snappy whileTap. Save+Share are
-                    visually paired — same green family — and tighter together
-                    on tablet+ via a nested 2-col sub-grid (gap-1.5 inside,
-                    gap-3 outside). On mobile (< tablet), `contents` flattens
-                    them into the outer 2-col grid for a clean 2x2 of buttons. */}
-                <div className="contents tablet:grid tablet:grid-cols-2 tablet:gap-1.5">
-                  <motion.button
-                    onClick={handleSave}
-                    disabled={saveState === "saving"}
-                    aria-live="polite"
-                    aria-busy={saveState === "saving"}
-                    className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-thrive text-text-inverse hover:bg-[#6bc494] hover:shadow-glow-thrive disabled:cursor-wait disabled:opacity-90"
-                    whileTap={saveState === "idle" || saveState === "error" ? { scale: 0.97 } : undefined}
-                    transition={springs.snappy}
-                    data-testid="btn-save-build-bar"
-                  >
-                    <span className="w-5 h-5 flex-none flex items-center justify-center">
-                      {saveState === "saving" && (
-                        <svg viewBox="0 0 20 20" className="w-5 h-5 animate-spin" fill="none" aria-hidden>
-                          <circle cx="10" cy="10" r="7" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
-                          <path d="M17 10a7 7 0 0 0-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                      )}
-                      {saveState === "saved" && (
-                        <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" aria-hidden>
-                          <path d="M5 10.5l3.5 3.5L15 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                      {saveState === "error" && (
-                        <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" aria-hidden>
-                          <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className="min-w-[5.5rem] text-center">
-                      {saveState === "saving"
-                        ? t("build.savingBuild")
-                        : saveState === "saved"
-                          ? t("build.savedBuild")
-                          : saveState === "error"
-                            ? t("build.retryBuild")
-                            : t("build.saveBuild")}
-                    </span>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() => navigate("/save")}
-                    className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-thrive/15 text-accent-thrive border border-accent-thrive/40 hover:bg-accent-thrive/25 hover:border-accent-thrive/70 hover:shadow-glow-thrive"
-                    whileTap={{ scale: 0.97 }}
-                    transition={springs.snappy}
-                    data-testid="btn-share-build-bar"
-                  >
-                    <span aria-hidden className="font-display text-[18px] leading-none">↗</span>
-                    {t("build.shareBuild")}
-                  </motion.button>
-                </div>
+                <motion.button
+                  onClick={handleSave}
+                  disabled={saveState === "saving"}
+                  aria-live="polite"
+                  aria-busy={saveState === "saving"}
+                  className="w-full h-12 rounded-lg font-body font-bold text-cta cursor-pointer flex items-center justify-center gap-2 bg-accent-thrive text-text-inverse hover:bg-[#6bc494] hover:shadow-glow-thrive disabled:cursor-wait disabled:opacity-90"
+                  whileTap={saveState === "idle" || saveState === "error" ? { scale: 0.97 } : undefined}
+                  transition={springs.snappy}
+                  data-testid="btn-save-build-bar"
+                >
+                  <span className="w-5 h-5 flex-none flex items-center justify-center">
+                    {saveState === "saving" && (
+                      <svg viewBox="0 0 20 20" className="w-5 h-5 animate-spin" fill="none" aria-hidden>
+                        <circle cx="10" cy="10" r="7" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                        <path d="M17 10a7 7 0 0 0-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    )}
+                    {saveState === "saved" && (
+                      <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" aria-hidden>
+                        <path d="M5 10.5l3.5 3.5L15 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                    {saveState === "error" && (
+                      <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" aria-hidden>
+                        <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="min-w-[5.5rem] text-center">
+                    {saveState === "saving"
+                      ? t("build.savingBuild")
+                      : saveState === "saved"
+                        ? t("build.savedBuild")
+                        : saveState === "error"
+                          ? t("build.retryBuild")
+                          : t("build.saveBuild")}
+                  </span>
+                </motion.button>
 
                 <motion.button
                   onClick={() => navigate("/future")}
