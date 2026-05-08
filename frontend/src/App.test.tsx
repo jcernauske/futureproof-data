@@ -17,6 +17,19 @@ vi.mock("@/api/menu", async () => {
   };
 });
 
+// AppHeader mounts InferenceBadge which fetches /health on mount via fetch().
+// Without this mock, the badge's request would consume the test's first
+// fetchMock.mockResolvedValueOnce, causing profile-generation tests to fail.
+vi.mock("@/api/health", () => ({
+  fetchHealth: vi.fn().mockResolvedValue({
+    status: "ok",
+    project: "futureproof",
+    version: "0.1.0",
+    inference_backend: "ollama",
+    inference_model: "gemma4:e4b",
+  }),
+}));
+
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 

@@ -130,6 +130,7 @@ The voice is consistent — but the *register* shifts by surface.
 | Share / Wrapped frames | The one place restraint loosens. Celebratory, visual-first, stats-forward. |
 | Receipts | Intentionally dry. `Label: value` format. The *absence* of prose is what makes the rest trustworthy. |
 | Errors | State what broke, give the next step. No apology. |
+| PDF / printed report | **Drops the RPG metaphor entirely.** Data sections speak like Receipts (`Label: value` dry). Questions section speaks like Next Steps (verb-led). The translation table in `feature-pdf-report-exports.md` §2 Decision #4 is non-negotiable: `boss → career risk`, `WIN/LOSE/DRAW → Low/Moderate/Elevated/High`, `gauntlet → career risk profile`, `build → plan`, etc. This is the **one register-by-surface RPG-exception** — the PDF lives outside the app on counselor desks and refrigerators where game language reads as unserious. Enforced by `RPG_TERMS_FORBIDDEN_IN_PDF` regex test against the rendered PDF text. |
 
 ---
 

@@ -24,6 +24,10 @@ function makeBuild(): Build {
       occupation_title: "Financial Analyst",
       soc_major_group_name: "Business",
       median_annual_wage: 95570,
+      wage_p10: null,
+      wage_p25: null,
+      wage_p75: null,
+      wage_p90: null,
       earnings_1yr_median: 45000,
       earnings_1yr_p25: 35000,
       earnings_1yr_p75: 55000,
@@ -31,6 +35,7 @@ function makeBuild(): Build {
       debt_to_earnings_annual: 0.56,
       education_level_name: "Bachelor's degree",
       growth_category: "Faster than average",
+      work_experience_code: null,
       net_price_annual: null,
       cost_of_attendance_annual: null,
       published_cost_4yr: null,
@@ -139,7 +144,8 @@ describe("SelectedNodeCard", () => {
     render(
       <SelectedNodeCard node={makeNode()} build={makeBuild()} picked={false} />,
     );
-    expect(screen.getByText(/\$140,000\/yr median/)).toBeInTheDocument();
+    expect(screen.getByText("$140,000")).toBeInTheDocument();
+    expect(screen.getByText("mid-career")).toBeInTheDocument();
   });
 
   it("renders the education label", () => {
@@ -153,7 +159,7 @@ describe("SelectedNodeCard", () => {
     expect(screen.getByText("Master's degree")).toBeInTheDocument();
   });
 
-  it("does not render an ERN bar when ern is null (hideNullStats)", () => {
+  it("does not render year-one salary when earnings fields are null", () => {
     render(
       <SelectedNodeCard
         node={makeNode({ ern: null })}
@@ -161,16 +167,11 @@ describe("SelectedNodeCard", () => {
         picked={false}
       />,
     );
-    // The bar's stat label is "ERN" — should be absent.
-    expect(screen.queryByText("ERN")).toBeNull();
-    // But ROI / RES / GRW / AURA should still render.
-    expect(screen.getByText("ROI")).toBeInTheDocument();
-    expect(screen.getByText("RES")).toBeInTheDocument();
-    expect(screen.getByText("GRW")).toBeInTheDocument();
-    expect(screen.getByText("AURA")).toBeInTheDocument();
+    expect(screen.queryByText("year one")).toBeNull();
+    expect(screen.getByText("mid-career")).toBeInTheDocument();
   });
 
-  it("renders ERN when the node carries a value (root case)", () => {
+  it("renders mid-career wage regardless of ern value", () => {
     render(
       <SelectedNodeCard
         node={makeNode({ ern: 7 })}
@@ -178,7 +179,7 @@ describe("SelectedNodeCard", () => {
         picked={false}
       />,
     );
-    expect(screen.getByText("ERN")).toBeInTheDocument();
+    expect(screen.getByText("$140,000")).toBeInTheDocument();
   });
 });
 

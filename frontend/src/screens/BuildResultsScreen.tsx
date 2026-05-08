@@ -24,6 +24,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { renderWrapped } from "@/api/wrapped";
+import { ExportPdfButton } from "@/components/build-results/ExportPdfButton";
 import { CompareSchoolsPanel } from "@/components/CompareSchoolsPanel";
 import { spawnBuildFromRow } from "@/lib/buildSpawn";
 import type { SchoolForCareerRow } from "@/types/build";
@@ -696,8 +697,14 @@ export function BuildResultsScreen() {
       {/* Content column */}
       <div className="max-w-[1280px] mx-auto px-4 tablet:px-6 desktop:px-8">
 
-        {/* Adjust / Start over links */}
-        <div className="flex justify-end gap-4" style={{ marginTop: 16 }}>
+        {/* Adjust / Start over links + Export PDF */}
+        <div className="flex justify-end items-center gap-4 flex-wrap" style={{ marginTop: 16 }}>
+          <ExportPdfButton
+            buildId={build.build_id}
+            defaultStudentName={build.profile_name}
+            schoolName={build.school_name}
+            programName={career.program_name || build.program_name || career.occupation_title}
+          />
           <button
             type="button"
             className="font-body text-text-muted hover:text-text-secondary hover:underline transition-colors duration-150 bg-transparent border-none cursor-pointer"
@@ -749,6 +756,7 @@ export function BuildResultsScreen() {
               career={career}
               loanPct={career.loan_pct}
               isInState={career.is_out_of_state != null ? !career.is_out_of_state : (homeState && school?.stateAbbr ? homeState === school.stateAbbr : null)}
+              schoolName={school?.name}
             />
           </div>
           <InstitutionCard

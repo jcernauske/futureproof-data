@@ -3284,7 +3284,7 @@ async def chat_ask(
         tools=tool_schemas,
         dispatch=_dispatch,
         max_turns=5,
-        max_wall_time_s=30.0,
+        max_wall_time_s=45.0,
         temperature=_EXPLAIN_TEMPERATURE if explain_config else _TEMPERATURE,
         max_tokens=_EXPLAIN_MAX_TOKENS if explain_config else 1200,
         extra=extra,
@@ -3593,7 +3593,7 @@ async def chat_ask_stream(
                 tools=tool_schemas,
                 dispatch=_dispatch,
                 max_turns=5,
-                max_wall_time_s=30.0,
+                max_wall_time_s=45.0,
                 temperature=(
                     _EXPLAIN_TEMPERATURE if explain_config else _TEMPERATURE
                 ),

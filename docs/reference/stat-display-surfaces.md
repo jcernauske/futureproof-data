@@ -287,6 +287,8 @@ When wiring up the new affordance across surfaces, work through this list. Each 
 - **6a** Wrapped renderer image (static export)
 - **6b** Wrapped HTML templates (static export — but the `stat_hmn → stat_aura` mechanical rename is still mandatory at reshape cutover)
 - **7a–7c** Landing page (marketing)
+- **9a** My Build PDF — page-1 pentagon + 5-stat micro-table + page-2 glossary entries (static export, no explain affordance — same treatment as the Wrapped renderer). Surface added by `feature-pdf-report-exports`. The pentagon vertex labels and stat micro-table render the abbreviations (ERN/ROI/RES/GRW/AURA) by design; body copy spells out the full names. Future stat-key refactors must update `backend/app/services/pdf_export.py` (`STAT_LABELS`, `STAT_MEANINGS`, `STAT_COLORS`) AND `backend/app/services/pdf_copy.py` (verdict-line copy bins).
+- **9b** Comparison PDF — mini-pentagon strip + stats-at-a-glance table + risk-profile strip. Same Tier 4 / Skip treatment. Same source files as 9a. Cross-major guard uses 4-digit CIP family in `pdf_export.generate_comparison_pdf` and the router; if CIP-family conventions change, both must be updated together.
 
 ### When wiring an affordance, every site must:
 1. Resolve to one of the five `StatKey` values (`"ern" | "roi" | "res" | "grw" | "aura"`).

@@ -704,4 +704,125 @@ describe("CompareView", () => {
       ).toBeInTheDocument();
     });
   });
+
+  // ===========================================================================
+  // PDF Report Exports — comparison export trigger.
+  // docs/specs/feature-pdf-report-exports.md §4 New Tests Required (P1).
+  // ===========================================================================
+
+  describe("Export comparison PDF button (P1)", () => {
+    it("enables the button for cross-major comparisons", async () => {
+      // Cross-major comparison is SUPPORTED — the in-app CompareView
+      // shows them, the PDF matches that contract.
+      const crossMajor = makeCompareResult({
+        builds: [
+          makeBuild("a", "School A", "Mechanical Engineering", "Mech Eng", "17-2141"),
+          makeBuild("b", "School B", "Computer Science", "Software Dev", "15-1252"),
+        ],
+      });
+      mockCompareBuilds.mockResolvedValue(crossMajor);
+
+      renderCV(["a", "b"]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("btn-export-pdf-compare")).toBeInTheDocument();
+      });
+
+      const btn = screen.getByTestId(
+        "btn-export-pdf-compare",
+      ) as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it("disables the button when 4 builds are selected", async () => {
+      const fourBuild = makeCompareResult({
+        builds: [
+          makeBuild("a", "School A", "Major A", "Career A", "11-0001"),
+          makeBuild("b", "School B", "Major A", "Career B", "11-0002"),
+          makeBuild("c", "School C", "Major A", "Career C", "11-0003"),
+          makeBuild("d", "School D", "Major A", "Career D", "11-0004"),
+        ],
+        stats: [
+          { label: "ERN", values: [7, 6, 8, 5] },
+          { label: "ROI", values: [6, 7, 5, 8] },
+          { label: "RES", values: [5, 4, 6, 7] },
+          { label: "GRW", values: [8, 9, 7, 6] },
+          { label: "AURA", values: [4, 5, 3, 9] },
+        ],
+        bosses: [
+          { label: "AI", boss_id: "ai", values: ["WIN", "DRAW", "LOSE", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "DRAW", "LOSE", "WIN"] },
+          { label: "Loans", boss_id: "loans", values: ["WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN"] },
+          { label: "Market", boss_id: "market", values: ["WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN"] },
+          { label: "Burnout", boss_id: "burnout", values: ["DRAW", "DRAW", "DRAW", "DRAW"], skill_counts: [0, 0, 0, 0], original_values: ["DRAW", "DRAW", "DRAW", "DRAW"] },
+          { label: "Ceiling", boss_id: "ceiling", values: ["WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN"] },
+        ],
+        branches: [
+          { build_id: "a", career: "Career A", destinations: [] },
+          { build_id: "b", career: "Career B", destinations: [] },
+          { build_id: "c", career: "Career C", destinations: [] },
+          { build_id: "d", career: "Career D", destinations: [] },
+        ],
+      });
+      mockCompareBuilds.mockResolvedValue(fourBuild);
+
+      renderCV(["a", "b", "c", "d"]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("btn-export-pdf-compare")).toBeInTheDocument();
+      });
+
+      const btn = screen.getByTestId(
+        "btn-export-pdf-compare",
+      ) as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      // Tooltip mentions the 3-school cap.
+      const tooltip = btn.getAttribute("title") ?? "";
+      expect(tooltip.toLowerCase()).toMatch(/3|three|deselect/);
+    });
+
+    it("enables the button for 3 same-major builds", async () => {
+      // Same major across all 3 implies same career (CIP → SOC is
+      // deterministic in this app), so the (major_text + career)
+      // signature is identical → button enabled.
+      const threeSameMajor = makeCompareResult({
+        builds: [
+          makeBuild("a", "School A", "Mechanical Engineering", "Mechanical Engineers", "17-2141"),
+          makeBuild("b", "School B", "Mechanical Engineering", "Mechanical Engineers", "17-2141"),
+          makeBuild("c", "School C", "Mechanical Engineering", "Mechanical Engineers", "17-2141"),
+        ],
+        stats: [
+          { label: "ERN", values: [7, 6, 8] },
+          { label: "ROI", values: [6, 7, 5] },
+          { label: "RES", values: [5, 4, 6] },
+          { label: "GRW", values: [8, 9, 7] },
+          { label: "AURA", values: [4, 5, 3] },
+        ],
+        bosses: [
+          { label: "AI", boss_id: "ai", values: ["WIN", "DRAW", "LOSE"], skill_counts: [0, 0, 0], original_values: ["WIN", "DRAW", "LOSE"] },
+          { label: "Loans", boss_id: "loans", values: ["WIN", "WIN", "WIN"], skill_counts: [0, 0, 0], original_values: ["WIN", "WIN", "WIN"] },
+          { label: "Market", boss_id: "market", values: ["WIN", "WIN", "WIN"], skill_counts: [0, 0, 0], original_values: ["WIN", "WIN", "WIN"] },
+          { label: "Burnout", boss_id: "burnout", values: ["DRAW", "DRAW", "DRAW"], skill_counts: [0, 0, 0], original_values: ["DRAW", "DRAW", "DRAW"] },
+          { label: "Ceiling", boss_id: "ceiling", values: ["WIN", "WIN", "WIN"], skill_counts: [0, 0, 0], original_values: ["WIN", "WIN", "WIN"] },
+        ],
+        branches: [
+          { build_id: "a", career: "Mech Eng A", destinations: [] },
+          { build_id: "b", career: "Mech Eng B", destinations: [] },
+          { build_id: "c", career: "Mech Eng C", destinations: [] },
+        ],
+      });
+      mockCompareBuilds.mockResolvedValue(threeSameMajor);
+
+      renderCV(["a", "b", "c"]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("btn-export-pdf-compare")).toBeInTheDocument();
+      });
+
+      const btn = screen.getByTestId(
+        "btn-export-pdf-compare",
+      ) as HTMLButtonElement;
+      // Button is enabled — no disabled flag and no title-tooltip explainer.
+      expect(btn.disabled).toBe(false);
+    });
+  });
 });

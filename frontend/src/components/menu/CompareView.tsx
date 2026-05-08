@@ -26,6 +26,7 @@ import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { useT } from "@/i18n/useT";
+import { exportComparisonPdf, downloadBlobAs } from "@/api/pdf";
 
 interface CompareViewProps {
   buildIds: string[];
@@ -614,6 +615,8 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
   const [insightsSettled, setInsightsSettled] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
+  const [pdfErrorMsg, setPdfErrorMsg] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pentagonSectionRef = useRef<HTMLDivElement>(null);
 
@@ -655,6 +658,47 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     };
   }, [buildIds]);
 
+
+  // Export-PDF guard — only the build-count cap. Cross-major comparisons
+  // are supported (the in-app CompareView already shows them; the PDF
+  // matches that contract). The PDF title falls back to "Career
+  // comparison" server-side when majors differ.
+  const exportPdfDisabledReason = useMemo<string | null>(() => {
+    const builds = result?.builds ?? [];
+    if (builds.length < 2) return t("compare.exportPdfDisabledFew");
+    if (builds.length > 3) return t("compare.exportPdfDisabledMany");
+    return null;
+  }, [result?.builds, t]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (pdfState === "loading") return;
+    if (exportPdfDisabledReason) return;
+    setPdfState("loading");
+    setPdfErrorMsg(null);
+    try {
+      const blob = await exportComparisonPdf(buildIds);
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const major = (result?.builds[0]?.major_text || "compare")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const filename = `futureproof-compare-${major}-${buildIds.length}schools-${today}.pdf`;
+      downloadBlobAs(blob, filename);
+      setPdfState("idle");
+    } catch (err) {
+      console.warn("compare pdf export failed:", err);
+      // Surface the backend's actual error detail (e.g. "Comparison PDF
+      // requires the same major across schools..."). Fall back to the
+      // generic toast string only when the error has no message.
+      const detail = err instanceof Error ? err.message : "";
+      setPdfErrorMsg(detail || t("build.exportPdfError"));
+      setPdfState("error");
+      setTimeout(() => {
+        setPdfState("idle");
+        setPdfErrorMsg(null);
+      }, 8000);
+    }
+  }, [buildIds, exportPdfDisabledReason, pdfState, result?.builds, t]);
 
   const handleOpenBuild = useCallback(async (buildId: string) => {
     try {
@@ -785,6 +829,32 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       className="flex flex-col gap-0"
     >
       <section className="pt-6 pb-5">
+        <div className="flex items-center justify-end gap-3 mb-3">
+          <button
+            type="button"
+            data-testid="btn-export-pdf-compare"
+            aria-label={t("compare.exportPdfAriaLabel")}
+            onClick={handleExportPdf}
+            disabled={pdfState === "loading" || exportPdfDisabledReason !== null}
+            title={exportPdfDisabledReason ?? undefined}
+            className="font-body text-accent-info hover:underline hover:brightness-125 transition-colors duration-150 bg-transparent border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ fontSize: 14 }}
+          >
+            {pdfState === "loading"
+              ? t("build.exportingPdf")
+              : t("compare.exportPdf")}
+          </button>
+          {pdfState === "error" && (
+            <span
+              role="alert"
+              data-testid="alert-pdf-export-error"
+              className="font-body text-accent-warn"
+              style={{ fontSize: 13, maxWidth: 480 }}
+            >
+              {pdfErrorMsg ?? t("build.exportPdfError")}
+            </span>
+          )}
+        </div>
         <div className="-mx-4 tablet:mx-0 mb-5 border-y tablet:border border-border-subtle bg-bp-void/75 tablet:rounded-lg shadow-md">
           <div
             className="grid gap-0 overflow-x-auto"

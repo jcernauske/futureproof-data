@@ -63,7 +63,7 @@ export function CareerTierSection({
         animate="visible"
       >
         {careers.map((career) => (
-          <motion.div key={career.soc_code} variants={staggerItem}>
+          <motion.div key={career.soc_code} variants={staggerItem} className="h-full">
             <CareerCard
               career={career}
               picked={pickedSoc === career.soc_code}

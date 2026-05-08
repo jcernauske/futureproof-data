@@ -4,7 +4,7 @@
 
 <p align="center">
   <img alt="Demo video pending" src="https://img.shields.io/badge/%E2%96%B6-demo_video-TBD-lightgrey">
-  <img alt="Live demo pending" src="https://img.shields.io/badge/%F0%9F%8C%90-live_demo-TBD-lightgrey">
+  <a href="https://futureproof.hyenastudios.com"><img alt="Live demo" src="https://img.shields.io/badge/%F0%9F%8C%90-live_demo-20BEFF"></a>
   <img alt="License" src="https://img.shields.io/badge/license-Apache_2.0-green">
   <img alt="Built with" src="https://img.shields.io/badge/built_with-Gemma_4-orange">
   <img alt="Hackathon" src="https://img.shields.io/badge/Kaggle-Gemma_4_Good_Hackathon-20BEFF">
@@ -32,7 +32,7 @@ The same codebase runs on a school's own hardware via Ollama. No per-query cost.
 ## Demo
 
 - **3-minute walkthrough video:** _TBD before submission_ — will be linked here and in the Kaggle writeup.
-- **Live web demo:** _TBD before submission_ — hosted frontend + cloud backend running Gemma 4 on managed inference.
+- **Live web demo:** [futureproof.hyenastudios.com](https://futureproof.hyenastudios.com) — hosted frontend + cloud backend running Gemma 4 on managed inference.
 - **Local Gemma 4 demo:** Follow [Quickstart](#quickstart) — same product, runs entirely on your laptop with Ollama.
 - **Screenshots:** [`docs/screenshots/`](docs/screenshots/)
 
@@ -359,7 +359,7 @@ uv run ruff check src/ tests/
 
 The hackathon submission ships two parallel deployment paths.
 
-**Hosted demo.** Frontend on Vercel. Backend on a managed Python host with the model layer pointed at OpenRouter's `google/gemma-4-26b-a4b-it`. This path lets a judge use the product without installing anything.
+**Hosted demo.** Live at [futureproof.hyenastudios.com](https://futureproof.hyenastudios.com). Frontend on Vercel. Backend on a managed Python host with the model layer pointed at OpenRouter's `google/gemma-4-26b-a4b-it`. This path lets a judge use the product without installing anything.
 
 **Local-first (Ollama).** Same codebase. Set `INFERENCE_BACKEND=ollama`, run `ollama pull gemma4:e4b`, run the backend and frontend locally, and the product is fully functional offline. This is the path a school district takes — and the path the Ollama special track demonstrates.
 

@@ -31,6 +31,13 @@ function makeCareer(
     occupation_title: title,
     soc_major_group_name: null,
     median_annual_wage: wage,
+    // Mock OEWS distribution — slightly tighter band around `wage` than
+    // the Scorecard year-one band, since OEWS is mid-career national
+    // wage and not a year-one figure.
+    wage_p10: wage * 0.6,
+    wage_p25: wage * 0.78,
+    wage_p75: wage * 1.25,
+    wage_p90: wage * 1.55,
     earnings_1yr_median: wage * 0.75,
     earnings_1yr_p25: wage * 0.55,
     earnings_1yr_p75: wage * 0.95,
@@ -38,6 +45,10 @@ function makeCareer(
     debt_to_earnings_annual: 0.42,
     education_level_name: "Bachelor's degree",
     growth_category: "Much faster than average",
+    // Default to early-career; per-row overrides below set realistic
+    // mixed values across designer/analyst/manager roles so dev mode
+    // renders all three experience-based sections on /set-your-course.
+    work_experience_code: 2,
     net_price_annual: 14200,
     cost_of_attendance_annual: 22800,
     published_cost_4yr: 91200,
@@ -78,21 +89,25 @@ function makeCareer(
 }
 
 const COMMON_CAREERS: CareerOutcome[] = [
-  makeCareer("15-1252", "Software Developers", 127260, [8, 7, 4, 9, 5], [6, 3, 2, 5, 3]),
-  makeCareer("15-1211", "Computer Systems Analysts", 102240, [7, 6, 5, 7, 6], [5, 4, 3, 4, 4]),
-  makeCareer("15-1299", "Computer Occupations, All Other", 95270, [6, 5, 4, 6, 5], [5, 4, 4, 4, 5]),
-  makeCareer("15-1244", "Network and Computer Systems Administrators", 90520, [6, 5, 6, 5, 5], [4, 4, 3, 5, 5]),
+  // Designer/developer roles need no related experience → code 3.
+  makeCareer("15-1252", "Software Developers", 127260, [8, 7, 4, 9, 5], [6, 3, 2, 5, 3], { work_experience_code: 3 }),
+  // Analyst roles want <5 years related experience → code 2.
+  makeCareer("15-1211", "Computer Systems Analysts", 102240, [7, 6, 5, 7, 6], [5, 4, 3, 4, 4], { work_experience_code: 2 }),
+  makeCareer("15-1299", "Computer Occupations, All Other", 95270, [6, 5, 4, 6, 5], [5, 4, 4, 4, 5], { work_experience_code: 3 }),
+  makeCareer("15-1244", "Network and Computer Systems Administrators", 90520, [6, 5, 6, 5, 5], [4, 4, 3, 5, 5], { work_experience_code: 2 }),
 ];
 
 const LESS_COMMON_CAREERS: CareerOutcome[] = [
-  makeCareer("15-2051", "Data Scientists", 108020, [7, 6, 3, 8, 4], [7, 3, 2, 4, 3]),
-  makeCareer("15-1243", "Database Administrators", 101000, [7, 6, 5, 5, 5], [5, 3, 3, 4, 5]),
-  makeCareer("11-3021", "Computer and Information Systems Managers", 164070, [9, 8, 6, 7, 7], [4, 2, 2, 6, 3]),
+  makeCareer("15-2051", "Data Scientists", 108020, [7, 6, 3, 8, 4], [7, 3, 2, 4, 3], { work_experience_code: 2 }),
+  makeCareer("15-1243", "Database Administrators", 101000, [7, 6, 5, 5, 5], [5, 3, 3, 4, 5], { work_experience_code: 2 }),
+  // Manager roles need 5+ years → code 1, the long-term bucket.
+  makeCareer("11-3021", "Computer and Information Systems Managers", 164070, [9, 8, 6, 7, 7], [4, 2, 2, 6, 3], { work_experience_code: 1 }),
 ];
 
 const STRETCH_CAREERS: CareerOutcome[] = [
-  makeCareer("15-1221", "Computer and Information Research Scientists", 136620, [8, 7, 3, 7, 4], [7, 3, 3, 4, 2]),
+  makeCareer("15-1221", "Computer and Information Research Scientists", 136620, [8, 7, 3, 7, 4], [7, 3, 3, 4, 2], { work_experience_code: 1 }),
   makeCareer("17-2061", "Computer Hardware Engineers", 132360, [8, 7, 7, 6, 6], [3, 3, 3, 4, 4], {
+    work_experience_code: 2,
     substitution_applied: true,
     reported_cipcode: "11.0701",
     substituted_cipcode: "14.0901",

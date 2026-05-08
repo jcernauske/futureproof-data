@@ -322,16 +322,21 @@ def test_context_for_stat_includes_lineage_drivers(stat_code: str) -> None:
         assert "$110,000" in block
         assert "Earning Power" in block
     elif stat_code == "ROI":
-        # ROI manifest: net_price_annual, debt_to_earnings_annual,
-        # roi_cost_basis (the three the spec calls out by name).
+        # ROI context is now financing-agnostic: sticker COA, net price
+        # (aid context only), starting earnings, and an explicit note that
+        # the stat doesn't move with the loan slider.
+        assert "$39,500" in block, "cost_of_attendance_annual not rendered"
         assert "$18,400" in block, "net_price_annual not rendered"
-        assert "0.32" in block, "debt_to_earnings_annual not rendered"
         assert (
-            "net price after aid" in block
-        ), "roi_cost_basis 'cost_of_attendance' branch not rendered"
-        # Plus modeled total debt / starting earnings — useful sibling drivers.
-        assert "$36,800" in block
-        assert "$82,500" in block
+            "net price" in block.lower()
+        ), "net_price_annual label not rendered"
+        assert "$82,500" in block, "earnings_1yr_median not rendered"
+        assert (
+            "financing-agnostic" in block
+        ), "financing-agnostic design note not rendered"
+        assert (
+            "Student Loans Boss" in block
+        ), "loans-boss delegation note not rendered"
     elif stat_code == "RES":
         assert "three_signal" in block or "real-world Claude usage data" in block, (
             "composite_method not rendered"
