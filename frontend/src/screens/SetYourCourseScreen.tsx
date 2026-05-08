@@ -26,8 +26,12 @@ import type {
   ProgramResult,
   SchoolSelection,
 } from "@/types/buildInput";
-import type { CareerOutcome } from "@/types/build";
+import type { CareerDescription, CareerOutcome } from "@/types/build";
 import type { AskScope } from "@/api/menu";
+import {
+  getCachedCareerDescription,
+  loadCareerDescription,
+} from "@/store/careerDescriptionStore";
 
 const isPostgrad = (c: CareerOutcome) =>
   c.education_level_name != null &&
@@ -65,6 +69,13 @@ export function SetYourCourseScreen() {
   const [chatChipText, setChatChipText] = useState<string>("");
   const [chatOpenerPrompt, setChatOpenerPrompt] = useState<string | null>(null);
 
+  // Career-description state passed into <GemmaChat>. null = not started,
+  // "loading" = fetch in flight, "error" = fetch failed (panel falls back
+  // to existing freeform chat opener), CareerDescription = populated.
+  const [careerDescription, setCareerDescription] = useState<
+    CareerDescription | "loading" | "error" | null
+  >(null);
+
   const handleAskCareer = useCallback((career: CareerOutcome) => {
     setChatScope({
       kind: "career",
@@ -78,6 +89,28 @@ export function SetYourCourseScreen() {
       "pays. Pull occupation data so the description is grounded.",
     );
     setChatOpen(true);
+
+    // Cache-first: synchronous hit → render populated; miss → loading
+    // sentinel + dispatch fetch through the single-flight store.
+    const cached = getCachedCareerDescription(career.soc_code);
+    if (cached !== null) {
+      setCareerDescription(cached);
+      return;
+    }
+    setCareerDescription("loading");
+    loadCareerDescription(career.soc_code, career.occupation_title)
+      .then((desc) => {
+        // Guard against a stale resolution if the user has clicked
+        // through to a different SOC while this fetch was in flight.
+        setCareerDescription((prev) =>
+          prev === "loading" || prev === null ? desc : prev,
+        );
+      })
+      .catch(() => {
+        setCareerDescription((prev) =>
+          prev === "loading" ? "error" : prev,
+        );
+      });
   }, []);
 
   const closeChat = useCallback(() => {
@@ -103,6 +136,7 @@ export function SetYourCourseScreen() {
     clarifierDiverged,
     suggestedMajor,
     socReveal,
+    gradCredentialNotice,
   } = useSetYourCourse(majorText);
 
   const location = useLocation();
@@ -286,6 +320,28 @@ export function SetYourCourseScreen() {
     () => loadedOutcomes.filter(isPostgrad),
     [loadedOutcomes],
   );
+  // Experience-based grouping (BLS OOH work_experience_code):
+  //   3 → "Likely first jobs" (no related experience required)
+  //   2 + null → "Early-career roles" (<5 years, or unknown)
+  //   1 → "Where this can lead long-term" (5+ years required)
+  // Within each section the existing stats_available_count DESC ordering
+  // from the upstream loadedOutcomes carries through. Empty sections are
+  // hidden by CareerTierSection's own length-0 guard.
+  const firstJobsCareers = useMemo<CareerOutcome[]>(
+    () => careerPaths.filter((c) => c.work_experience_code === 3),
+    [careerPaths],
+  );
+  const earlyCareerCareers = useMemo<CareerOutcome[]>(
+    () =>
+      careerPaths.filter(
+        (c) => c.work_experience_code === 2 || c.work_experience_code == null,
+      ),
+    [careerPaths],
+  );
+  const longTermCareers = useMemo<CareerOutcome[]>(
+    () => careerPaths.filter((c) => c.work_experience_code === 1),
+    [careerPaths],
+  );
 
   const hasOutcomes = careerPaths.length > 0 || postgradCareers.length > 0;
 
@@ -374,7 +430,7 @@ export function SetYourCourseScreen() {
               )}
             </section>
 
-            <section aria-label="Gemma conversation" className="flex flex-col min-h-[340px]">
+            <section aria-label="Gemma conversation" className="flex flex-col">
               {/* Single AnimatePresence with mode="wait" ensures the streaming
                   card fully exits before the resolution header enters — no
                   overlap, no layout shift. */}
@@ -618,19 +674,68 @@ export function SetYourCourseScreen() {
                   {t("syc.showingSoc")} {currentResolution.matched_cip.slice(0, 5)}.
                 </p>
               )}
+              {/* GradCredentialNotice render slot — fires when chip dispatch
+                  or pre-flag short-circuit detects a grad-school requirement.
+                  The GradCredentialNotice component will be wired here once
+                  the design visionary builds it. */}
+              {gradCredentialNotice && (
+                <div
+                  data-testid="grad-credential-notice-slot"
+                  className="rounded-xl border border-border-default bg-surface-elevated p-4"
+                >
+                  <p className="font-body text-small text-text-secondary">
+                    <span className="font-semibold text-text-primary">&ldquo;{gradCredentialNotice.target_career_title}&rdquo;</span>{" "}
+                    requires a{" "}
+                    <strong>{gradCredentialNotice.credential_name_full}</strong>{" "}
+                    ({gradCredentialNotice.credential_acronym}), so the careers
+                    below reflect what you can do with the undergraduate degree
+                    most students pursue on that path.
+                  </p>
+                </div>
+              )}
               {socReveal.kind === "outcomes-loading" && <CareerListSkeleton />}
               {socReveal.kind === "error" && (
                 <p className="font-body text-small text-accent-alert">
                   {socReveal.message}
                 </p>
               )}
-              {careerPaths.length > 0 && (
+              {/* Experience-based grouping (work_experience_code).
+                  Each section renders only when non-empty so empty
+                  buckets don't take screen space. Order matters:
+                  first jobs → early-career → long-term. */}
+              {firstJobsCareers.length > 0 && (
                 <CareerTierSection
-                  id="tier-careers"
-                  label={t("syc.whereLeads")}
-                  description={t("syc.whereLeadsDesc")}
+                  id="tier-first-jobs"
+                  label={t("syc.firstJobs")}
+                  description={t("syc.firstJobsDesc")}
                   accent="common"
-                  careers={careerPaths}
+                  careers={firstJobsCareers}
+                  pickedSoc={selectedCareer?.soc_code ?? null}
+                  onSelect={handleCareerSelect}
+                  ernShift={effort.ernShift}
+                  onAskGemma={handleAskCareer}
+                />
+              )}
+              {earlyCareerCareers.length > 0 && (
+                <CareerTierSection
+                  id="tier-early-career"
+                  label={t("syc.earlyCareer")}
+                  description={t("syc.earlyCareerDesc")}
+                  accent="common"
+                  careers={earlyCareerCareers}
+                  pickedSoc={selectedCareer?.soc_code ?? null}
+                  onSelect={handleCareerSelect}
+                  ernShift={effort.ernShift}
+                  onAskGemma={handleAskCareer}
+                />
+              )}
+              {longTermCareers.length > 0 && (
+                <CareerTierSection
+                  id="tier-long-term"
+                  label={t("syc.longTerm")}
+                  description={t("syc.longTermDesc")}
+                  accent="common"
+                  careers={longTermCareers}
                   pickedSoc={selectedCareer?.soc_code ?? null}
                   onSelect={handleCareerSelect}
                   ernShift={effort.ernShift}
@@ -817,6 +922,7 @@ export function SetYourCourseScreen() {
         scope={chatScope ?? undefined}
         chipText={chatChipText}
         openerPrompt={chatOpenerPrompt ?? undefined}
+        careerDescription={careerDescription}
         onClose={closeChat}
       />
     </div>

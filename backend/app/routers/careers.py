@@ -14,9 +14,12 @@ from pydantic import ValidationError
 
 from app.models.career import (
     AnchorBuild,
+    CareerDescription,
     ConfidenceTier,
     SchoolsForCareerResponse,
 )
+from app.services import career_description as career_description_service
+from app.services.career_description import CareerDescriptionUnavailable
 from app.services.schools_for_career import rank_schools_for_career
 
 logger = logging.getLogger(__name__)
@@ -89,6 +92,45 @@ def get_schools_for_career_by_soc(
         anchor_stat_ern=anchor_stat_ern,
         anchor_stat_roi=anchor_stat_roi,
     )
+
+
+@router.get(
+    "/careers/{soc_code}/description",
+    response_model=CareerDescription,
+)
+async def get_career_description(
+    soc_code: str = Path(..., pattern=_SOC_PATTERN),
+    occupation_title: str = Query(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Display title for the occupation; required for the Tier C "
+        "fallback prompt when O*NET coverage is missing.",
+    ),
+) -> CareerDescription:
+    """Return a plain-English career description for a SOC code.
+
+    On cold cache: pre-fetch O*NET activity / BLS description data via
+    ``get_task_breakdown``, pick the appropriate anchor tier (A/B/C),
+    call Gemma once, validate against the PDF voice rules, and cache.
+
+    On warm cache: return immediately.
+
+    Maps service errors:
+        ``CareerDescriptionUnavailable`` → 502 ``career_description_unavailable``
+        Path regex failure (malformed SOC) → 422 (FastAPI built-in)
+    """
+    try:
+        return await career_description_service.get_or_generate(
+            soc_code, occupation_title,
+        )
+    except CareerDescriptionUnavailable as exc:
+        logger.info(
+            "career_description unavailable for soc=%s: %s", soc_code, exc,
+        )
+        raise HTTPException(
+            status_code=502, detail="career_description_unavailable",
+        ) from exc
 
 
 @router.get(

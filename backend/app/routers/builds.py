@@ -16,6 +16,7 @@ from app.models.api import (
 from app.models.career import (
     AppliedSkill,
     CareerBranch,
+    CareerDescription,
     CareerOutcome,
     EffortLevel,
     GauntletResult,
@@ -25,6 +26,7 @@ from app.services import (
     boss_fights,
     branch_tree,
     builds,
+    career_description,
     career_tiering,
     guidance,
     skill_pool,
@@ -85,11 +87,15 @@ async def _gemma_fanout(
     gauntlet: GauntletResult,
     branches: list[CareerBranch],
     locale: AppLocale = "en",
-) -> tuple[list[SkillRec], list[AppliedSkill], str]:
-    """Fan out Gemma-bound calls (narratives + recs + pool + guidance).
+) -> tuple[list[SkillRec], list[AppliedSkill], str, CareerDescription | None]:
+    """Fan out Gemma-bound calls (narratives + recs + pool + guidance +
+    career description).
 
-    Shared by ``create_build`` and ``rebuild_with_sliders``.
-    Returns (recs, pool, guidance_narrative).
+    Shared by ``create_build`` and ``rebuild_with_sliders``. The career
+    description shares the fanout's effective wait budget so we don't
+    layer a separate timeout on top — failure is non-fatal.
+
+    Returns (recs, pool, guidance_narrative, career_description_or_None).
     """
     narrative_tasks = [
         boss_fights.narrate_one(career, fight, locale=locale)
@@ -100,18 +106,22 @@ async def _gemma_fanout(
     guidance_task = guidance.generate_guidance_async(
         career, gauntlet, branches, locale=locale,
     )
+    desc_task = career_description.get_or_generate(
+        career.soc_code, career.occupation_title,
+    )
 
     results = await asyncio.gather(
         *narrative_tasks,
         recs_task,
         pool_task,
         guidance_task,
+        desc_task,
         return_exceptions=True,
     )
 
     fight_count = len(gauntlet.fights)
     narrative_results = results[:fight_count]
-    recs_result, pool_result, guidance_result = results[fight_count:]
+    recs_result, pool_result, guidance_result, desc_result = results[fight_count:]
 
     for fight, narrative_text in zip(gauntlet.fights, narrative_results):
         if isinstance(narrative_text, BaseException):
@@ -146,7 +156,21 @@ async def _gemma_fanout(
     else:
         narrative = cast(str, guidance_result)
 
-    return recs, pool, narrative
+    desc: CareerDescription | None
+    if isinstance(desc_result, BaseException):
+        if not isinstance(
+            desc_result, career_description.CareerDescriptionUnavailable,
+        ):
+            logger.warning(
+                "career_description raised for %s: %r",
+                career.soc_code,
+                desc_result,
+            )
+        desc = None
+    else:
+        desc = cast("CareerDescription | None", desc_result)
+
+    return recs, pool, narrative, desc
 
 
 @router.post("")
@@ -201,7 +225,7 @@ async def create_build(request: BuildRequest):
 
     gauntlet = boss_fights.score_gauntlet(career)
 
-    recs, pool, narrative = await _gemma_fanout(
+    recs, pool, narrative, desc = await _gemma_fanout(
         career, gauntlet, branches_list, locale=request.locale,
     )
 
@@ -224,6 +248,8 @@ async def create_build(request: BuildRequest):
         animal_emoji=request.animal_emoji,
         locale=request.locale,
     )
+    if desc is not None:
+        build.career_description = desc
     state.store_build(build)
     builds.save_build(build)
     return build
@@ -351,20 +377,51 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
             g = guidance._fallback_narrative(career, gauntlet)
         return ("guidance", {"narrative": g})
 
+    async def _desc() -> tuple[str, dict[str, Any] | None]:
+        # Eager career description. Failure → None; the lazy PDF
+        # fallback path still runs server-side on export. We do NOT
+        # yield this as its own SSE event (out of scope per §4); the
+        # final-build commit picks it up via the captured result below.
+        try:
+            d = await career_description.get_or_generate(
+                career.soc_code, career.occupation_title,
+            )
+        except career_description.CareerDescriptionUnavailable:
+            return ("_career_description", None)
+        except Exception as exc:
+            logger.warning(
+                "stream career_description raised for %s: %r",
+                career.soc_code, exc,
+            )
+            return ("_career_description", None)
+        return ("_career_description", d.model_dump(mode="json"))
+
     tasks = [
         *[asyncio.create_task(_narrate(f)) for f in gauntlet.fights],
         asyncio.create_task(_recs()),
         asyncio.create_task(_pool()),
         asyncio.create_task(_guide()),
+        asyncio.create_task(_desc()),
     ]
 
     recs_result: list[SkillRec] = []
     pool_result: list[AppliedSkill] = []
     guidance_result = ""
+    desc_result: CareerDescription | None = None
 
     try:
         for coro in asyncio.as_completed(tasks):
             event_name, event_data = await coro
+
+            if event_name == "_career_description":
+                # Internal-only: never yielded as SSE in this round.
+                if event_data is not None:
+                    desc_result = CareerDescription.model_validate(event_data)
+                continue
+
+            # event_data is non-None for every other branch by construction
+            # of the corresponding _narrate / _recs / _pool / _guide helpers.
+            assert event_data is not None
             yield sse_event(event_name, event_data)
 
             if event_name == "skill_recs":
@@ -372,7 +429,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
             elif event_name == "skill_pool":
                 pool_result = [AppliedSkill.model_validate(s) for s in event_data]
             elif event_name == "guidance":
-                guidance_result = event_data["narrative"]
+                guidance_result = cast("dict[str, str]", event_data)["narrative"]
     except (asyncio.CancelledError, GeneratorExit):
         for t in tasks:
             t.cancel()
@@ -382,6 +439,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
         "skill_recs": recs_result,
         "skill_pool": pool_result,
         "guidance": guidance_result,
+        "career_description": desc_result,
     })
     state.store_build(final_build)
     builds.save_build(final_build)
@@ -437,7 +495,7 @@ async def rebuild_with_sliders(build_id: str, request: RebuildRequest):
     )
     gauntlet = boss_fights.score_gauntlet(career)
 
-    recs, pool, narrative = await _gemma_fanout(
+    recs, pool, narrative, desc = await _gemma_fanout(
         career, gauntlet, original.branches, locale=original.locale,
     )
 
@@ -461,6 +519,10 @@ async def rebuild_with_sliders(build_id: str, request: RebuildRequest):
         animal_emoji=original.animal_emoji,
         locale=original.locale,
     )
+    # Reuse the parent's description if the rebuild's eager fetch failed —
+    # SOC is identical between original and rebuild, so the description
+    # is interchangeable. Keeps PDF exports of slider-rebuilds populated.
+    build.career_description = desc or original.career_description
     state.store_build(build)
     builds.save_build(build)
     return build

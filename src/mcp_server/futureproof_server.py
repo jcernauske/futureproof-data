@@ -206,9 +206,26 @@ CAREER_PATHS_RESPONSE_FIELDS = [
     "cip_family_earnings_rank",
     "confidence_tier_program",
     "median_annual_wage",
+    # OEWS wage distribution (BLS Occupational Employment and Wage
+    # Statistics, May 2024). Career-specific national p10/p25/p75/p90 —
+    # threaded through consumable.program_career_paths from
+    # consumable.occupation_profiles. Powers CareerCard "typical range"
+    # and FinancesCard "Career salary range" rows.
+    "wage_p10",
+    "wage_p25",
+    "wage_p75",
+    "wage_p90",
     "growth_category",
     "employment_current",
     "education_level_name",
+    # BLS OOH "work experience in a related occupation" categorical
+    # (1=5+ years, 2=<5 years, 3=None). Drives the experience-based
+    # career grouping on /set-your-course (Likely first jobs / Early-
+    # career / Long-term) and the FinancesCard "starting range" vs
+    # "typical range" wage display. Without this on the whitelist, the
+    # MCP server returns null and every career silently lands in the
+    # early-career bucket via the null fallback.
+    "work_experience_code",
     "top_5_activities",
     "top_human_activities",
     "burnout_drivers",
@@ -487,6 +504,7 @@ TASK_BREAKDOWN_TABLE = "consumable.onet_work_profiles"
 TASK_BREAKDOWN_RESPONSE_FIELDS = [
     "bls_soc_code",
     "primary_title",
+    "description",
     "hmn_score",
     "hmn_score_rounded",
     "burnout_score",
@@ -499,6 +517,7 @@ TASK_BREAKDOWN_RESPONSE_FIELDS = [
     "consequence_of_error",
     "activity_importance_mean",
     "human_activity_count",
+    "multi_detail_flag",
 ]
 
 # ---------------------------------------------------------------------------
@@ -1071,13 +1090,16 @@ class FutureProofMCPServer(BaseMCPServer):
                 name="get_task_breakdown",
                 description=(
                     "O*NET task-level profile for a single SOC code. Returns "
-                    "the hmn_score (human-edge strength), the burnout_score "
-                    "(Fight Burnout boss strength), top_5_activities, "
-                    "top_human_activities (AI-resistant tasks), "
-                    "burnout_drivers, time_pressure, work_hours, and "
-                    "consequence_of_error context. Use this to generate "
+                    "the BLS occupation `description` (a short summary of the "
+                    "role), the hmn_score (human-edge strength), the "
+                    "burnout_score (Fight Burnout boss strength), "
+                    "top_5_activities, top_human_activities (AI-resistant "
+                    "tasks), burnout_drivers, time_pressure, work_hours, "
+                    "consequence_of_error context, and multi_detail_flag "
+                    "(True for SOC group aggregations). Use this to generate "
                     "the 'what AI is eating' vs 'what the human edge looks "
-                    "like' narrative for a career."
+                    "like' narrative for a career, or to anchor a plain-"
+                    "English career description."
                 ),
                 input_schema={
                     "type": "object",
@@ -1131,6 +1153,32 @@ class FutureProofMCPServer(BaseMCPServer):
                     "required": ["soc_code"],
                 },
                 handler=self._handle_get_career_branches,
+            ),
+            ToolDef(
+                name="get_occupation_education_requirements",
+                description=(
+                    "Returns the education requirements for an occupation. "
+                    "Use this to check whether a career requires graduate or "
+                    "professional school (education_code 1 or 2 = doctoral/"
+                    "professional degree required). Returns soc_code, "
+                    "occupation_title, education_code, education_level_name, "
+                    "and a requires_grad_school boolean."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "soc_code": {
+                            "type": "string",
+                            "description": (
+                                "Standard Occupational Classification code "
+                                "in XX-XXXX format (e.g., '29-1123' for "
+                                "Physical Therapists)."
+                            ),
+                        },
+                    },
+                    "required": ["soc_code"],
+                },
+                handler=self._handle_get_occupation_education_requirements,
             ),
             ToolDef(
                 name="get_schools_for_career",
@@ -2150,12 +2198,17 @@ class FutureProofMCPServer(BaseMCPServer):
             op.occupation_title,
             op.soc_major_group_name,
             op.median_annual_wage,
+            op.wage_p10,
+            op.wage_p25,
+            op.wage_p75,
+            op.wage_p90,
             op.wage_percentile_overall,
             op.grw_score_rounded,
             op.market_score_rounded,
             op.growth_category,
             op.employment_current,
             op.education_level_name,
+            op.work_experience_code,
             onet.primary_title,
             onet.hmn_score_rounded,
             onet.burnout_score_rounded,
@@ -2466,9 +2519,14 @@ class FutureProofMCPServer(BaseMCPServer):
                 "roi_raw_multiplier": roi_raw_multiplier,
                 "roi_multiplier_basis": school.get("roi_multiplier_basis"),
                 "median_annual_wage": j.get("median_annual_wage"),
+                "wage_p10": j.get("wage_p10"),
+                "wage_p25": j.get("wage_p25"),
+                "wage_p75": j.get("wage_p75"),
+                "wage_p90": j.get("wage_p90"),
                 "growth_category": j.get("growth_category"),
                 "employment_current": j.get("employment_current"),
                 "education_level_name": j.get("education_level_name"),
+                "work_experience_code": j.get("work_experience_code"),
                 "top_5_activities": j.get("top_5_activities"),
                 "top_human_activities": j.get("top_human_activities"),
                 "burnout_drivers": j.get("burnout_drivers"),
@@ -2573,12 +2631,17 @@ class FutureProofMCPServer(BaseMCPServer):
                     op.occupation_title,
                     op.soc_major_group_name,
                     op.median_annual_wage,
+                    op.wage_p10,
+                    op.wage_p25,
+                    op.wage_p75,
+                    op.wage_p90,
                     op.wage_percentile_overall,
                     op.grw_score_rounded,
                     op.market_score_rounded,
                     op.growth_category,
                     op.employment_current,
                     op.education_level_name,
+                    op.work_experience_code,
                     onet.primary_title,
                     onet.hmn_score_rounded,
                     onet.burnout_score_rounded,
@@ -2663,9 +2726,14 @@ class FutureProofMCPServer(BaseMCPServer):
                 "tuition_out_of_state": template.get("tuition_out_of_state"),
                 "room_board_on_campus": template.get("room_board_on_campus"),
                 "median_annual_wage": j.get("median_annual_wage"),
+                "wage_p10": j.get("wage_p10"),
+                "wage_p25": j.get("wage_p25"),
+                "wage_p75": j.get("wage_p75"),
+                "wage_p90": j.get("wage_p90"),
                 "growth_category": j.get("growth_category"),
                 "employment_current": j.get("employment_current"),
                 "education_level_name": j.get("education_level_name"),
+                "work_experience_code": j.get("work_experience_code"),
                 "top_5_activities": j.get("top_5_activities"),
                 "top_human_activities": j.get("top_human_activities"),
                 "burnout_drivers": j.get("burnout_drivers"),
@@ -3584,6 +3652,73 @@ class FutureProofMCPServer(BaseMCPServer):
         return self.enrich_response(
             {"data": rows, "row_count": len(rows)},
             CAREER_BRANCHES_TABLE,
+        )
+
+    # ------------------------------------------------------------------
+    # Tool handler: get_occupation_education_requirements
+    # ------------------------------------------------------------------
+
+    def _handle_get_occupation_education_requirements(self, input_dict: dict) -> dict:
+        """Return education requirements for a SOC code.
+
+        Queries consumable.occupation_profiles for education_code and
+        education_level_name. ``requires_grad_school`` is True when
+        education_code is 1 (Doctoral/professional) or 2 (Master's).
+        """
+        raw_soc = input_dict.get("soc_code")
+        soc_code = str(raw_soc).strip() if raw_soc is not None else ""
+        if not soc_code:
+            return {
+                "data": None,
+                "message": "soc_code is required",
+            }
+        if not _SOC_CODE_PATTERN.match(soc_code):
+            return self.attach_governance(
+                {
+                    "data": None,
+                    "message": f"soc_code must be in XX-XXXX format; got {raw_soc!r}",
+                },
+                OCCUPATION_DATA_TABLE,
+            )
+
+        rows = self.query_iceberg_simple(
+            OCCUPATION_DATA_TABLE,
+            filters={"soc_code": soc_code},
+            columns=["soc_code", "occupation_title", "education_code", "education_level_name"],
+            limit=1,
+        )
+
+        if rows and "error" in rows[0]:
+            return self.attach_governance(
+                {"data": None, "message": rows[0]["error"]},
+                OCCUPATION_DATA_TABLE,
+            )
+
+        if not rows:
+            return self.attach_governance(
+                {
+                    "data": None,
+                    "message": f"No occupation data for SOC code '{soc_code}'",
+                },
+                OCCUPATION_DATA_TABLE,
+            )
+
+        row = rows[0]
+        education_code = row.get("education_code")
+        requires_grad_school = education_code in (1, 2)
+
+        return self.enrich_response(
+            {
+                "data": {
+                    "soc_code": row.get("soc_code"),
+                    "occupation_title": row.get("occupation_title"),
+                    "education_code": education_code,
+                    "education_level_name": row.get("education_level_name"),
+                    "requires_grad_school": requires_grad_school,
+                },
+                "row_count": 1,
+            },
+            OCCUPATION_DATA_TABLE,
         )
 
     # ------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import { apiGet } from "@/api/client";
 import type {
+  CareerDescription,
   ConfidenceTier,
   SchoolsForCareerResponse,
 } from "@/types/build";
@@ -60,5 +61,18 @@ export async function fetchSchoolsByCipAndSoc(
 ): Promise<SchoolsForCareerResponse> {
   return apiGet<SchoolsForCareerResponse>(
     `/majors/${encodeURIComponent(cipcode)}/schools/for-career/${encodeURIComponent(socCode)}${buildQuery(opts)}`,
+  );
+}
+
+// GET /careers/{soc_code}/description?occupation_title=... → CareerDescription.
+// Powers the structured header card on the sparkle panel for /set-your-course.
+// On 502 the panel falls back to the existing freeform-chat-only behavior.
+export async function fetchCareerDescription(
+  socCode: string,
+  occupationTitle: string,
+): Promise<CareerDescription> {
+  const params = new URLSearchParams({ occupation_title: occupationTitle });
+  return apiGet<CareerDescription>(
+    `/careers/${encodeURIComponent(socCode)}/description?${params.toString()}`,
   );
 }

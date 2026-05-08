@@ -885,4 +885,159 @@ describe("GemmaChat", () => {
       expect(screen.queryByText(/\[object Object\]/)).toBeNull();
     });
   });
+
+  // ===========================================================================
+  // feature-career-description-on-pdf.md §4 New Tests Required (P1):
+  // career-scope renders a structured "About this career" header card.
+  // ===========================================================================
+
+  describe("careerDescription prop renders header card (P1)", () => {
+    type CareerDesc = {
+      soc_code: string;
+      summary: string;
+      tasks: string[];
+      anchor_tier: "activities" | "description_only" | "title_only";
+      generated_at: string;
+      model: string;
+    };
+
+    function makeCareerDesc(overrides: Partial<CareerDesc> = {}): CareerDesc {
+      return {
+        soc_code: "13-2051",
+        summary:
+          "Financial analysts study filings and market data to guide investment decisions.",
+        tasks: [
+          "Analyze company filings",
+          "Assemble valuation models",
+          "Brief portfolio managers",
+          "Track recommendations and feed lessons back",
+        ],
+        anchor_tier: "activities",
+        generated_at: "2026-05-07T00:00:00+00:00",
+        model: "gemma-4-26b-a4b-it",
+        ...overrides,
+      };
+    }
+
+    const careerScope = {
+      kind: "career" as const,
+      build_ids: [] as [],
+      target_id: "13-2051",
+    };
+
+    it("career_scope_renders_header_card — populated description renders title, summary, tasks", () => {
+      const desc = makeCareerDesc();
+      render(
+        <GemmaChat
+          open={true}
+          build={null}
+          scope={careerScope}
+          chipText="Asking about: Financial and Investment Analysts"
+          onClose={() => {}}
+          careerDescription={desc}
+        />,
+      );
+
+      // Header card is mounted.
+      expect(screen.getByTestId("card-career-description")).toBeInTheDocument();
+      // SOC chip rendered with the SOC code from the scope.
+      expect(screen.getByTestId("career-desc-soc")).toHaveTextContent("13-2051");
+      // Summary content present.
+      expect(
+        screen.getByText(
+          /Financial analysts study filings and market data/i,
+        ),
+      ).toBeInTheDocument();
+      // Tasks list rendered with all 4 task strings.
+      const tasksList = screen.getByTestId("career-desc-tasks");
+      expect(tasksList).toBeInTheDocument();
+      for (const task of desc.tasks) {
+        expect(tasksList).toHaveTextContent(task);
+      }
+      // Tier A → no disclaimer chip.
+      expect(screen.queryByTestId("career-desc-disclaimer")).toBeNull();
+    });
+
+    it("career_scope_renders_skeleton_then_content — loading shows skeleton, populated shows content", () => {
+      // First render: loading sentinel → skeleton (no real summary text).
+      const { rerender } = render(
+        <GemmaChat
+          open={true}
+          build={null}
+          scope={careerScope}
+          chipText="Asking about: Financial and Investment Analysts"
+          onClose={() => {}}
+          careerDescription="loading"
+        />,
+      );
+      // Skeleton card mounts with the same testid.
+      const loadingCard = screen.getByTestId("card-career-description");
+      expect(loadingCard).toBeInTheDocument();
+      // a11y attribute present in the loading state.
+      expect(loadingCard).toHaveAttribute("role", "status");
+      expect(loadingCard).toHaveAttribute("aria-live", "polite");
+      // No summary text yet — that lives only in the populated branch.
+      expect(
+        screen.queryByText(/Financial analysts study filings/i),
+      ).toBeNull();
+
+      // Second render: populated → real summary appears, no longer in
+      // loading state.
+      const desc = makeCareerDesc();
+      rerender(
+        <GemmaChat
+          open={true}
+          build={null}
+          scope={careerScope}
+          chipText="Asking about: Financial and Investment Analysts"
+          onClose={() => {}}
+          careerDescription={desc}
+        />,
+      );
+      const populated = screen.getByTestId("card-career-description");
+      // Now the populated branch — no role="status" on the wrapper.
+      expect(populated.getAttribute("role")).toBeNull();
+      expect(
+        screen.getByText(/Financial analysts study filings/i),
+      ).toBeInTheDocument();
+    });
+
+    it("career_scope_handles_fetch_error — error sentinel omits the card; freeform chat still works", async () => {
+      mockAskGemmaStream.mockImplementation(
+        streamImpl([
+          { type: "final_text", response: "Talking around the missing card." },
+          { type: "done" },
+        ]),
+      );
+
+      render(
+        <GemmaChat
+          open={true}
+          build={null}
+          scope={careerScope}
+          chipText="Asking about: Financial and Investment Analysts"
+          onClose={() => {}}
+          careerDescription="error"
+        />,
+      );
+
+      // Card omitted on error — neither populated nor loading state renders.
+      expect(screen.queryByTestId("card-career-description")).toBeNull();
+
+      // Freeform chat input still mounts and the send path still dispatches.
+      fireEvent.change(screen.getByTestId("input-chat"), {
+        target: { value: "What does an analyst actually do?" },
+      });
+      fireEvent.click(screen.getByTestId("btn-chat-send"));
+      await waitFor(() => {
+        expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
+      });
+      // Response renders.
+      await waitFor(() => {
+        expect(
+          screen.getByText("Talking around the missing card."),
+        ).toBeInTheDocument();
+      });
+    });
+  });
 });

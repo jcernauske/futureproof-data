@@ -696,6 +696,17 @@ class _FanoutHarness:
         await asyncio.sleep(self.per_call_sleep_s)
         return "async guidance"
 
+    async def get_or_generate(self, soc_code: str, occupation_title: str):
+        # Eager career-description fetch joins _gemma_fanout's gather
+        # (feature-career-description-on-pdf.md). Tests that rely on the
+        # fan-out harness now see a 9th coroutine in started_at; raising
+        # CareerDescriptionUnavailable keeps the build path otherwise
+        # unchanged (career_description=None on the Build).
+        from app.services.career_description import CareerDescriptionUnavailable
+        self.started_at.append(("career_description", time.perf_counter()))
+        await asyncio.sleep(self.per_call_sleep_s)
+        raise CareerDescriptionUnavailable("test harness — no anchor")
+
 
 def _install_fanout_harness(
     monkeypatch,
@@ -730,6 +741,13 @@ def _install_fanout_harness(
     monkeypatch.setattr(
         guidance, "generate_guidance_async", h.generate_guidance_async
     )
+    # Stub the eager career_description fetch to keep tests deterministic.
+    # Patches the symbol the router uses, not the service module directly.
+    from app.services import career_description as _cd_module
+    monkeypatch.setattr(_cd_module, "get_or_generate", h.get_or_generate)
+    # Reset the per-process cache so a prior test's success doesn't
+    # short-circuit this one's stub.
+    _cd_module.clear_cache()
 
     return h
 
@@ -808,9 +826,9 @@ class TestCreateBuildParallelFanout:
         wall_elapsed = time.perf_counter() - wall_started
 
         # Every coroutine recorded one start. 5 narratives + 3 sibling
-        # calls = 8 total.
-        assert len(h.started_at) == 8, (
-            f"expected 8 fan-out coroutines, saw {len(h.started_at)}: "
+        # calls + 1 career-description = 9 total.
+        assert len(h.started_at) == 9, (
+            f"expected 9 fan-out coroutines, saw {len(h.started_at)}: "
             f"{[name for name, _ in h.started_at]}"
         )
 
@@ -839,6 +857,92 @@ class TestCreateBuildParallelFanout:
         assert build.guidance == "async guidance"
         assert len(build.gauntlet.fights) == 5
         assert build.skill_recs[0].title == "Data Analytics Minor"
+
+
+class TestSpawnEagerCareerDescription:
+    """Eager career_description fetch joins _gemma_fanout's gather. The
+    build pipeline must (1) attach a populated CareerDescription on
+    success, (2) tolerate CareerDescriptionUnavailable without blocking
+    the build, and (3) tolerate timeouts (modeled here as the same
+    branch — gather with return_exceptions=True swallows both).
+    """
+
+    @staticmethod
+    def _attaching_harness():
+        from app.models.career import CareerDescription
+
+        class _AttachingHarness(_FanoutHarness):
+            async def get_or_generate(self, soc_code, occupation_title):
+                self.started_at.append(
+                    ("career_description", time.perf_counter()),
+                )
+                await asyncio.sleep(self.per_call_sleep_s)
+                return CareerDescription(
+                    soc_code=soc_code,
+                    summary="Plain-English summary of the work.",
+                    tasks=[
+                        "Review filings",
+                        "Build models",
+                        "Brief the team",
+                        "Track positions",
+                    ],
+                    anchor_tier="activities",
+                    generated_at="2026-05-07T00:00:00Z",
+                    model="gemma-test",
+                )
+
+        return _AttachingHarness()
+
+    def test_spawn_eager_career_description_attaches(
+        self, isolated_builds_dir, monkeypatch,
+    ):
+        """Service returns a CareerDescription → Build.career_description
+        is populated on the response."""
+        _install_fanout_harness(monkeypatch, harness=self._attaching_harness())
+
+        build = asyncio.run(builds_router.create_build(_build_request()))
+
+        assert build.career_description is not None
+        assert build.career_description.anchor_tier == "activities"
+        assert build.career_description.summary.startswith("Plain-English")
+        assert len(build.career_description.tasks) == 4
+
+    def test_spawn_eager_failure_does_not_block_build(
+        self, isolated_builds_dir, monkeypatch,
+    ):
+        """Service raises CareerDescriptionUnavailable → spawn still
+        succeeds with career_description=None. (Default _FanoutHarness
+        already raises; this is the canonical happy-failure path.)"""
+        _install_fanout_harness(monkeypatch)
+
+        build = asyncio.run(builds_router.create_build(_build_request()))
+
+        assert isinstance(build, Build)
+        assert build.career_description is None
+        # The 8 non-description coroutines still produced real content.
+        assert build.guidance == "async guidance"
+        assert len(build.gauntlet.fights) == 5
+
+    def test_spawn_eager_unexpected_exception_does_not_block_build(
+        self, isolated_builds_dir, monkeypatch,
+    ):
+        """An unexpected exception (not CareerDescriptionUnavailable)
+        from the service is logged but does not block the build."""
+
+        class _ExplodingHarness(_FanoutHarness):
+            async def get_or_generate(self, soc_code, occupation_title):
+                self.started_at.append(
+                    ("career_description", time.perf_counter()),
+                )
+                await asyncio.sleep(self.per_call_sleep_s)
+                raise RuntimeError("upstream went sideways")
+
+        _install_fanout_harness(monkeypatch, harness=_ExplodingHarness())
+
+        build = asyncio.run(builds_router.create_build(_build_request()))
+
+        assert isinstance(build, Build)
+        assert build.career_description is None
 
 
 class TestCreateBuildPartialFailureFallback:

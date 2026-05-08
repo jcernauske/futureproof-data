@@ -31,6 +31,10 @@ function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
     occupation_title: "Biological Technician",
     soc_major_group_name: "Life, Physical, and Social Science",
     median_annual_wage: 52140,
+    wage_p10: null,
+    wage_p25: null,
+    wage_p75: null,
+    wage_p90: null,
     earnings_1yr_median: 38000,
     earnings_1yr_p25: 32000,
     earnings_1yr_p75: 45000,
@@ -38,6 +42,7 @@ function makeCareer(overrides: Partial<CareerOutcome> = {}): CareerOutcome {
     debt_to_earnings_annual: 0.63,
     education_level_name: "Bachelor's degree",
     growth_category: "Average",
+    work_experience_code: null,
     net_price_annual: 20000,
     cost_of_attendance_annual: 28000,
     published_cost_4yr: null,
@@ -118,6 +123,18 @@ vi.mock("@/api/client", () => ({
   apiGet: vi.fn().mockResolvedValue([]),
   apiPost: vi.fn().mockResolvedValue({ committed: true, logged: false }),
 }));
+
+// careerDescriptionStore — sparkle click runs through this single-flight
+// store. Mock so tests can drive the cache-hit / cache-miss paths.
+const mockLoadCareerDescription = vi.fn();
+const mockGetCachedCareerDescription = vi.fn();
+vi.mock("@/store/careerDescriptionStore", () => ({
+  loadCareerDescription: (...args: unknown[]) =>
+    mockLoadCareerDescription(...args),
+  getCachedCareerDescription: (...args: unknown[]) =>
+    mockGetCachedCareerDescription(...args),
+  clearCareerDescriptionCache: vi.fn(),
+}));
 // ChapterBook fetches branches on mount. Mock so no network escapes and
 // the book can render ready/loading/error shapes in the list→book tests.
 vi.mock("@/api/tree", () => ({
@@ -181,6 +198,23 @@ beforeEach(() => {
   window.scrollTo = vi.fn();
   mockNavigate.mockReset();
   mockAskGemmaStream.mockClear();
+  mockLoadCareerDescription.mockReset();
+  mockGetCachedCareerDescription.mockReset();
+  // Default: cache miss, fetch resolves to a populated description.
+  mockGetCachedCareerDescription.mockReturnValue(null);
+  mockLoadCareerDescription.mockResolvedValue({
+    soc_code: "19-4021",
+    summary: "Biological technicians help biologists in the lab.",
+    tasks: [
+      "Set up lab equipment for experiments",
+      "Record observations in lab notebooks",
+      "Collect and prepare samples",
+      "Maintain instruments and clean glassware",
+    ],
+    anchor_tier: "activities",
+    generated_at: "2026-05-07T00:00:00+00:00",
+    model: "gemma-4-26b-a4b-it",
+  });
   vi.mocked(commitResolution).mockReset();
   vi.mocked(commitResolution).mockResolvedValue({
     committed: true,
@@ -410,7 +444,94 @@ describe("TestSocRevealStates", () => {
 
     expect(await screen.findByText("Biological Technician")).toBeInTheDocument();
     expect(screen.getByText("Natural Sciences Manager")).toBeInTheDocument();
-    expect(screen.getByText("Where this leads")).toBeInTheDocument();
+    // Both careers have work_experience_code=null → fall into the
+    // "Early-career roles" bucket via the null fallback.
+    expect(screen.getByText("Early-career roles")).toBeInTheDocument();
+  });
+
+  it("groups careers into first-jobs / early-career / long-term sections in order", async () => {
+    // Mixed work_experience_code values exercise all three buckets.
+    const mixed: CareerOutcome[] = [
+      makeCareer({
+        soc_code: "15-1252",
+        occupation_title: "Software Developers",
+        work_experience_code: 3, // None required → first jobs
+      }),
+      makeCareer({
+        soc_code: "11-3021",
+        occupation_title: "Computer and Information Systems Managers",
+        work_experience_code: 1, // 5+ yrs → long-term
+      }),
+      makeCareer({
+        soc_code: "15-1211",
+        occupation_title: "Computer Systems Analysts",
+        work_experience_code: 2, // <5 yrs → early-career
+      }),
+      makeCareer({
+        soc_code: "15-1299",
+        occupation_title: "Computer Occupations, All Other",
+        work_experience_code: null, // null → early-career fallback
+      }),
+    ];
+    vi.mocked(getOutcomes).mockResolvedValue(mixed);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    // All three section headers visible.
+    const firstJobs = await screen.findByText("Likely first jobs");
+    const earlyCareer = screen.getByText("Early-career roles");
+    const longTerm = screen.getByText("Where this can lead long-term");
+
+    // DOM order matches render order: first jobs → early-career → long-term.
+    const docOrder = [...document.querySelectorAll("h2")]
+      .map((h) => h.textContent ?? "")
+      .filter((t) =>
+        ["Likely first jobs", "Early-career roles", "Where this can lead long-term"].includes(t),
+      );
+    expect(docOrder).toEqual([
+      "Likely first jobs",
+      "Early-career roles",
+      "Where this can lead long-term",
+    ]);
+
+    // Each section's section element scopes its career card.
+    const firstJobsSection = firstJobs.closest("section");
+    const earlyCareerSection = earlyCareer.closest("section");
+    const longTermSection = longTerm.closest("section");
+    expect(firstJobsSection).not.toBeNull();
+    expect(earlyCareerSection).not.toBeNull();
+    expect(longTermSection).not.toBeNull();
+
+    // Software Developers (code 3) lands in first-jobs.
+    expect(firstJobsSection!.textContent).toContain("Software Developers");
+    // Both code 2 and null career titles land in early-career.
+    expect(earlyCareerSection!.textContent).toContain("Computer Systems Analysts");
+    expect(earlyCareerSection!.textContent).toContain("Computer Occupations, All Other");
+    // Manager role (code 1) lands in long-term.
+    expect(longTermSection!.textContent).toContain(
+      "Computer and Information Systems Managers",
+    );
+  });
+
+  it("hides empty sections entirely", async () => {
+    // Only long-term careers — first-jobs and early-career headers
+    // should not appear at all.
+    const onlyLongTerm: CareerOutcome[] = [
+      makeCareer({
+        soc_code: "11-3021",
+        occupation_title: "IT Manager",
+        work_experience_code: 1,
+      }),
+    ];
+    vi.mocked(getOutcomes).mockResolvedValue(onlyLongTerm);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    expect(
+      await screen.findByText("Where this can lead long-term"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Likely first jobs")).not.toBeInTheDocument();
+    expect(screen.queryByText("Early-career roles")).not.toBeInTheDocument();
   });
 
   it("effort section appears after outcomes load", async () => {
@@ -467,6 +588,67 @@ describe("TestSocRevealStates", () => {
     expect(scope.target_id).toBe("19-4021");
     expect(scope.build_ids).toEqual([]);
     expect(openerCall[1]).toMatch(/describe in detail/i);
+  });
+
+  // -------------------------------------------------------------------
+  // feature-career-description-on-pdf.md §4 New Tests Required (P1):
+  // sparkle click drives the careerDescriptionStore single-flight.
+  // -------------------------------------------------------------------
+
+  it("sparkle_click_fetches_career_description — click → loadCareerDescription called with the SOC", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    const sparkle = await screen.findByTestId("btn-ask-career-19-4021");
+    // Cache miss — store should dispatch a fetch.
+    mockGetCachedCareerDescription.mockReturnValue(null);
+    fireEvent.click(sparkle);
+
+    await waitFor(() => {
+      expect(mockGetCachedCareerDescription).toHaveBeenCalledWith("19-4021");
+      expect(mockLoadCareerDescription).toHaveBeenCalledTimes(1);
+    });
+    const [soc, title] = mockLoadCareerDescription.mock.calls[0]!;
+    expect(soc).toBe("19-4021");
+    expect(title).toBe("Biological Technician");
+  });
+
+  it("sparkle_click_cache_hit_skips_fetch — second click for same SOC → no second loadCareerDescription call", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
+    seedWithResolvedMajor();
+    renderScreen();
+
+    const sparkle = await screen.findByTestId("btn-ask-career-19-4021");
+
+    // First click — cache miss, fetch dispatches.
+    mockGetCachedCareerDescription.mockReturnValue(null);
+    fireEvent.click(sparkle);
+    await waitFor(() => {
+      expect(mockLoadCareerDescription).toHaveBeenCalledTimes(1);
+    });
+
+    // Second click for the SAME SOC — store now reports a cache hit.
+    // The screen should pull synchronously from the cache and NOT
+    // invoke loadCareerDescription a second time.
+    mockGetCachedCareerDescription.mockReturnValue({
+      soc_code: "19-4021",
+      summary: "cached",
+      tasks: ["a", "b", "c", "d"],
+      anchor_tier: "activities",
+      generated_at: "2026-05-07T00:00:00+00:00",
+      model: "gemma-4-26b-a4b-it",
+    });
+    fireEvent.click(sparkle);
+
+    // Wait a microtask so any pending async work settles before asserting.
+    await waitFor(() => {
+      expect(mockGetCachedCareerDescription).toHaveBeenCalledWith("19-4021");
+    });
+    // Still exactly 1 fetch — cache hit short-circuits.
+    expect(mockLoadCareerDescription).toHaveBeenCalledTimes(1);
   });
 });
 

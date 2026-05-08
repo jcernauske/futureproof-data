@@ -16,10 +16,12 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from app.models.career import (
     AnchorBuild,
+    CareerDescription,
     SchoolForCareerRow,
     SchoolsForCareerResponse,
 )
 from app.routers import careers as careers_router
+from app.services.career_description import CareerDescriptionUnavailable
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -360,3 +362,134 @@ class TestAnchorStatsQueryParams:
         assert resp.status_code == 200
         assert captured["anchor_stat_ern"] is None
         assert captured["anchor_stat_roi"] is None
+
+
+# ===========================================================================
+# P0 — GET /careers/{soc_code}/description
+# (feature-career-description-on-pdf.md §4 New Tests Required)
+# ===========================================================================
+
+
+def _career_description(
+    *,
+    soc: str = "13-2051",
+    anchor_tier: str = "activities",
+) -> CareerDescription:
+    return CareerDescription(
+        soc_code=soc,
+        summary=(
+            "Financial analysts study filings and market data to guide "
+            "investment decisions. They assemble models and brief managers."
+        ),
+        tasks=[
+            "Analyze company filings",
+            "Assemble valuation models",
+            "Brief portfolio managers",
+            "Read industry reports",
+            "Track positions after recommendations",
+        ],
+        anchor_tier=anchor_tier,  # type: ignore[arg-type]
+        generated_at="2026-05-07T00:00:00+00:00",
+        model="gemma-4-26b-a4b-it",
+    )
+
+
+class TestCareerDescriptionEndpoint:
+    def test_get_career_description_endpoint_happy(self, client, monkeypatch):
+        """Happy path: service returns a valid CareerDescription → 200 +
+        the JSON-serialized payload.
+        """
+        captured: dict = {}
+
+        async def fake_service(soc_code: str, occupation_title: str):
+            captured["soc"] = soc_code
+            captured["title"] = occupation_title
+            return _career_description(soc=soc_code)
+
+        monkeypatch.setattr(
+            careers_router.career_description_service,
+            "get_or_generate",
+            fake_service,
+        )
+
+        resp = client.get(
+            "/careers/13-2051/description",
+            params={"occupation_title": "Financial and Investment Analysts"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["soc_code"] == "13-2051"
+        assert body["anchor_tier"] == "activities"
+        assert isinstance(body["tasks"], list)
+        assert 4 <= len(body["tasks"]) <= 6
+        assert body["summary"]
+        # Service was dispatched with the path SOC + query title.
+        assert captured["soc"] == "13-2051"
+        assert captured["title"] == "Financial and Investment Analysts"
+
+    def test_get_career_description_endpoint_unavailable(
+        self, client, monkeypatch,
+    ):
+        """Service raises CareerDescriptionUnavailable → endpoint maps to 502."""
+
+        async def raising_service(soc_code: str, occupation_title: str):
+            raise CareerDescriptionUnavailable(
+                "two consecutive Gemma failures",
+            )
+
+        monkeypatch.setattr(
+            careers_router.career_description_service,
+            "get_or_generate",
+            raising_service,
+        )
+
+        resp = client.get(
+            "/careers/13-2051/description",
+            params={"occupation_title": "Financial and Investment Analysts"},
+        )
+        assert resp.status_code == 502, resp.text
+        body = resp.json()
+        assert body["detail"] == "career_description_unavailable"
+
+    def test_get_career_description_endpoint_invalid_soc(
+        self, client, monkeypatch,
+    ):
+        """Malformed SOC fails the FastAPI Path regex → 422 BEFORE the
+        service is invoked.
+        """
+        called = {"value": False}
+
+        async def trap(soc_code: str, occupation_title: str):
+            called["value"] = True
+            raise AssertionError("service called despite 422")
+
+        monkeypatch.setattr(
+            careers_router.career_description_service,
+            "get_or_generate",
+            trap,
+        )
+
+        resp = client.get(
+            "/careers/13205/description",  # missing the dash + 4-digit suffix
+            params={"occupation_title": "Anything"},
+        )
+        assert resp.status_code == 422
+        assert called["value"] is False
+
+    def test_get_career_description_endpoint_missing_query_param(
+        self, client, monkeypatch,
+    ):
+        """occupation_title is required (Tier C fallback needs it). FastAPI
+        returns 422 when it's absent.
+        """
+        async def trap(soc_code: str, occupation_title: str):
+            raise AssertionError("service called despite 422")
+
+        monkeypatch.setattr(
+            careers_router.career_description_service,
+            "get_or_generate",
+            trap,
+        )
+
+        resp = client.get("/careers/13-2051/description")
+        assert resp.status_code == 422

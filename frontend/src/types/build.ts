@@ -29,6 +29,15 @@ export interface CareerOutcome {
   soc_major_group_name: string | null;
 
   median_annual_wage: number | null;
+  // OEWS national career-level wage distribution (BLS Occupational
+  // Employment and Wage Statistics, May 2024). Career-specific
+  // percentiles distinct from the program-level Scorecard
+  // ``earnings_1yr_*`` fields below. See spec
+  // ``docs/specs/ingest-bls-oews-wage-percentiles.md``.
+  wage_p10: number | null;
+  wage_p25: number | null;
+  wage_p75: number | null;
+  wage_p90: number | null;
   earnings_1yr_median: number | null;
   earnings_1yr_p25: number | null;
   earnings_1yr_p75: number | null;
@@ -36,6 +45,16 @@ export interface CareerOutcome {
   debt_to_earnings_annual: number | null;
   education_level_name: string | null;
   growth_category: string | null;
+  // BLS OOH "work experience in a related occupation" categorical:
+  //   1 = 5+ years required in a related occupation
+  //   2 = Less than 5 years required
+  //   3 = None required
+  // Drives the experience-based career grouping on /set-your-course
+  // (Likely first jobs / Early-career / Long-term) and the FinancesCard
+  // "starting range" vs "typical range" wage label. Null when the SOC
+  // has no OOH coverage; the UI treats null the same as code 2 (early-
+  // career) so career data still surfaces.
+  work_experience_code: number | null;
 
   // Cost-of-attendance fields (from raw-ingest-college-scorecard-institution).
   // Nullable for institutions where the Scorecard didn't publish institution-level
@@ -255,6 +274,22 @@ export interface SchoolsForCareerResponse {
   generated_at: string;
 }
 
+// Anchor source for a CareerDescription. Drives the "AI-inferred from..."
+// disclaimer on the sparkle panel header card and PDF section.
+//   "activities":          full O*NET activity importance scores (Tier A — no disclaimer)
+//   "description_only":    BLS occupation summary only (Tier B — disclaimer)
+//   "title_only":          occupation title + family only (Tier C — disclaimer)
+export type AnchorTier = "activities" | "description_only" | "title_only";
+
+export interface CareerDescription {
+  soc_code: string;
+  summary: string;
+  tasks: string[];
+  anchor_tier: AnchorTier;
+  generated_at: string;
+  model: string;
+}
+
 export interface Build {
   build_id: string;
   created_at: string;
@@ -278,4 +313,9 @@ export interface Build {
   parent_build_id?: string | null;
   home_state?: string | null;
   animal_emoji?: string | null;
+  // Plain-English career description rendered on the sparkle panel +
+  // My Build PDF (feature-career-description-on-pdf.md). Optional for
+  // backwards compatibility with builds spawned before the eager fetch
+  // shipped, and for cases where eager generation failed.
+  career_description?: CareerDescription | null;
 }

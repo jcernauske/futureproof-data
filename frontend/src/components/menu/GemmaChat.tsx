@@ -15,6 +15,7 @@ import { GemmaTrace } from "@/components/menu/GemmaTrace";
 import { useProfileStore } from "@/store/profileStore";
 import { useT } from "@/i18n/useT";
 import type { GemmaTraceEvent } from "@/types/gemmaTrace";
+import type { CareerDescription } from "@/types/build";
 
 /**
  * Build a `ChatHistoryItem` for an assistant turn. Discriminates on
@@ -80,6 +81,17 @@ interface GemmaChatProps {
    */
   onAssistantResponse?: (text: string) => void;
   starters?: string[];
+  /**
+   * Optional structured career-description card rendered above the chat
+   * history when ``scope.kind === "career"``. Three states:
+   *   - null / undefined → not requested → no card.
+   *   - "loading"        → render skeleton.
+   *   - "error"          → omit card; freeform chat opens as today.
+   *   - CareerDescription → render populated header card.
+   * Owned by the parent screen (sparkle click handler in
+   * SetYourCourseScreen).
+   */
+  careerDescription?: CareerDescription | "loading" | "error" | null;
   /** Optional close handler. Required for slide-in; ignored in embedded mode. */
   onClose?: () => void;
 }
@@ -115,6 +127,7 @@ export function GemmaChat({
   openerPrompt,
   starters: startersProp,
   onAssistantResponse,
+  careerDescription,
   onClose,
 }: GemmaChatProps) {
   const t = useT();
@@ -345,6 +358,169 @@ export function GemmaChat({
   }
 
   /**
+   * Structured "About this career" header card on top of the chat feed
+   * for ``scope.kind === "career"``. Three states:
+   *   - "loading": skeleton mirroring populated rhythm
+   *   - "error":   omit card entirely; freeform chat fills the gap
+   *   - CareerDescription: populated header with optional Tier B/C
+   *     disclaimer chip below the bullet list
+   * Mirrors §3 of feature-career-description-on-pdf.md.
+   */
+  function renderCareerDescriptionCard(
+    desc: CareerDescription | "loading" | "error",
+    socCode: string | null | undefined,
+  ) {
+    if (desc === "error") {
+      return null;
+    }
+
+    if (desc === "loading") {
+      return (
+        <div
+          data-testid="card-career-description"
+          role="status"
+          aria-live="polite"
+          aria-label="Loading career description"
+          className="rounded-xl bg-bp-surface border border-border-subtle p-5 mb-4 shadow-sm"
+        >
+          <div className="flex items-center gap-2.5 mb-4">
+            <span aria-hidden className="text-accent-insight text-base">✦</span>
+            <motion.span
+              aria-hidden
+              className="h-[22px] w-[220px] rounded-md bg-bp-raised/60"
+              animate={{ opacity: [0.5, 0.85, 0.5] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.span
+              aria-hidden
+              className="ml-auto h-[22px] w-[80px] rounded-sm bg-bp-raised/60"
+              animate={{ opacity: [0.5, 0.85, 0.5] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 mb-4">
+            {[100, 100, 70].map((w, i) => (
+              <motion.span
+                key={i}
+                aria-hidden
+                className="h-[14px] rounded-md bg-bp-raised/60"
+                style={{ width: `${w}%` }}
+                animate={{ opacity: [0.5, 0.85, 0.5] }}
+                transition={{
+                  duration: 1.6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.05 * i,
+                }}
+              />
+            ))}
+          </div>
+          <motion.span
+            aria-hidden
+            className="block h-[10px] w-[80px] rounded-sm bg-bp-raised/60 mb-2"
+            animate={{ opacity: [0.5, 0.85, 0.5] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <ul role="list" className="flex flex-col gap-2">
+            {[88, 76, 92, 82].map((w, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span aria-hidden className="text-accent-insight text-base leading-tight pt-0.5">•</span>
+                <motion.span
+                  aria-hidden
+                  className="h-[12px] rounded-md bg-bp-raised/60 flex-1 max-w-full"
+                  style={{ width: `${w}%` }}
+                  animate={{ opacity: [0.5, 0.85, 0.5] }}
+                  transition={{
+                    duration: 1.6,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 0.06 * i,
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
+
+    // Defensive: bad payloads (test fixtures, API drift) render nothing
+    // rather than crashing the chat panel.
+    if (
+      !desc ||
+      typeof desc.summary !== "string" ||
+      !Array.isArray(desc.tasks)
+    ) {
+      return null;
+    }
+
+    const occupationTitle = chipText?.replace(/^Asking about: /, "") ?? "";
+    const disclaimer =
+      desc.anchor_tier === "description_only"
+        ? "AI-inferred from the BLS occupation summary."
+        : desc.anchor_tier === "title_only"
+        ? "AI-inferred from the occupation title only."
+        : null;
+
+    return (
+      <div
+        data-testid="card-career-description"
+        className="rounded-xl bg-bp-surface border border-border-subtle p-5 mb-4 shadow-sm"
+      >
+        <div className="flex items-center gap-2.5 mb-4">
+          <span aria-hidden className="text-accent-insight text-base shrink-0">✦</span>
+          <h2
+            id="career-desc-title"
+            className="font-display text-subheading text-text-primary font-bold leading-tight truncate"
+          >
+            {occupationTitle || "About this career"}
+          </h2>
+          {socCode ? (
+            <span
+              data-testid="career-desc-soc"
+              aria-label={`Standard Occupational Classification code ${socCode}`}
+              className="ml-auto inline-flex items-center px-2.5 py-1 rounded-md bg-bp-mid border border-border-subtle font-data text-micro text-text-secondary shrink-0"
+            >
+              {socCode}
+            </span>
+          ) : null}
+        </div>
+        <p className="font-body text-body text-text-secondary leading-normal mb-4">
+          {desc.summary}
+        </p>
+        <p className="font-body text-micro font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+          Day-to-day
+        </p>
+        <ul
+          role="list"
+          data-testid="career-desc-tasks"
+          aria-label={`Day-to-day tasks for ${occupationTitle || "this career"}`}
+          className="flex flex-col gap-2"
+        >
+          {desc.tasks.map((task, i) => (
+            <li key={i} className="flex items-start gap-3">
+              <span aria-hidden className="text-accent-insight text-base leading-tight pt-0.5">•</span>
+              <span className="font-body text-small text-text-secondary leading-relaxed">
+                {task}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {disclaimer ? (
+          <span
+            data-testid="career-desc-disclaimer"
+            aria-label={`Source disclosure: ${disclaimer}`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bp-deep border border-border-subtle font-body text-micro italic text-text-muted self-start mt-3"
+          >
+            <span aria-hidden className="text-accent-insight">✦</span>
+            {disclaimer}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  /**
    * Render the in-flight loading row including any live trace events
    * for the current sending turn. Pulled out so the JSX stays flat
    * inside the embedded + slide-in returns — Vite's babel parser
@@ -447,6 +623,10 @@ export function GemmaChat({
           ref={scrollRef}
           className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
         >
+          {scope?.kind === "career" && careerDescription
+            ? renderCareerDescriptionCard(careerDescription, scope.target_id)
+            : null}
+
           {history.map((m, i) => renderMessageWithTrace(m, i))}
 
           {sending && renderSendingRow()}
@@ -561,6 +741,10 @@ export function GemmaChat({
               ref={scrollRef}
               className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"
             >
+              {scope?.kind === "career" && careerDescription
+                ? renderCareerDescriptionCard(careerDescription, scope.target_id)
+                : null}
+
               {history.length === 0 && !sending && (
                 <motion.div
                   className="flex flex-col gap-3 mt-6"
