@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 
 import pytest
@@ -1637,4 +1638,386 @@ async def test_response_format_absent_when_unset_on_ollama(monkeypatch):
     )
     assert len(captured_payloads) == 1
     assert "format" not in captured_payloads[0]
+    gemma_client.reset_cache()
+
+
+# ---------------------------------------------------------------------------
+# _hedged_completion tests — tail-latency hedging for OpenRouter calls.
+#
+# The function lives just above _one_tool_turn in gemma_client.py. It wraps
+# the blocking SDK call (run via asyncio.to_thread) so a slow primary
+# request can be raced against a backup fired _HEDGE_DELAY_S later.
+#
+# Test infra notes:
+#   - GEMMA_HEDGE_DELAY_S is read at IMPORT time into the module-level
+#     constant `_HEDGE_DELAY_S`. Setting the env var post-import has no
+#     effect — we monkeypatch the constant directly.
+#   - The SDK call site is `_client.chat.completions.create(**kwargs)`.
+#     We stub `_cached_client()` (lru_cache wrapped) the same way the
+#     existing tests do, then back the .create() with whatever latency /
+#     failure behavior the test needs.
+#   - All sleeps are asyncio.sleep on tiny intervals (hedge delay <= 0.05s)
+#     so the suite stays under a second.
+# ---------------------------------------------------------------------------
+
+
+def _install_hedge_stub_client(monkeypatch, create_fn):
+    """Wire up a stub client whose chat.completions.create() delegates to
+    `create_fn(**kwargs)` (a plain sync callable — runs on a worker
+    thread because _hedged_completion uses asyncio.to_thread).
+
+    Returns the stub client object so the test can hang call counters /
+    state on it if needed.
+    """
+    monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+    monkeypatch.setenv("GEMMA_MAX_CONCURRENCY", "8")
+    gemma_client.reset_cache()
+
+    class _Completions:
+        def create(self, **kwargs):
+            return create_fn(**kwargs)
+
+    class _Chat:
+        def __init__(self):
+            self.completions = _Completions()
+
+    class _StubClient:
+        def __init__(self):
+            self.chat = _Chat()
+
+    cfg = gemma_client.InferenceConfig(
+        backend="openrouter",
+        base_url="http://stub",
+        api_key="stub",
+        model="gemma4:stub",
+    )
+
+    from functools import lru_cache
+
+    stub_client = _StubClient()
+
+    @lru_cache(maxsize=1)
+    def _stub_cached_client():
+        return stub_client, cfg
+
+    monkeypatch.setattr(gemma_client, "_cached_client", _stub_cached_client)
+    return stub_client
+
+
+def _make_response_obj(content: str = "ok"):
+    """Minimal stand-in for the OpenAI SDK response object. The hedged
+    function returns it verbatim — we only need identity, but we build
+    something realistic so failures are easier to debug."""
+    class _M:
+        pass
+
+    msg = _M()
+    msg.content = content
+    msg.tool_calls = None
+    choice = _M()
+    choice.message = msg
+    choice.finish_reason = "stop"
+    resp = _M()
+    resp.choices = [choice]
+    resp.usage = None
+    resp._marker = content  # for asserting which call won
+    return resp
+
+
+@pytest.mark.asyncio
+async def test_hedged_completion_primary_wins_fast(monkeypatch):
+    """Primary returns inside the hedge window — backup never fires.
+
+    Verifies (a) the response is the primary's, (b) the SDK was called
+    exactly once. If the hedging logic accidentally spawned a backup
+    despite the primary completing inside the window, call_count would
+    be 2.
+    """
+    monkeypatch.setattr(gemma_client, "_HEDGE_DELAY_S", 0.5)
+
+    call_count = 0
+    primary_response = _make_response_obj("primary")
+
+    def _create(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        # Return immediately — well under the 0.5s hedge window.
+        return primary_response
+
+    _install_hedge_stub_client(monkeypatch, _create)
+
+    result = await gemma_client._hedged_completion(
+        completion_kwargs={"model": "x", "messages": []},
+        turn_number=0,
+    )
+
+    assert result is primary_response
+    assert call_count == 1, (
+        f"backup should not have fired when primary won fast; "
+        f"got {call_count} SDK calls"
+    )
+
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_hedged_completion_primary_slow_backup_wins(monkeypatch):
+    """Primary blocks past the hedge delay; backup fires and returns
+    quickly. Result is the backup's response; the SDK is called twice.
+
+    Uses a threading.Event so the slow primary stays blocked until we
+    explicitly release it after the assertions — that way we don't
+    leak a sleeping worker thread that wakes up and emits a stray log
+    line during a later test.
+    """
+    import threading
+
+    monkeypatch.setattr(gemma_client, "_HEDGE_DELAY_S", 0.05)
+
+    call_count = 0
+    call_lock = threading.Lock()
+    release_primary = threading.Event()
+    primary_response = _make_response_obj("primary")
+    backup_response = _make_response_obj("backup")
+
+    def _create(**kwargs):
+        nonlocal call_count
+        with call_lock:
+            call_count += 1
+            this_call = call_count
+
+        if this_call == 1:
+            # Primary: block on the event so the hedge delay elapses.
+            # If the test ends without setting the event, wait at most
+            # 2s so we don't pin a worker thread forever.
+            release_primary.wait(timeout=2.0)
+            return primary_response
+        # Backup: return immediately so it wins the race.
+        return backup_response
+
+    _install_hedge_stub_client(monkeypatch, _create)
+
+    try:
+        result = await gemma_client._hedged_completion(
+            completion_kwargs={"model": "x", "messages": []},
+            turn_number=0,
+        )
+
+        assert result is backup_response, (
+            "backup should have won the race once primary exceeded the "
+            "hedge delay"
+        )
+        assert call_count == 2, (
+            f"both primary and backup should have fired; got {call_count}"
+        )
+    finally:
+        # Unblock the primary so its worker thread can exit cleanly.
+        release_primary.set()
+
+
+@pytest.mark.asyncio
+async def test_hedged_completion_disabled_when_delay_zero(monkeypatch):
+    """When _HEDGE_DELAY_S <= 0, exactly one call ever fires — even if
+    that call is slow. The early-return branch must NOT spawn a backup
+    task.
+    """
+    import threading
+
+    monkeypatch.setattr(gemma_client, "_HEDGE_DELAY_S", 0.0)
+
+    call_count = 0
+    call_lock = threading.Lock()
+    response = _make_response_obj("only")
+
+    def _create(**kwargs):
+        nonlocal call_count
+        with call_lock:
+            call_count += 1
+        # Sleep longer than what the (now-disabled) hedge delay would
+        # have been. With hedging on this would absolutely have triggered
+        # a backup; with hedging off we should still see just one call.
+        time.sleep(0.1)
+        return response
+
+    _install_hedge_stub_client(monkeypatch, _create)
+
+    result = await gemma_client._hedged_completion(
+        completion_kwargs={"model": "x", "messages": []},
+        turn_number=0,
+    )
+
+    assert result is response
+    assert call_count == 1, (
+        f"hedging must be disabled when _HEDGE_DELAY_S<=0; "
+        f"got {call_count} SDK calls"
+    )
+
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_hedged_completion_both_fail_returns_none(monkeypatch, caplog):
+    """Both primary AND backup raise transport errors. Function returns
+    None and emits a WARNING log per failed candidate."""
+    import threading
+
+    monkeypatch.setattr(gemma_client, "_HEDGE_DELAY_S", 0.05)
+
+    call_count = 0
+    call_lock = threading.Lock()
+
+    def _create(**kwargs):
+        nonlocal call_count
+        with call_lock:
+            call_count += 1
+            this_call = call_count
+        if this_call == 1:
+            # Primary: stay slow so backup actually fires.
+            time.sleep(0.15)
+            raise ConnectionError("primary transport error")
+        raise ConnectionError("backup transport error")
+
+    _install_hedge_stub_client(monkeypatch, _create)
+
+    with caplog.at_level(logging.WARNING, logger=gemma_client.logger.name):
+        result = await gemma_client._hedged_completion(
+            completion_kwargs={"model": "x", "messages": []},
+            turn_number=7,
+        )
+
+    assert result is None
+    assert call_count == 2, (
+        f"backup must have fired when primary was still pending; "
+        f"got {call_count}"
+    )
+    # Each candidate failure should have been logged.
+    candidate_warnings = [
+        rec for rec in caplog.records
+        if rec.levelno == logging.WARNING
+        and "candidate failed" in rec.getMessage()
+    ]
+    assert len(candidate_warnings) == 2, (
+        f"expected 2 'candidate failed' WARNING logs (one per failure); "
+        f"got {len(candidate_warnings)}: "
+        f"{[r.getMessage() for r in candidate_warnings]}"
+    )
+
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_hedged_completion_primary_fails_fast_no_backup(
+    monkeypatch, caplog
+):
+    """Primary raises BEFORE the hedge delay elapses. Document the
+    CURRENT behavior: no backup is fired (because asyncio.wait returned
+    `done` non-empty), the loop catches the exception, candidates becomes
+    empty (pending was empty), and the function returns None.
+
+    POTENTIAL WEAKNESS / FLAG FOR HUMAN REVIEW
+    -------------------------------------------
+    Arguably this is a bug: a transient fast-failure (e.g. 5xx, dropped
+    socket) on the primary effectively bypasses the hedge entirely and
+    falls straight through to None, when the whole point of hedging is
+    resilience. A more defensive implementation would always fire the
+    backup on primary failure (whether fast or slow). Worth a follow-up
+    spec — for now this test pins the actual behavior so a future fix
+    is intentional and visible in the diff.
+    """
+    monkeypatch.setattr(gemma_client, "_HEDGE_DELAY_S", 0.5)
+
+    call_count = 0
+
+    def _create(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        # Fast failure — well inside the 0.5s hedge window.
+        raise ConnectionError("primary fast-failed")
+
+    _install_hedge_stub_client(monkeypatch, _create)
+
+    with caplog.at_level(logging.WARNING, logger=gemma_client.logger.name):
+        result = await gemma_client._hedged_completion(
+            completion_kwargs={"model": "x", "messages": []},
+            turn_number=3,
+        )
+
+    assert result is None
+    # CURRENT behavior: backup is NOT fired on fast primary failure.
+    # (See docstring above — flagged for human review.)
+    assert call_count == 1, (
+        "current implementation does not fire backup on fast primary "
+        "failure; if this assertion now reads call_count == 2, the "
+        "behavior changed and the docstring above should be updated"
+    )
+    # The single candidate failure should have been logged.
+    candidate_warnings = [
+        rec for rec in caplog.records
+        if rec.levelno == logging.WARNING
+        and "candidate failed" in rec.getMessage()
+    ]
+    assert len(candidate_warnings) == 1
+
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_hedged_completion_backup_fails_primary_wins(monkeypatch):
+    """Both fire (primary slow → backup spawns), backup raises FIRST,
+    then primary succeeds. The loop should swallow the backup's
+    exception and return primary's successful result.
+
+    Pins the contract that a single candidate failure does not poison
+    the whole hedged call as long as another candidate is still in
+    flight.
+    """
+    import threading
+
+    monkeypatch.setattr(gemma_client, "_HEDGE_DELAY_S", 0.05)
+
+    call_count = 0
+    call_lock = threading.Lock()
+    primary_response = _make_response_obj("primary")
+    release_primary = threading.Event()
+
+    def _create(**kwargs):
+        nonlocal call_count
+        with call_lock:
+            call_count += 1
+            this_call = call_count
+
+        if this_call == 1:
+            # Primary: wait until released, then return success. Released
+            # below AFTER the backup has had time to raise.
+            released = release_primary.wait(timeout=2.0)
+            assert released, "primary was never released"
+            return primary_response
+        # Backup: raise quickly so it lands in `done` first.
+        raise ConnectionError("backup transport error")
+
+    _install_hedge_stub_client(monkeypatch, _create)
+
+    # Drive the test: kick off the hedged call, give the backup time
+    # to fire and fail, then release the primary so it can win.
+    async def _release_after_backup_fails():
+        # 0.15s is long enough for: primary to start blocking, hedge
+        # delay (0.05s) to elapse, backup to spawn and raise. Then we
+        # release the primary so the loop can collect its success.
+        await asyncio.sleep(0.15)
+        release_primary.set()
+
+    releaser = asyncio.create_task(_release_after_backup_fails())
+    try:
+        result = await gemma_client._hedged_completion(
+            completion_kwargs={"model": "x", "messages": []},
+            turn_number=0,
+        )
+    finally:
+        await releaser
+
+    assert result is primary_response, (
+        "primary's successful result should have won after backup raised"
+    )
+    assert call_count == 2
+
     gemma_client.reset_cache()

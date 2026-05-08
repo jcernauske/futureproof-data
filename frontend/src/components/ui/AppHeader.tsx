@@ -8,6 +8,7 @@ import { useBuildStore } from "@/store/buildStore";
 import { useGauntletStore } from "@/store/gauntletStore";
 import { useBuildsCountStore } from "@/store/buildsCountStore";
 import { Wordmark } from "@/components/ui/Wordmark";
+import { InferenceBadge } from "@/components/ui/InferenceBadge";
 import { Toast } from "@/components/ui/Toast";
 import { useT } from "@/i18n/useT";
 
@@ -118,8 +119,8 @@ export function AppHeader() {
           className="h-14 px-8 flex items-center backdrop-blur-[12px] border-b border-border-subtle"
           style={{ background: "rgba(18, 19, 31, 0.92)" }}
         >
-          {/* Left zone: wordmark (tappable home) */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Left zone: wordmark (tappable home) + inference backend badge */}
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => navigate("/")}
               className="cursor-pointer hover:opacity-80 transition-opacity duration-normal"
@@ -127,6 +128,7 @@ export function AppHeader() {
             >
               <Wordmark size="sm" />
             </button>
+            <InferenceBadge />
           </div>
 
           {/* Center zone: intentionally empty — the build context pill

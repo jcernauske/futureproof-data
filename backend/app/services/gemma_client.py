@@ -106,6 +106,19 @@ def current_config() -> InferenceConfig:
     return _cached_client()[1]
 
 
+def health_info() -> tuple[str, str]:
+    """Best-effort (backend, model) for /health. Never raises — falls back
+    to env-derived values when ``current_config`` would (e.g.,
+    ``INFERENCE_BACKEND=openrouter`` without ``OPENROUTER_API_KEY``).
+    """
+    _ensure_env_loaded()
+    backend = os.environ.get("INFERENCE_BACKEND", "ollama").strip().lower()
+    if backend == "openrouter":
+        model = os.environ.get("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
+        return "openrouter", model
+    return "ollama", os.environ.get("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
+
+
 def reset_cache() -> None:
     """Clear the cached client. Used by tests that patch env vars."""
     _cached_client.cache_clear()
@@ -163,8 +176,14 @@ def _ollama_chat_sync(
     max_tokens: int,
     temperature: float,
     seed: int | None = None,
+    timeout_s: float | None = None,
+    response_format: str | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Call Ollama native /api/chat with think=false. Returns parsed JSON."""
+    """Call Ollama native /api/chat with think=false. Returns parsed JSON.
+
+    ``response_format``: "json" or {"type": "json_object"} → ``format: "json"``.
+    Full JSON-Schema dict passes through verbatim.
+    """
     url = f"{_ollama_native_url(config)}/api/chat"
     payload: dict[str, Any] = {
         "model": model,
@@ -178,7 +197,22 @@ def _ollama_chat_sync(
     }
     if seed is not None:
         payload["options"]["seed"] = seed
-    resp = httpx.post(url, json=payload, timeout=180.0)
+    if response_format is not None:
+        if response_format == "json" or (
+            isinstance(response_format, dict)
+            and response_format.get("type") == "json_object"
+        ):
+            payload["format"] = "json"
+        elif (
+            isinstance(response_format, dict)
+            and response_format.get("type") == "json_schema"
+        ):
+            schema = response_format.get("json_schema", {}).get("schema")
+            payload["format"] = schema if schema is not None else "json"
+        else:
+            payload["format"] = response_format
+    timeout = timeout_s if timeout_s is not None else 180.0
+    resp = httpx.post(url, json=payload, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
@@ -261,6 +295,35 @@ def _log_exchange(record: dict[str, Any]) -> None:
         logger.debug("gemma jsonl log write failed: %s", exc)
 
 
+def log_synthetic_event(
+    *,
+    call_site: str,
+    event: str,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """Emit one logs/gemma.jsonl record for a non-call event.
+
+    Used by callers that need observability for code paths where no
+    Gemma transport happened — most importantly the fallback paths in
+    pdf_questions.py (timeout/empty/malformed/disabled). Without this,
+    downstream observability has blind spots: a fallback that didn't
+    transport would leave no record at all.
+
+    Records are timestamped, tagged with ``call_site``, and stamped
+    ``synthetic: true`` so jsonl consumers can distinguish them from
+    real-call records.
+    """
+    record: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "synthetic": True,
+        "call_site": call_site,
+        "event": event,
+    }
+    if extra:
+        record = {**extra, **record}
+    _log_exchange(record)
+
+
 def generate(
     *,
     system: str,
@@ -306,6 +369,8 @@ def generate_chat(
     seed: int | None = None,
     model: str | None = None,
     extra: dict[str, Any] | None = None,
+    timeout_s: float | None = None,
+    response_format: str | dict[str, Any] | None = None,
 ) -> str:
     """Multi-turn variant for conversational flows.
 
@@ -316,6 +381,15 @@ def generate_chat(
     ``seed`` forwards to the OpenAI-compatible ``seed`` parameter when set.
 
     ``extra`` is merged into the JSONL log record.
+
+    ``timeout_s`` overrides the default ~180s transport timeout. Required
+    by latency-sensitive callers (PDF export expects fallback in 6s).
+
+    ``response_format`` enables JSON-mode. Accepts ``"json"`` (string),
+    ``{"type": "json_object"}`` (OpenAI-compat), or a full JSON-Schema
+    dict. Translated per-backend: Ollama → ``payload["format"]``;
+    OpenRouter → ``response_format`` kwarg (string ``"json"`` is
+    promoted to ``{"type": "json_object"}``).
     """
     client, config = _cached_client()
     resolved_model = model or config.model
@@ -342,6 +416,8 @@ def generate_chat(
             data = _ollama_chat_sync(
                 config, resolved_model, full_messages,
                 max_tokens, temperature, seed,
+                timeout_s=timeout_s,
+                response_format=response_format,
             )
         except Exception as exc:
             record["duration_ms"] = int((time.perf_counter() - started) * 1000)
@@ -384,6 +460,14 @@ def generate_chat(
     }
     if seed is not None:
         completion_kwargs["seed"] = seed
+    if response_format is not None:
+        # Promote string shorthand to the OpenAI-compat dict shape.
+        if response_format == "json":
+            completion_kwargs["response_format"] = {"type": "json_object"}
+        else:
+            completion_kwargs["response_format"] = response_format
+    if timeout_s is not None:
+        completion_kwargs["timeout"] = timeout_s
 
     try:
         response = client.chat.completions.create(**completion_kwargs)
@@ -471,12 +555,18 @@ async def generate_chat_async(
     seed: int | None = None,
     model: str | None = None,
     extra: dict[str, Any] | None = None,
+    timeout_s: float | None = None,
+    response_format: str | dict[str, Any] | None = None,
 ) -> str:
     """Async variant of :func:`generate_chat` — same semaphore discipline.
 
     ``extra`` is merged into the JSONL log record — matches
     :func:`generate_async` so call sites (e.g. set-your-course chip
     dispatcher) can stamp ``call_site`` and correlation fields.
+
+    ``timeout_s`` and ``response_format`` are forwarded to
+    :func:`generate_chat` (see its docstring for shape and per-backend
+    translation).
     """
     sem = _get_semaphore()
     async with sem:
@@ -489,6 +579,8 @@ async def generate_chat_async(
             seed=seed,
             model=model,
             extra=extra,
+            timeout_s=timeout_s,
+            response_format=response_format,
         )
 
 
@@ -1259,6 +1351,72 @@ async def _tools_loop_inner(
     return final_text, tool_call_log
 
 
+_HEDGE_DELAY_S = float(os.environ.get("GEMMA_HEDGE_DELAY_S", "8.0"))
+
+
+async def _hedged_completion(
+    completion_kwargs: dict[str, Any],
+    turn_number: int,
+) -> Any | None:
+    """Issue an OpenRouter chat completion with tail-latency hedging.
+
+    Fires the primary call immediately. If it hasn't returned within
+    ``_HEDGE_DELAY_S``, fires a parallel backup. First successful
+    response wins; the loser's HTTP request keeps running in the
+    background (``asyncio.to_thread`` cannot interrupt the blocking SDK
+    call) and its result is discarded.
+
+    Returns the SDK response, or ``None`` if every attempt fails. Set
+    ``GEMMA_HEDGE_DELAY_S=0`` to disable hedging.
+
+    Hedging is deliberately scoped to OpenRouter only — the Ollama path
+    runs against a single local model instance, where a backup call
+    would queue behind the primary and worsen latency.
+    """
+    _client, _ = _cached_client()
+
+    def _call() -> Any:
+        return _client.chat.completions.create(**completion_kwargs)
+
+    if _HEDGE_DELAY_S <= 0:
+        try:
+            return await asyncio.to_thread(_call)
+        except Exception as exc:
+            logger.warning("gemma turn %d failed: %s", turn_number, exc)
+            return None
+
+    primary = asyncio.create_task(asyncio.to_thread(_call))
+    done, _pending = await asyncio.wait({primary}, timeout=_HEDGE_DELAY_S)
+
+    if done:
+        candidates: set[asyncio.Task[Any]] = {primary}
+    else:
+        logger.info(
+            "gemma turn %d: hedging after %.1fs",
+            turn_number,
+            _HEDGE_DELAY_S,
+        )
+        candidates = {
+            primary,
+            asyncio.create_task(asyncio.to_thread(_call)),
+        }
+
+    while candidates:
+        done, pending = await asyncio.wait(
+            candidates, return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in done:
+            try:
+                return task.result()
+            except Exception as exc:
+                logger.warning(
+                    "gemma turn %d candidate failed: %s", turn_number, exc
+                )
+        candidates = pending
+
+    return None
+
+
 async def _one_tool_turn(
     *,
     messages: list[dict[str, Any]],
@@ -1315,15 +1473,8 @@ async def _one_tool_turn(
         # OpenAI-compat: pass verbatim (e.g. {"type": "json_object"}).
         completion_kwargs["response_format"] = response_format
 
-    def _call() -> Any:
-        return _client.chat.completions.create(**completion_kwargs)
-
-    try:
-        response = await asyncio.to_thread(_call)
-    except Exception as exc:
-        logger.warning(
-            "generate_with_tools_loop turn %d failed: %s", turn_number, exc
-        )
+    response = await _hedged_completion(completion_kwargs, turn_number)
+    if response is None:
         return "", None
 
     choices = getattr(response, "choices", None) or []
