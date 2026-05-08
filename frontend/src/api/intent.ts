@@ -13,7 +13,7 @@
  */
 
 import { apiPost } from "@/api/client";
-import type { IntentResult, Suggestion } from "@/types/buildInput";
+import type { IntentResult, Suggestion, GradCredentialNoticePayload } from "@/types/buildInput";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -27,11 +27,14 @@ export type FeasibilityMode =
   | "crosswalk_quirk"
   | "adjacent_reachable"
   | "school_gap"
-  | "genuinely_impossible";
+  | "genuinely_impossible"
+  | "requires_grad_school";
 
 export interface CtaLink {
   href: string;
   label: string;
+  kind?: "school_discovery_v05" | "grad_credential_notice";
+  payload?: GradCredentialNoticePayload | null;
 }
 
 export interface ChipResponse {
@@ -46,6 +49,7 @@ export type StreamEvent =
   | { type: "delta"; text: string }
   | { type: "structured"; result: IntentResult }
   | { type: "suggestions"; suggestions: Suggestion[] }
+  | { type: "grad_credential_payload"; payload: GradCredentialNoticePayload }
   | { type: "done" };
 
 interface StreamIntentArgs {
@@ -186,6 +190,10 @@ function parseSseFrame(raw: string): StreamEvent | null {
     case "suggestions": {
       const suggestions = (payload.suggestions ?? []) as Suggestion[];
       return { type: "suggestions", suggestions };
+    }
+    case "grad_credential_payload": {
+      const gcPayload = payload as unknown as GradCredentialNoticePayload;
+      return { type: "grad_credential_payload", payload: gcPayload };
     }
     case "done":
       return { type: "done" };

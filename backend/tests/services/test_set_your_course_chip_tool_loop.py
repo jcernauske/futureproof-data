@@ -38,25 +38,44 @@ def _stub_gemma_config(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+_FAKE_TOOL_SCHEMAS: dict[str, dict] = {
+    "get_career_paths": {
+        "type": "function",
+        "function": {
+            "name": "get_career_paths",
+            "description": "Returns career outcomes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "unitid": {"type": "integer"},
+                    "cipcode": {"type": "string"},
+                },
+                "required": ["unitid", "cipcode"],
+            },
+        },
+    },
+    "get_occupation_education_requirements": {
+        "type": "function",
+        "function": {
+            "name": "get_occupation_education_requirements",
+            "description": "Returns education requirements.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "soc_code": {"type": "string"},
+                },
+                "required": ["soc_code"],
+            },
+        },
+    },
+}
+
+
 def _stub_tool_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         mcp_client,
         "get_tool_openai_schema",
-        lambda name: {
-            "type": "function",
-            "function": {
-                "name": "get_career_paths",
-                "description": "Returns career outcomes.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "unitid": {"type": "integer"},
-                        "cipcode": {"type": "string"},
-                    },
-                    "required": ["unitid", "cipcode"],
-                },
-            },
-        },
+        lambda name: _FAKE_TOOL_SCHEMAS.get(name),
     )
 
 
@@ -129,8 +148,10 @@ class TestChipDispatchToolLoop:
         await set_your_course.handle_chip_dispatch(_make_request())
 
         assert len(captured) == 1
-        assert len(captured[0]["tools"]) == 1
-        assert captured[0]["tools"][0]["function"]["name"] == "get_career_paths"
+        assert len(captured[0]["tools"]) == 2
+        tool_names = {t["function"]["name"] for t in captured[0]["tools"]}
+        assert "get_career_paths" in tool_names
+        assert "get_occupation_education_requirements" in tool_names
         assert captured[0]["max_turns"] == 3
         assert captured[0]["max_wall_time_s"] == 30.0
 

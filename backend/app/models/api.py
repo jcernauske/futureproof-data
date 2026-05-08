@@ -108,6 +108,17 @@ AskScopeKind = Literal[
     "stat", "boss", "skill", "build", "compare", "branch", "career"
 ]
 
+
+# ---------------------------------------------------------------------------
+# PDF Report Exports — see docs/specs/feature-pdf-report-exports.md §4.
+#
+# RiskLevel is the advisory framing the PDF renders for each of the 5
+# career risk factors. "Insufficient" is the neutral missing-data chip —
+# explicitly NOT a default-to-High (per @fp-data-reviewer §5 ruling).
+# ---------------------------------------------------------------------------
+
+RiskLevel = Literal["Low", "Moderate", "Elevated", "High", "Insufficient"]
+
 # SOC codes follow the BLS XX-XXXX shape exactly. branch scope target_id
 # flows directly into a parameterized DuckDB lookup; rejecting non-SOC
 # input at the boundary closes the unauthenticated /chat/ask DoS-amplifier
@@ -611,6 +622,7 @@ FeasibilityMode = Literal[
     "adjacent_reachable",
     "school_gap",
     "genuinely_impossible",
+    "requires_grad_school",
 ]
 ChipBucket = Literal[
     "crosswalk_mismatch",
@@ -621,6 +633,7 @@ ChipBucket = Literal[
     "intent_divergence",
     "peer_variance",
     "no_issue_found",
+    "requires_graduate_credential",
 ]
 
 
@@ -643,12 +656,38 @@ class Suggestion(BaseModel):
     count: int
 
 
+class FeederMajor(BaseModel):
+    """One feeder-major card for the GradCredentialNotice tile."""
+
+    cip4: str = Field(pattern=r"^\d{2}\.\d{2}$")
+    cip_title: str
+    note: str = Field(max_length=120)
+    offered_at_school: bool
+
+
+class GradCredentialNoticePayload(BaseModel):
+    """Payload for the grad-credential-notice CTA tile."""
+
+    credential_id: str
+    credential_name_full: str
+    credential_acronym: str
+    target_career_title: str
+    target_soc: str | None
+    school_name: str
+    feeders: list[FeederMajor]
+    tone: Literal["caution", "info"]
+
+
 class CtaLink(BaseModel):
     """Outbound link attached to a chip response (e.g. the School Discovery
     v0.5 stub for the school_gap bucket)."""
 
     label: str
     href: str
+    kind: Literal[
+        "school_discovery_v05", "grad_credential_notice"
+    ] = "school_discovery_v05"
+    payload: GradCredentialNoticePayload | None = None
 
 
 class ChipRequest(BaseModel):
@@ -726,3 +765,68 @@ class CommitRequest(BaseModel):
     clicked_soc: str | None = None
     clicked_career_title: str | None = None
     feasibility_mode: FeasibilityMode | None = None
+
+
+# ---------------------------------------------------------------------------
+# PDF Report Exports — request/response models.
+# See docs/specs/feature-pdf-report-exports.md §4 Data Model Changes.
+# ---------------------------------------------------------------------------
+
+
+class ExportBuildPdfRequest(BaseModel):
+    """POST /build/{build_id}/pdf body.
+
+    student_name is optional; the frontend pre-fills from build.profile_name
+    but the user may clear it. Capped at 80 chars to defend the rendered
+    layout (single-line at FredokaOne 14pt).
+    """
+
+    student_name: str | None = Field(default=None, max_length=80)
+
+
+class ExportComparisonPdfRequest(BaseModel):
+    """POST /builds/compare/pdf body.
+
+    Pydantic enforces the 2..3 build cap at validation time. Same-major
+    (4-digit CIP family) check is done in the router after the builds load.
+    """
+
+    build_ids: list[str] = Field(..., min_length=2, max_length=3)
+    student_name: str | None = Field(default=None, max_length=80)
+
+
+class AudienceQuestion(BaseModel):
+    """One question rendered into the PDF questions section.
+
+    is_static_mandatory marks the 2 college "always-render" questions —
+    set so renderers can distinguish them for ordering / styling.
+    """
+
+    text: str = Field(..., max_length=240)
+    is_static_mandatory: bool = False
+
+
+GemmaPath = Literal[
+    "live",
+    "fallback_timeout",
+    "fallback_empty",
+    "fallback_malformed",
+    "fallback_disabled",
+]
+
+
+class AudienceQuestions(BaseModel):
+    """Output of pdf_questions.generate_audience_questions.
+
+    All three audiences floor at 1 (the static fallbacks guarantee this)
+    and cap at 5. The 2 mandatory college questions occupy indices [0, 1]
+    of ask_the_college; Gemma's 0-3 additions follow.
+
+    gemma_path records which code path produced this set. Logged via
+    observability (logs/gemma.jsonl) — NEVER rendered into the PDF.
+    """
+
+    ask_the_college: list[AudienceQuestion] = Field(..., min_length=1, max_length=5)
+    ask_your_parents: list[AudienceQuestion] = Field(..., min_length=1, max_length=5)
+    ask_yourself: list[AudienceQuestion] = Field(..., min_length=1, max_length=5)
+    gemma_path: GemmaPath

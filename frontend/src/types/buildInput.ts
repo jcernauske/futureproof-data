@@ -92,6 +92,10 @@ export interface IntentResult {
   remaining_count?: number;
   narrowing_hint?: string;
   program_not_at_school?: boolean;
+  // Set by the pre-flag short-circuit when the student types a pre-X
+  // pattern (e.g. "pre-PT", "pre-med"). The frontend reads this to
+  // immediately surface the GradCredentialNotice tile.
+  pre_flag_credential_id?: string | null;
 }
 
 /**
@@ -103,4 +107,29 @@ export interface Suggestion {
   clicked_career_title: string;
   canonical_cip4: string;
   count: number;
+}
+
+/**
+ * One feeder-major card for the GradCredentialNotice tile.
+ */
+export interface FeederMajor {
+  cip4: string;
+  cip_title: string;
+  note: string;
+  offered_at_school: boolean;
+}
+
+/**
+ * Payload for the grad-credential-notice CTA tile. Surfaced when the
+ * student's clarified career requires graduate/professional school.
+ */
+export interface GradCredentialNoticePayload {
+  credential_id: string;
+  credential_name_full: string;
+  credential_acronym: string;
+  target_career_title: string;
+  target_soc: string | null;
+  school_name: string;
+  feeders: FeederMajor[];
+  tone: "caution" | "info";
 }

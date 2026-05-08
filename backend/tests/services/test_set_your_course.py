@@ -288,26 +288,45 @@ class _ToolLoopRecorder:
         return self.response, self.tool_call_log
 
 
+_FAKE_TOOL_SCHEMAS: dict[str, dict] = {
+    "get_career_paths": {
+        "type": "function",
+        "function": {
+            "name": "get_career_paths",
+            "description": "Returns career outcomes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "unitid": {"type": "integer"},
+                    "cipcode": {"type": "string"},
+                },
+                "required": ["unitid", "cipcode"],
+            },
+        },
+    },
+    "get_occupation_education_requirements": {
+        "type": "function",
+        "function": {
+            "name": "get_occupation_education_requirements",
+            "description": "Returns education requirements for a SOC.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "soc_code": {"type": "string"},
+                },
+                "required": ["soc_code"],
+            },
+        },
+    },
+}
+
+
 def _stub_tool_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub mcp_client.get_tool_openai_schema to return a valid schema."""
     monkeypatch.setattr(
         mcp_client,
         "get_tool_openai_schema",
-        lambda name: {
-            "type": "function",
-            "function": {
-                "name": "get_career_paths",
-                "description": "Returns career outcomes.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "unitid": {"type": "integer"},
-                        "cipcode": {"type": "string"},
-                    },
-                    "required": ["unitid", "cipcode"],
-                },
-            },
-        },
+        lambda name: _FAKE_TOOL_SCHEMAS.get(name),
     )
 
 
@@ -353,8 +372,10 @@ class TestChipDispatch:
         call = recorder.calls[0]
         assert "I wanted marketing-manager jobs" in call["system"]
         assert "Indiana University" in call["system"]
-        assert len(call["tools"]) == 1
-        assert call["tools"][0]["function"]["name"] == "get_career_paths"
+        assert len(call["tools"]) == 2
+        tool_names = {t["function"]["name"] for t in call["tools"]}
+        assert "get_career_paths" in tool_names
+        assert "get_occupation_education_requirements" in tool_names
         assert response.bucket == "no_issue_found"
 
     @pytest.mark.asyncio
@@ -1432,3 +1453,337 @@ class TestMultiCipResolution:
         assert result.alternatives is not None
         assert len(result.alternatives) == 1
         assert result.alternatives[0]["cip"] == "14.1001"
+
+
+# ---------------------------------------------------------------------------
+# Requires-graduate-credential — pre-flag + chip bucket
+# ---------------------------------------------------------------------------
+
+
+class TestRequiresGradCredential:
+    """Tests for the requires-graduate-credential feature:
+    - Pre-flag short-circuit when student types "pre-PT", "premed", etc.
+    - Chip dispatch bucket when Gemma classifies a grad-only career.
+    - Bucket downgrade when YAML doesn't have feeders.
+    - Pre-flag does NOT fire for normal majors.
+    - Chip dispatch never sets pre_flag_credential_id.
+    """
+
+    @pytest.mark.asyncio
+    async def test_pre_flag_pre_pt_short_circuits_gemma(
+        self, monkeypatch: pytest.MonkeyPatch, stub_intent_helpers: None,
+    ) -> None:
+        """major_text='pre-PT' should short-circuit Gemma and return
+        pre_flag_credential_id='dpt' in the structured event."""
+        # Track whether Gemma was called — it should NOT be.
+        gemma_called = False
+
+        async def _spy(**kwargs: Any) -> AsyncIterator[str]:
+            nonlocal gemma_called
+            gemma_called = True
+            yield ""
+
+        monkeypatch.setattr(gemma_client, "generate_stream_async", _spy)
+
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="pre-PT",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[
+                {"cipcode": "31.0501", "program_name": "Exercise Science"},
+            ],
+        ):
+            events.append(event)
+
+        # Gemma should NOT have been called — pre-flag short-circuits.
+        assert not gemma_called, "Gemma was called but pre-flag should skip it"
+
+        # Must have a structured event with pre_flag_credential_id.
+        structured = [e for e in events if e["event"] == "structured"]
+        assert len(structured) == 1
+        data = structured[0]["data"]
+        assert data["pre_flag_credential_id"] == "dpt"
+        assert data["confidence"] == "low"
+
+    @pytest.mark.asyncio
+    async def test_pre_flag_premed_short_circuits_gemma(
+        self, monkeypatch: pytest.MonkeyPatch, stub_intent_helpers: None,
+    ) -> None:
+        """major_text='premed' should short-circuit Gemma and return
+        pre_flag_credential_id='md'."""
+        gemma_called = False
+
+        async def _spy(**kwargs: Any) -> AsyncIterator[str]:
+            nonlocal gemma_called
+            gemma_called = True
+            yield ""
+
+        monkeypatch.setattr(gemma_client, "generate_stream_async", _spy)
+
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="premed",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[
+                {"cipcode": "26.0101", "program_name": "Biology"},
+            ],
+        ):
+            events.append(event)
+
+        assert not gemma_called
+        structured = [e for e in events if e["event"] == "structured"]
+        assert len(structured) == 1
+        assert structured[0]["data"]["pre_flag_credential_id"] == "md"
+
+    @pytest.mark.asyncio
+    async def test_pre_flag_does_not_fire_for_normal_major(
+        self, monkeypatch: pytest.MonkeyPatch, stub_intent_helpers: None,
+    ) -> None:
+        """major_text='biology' should use the normal Gemma streaming
+        flow and NOT set pre_flag_credential_id."""
+        prose = "Biology maps to the Biology program."
+        tail = (
+            '\n---INTENT_JSON---\n'
+            '{"matched_cip": "26.0101", "matched_title": "Biology", '
+            '"confidence": "high", "parent_cip": "26.01", "alternatives": []}'
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate_stream_async",
+            _stream_from([prose, tail]),
+        )
+
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="biology",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[],
+        ):
+            events.append(event)
+
+        structured = [e for e in events if e["event"] == "structured"]
+        assert len(structured) == 1
+        # pre_flag_credential_id should be None (not set).
+        assert structured[0]["data"].get("pre_flag_credential_id") is None
+
+    @pytest.mark.asyncio
+    async def test_pre_flag_emits_delta_with_prose(
+        self, monkeypatch: pytest.MonkeyPatch, stub_intent_helpers: None,
+    ) -> None:
+        """The pre-flag path should emit a delta event with prose that
+        contains the credential name."""
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="pre-PT",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[
+                {"cipcode": "31.0501", "program_name": "Exercise Science"},
+            ],
+        ):
+            events.append(event)
+
+        deltas = [e for e in events if e["event"] == "delta"]
+        assert len(deltas) >= 1
+        prose = "".join(d["data"]["text"] for d in deltas)
+        # Should contain "DPT" or "Doctor of Physical Therapy"
+        assert "DPT" in prose or "Doctor of Physical Therapy" in prose
+
+    @pytest.mark.asyncio
+    async def test_pre_flag_emits_grad_credential_payload(
+        self, monkeypatch: pytest.MonkeyPatch, stub_intent_helpers: None,
+    ) -> None:
+        """The pre-flag path should emit a grad_credential_payload event
+        with feeders and tone='info'."""
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="pre-PT",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[
+                {"cipcode": "31.0501", "program_name": "Exercise Science"},
+            ],
+        ):
+            events.append(event)
+
+        payloads = [
+            e for e in events if e["event"] == "grad_credential_payload"
+        ]
+        assert len(payloads) == 1
+        payload = payloads[0]["data"]
+        assert payload["credential_id"] == "dpt"
+        assert payload["tone"] == "info"
+        assert len(payload["feeders"]) >= 3
+
+    @pytest.mark.asyncio
+    async def test_chip_dispatch_requires_grad_credential_bucket(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """When Gemma classifies the clarifier as
+        requires_graduate_credential AND the tool log has a grad-only
+        SOC, the response should carry a cta_link with
+        kind='grad_credential_notice'."""
+        _stub_tool_schema(monkeypatch)
+
+        # Create a mock tool_call_log entry with the attributes that
+        # _extract_soc_from_tool_log actually reads (tool_name + args).
+        # NOTE: _extract_soc_from_tool_log reads getattr(tc, "args", None)
+        # not getattr(tc, "tool_args", None). This is by design of the
+        # function's duck-typing approach.
+        from types import SimpleNamespace
+
+        ed_req_turn = SimpleNamespace(
+            tool_name="get_occupation_education_requirements",
+            args={"soc_code": "29-1123"},
+            error=None,
+        )
+
+        recorder = _ToolLoopRecorder(
+            response=(
+                'Physical Therapist requires a DPT.\n'
+                '---BUCKET---\n{"bucket": "requires_graduate_credential"}'
+            ),
+            tool_call_log=[_make_tool_call_turn(), ed_req_turn],
+        )
+        monkeypatch.setattr(
+            gemma_client, "generate_with_tools_loop", recorder,
+        )
+
+        request = _make_chip_request(
+            clarifier="I want to be a physical therapist",
+        )
+        response = await set_your_course.handle_chip_dispatch(request)
+
+        assert response.bucket == "requires_graduate_credential"
+        assert response.cta_link is not None
+        assert response.cta_link.kind == "grad_credential_notice"
+        assert response.cta_link.payload is not None
+        assert response.cta_link.payload.credential_id == "dpt"
+        assert response.cta_link.payload.credential_acronym == "DPT"
+        assert len(response.cta_link.payload.feeders) >= 3
+
+    @pytest.mark.asyncio
+    async def test_chip_bucket_degrades_when_yaml_has_no_feeders(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """When the bucket is requires_graduate_credential but the YAML
+        doesn't have feeders for the SOC, the bucket should downgrade
+        to intent_divergence."""
+        _stub_tool_schema(monkeypatch)
+
+        from types import SimpleNamespace
+
+        # Use a SOC that exists in valid format but is NOT in the YAML.
+        ed_req_turn = SimpleNamespace(
+            tool_name="get_occupation_education_requirements",
+            args={"soc_code": "99-9999"},
+            error=None,
+        )
+
+        recorder = _ToolLoopRecorder(
+            response=(
+                'This career is grad-only.\n'
+                '---BUCKET---\n{"bucket": "requires_graduate_credential"}'
+            ),
+            tool_call_log=[_make_tool_call_turn(), ed_req_turn],
+        )
+        monkeypatch.setattr(
+            gemma_client, "generate_with_tools_loop", recorder,
+        )
+
+        request = _make_chip_request(
+            clarifier="I want to be a mystery grad career",
+        )
+        response = await set_your_course.handle_chip_dispatch(request)
+
+        # Bucket should downgrade to intent_divergence.
+        assert response.bucket == "intent_divergence"
+        assert response.cta_link is None
+
+    @pytest.mark.asyncio
+    async def test_chip_does_not_set_pre_flag_credential_id(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Chip dispatch updates should NEVER set pre_flag_credential_id
+        on the updated_resolution. That field is initial-resolution-only."""
+        _stub_tool_schema(monkeypatch)
+
+        from types import SimpleNamespace
+
+        ed_req_turn = SimpleNamespace(
+            tool_name="get_occupation_education_requirements",
+            args={"soc_code": "29-1123"},
+            error=None,
+        )
+
+        # Include an updated resolution in Gemma's response.
+        recorder = _ToolLoopRecorder(
+            response=(
+                'PT requires grad school.\n'
+                '---UPDATED_RESOLUTION---\n'
+                '{"matched_cip": "31.0501", "matched_title": "Exercise Science", '
+                '"confidence": "high", "parent_cip": "31.05"}\n'
+                '---BUCKET---\n{"bucket": "requires_graduate_credential"}'
+            ),
+            tool_call_log=[_make_tool_call_turn(), ed_req_turn],
+        )
+        monkeypatch.setattr(
+            gemma_client, "generate_with_tools_loop", recorder,
+        )
+
+        request = _make_chip_request(
+            clarifier="I want to be a physical therapist",
+        )
+        response = await set_your_course.handle_chip_dispatch(request)
+
+        # The updated resolution should NOT have pre_flag_credential_id set.
+        if response.updated_resolution is not None:
+            assert response.updated_resolution.pre_flag_credential_id is None
+
+    @pytest.mark.asyncio
+    async def test_chip_response_carries_grad_credential_payload(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """ChipResponse.cta_link.payload should be a valid
+        GradCredentialNoticePayload with feeders, credential info, etc."""
+        _stub_tool_schema(monkeypatch)
+
+        from types import SimpleNamespace
+
+        ed_req_turn = SimpleNamespace(
+            tool_name="get_occupation_education_requirements",
+            args={"soc_code": "29-1123"},
+            error=None,
+        )
+
+        recorder = _ToolLoopRecorder(
+            response=(
+                'Needs DPT.\n'
+                '---BUCKET---\n{"bucket": "requires_graduate_credential"}'
+            ),
+            tool_call_log=[_make_tool_call_turn(), ed_req_turn],
+        )
+        monkeypatch.setattr(
+            gemma_client, "generate_with_tools_loop", recorder,
+        )
+
+        request = _make_chip_request(
+            clarifier="I want to be a physical therapist",
+        )
+        response = await set_your_course.handle_chip_dispatch(request)
+
+        assert response.cta_link is not None
+        payload = response.cta_link.payload
+        assert payload is not None
+        assert payload.credential_name_full == "Doctor of Physical Therapy"
+        assert payload.credential_acronym == "DPT"
+        assert payload.target_soc == "29-1123"
+        assert payload.school_name == "Indiana University"
+        # Feeders should be populated with valid FeederMajor objects.
+        for feeder in payload.feeders:
+            assert feeder.cip4
+            assert feeder.cip_title
+            assert isinstance(feeder.offered_at_school, bool)

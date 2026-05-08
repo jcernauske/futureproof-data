@@ -24,6 +24,8 @@ from app.models.api import (
     ChipRequest,
     ChipResponse,
     CommitRequest,
+    CtaLink,
+    GradCredentialNoticePayload,
 )
 from app.models.career import IntentResult
 from app.services import (
@@ -125,6 +127,29 @@ with: "{clarifier}"
 8. no_issue_found — the clarifier doesn't match any debug bucket
    cleanly. Example: "I just don't like these jobs." Action: acknowledge
    plainly, do NOT force a bucket, do NOT update the resolution.
+9. requires_graduate_credential — the career the student named in the
+   clarifier requires graduate or professional school as its entry
+   credential. Example: student typed "Marketing" and clarified "I want
+   to be a physical therapist." Becoming a physical therapist requires
+   a Doctor of Physical Therapy (DPT). Counter-example: student typed
+   "Marketing" and clarified "I want to be a software developer" — that's
+   intent_divergence, not requires_graduate_credential, because software
+   development has an undergrad path.
+
+   IMPORTANT: Also classify as this bucket when the student's currently-
+   resolved typed major IS a known feeder for that credential (e.g.,
+   "Biology major says they want to be a doctor" — the student is on a
+   sensible track but needs the grad-school heads-up rather than
+   alternative-major suggestions).
+
+   Action: call `get_occupation_education_requirements` for the SOC the
+   clarifier names. If `requires_grad_school` is true, classify as this
+   bucket. If requires_grad_school is false (education_code 3-8), classify
+   as intent_divergence instead.
+
+   Do NOT name specific undergraduate majors in your response — the
+   frontend renders a separate tile with feeder-major cards. Keep your
+   prose to 2-3 sentences naming the credential and the reframe.
 
 # Rules
 - Ground every claim in the data. If you don't have data for a school
@@ -150,7 +175,7 @@ with: "{clarifier}"
   Labor Statistics (BLS)"); subsequent references may use the acronym
   alone. Applies to sources (BLS, IPEDS, O*NET, BEA, College
   Scorecard) — NOT to internal taxonomies (CIP, SOC stay forbidden).
-- You have access to one tool:
+- You have access to these tools:
   get_career_paths(unitid, cipcode) — returns the matched career list
   for a school + program. Call this when:
   * The clarifier mentions a sub-specialty you can't verify is offered
@@ -158,7 +183,10 @@ with: "{clarifier}"
   * The clarifier suggests a different program than current_resolution
     and you need to check if the school offers it.
   * You need to ground a feasibility judgment in actual data.
-  Do NOT call the tool when:
+  get_occupation_education_requirements(soc_code) — returns education
+  requirements for a career. Call this when the clarifier names a specific
+  career to check if it requires graduate school.
+  Do NOT call a tool when:
   * The decision is clear from the clarifier alone (e.g., "I want
     something completely different" — that's a change_major case).
   * You've already called it once this turn and got a useful result.
@@ -193,7 +221,7 @@ Always append the classification tail (even if no resolution change):
   ---BUCKET---
   {{"bucket": "<one of: crosswalk_mismatch, semantic_drift, school_gap, \
 data_suppression, tier_placement, intent_divergence, peer_variance, \
-no_issue_found>"}}
+no_issue_found, requires_graduate_credential>"}}
 
 If the student named a sub-specialty in their clarifier AND you verified
 it via tool call as a legitimate sub-area of the resolved program, also
@@ -351,6 +379,66 @@ async def stream_initial_resolution(
     render rather than hanging.
     """
     input_normalized = community_suggestions.normalize_input(major_text)
+
+    # Pre-flag short-circuit: if the student typed a pre-X pattern, skip
+    # Gemma entirely and show a GradCredentialNotice immediately.
+    from app.services import grad_credentials
+
+    cred_id = grad_credentials.lookup_credential_by_pre_x_pattern(input_normalized)
+    if cred_id is not None:
+        result = _build_pre_flag_result(
+            credential_id=cred_id,
+            major_text=major_text,
+            school_name=school_name,
+            programs=programs,
+            unitid=unitid,
+        )
+        feeder_title = result.matched_title or "a related science program"
+        yield {
+            "event": "delta",
+            "data": {
+                "text": _pre_flag_prose(cred_id, school_name, feeder_title),
+            },
+        }
+        yield {"event": "structured", "data": result.model_dump()}
+
+        # Emit grad-credential payload so the frontend can render the
+        # GradCredentialNotice tile without a second round-trip.
+        cred_entry = next(
+            (c for c in grad_credentials._load_credentials()
+             if c.get("credential_id") == cred_id),
+            None,
+        )
+        if cred_entry is not None:
+            feeders = grad_credentials.feeder_majors_at_school(
+                unitid, cred_id
+            )
+            if feeders:
+                payload = GradCredentialNoticePayload(
+                    credential_id=cred_id,
+                    credential_name_full=(
+                        cred_entry["credential_name_full"]
+                    ),
+                    credential_acronym=(
+                        cred_entry["credential_acronym"]
+                    ),
+                    target_career_title=major_text,
+                    target_soc=None,
+                    school_name=school_name,
+                    feeders=feeders,
+                    tone="info",
+                )
+                yield {
+                    "event": "grad_credential_payload",
+                    "data": payload.model_dump(),
+                }
+
+        suggestions = community_suggestions.get_suggestions(
+            unitid=unitid, input_normalized=input_normalized
+        )
+        yield {"event": "suggestions", "data": list(suggestions)}
+        yield {"event": "done", "data": {}}
+        return
 
     school_cips = intent._get_school_cips(unitid)
     family_prefixes = list({c["cipcode"][:2] for c in school_cips if c.get("cipcode")})
@@ -844,8 +932,12 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
     }
 
     tool_schema = mcp_client.get_tool_openai_schema("get_career_paths")
-    if tool_schema is None:
-        logger.error("get_career_paths tool schema not found in MCP server")
+    edu_tool_schema = mcp_client.get_tool_openai_schema(
+        "get_occupation_education_requirements"
+    )
+    tools = [s for s in [tool_schema, edu_tool_schema] if s is not None]
+    if not tools:
+        logger.error("No tool schemas found in MCP server for chip dispatch")
         return ChipResponse(
             debug_trace=_TRANSPORT_FAILURE_MESSAGE,
             updated_resolution=None,
@@ -863,7 +955,7 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
     raw, tool_call_log = await gemma_client.generate_with_tools_loop(
         system=system,
         user=user_msg,
-        tools=[tool_schema],
+        tools=tools,
         dispatch=_dispatch,
         max_turns=3,
         max_wall_time_s=30.0,
@@ -888,6 +980,7 @@ async def handle_chip_dispatch(request: ChipRequest) -> ChipResponse:
         raw=raw,
         request=request,
         tool_call_made=tool_call_made,
+        tool_call_log=tool_call_log,
     )
 
 
@@ -923,6 +1016,7 @@ def _parse_chip_response(
     raw: str,
     request: ChipRequest,
     tool_call_made: bool,
+    tool_call_log: Any = None,
 ) -> ChipResponse:
     """Parse the three structured tails and apply service-side invariants."""
     text = raw.strip()
@@ -958,9 +1052,26 @@ def _parse_chip_response(
             updated_resolution
         )
 
+    # Build CTA link for requires_graduate_credential bucket.
+    cta_link: CtaLink | None = None
+    if bucket == "requires_graduate_credential":
+        target_soc = _extract_soc_from_tool_log(tool_call_log)
+        if target_soc:
+            cta_link = _build_grad_credential_cta(
+                target_soc=target_soc,
+                target_career_title=request.clarifier or "",
+                school_name=request.school_name,
+                unitid=request.unitid,
+                current_cip=request.current_resolution.matched_cip,
+            )
+            if cta_link is None:
+                # YAML doesn't have feeders for this SOC — downgrade
+                bucket = "intent_divergence"
+
     return ChipResponse(
         debug_trace=debug_trace,
         updated_resolution=updated_resolution,
+        cta_link=cta_link,
         bucket=bucket,
         confirmed_focus=confirmed_focus,
     )
@@ -1004,6 +1115,7 @@ def _parse_bucket(body: str) -> ChipBucket | None:
         "intent_divergence",
         "peer_variance",
         "no_issue_found",
+        "requires_graduate_credential",
     )
     if isinstance(raw_bucket, str) and raw_bucket in allowed:
         return raw_bucket
@@ -1080,6 +1192,207 @@ def _parse_confirmed_focus(body: str) -> str | None:
         return None
     cleaned = raw.strip()
     return cleaned or None
+
+
+# ---------------------------------------------------------------------------
+# Grad-credential helpers.
+# ---------------------------------------------------------------------------
+
+
+def _extract_soc_from_tool_log(tool_call_log: Any) -> str | None:
+    """Extract target_soc from the education requirements tool call log.
+
+    Scans tool_call_log entries for a successful
+    get_occupation_education_requirements call and reads the soc_code
+    from its arguments.
+    """
+    if not tool_call_log:
+        return None
+    for tc in tool_call_log:
+        tool_name = getattr(tc, "tool_name", None) or getattr(tc, "name", "")
+        if tool_name == "get_occupation_education_requirements":
+            args = (
+                getattr(tc, "tool_args", None)
+                or getattr(tc, "args", None)
+                or getattr(tc, "arguments", {})
+            )
+            if isinstance(args, dict):
+                soc = str(args.get("soc_code", ""))
+                if soc and re.fullmatch(r"\d{2}-\d{4}", soc):
+                    return soc
+    return None
+
+
+def _build_grad_credential_cta(
+    *,
+    target_soc: str,
+    target_career_title: str,
+    school_name: str,
+    unitid: int,
+    current_cip: str,
+) -> CtaLink | None:
+    """Build a CtaLink with GradCredentialNoticePayload for the chip response.
+
+    Returns None when the YAML doesn't have feeders for this SOC or when
+    fewer than 3 feeders are available (graceful downgrade).
+    """
+    from app.services import grad_credentials
+
+    cred = grad_credentials.lookup_credential_for_soc(target_soc)
+    if cred is None:
+        return None
+
+    feeders = grad_credentials.feeder_majors_at_school(unitid, cred["credential_id"])
+    if len(feeders) < 3:
+        return None
+
+    # Determine tone per genai-architect Finding 5: "info" when student's
+    # current major IS already a feeder for this credential, "caution"
+    # otherwise.
+    current_cip4 = current_cip[:5] if len(current_cip) >= 5 else ""
+    feeder_cips = [f.get("cip4", "") for f in cred.get("feeder_cip4_codes", [])]
+    is_already_feeder = current_cip4 in feeder_cips
+    tone: str = "info" if is_already_feeder else "caution"
+
+    payload = GradCredentialNoticePayload(
+        credential_id=cred["credential_id"],
+        credential_name_full=cred["credential_name_full"],
+        credential_acronym=cred["credential_acronym"],
+        target_career_title=target_career_title,
+        target_soc=target_soc,
+        school_name=school_name,
+        feeders=feeders,
+        tone=tone,
+    )
+    acronym = cred["credential_acronym"]
+    return CtaLink(
+        label=f"How students at {school_name} get to {acronym} school",
+        href="#grad-credential-notice",
+        kind="grad_credential_notice",
+        payload=payload,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pre-flag short-circuit helpers.
+# ---------------------------------------------------------------------------
+
+_CREDENTIAL_PROSE_TEMPLATES: dict[str, str] = {
+    "dpt": (
+        "Pre-PT isn't an undergrad major itself — it's a track toward "
+        "Doctor of Physical Therapy (DPT) school. "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+    "jd": (
+        "Pre-Law isn't an undergrad major itself — it's a track toward "
+        "law school (Juris Doctor). "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+    "md": (
+        "Pre-Med isn't an undergrad major itself — it's a track toward "
+        "medical school (Doctor of Medicine). "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+    "dds": (
+        "Pre-Dental isn't an undergrad major itself — it's a track toward "
+        "dental school (Doctor of Dental Surgery). "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+    "dvm": (
+        "Pre-Vet isn't an undergrad major itself — it's a track toward "
+        "veterinary school (Doctor of Veterinary Medicine). "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+    "pharmd": (
+        "Pre-Pharmacy isn't an undergrad major itself — it's a track toward "
+        "pharmacy school (Doctor of Pharmacy). "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+    "od": (
+        "Pre-Optometry isn't an undergrad major itself — it's a track toward "
+        "optometry school (Doctor of Optometry). "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+    "ms-pa": (
+        "Pre-PA isn't an undergrad major itself — it's a track toward "
+        "physician assistant school (Master of Science in PA Studies). "
+        "The closest matching program at {school_name} is {feeder_title}."
+    ),
+}
+
+
+def _pre_flag_prose(credential_id: str, school_name: str, feeder_title: str) -> str:
+    """Return the pre-flag prose for a credential."""
+    template = _CREDENTIAL_PROSE_TEMPLATES.get(
+        credential_id,
+        "This career requires a graduate credential. "
+        "The closest matching program at {school_name} is {feeder_title}.",
+    )
+    return template.format(school_name=school_name, feeder_title=feeder_title)
+
+
+def _build_pre_flag_result(
+    *,
+    credential_id: str,
+    major_text: str,
+    school_name: str,
+    programs: Sequence[Mapping[str, Any]],
+    unitid: int = 0,
+) -> IntentResult:
+    """Build an IntentResult for the pre-flag short-circuit path.
+
+    Picks the broadest feeder offered at the school as the matched program.
+    """
+    from app.services import grad_credentials
+
+    feeders = grad_credentials.feeder_majors_at_school(unitid, credential_id)
+
+    # Find the best feeder that's offered at the school.
+    school_cip4s = {
+        str(p.get("cipcode", ""))[:5]
+        for p in programs
+        if p.get("cipcode")
+    }
+
+    best_feeder_cip = ""
+    best_feeder_title = ""
+    for feeder in feeders:
+        if feeder.cip4 in school_cip4s:
+            best_feeder_cip = feeder.cip4
+            best_feeder_title = feeder.cip_title
+            break
+
+    # If no feeder is offered, just use the first feeder.
+    if not best_feeder_cip and feeders:
+        best_feeder_cip = feeders[0].cip4
+        best_feeder_title = feeders[0].cip_title
+
+    # Find a 6-digit CIP from the school's programs for the matched feeder.
+    matched_cip_6 = ""
+    matched_title = best_feeder_title
+    for p in programs:
+        cip = str(p.get("cipcode", ""))
+        if cip[:5] == best_feeder_cip:
+            matched_cip_6 = cip
+            matched_title = str(p.get("program_name", best_feeder_title))
+            break
+
+    return IntentResult(
+        matched_cip=matched_cip_6 or best_feeder_cip,
+        matched_title=matched_title,
+        confidence="low",
+        reasoning=(
+            f"Matched as a pre-professional track toward "
+            f"{credential_id.upper()}."
+        ),
+        careers_preview=[],
+        needs_clarification=False,
+        alternatives=None,
+        parent_cip=best_feeder_cip,
+        student_major_text=major_text,
+        intent_keywords=[major_text.lower().strip()],
+        pre_flag_credential_id=credential_id,
+    )
 
 
 # ---------------------------------------------------------------------------

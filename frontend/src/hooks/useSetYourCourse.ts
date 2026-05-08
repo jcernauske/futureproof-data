@@ -13,7 +13,7 @@ import { getOutcomes } from "@/api/build";
 import { fireCheckpoint } from "@/lib/checkpoint";
 import { useProfileStore } from "@/store/profileStore";
 import { useDebouncedTrigger } from "@/hooks/useDebouncedTrigger";
-import type { IntentResult, Suggestion } from "@/types/buildInput";
+import type { IntentResult, Suggestion, GradCredentialNoticePayload } from "@/types/buildInput";
 import type { CareerOutcome } from "@/types/build";
 
 const MAJOR_DEBOUNCE_MS = 300;
@@ -92,6 +92,13 @@ interface UseSetYourCourseApi {
 
   /** Register the career card the student clicked (for commit metadata). */
   setCommittedClick: (click: CommittedClick) => void;
+
+  /**
+   * Non-null when the chip dispatch or pre-flag short-circuit determined
+   * that the student's target career requires graduate school. The
+   * SetYourCourseScreen renders the GradCredentialNotice tile from this.
+   */
+  gradCredentialNotice: GradCredentialNoticePayload | null;
 }
 
 export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseApi {
@@ -128,6 +135,8 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
   // becomes the honest answer instead.
   const [lastBucket, setLastBucket] = useState<string | null>(null);
   const [suggestedMajor, setSuggestedMajor] = useState<string | null>(null);
+  const [gradCredentialNotice, setGradCredentialNotice] =
+    useState<GradCredentialNoticePayload | null>(null);
   const [lastChipUpdatedResolution, setLastChipUpdatedResolution] =
     useState<boolean>(false);
   // Character-by-character reveal of the chip debug_trace response. The
@@ -349,6 +358,10 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
               structured = { ...event.result, confirmed_focus: null };
               setInitialResolution(structured);
               setCurrentResolution(structured);
+              // Clear grad notice unless the pre-flag path fills it.
+              setGradCredentialNotice(null);
+            } else if (event.type === "grad_credential_payload") {
+              setGradCredentialNotice(event.payload);
             } else if (event.type === "suggestions") {
               setSuggestions(event.suggestions);
             } else if (event.type === "done") {
@@ -433,6 +446,16 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
         setDebugTrace(response.debug_trace || null);
         setLastBucket(response.bucket ?? null);
         setLastChipUpdatedResolution(Boolean(response.updated_resolution));
+
+        // Surface grad-credential notice when bucket routes there.
+        if (
+          response.cta_link?.kind === "grad_credential_notice" &&
+          response.cta_link.payload
+        ) {
+          setGradCredentialNotice(response.cta_link.payload);
+        } else {
+          setGradCredentialNotice(null);
+        }
 
         if (
           response.bucket === "intent_divergence" &&
@@ -563,6 +586,7 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
       "no_issue_found",
       "semantic_drift",
       "crosswalk_mismatch",
+      "requires_graduate_credential",
     ]);
     return DIVERGENT.has(lastBucket);
   }, [debugTrace, lastBucket, lastChipUpdatedResolution]);
@@ -623,5 +647,6 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
     onPickAlternative,
     socReveal,
     setCommittedClick,
+    gradCredentialNotice,
   };
 }
