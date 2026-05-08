@@ -30,6 +30,10 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
     "brightsmith @ git+https://github.com/jcernauske/brightsmith.git",
+    # PDF Report Exports (feature-pdf-report-exports). Pure-Python PDF
+    # rendering via Platypus; bundled font files live at
+    # backend/app/services/pdf_fonts/ and are registered lazily.
+    "reportlab>=4.2.0,<5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +51,13 @@ packages = ["app"]
 [tool.mypy]
 strict = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# reportlab has no type stubs and none are available on PyPI.
+# All reportlab imports in pdf_export.py are covered by type: ignore[attr-defined]
+# at call sites; silence the top-level import-untyped diagnostics here.
+module = "reportlab.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

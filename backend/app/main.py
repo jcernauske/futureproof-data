@@ -17,6 +17,7 @@ from app.routers import (
     gauntlet,
     guidance_router,
     health,
+    pdf_export,
     profile,
     schools,
     sessions,
@@ -123,6 +124,7 @@ def create_app() -> FastAPI:
     application.include_router(career_pick.router)
     application.include_router(skills.router, prefix="/build", tags=["Skills"])
     application.include_router(wrapped.router, prefix="/build", tags=["Wrapped"])
+    application.include_router(pdf_export.router)
     application.include_router(
         sessions.router, prefix="/session", tags=["Session"]
     )
