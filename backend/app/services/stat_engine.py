@@ -506,6 +506,10 @@ def _row_to_outcome(
         occupation_title=str(row.get("occupation_title") or ""),
         soc_major_group_name=row.get("soc_major_group_name"),
         median_annual_wage=row.get("median_annual_wage"),
+        wage_p10=row.get("wage_p10"),
+        wage_p25=row.get("wage_p25"),
+        wage_p75=row.get("wage_p75"),
+        wage_p90=row.get("wage_p90"),
         earnings_1yr_median=earnings_raw,
         earnings_1yr_p25=row.get("earnings_1yr_p25"),
         earnings_1yr_p75=row.get("earnings_1yr_p75"),
@@ -515,6 +519,7 @@ def _row_to_outcome(
         debt_to_earnings_annual=displayed_dte,
         education_level_name=row.get("education_level_name"),
         growth_category=row.get("growth_category"),
+        work_experience_code=row.get("work_experience_code"),
         net_price_annual=(
             adjusted_net_price
             if adjusted_net_price is not None

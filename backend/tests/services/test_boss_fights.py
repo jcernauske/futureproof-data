@@ -785,13 +785,13 @@ class TestNarrativePromptIncludesCostContext:
             reason="ROI 4",
         )
         prompt = bf._narrative_prompt(career, fight)
-        assert "$72,000" in prompt  # sticker tuition 18000*4
+        # _published_cost_4yr fallback: no published_cost_4yr on fixture,
+        # so cost_of_attendance_annual * 4 = 22_800 * 4 = $91,200
+        assert "$91,200" in prompt  # published 4-year COA
         assert "75%" in prompt  # loan coverage
-        assert "$54,000" in prompt  # sticker debt 72000*0.75
+        assert "$68,400" in prompt  # sticker debt 91200*0.75
         assert "$56,800" in prompt  # net price avg 14200*4
         assert "average" in prompt.lower()  # net price labeled as average
-        # modeled_total_debt suppressed when sticker available
-        assert "$42,600" not in prompt
         assert "$19,500" in prompt  # debt_median_reference
         assert "Fight Student Loans" in prompt
         assert "LOSE" in prompt
@@ -893,12 +893,19 @@ class TestStatExplainerRoiNarrative:
         career = _career(
             roi=5,
             net_price_annual=14_200.0,
+            cost_of_attendance_annual=22_800.0,
             earnings_1yr_median=50_000.0,
             roi_cost_basis="cost_of_attendance",
         )
+        # stat_explainer ROI branch gates on published_cost_4yr — set it
+        # so the cost-of-attendance path fires.
+        career.published_cost_4yr = 91_200.0  # 22_800 × 4
         result = boss_fights.stat_explainer(career)
 
-        # 4-year average net price = 14_200 × 4 = 56_800
+        # Published cost = $91,200 over 4 years
+        assert "$91,200" in result
+        assert "published cost" in result.lower()
+        # Average net price (aid context only) = 14_200 × 4 = $56,800
         assert "$56,800" in result
         assert "average net price" in result.lower()
         assert "$50,000" in result

@@ -1,12 +1,12 @@
 import { useT } from "@/i18n/useT";
 import type { CareerOutcome } from "@/types/build";
-import { ReceiptPanel } from "@/components/ReceiptPanel";
 import { fmtMoney, roiColorClass } from "@/lib/format";
 
 interface FinancesCardProps {
   career: CareerOutcome;
   loanPct: number;
   isInState: boolean | null;
+  schoolName?: string;
 }
 
 function fmt(value: number | null, multiply?: number): string {
@@ -24,14 +24,6 @@ function roiLabelKey(dte: number | null): string {
   if (dte <= 0.5) return "build.roi.strong";
   if (dte <= 1.0) return "build.roi.moderate";
   return "build.roi.challenging";
-}
-
-function fill(template: string, values: Record<string, string>): string {
-  let out = template;
-  for (const [key, value] of Object.entries(values)) {
-    out = out.replace(`{${key}}`, value);
-  }
-  return out;
 }
 
 interface RowProps {
@@ -72,104 +64,6 @@ function Row({ label, value, muted, highlight, highlightLabel, subtitle, trailin
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-interface RoiReceiptProps {
-  career: CareerOutcome;
-  loanPct: number;
-  t: (key: string) => string;
-}
-
-/**
- * Migrated from the deprecated CareerDetail.tsx (RoiReceipt). Cost-basis
- * receipt body — ROI is a property of the program's cost of attendance vs
- * earnings and is NOT sensitive to loan_pct. Loan coverage still affects
- * the Student Loans Boss (modeled_total_debt), so we surface both angles
- * here while keeping the ROI math visibly separate from financing math.
- */
-function RoiReceipt({ career, loanPct, t }: RoiReceiptProps) {
-  const basis = career.roi_cost_basis ?? null;
-  const fourYearCost =
-    typeof career.published_cost_4yr === "number" && career.published_cost_4yr > 0
-      ? career.published_cost_4yr
-      : null;
-  const medianRef = career.debt_median_reference ?? career.debt_median ?? null;
-  const modeled = career.modeled_total_debt ?? null;
-
-  return (
-    <div data-testid="roi-receipt" className="space-y-1">
-      {career.institution_control && (
-        <p>{fill(t("build.roi.schoolControl"), { value: career.institution_control })}</p>
-      )}
-
-      {basis === "cost_of_attendance" && fourYearCost !== null ? (
-        <>
-          <p>
-            {fill(t("build.roi.costOfAttendance4yr"), { value: fmtMoney(fourYearCost) })}
-          </p>
-          {career.cost_of_attendance_annual !== null && (
-            <p>
-              {fill(t("build.roi.costOfAttendanceYear"), {
-                value: fmtMoney(career.cost_of_attendance_annual),
-              })}
-            </p>
-          )}
-        </>
-      ) : basis === "debt_median" && medianRef !== null ? (
-        <p>
-          {fill(t("build.roi.costBasisMedianFallback"), { value: fmtMoney(medianRef) })}
-        </p>
-      ) : (
-        <p>{t("build.roi.costBasisUnavailable")}</p>
-      )}
-
-      {career.earnings_1yr_median !== null && (
-        <p>
-          {fill(t("build.roi.earnings1yr"), { value: fmtMoney(career.earnings_1yr_median) })}
-        </p>
-      )}
-      {career.debt_to_earnings_annual !== null && (
-        <p>
-          {fill(t("build.roi.dte"), {
-            dte: career.debt_to_earnings_annual.toFixed(2),
-            roi: career.stats.roi !== null ? String(career.stats.roi) : "—",
-          })}
-        </p>
-      )}
-
-      {modeled !== null && (
-        <p className="pt-1">
-          {fill(t("build.roi.loanCoverage"), {
-            pct: String(Math.round(loanPct * 100)),
-            value: fmtMoney(modeled),
-          })}
-        </p>
-      )}
-      {career.financed_dte !== null && career.financed_dte !== undefined && (
-        <p>{fill(t("build.roi.financedDte"), { dte: career.financed_dte.toFixed(2) })}</p>
-      )}
-      {basis === "cost_of_attendance" && medianRef !== null && (
-        <p>{fill(t("build.roi.medianGradDebt"), { value: fmtMoney(medianRef) })}</p>
-      )}
-      {career.tuition_in_state !== null && career.tuition_in_state !== undefined && (
-        <p>{fill(t("build.roi.inStateTuition"), { value: fmtMoney(career.tuition_in_state) })}</p>
-      )}
-      {career.tuition_out_of_state !== null && career.tuition_out_of_state !== undefined && (
-        <p>
-          {fill(t("build.roi.outStateTuition"), { value: fmtMoney(career.tuition_out_of_state) })}
-        </p>
-      )}
-      {career.room_board_on_campus !== null && career.room_board_on_campus !== undefined && (
-        <p>{fill(t("build.roi.roomBoard"), { value: fmtMoney(career.room_board_on_campus) })}</p>
-      )}
-
-      <p className="mt-1">
-        {basis === "cost_of_attendance"
-          ? t("build.roi.sourcesInstitution")
-          : t("build.roi.sourcesProgram")}
-      </p>
     </div>
   );
 }
@@ -225,19 +119,23 @@ function DebtVsMedianIndicator({
   return null;
 }
 
-export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) {
+export function FinancesCard({ career, loanPct, isInState, schoolName }: FinancesCardProps) {
   const t = useT();
 
-  const startingSalary = career.earnings_1yr_median;
-  const medianSalary = career.median_annual_wage;
+  const midCareerSalary = career.median_annual_wage;
   const publishedCost4yr = career.published_cost_4yr;
 
   const p25 = career.earnings_1yr_p25;
   const p75 = career.earnings_1yr_p75;
-  const salarySubtitle =
-    typeof p25 === "number" && typeof p75 === "number"
-      ? `25th: ${fmtMoney(p25)} · 75th: ${fmtMoney(p75)}`
-      : undefined;
+  const hasYearOneRange = typeof p25 === "number" && typeof p75 === "number";
+  const yearOneValue = hasYearOneRange
+    ? `${fmtMoney(p25)} – ${fmtMoney(p75)}`
+    : career.earnings_1yr_median != null
+      ? `${fmt(career.earnings_1yr_median)} / yr`
+      : null;
+  const yearOneLabel = schoolName
+    ? t("build.yearOneFrom").replace("{school}", schoolName)
+    : t("build.yearOne");
 
   const modeledDebt = career.modeled_total_debt;
   const medianRef = career.debt_median_reference ?? career.debt_median ?? null;
@@ -253,12 +151,57 @@ export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) 
         {t("build.finances")}
       </div>
 
-      <Row label={t("build.startingSalary")} value={`${fmt(startingSalary)} / yr`} />
       <Row
-        label={t("build.medianSalary")}
-        value={`${fmt(medianSalary)} / yr`}
-        subtitle={salarySubtitle}
+        label={t("build.midCareerSalary")}
+        value={`${fmt(midCareerSalary)} / yr`}
       />
+      {/* OEWS national career-level wage distribution
+          (spec ingest-bls-oews-wage-percentiles.md §Zone 4),
+          experience-aware: entry-accessible careers (work_experience_code
+          2, 3, or null) show p10–p25 as the "starting range"; long-term
+          careers (code 1, 5+ yrs required) show p25–p75 as the "typical
+          range". This avoids implying that a year-one student will earn
+          the median of currently-working incumbents in roles that
+          structurally exclude entrants.
+          Distinct from the Scorecard "Year-one" row below:
+          OEWS = what THIS career pays nationally;
+          Year-one = what graduates of THIS program earn year one. */}
+      {(() => {
+        const isEntryAccessible =
+          career.work_experience_code === 2 ||
+          career.work_experience_code === 3 ||
+          career.work_experience_code == null;
+        const hasStarting =
+          isEntryAccessible &&
+          career.wage_p10 != null &&
+          career.wage_p25 != null;
+        const hasTypical =
+          !isEntryAccessible &&
+          career.wage_p25 != null &&
+          career.wage_p75 != null;
+        if (hasStarting) {
+          return (
+            <Row
+              label={t("build.careerStartingRange")}
+              value={`${fmtMoney(career.wage_p10)} – ${fmtMoney(career.wage_p25)}`}
+              subtitle={career.occupation_title}
+            />
+          );
+        }
+        if (hasTypical) {
+          return (
+            <Row
+              label={t("build.careerSalaryRange")}
+              value={`${fmtMoney(career.wage_p25)} – ${fmtMoney(career.wage_p75)}`}
+              subtitle={career.occupation_title}
+            />
+          );
+        }
+        return null;
+      })()}
+      {yearOneValue && (
+        <Row label={yearOneLabel} value={yearOneValue} />
+      )}
       {publishedCost4yr !== null && publishedCost4yr !== undefined && (
         <Row
           label={t("build.publishedCost4yr")}
@@ -295,9 +238,6 @@ export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) 
         >
           {t("build.roi.label")}: {t(roiLabelKey(career.debt_to_earnings_annual))}
         </span>
-        <ReceiptPanel id="roi" label={t("build.roi.label")}>
-          <RoiReceipt career={career} loanPct={loanPct} t={t} />
-        </ReceiptPanel>
       </div>
     </div>
   );

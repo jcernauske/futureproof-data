@@ -1,0 +1,273 @@
+---
+# Data Contract: base.bls_oews
+# Spec: docs/specs/ingest-bls-oews-wage-percentiles.md
+# Zone: Silver (Base)
+# Status: DRAFT
+# Tagged by: @cde-tagger
+# Date: 2026-05-06
+# Parent contract: governance/data-contracts/raw-bls-oews.yaml (Bronze)
+# PII verdict: NO_PII (governance/pii-reports/raw-bls-oews-pii-report.md — same scan applies after promote)
+# Domain context: governance/domain-context.md §"BLS OEWS"
+
+table: base.bls_oews
+namespace: base
+zone: silver
+version: "1.0.0"
+grain:
+  - soc_code
+status: DRAFT
+data_vintage: "May 2024 (BLS OEWS national, all-industries combined). Promoted from bronze.bls_oews via idempotent compute_grain_id pattern with prefix='oews'."
+source: "bronze.bls_oews (promote-only — no cross-source joins, no entity resolution). Upstream: BLS OEWS National all-industries-combined publication."
+expected_row_count: 831
+spec_reference: docs/specs/ingest-bls-oews-wage-percentiles.md
+parent_spec_reference: docs/specs/ingest-bls-oews-wage-percentiles.md
+owner: "@doc-generator"
+sla: "Annual refresh. Silver runs immediately after every Bronze refresh."
+
+# CDE tier scheme (same as Bronze):
+#   P0 — directly drives a downstream user-facing stat, scored signal, or join key
+#   P1 — supporting analytics / display / methodology flag
+#   (no tier) — pipeline provenance metadata; not a CDE
+cde_tier_scheme:
+  P0: "Drives downstream user-facing stat, scored signal, or join key"
+  P1: "Supporting analytics, display, or methodology interpretation"
+
+columns:
+  - name: record_id
+    type: varchar
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      Deterministic surrogate key computed via compute_grain_id(row,
+      ['soc_code'], prefix='oews'). Format: oews-<16 hex chars>. Stable across
+      pipeline re-runs. Technical infrastructure field, not consumed by business
+      processes.
+
+  - name: soc_code
+    type: varchar
+    required: true
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      Validated natural key and primary join anchor. Every downstream Gold join
+      keys on soc_code: consumable.occupation_profiles LEFT JOIN, the
+      futureproof_engine thread into consumable.program_career_paths, and the
+      MCP server's get_career_paths tool. Silver enforces the XX-XXXX regex,
+      so any orphaned rows would be rejected here rather than corrupt Gold.
+      Incorrect or missing values would sever the wage-distribution layer of
+      the per-SOC analytical picture.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      SOC 2018 occupation code in XX-XXXX format. Natural key. Primary join key
+      for consumable.occupation_profiles enrichment.
+    constraints:
+      - "UNIQUE"
+      - "CHECK (soc_code ~ '^\\d{2}-\\d{4}$')"
+
+  - name: occupation_title
+    type: varchar
+    required: true
+    is_cde: true
+    cde_tier: P1
+    cde_rationale: >
+      Display label carried verbatim from Bronze. Used by the FinancesCard
+      career-salary row subtitle and as a fallback identifier in MCP grounding
+      documents. Not a join key (soc_code is the authoritative identifier),
+      so classified as P1 rather than P0.
+    is_pii: false
+    pii_rationale: ""
+    description: "Official BLS occupation name. Display label; soc_code is the authoritative identifier."
+
+  - name: total_employment
+    type: bigint
+    required: false
+    is_cde: true
+    cde_tier: P1
+    cde_rationale: >
+      National employment count for the occupation. Used as a sanity floor and
+      as a potential employment-weighting input for cross-source aggregations.
+      Not directly user-facing in v1 — OOH's employment_current is the
+      displayed market-size number — so classified as P1 rather than P0.
+    is_pii: false
+    pii_rationale: ""
+    description: "Total national employment in the occupation per OEWS estimation. Null when BLS suppressed."
+
+  - name: wage_annual_p10
+    type: double
+    required: false
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      10th-percentile annual wage. Drives the lower tail of the
+      career-specific salary distribution surfaced on CareerCard and
+      FinancesCard once threaded through Gold. Future Enhancements §1 (ERN
+      ceiling potential) and §4 (entry-level proxy) both depend on this column.
+    is_pii: false
+    pii_rationale: ""
+    description: "Annual 10th-percentile wage. Validated for monotonicity (p10 <= p25 where both non-null)."
+    constraints:
+      - "CHECK (wage_annual_p10 IS NULL OR (wage_annual_p10 >= 20000 AND wage_annual_p10 <= 239200))"
+
+  - name: wage_annual_p25
+    type: double
+    required: false
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      25th-percentile annual wage. Lower bound of the user-facing "typical
+      range" rendered on CareerCard (per spec §CareerCard Display Logic) and on
+      the FinancesCard "Career salary range" row. If this value drifts, every
+      CareerCard drifts.
+    is_pii: false
+    pii_rationale: ""
+    description: "Annual 25th-percentile wage. Lower bound of the displayed career salary range."
+    constraints:
+      - "CHECK (wage_annual_p25 IS NULL OR (wage_annual_p25 >= 20000 AND wage_annual_p25 <= 239200))"
+
+  - name: wage_annual_median
+    type: double
+    required: false
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      Median annual wage. Per domain context §"Concept Mapping Guidance", the
+      OEWS median is the canonical "what does this career pay" single-figure
+      salary once OEWS data lands (more recent and more directly surveyed than
+      the OOH median). Headline number for student-facing salary display.
+    is_pii: false
+    pii_rationale: ""
+    description: "Annual median wage. Canonical single-figure career salary."
+    constraints:
+      - "CHECK (wage_annual_median IS NULL OR (wage_annual_median >= 20000 AND wage_annual_median <= 239200))"
+
+  - name: wage_annual_p75
+    type: double
+    required: false
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      75th-percentile annual wage. Upper bound of the user-facing "typical
+      range" rendered on CareerCard and FinancesCard. Also the existing
+      ceiling proxy referenced by the in-flight feature-pdf-report-exports
+      spec.
+    is_pii: false
+    pii_rationale: ""
+    description: "Annual 75th-percentile wage. Upper bound of the displayed career salary range."
+    constraints:
+      - "CHECK (wage_annual_p75 IS NULL OR (wage_annual_p75 >= 20000 AND wage_annual_p75 <= 239200))"
+
+  - name: wage_annual_p90
+    type: double
+    required: false
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      90th-percentile annual wage. Decision-relevant for upside-potential
+      framing and Fight AI / Ceiling boss displays. Most-frequently top-coded
+      percentile — consumers must read wage_capped alongside.
+    is_pii: false
+    pii_rationale: ""
+    description: "Annual 90th-percentile wage. May be top-coded at $239,200 (see wage_capped)."
+    constraints:
+      - "CHECK (wage_annual_p90 IS NULL OR (wage_annual_p90 >= 20000 AND wage_annual_p90 <= 239200))"
+
+  - name: wage_annual_mean
+    type: double
+    required: false
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      Employment-weighted mean annual wage. Published uncapped even when
+      percentiles are capped. Useful complementary single-figure salary metric;
+      consumers must be prepared for mean > p90 on top-coded rows (this is a
+      known BLS publishing behavior, not a DQ failure).
+    is_pii: false
+    pii_rationale: ""
+    description: "Annual mean wage (employment-weighted). Published uncapped; can exceed p90 when upper tail is top-coded."
+
+  - name: wage_capped
+    type: boolean
+    required: true
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      Top-coding interpretation flag. True iff at least one of the five annual
+      percentiles equals $239,200. The numeric capped value is meaningless
+      without this flag: a $239,200 p90 with wage_capped=True is "$239K or
+      more," not exactly $239K. Every downstream consumer that renders or
+      computes from the capped percentiles MUST read this flag.
+    is_pii: false
+    pii_rationale: ""
+    description: "True iff at least one annual percentile equals $239,200 (BLS top-code ceiling)."
+
+  - name: source_load_date
+    type: date
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Date the source publication was loaded into Bronze. Pipeline metadata; renamed from Bronze load_date."
+
+  - name: ingested_at
+    type: timestamp
+    required: true
+    is_cde: false
+    cde_rationale: ""
+    is_pii: false
+    pii_rationale: ""
+    description: "Timestamp when the row was promoted to Silver. Pipeline metadata."
+
+# Quality thresholds (mirrors spec §DQ Rules (Silver)).
+quality:
+  completeness:
+    soc_code_null_tolerance: 0.0
+    occupation_title_null_tolerance: 0.0
+    wage_annual_median_min_non_null_pct: 95.0
+  validity:
+    soc_code_format: "^\\d{2}-\\d{4}$"
+    annual_percentile_range: [20000, 239200]
+    monotonicity_required: true
+    monotonicity_rule: "p10 <= p25 <= median <= p75 <= p90 for 100% of rows where all five are non-null"
+  uniqueness:
+    grain_zero_duplicates: true
+    record_id_unique: true
+    soc_code_unique: true
+  volume:
+    row_count_range: [800, 900]
+  freshness_sla: "Annual BLS OEWS publication. source_load_date must be within 400 days of the current run date."
+
+dq_rules:
+  rule_file: governance/dq-rules/silver-base-bls-oews.json
+
+breaking_changes:
+  policy: >
+    Semantic versioning. Column removed, renamed, type changed, or grain changed
+    triggers a major version bump (BREAKING). Column added triggers a minor bump
+    (NON-BREAKING). Description change triggers a patch bump.
+
+lineage:
+  source_table: bronze.bls_oews
+  transformation: src/silver/bls_oews_transformer.py
+
+consumers:
+  - name: "consumable.occupation_profiles"
+    type: table
+    description: >
+      Gold enrichment that LEFT JOINs base.bls_oews on soc_code to surface
+      wage_p10 / wage_p25 / wage_p75 / wage_p90 to the FutureProof engine.
+      Depends on soc_code format, grain integrity, and the four CDE-P0
+      annual percentile columns plus wage_capped.
+    contact: "@primary-agent"
+    status: planned
+  - name: "consumable.program_career_paths (via futureproof_engine)"
+    type: table
+    description: >
+      Engine-threaded consumption of wage percentiles into the per-build career
+      record. Depends on the same fields as occupation_profiles.
+    contact: "@primary-agent"
+    status: planned

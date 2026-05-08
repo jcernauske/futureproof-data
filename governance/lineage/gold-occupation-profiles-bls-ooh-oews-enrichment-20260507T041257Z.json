@@ -1,0 +1,155 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-07T04:12:57.000000Z",
+    "run": {
+      "runId": "7c2d4a91-3e5b-48d6-a172-9f6c8d4e2b03",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "specVersion": "1.0",
+          "zone": "gold",
+          "scope": "occupation_profiles enrichment"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone enrichment of consumable.occupation_profiles with the OEWS wage distribution. Reads 832 rows from base.bls_ooh (Silver) plus 831 rows from base.bls_oews (Silver), runs the existing GRW/wage-percentile/market/confidence/data-completeness derivations on the OOH side, and adds a LEFT JOIN on soc_code to surface the four OEWS percentile columns (wage_p10, wage_p25, wage_p75, wage_p90) onto the same row. Schema evolved from 31 to 35 NestedFields; new IDs 32-35 reserved per spec §Iceberg NestedField IDs. Overwrite mode used to update existing rows because the grain (soc_code) is unchanged but the four new column values must replace the previous nulls. Result: 826 of 832 rows now carry non-null wage_p25 (99.28% coverage); 6 nulls correspond to the 5 fully-suppressed entertainment SOCs plus 1 OOH-only SOC (45-3031 Fishing/Hunting Workers, present in OOH but not in OEWS). All four Gold DQ rules (GLD-OP-OEWS-001 through 004) pass on the live Iceberg table."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {"base.bls_ooh": 832, "base.bls_oews": 831},
+          "rowsTransformed": 832,
+          "rowsSkippedTransform": 0,
+          "promoted": 832,
+          "skippedDedup": 0,
+          "snapshotId": null,
+          "newColumnsAdded": 4,
+          "newNestedFieldIdRange": "32-35",
+          "wageP25NonNullCount": 826,
+          "wageP25CoveragePercent": 99.28,
+          "writeMode": "overwrite"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-occupation-profiles-oews-enrichment",
+      "facets": {
+        "documentation": {
+          "description": "Enrich consumable.occupation_profiles with the four OEWS wage-distribution columns (wage_p10/p25/p75/p90) via a LEFT JOIN to base.bls_oews on soc_code. The OOH-side derivations (GRW score, wage percentile rankings, market score, confidence tier, data completeness, static stat/boss mappings) are unchanged. Schema evolved from 31 to 35 NestedFields with new IDs 32-35 per spec. Existing CareerCard 'typical range' (p25-p75) and FinancesCard 'Career salary range' surfaces will read the new columns once the backend dispatch lands."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/bls_ooh_occupation_profiles.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_ooh",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "soc_major_group", "type": "STRING"},
+              {"name": "soc_major_group_name", "type": "STRING"},
+              {"name": "broad_occupation_flag", "type": "BOOLEAN"},
+              {"name": "catchall_flag", "type": "BOOLEAN"},
+              {"name": "employment_current", "type": "LONG"},
+              {"name": "employment_projected", "type": "LONG"},
+              {"name": "employment_change", "type": "LONG"},
+              {"name": "employment_change_pct", "type": "DOUBLE"},
+              {"name": "openings_annual_avg", "type": "LONG"},
+              {"name": "growth_category", "type": "STRING"},
+              {"name": "median_annual_wage", "type": "DOUBLE"},
+              {"name": "median_wage_capped", "type": "BOOLEAN"},
+              {"name": "wage_available", "type": "BOOLEAN"},
+              {"name": "education_typical", "type": "STRING"},
+              {"name": "education_code", "type": "INTEGER"},
+              {"name": "education_level_name", "type": "STRING"},
+              {"name": "work_experience", "type": "STRING"},
+              {"name": "work_experience_code", "type": "INTEGER"},
+              {"name": "training_typical", "type": "STRING"},
+              {"name": "training_code", "type": "INTEGER"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_oews",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "total_employment", "type": "LONG"},
+              {"name": "wage_annual_p10", "type": "DOUBLE"},
+              {"name": "wage_annual_p25", "type": "DOUBLE"},
+              {"name": "wage_annual_median", "type": "DOUBLE"},
+              {"name": "wage_annual_p75", "type": "DOUBLE"},
+              {"name": "wage_annual_p90", "type": "DOUBLE"},
+              {"name": "wage_annual_mean", "type": "DOUBLE"},
+              {"name": "wage_capped", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.occupation_profiles",
+        "facets": {
+          "schema": {
+            "addedFields": [
+              {"name": "wage_p10", "type": "DOUBLE", "nestedFieldId": 32, "required": false},
+              {"name": "wage_p25", "type": "DOUBLE", "nestedFieldId": 33, "required": false},
+              {"name": "wage_p75", "type": "DOUBLE", "nestedFieldId": 34, "required": false},
+              {"name": "wage_p90", "type": "DOUBLE", "nestedFieldId": 35, "required": false}
+            ],
+            "totalFieldCount": 35
+          },
+          "columnLineage": {
+            "fields": {
+              "wage_p10": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_oews", "field": "wage_annual_p10"}
+                ],
+                "transformationDescription": "Direct carry from base.bls_oews via LEFT JOIN on soc_code. Renamed from wage_annual_p10 to wage_p10 to fit the API/frontend naming convention. NULL when the SOC has no OEWS row (45-3031 OOH-only) or when the OEWS row's p10 was suppressed.",
+                "transformationType": "DIRECT"
+              },
+              "wage_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_oews", "field": "wage_annual_p25"}
+                ],
+                "transformationDescription": "Direct carry from base.bls_oews via LEFT JOIN on soc_code. Renamed from wage_annual_p25 to wage_p25. Lower bound of the user-facing 'typical range' on CareerCard and FinancesCard.",
+                "transformationType": "DIRECT"
+              },
+              "wage_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_oews", "field": "wage_annual_p75"}
+                ],
+                "transformationDescription": "Direct carry from base.bls_oews via LEFT JOIN on soc_code. Renamed from wage_annual_p75 to wage_p75. Upper bound of the user-facing 'typical range'.",
+                "transformationType": "DIRECT"
+              },
+              "wage_p90": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "base.bls_oews", "field": "wage_annual_p90"}
+                ],
+                "transformationDescription": "Direct carry from base.bls_oews via LEFT JOIN on soc_code. Renamed from wage_annual_p90 to wage_p90. Top-coded at 239200 for 45 high-earning SOCs; consumers must read alongside the OEWS wage_capped flag for correct interpretation.",
+                "transformationType": "DIRECT"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

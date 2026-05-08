@@ -136,6 +136,19 @@ def _make_occupation_profile(
     education_level_name="Bachelor's degree",
     grw_score_rounded=6,
     market_score_rounded=5,
+    # OEWS wage distribution (spec ingest-bls-oews-wage-percentiles
+    # §Zone 3, 2026-05-06). Defaults match the canonical Financial
+    # Analysts SOC range. Tests can override per scenario or pass None
+    # to exercise the missing-OEWS path.
+    wage_p10=58_660.0,
+    wage_p25=72_600.0,
+    wage_p75=126_460.0,
+    wage_p90=166_490.0,
+    # BLS OOH "work experience in a related occupation" categorical
+    # (1=5+yrs, 2=<5yrs, 3=None). Default 2 (<5yrs) matches the typical
+    # Financial Analyst posture; tests can override per scenario or
+    # pass None to exercise the missing-OOH path.
+    work_experience_code=2,
 ):
     return {
         "soc_code": soc_code,
@@ -149,6 +162,11 @@ def _make_occupation_profile(
         "education_level_name": education_level_name,
         "grw_score_rounded": grw_score_rounded,
         "market_score_rounded": market_score_rounded,
+        "wage_p10": wage_p10,
+        "wage_p25": wage_p25,
+        "wage_p75": wage_p75,
+        "wage_p90": wage_p90,
+        "work_experience_code": work_experience_code,
     }
 
 
@@ -505,14 +523,28 @@ class TestOccupationTitleFallback:
 class TestPcpSchemaAndRecordIds:
     """Tests for Table 1 schema and record ID generation."""
 
-    def test_schema_has_57_columns(self):
-        """PCP physical model has 57 columns. Fields 55-57 are the
+    def test_schema_has_62_columns(self):
+        """PCP physical model has 62 columns. Fields 55-57 are the
         ROI Net Lifetime Value triplet (lifetime_earnings_15yr,
         roi_raw_multiplier, roi_multiplier_basis) added by spec
-        roi-net-lifetime-value (2026-05-04).
+        roi-net-lifetime-value (2026-05-04). Fields 58-61 are the OEWS
+        wage distribution (wage_p10/p25/p75/p90) added by spec
+        ingest-bls-oews-wage-percentiles (2026-05-06). Field 62 is the
+        BLS OOH ``work_experience_code`` categorical (1=5+yrs, 2=<5yrs,
+        3=None) added 2026-05-07 to power experience-based career
+        grouping on /set-your-course.
         """
         schema = get_pcp_schema()
-        assert len(schema.fields) == 57
+        assert len(schema.fields) == 62
+
+    def test_oews_wage_percentile_field_ids(self):
+        """OEWS columns must use the spec-reserved IDs 58-61."""
+        schema = get_pcp_schema()
+        ids_by_name = {f.name: f.field_id for f in schema.fields}
+        assert ids_by_name["wage_p10"] == 58
+        assert ids_by_name["wage_p25"] == 59
+        assert ids_by_name["wage_p75"] == 60
+        assert ids_by_name["wage_p90"] == 61
 
     def test_record_id_deterministic(self):
         """record_id is deterministic for same grain."""
@@ -599,6 +631,89 @@ class TestPcpEdgeCases:
         rows = derive_pcp_rows(co, xw, op, onet)
         assert rows[0]["match_quality"] == "scorecard_only"
         assert rows[0]["overall_confidence"] == "low"
+
+
+# =========================================================================
+# Table 1 Tests: OEWS wage-distribution thread-through
+# Spec: docs/specs/ingest-bls-oews-wage-percentiles.md §Zone 3.
+# =========================================================================
+
+
+class TestPcpOewsThreadThrough:
+    """Verify OEWS wage_p* columns flow from occupation_profiles to PCP."""
+
+    def test_oews_columns_present_in_output(self):
+        rows = _simple_pcp_derive()
+        assert "wage_p10" in rows[0]
+        assert "wage_p25" in rows[0]
+        assert "wage_p75" in rows[0]
+        assert "wage_p90" in rows[0]
+
+    def test_oews_values_match_occupation_profile_input(self):
+        """Default occupation_profile values pass through to PCP unchanged."""
+        rows = _simple_pcp_derive()
+        # Defaults from _make_occupation_profile (Financial Analysts band).
+        assert rows[0]["wage_p10"] == 58_660.0
+        assert rows[0]["wage_p25"] == 72_600.0
+        assert rows[0]["wage_p75"] == 126_460.0
+        assert rows[0]["wage_p90"] == 166_490.0
+
+    def test_oews_custom_values_thread_through(self):
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile(
+            wage_p10=77_020.0,
+            wage_p25=98_220.0,
+            wage_p75=168_570.0,
+            wage_p90=208_620.0,
+        )]
+        onet = [_make_onet_profile()]
+        rows = derive_pcp_rows(co, xw, op, onet)
+        assert rows[0]["wage_p10"] == 77_020.0
+        assert rows[0]["wage_p25"] == 98_220.0
+        assert rows[0]["wage_p75"] == 168_570.0
+        assert rows[0]["wage_p90"] == 208_620.0
+
+    def test_oews_null_values_propagate(self):
+        """Null OEWS values in occupation_profiles flow through as null."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = [_make_occupation_profile(
+            wage_p10=None, wage_p25=None, wage_p75=None, wage_p90=None,
+        )]
+        onet = [_make_onet_profile()]
+        rows = derive_pcp_rows(co, xw, op, onet)
+        assert rows[0]["wage_p10"] is None
+        assert rows[0]["wage_p25"] is None
+        assert rows[0]["wage_p75"] is None
+        assert rows[0]["wage_p90"] is None
+
+    def test_oews_null_when_occupation_profiles_empty(self):
+        """No BLS join (empty op) → wage_p* columns null."""
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk()]
+        op = []
+        onet = [_make_onet_profile()]
+        rows = derive_pcp_rows(co, xw, op, onet)
+        assert rows[0]["wage_p10"] is None
+        assert rows[0]["wage_p25"] is None
+        assert rows[0]["wage_p75"] is None
+        assert rows[0]["wage_p90"] is None
+
+    def test_oews_top_coded_values_thread_through(self):
+        co = [_make_career_outcome()]
+        xw = [_make_crosswalk(soc_code="11-1011", soc_title="Chief Executives")]
+        op = [_make_occupation_profile(
+            soc_code="11-1011",
+            wage_p10=90_050.0,
+            wage_p25=130_880.0,
+            wage_p75=239_200.0,
+            wage_p90=239_200.0,
+        )]
+        onet = []
+        rows = derive_pcp_rows(co, xw, op, onet)
+        assert rows[0]["wage_p75"] == 239_200.0
+        assert rows[0]["wage_p90"] == 239_200.0
 
 
 # =========================================================================

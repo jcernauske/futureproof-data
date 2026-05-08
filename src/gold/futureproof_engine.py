@@ -289,6 +289,23 @@ def get_pcp_schema() -> Schema:
         NestedField(55, "lifetime_earnings_15yr", DoubleType(), required=False),
         NestedField(56, "roi_raw_multiplier", DoubleType(), required=False),
         NestedField(57, "roi_multiplier_basis", StringType(), required=False),
+        # OEWS wage distribution (spec ingest-bls-oews-wage-percentiles
+        # §Zone 3, 2026-05-06). Threaded through from
+        # consumable.occupation_profiles so the backend CareerOutcome model
+        # and frontend CareerCard "typical range" display can render
+        # career-specific p25-p75 bands without re-joining at query time.
+        NestedField(58, "wage_p10", DoubleType(), required=False),
+        NestedField(59, "wage_p25", DoubleType(), required=False),
+        NestedField(60, "wage_p75", DoubleType(), required=False),
+        NestedField(61, "wage_p90", DoubleType(), required=False),
+        # BLS OOH "work experience in a related occupation" categorical
+        # (1=5+yrs, 2=<5yrs, 3=None). Threaded through from
+        # consumable.occupation_profiles so the frontend can group careers
+        # by entry barrier (Likely first jobs / Early-career / Long-term)
+        # and pick the appropriate OEWS percentile band ("starting range"
+        # for entry-accessible vs "typical range" for long-term roles).
+        # NULL-propagates when the SOC has no OOH coverage.
+        NestedField(62, "work_experience_code", IntegerType(), required=False),
     )
 
 
@@ -407,6 +424,21 @@ joined AS (
         op.education_level_name,
         op.grw_score_rounded,
         op.market_score_rounded,
+        -- OEWS wage distribution (spec ingest-bls-oews-wage-percentiles
+        -- §Zone 3, 2026-05-06). NULL-propagates from occupation_profiles
+        -- when the SOC has no OEWS row (e.g., 45-3031 OOH-only) or when
+        -- the BLS LEFT JOIN fails entirely (match_quality != 'full' /
+        -- 'partial_no_onet').
+        op.wage_p10,
+        op.wage_p25,
+        op.wage_p75,
+        op.wage_p90,
+        -- BLS OOH work_experience_code (1=5+yrs, 2=<5yrs, 3=None).
+        -- NULL-propagates from occupation_profiles when the SOC has
+        -- no OOH coverage. Drives experience-based career grouping on
+        -- /set-your-course and the FinancesCard starting-vs-typical
+        -- wage label.
+        op.work_experience_code,
         -- O*NET context
         onet.hmn_score_rounded,
         onet.burnout_score_rounded,
@@ -488,6 +520,16 @@ def derive_pcp_rows(
             "education_level_name": pa.array([], type=pa.string()),
             "grw_score_rounded": pa.array([], type=pa.int32()),
             "market_score_rounded": pa.array([], type=pa.int32()),
+            # OEWS wage distribution (spec ingest-bls-oews-wage-percentiles
+            # §Zone 3). Empty fallback for when occupation_profiles isn't
+            # populated yet — wage_p* columns NULL-propagate to PCP.
+            "wage_p10": pa.array([], type=pa.float64()),
+            "wage_p25": pa.array([], type=pa.float64()),
+            "wage_p75": pa.array([], type=pa.float64()),
+            "wage_p90": pa.array([], type=pa.float64()),
+            # BLS OOH work_experience_code categorical
+            # (1=5+yrs, 2=<5yrs, 3=None).
+            "work_experience_code": pa.array([], type=pa.int32()),
         })
 
     if onet_work_profiles_rows:

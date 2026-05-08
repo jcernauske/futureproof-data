@@ -389,6 +389,205 @@ class TestLoanPct:
         assert career.published_cost_4yr is None
 
 
+class TestOewsWagePercentiles:
+    """OEWS national career-level wage percentiles
+    (spec: ingest-bls-oews-wage-percentiles.md).
+
+    The four ``wage_p*`` columns flow Gold → MCP row dict → CareerOutcome
+    via stat_engine. They're additive to the existing salary fields:
+    Scorecard ``earnings_1yr_*`` is program-specific (school+CIP), OEWS
+    ``wage_p*`` is occupation-specific (national, by SOC).
+    """
+
+    def test_default_to_none_when_row_missing_keys(self):
+        """A CareerOutcome built without OEWS fields keeps them None."""
+        from app.models.career import (
+            BossScores,
+            CareerOutcome,
+            PentagonStats,
+        )
+
+        career = CareerOutcome(
+            unitid=1,
+            institution_name="U",
+            cipcode="11.0701",
+            program_name="CS",
+            soc_code="15-1252",
+            occupation_title="Software Developers",
+            stats=PentagonStats(),
+            bosses=BossScores(
+                ai=None, loans=None, market=None, burnout=None, ceiling=None
+            ),
+        )
+        assert career.wage_p10 is None
+        assert career.wage_p25 is None
+        assert career.wage_p75 is None
+        assert career.wage_p90 is None
+
+    def test_round_trip_serialization_preserves_wage_p_fields(self):
+        """``model_dump`` → ``model_validate`` round-trips the four fields."""
+        from app.models.career import (
+            BossScores,
+            CareerOutcome,
+            PentagonStats,
+        )
+
+        original = CareerOutcome(
+            unitid=1,
+            institution_name="U",
+            cipcode="11.0701",
+            program_name="CS",
+            soc_code="15-1252",
+            occupation_title="Software Developers",
+            wage_p10=80_000.0,
+            wage_p25=98_000.0,
+            wage_p75=168_000.0,
+            wage_p90=210_000.0,
+            stats=PentagonStats(),
+            bosses=BossScores(
+                ai=None, loans=None, market=None, burnout=None, ceiling=None
+            ),
+        )
+        round_tripped = CareerOutcome.model_validate(original.model_dump())
+        assert round_tripped.wage_p10 == 80_000.0
+        assert round_tripped.wage_p25 == 98_000.0
+        assert round_tripped.wage_p75 == 168_000.0
+        assert round_tripped.wage_p90 == 210_000.0
+
+    def test_stat_engine_maps_wage_p_fields_from_row(self, monkeypatch):
+        """When the MCP row carries OEWS wage keys, stat_engine threads
+        them onto the CareerOutcome verbatim."""
+        row_with_oews = {
+            **_RAW_ROW,
+            "wage_p10": 31_500.0,
+            "wage_p25": 41_200.0,
+            "wage_p75": 78_900.0,
+            "wage_p90": 102_400.0,
+        }
+        _patch_mcp(
+            monkeypatch,
+            {"data": [row_with_oews], "substitution_applied": False},
+        )
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351, cipcode="52.14", student_major=None
+        )
+        career = outcomes[0]
+        assert career.wage_p10 == 31_500.0
+        assert career.wage_p25 == 41_200.0
+        assert career.wage_p75 == 78_900.0
+        assert career.wage_p90 == 102_400.0
+
+    def test_stat_engine_leaves_wage_p_fields_none_when_absent(self, monkeypatch):
+        """An MCP row without OEWS keys produces a CareerOutcome with the
+        four wage_p* fields set to None — the SOC has no OEWS coverage."""
+        _patch_mcp(
+            monkeypatch,
+            {"data": [_RAW_ROW], "substitution_applied": False},
+        )
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351, cipcode="52.14", student_major=None
+        )
+        career = outcomes[0]
+        assert career.wage_p10 is None
+        assert career.wage_p25 is None
+        assert career.wage_p75 is None
+        assert career.wage_p90 is None
+
+
+class TestWorkExperienceCode:
+    """BLS OOH ``work_experience_code`` (1=5+yrs, 2=<5yrs, 3=None).
+
+    Drives the experience-based career grouping on /set-your-course
+    (Likely first jobs / Early-career / Long-term) and the FinancesCard
+    "starting range" vs "typical range" wage label. The field flows
+    Gold → MCP row dict → CareerOutcome via stat_engine.
+    """
+
+    def test_default_to_none_when_row_missing_keys(self):
+        """A CareerOutcome built without work_experience_code keeps it None."""
+        from app.models.career import (
+            BossScores,
+            CareerOutcome,
+            PentagonStats,
+        )
+
+        career = CareerOutcome(
+            unitid=1,
+            institution_name="U",
+            cipcode="11.0701",
+            program_name="CS",
+            soc_code="15-1252",
+            occupation_title="Software Developers",
+            stats=PentagonStats(),
+            bosses=BossScores(
+                ai=None, loans=None, market=None, burnout=None, ceiling=None
+            ),
+        )
+        assert career.work_experience_code is None
+
+    def test_round_trip_serialization_preserves_work_experience_code(self):
+        """``model_dump`` → ``model_validate`` round-trips the field."""
+        from app.models.career import (
+            BossScores,
+            CareerOutcome,
+            PentagonStats,
+        )
+
+        for code in (1, 2, 3, None):
+            original = CareerOutcome(
+                unitid=1,
+                institution_name="U",
+                cipcode="11.0701",
+                program_name="CS",
+                soc_code="15-1252",
+                occupation_title="Software Developers",
+                work_experience_code=code,
+                stats=PentagonStats(),
+                bosses=BossScores(
+                    ai=None,
+                    loans=None,
+                    market=None,
+                    burnout=None,
+                    ceiling=None,
+                ),
+            )
+            round_tripped = CareerOutcome.model_validate(original.model_dump())
+            assert round_tripped.work_experience_code == code
+
+    def test_stat_engine_maps_work_experience_code_from_row(self, monkeypatch):
+        """When the MCP row carries the key, stat_engine threads it through."""
+        for code in (1, 2, 3):
+            row = {**_RAW_ROW, "work_experience_code": code}
+            _patch_mcp(
+                monkeypatch,
+                {"data": [row], "substitution_applied": False},
+            )
+            outcomes = stat_engine.compute_pentagon(
+                unitid=151351, cipcode="52.14", student_major=None
+            )
+            assert outcomes[0].work_experience_code == code
+
+    def test_stat_engine_leaves_work_experience_code_none_when_absent(
+        self, monkeypatch
+    ):
+        """An MCP row without the key yields CareerOutcome.work_experience_code = None.
+
+        Regression guard for the MCP whitelist wiring miss: if
+        ``work_experience_code`` were stripped from the response by the
+        whitelist, the row dict here would have no key and stat_engine
+        must not crash — it must default to None and let the UI's null
+        fallback put the career in the early-career bucket.
+        """
+        _patch_mcp(
+            monkeypatch,
+            {"data": [_RAW_ROW], "substitution_applied": False},
+        )
+        outcomes = stat_engine.compute_pentagon(
+            unitid=151351, cipcode="52.14", student_major=None
+        )
+        assert outcomes[0].work_experience_code is None
+
+
 class TestEffortShift:
     def test_clamp_low_end_ern(self):
         stats = PentagonStats(ern=1, roi=4, res=5, grw=5, aura=5)

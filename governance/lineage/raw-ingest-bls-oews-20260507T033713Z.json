@@ -1,0 +1,120 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-07T03:37:13.000000Z",
+    "run": {
+      "runId": "a97156e6-cd0c-4a98-8071-bc641cca6d30",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "specVersion": "1.0"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Bronze ingest of BLS Occupational Employment & Wage Statistics (OEWS) National Cross-Industry estimates, May 2024 reference period (published March 2025). Source ZIP downloaded from the BLS special-requests endpoint, single XLSX workbook extracted, header row located by OCC_CODE+OCC_TITLE signature, OCC_GROUP/O_GROUP filter applied so only detailed-occupation rows are kept (summary major/minor/broad rollups dropped). Wage cells parsed with the BLS sentinel rules: '*' (suppressed) -> null, '#' (top-coded) -> 239200.0 with wage_capped=True. SOC codes preserved as XX-XXXX strings; non-standard 7-digit sub-classification codes (e.g. 15-1252.00) dropped. 831 rows landed in bronze.bls_oews -- within the 800-900 spec target band."
+        },
+        "brightsmith_runMetrics": {
+          "inputRowCount": 831,
+          "outputRowCount": 831,
+          "filteredSummaryRows": "OCC_GROUP != 'detailed' filtered before flatten()",
+          "skippedInvalidSocRows": 0,
+          "dataVintage": "May 2024 (published March 2025)",
+          "sourceUrl": "https://www.bls.gov/oes/special-requests/oesm24nat.zip",
+          "fallbackPath": "data/raw/xlsx_cache/oesm24nat.xlsx",
+          "sourceMethod": "xlsx_download",
+          "icebergTable": "bronze.bls_oews",
+          "dedupGrain": ["soc_code"],
+          "rowCountTargetMin": 800,
+          "rowCountTargetMax": 900
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "ingest_bls_oews_bronze",
+      "facets": {
+        "documentation": {
+          "description": "Ingest BLS OEWS National Cross-Industry wage percentiles (10/25/median/75/90 + mean) per detailed SOC code into bronze.bls_oews. Provides the wage distribution that complements BLS OOH's median-only point estimate, enabling career-specific salary ranges in the FutureProof UI."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/raw/bls_oews_ingestor.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "www.bls.gov",
+        "name": "oes.special-requests.oesm24nat.zip",
+        "facets": {
+          "dataSource": {
+            "name": "BLS Occupational Employment and Wage Statistics (OEWS)",
+            "uri": "https://www.bls.gov/oes/special-requests/oesm24nat.zip",
+            "description": "National cross-industry OEWS estimates, May 2024 survey vintage. ZIP archive containing a single XLSX workbook (~15MB unzipped) of one row per occupation across multiple OCC_GROUP rollup tiers. Public-domain U.S. Government Work, annual cadence (May survey, published ~March of following year)."
+          },
+          "schema": {
+            "fields": [
+              {"name": "OCC_CODE", "type": "STRING", "description": "SOC 2018 code in XX-XXXX format. Join key."},
+              {"name": "OCC_TITLE", "type": "STRING", "description": "Occupation title."},
+              {"name": "O_GROUP", "type": "STRING", "description": "Rollup tier: detailed | major | minor | broad | total. Filtered to detailed only."},
+              {"name": "TOT_EMP", "type": "STRING", "description": "Total employment. '*' = suppressed."},
+              {"name": "A_PCT10", "type": "STRING", "description": "Annual 10th-percentile wage. '*' = suppressed; '#' = top-coded (>= $239,200)."},
+              {"name": "A_PCT25", "type": "STRING", "description": "Annual 25th-percentile wage."},
+              {"name": "A_MEDIAN", "type": "STRING", "description": "Annual median wage."},
+              {"name": "A_PCT75", "type": "STRING", "description": "Annual 75th-percentile wage."},
+              {"name": "A_PCT90", "type": "STRING", "description": "Annual 90th-percentile wage."},
+              {"name": "A_MEAN", "type": "STRING", "description": "Annual mean wage."},
+              {"name": "H_MEDIAN", "type": "STRING", "description": "Hourly median wage (kept for reference)."}
+            ]
+          }
+        }
+      },
+      {
+        "namespace": "futureproof-data.local",
+        "name": "data.raw.xlsx_cache.oesm24nat.xlsx",
+        "facets": {
+          "dataSource": {
+            "name": "Local OEWS XLSX cache (fallback)",
+            "uri": "file://data/raw/xlsx_cache/oesm24nat.xlsx",
+            "description": "Filesystem cache of the unzipped OEWS workbook. Used when the live BLS ZIP endpoint returns 403 (the BLS WAF aggressively blocks unfamiliar User-Agents). Identical content to the ZIP member."
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.bls_oews",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING", "required": true, "transformation": "DIRECT from OCC_CODE; preserved as XX-XXXX string. 7-digit sub-classification codes dropped."},
+              {"name": "occupation_title", "type": "STRING", "required": true, "transformation": "DIRECT from OCC_TITLE."},
+              {"name": "total_employment", "type": "LONG", "required": false, "transformation": "DERIVED from TOT_EMP: '*' -> null; comma-stripped string -> int via round(float(.))."},
+              {"name": "wage_annual_p10", "type": "DOUBLE", "required": false, "transformation": "DERIVED from A_PCT10: '*' -> null; '#' -> 239200.0 (also flips wage_capped=True); numeric -> float."},
+              {"name": "wage_annual_p25", "type": "DOUBLE", "required": false, "transformation": "DERIVED from A_PCT25: same parser as p10."},
+              {"name": "wage_annual_median", "type": "DOUBLE", "required": false, "transformation": "DERIVED from A_MEDIAN: same parser as p10."},
+              {"name": "wage_annual_p75", "type": "DOUBLE", "required": false, "transformation": "DERIVED from A_PCT75: same parser as p10."},
+              {"name": "wage_annual_p90", "type": "DOUBLE", "required": false, "transformation": "DERIVED from A_PCT90: same parser as p10. Most frequently top-coded percentile."},
+              {"name": "wage_annual_mean", "type": "DOUBLE", "required": false, "transformation": "DERIVED from A_MEAN: same parser as p10."},
+              {"name": "wage_hourly_median", "type": "DOUBLE", "required": false, "transformation": "DERIVED from H_MEDIAN: same parser as p10. Reference field, not used downstream."},
+              {"name": "wage_capped", "type": "BOOLEAN", "required": true, "transformation": "DERIVED: True iff any annual percentile (p10/p25/median/p75/p90/mean) parsed as the top-coding sentinel '#'. Hourly top-coding does not flip this flag."},
+              {"name": "ingested_at", "type": "TIMESTAMP", "required": true, "transformation": "FRAMEWORK: BaseIngestor.ingest() current timestamp."},
+              {"name": "source_url", "type": "STRING", "required": true, "transformation": "FRAMEWORK: BlsOewsIngestor.DOWNLOAD_URL."},
+              {"name": "source_method", "type": "STRING", "required": true, "transformation": "FRAMEWORK: 'xlsx_download'."},
+              {"name": "load_date", "type": "DATE", "required": true, "transformation": "FRAMEWORK: ingest run date."}
+            ]
+          },
+          "dataQualityMetrics": {
+            "rowCount": 831,
+            "rowCountTarget": "800 <= count <= 900 (spec §DQ Rules — Bronze)",
+            "rowCountStatus": "PASS",
+            "suppressionHandling": "BLS '*' suppression sentinel parsed to null on every numeric field (total_employment + all wage percentiles + wage mean + hourly median). Empty/blank cells and '**' also treated as suppressed.",
+            "topCodingHandling": "BLS '#' sentinel on annual percentiles -> 239200.0 with wage_capped=True. Per the spec key-values table the typical top-coded row is Chief Executives (11-1011) at p90; A_PCT90 is the most-frequently-capped percentile. Hourly top-coding is a separate column-set sentinel and intentionally does NOT flip wage_capped (which is annual-only by spec).",
+            "summaryRowFilter": "Rows with O_GROUP / OCC_GROUP != 'detailed' (case-insensitive) dropped at parse time so only ~830 detailed occupations remain. Major/minor/broad/total rollups never reach Iceberg.",
+            "socFormatGuard": "SOC codes are regex-validated against ^\\d{2}-\\d{4}$. Non-conforming codes (incl. 7-digit sub-classifications like 15-1252.00) are dropped and counted via the skipped_invalid_soc warning log; 0 rows skipped on this run."
+          }
+        }
+      }
+    ]
+  }
+]

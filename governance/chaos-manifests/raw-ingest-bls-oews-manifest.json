@@ -1,0 +1,1135 @@
+{
+  "spec": "raw-ingest-bls-oews",
+  "table": "bronze.bls_oews",
+  "shadow_table": "shadow_bronze.bls_oews",
+  "run_timestamp": "2026-05-07T03:13:01.530936+00:00",
+  "cycles_completed": 5,
+  "cycles": [
+    {
+      "cycle": 1,
+      "label": "format_uniqueness_title",
+      "rate": 0.05,
+      "seed": 43,
+      "original_row_count": 831,
+      "corrupted_row_count": 832,
+      "manifest": [
+        {
+          "scenario": "S5_soc_format_corruption",
+          "dimensions": [
+            "validity"
+          ],
+          "field": "soc_code",
+          "strategy": "strip_hyphen",
+          "soc_code": "151252",
+          "old_value": "15-1252",
+          "new_value": "151252",
+          "expected_rule_intent": "soc_regex_XX-XXXX",
+          "caught": true
+        },
+        {
+          "scenario": "S6_soc_uniqueness_violation",
+          "dimensions": [
+            "uniqueness",
+            "volume"
+          ],
+          "field": "soc_code",
+          "strategy": "duplicate_row_same_soc",
+          "soc_code": "29-1141",
+          "old_value": "1 row",
+          "new_value": "2 rows (same soc_code)",
+          "expected_rule_intent": "unique_soc_code",
+          "caught": true
+        },
+        {
+          "scenario": "S9_title_corruption_empty",
+          "dimensions": [
+            "completeness",
+            "validity"
+          ],
+          "field": "occupation_title",
+          "strategy": "set_empty_string",
+          "soc_code": "11-1021",
+          "old_value": "General and Operations Managers",
+          "new_value": "''",
+          "expected_rule_intent": "occupation_title_non_null_or_non_empty",
+          "caught": true
+        }
+      ],
+      "dq_result": {
+        "run_id": "be0e3a2b",
+        "spec": "raw-ingest-bls-oews",
+        "executed_at": "2026-05-07T03:12:59.340557+00:00",
+        "rules_total": 10,
+        "rules_passed": 7,
+        "rules_failed": 3,
+        "rules_errored": 0,
+        "p0_passed": false,
+        "results": [
+          {
+            "rule_id": "RAW-OEWS-001",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 3,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.321827+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-002",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result_count = 0",
+            "detail": "actual=1, threshold=result_count = 0.0",
+            "violations": 1,
+            "execution_time_ms": 3,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.325455+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-003",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result_count = 0",
+            "detail": "actual=1, threshold=result_count = 0.0",
+            "violations": 1,
+            "execution_time_ms": 2,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.328252+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-004",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 2,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.330330+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-005",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.332339+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-006",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.334093+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-007",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.335517+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-008",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.336765+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-009",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.338062+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-010",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result_count = 0",
+            "detail": "actual=1, threshold=result_count = 0.0",
+            "violations": 1,
+            "execution_time_ms": 2,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.340106+00:00"
+          }
+        ]
+      },
+      "reconciliation": {
+        "fired_rule_ids": [
+          "RAW-OEWS-002",
+          "RAW-OEWS-003",
+          "RAW-OEWS-010"
+        ],
+        "passed_rule_ids": [
+          "RAW-OEWS-001",
+          "RAW-OEWS-004",
+          "RAW-OEWS-005",
+          "RAW-OEWS-006",
+          "RAW-OEWS-007",
+          "RAW-OEWS-008",
+          "RAW-OEWS-009"
+        ],
+        "errored_rule_ids": [],
+        "total_rules": 10,
+        "rules_fired": 3,
+        "rules_silent": 7,
+        "rules_errored": 0,
+        "caught_any": true,
+        "real_injection_count": 3
+      }
+    },
+    {
+      "cycle": 2,
+      "label": "consistency_monotonicity",
+      "rate": 0.06,
+      "seed": 44,
+      "original_row_count": 831,
+      "corrupted_row_count": 831,
+      "manifest": [
+        {
+          "scenario": "S2_topcode_misclass_capped_false",
+          "dimensions": [
+            "consistency"
+          ],
+          "field": "wage_capped",
+          "strategy": "flip_capped_to_false_with_p90_at_cap",
+          "soc_code": "11-1011",
+          "old_value": "True",
+          "new_value": "False",
+          "expected_rule_intent": "wage_capped_iff_some_percentile_at_239200",
+          "caught": true
+        },
+        {
+          "scenario": "S3_topcode_underreport_capped_true",
+          "dimensions": [
+            "consistency"
+          ],
+          "field": "wage_capped",
+          "strategy": "flip_capped_to_true_without_239200_percentile",
+          "soc_code": "29-1141",
+          "old_value": "False",
+          "new_value": "True",
+          "expected_rule_intent": "wage_capped_only_when_some_percentile_at_239200",
+          "caught": true
+        },
+        {
+          "scenario": "S4_monotonicity_swap_p25_p75",
+          "dimensions": [
+            "validity",
+            "consistency"
+          ],
+          "field": "wage_annual_p25,wage_annual_p75",
+          "strategy": "swap_p25_p75",
+          "soc_code": "29-1171",
+          "old_value": "p25=109940.0,p75=149570.0",
+          "new_value": "p25=149570.0,p75=109940.0",
+          "expected_rule_intent": "monotonic_p25_le_median_le_p75",
+          "caught": true
+        }
+      ],
+      "dq_result": {
+        "run_id": "84cf1c28",
+        "spec": "raw-ingest-bls-oews",
+        "executed_at": "2026-05-07T03:12:59.797853+00:00",
+        "rules_total": 10,
+        "rules_passed": 7,
+        "rules_failed": 3,
+        "rules_errored": 0,
+        "p0_passed": false,
+        "results": [
+          {
+            "rule_id": "RAW-OEWS-001",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.787423+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-002",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.788437+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-003",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.789312+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-004",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.790042+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-005",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result_count = 0",
+            "detail": "actual=1, threshold=result_count = 0.0",
+            "violations": 1,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.791463+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-006",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result_count = 0",
+            "detail": "actual=1, threshold=result_count = 0.0",
+            "violations": 1,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.792798+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-007",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result_count = 0",
+            "detail": "actual=1, threshold=result_count = 0.0",
+            "violations": 1,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.793970+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-008",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.795203+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-009",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.796432+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-010",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:12:59.797380+00:00"
+          }
+        ]
+      },
+      "reconciliation": {
+        "fired_rule_ids": [
+          "RAW-OEWS-005",
+          "RAW-OEWS-006",
+          "RAW-OEWS-007"
+        ],
+        "passed_rule_ids": [
+          "RAW-OEWS-001",
+          "RAW-OEWS-002",
+          "RAW-OEWS-003",
+          "RAW-OEWS-004",
+          "RAW-OEWS-008",
+          "RAW-OEWS-009",
+          "RAW-OEWS-010"
+        ],
+        "errored_rule_ids": [],
+        "total_rules": 10,
+        "rules_fired": 3,
+        "rules_silent": 7,
+        "rules_errored": 0,
+        "caught_any": true,
+        "real_injection_count": 3
+      }
+    },
+    {
+      "cycle": 3,
+      "label": "suppression_drift",
+      "rate": 0.07,
+      "seed": 45,
+      "original_row_count": 831,
+      "corrupted_row_count": 831,
+      "manifest": [
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2061",
+          "old_value": "155020.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2071",
+          "old_value": "111910.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2072",
+          "old_value": "127590.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2081",
+          "old_value": "104170.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2111",
+          "old_value": "109660.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2112",
+          "old_value": "101140.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2121",
+          "old_value": "105670.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2131",
+          "old_value": "108310.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2141",
+          "old_value": "102320.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        },
+        {
+          "scenario": "S1_suppression_drift",
+          "dimensions": [
+            "completeness"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "null_required_field",
+          "soc_code": "17-2151",
+          "old_value": "101020.0",
+          "new_value": "null",
+          "expected_rule_intent": "non_null_floor_on_wage_annual_median",
+          "caught": true
+        }
+      ],
+      "dq_result": {
+        "run_id": "645035a9",
+        "spec": "raw-ingest-bls-oews",
+        "executed_at": "2026-05-07T03:13:00.251920+00:00",
+        "rules_total": 10,
+        "rules_passed": 9,
+        "rules_failed": 1,
+        "rules_errored": 0,
+        "p0_passed": false,
+        "results": [
+          {
+            "rule_id": "RAW-OEWS-001",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.241594+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-002",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.242604+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-003",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.243402+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-004",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result = 0",
+            "detail": "actual=1.0, threshold=result = 0.0",
+            "violations": 1,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.244047+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-005",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.245384+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-006",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.246590+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-007",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.247795+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-008",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.249117+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-009",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.250416+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-010",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.251503+00:00"
+          }
+        ]
+      },
+      "reconciliation": {
+        "fired_rule_ids": [
+          "RAW-OEWS-004"
+        ],
+        "passed_rule_ids": [
+          "RAW-OEWS-001",
+          "RAW-OEWS-002",
+          "RAW-OEWS-003",
+          "RAW-OEWS-005",
+          "RAW-OEWS-006",
+          "RAW-OEWS-007",
+          "RAW-OEWS-008",
+          "RAW-OEWS-009",
+          "RAW-OEWS-010"
+        ],
+        "errored_rule_ids": [],
+        "total_rules": 10,
+        "rules_fired": 1,
+        "rules_silent": 9,
+        "rules_errored": 0,
+        "caught_any": true,
+        "real_injection_count": 10
+      }
+    },
+    {
+      "cycle": 4,
+      "label": "calibration_and_negative_wage",
+      "rate": 0.08,
+      "seed": 46,
+      "original_row_count": 831,
+      "corrupted_row_count": 831,
+      "manifest": [
+        {
+          "scenario": "S7_calibration_drift_softdev",
+          "dimensions": [
+            "accuracy"
+          ],
+          "field": "wage_annual_median",
+          "strategy": "spot_check_drift_softdev_to_200k",
+          "soc_code": "15-1252",
+          "old_value": "133080.0",
+          "new_value": "200000.0",
+          "expected_rule_intent": "spot_check_softdev_median_in_110k_150k",
+          "caught": true
+        },
+        {
+          "scenario": "S10_negative_wage_p25",
+          "dimensions": [
+            "validity",
+            "reasonableness"
+          ],
+          "field": "wage_annual_p25",
+          "strategy": "set_negative_wage",
+          "soc_code": "11-1021",
+          "old_value": "67160.0",
+          "new_value": "-5000.0",
+          "expected_rule_intent": "wage_annual_non_negative (likely_uncovered_today)",
+          "is_gap_probe": true,
+          "caught": true
+        }
+      ],
+      "dq_result": {
+        "run_id": "b9dee175",
+        "spec": "raw-ingest-bls-oews",
+        "executed_at": "2026-05-07T03:13:00.688152+00:00",
+        "rules_total": 10,
+        "rules_passed": 8,
+        "rules_failed": 2,
+        "rules_errored": 0,
+        "p0_passed": false,
+        "results": [
+          {
+            "rule_id": "RAW-OEWS-001",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.677332+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-002",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.678336+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-003",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.679221+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-004",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.679853+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-005",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 2,
+            "threshold": "result_count = 0",
+            "detail": "actual=2, threshold=result_count = 0.0",
+            "violations": 2,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.681113+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-006",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.682421+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-007",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.683678+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-008",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result_count = 0",
+            "detail": "actual=1, threshold=result_count = 0.0",
+            "violations": 1,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.685204+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-009",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.686563+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-010",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:00.687627+00:00"
+          }
+        ]
+      },
+      "reconciliation": {
+        "fired_rule_ids": [
+          "RAW-OEWS-005",
+          "RAW-OEWS-008"
+        ],
+        "passed_rule_ids": [
+          "RAW-OEWS-001",
+          "RAW-OEWS-002",
+          "RAW-OEWS-003",
+          "RAW-OEWS-004",
+          "RAW-OEWS-006",
+          "RAW-OEWS-007",
+          "RAW-OEWS-009",
+          "RAW-OEWS-010"
+        ],
+        "errored_rule_ids": [],
+        "total_rules": 10,
+        "rules_fired": 2,
+        "rules_silent": 8,
+        "rules_errored": 0,
+        "caught_any": true,
+        "real_injection_count": 2
+      }
+    },
+    {
+      "cycle": 5,
+      "label": "row_count_drop",
+      "rate": 0.1,
+      "seed": 47,
+      "original_row_count": 831,
+      "corrupted_row_count": 781,
+      "manifest": [
+        {
+          "scenario": "S8_rowcount_drop_50",
+          "dimensions": [
+            "volume"
+          ],
+          "field": "row_count",
+          "strategy": "drop_50_rows",
+          "old_value": "831",
+          "new_value": "781",
+          "expected_rule_intent": "row_count_floor_800",
+          "caught": true
+        }
+      ],
+      "dq_result": {
+        "run_id": "44e9bc7a",
+        "spec": "raw-ingest-bls-oews",
+        "executed_at": "2026-05-07T03:13:01.129956+00:00",
+        "rules_total": 10,
+        "rules_passed": 9,
+        "rules_failed": 1,
+        "rules_errored": 0,
+        "p0_passed": false,
+        "results": [
+          {
+            "rule_id": "RAW-OEWS-001",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": false,
+            "raw_value": 1,
+            "threshold": "result = 0",
+            "detail": "actual=1.0, threshold=result = 0.0",
+            "violations": 1,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.119673+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-002",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.120620+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-003",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.121439+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-004",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result = 0",
+            "detail": "actual=0.0, threshold=result = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.122180+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-005",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.123553+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-006",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.124839+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-007",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.126049+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-008",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.127312+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-009",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 1,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.128568+00:00"
+          },
+          {
+            "rule_id": "RAW-OEWS-010",
+            "spec": "raw-ingest-bls-oews",
+            "category": null,
+            "passed": true,
+            "raw_value": 0,
+            "threshold": "result_count = 0",
+            "detail": "actual=0, threshold=result_count = 0.0",
+            "violations": 0,
+            "execution_time_ms": 0,
+            "error": null,
+            "executed_at": "2026-05-07T03:13:01.129512+00:00"
+          }
+        ]
+      },
+      "reconciliation": {
+        "fired_rule_ids": [
+          "RAW-OEWS-001"
+        ],
+        "passed_rule_ids": [
+          "RAW-OEWS-002",
+          "RAW-OEWS-003",
+          "RAW-OEWS-004",
+          "RAW-OEWS-005",
+          "RAW-OEWS-006",
+          "RAW-OEWS-007",
+          "RAW-OEWS-008",
+          "RAW-OEWS-009",
+          "RAW-OEWS-010"
+        ],
+        "errored_rule_ids": [],
+        "total_rules": 10,
+        "rules_fired": 1,
+        "rules_silent": 9,
+        "rules_errored": 0,
+        "caught_any": true,
+        "real_injection_count": 1
+      }
+    }
+  ]
+}

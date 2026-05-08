@@ -1,0 +1,73 @@
+{
+  "spec": "gold-occupation-profiles-bls-oews",
+  "zone": "gold",
+  "table": "consumable.occupation_profiles",
+  "created_at": "2026-05-06T18:00:00Z",
+  "created_by": "@dq-rule-writer",
+  "evidence_source": "governance/eda/raw-bls-oews-eda.md",
+  "spec_source": "docs/specs/ingest-bls-oews-wage-percentiles.md (Zone 3 §DQ Rules)",
+  "appends_to": "governance/dq-rules/gold-occupation-profiles-bls-ooh.json",
+  "notes": "Incremental Gold rules to be APPENDED to the existing gold-occupation-profiles-bls-ooh.json rule set after the OEWS LEFT JOIN is applied. These rules validate the four new wage_p10/25/75/90 columns surfaced by the OEWS join. Two thresholds tightened from spec per EDA evidence: (1) wage_p25 coverage spec said >= 750 SOCs -> tightened to >= 800 (actual 826). (2) wage_p25 non-null rate spec said >= 90% -> tightened to >= 98% (actual 99.28%). Cross-survey rule (GLD-OP-OEWS-004) kept at >= 90% per spec (allows OEWS-vs-OOH median methodology variance). DELIBERATELY NO RULE for `wage_annual_mean <= wage_p90` -- 23 top-coded SOCs report mean > p90 by BLS design.",
+  "rules": [
+    {
+      "rule_id": "GLD-OP-OEWS-001",
+      "name": "wage_p25 coverage: >= 800 SOCs with non-null wage_p25",
+      "dimension": "Coverage",
+      "priority": "P0",
+      "table": "consumable.occupation_profiles",
+      "sql": "SELECT CASE WHEN COUNT(*) >= 800 THEN 0 ELSE 1 END AS violation FROM consumable.occupation_profiles WHERE wage_p25 IS NOT NULL",
+      "threshold": "result = 0",
+      "description": "After the OEWS LEFT JOIN, at least 800 SOCs in occupation_profiles must have a non-null wage_p25 value. Tightened from spec's >= 750 per EDA. Detects regressions where the JOIN drops SOCs (taxonomy mismatch), the parser breaks on a sentinel character, or BLS suppresses additional occupations.",
+      "rationale": "Spec §Zone 3 DQ Rules: 'Coverage: >= 750 SOCs in occupation_profiles have non-null wage_p25 (P0).' EDA §Threshold Lock-In: 'actual is 826. Recommend tightening the floor to >= 800 (small chaos buffer) so the rule meaningfully detects regression rather than passing trivially.' Spec-deviation: tightened from 750 to 800 per EDA evidence. 26-SOC buffer below current value of 826.",
+      "evidence_link": "governance/eda/raw-bls-oews-eda.md §Cross-Source Overlap Analysis; §Threshold Lock-In",
+      "status": "proposed",
+      "proposed_by": "@dq-rule-writer",
+      "proposed_at": "2026-05-06T18:00:00Z"
+    },
+    {
+      "rule_id": "GLD-OP-OEWS-002",
+      "name": "wage_p25 non-null rate >= 98%",
+      "dimension": "Completeness",
+      "priority": "P0",
+      "table": "consumable.occupation_profiles",
+      "sql": "SELECT CASE WHEN (CAST(non_null AS DOUBLE) / CAST(total AS DOUBLE)) < 0.98 THEN 1 ELSE 0 END AS violation FROM (SELECT COUNT(*) AS total, SUM(CASE WHEN wage_p25 IS NOT NULL THEN 1 ELSE 0 END) AS non_null FROM consumable.occupation_profiles)",
+      "threshold": "result = 0",
+      "description": "After the OEWS LEFT JOIN, at least 98% of occupation_profiles rows must have a non-null wage_p25. Tightened from spec's 90% per EDA. The OOH-OEWS SOC overlap is 99.28% (only 45-3031 Fishing/Hunting Workers is OOH-only) and 5 entertainment SOCs have full wage suppression -- effective post-JOIN non-null rate is 826/832 = 99.28%.",
+      "rationale": "Spec §Zone 3 DQ Rules: 'wage_p25 non-null rate in occupation_profiles >= 90% (P0).' EDA §Threshold Lock-In: 'actual is 99.28% (826/832). Tighten to >= 98% -- meaningful regression detection while leaving room for one extra suppression.' Spec-deviation: tightened from 90% to 98% per EDA evidence.",
+      "evidence_link": "governance/eda/raw-bls-oews-eda.md §Cross-Source Overlap Analysis; §Threshold Lock-In",
+      "status": "proposed",
+      "proposed_by": "@dq-rule-writer",
+      "proposed_at": "2026-05-06T18:00:00Z"
+    },
+    {
+      "rule_id": "GLD-OP-OEWS-003",
+      "name": "wage_p25 <= wage_p75 for 100% of rows where both non-null (monotonicity preserved through joins)",
+      "dimension": "Consistency",
+      "priority": "P0",
+      "table": "consumable.occupation_profiles",
+      "sql": "SELECT COUNT(*) AS violations FROM consumable.occupation_profiles WHERE wage_p25 IS NOT NULL AND wage_p75 IS NOT NULL AND wage_p25 > wage_p75",
+      "threshold": "result = 0",
+      "description": "The percentile-ordering invariant from Bronze/Silver (p25 <= p75) must survive the LEFT JOIN into the Gold occupation_profiles table. A violation indicates either column-swap during JOIN/SELECT, or upstream Silver corruption that the SLV-OEWS-005 rule failed to catch.",
+      "rationale": "Spec §Zone 3 DQ Rules: 'wage_p25 <= wage_p75 for 100% of rows where both are non-null (P0 -- monotonicity preserved through joins).' EDA: Silver SLV-OEWS-005 confirms 100% pass rate; this rule validates that the Gold JOIN does not corrupt the ordering. Threshold: 0 violations.",
+      "evidence_link": "governance/eda/raw-bls-oews-eda.md §Cross-Field Analysis -> Monotonicity",
+      "status": "proposed",
+      "proposed_by": "@dq-rule-writer",
+      "proposed_at": "2026-05-06T18:00:00Z"
+    },
+    {
+      "rule_id": "GLD-OP-OEWS-004",
+      "name": "Cross-survey consistency: wage_p25 <= median_annual_wage <= wage_p75 for >= 90% of rows where all three non-null",
+      "dimension": "Consistency",
+      "priority": "P1",
+      "table": "consumable.occupation_profiles",
+      "sql": "WITH eligible AS (SELECT * FROM consumable.occupation_profiles WHERE wage_p25 IS NOT NULL AND wage_p75 IS NOT NULL AND median_annual_wage IS NOT NULL), conformant AS (SELECT * FROM eligible WHERE wage_p25 <= median_annual_wage AND median_annual_wage <= wage_p75) SELECT CASE WHEN (SELECT COUNT(*) FROM eligible) = 0 THEN 1 WHEN (CAST((SELECT COUNT(*) FROM conformant) AS DOUBLE) / CAST((SELECT COUNT(*) FROM eligible) AS DOUBLE)) < 0.90 THEN 1 ELSE 0 END AS violation",
+      "threshold": "result = 0",
+      "description": "median_annual_wage (from BLS OOH/Employment Projections) should fall inside the OEWS [p25, p75] band for at least 90% of rows where all three values are non-null. Threshold left at 90% (NOT tightened) because OOH and OEWS are different surveys with different methodologies -- small cross-survey discrepancies are expected and unavoidable.",
+      "rationale": "Spec §Zone 3 DQ Rules: 'Where both exist: wage_p25 <= median_annual_wage <= wage_p75 in >= 90% of rows (P1 -- allows cross-survey variance).' EDA §Threshold Lock-In: 'Keep >= 90% as-is until @dq-engineer runs the join. OEWS internal monotonicity is 100%, so violations would only come from OOH/OEWS median methodology drift.' Threshold preserved at 90% per spec and EDA recommendation.",
+      "evidence_link": "governance/eda/raw-bls-oews-eda.md §Threshold Lock-In",
+      "status": "proposed",
+      "proposed_by": "@dq-rule-writer",
+      "proposed_at": "2026-05-06T18:00:00Z"
+    }
+  ]
+}

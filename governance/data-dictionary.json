@@ -2142,6 +2142,99 @@
           "last_updated": "2026-04-07",
           "updated_by": "@doc-generator"
         },
+        "wage_p10": {
+          "type": "DOUBLE",
+          "description": "The 10th-percentile annual wage for workers in this occupation, in U.S. dollars. About 10% of workers in this occupation earn at or below this figure, so this is the bottom-of-distribution number — useful as a 'starting salary or low-end' anchor. Sourced from the BLS Occupational Employment and Wage Statistics (OEWS) survey for the May 2024 reference period (~830 detailed SOCs nationwide). For example, Software Developers (15-1252) have a wage_p10 of about $77,160. Null when BLS suppressed the value for the SOC (5 of 826 covered SOCs in May 2024 — performance-arts SOCs where gig compensation makes percentile statistics not meaningful) or when the SOC has no OEWS coverage at all (1 SOC: 45-3031 Fishing and Hunting Workers). This is the wage signal that Future Enhancements §1 (ERN v2 ceiling potential) and §4 (entry-level proxy) of the OEWS spec depend on.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 10th-percentile annual wage. Lower tail of the career-specific salary distribution. Decision-relevant earnings signal that may feed ERN ceiling-potential per Future Enhancements §1 of the OEWS spec and the entry-level proxy in Future Enhancements §4. Same logic as median_annual_wage (already is_cde:true on this contract). National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.bls_oews.wage_annual_p10 (LEFT JOIN on soc_code; sentinel handling: '*' suppressed → null, '#' top-coded → 239200.0 with wage_capped flag set in source)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [],
+          "displayed_on": [
+            "CareerCard typical-range row (priority chain — fallback: Scorecard p25–p75)",
+            "FinancesCard 'Career salary range' row"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in occupation_profiles contract version 1.1.0 (additive minor bump from 1.0.0). Iceberg NestedField ID 32. Source vintage: BLS OEWS May 2024, published March 2025. Top-coded floor: $239,200 (no SOC has p10 = 239200 in May 2024). Coverage: 826/832 OOH SOCs (99.28%) after LEFT JOIN."
+        },
+        "wage_p25": {
+          "type": "DOUBLE",
+          "description": "The 25th-percentile annual wage for workers in this occupation, in U.S. dollars. About 25% of workers earn at or below this figure. This is the LOWER BOUND of the career-specific 'typical range' that students see on the CareerCard and FinancesCard once OEWS data lands. For example, Registered Nurses (29-1141) have a wage_p25 of about $78,610 and Software Developers (15-1252) have a wage_p25 of about $103,050. Sourced from the BLS OEWS May 2024 survey. Null when BLS suppressed the SOC (5 of 826 covered SOCs — performance-arts) or when the SOC has no OEWS coverage. If wage_p25 drifts, every CareerCard salary band drifts — this is one of the highest-blast-radius columns in the table.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 25th-percentile annual wage. Lower bound of the user-facing 'typical range' rendered to students on CareerCard (per OEWS spec §CareerCard Display Logic) and on the FinancesCard 'Career salary range' row. If this value drifts, every CareerCard drifts. Also a candidate 'starting salary' proxy per Future Enhancements §4. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.bls_oews.wage_annual_p25 (LEFT JOIN on soc_code; sentinel handling: '*' → null, '#' → 239200.0)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "GLD-OP-OEWS-001",
+            "GLD-OP-OEWS-002",
+            "GLD-OP-OEWS-003",
+            "GLD-OP-OEWS-004"
+          ],
+          "displayed_on": [
+            "CareerCard typical-range row — lower bound (priority chain — fallback: Scorecard p25)",
+            "FinancesCard 'Career salary range' row — lower bound"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in occupation_profiles contract version 1.1.0. Iceberg NestedField ID 33. Source vintage: BLS OEWS May 2024. Coverage target: ≥98% non-null (GLD-OP-OEWS-002), ≥800 SOCs covered (GLD-OP-OEWS-001). Actual May 2024: 99.28% (826/832). Only 1 SOC has wage_p25 top-coded at $239,200 in May 2024 (29-1243 Pediatric Surgeons — entire visible distribution at the cap)."
+        },
+        "wage_p75": {
+          "type": "DOUBLE",
+          "description": "The 75th-percentile annual wage for workers in this occupation, in U.S. dollars. About 25% of workers earn at or above this figure. This is the UPPER BOUND of the career-specific 'typical range' shown on the CareerCard and FinancesCard. For example, Registered Nurses (29-1141) have a wage_p75 of about $107,960 and Software Developers (15-1252) have a wage_p75 of about $169,000. Sourced from BLS OEWS May 2024. May be top-coded at $239,200 for 24 high-end SOCs (Pediatric Surgeons, Cardiologists, Chief Executives, etc.) — when this happens, the underlying base.bls_oews.wage_capped flag is true and consumers should treat the value as a floor (≥ $239,200), not an exact figure. Null for 5 performance-arts SOCs and 1 OOH-only SOC. This is also the existing 'earnings ceiling' proxy referenced in PDF report exports.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 75th-percentile annual wage. Upper bound of the user-facing 'typical range' rendered to students on CareerCard and FinancesCard. Existing ceiling proxy used by the in-flight feature-pdf-report-exports spec. Together with wage_p25 defines the spread that feeds Future Enhancements §1 (ERN v2 ceiling potential). National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.bls_oews.wage_annual_p75 (LEFT JOIN on soc_code; sentinel handling: '*' → null, '#' → 239200.0)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "GLD-OP-OEWS-003",
+            "GLD-OP-OEWS-004"
+          ],
+          "displayed_on": [
+            "CareerCard typical-range row — upper bound (priority chain — fallback: Scorecard p75)",
+            "FinancesCard 'Career salary range' row — upper bound",
+            "PDF report exports earnings-ceiling row (concurrent spec — see feature-pdf-report-exports.md)"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in occupation_profiles contract version 1.1.0. Iceberg NestedField ID 34. Source vintage: BLS OEWS May 2024. 24 of 826 covered SOCs are top-coded at $239,200 (consumers must read the upstream wage_capped flag). Monotonicity rule GLD-OP-OEWS-003 enforces wage_p25 ≤ wage_p75 for 100% of rows where both are non-null."
+        },
+        "wage_p90": {
+          "type": "DOUBLE",
+          "description": "The 90th-percentile annual wage for workers in this occupation, in U.S. dollars. Only about 10% of workers earn more than this figure. This is the upside-potential signal — how much can a top-of-the-distribution worker in this career make? For example, Software Developers (15-1252) have a wage_p90 of about $211,450, while Chief Executives (11-1011) hit the top-code at $239,200. Sourced from BLS OEWS May 2024. wage_p90 is the most-frequently top-coded percentile: 45 of 826 covered SOCs (5.4%) have wage_p90 = $239,200 — this is the BLS reporting floor, meaning the actual 90th percentile could be far higher. Consumers must read the upstream base.bls_oews.wage_capped flag to interpret these values correctly (a $239,200 wage_p90 with wage_capped=true is '$239K or more,' not exactly $239K). Null for 5 performance-arts SOCs and 1 OOH-only SOC.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 90th-percentile annual wage. Decision-relevant for upside-potential framing and Fight AI / Ceiling boss displays. Most-frequently top-coded percentile (45/45 capped SOCs hit wage_p90 = 239200 in May 2024). National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "base.bls_oews.wage_annual_p90 (LEFT JOIN on soc_code; sentinel handling: '*' → null, '#' → 239200.0)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [],
+          "displayed_on": [
+            "CareerCard upside framing (potential future use — Future Enhancements §1)",
+            "Fight AI / Ceiling boss displays (potential future use)"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in occupation_profiles contract version 1.1.0. Iceberg NestedField ID 35. Source vintage: BLS OEWS May 2024. ALL 45 of the 45 wage_capped SOCs hit wage_p90 = $239,200 — this is the most-frequently censored percentile. For this reason, wage_p90 is NOT consumed in the v1 CareerCard/FinancesCard salary range (which uses p25–p75) — it is reserved for upside-potential surfaces that can render a censored value with appropriate framing."
+        },
         "education_code": {
           "type": "INTEGER",
           "description": "A BLS code indicating the typical education level needed to enter this occupation. The codes range from 1 to 8: 1 = Doctoral or professional degree, 2 = Master's degree, 3 = Bachelor's degree, 4 = Associate's degree, 5 = Postsecondary nondegree award, 6 = Some college (no degree), 7 = High school diploma or equivalent, 8 = No formal educational credential. This is a categorical code, not a number you should average. It is used as the partition key for wage_percentile_education_tier (comparing pay within the same education requirement) and consumed by Gemma for 'what to study' guidance.",
@@ -5497,6 +5590,92 @@
           "lineage": "governance/models/gold-futureproof-engine-physical.md",
           "last_updated": "2026-04-09",
           "updated_by": "@doc-generator"
+        },
+        "wage_p10": {
+          "type": "DOUBLE",
+          "description": "OEWS 10th-percentile annual wage for this occupation, in U.S. dollars — about 10% of workers earn at or below this figure. Threaded into program_career_paths from consumable.occupation_profiles.wage_p10 so each (school, major, career) row carries the full career-specific wage distribution. The same value appears for every (school, major) pair sharing a SOC code, because the OEWS distribution is occupation-level and national, not program-level. Reserved for upside-potential framing and the Future Enhancements §1 ERN v2 ceiling-potential signal — NOT consumed in the v1 CareerCard salary range (which uses p25–p75). Null when BLS suppressed the value or when the SOC has no OEWS coverage.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 10th-percentile annual wage threaded from consumable.occupation_profiles.wage_p10. Reserved for ERN v2 ceiling-potential per Future Enhancements §1 of the OEWS spec and the entry-level proxy in §4. Same CDE rationale propagates from the upstream Gold table.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "consumable.occupation_profiles.wage_p10 (LEFT JOIN on soc_code via futureproof_engine)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [],
+          "displayed_on": [
+            "Reserved for Future Enhancements §1 (ERN v2 ceiling potential) — not surfaced in v1 components"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in program_career_paths contract version 1.2.0 (additive minor bump from 1.1.0). Iceberg NestedField ID 58. Source vintage: BLS OEWS May 2024."
+        },
+        "wage_p25": {
+          "type": "DOUBLE",
+          "description": "OEWS 25th-percentile annual wage for this occupation, in U.S. dollars — about 25% of workers earn at or below this figure. This is the LOWER BOUND of the career-specific 'typical range' rendered on the CareerCard salary row and the FinancesCard 'Career salary range' row when OEWS data is available (priority chain: OEWS p25–p75 → Scorecard p25–p75 → Scorecard median → omit). Threaded from consumable.occupation_profiles.wage_p25 by the FutureProof engine. Same value appears for every (school, major) pair sharing a SOC code, because OEWS is national and occupation-level. Sourced from BLS OEWS May 2024.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 25th-percentile annual wage threaded from consumable.occupation_profiles.wage_p25. Lower bound of the user-facing 'typical range' rendered to students on CareerCard and FinancesCard. If this value drifts, every CareerCard drifts. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "consumable.occupation_profiles.wage_p25 (LEFT JOIN on soc_code via futureproof_engine)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [],
+          "displayed_on": [
+            "CareerCard typical-range row — lower bound (frontend/src/components/CareerCard.tsx)",
+            "FinancesCard 'Career salary range' row — lower bound (frontend/src/components/build-results/FinancesCard.tsx)",
+            "API: backend/app/models/career.py CareerOutcome.wage_p25"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in program_career_paths contract version 1.2.0. Iceberg NestedField ID 59. Source vintage: BLS OEWS May 2024."
+        },
+        "wage_p75": {
+          "type": "DOUBLE",
+          "description": "OEWS 75th-percentile annual wage for this occupation, in U.S. dollars — about 25% of workers earn at or above this figure. This is the UPPER BOUND of the career-specific 'typical range' rendered on the CareerCard and FinancesCard. Threaded from consumable.occupation_profiles.wage_p75 by the FutureProof engine. Same value appears for every (school, major) pair sharing a SOC code. May be top-coded at $239,200 for 24 high-end SOCs in May 2024 — when this happens, the upstream wage_capped flag (carried on consumable.occupation_profiles, not threaded directly into this table) is true and consumers should treat the value as a floor, not an exact figure.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 75th-percentile annual wage threaded from consumable.occupation_profiles.wage_p75. Upper bound of the user-facing 'typical range' rendered to students on CareerCard and FinancesCard. Existing ceiling proxy referenced by feature-pdf-report-exports. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "consumable.occupation_profiles.wage_p75 (LEFT JOIN on soc_code via futureproof_engine)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [],
+          "displayed_on": [
+            "CareerCard typical-range row — upper bound (frontend/src/components/CareerCard.tsx)",
+            "FinancesCard 'Career salary range' row — upper bound (frontend/src/components/build-results/FinancesCard.tsx)",
+            "API: backend/app/models/career.py CareerOutcome.wage_p75",
+            "PDF report exports earnings-ceiling row (feature-pdf-report-exports — concurrent spec)"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in program_career_paths contract version 1.2.0. Iceberg NestedField ID 60. Source vintage: BLS OEWS May 2024."
+        },
+        "wage_p90": {
+          "type": "DOUBLE",
+          "description": "OEWS 90th-percentile annual wage for this occupation, in U.S. dollars — only about 10% of workers earn more than this. The upside-potential anchor for this career. Threaded from consumable.occupation_profiles.wage_p90 by the FutureProof engine. Often top-coded at $239,200 for high-end SOCs (45 of 826 covered SOCs in May 2024 — physicians, surgeons, dentists, top managers, pilots, lawyers). Reserved for upside framing and Fight AI / Ceiling boss displays — NOT consumed in the v1 CareerCard salary range. When wage_p90 = $239,200 and the upstream wage_capped flag is true, the actual 90th percentile may be far higher.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "OEWS 90th-percentile annual wage threaded from consumable.occupation_profiles.wage_p90. Decision-relevant for upside-potential framing and Fight AI / Ceiling boss displays. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "consumable.occupation_profiles.wage_p90 (LEFT JOIN on soc_code via futureproof_engine)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [],
+          "displayed_on": [
+            "API: backend/app/models/career.py CareerOutcome.wage_p90",
+            "Reserved for upside framing and boss displays — not surfaced in v1 components"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Added in program_career_paths contract version 1.2.0. Iceberg NestedField ID 61. Source vintage: BLS OEWS May 2024. Most-frequently top-coded percentile (5.4% of covered SOCs hit the $239,200 floor)."
         },
         "growth_category": {
           "type": "VARCHAR",
@@ -9148,6 +9327,543 @@
           "dq_rules": [],
           "lineage": "governance/lineage/silver-anthropic-observed-exposure-{timestamp}.json",
           "last_updated": "2026-04-16",
+          "updated_by": "@doc-generator"
+        }
+      }
+    },
+    "bronze.bls_oews": {
+      "description": "Bronze raw landing table for the Bureau of Labor Statistics Occupational Employment and Wage Statistics (OEWS) survey, May 2024 reference period (published March 2025). Each row represents one detailed U.S. occupation classified by its 6-digit SOC code, carrying the full annual wage distribution (10th, 25th, 50th, 75th, 90th percentiles plus mean), national employment count, and a top-coding flag. ~830 rows after filtering OCC_GROUP='detailed' (831 in May 2024). This is the sixth data source in the FutureProof pipeline and the first that carries a wage *distribution* (BLS OOH carries only a single median). The wage range that students see on the CareerCard and FinancesCard ('typical range') traces back through Silver and Gold to this table.",
+      "zone": "bronze",
+      "grain": [
+        "soc_code"
+      ],
+      "source": "Bureau of Labor Statistics — Occupational Employment and Wage Statistics (OEWS), National all-industries combined. URL: https://www.bls.gov/oes/special-requests/oesm24nat.zip (XLSX inside ZIP). License: U.S. Government Work — public domain. Update cadence: annual (May reference period, published ~March of the following year).",
+      "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+      "version": "1.0.0",
+      "record_count": 831,
+      "data_vintage": "May 2024 (published March 2025)",
+      "last_updated": "2026-05-06",
+      "updated_by": "@doc-generator",
+      "columns": {
+        "soc_code": {
+          "type": "string",
+          "description": "The Standard Occupational Classification (SOC) 2018 code that uniquely identifies this occupation, in XX-XXXX format (e.g., 15-1252 for Software Developers). This is the primary key of the table and the join anchor that connects OEWS wage distributions to BLS OOH employment projections, O*NET task profiles, the Karpathy AI exposure scores, and the CIP-to-SOC crosswalk. No crosswalk is needed — SOC is the same taxonomy across all four BLS/O*NET sources. The hyphen is preserved through every zone.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Primary key and join anchor for every downstream consumer. Direct join key into base.bls_ooh, base.bls_oews itself, the Karpathy AI exposure scores, the O*NET work profiles, and the CIP-to-SOC crosswalk that bridges College Scorecard programs to careers. Without correct soc_code values, the wage distribution cannot be attached to the FutureProof pentagon stats, the Ceiling boss fight, the FinancesCard career-specific salary band, or the upcoming ERN v2 ceiling-potential signal.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "OCC_CODE (XLSX column)",
+          "business_term": "BT-027 (SOC Code)",
+          "dq_rules": [
+            "RAW-OEWS-002",
+            "RAW-OEWS-003",
+            "RAW-OEWS-015"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "All 831 May-2024 values match ^\\d{2}-\\d{4}$ (0 violations). 100% unique. Summary group rows (XX-0000, XX-X000, XX-XX00) are filtered out at ingest time."
+        },
+        "occupation_title": {
+          "type": "string",
+          "description": "The official human-readable name of the occupation as published by BLS OEWS (e.g., 'Software Developers', 'Registered Nurses'). Each SOC code maps to exactly one title. Display label only — soc_code is the authoritative identifier — but used as the FinancesCard 'Career salary range' row subtitle and as a fallback identifier in MCP grounding documents.",
+          "is_cde": true,
+          "cde_tier": "P1",
+          "cde_rationale": "Display label for the occupation. Used by the FinancesCard career-salary row subtitle and as a fallback identifier in MCP grounding documents. Not a join key (soc_code is the authoritative identifier), so classified as P1 rather than P0 — the wage distribution can be rendered correctly even if the title is stale, but human-readable career identification depends on it.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "OCC_TITLE (XLSX column)",
+          "business_term": "BT-028 (Occupation Title)",
+          "dq_rules": [
+            "RAW-OEWS-010"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "100% non-null. 831 distinct titles in May 2024 — one per SOC."
+        },
+        "total_employment": {
+          "type": "long",
+          "description": "Total national employment in this occupation per the OEWS estimation methodology (the survey is based on ~200,000 establishments). For example, Registered Nurses (29-1141) has total_employment ≈ 3,282,010 in May 2024. The BLS sentinel '*' (suppressed) maps to null at ingest, but in the May 2024 publication 0 of 831 rows are suppressed (100% non-null). Distinct from BLS OOH employment_current — the OOH number is BLS Employment Projections-program estimates, the OEWS number is the OEWS-survey estimate. Not displayed to users in v1; OOH employment_current is the displayed market-size number.",
+          "is_cde": true,
+          "cde_tier": "P1",
+          "cde_rationale": "National employment count for the occupation. Used as a sanity floor and as a potential employment-weighting input for cross-source aggregations (e.g., when combined with OOH employment_current for cross-validation). Not directly user-facing in v1 — OOH's employment_current is the displayed market-size number — so classified as P1 rather than P0.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "TOT_EMP (XLSX column)",
+          "business_term": "BT-031 (Employment)",
+          "dq_rules": [
+            "RAW-OEWS-013"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null. 100% non-null in May 2024. Range: 8,170 (Disc Jockeys, Except Radio) to 3,282,010 (Registered Nurses)."
+        },
+        "wage_annual_p10": {
+          "type": "double",
+          "description": "The 10th-percentile annual wage for workers in this occupation, in U.S. dollars. About 10% of workers earn at or below this figure. The bottom-of-distribution anchor — useful as a 'starting salary or low-end' proxy. Sentinel handling: BLS publishes '*' for suppressed values (mapped to null) and '#' for top-coded values ≥ $239,200/yr (mapped to 239200.0 with the wage_capped flag set). For the May 2024 publication, 0 of 826 covered SOCs hit the top-code at p10 — top-coding is concentrated at p75/p90.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "10th-percentile annual wage. Drives the lower tail of the career-specific salary distribution surfaced on CareerCard and FinancesCard. Future Enhancements §1 ('ERN stat v2: Incorporate OEWS wage spread (p75 − p25) as a ceiling potential signal') and §4 ('Entry-level estimate: Use p10 or p25 as a starting salary proxy') both depend on this column. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "A_PCT10 (XLSX column)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "RAW-OEWS-005",
+            "RAW-OEWS-011",
+            "RAW-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null, '#' → 239200.0 (with wage_capped=true). May 2024: 5 of 831 rows null (0.602% — performance-arts SOCs 27-2011/27-2031/27-2042/27-2091/27-2099). Example values: Software Developers (15-1252) ≈ $77,160; Chief Executives (11-1011) ≈ $73,710."
+        },
+        "wage_annual_p25": {
+          "type": "double",
+          "description": "The 25th-percentile annual wage for workers in this occupation, in U.S. dollars. About 25% of workers earn at or below this figure. This is the LOWER BOUND of the career-specific 'typical range' rendered on the CareerCard and FinancesCard once OEWS data lands in Gold. Same sentinel handling as the other annual percentiles. In May 2024 only 1 SOC has wage_annual_p25 top-coded (29-1243 Pediatric Surgeons — entire visible distribution at the cap).",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "25th-percentile annual wage. Lower bound of the user-facing 'typical range' rendered on CareerCard (per spec §CareerCard Display Logic) and on the FinancesCard 'Career salary range' row. If this value drifts, every CareerCard drifts. Also a candidate 'starting salary' proxy per Future Enhancements §4. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "A_PCT25 (XLSX column)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "RAW-OEWS-005",
+            "RAW-OEWS-011",
+            "RAW-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null, '#' → 239200.0. May 2024: 5 of 831 rows null. Example values: Registered Nurses (29-1141) ≈ $78,610; Software Developers (15-1252) ≈ $103,050; Nurse Practitioners (29-1171) ≈ $109,940."
+        },
+        "wage_annual_median": {
+          "type": "double",
+          "description": "The median annual wage for workers in this occupation, in U.S. dollars — half of workers earn more, half earn less. This is the canonical 'what does this career pay' single-figure salary once OEWS data lands (more recent and more directly surveyed than the BLS OOH median). For example, Software Developers (15-1252) have wage_annual_median ≈ $133,080. May be top-coded at $239,200 (17 of 826 covered SOCs in May 2024 — physician/surgeon/dentist specialties).",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Median annual wage. Per domain context §'Concept Mapping Guidance', the OEWS median is the canonical 'what does this career pay' number for the single-figure salary display once OEWS data lands. Drives the ERN stat narrative and the headline salary figure shown to students. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "A_MEDIAN (XLSX column)",
+          "business_term": "BT-036 (Median Annual Wage)",
+          "dq_rules": [
+            "RAW-OEWS-004",
+            "RAW-OEWS-005",
+            "RAW-OEWS-008",
+            "RAW-OEWS-009",
+            "RAW-OEWS-011",
+            "RAW-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null, '#' → 239200.0. P0 floor: ≥99% non-null (RAW-OEWS-004); actual May 2024: 99.398% (826/831). Distribution is right-skewed: median = $59,775, mean = $70,304, $30,160 min, $239,200 max (top-coded), σ = $39,277."
+        },
+        "wage_annual_p75": {
+          "type": "double",
+          "description": "The 75th-percentile annual wage for workers in this occupation, in U.S. dollars. About 25% of workers earn at or above this figure. This is the UPPER BOUND of the career-specific 'typical range' rendered on the CareerCard and FinancesCard. Also the existing 'earnings ceiling' proxy referenced by the in-flight feature-pdf-report-exports spec. May be top-coded at $239,200 — 24 of 826 covered SOCs in May 2024 hit the cap (e.g., Chief Executives, Cardiologists, Pediatric Surgeons). When top-coded, the wage_capped flag is true and the value should be read as a floor, not an exact figure.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "75th-percentile annual wage. Upper bound of the user-facing 'typical range' rendered on CareerCard and FinancesCard. Existing ceiling proxy referenced by feature-pdf-report-exports. Together with wage_annual_p25 defines the spread that feeds Future Enhancements §1 (ERN ceiling-potential signal). National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "A_PCT75 (XLSX column)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "RAW-OEWS-005",
+            "RAW-OEWS-011",
+            "RAW-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null, '#' → 239200.0. May 2024: 5 of 831 rows null; 24 top-coded at $239,200. Example values: Registered Nurses (29-1141) ≈ $107,960; Software Developers (15-1252) ≈ $169,000; Chief Executives (11-1011) = $239,200 (top-coded)."
+        },
+        "wage_annual_p90": {
+          "type": "double",
+          "description": "The 90th-percentile annual wage for workers in this occupation, in U.S. dollars. Only about 10% of workers earn more than this. The upside-potential anchor for the career. Sourced from BLS OEWS May 2024. THE most-frequently top-coded percentile: ALL 45 of the 45 wage_capped SOCs hit wage_annual_p90 = $239,200 (5.4% of rows). Capped SOCs are physicians, surgeons, dentists, top managers, pilots, lawyers, and a few smaller occupations. Consumers MUST read the wage_capped flag alongside this field — a $239,200 wage_annual_p90 with wage_capped=true is '$239K or more,' not exactly $239K.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "90th-percentile annual wage. Decision-relevant for upside potential and for the Fight AI / Ceiling boss displays' top-of-distribution framing. Most-frequently top-coded percentile (45/45 capped SOCs hit p90 = 239200); consumers must read wage_capped alongside this field. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "A_PCT90 (XLSX column)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "RAW-OEWS-005",
+            "RAW-OEWS-011",
+            "RAW-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null, '#' → 239200.0. May 2024: 5 of 831 rows null; 45 top-coded at $239,200. Example values: Software Developers (15-1252) ≈ $211,450; Chief Executives (11-1011) = $239,200 (top-coded)."
+        },
+        "wage_annual_mean": {
+          "type": "double",
+          "description": "The employment-weighted arithmetic mean annual wage for this occupation, in U.S. dollars. Important quirk: BLS publishes the mean UNCAPPED, even when the percentiles are top-coded. This means for ~23 high-end SOCs in May 2024, wage_annual_mean exceeds wage_annual_p90 (e.g., Cardiologists: mean $432,490 vs. p90 $239,200; Anesthesiologists: $336,640 vs. $239,200). This is intentional BLS publishing behavior, not a data quality bug — there is deliberately no DQ rule against mean > p90. Useful as a complementary single-figure salary metric.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Employment-weighted arithmetic mean annual wage. Published uncapped even when percentiles are capped (BLS computes mean before applying the $239,200 ceiling). Useful as a complementary single-figure salary metric. National wage statistic — not personal data.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "A_MEAN (XLSX column)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "RAW-OEWS-011",
+            "RAW-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null. NEVER receives the '#' top-code sentinel — BLS publishes the mean uncapped. 23 SOCs report mean > p90 in May 2024 (top-coded SOCs); this is documented and expected. No DQ rule enforces mean ≤ p90."
+        },
+        "wage_hourly_median": {
+          "type": "double",
+          "description": "The median hourly wage for workers in this occupation, in U.S. dollars per hour. Reference-only column — kept for methodology completeness, NOT consumed by any v1 downstream surface (no CareerCard, FinancesCard, or stat surface uses it). Has a much higher null rate than the annual fields (7.10% in May 2024, 59 of 831 rows) because BLS suppresses hourly figures for many salaried-only occupations such as Chief Executives, lawyers, and physicians, where 'wages per hour' is not a meaningful unit.",
+          "is_cde": true,
+          "cde_tier": "P1",
+          "cde_rationale": "Hourly equivalent of the median annual wage. Reference-only column — not consumed by any v1 downstream (no CareerCard, FinancesCard, or stat surface uses it). Suppressed by BLS for many salaried-only occupations (CEOs, lawyers, physicians). Classified as P1 because the field is retained for methodology completeness and possible future per-hour displays, but it does not currently drive any user-facing value.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "H_MEDIAN (XLSX column)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null. 92.9% non-null in May 2024 (vs. 99.398% for annual percentiles) because BLS suppresses hourly for salaried-only occupations. Documented asymmetry, not a data quality issue."
+        },
+        "wage_capped": {
+          "type": "boolean",
+          "description": "A true/false flag that is TRUE if at least one of the five annual wage percentiles (p10/p25/median/p75/p90) for this occupation equals $239,200 — meaning the upper tail of the wage distribution is censored by BLS top-coding. The numeric capped value is meaningless without this flag: a $239,200 wage_annual_p90 with wage_capped=TRUE is '$239K or more,' not exactly $239K. Every downstream consumer that renders or computes from the capped percentiles MUST read this flag to avoid presenting censored values as point estimates. In May 2024, 45 of 831 SOCs (5.42%) are flagged — the high-earning physician, surgeon, dentist, pilot, manager, and lawyer SOCs.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Top-coding interpretation flag. True iff at least one of the five annual percentiles equals $239,200. The numeric capped value is meaningless without this flag. Every downstream consumer that renders or computes from the capped percentiles MUST read this flag to avoid presenting censored values as point estimates. P0 because misuse directly misleads students about ceiling potential.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Computed at ingest from any annual percentile = 239200",
+          "business_term": "BT-042 (Wage Capped Flag)",
+          "dq_rules": [
+            "RAW-OEWS-006",
+            "RAW-OEWS-007",
+            "RAW-OEWS-012"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Always required (never null). Bidirectional invariant: TRUE iff at least one annual percentile = 239200 (rules RAW-OEWS-006/007). 45/831 = 5.42% in May 2024."
+        },
+        "ingested_at": {
+          "type": "timestamp",
+          "description": "Pipeline metadata — wall-clock timestamp when this row was ingested into Bronze. All rows from a single load share the same timestamp. Used for pipeline auditing and freshness tracking, not for analysis.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated at Bronze ingest time",
+          "business_term": "BT-017 (Ingestion Timestamp)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        },
+        "source_url": {
+          "type": "string",
+          "description": "Pipeline metadata — the URL the OEWS XLSX was downloaded from. Single distinct value: https://www.bls.gov/oes/special-requests/oesm24nat.zip (or fallback path data/raw/xlsx_cache/oesm24nat.xlsx if BLS returns 403 due to bot User-Agent blocking).",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Set by ingestor",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        },
+        "source_method": {
+          "type": "string",
+          "description": "Pipeline metadata — how the loader obtained this row. Single distinct value in v1: 'xlsx_download' (the normal path: HTTPS download of the ZIP from BLS, then in-memory XLSX extraction). When the cached fallback is used, the value remains 'xlsx_download' but source_url points to the local path.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Set by ingestor",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        },
+        "load_date": {
+          "type": "date",
+          "description": "Pipeline metadata — the calendar date the OEWS publication was loaded into Bronze, in YYYY-MM-DD. Used to enforce the freshness SLA: this date must be within 400 days of the current run date (OEWS publishes annually).",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Set by ingestor",
+          "business_term": "",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        }
+      }
+    },
+    "base.bls_oews": {
+      "description": "Silver base table for BLS Occupational Employment and Wage Statistics, May 2024 reference period. Promoted from bronze.bls_oews via the idempotent compute_grain_id pattern with prefix='oews'. Promote-only: no cross-source joins, no entity resolution. Each row represents one detailed U.S. occupation classified by its SOC 2018 code, carrying validated annual wage percentiles (p10/p25/median/p75/p90), the employment-weighted mean, total national employment, and the top-coding flag. ~830 rows after Bronze validation. The four wage_p10/p25/p75/p90 columns flow from this table into consumable.occupation_profiles via a LEFT JOIN on soc_code, and from there are threaded into consumable.program_career_paths by the FutureProof engine. The Silver layer enforces the SOC-format regex, percentile monotonicity (p10 ≤ p25 ≤ median ≤ p75 ≤ p90), and the top-code-flag invariant.",
+      "zone": "base",
+      "grain": [
+        "soc_code"
+      ],
+      "source": "bronze.bls_oews (Bronze zone — promote-only)",
+      "spec_reference": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+      "version": "1.0.0",
+      "record_count": 831,
+      "data_vintage": "May 2024 (published March 2025)",
+      "last_updated": "2026-05-06",
+      "updated_by": "@doc-generator",
+      "columns": {
+        "record_id": {
+          "type": "VARCHAR",
+          "description": "A unique identifier for each row, computed automatically from the SOC code via the framework's compute_grain_id helper (prefix='oews'). Format: 'oews-' followed by 16 hexadecimal characters (e.g., 'oews-a1b2c3d4e5f67890'). Stable across pipeline re-runs — the same input row produces the same record_id every time. Technical infrastructure field, not a business semantic.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Derived from soc_code via compute_grain_id(prefix='oews')",
+          "business_term": "BT-015 (Record ID)",
+          "dq_rules": [
+            "SLV-OEWS-006"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Always required, always unique. Validated by SLV-OEWS-006."
+        },
+        "soc_code": {
+          "type": "VARCHAR",
+          "description": "Validated SOC 2018 occupation code in XX-XXXX format. Natural key. Primary join anchor for the consumable.occupation_profiles enrichment LEFT JOIN. Carried verbatim from Bronze after the Silver SOC-regex validation rejects any malformed codes. Same join key as base.bls_ooh and consumable.onet_work_profiles — no crosswalk needed.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Validated natural key and primary join anchor. Every downstream Gold join keys on soc_code: consumable.occupation_profiles LEFT JOIN, the futureproof_engine thread into consumable.program_career_paths, and the MCP server's get_career_paths tool. Silver enforces the XX-XXXX regex, so any orphaned rows would be rejected here rather than corrupt Gold.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "bronze.bls_oews.soc_code (validated against ^\\d{2}-\\d{4}$)",
+          "business_term": "BT-027 (SOC Code)",
+          "dq_rules": [
+            "SLV-OEWS-001",
+            "SLV-OEWS-002"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        },
+        "occupation_title": {
+          "type": "VARCHAR",
+          "description": "The official BLS occupation name carried verbatim from Bronze. Display label only — soc_code is the authoritative identifier. Used as the FinancesCard 'Career salary range' row subtitle and as a fallback identifier in MCP grounding documents.",
+          "is_cde": true,
+          "cde_tier": "P1",
+          "cde_rationale": "Display label carried verbatim from Bronze. Used by the FinancesCard career-salary row subtitle and as a fallback identifier in MCP grounding documents. Not a join key (soc_code is the authoritative identifier), so classified as P1 rather than P0.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "bronze.bls_oews.occupation_title (verbatim)",
+          "business_term": "BT-028 (Occupation Title)",
+          "dq_rules": [
+            "SLV-OEWS-009"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        },
+        "total_employment": {
+          "type": "BIGINT",
+          "description": "Total national employment in this occupation per OEWS estimation, carried verbatim from Bronze. Null when BLS suppressed the value at source ('*'). 100% non-null in May 2024 (0 of 831 suppressed). Not directly user-facing in v1 — OOH's employment_current is the displayed market-size number — but useful as an employment-weighting input for cross-source aggregations.",
+          "is_cde": true,
+          "cde_tier": "P1",
+          "cde_rationale": "National employment count for the occupation. Used as a sanity floor and as a potential employment-weighting input for cross-source aggregations. Not directly user-facing in v1 — OOH's employment_current is the displayed market-size number — so classified as P1 rather than P0.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "bronze.bls_oews.total_employment (verbatim)",
+          "business_term": "BT-031 (Employment)",
+          "dq_rules": [
+            "SLV-OEWS-013"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        },
+        "wage_annual_p10": {
+          "type": "DOUBLE",
+          "description": "The 10th-percentile annual wage for workers in this occupation, in U.S. dollars. Validated for monotonicity (p10 ≤ p25 where both non-null) at Silver promotion. Sentinel handling already applied at Bronze: '*' (suppressed) → null, '#' (top-coded ≥ $239,200) → 239200.0 with wage_capped=true. Reserved for ERN v2 ceiling-potential signal (Future Enhancements §1) and entry-level proxy (§4); not consumed in v1 user-facing surfaces.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "10th-percentile annual wage. Drives the lower tail of the career-specific salary distribution surfaced on CareerCard and FinancesCard once threaded through Gold. Future Enhancements §1 (ERN ceiling potential) and §4 (entry-level proxy) both depend on this column.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "bronze.bls_oews.wage_annual_p10 (verbatim)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "SLV-OEWS-005",
+            "SLV-OEWS-007",
+            "SLV-OEWS-012",
+            "SLV-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Constraint: wage_annual_p10 IS NULL OR (wage_annual_p10 BETWEEN 20000 AND 239200). May 2024: 5 of 831 rows null."
+        },
+        "wage_annual_p25": {
+          "type": "DOUBLE",
+          "description": "The 25th-percentile annual wage for workers in this occupation, in U.S. dollars. LOWER BOUND of the user-facing 'typical range' rendered on CareerCard and FinancesCard once threaded through consumable.occupation_profiles.wage_p25. Validated for monotonicity at Silver. If this drifts, every CareerCard drifts — one of the highest-blast-radius columns in the table.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "25th-percentile annual wage. Lower bound of the user-facing 'typical range' rendered on CareerCard (per spec §CareerCard Display Logic) and on the FinancesCard 'Career salary range' row. If this value drifts, every CareerCard drifts.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "bronze.bls_oews.wage_annual_p25 (verbatim)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "SLV-OEWS-005",
+            "SLV-OEWS-007",
+            "SLV-OEWS-012",
+            "SLV-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Constraint: wage_annual_p25 IS NULL OR (wage_annual_p25 BETWEEN 20000 AND 239200). May 2024 example: Registered Nurses (29-1141) ≈ $78,610."
+        },
+        "wage_annual_median": {
+          "type": "DOUBLE",
+          "description": "The median annual wage for workers in this occupation, in U.S. dollars — half of workers earn more, half earn less. Canonical single-figure career salary once OEWS data lands. Validated for monotonicity at Silver. Spot-checked for two well-known occupations (SLV-OEWS-010 Software Developers in [110K, 150K]; SLV-OEWS-011 Registered Nurses in [75K, 100K]).",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Median annual wage. Per domain context §'Concept Mapping Guidance', the OEWS median is the canonical 'what does this career pay' single-figure salary once OEWS data lands (more recent and more directly surveyed than the OOH median). Headline number for student-facing salary display.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "bronze.bls_oews.wage_annual_median (verbatim)",
+          "business_term": "BT-036 (Median Annual Wage)",
+          "dq_rules": [
+            "SLV-OEWS-004",
+            "SLV-OEWS-005",
+            "SLV-OEWS-007",
+            "SLV-OEWS-010",
+            "SLV-OEWS-011",
+            "SLV-OEWS-012",
+            "SLV-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "P0 floor: ≥99% non-null (SLV-OEWS-004). May 2024: 99.398% non-null (826/831). Constraint: wage_annual_median IS NULL OR (wage_annual_median BETWEEN 20000 AND 239200)."
+        },
+        "wage_annual_p75": {
+          "type": "DOUBLE",
+          "description": "The 75th-percentile annual wage for workers in this occupation, in U.S. dollars. UPPER BOUND of the user-facing 'typical range' rendered on CareerCard and FinancesCard once threaded through consumable.occupation_profiles.wage_p75. May be top-coded at $239,200 (24 of 826 covered SOCs in May 2024). Existing ceiling proxy referenced by feature-pdf-report-exports.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "75th-percentile annual wage. Upper bound of the user-facing 'typical range' rendered on CareerCard and FinancesCard. Existing ceiling proxy referenced by feature-pdf-report-exports.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "bronze.bls_oews.wage_annual_p75 (verbatim)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "SLV-OEWS-005",
+            "SLV-OEWS-007",
+            "SLV-OEWS-012",
+            "SLV-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Constraint: wage_annual_p75 IS NULL OR (wage_annual_p75 BETWEEN 20000 AND 239200). May 2024 example: Registered Nurses (29-1141) ≈ $107,960; 24 SOCs top-coded."
+        },
+        "wage_annual_p90": {
+          "type": "DOUBLE",
+          "description": "The 90th-percentile annual wage for workers in this occupation, in U.S. dollars. Upside-potential anchor. THE most-frequently top-coded percentile — ALL 45 wage_capped SOCs hit wage_annual_p90 = $239,200 in May 2024. Consumers must read wage_capped alongside this field.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "90th-percentile annual wage. Decision-relevant for upside-potential framing and Fight AI / Ceiling boss displays. Most-frequently top-coded percentile — consumers must read wage_capped alongside.",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "bronze.bls_oews.wage_annual_p90 (verbatim)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "SLV-OEWS-005",
+            "SLV-OEWS-007",
+            "SLV-OEWS-012",
+            "SLV-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Constraint: wage_annual_p90 IS NULL OR (wage_annual_p90 BETWEEN 20000 AND 239200). May 2024: 45 SOCs top-coded at $239,200."
+        },
+        "wage_annual_mean": {
+          "type": "DOUBLE",
+          "description": "The employment-weighted arithmetic mean annual wage for this occupation, in U.S. dollars. Published UNCAPPED by BLS even when percentiles are capped — for ~23 high-end SOCs in May 2024, wage_annual_mean exceeds wage_annual_p90 (intentional BLS publishing behavior, not a DQ bug). No DQ rule enforces mean ≤ p90.",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Employment-weighted mean annual wage. Published uncapped even when percentiles are capped. Useful complementary single-figure salary metric; consumers must be prepared for mean > p90 on top-coded rows (this is a known BLS publishing behavior, not a DQ failure).",
+          "is_pii": false,
+          "nullable": true,
+          "source_column": "bronze.bls_oews.wage_annual_mean (verbatim)",
+          "business_term": "BT-036 (Annual Wage)",
+          "dq_rules": [
+            "SLV-OEWS-012",
+            "SLV-OEWS-014"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Sentinel handling: '*' → null. NEVER receives the '#' top-code sentinel. 23 SOCs report mean > p90 in May 2024 — documented and expected."
+        },
+        "wage_capped": {
+          "type": "BOOLEAN",
+          "description": "Top-coding interpretation flag carried verbatim from Bronze. TRUE if at least one of the five annual wage percentiles equals $239,200 — meaning the upper tail is censored. Always required (never null). Every downstream consumer that renders or computes from the capped percentiles MUST read this flag. Note: this flag is NOT carried into consumable.occupation_profiles or consumable.program_career_paths in v1 — Gold consumers must trace back to base.bls_oews if they need to interpret a $239,200 percentile value as 'or more.'",
+          "is_cde": true,
+          "cde_tier": "P0",
+          "cde_rationale": "Top-coding interpretation flag. True iff at least one of the five annual percentiles equals $239,200. The numeric capped value is meaningless without this flag. Every downstream consumer that renders or computes from the capped percentiles MUST read this flag.",
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "bronze.bls_oews.wage_capped (verbatim)",
+          "business_term": "BT-042 (Wage Capped Flag)",
+          "dq_rules": [
+            "SLV-OEWS-008"
+          ],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator",
+          "notes": "Bronze invariant carried forward by SLV-OEWS-008: wage_capped=TRUE iff at least one annual percentile equals $239,200. 45/831 = 5.42% in May 2024."
+        },
+        "source_load_date": {
+          "type": "DATE",
+          "description": "The calendar date the source OEWS publication was loaded into Bronze. Pipeline metadata; renamed from Bronze load_date for consistency with other Silver tables (base.bls_ooh, base.bea_rpp, etc.). Used as the freshness anchor for the Silver SLA.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "bronze.bls_oews.load_date (renamed)",
+          "business_term": "BT-016 (Source Load Date)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
+          "updated_by": "@doc-generator"
+        },
+        "ingested_at": {
+          "type": "TIMESTAMP",
+          "description": "Timestamp when the row was promoted to Silver. Pipeline metadata — records when the Silver promotion ran, not when the source OEWS data was published.",
+          "is_cde": false,
+          "is_pii": false,
+          "nullable": false,
+          "source_column": "Generated at Silver promotion time",
+          "business_term": "BT-026 (Promotion Timestamp)",
+          "dq_rules": [],
+          "lineage": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+          "last_updated": "2026-05-06",
           "updated_by": "@doc-generator"
         }
       }

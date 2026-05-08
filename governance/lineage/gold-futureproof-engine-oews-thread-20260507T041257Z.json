@@ -1,0 +1,119 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-07T04:12:57.000000Z",
+    "run": {
+      "runId": "9d4a6c25-b1f7-4e83-8c52-3a8b7e9c4d18",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "specVersion": "1.0",
+          "zone": "gold",
+          "scope": "futureproof_engine OEWS thread"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Gold zone thread of OEWS wage-distribution columns through the FutureProof engine into consumable.program_career_paths. Reads consumable.occupation_profiles (now carrying wage_p10/p25/p75/p90 from the OEWS LEFT JOIN), threads the four columns through the PCP_SQL CTE alongside the existing occupation context (median_annual_wage, growth_category, etc), and surfaces them as native columns on consumable.program_career_paths. Schema evolved from 57 to 61 NestedFields; new IDs 58-61 reserved per spec §Iceberg NestedField IDs. Overwrite mode used because the grain (unitid x cipcode x soc_code) is unchanged but every row needs the four new column values landed. Result: 603,357 of 626,406 rows (96.32%) carry non-null wage_p25 — coverage is lower than at the occupation_profiles layer because the SOC distribution in PCP is dominated by a handful of high-volume SOCs and a long tail of CIP-mapped SOCs without OEWS rows. consumable.career_branches re-promoted in the same engine run but is unchanged by this spec (no wage_p* columns added to that schema)."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": {
+            "consumable.career_outcomes": 69947,
+            "base.cip_soc_crosswalk": 5903,
+            "consumable.occupation_profiles": 832,
+            "consumable.onet_work_profiles": 798,
+            "consumable.career_transitions": 15944,
+            "consumable.ai_exposure": 815,
+            "base.onet_experience_profiles": 765
+          },
+          "rowsTransformed": 626406,
+          "rowsSkippedTransform": 0,
+          "promoted": 626406,
+          "skippedDedup": 0,
+          "snapshotId": 1489720956921236275,
+          "newColumnsAdded": 4,
+          "newNestedFieldIdRange": "58-61",
+          "wageP25NonNullCount": 603357,
+          "wageP25CoveragePercent": 96.32,
+          "writeMode": "overwrite"
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "gold.transform-program-career-paths-oews-thread",
+      "facets": {
+        "documentation": {
+          "description": "Thread the four OEWS wage-distribution columns (wage_p10/p25/p75/p90) from consumable.occupation_profiles into consumable.program_career_paths via the existing CIP-prefix INNER JOIN. The PCP_SQL CTE was extended to SELECT op.wage_p10/p25/p75/p90 alongside the existing occupation_profiles columns; no other engine logic changed. Schema evolved from 57 to 61 NestedFields with new IDs 58-61. Existing pentagon stats, boss scores, match quality, and confidence tier derivations are byte-identical before and after this change."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/gold/futureproof_engine.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.occupation_profiles",
+        "facets": {
+          "schema": {
+            "newlyConsumedFields": [
+              {"name": "wage_p10", "type": "DOUBLE"},
+              {"name": "wage_p25", "type": "DOUBLE"},
+              {"name": "wage_p75", "type": "DOUBLE"},
+              {"name": "wage_p90", "type": "DOUBLE"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "consumable.program_career_paths",
+        "facets": {
+          "schema": {
+            "addedFields": [
+              {"name": "wage_p10", "type": "DOUBLE", "nestedFieldId": 58, "required": false},
+              {"name": "wage_p25", "type": "DOUBLE", "nestedFieldId": 59, "required": false},
+              {"name": "wage_p75", "type": "DOUBLE", "nestedFieldId": 60, "required": false},
+              {"name": "wage_p90", "type": "DOUBLE", "nestedFieldId": 61, "required": false}
+            ],
+            "totalFieldCount": 61
+          },
+          "columnLineage": {
+            "fields": {
+              "wage_p10": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_p10"}
+                ],
+                "transformationDescription": "Direct carry from consumable.occupation_profiles via the existing soc_code LEFT JOIN. NULL when the row's SOC has no OEWS data or when the BLS join missed entirely (match_quality = 'scorecard_only').",
+                "transformationType": "DIRECT"
+              },
+              "wage_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_p25"}
+                ],
+                "transformationDescription": "Direct carry from consumable.occupation_profiles. Lower bound of the user-facing 'typical range' on CareerCard.",
+                "transformationType": "DIRECT"
+              },
+              "wage_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_p75"}
+                ],
+                "transformationDescription": "Direct carry from consumable.occupation_profiles. Upper bound of the user-facing 'typical range' on CareerCard.",
+                "transformationType": "DIRECT"
+              },
+              "wage_p90": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "consumable.occupation_profiles", "field": "wage_p90"}
+                ],
+                "transformationDescription": "Direct carry from consumable.occupation_profiles. Top-coded at 239200 for high-earning SOCs.",
+                "transformationType": "DIRECT"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

@@ -2572,3 +2572,407 @@ The observed FY2023 domain `{R, A, P, Z, N}` is a strict subset of the IPEDS dic
 ### v1.4 Amendment — domain-context-agent confirmation (2026-05-02)
 
 CONFIRMED. The doc-generator's v1.4 amendment block correctly covers all four touchpoints (raw+base `endowment_value_flag` column with RAW-IPF-015 / BSE-IPF-018/019/020; consumable system-office 8-pattern AND 4-clause-numeric-proxy filter with CON-IFP-001a/b/014; restored `source_load_date` at consumable as NOT-CDE per CON-IFP-015/016; A/N semantic correction). Dictionary semantics match the EDA §3 verbatim excerpt: `A` = "Not applicable" with exact A↔NULL coupling (FY2023 80/80 F1A, 285/285 F2); `N` = "Imputed using Nearest Neighbor". The v1.3 4-clause numeric proxy (FTE-NULL/<50 disjuncts) is documented as canonical (line 2539) and matches spec §6 SQL exactly. EDA, chaos report, and per-form BSE-IPF-019 bands (F1A 5–15%, F2 12–25%) are correctly cited. No discrepancy. — @domain-context
+
+---
+---
+
+# Domain Context: BLS OEWS (Occupational Employment and Wage Statistics — National Wage Distribution)
+**Date:** 2026-05-06
+**Agent:** @domain-context
+**Based On:** governance/eda/raw-bls-oews-eda.md (2026-05-06)
+**Spec:** docs/specs/ingest-bls-oews-wage-percentiles.md
+**Data Sources:** bls_oews (Bureau of Labor Statistics, Occupational Employment and Wage Statistics — National, all-industries combined, May 2024 reference period)
+**Confidence:** High
+**Cross-Reference:** This is the SIXTH FutureProof data source. SOC keying is identical to the BLS OOH section above and the O*NET section above — `soc_code` is a direct join across all three (no crosswalk). OEWS is the wage-distribution complement to BLS OOH's projections-only median; together they cover demand (OOH) and price-of-labor (OEWS) per occupation, while O*NET covers task content. OEWS does NOT supersede OOH — see §"Why OEWS is different from BLS OOH" below.
+
+---
+
+## Domain Identification (BLS OEWS)
+**Domain:** U.S. Labor Market — Occupation-Level Wage Distribution
+**Sub-domain:** BLS Occupational Employment and Wage Statistics, National all-industries snapshot
+**Description:** OEWS is the Bureau of Labor Statistics' semi-annual mail survey of approximately 200,000 establishments per panel (six panels rolled into each annual publication, ~1.2M establishment-years on a three-year cycle), producing employment-weighted national wage distributions for ~830 detailed SOC occupations. Each row represents a single detailed occupation with total employment plus six annual wage statistics — p10, p25, median, p75, p90, and mean — and the corresponding hourly figures. The reference period for the current load is May 2024, published by BLS in March 2025. Unlike the BLS OOH (Employment Projections) data, which only publishes the median, OEWS publishes the full quartile/decile shape of the wage distribution. In the FutureProof pipeline, OEWS answers "what is the realistic earnings range for this career?" — replacing program-level Scorecard earnings (which describe what graduates of a major earn, mixed across all jobs) with career-specific p25–p75 ranges (which describe what people doing this specific occupation earn, mixed across all education paths).
+
+---
+
+## Why OEWS is Different from BLS OOH (Critical Disambiguation)
+
+OEWS and OOH are **both BLS occupation tables keyed by SOC**, and they share the same SOC 2018 taxonomy and many of the same occupation titles. They are **not interchangeable**, and small numeric differences between them are expected and must not be reconciled.
+
+| Dimension | BLS OOH (Employment Projections) | BLS OEWS (this section) |
+|-----------|----------------------------------|-------------------------|
+| Primary purpose | 10-year employment projections (growth rate, openings, education requirements) | Wage distribution (p10/p25/median/p75/p90/mean, hourly + annual) |
+| Wage data | Median only | Full distribution (5 percentiles + mean) |
+| Refresh cadence | Biennial (full restate, 10-year horizon) | Annual snapshot (May survey, ~10 month lag to publish) |
+| Reference period (current) | 2023–2033 projection cycle | May 2024 |
+| Survey source | Modeled from CES, CPS, OEWS, and other inputs | Direct mail survey of ~200,000 establishments per panel |
+| Top-coding | Median capped at $239,200 | All five annual percentiles individually capped at $239,200; mean published uncapped |
+| Suppression sentinel | "N/A" → null (~2–4% of rows, mostly elected officials) | `*` → null (0.6% in May 2024, all five performance-arts SOCs in 27-2xxx) |
+| Coverage in May 2024 / current | 832 detailed SOCs | 831 detailed SOCs (45-3031 Fishing and Hunting Workers is in OOH but suppressed by OEWS in May 2024) |
+| Use in FutureProof | GRW stat, Ceiling/Market boss scoring, education-requirements display | ERN range, FinancesCard career-specific salary bands, ERN-ceiling potential signal (p75 − p25) |
+
+**Methodology caveat — do NOT reconcile small OOH–OEWS median differences.** The two surveys have different sample frames, different reference periods, and (for OOH) a modeled rather than directly-surveyed median. The May 2024 OEWS Registered Nurses median is $93,600; the corresponding OOH median (2023 reference) is lower. This is **not a data quality failure** — it reflects (a) a one-year wage advance from the OOH reference period to the OEWS reference period, and (b) different survey methodologies. Both are correct for their stated reference period. Downstream consumers should:
+- Use OOH for **projections** (growth rate, openings, education requirements, job-outlook narrative)
+- Use OEWS for **distribution shape** (p25–p75 range on CareerCard, FinancesCard career-specific salary, ERN-ceiling signal)
+- Display OEWS median as the canonical "what does this career pay" number wherever a single salary figure is shown to users (it's the more recent and more directly-surveyed number)
+- Never write a DQ rule that compares OOH median to OEWS median — methodology drift is intrinsic, not a quality issue
+
+---
+
+## Domain Vocabulary (BLS OEWS)
+
+### Core Terms
+| Term | Definition | Source | Notes for @data-steward |
+|------|-----------|--------|------------------------|
+| OEWS | Occupational Employment and Wage Statistics — BLS's semi-annual mail-survey-based wage program. Survey covers ~200,000 establishments per panel, six panels per three-year cycle (~1.2M establishment-years). Produces employment-weighted national, state, metropolitan, and industry-level wage estimates. The FutureProof load uses the National all-industries-combined cut. | Bureau of Labor Statistics, Office of Employment and Unemployment Statistics | Auto-approve. Reference: https://www.bls.gov/oes/ |
+| Annual Percentile (p10/p25/p50/p75/p90) | The wage at which the stated fraction of workers in the occupation earn less. p10 = 10% earn less, p90 = 10% earn more. Annual figures are computed by BLS from hourly figures × 2,080 hours, except for occupations BLS designates as salary-only (where annual is surveyed directly and hourly is suppressed). | OEWS methodology | Auto-approve. Standard BLS metric. |
+| Annual Mean | Employment-weighted arithmetic mean of annual wages. **Published uncapped** even when percentiles are top-coded — see "mean above p90" advisory in Data Quality. | OEWS methodology | Auto-approve. |
+| Top-Code Sentinel `#` | Source-file marker indicating the underlying value is at or above the BLS confidentiality ceiling of $239,200/year ($115/hour). Ingestor converts `#` → 239200.0 and sets `wage_capped = True` if ANY annual percentile equals 239200. Cap floor was raised from $208,000 → $239,200 in 2023. | OEWS source-file convention | Propose — sentinel handling is project-specific even though the underlying BLS rule is standard. |
+| Suppression Sentinel `*` | Source-file marker indicating BLS suppressed the value due to confidentiality (small sample, single-employer dominance, or methodology — e.g., gig-based compensation in performing arts where annualized wage is not meaningful). Ingestor converts `*` → null. In May 2024, suppression affects 5 SOCs in 27-2xxx (Actors, Dancers, Musicians/Singers, DJs Except Radio, Entertainers/Performers All Other). | OEWS source-file convention | Propose. |
+| `wage_capped` | Boolean flag: True iff at least one of the five annual percentiles (p10/p25/median/p75/p90) equals exactly $239,200. Indicates that the upper-tail of this occupation's wage distribution is censored. The flag is **not** set on the basis of the mean (which is published uncapped). 45 SOCs (5.42%) are flagged in May 2024. | Project-specific derivation | Propose — boolean is ours, but the underlying rule is BLS top-coding policy. |
+| `wage_hourly_*` | Hourly equivalents of the annual percentiles. Suppressed by BLS for many salaried-only occupations (CEOs, lawyers, physicians) because hourly is not a meaningful unit for those roles. 7.10% null in May 2024 (54 SOCs are annual-published-but-hourly-suppressed). Reference-only column in the FutureProof pipeline; not used downstream. | OEWS methodology | Propose — document the asymmetry; no downstream use. |
+| OCC_GROUP | Source-file column distinguishing detail level: `detailed` (one specific SOC, what we ingest), `broad`, `minor`, `major` (rollups). Ingestor filters to `detailed` only. | OEWS source-file convention | Auto-approve. Same filtering pattern as BLS OOH. |
+| TOT_EMP | Total national employment in the occupation per OEWS estimation. Suppressed in some publication years; non-null in 100% of May 2024 rows. Used as a sanity floor and as an employment-weighting input for cross-source aggregations. | OEWS methodology | Auto-approve. |
+| Reference Period | The single calendar month for which wage estimates are valid. The current load is "May 2024." OEWS is **not** a fiscal-year metric — it is a survey snapshot and the May reference period is fixed by BLS publication policy. | OEWS methodology | Auto-approve. |
+
+### Taxonomy/Classification Systems
+| System | Description | Authority | Coverage in Data |
+|--------|-------------|-----------|-----------------|
+| SOC 2018 | Same Standard Occupational Classification used by BLS OOH and O*NET. Direct join key with no crosswalk required. | OMB | 100% — every row is a detailed SOC 2018 code. |
+| BLS Top-Coding Policy | The $239,200/year, $115/hour ceiling above which BLS does not publish individual statistics. Floor was raised from $208,000 → $239,200 in 2023; further increases on a multi-year cadence are possible. | Bureau of Labor Statistics | Affects 45 of 831 SOCs (5.42%) in May 2024. |
+| BLS Suppression Policy | Confidentiality, sample-size, and methodological-suitability rules under which BLS publishes a sentinel (`*`) instead of a value. | Bureau of Labor Statistics | Affects 5 of 831 SOCs on annual percentiles (0.6%); 59 of 831 on `wage_hourly_median` (7.1%). |
+
+### Enumerated Values with Business Meaning
+| Field | Values | Meaning |
+|-------|--------|---------|
+| OCC_GROUP (raw) | `detailed` / `broad` / `minor` / `major` | Only `detailed` is retained. Rollups are filtered. |
+| Top-code sentinel `#` (raw cell) | `#` | Value is censored at $239,200/year; converted to 239200.0 with wage_capped=True. |
+| Suppression sentinel `*` (raw cell) | `*` | Value not published; converted to null. |
+| `wage_capped` (typed) | True / False | True iff at least one annual percentile equals 239200.0. |
+| source_method | `xlsx_download` | Metadata: ZIP-from-special-requests-page download, XLSX inside. |
+
+---
+
+## Entity Types (BLS OEWS)
+
+### Primary Entities
+| Entity Type | Identifier Field(s) | Example | Notes for @entity-resolver |
+|-------------|---------------------|---------|---------------------------|
+| Detailed Occupation | soc_code | 15-1252 (Software Developers) | **ID-based resolution. Trivial — no fuzzy matching, no name normalization, no probabilistic linkage required.** SOC 2018 is the same taxonomy used by BLS OOH and O*NET, and OEWS publishes a single row per detailed SOC. The entity-resolver step for OEWS reduces to a `soc_code` equality join against the existing Silver OOH and Gold O*NET keys. The only entity-resolution edge case is the 1-row gap between OOH (832 detailed) and OEWS (831 detailed): SOC `45-3031 Fishing and Hunting Workers` is in OOH but not the May 2024 OEWS publication — handle with LEFT JOIN, not INNER JOIN, and let the wage columns be null for that one row. |
+
+### Entity Lifecycle Events
+| Event Type | How It Appears in Data | Frequency |
+|-----------|----------------------|-----------|
+| SOC taxonomy revision | Same as OOH — SOC 2018 → SOC 2028 will change codes. BLS will publish a crosswalk at that time. | Rare (~10-year cycle). |
+| Top-code floor change | Numeric value used by `wage_capped` rises (e.g., from $208,000 → $239,200 in 2023). Detectable by a sudden change in the `wage_capped` count or in the top-coded value across percentiles. | Multi-year cadence (last change 2023). DQ rule recommended: alert when `wage_capped` count moves outside [5, 80]. |
+| Reference-period advance | Each annual publication carries a new May-of-year reference period. Wage levels generally advance year-over-year (e.g., RN median moved from ~$86K (OOH calibration) to $93,600 (May 2024 OEWS)). | Annual. Expected and not a DQ failure — spot-check windows must be wide enough (~$25K width on RN) to absorb. |
+| Suppression-cluster shift | The set of SOCs with `*`-suppressed annual percentiles can change year-over-year as employment levels and survey response rates shift. May 2024 has 5 (all 27-2xxx). | Annual; expected to remain 0–10. DQ rule should accept a small range. |
+
+---
+
+## Temporal Patterns (BLS OEWS)
+
+### Valid Time
+| Pattern | Description | Notes for @temporal-modeler |
+|---------|-------------|---------------------------|
+| Annual snapshot | One reference period (e.g., "May 2024") per ingest. The pipeline carries `source_load_date` (when BLS published, ~March of the following year) and `ingested_at` (wall-clock time of our run). **No bitemporal modeling is required.** No effective-from / effective-to columns, no SCD-Type-2 history table, no as-of-date queries. The Silver/Gold contract is a complete replace on each annual refresh — exactly the same shape as BLS OOH, and simpler than IPEDS Finance because there is no fiscal-year dimension. | Treat as a non-temporal snapshot table for now. If a future requirement demands year-over-year wage-trend analysis, add a `reference_period` dimension (string, e.g., "May 2024") and stop replacing — but that decision is out-of-scope for v1 and should not drive the v1 model. |
+| Hourly-vs-annual derivation | For most occupations, BLS computes annual = hourly × 2,080. For salaried-only occupations (CEOs, physicians, lawyers), BLS surveys annual directly and suppresses hourly. The two are **not** independently sampled and should not be treated as cross-validating. | The pipeline keeps hourly columns for reference only. Do not write DQ rules that assume annual ÷ 2,080 = hourly; the relationship breaks for the salaried-only set. |
+| Wage-cap cohort drift | When BLS raises the top-code floor (e.g., 2023's $208K → $239,200 jump), the set of capped SOCs and the value of capped percentiles changes simultaneously. Year-over-year wage-distribution trend analyses must account for this discontinuity. | If trend analysis is added later, document the cap floor per reference period in the data dictionary. For v1, no action required. |
+
+### Amendment/Correction Patterns
+| Pattern | Description | Frequency |
+|---------|-------------|-----------|
+| Annual full replacement | Each May reference period is a complete republish. The Bronze/Silver/Gold contract is replace-on-refresh. | Annual. |
+| Mid-year corrections | BLS occasionally republishes corrections to the prior May file. Detect by `source_url` checksum changes. | Rare. No formal amendment marker in the data itself — caught by a checksum-based freshness rule, not by a wage-value rule. |
+
+---
+
+## Data Quality Considerations (BLS OEWS)
+
+### Known Edge Cases
+| Edge Case | Description | Impact | Notes for @dq-rule-writer |
+|-----------|-------------|--------|--------------------------|
+| Performance-arts suppression cluster | The 5 SOCs in 27-2xxx (Actors, Dancers, Musicians/Singers, DJs Except Radio, Entertainers/Performers All Other) have all five annual percentiles + mean suppressed. Cause: gig/per-engagement compensation makes annualized wage statistics methodologically inappropriate. | 5 of 831 (0.602%). Stable cluster. | Per-percentile non-null floor of ≥99% (current 99.398%) absorbs one extra row of suppression next refresh. Do **not** require the cluster to be exactly these 5 SOCs — composition can shift. CareerCard fallback logic (per spec §CareerCard Display Logic) renders these as "no career-specific range, fall back to Scorecard." |
+| Top-coding (`wage_capped = True`) | Any annual percentile equal to $239,200 indicates the upper tail is censored. 45 SOCs (5.42%) flagged in May 2024 — physicians, surgeons, dentists, federal judges, top managers, pilots, lawyers. p90 is the most-frequently capped (45/45), then p75 (24/45), then median (17/45), then p25 (1/45 — Pediatric Surgeons). | 5.42% of rows. | P0 invariant: `wage_capped = True` IFF at least one annual percentile equals 239200.0 (no null sentinel involvement, exact equality). Spec already carries this rule. P1 range rule: 5 ≤ `wage_capped` count ≤ 80 to detect cap-floor changes. |
+| `mean > p90` for top-coded SOCs | 23 SOCs report annual mean > annual p90. All 23 are top-coded. BLS computes the mean **before** applying the top-code, so for capped SOCs the mean exceeds the capped p90 by design (e.g., Cardiologists mean $432,490 vs p90 $239,200). | 23 of 831 (2.77%), all wage_capped=True. | **DO NOT WRITE A DQ RULE** comparing mean to p90. This is a known, expected BLS publishing artifact. Document in the data dictionary instead. Downstream consumers (FinancesCard, ERN ceiling potential, anything that uses mean) must be prepared for `mean > p90` and treat it as informational, not a quality flag. |
+| Single-row p25 cap | 29-1243 Pediatric Surgeons has its entire visible distribution at $239,200 (p10 through p90). Spread is exactly $0. | 1 of 831. Expected; surgical sub-specialty. | Spread-derived metrics (p75 − p25 as ERN-ceiling signal) must guard against zero spread on capped SOCs. Either condition the signal on `wage_capped = False`, or define a fallback for the fully-capped tail. |
+| Hourly-vs-annual asymmetry | 54 SOCs publish annual but suppress hourly. Salaried-only occupations. | 6.5% extra hourly nulls. | No DQ rule on hourly. The column is reference-only; downstream does not consume it. Document the asymmetry. |
+| Reference-period drift on spot-check values | Spot-check expected values from older spec calibrations (e.g., RN median ~$86K) may be stale relative to the new reference period (May 2024 RN median = $93,600). | One row off vs. spec calibration; six others within $5K. | Spot-check DQ rules must use windows wide enough to absorb a single year of wage growth (~$10K–$25K depending on occupation level). The Bronze RN spot-check window of $75K–$100K is the right shape. |
+| OOH–OEWS coverage gap (1 SOC) | `45-3031 Fishing and Hunting Workers` is in OOH but suppressed by the May 2024 OEWS publication. After LEFT JOIN, this single SOC has null wage percentiles. | 1 of 832 OOH SOCs (0.12%). | Coverage rule: ≥800 of 832 OOH SOCs have non-null `wage_p25` after Gold join (currently 826/832 = 99.28%). Do **not** require 100% — single-SOC suppression is a normal BLS behavior. |
+
+### Domain-Specific Validity Rules
+| Rule | Description | Source |
+|------|-------------|--------|
+| SOC code format `^\d{2}-\d{4}$` | Identical to OOH and O*NET. Verified: 0 violations in 831 rows. | SOC 2018 standard. |
+| SOC code uniqueness | One row per detailed SOC. Verified: 0 duplicates. | OEWS grain definition. |
+| Detailed-only filter | OCC_GROUP must equal "detailed". Major/minor/broad rollups must be filtered by the ingestor. Verified: 0 leakage. | OEWS source-file structure. |
+| Monotonicity of percentiles | For all rows with full annual percentile data, p10 ≤ p25 ≤ median ≤ p75 ≤ p90. Verified: 826 of 826 pass (100%). | Statistical definition of percentiles. |
+| `wage_capped` invariant | `wage_capped = True` iff at least one of {p10, p25, median, p75, p90} equals 239200.0 exactly. Verified: 45/45 capped rows have a percentile at $239,200; 786/786 uncapped rows have no percentile at $239,200. | Project derivation from BLS top-coding policy. |
+| Annual percentile non-null rate ≥99% | All five annual percentiles share an identical 99.398% non-null rate. Tighter rule than the spec's 95% floor; recommended by EDA. | EDA recommendation, anchored on the stable 5-row 27-2xxx suppression cluster. |
+| `total_employment` non-null = 100% | Currently 0 nulls. BLS may resume employment suppression in future years, so codify the floor as 100% **for May 2024** but allow @dq-engineer to relax to ≥95% if a future load shows TOT_EMP suppression. | EDA recommendation. |
+| Wage range bound $20K–$239,200 | When non-null, every annual percentile should fall in [$20,000, $239,200]. Below $20K is implausible (sub-minimum-wage full-time); above $239,200 is impossible (BLS cap). | BLS cap + economic floor. |
+
+---
+
+## Regulatory & Compliance Context (BLS OEWS)
+
+### Applicable Regulations
+| Regulation | Relevance | Key Requirements | Notes for @bcbs239-auditor |
+|-----------|-----------|-----------------|---------------------------|
+| BLS Data Use Terms | Same as OOH. Public domain federal statistical data. Attribution to BLS expected. BLS aggressively blocks bot User-Agents (403 on default Python clients) — ingestor must use browser-like headers or fall back to manual download. | 1. Public domain; free to use. 2. Attribute to BLS (source URL captured in metadata). 3. Respect bot-blocking; do not retry past the cached-fallback path. | No access restrictions on the data itself. Lineage and provenance fully captured (source_url, source_method, ingested_at, source_load_date). |
+| OMB Statistical Policy Directives | Background. SOC 2018 is OMB-maintained; OEWS publishes against the OMB-current SOC vintage. | Future SOC 2028 migration will follow OMB process and will affect both OEWS and OOH simultaneously. | Plan reactively, same as OOH. |
+| BLS Confidentiality Rules (top-coding + suppression) | The `#` cap and `*` suppression sentinels are not optional editorial decisions — they are required by BLS confidentiality protections under 13 U.S.C. § 9 and BLS internal policy. The pipeline preserves both signals (cap as wage_capped flag, suppression as null) without attempting to recover the underlying values. | 1. Never publish, infer, or reconstruct values BLS suppressed. 2. Always carry the `wage_capped` flag forward so consumers know the upper tail is censored. | Document upstream-imposed top-coding and suppression in any consumer-facing data contract. The Gold zone contract for `consumable.occupation_profiles` should include a `wage_data_caveats` annotation. |
+
+### PII Expectations
+| PII Type | Expected? | Sensitivity | Notes for @pii-scanner |
+|----------|-----------|-------------|----------------------|
+| Personal names | No | N/A | OCCUPATION titles only. |
+| Worker identifiers | No | N/A | All data is occupation-aggregate. No individual records. |
+| Establishment identifiers | No | N/A | Although OEWS surveys ~200,000 establishments, the published National all-industries cut is **already aggregated**. No establishment-level data reaches the pipeline. |
+| Health records | No | N/A | Not applicable. |
+| Financial PII | No | N/A | Wages are OCCUPATION-LEVEL DISTRIBUTION STATISTICS, not individual compensation. No personal financial data. |
+| Location data | No | N/A | National cut only. State/metro/MSA cuts exist in BLS OEWS but are not part of this load. |
+
+**Summary for @pii-scanner:** This dataset contains **NO PII**. All values are occupation-level wage distribution statistics published by a federal statistical agency at the national, all-industries-combined level. The pipeline should report zero PII findings. Justification: "governance/domain-context.md BLS OEWS PII section confirms no personal data — all fields are occupation-aggregate distribution statistics from a federal agency." Same disposition as the BLS OOH section.
+
+---
+
+## External Data Opportunities (from BLS OEWS perspective)
+| External Source | What It Adds | Join Key | Notes for @insight-manager |
+|----------------|-------------|----------|---------------------------|
+| BLS OOH (already ingested) | Projections, education requirements, openings — the "demand" side of the labor market. | soc_code (direct, no crosswalk) | CRITICAL. OEWS provides price (wage distribution); OOH provides quantity (employment, growth, openings). Together they characterize the full labor-market signal per occupation. |
+| O*NET Work Profiles (already ingested) | Task content, skills, knowledge, abilities, AI exposure scoring. | soc_code (direct, via O*NET's bls_soc_code) | HIGH. OEWS p25–p75 spread, when paired with O*NET task complexity, becomes a robust ERN-ceiling signal. Wide spread + high cognitive complexity = high career ceiling. |
+| College Scorecard (already ingested) | Program-level graduate earnings (cipcode-keyed). | CIP-to-SOC crosswalk → soc_code | CRITICAL. Resolves the central FutureProof question: does the program-level earnings number (Scorecard) match the career-level wage distribution (OEWS)? Divergence indicates career-switching, geographic effects, or program-specific outcomes that don't align with the modal occupation. |
+| BEA Regional Price Parities (already ingested) | State/metro cost-of-living adjustment. | FIPS code (separate join from SOC) | MEDIUM. Pairing OEWS national wages with RPP creates "purchasing-power-adjusted" wage distributions for FutureProof's compare_purchasing_power tool. Note: OEWS state/metro wage data exists at BLS but is not in this load — RPP is the more practical adjustment vector for v1. |
+| BLS OEWS state/metro cuts (NOT INGESTED) | State-level and MSA-level wage distributions per occupation. | soc_code + state FIPS / MSA code | MEDIUM-HIGH future opportunity. Would replace RPP-adjusted national wages with directly-surveyed regional wages. Significant ingest cost (~50× the current row count). Not in current scope. |
+| Karpathy AI Exposure (already ingested) | Per-SOC AI automation risk score. | soc_code | LOW direct opportunity from OEWS perspective; the wage distribution and the AI score are independent signals. But the **product** of high AI exposure and narrow wage spread (suggesting commodity work) is a strong "career risk" composite — relevant to the Fight AI boss. |
+| Anthropic Economic Index (already ingested) | Per-SOC LLM augmentation/automation observations. | soc_code | Same logic as Karpathy — independent signal that composes well with wage spread. |
+
+---
+
+## Concept Mapping Guidance (BLS OEWS)
+
+### Source Codes to Business Concepts
+| Source Code Pattern | Maps To | Confidence | Notes for @cde-tagger |
+|--------------------|---------|------------|----------------------|
+| OCC_CODE (XX-XXXX) | Occupation Identity | Exact | SOC is the authoritative federal occupation taxonomy. Same field used by OOH and O*NET. |
+| A_PCT10 / A_PCT25 / A_MEDIAN / A_PCT75 / A_PCT90 | Annual Wage Percentile (parameterized by p) | Exact | Each percentile is a CDE in its own right; they are **not** redundant with each other or with `wage_annual_mean`. |
+| A_MEAN | Annual Wage Mean (uncapped) | Exact (with caveat) | Published uncapped even when percentiles are capped. Document the asymmetry; do not silently suppress. |
+| `#` sentinel → 239200.0 + wage_capped=True | Top-Code Indicator | Exact | The numeric value alone is meaningless without the flag. Both must propagate together. |
+| `*` sentinel → null | Suppression Indicator | Exact | Null is the canonical missing-value representation; the suppression cause is documented in the data dictionary, not encoded in a separate field. |
+| TOT_EMP | Occupation Total Employment | Exact | Same concept as OOH employment_current, but a different reference period and survey methodology. Do **not** join across OOH and OEWS on employment — use occupation identity (soc_code) only. |
+
+### Known Mapping Ambiguities
+| Source Code | Candidates | Recommended | Rationale |
+|------------|-----------|-------------|-----------|
+| Median wage (single-figure salary display) | OOH median vs. OEWS median | **OEWS median** for user-facing salary; OOH median is retained but not displayed when OEWS is available | OEWS median is more recent and directly surveyed. OOH median lags by 1–2 years. The CareerCard salary bullet should be OEWS-anchored. |
+| "Salary range" | p25–p75 (OEWS) vs. Scorecard graduate-earnings range | **OEWS p25–p75** when career is selected (career-specific); Scorecard range when career is unspecified (program-specific) | This is the core display rule from the spec's §CareerCard Display Logic. OEWS describes the career; Scorecard describes the program. |
+| `wage_capped = True` | Display "$X+" vs. "at least $X" | "**at least $X**" in narrative; "$X+" in compact UI | Same convention as OOH. The capped value is a floor, not a point estimate. |
+| Mean above p90 | DQ failure vs. expected behavior | **Expected behavior — document, do not flag** | BLS computes mean before capping. Writing a rule against this would generate 23 false positives every refresh. |
+
+---
+
+## Canonical Concept Map (BLS OEWS)
+
+This section defines the wage-distribution concepts that feed into Silver and Gold and onto user-facing surfaces. It composes with the BLS OOH and O*NET concept maps above; OEWS is the wage-shape layer of the per-SOC picture.
+
+**Status:** PROPOSED (Unconfirmed)
+**Source:** Agent-proposed based on EDA findings and the spec's stated downstream use (CareerCard p25–p75 range, FinancesCard career-specific salary, ERN ceiling potential).
+
+### Target Business Concepts
+| # | Business Concept | Plain English Name | Expected Source Codes | Category | Priority |
+|---|-----------------|-------------------|----------------------|----------|-----------|
+| 1 | Occupation Wage Distribution | The full shape (p10/p25/median/p75/p90) of annual pay for an occupation | wage_annual_p10..p90 | Compensation Distribution | CORE |
+| 2 | Occupation Median Wage (OEWS) | Single-figure annual median (more recent than OOH median) | wage_annual_median | Compensation Metric | CORE |
+| 3 | Career-Specific Salary Range | The p25–p75 band used in CareerCard salary bullet and FinancesCard career-specific scenario | wage_annual_p25, wage_annual_p75 | Compensation Range | CORE |
+| 4 | Wage Cap Indicator | Boolean signaling that the upper tail is censored at $239,200 | wage_capped | Compensation Caveat | CORE |
+| 5 | Occupation Total Employment (OEWS) | Survey-derived employment count (independent estimate from OOH employment_current) | total_employment | Volume Metric | EXTENDED |
+| 6 | Wage Mean (uncapped) | Employment-weighted mean, useful for capped occupations where percentiles are floored | wage_annual_mean | Compensation Metric | EXTENDED |
+| 7 | Wage Spread (p75 − p25) | Derived: width of the middle 50% of the distribution. Signals career-ceiling potential when paired with O*NET cognitive load. | Derived from p25 + p75 | Derived Metric | EXTENDED |
+| 8 | Hourly Wage Reference | Hourly equivalents of the annual percentiles | wage_hourly_* | Reference | OPTIONAL (kept, not displayed) |
+
+### Cross-Source Concept Linkages
+| Concept | OEWS Source | OOH Source | O*NET Source | Scorecard Source |
+|---------|-------------|------------|--------------|------------------|
+| Career-specific salary | wage_annual_median, p25, p75 (PRIMARY for career-specific display) | median_annual_wage (FALLBACK if OEWS row missing for the SOC) | — | — |
+| Earnings range on CareerCard | wage_annual_p25..p75 (PRIMARY when career selected) | — | — | earn_mdn_hi_1yr / earn_mdn_hi_2yr (FALLBACK when career not selected) |
+| ERN ceiling potential | wage_annual_p75 − wage_annual_p25 (signal) | — | Cognitive complexity from work profiles (composes) | — |
+| FinancesCard salary scenario | wage_annual_median (when career selected) | median_annual_wage (when career not selected) | — | program-level earnings (alternative scenario) |
+
+### Concept-to-Code Mapping Rules
+
+```json
+{
+  "domain": "us_labor_market_wage_distribution",
+  "taxonomy": "SOC_2018",
+  "reference_period": "May 2024",
+  "tiers": {
+    "exact": {
+      "description": "OCC_CODE (XX-XXXX) directly identifies a detailed occupation; A_PCTxx and A_MEDIAN columns directly carry the named percentile",
+      "confidence": 1.0,
+      "examples": [
+        "15-1252 -> Software Developers",
+        "A_MEDIAN -> wage_annual_median",
+        "# in any A_PCT cell -> 239200.0 with wage_capped=True"
+      ]
+    },
+    "prefix": {
+      "description": "2-digit SOC major group rollup (same as OOH); OEWS publishes major/broad/minor rows but ingestor filters to detailed",
+      "confidence": 0.8,
+      "example": "29 -> Healthcare Practitioners (filtered out at ingest)"
+    },
+    "pattern": {
+      "description": "Not applicable — OEWS columns are directly typed",
+      "confidence": null,
+      "example": null
+    },
+    "heuristic": {
+      "description": "Cross-source bridge to CIP via CIP-to-SOC crosswalk (program → occupation → wage distribution)",
+      "confidence": 0.6,
+      "example": "CIP 11.0701 (Computer Science) -> SOC 15-1252 -> OEWS p25=$103,050, median=$133,080, p75=$169,000"
+    }
+  }
+}
+```
+
+### Collision Resolution Rules
+| Collision Scenario | Resolution | Rationale |
+|-------------------|------------|-----------|
+| OOH median vs. OEWS median for the same SOC | OEWS median **wins** for user-facing displays; OOH median is retained as a separate field and used for historical projection alignment | OEWS is more recent (May 2024 vs. typically 2023 for current OOH cycle) and is directly surveyed rather than modeled. The two should not be averaged. |
+| OEWS row missing for a SOC that exists in OOH (the `45-3031` case) | LEFT JOIN; null wage percentiles for the missing SOC; CareerCard renders Scorecard fallback | Single-SOC suppression is normal BLS behavior. Forcing INNER JOIN would orphan a valid OOH occupation. |
+| Capped p25 (Pediatric Surgeons case) | Retain the value $239,200 and the wage_capped flag; spread = 0 is the truthful answer | The cap is the legitimate published value. Derived "ceiling potential" signals must guard against zero spread on capped SOCs. |
+| Mean conflicts with capped p90 | Display both; document the artifact | Both numbers are correct under BLS methodology. Neither should be silently suppressed. |
+| OEWS wage available but Scorecard earnings unavailable for the same program | Use OEWS career-specific range; suppress the program-level fallback | OEWS describes the career, which is what the user asked about. |
+
+---
+
+## OEWS-Specific: SOC Code Cross-Source Bridging
+
+Because OEWS shares the SOC 2018 taxonomy with both OOH and O*NET, no crosswalk or fuzzy match is required. The cross-source picture in May 2024:
+
+| Cross-Source Slice | Count | % | Action |
+|--------------------|-------|---|--------|
+| `silver.bls_ooh` SOCs (OOH detailed) | 832 | 100% (denominator) | — |
+| OOH SOCs also in OEWS | 831 | 99.88% | LEFT JOIN; the one orphan is `45-3031`. |
+| OOH SOCs in OEWS with non-null `wage_p25` | 826 | 99.28% | Codify as Gold coverage floor ≥ 98%. |
+| `consumable.onet_work_profiles` SOCs | 798 | 100% (denominator) | — |
+| O*NET SOCs also in OEWS | 772 | 96.7% | LEFT JOIN; 26 O*NET-only SOCs are newer detail rollups OEWS aggregates differently. |
+
+**Net coverage on the SOCs that actually drive FutureProof's Gold tables:** 826 of 832 OOH-Silver SOCs (99.28%) gain non-null wage percentiles after the OEWS join, well above the spec's 90% floor.
+
+---
+
+## OEWS-Specific: Update Cadence and Refresh Strategy
+
+| Aspect | Value |
+|--------|-------|
+| Survey frequency | Semi-annual (BLS panels in May and November) |
+| Publication cadence | Annual (BLS aggregates two panels and publishes once per year) |
+| Reference period for current load | May 2024 |
+| Publication date for current load | March 2025 |
+| Lag from reference period to publication | ~10 months |
+| FutureProof refresh strategy | Annual full replace, triggered after BLS publishes the next May reference period (typically March of the following year) |
+| Year-over-year wage drift | Expected. RN median moved ~$93,600 (May 2024) vs. ~$86K (older OOH calibration) — a normal 1-year wage advance plus methodology drift |
+| Cap-floor change cadence | Multi-year. Most recent change: $208,000 → $239,200 in 2023. Pipeline DQ rule should detect cap moves via `wage_capped` count drift |
+
+**Operational note for @doc-generator and @mcp-engineer:** the data contract for `consumable.occupation_profiles` should expose the OEWS reference period as a metadata field (or via a lineage table) so MCP responses can attribute the salary numbers correctly: "median annual wage of $133,080 for Software Developers (BLS OEWS, May 2024)."
+
+---
+
+## Unanswered Interview Questions (BLS OEWS — Automated Pipeline Run)
+
+Same protocol as the BLS OOH section: the agent ran without an interactive interview because the spec carries directed user context. Each question is documented with the agent's assumption.
+
+### Question 1: OEWS reference-period tracking
+**Question:** "OEWS is annual but BLS may correct prior years. Should we (a) replace-on-refresh and lose history, (b) retain the prior `reference_period` as a snapshot, or (c) build full year-over-year wage trend tracking?"
+**Status:** UNANSWERED
+**Agent Assumption:** (a) replace-on-refresh for v1. Wage trend tracking is out of scope. The spec explicitly treats this as a snapshot.
+**Mandatory DQ Rule:** Freshness rule — alert if `source_load_date` is older than 14 months (annual cadence + 2-month buffer).
+
+### Question 2: OEWS vs. OOH median display priority
+**Question:** "When both are available, should the user-facing 'salary' figure use OEWS median or OOH median?"
+**Status:** UNANSWERED
+**Agent Assumption:** OEWS median wins for career-specific user displays (CareerCard, FinancesCard career-specific scenario). OOH median is retained for projection alignment and as a fallback when OEWS data is suppressed for the SOC.
+**Mandatory DQ Rule:** None — display preference is a Gold contract decision, not a data quality rule. Document in the consumable-occupation-profiles data contract.
+
+### Question 3: Wage-cap floor change detection
+**Question:** "BLS raised the cap from $208K to $239,200 in 2023. The next change could happen with no warning. Should we (a) hardcode $239,200 in DQ rules, (b) detect cap changes via `wage_capped` count drift, or (c) parameterize the cap value per refresh?"
+**Status:** UNANSWERED
+**Agent Assumption:** (b) — detect via count drift. The `wage_capped` count between 5 and 80 P1 rule will fire when BLS moves the floor (because the count will plummet on the refresh-after-the-change as fewer SOCs reach the new higher cap). For v1 we hardcode $239,200 in the `wage_capped` invariant; if the cap changes, @dq-engineer updates the constant.
+**Mandatory DQ Rule:** P1 — `5 ≤ wage_capped count ≤ 80`. Already in the spec.
+
+### Question 4: Suppression-cluster stability
+**Question:** "May 2024 has exactly 5 suppressed SOCs, all in 27-2xxx. Should DQ rules require that specific cluster?"
+**Status:** UNANSWERED
+**Agent Assumption:** No. Require only the **count range** (≥99% non-null on annual percentiles, allowing 0–8 suppressed rows). Composition can shift year-over-year without being a quality issue.
+**Mandatory DQ Rule:** P0 — `wage_annual_median` non-null rate ≥99% (tightened from spec's 95%).
+
+### Question 5: Hourly wage column retention
+**Question:** "`wage_hourly_*` columns have 7.10% nulls (vs. 0.6% for annual) due to BLS suppressing hourly for salaried-only roles. Keep them, drop them, or treat them as separate tables?"
+**Status:** UNANSWERED
+**Agent Assumption:** Keep them as reference columns in Bronze and Silver. Do not propagate to Gold (`consumable.occupation_profiles` should not gain hourly columns in v1). If a future feature needs hourly, promote them then.
+**Mandatory DQ Rule:** None on hourly columns. Document the asymmetry in the data dictionary.
+
+### Question 6: Use of `wage_annual_mean`
+**Question:** "OEWS publishes a mean uncapped, even when percentiles are capped. For 23 capped SOCs the mean exceeds p90 by design. Should the pipeline expose mean to user-facing surfaces?"
+**Status:** UNANSWERED
+**Agent Assumption:** Retain mean in Bronze and Silver; do not expose on CareerCard or FinancesCard. The mean is informationally valuable for capped SOCs (where it's the only signal that percentiles are floored) but is not the right user-facing salary number for a general audience. If a future "true average pay" surface is added, surface it there with a caveat about top-coding.
+**Mandatory DQ Rule:** None. Mean is documented as advisory-only in the data dictionary.
+
+---
+
+## Assumptions (User-Deferred) — BLS OEWS
+
+| # | Assumption | Basis | Confidence | Risk if Wrong |
+|---|-----------|-------|------------|---------------|
+| 1 | Annual full replace; no historical reference-period retention | Spec § Zone 1 | HIGH | Low — matches BLS publication model. |
+| 2 | OEWS median preferred over OOH median in user-facing displays | More recent + directly surveyed | HIGH | Low — both are retained; this only affects default display. |
+| 3 | $239,200 cap hardcoded in `wage_capped` invariant for v1 | Stable since 2023 | MEDIUM | Medium — when BLS next raises the floor, the invariant will need a code update. The P1 count rule will alert. |
+| 4 | Suppression cluster of 5 SOCs is a count range, not a fixed set | Composition can shift | HIGH | Low. |
+| 5 | Hourly columns kept in Bronze/Silver; not promoted to Gold | Spec says hourly is reference-only | HIGH | Low — easy to promote later if needed. |
+| 6 | Mean is advisory-only, not user-facing | Mean above p90 for capped SOCs is intuitive only with explanation | MEDIUM | Low — easy to surface later with caveat. |
+| 7 | No state/metro OEWS in v1 | National-only is sufficient with RPP adjustment | HIGH | Low — adding state/metro is a future enhancement, not a v1 gap. |
+| 8 | LEFT JOIN OEWS to OOH (allow nulls for `45-3031`-style gaps) | Single-SOC suppression is normal | HIGH | Low — alternative (INNER JOIN) would lose 1 of 832 valid OOH SOCs. |
+| 9 | OEWS treated as non-temporal snapshot in Silver/Gold (no bitemporal model) | Annual replace pattern matches OOH precedent | HIGH | Low — if year-over-year trends are added later, retrofit is straightforward (add `reference_period` column, stop replacing). |
+| 10 | Zero PII | All occupation-aggregate data from federal agency | HIGH | Very low. |
+
+---
+
+## AI-Ready Considerations (BLS OEWS)
+| Consideration | Recommendation | Notes for @mcp-engineer |
+|--------------|---------------|------------------------|
+| Primary user questions OEWS unlocks | "What's the salary range for [occupation]?" "Is [occupation] a flat-pay or wide-spread career?" "What does the top 10% earn?" "Is the wage of [occupation] capped?" | Surface p25, median, p75, p90 + wage_capped on the per-occupation MCP response. Title/SOC fuzzy-match same as OOH. |
+| Career-specific vs. program-specific salary | OEWS gives career-specific (per-SOC) salary; Scorecard gives program-specific (per-CIP) graduate earnings. They answer different questions. | When the user has selected a career (SOC), use OEWS. When the user is exploring a program (CIP) without a chosen career, use Scorecard. The MCP server should not collapse these into a single ambiguous "salary" — keep them separable. |
+| Top-coding disclosure | Always disclose when wage_capped is true. "Surgeons earn at least $239,200 annually (BLS does not publish wages above this confidentiality cap)." | wage_capped flag must propagate from Bronze through to MCP. Do not silently present $239,200 as the median. |
+| Mean above p90 disclosure | When the user asks for "average" pay on a capped occupation, the mean is informative but needs caveat. "Cardiologists' average annual pay is $432,490, while the published 90th-percentile is capped at $239,200 — most cardiologists earn well above the cap, but BLS does not publish individual values above it." | Optional MCP expansion. For v1, do not surface mean unless the user explicitly asks for "average." |
+| Suppression disclosure | When a user asks about Actors/Dancers/Musicians/DJs/Entertainers-All-Other, the response should explain the suppression rather than just returning null. | "BLS does not publish annual wage statistics for [occupation] because compensation in this field is dominated by gig and per-engagement work, where annualized wages are not meaningful." |
+| Salary-range narrative | "Half of Software Developers earn between $103,050 and $169,000 (the middle 50%). The bottom 10% earn under $86,460; the top 10% earn over $211,450." | The p25–p75 range is the "typical" range; p10 and p90 frame the tails. |
+| OOH–OEWS reconciliation | If a user notices OOH median ≠ OEWS median for the same occupation, the response should explain methodology drift, not flag it as an error. | "These are two different BLS surveys. The Employment Projections median ($X) is based on [year] data and a modeled estimate; the OEWS median ($Y) is from the May 2024 establishment survey. Both are correct for their reference periods." |
+| Reference-period attribution | Every wage figure surfaced via MCP should carry the OEWS reference period and the publication source. | Include "reference_period: May 2024" or "BLS OEWS (May 2024)" in any structured response. |
+
+---
+
+## Confidence Notes (BLS OEWS)
+
+**High confidence:**
+- Domain identification — unambiguous from spec, EDA, and source-file structure. OEWS is a well-known BLS publication.
+- No PII — all occupation-level aggregates from federal agency at the National all-industries cut.
+- SOC 2018 taxonomy — direct join to OOH and O*NET, no crosswalk.
+- Top-coding rules ($239,200 ceiling, capping pattern across percentiles, `wage_capped` invariant, mean published uncapped).
+- Suppression rules (`*` sentinel, 27-2xxx performance-arts cluster).
+- Monotonicity (100% in EDA — all 826 rows with full data satisfy p10 ≤ p25 ≤ median ≤ p75 ≤ p90).
+- Annual-snapshot temporal model (no bitemporal needed).
+- Trivial entity resolution (SOC equality, no fuzzy matching).
+- Cross-source coverage (831/832 OOH-Silver SOCs covered by OEWS; 99.28% of OOH SOCs have non-null wage_p25 after join).
+
+**Medium confidence:**
+- $239,200 cap floor stability — held since 2023 but BLS may raise it again; the count-drift DQ rule is the primary detection.
+- Future composition of the suppression cluster — currently 5 SOCs all in 27-2xxx, expected to remain small (0–8) but not pinned to those specific codes.
+- OEWS-vs-OOH median preference for user-facing displays — proposed by agent based on freshness; user has not confirmed.
+- ERN ceiling potential signal (p75 − p25) — sound for uncapped SOCs; degrades on capped SOCs and requires guard logic.
+- Wage spot-check window widths — RN $75K–$100K accommodated this refresh, but may need widening for occupations with very fast wage growth.
+
+**Low confidence / Needs human validation:**
+- Whether to expose `wage_annual_mean` on user-facing surfaces (especially for capped SOCs where it's the only un-floored signal). Currently agent-recommended advisory-only.
+- Whether to retain prior reference periods for year-over-year trend analysis. Currently agent-recommended replace-on-refresh.
+- Whether state/metro OEWS cuts will be ingested in a future iteration. Out of scope for v1.
+- Whether the `consumable.program_career_paths` join should propagate all four wage percentiles (p10, p25, p75, p90) or just the user-facing pair (p25, p75). Spec says all four; downstream consumer needs may differ.

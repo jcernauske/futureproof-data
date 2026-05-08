@@ -1,0 +1,199 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-05-07T04:12:57.000000Z",
+    "run": {
+      "runId": "5b3e1c87-a26f-4d92-9f3a-7e8c4b5d2a16",
+      "facets": {
+        "brightsmith_specReference": {
+          "specFile": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+          "specVersion": "1.0",
+          "zone": "silver"
+        },
+        "brightsmith_agentAttribution": {
+          "agentId": "@primary-agent",
+          "reasoning": "Silver zone transformation of BLS OEWS wage-percentile data. Reads 831 rows from bronze.bls_oews, validates SOC code format (XX-XXXX) — rows with malformed codes are logged and skipped per spec §Silver Transformations §1, normalizes top-coded percentile values to exactly $239,200 when wage_capped=True (floating-point drift guard, only applied to capped rows), enforces monotonicity (p10<=p25<=median<=p75<=p90 across non-null values) by LOGGING violations without skipping rows so the Silver DQ rule SLV-OEWS-005 catches anything upstream missed, computes deterministic record_id via compute_grain_id(record, ['soc_code'], prefix='oews'), drops Bronze-only metadata fields (source_url, source_method, wage_hourly_median), and promotes to base.bls_oews via the idempotent promote pattern. 0 rows skipped due to malformed SOC codes (Bronze had 100% format compliance per RAW-OEWS-002). 45 capped rows preserved verbatim (wage_capped=True maps to top-coded $239,200 per BLS publishing convention)."
+        },
+        "brightsmith_runtimeMetrics": {
+          "rowsRead": 831,
+          "rowsTransformed": 831,
+          "rowsSkippedTransform": 0,
+          "promoted": 831,
+          "skippedDedup": 0,
+          "snapshotId": 1094815578652484892,
+          "wageCappedCount": 45
+        }
+      }
+    },
+    "job": {
+      "namespace": "brightsmith",
+      "name": "silver.transform-bls-oews",
+      "facets": {
+        "documentation": {
+          "description": "Transform raw BLS OEWS wage-percentile data from Bronze into clean, validated Silver base table. Validates SOC code format, normalizes top-coded values to exactly $239,200 on capped rows, enforces wage-percentile monotonicity (logging violations without skipping rows), computes deterministic record_id via grain hash on soc_code with 'oews' prefix, drops raw metadata fields (source_url, source_method, wage_hourly_median), and promotes via idempotent append with dedup on record_id. 13-column Silver schema."
+        },
+        "sourceCode": {
+          "sourceCodeLocation": "src/silver/bls_oews_transformer.py"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "bronze.bls_oews",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "total_employment", "type": "LONG"},
+              {"name": "wage_annual_p10", "type": "DOUBLE"},
+              {"name": "wage_annual_p25", "type": "DOUBLE"},
+              {"name": "wage_annual_median", "type": "DOUBLE"},
+              {"name": "wage_annual_p75", "type": "DOUBLE"},
+              {"name": "wage_annual_p90", "type": "DOUBLE"},
+              {"name": "wage_annual_mean", "type": "DOUBLE"},
+              {"name": "wage_hourly_median", "type": "DOUBLE"},
+              {"name": "wage_capped", "type": "BOOLEAN"},
+              {"name": "ingested_at", "type": "TIMESTAMP"},
+              {"name": "source_url", "type": "STRING"},
+              {"name": "source_method", "type": "STRING"},
+              {"name": "load_date", "type": "DATE"}
+            ]
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "brightsmith",
+        "name": "base.bls_oews",
+        "facets": {
+          "schema": {
+            "fields": [
+              {"name": "record_id", "type": "STRING"},
+              {"name": "soc_code", "type": "STRING"},
+              {"name": "occupation_title", "type": "STRING"},
+              {"name": "total_employment", "type": "LONG"},
+              {"name": "wage_annual_p10", "type": "DOUBLE"},
+              {"name": "wage_annual_p25", "type": "DOUBLE"},
+              {"name": "wage_annual_median", "type": "DOUBLE"},
+              {"name": "wage_annual_p75", "type": "DOUBLE"},
+              {"name": "wage_annual_p90", "type": "DOUBLE"},
+              {"name": "wage_annual_mean", "type": "DOUBLE"},
+              {"name": "wage_capped", "type": "BOOLEAN"},
+              {"name": "source_load_date", "type": "DATE"},
+              {"name": "ingested_at", "type": "TIMESTAMP"}
+            ]
+          },
+          "columnLineage": {
+            "fields": {
+              "record_id": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "soc_code"}
+                ],
+                "transformationDescription": "Deterministic grain hash via compute_grain_id(record, ['soc_code'], prefix='oews'). SHA-256 of the validated soc_code with the 'oews' prefix.",
+                "transformationType": "DERIVED"
+              },
+              "soc_code": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "soc_code"}
+                ],
+                "transformationDescription": "Stripped whitespace, then validated against XX-XXXX regex pattern. ValueError raised on format violation; the multi-row transform logs and skips such rows per spec §Silver Transformations §1.",
+                "transformationType": "DIRECT"
+              },
+              "occupation_title": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "occupation_title"}
+                ],
+                "transformationDescription": "Stripped whitespace; required (raises ValueError if null/empty).",
+                "transformationType": "DIRECT"
+              },
+              "total_employment": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "total_employment"}
+                ],
+                "transformationDescription": "Direct carry from Bronze. Already converted to integer count during Bronze ingestion.",
+                "transformationType": "DIRECT"
+              },
+              "wage_annual_p10": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "wage_annual_p10"}
+                ],
+                "transformationDescription": "Direct carry from Bronze. Validated for monotonicity (p10 <= p25) where both non-null. If wage_capped=True and the Bronze value is within $1 of $239,200, snapped to exactly 239200.0 (floating-point drift guard).",
+                "transformationType": "DIRECT"
+              },
+              "wage_annual_p25": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "wage_annual_p25"}
+                ],
+                "transformationDescription": "Direct carry from Bronze. Validated for monotonicity (p25 <= median) where both non-null. Top-code drift guard same as p10.",
+                "transformationType": "DIRECT"
+              },
+              "wage_annual_median": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "wage_annual_median"}
+                ],
+                "transformationDescription": "Direct carry from Bronze. Validated for monotonicity (p25 <= median <= p75) where non-null. Top-code drift guard same as p10.",
+                "transformationType": "DIRECT"
+              },
+              "wage_annual_p75": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "wage_annual_p75"}
+                ],
+                "transformationDescription": "Direct carry from Bronze. Validated for monotonicity (median <= p75) where both non-null. Top-code drift guard same as p10.",
+                "transformationType": "DIRECT"
+              },
+              "wage_annual_p90": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "wage_annual_p90"}
+                ],
+                "transformationDescription": "Direct carry from Bronze. Validated for monotonicity (p75 <= p90) where both non-null. Top-code drift guard same as p10.",
+                "transformationType": "DIRECT"
+              },
+              "wage_annual_mean": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "wage_annual_mean"}
+                ],
+                "transformationDescription": "Direct carry from Bronze. Published uncapped by BLS even when percentiles are capped (mean > p90 is expected on top-coded rows by design).",
+                "transformationType": "DIRECT"
+              },
+              "wage_capped": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "wage_capped"}
+                ],
+                "transformationDescription": "Direct carry from Bronze; coerced to bool, defaults to False if missing. Required field. Used to drive top-code value normalization on capped rows.",
+                "transformationType": "DIRECT"
+              },
+              "source_load_date": {
+                "inputFields": [
+                  {"namespace": "brightsmith", "name": "bronze.bls_oews", "field": "load_date"}
+                ],
+                "transformationDescription": "Column rename from 'load_date' to 'source_load_date'. Preserves the Bronze ingest date. No value transformation.",
+                "transformationType": "DIRECT"
+              },
+              "ingested_at": {
+                "inputFields": [],
+                "transformationDescription": "UTC timestamp generated at Silver promotion time via datetime.datetime.now(tz=datetime.timezone.utc). Independent of Bronze ingested_at.",
+                "transformationType": "DERIVED"
+              }
+            }
+          },
+          "droppedFields": {
+            "fields": {
+              "wage_hourly_median": {
+                "reason": "Hourly wage equivalent kept in Bronze for reference but not consumed downstream. Spec §Silver Schema lists 13 fields; hourly wages are out of scope for the FutureProof CareerCard salary range."
+              },
+              "source_url": {
+                "reason": "Raw metadata field not needed in Silver zone."
+              },
+              "source_method": {
+                "reason": "Raw metadata field not needed in Silver zone."
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

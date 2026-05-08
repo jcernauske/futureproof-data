@@ -9,7 +9,7 @@
 table: consumable.occupation_profiles
 namespace: consumable
 zone: gold
-version: "1.0.0"
+version: "1.1.0"
 grain:
   - soc_code
 status: draft
@@ -18,6 +18,13 @@ quality_tier: government_statistical
 spec_reference: docs/specs/gold-occupation-profiles-bls-ooh.md
 physical_model: governance/models/gold-occupation-profiles-bls-ooh-physical.md
 data_dictionary: governance/data-dictionary.json
+
+# Version history:
+#   1.0.0 (2026-04-07) — initial contract from BLS OOH-only Gold transformer.
+#   1.1.0 (2026-05-06) — additive: four OEWS wage percentile columns
+#                        (wage_p10, wage_p25, wage_p75, wage_p90) joined from
+#                        base.bls_oews per docs/specs/ingest-bls-oews-wage-percentiles.md.
+#                        Non-breaking — minor bump per breaking_changes.policy below.
 
 columns:
   # --- Occupation Profile (Core Identity + Classification) ---
@@ -356,6 +363,99 @@ columns:
     constraints:
       - "CHECK (wage_tier IS NULL OR wage_tier IN ('low', 'below_average', 'above_average', 'high', 'very_high'))"
 
+  # --- OEWS Wage Distribution (Added in 1.1.0; sourced from base.bls_oews via LEFT JOIN on soc_code) ---
+  # PII verdict: NO_PII (governance/pii-reports/raw-bls-oews-pii-report.md).
+  # All four columns are CDE-P0 — they drive user-facing salary range displays
+  # on CareerCard and FinancesCard and feed Future Enhancements §1 (ERN v2
+  # ceiling-potential signal). Reference: docs/specs/ingest-bls-oews-wage-percentiles.md
+  # §"CDE / PII Classification (Gold — occupation_profiles)".
+
+  - name: wage_p10
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      OEWS 10th-percentile annual wage. Lower tail of the career-specific
+      salary distribution. Decision-relevant earnings signal that may feed
+      ERN ceiling-potential per Future Enhancements §1 of the OEWS spec and
+      the entry-level proxy in Future Enhancements §4. Same logic as
+      median_annual_wage (already is_cde: true on this contract). National
+      wage statistic — not personal data.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      OEWS annual 10th-percentile wage. Source:
+      base.bls_oews.wage_annual_p10. Null when BLS suppressed the value or
+      when the SOC has no OEWS coverage in the current reference period (e.g.,
+      45-3031 Fishing and Hunting Workers in May 2024).
+    constraints:
+      - "CHECK (wage_p10 IS NULL OR (wage_p10 >= 20000 AND wage_p10 <= 239200))"
+
+  - name: wage_p25
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      OEWS 25th-percentile annual wage. Lower bound of the "typical range"
+      rendered to students on CareerCard (per OEWS spec §CareerCard Display
+      Logic) and on the FinancesCard "Career salary range" row. If this drifts,
+      every CareerCard drifts. National wage statistic — not personal data.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      OEWS annual 25th-percentile wage. Source:
+      base.bls_oews.wage_annual_p25. Lower bound of the user-facing
+      career-specific salary range. Coverage target: ≥90% non-null.
+    constraints:
+      - "CHECK (wage_p25 IS NULL OR (wage_p25 >= 20000 AND wage_p25 <= 239200))"
+
+  - name: wage_p75
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      OEWS 75th-percentile annual wage. Upper bound of the "typical range"
+      rendered to students on CareerCard and FinancesCard. Existing ceiling
+      proxy used by the in-flight feature-pdf-report-exports spec. Together
+      with wage_p25 defines the spread that feeds Future Enhancements §1
+      (ERN v2 ceiling potential). National wage statistic — not personal data.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      OEWS annual 75th-percentile wage. Source:
+      base.bls_oews.wage_annual_p75. Upper bound of the user-facing
+      career-specific salary range. May be top-coded ($239,200) for a small
+      number of high-end occupations; consumers should read the source-table
+      wage_capped flag where downstream interpretation matters.
+    constraints:
+      - "CHECK (wage_p75 IS NULL OR (wage_p75 >= 20000 AND wage_p75 <= 239200))"
+
+  - name: wage_p90
+    type: double
+    required: false
+    business_term: BT-036
+    is_cde: true
+    cde_tier: P0
+    cde_rationale: >
+      OEWS 90th-percentile annual wage. Decision-relevant for upside-potential
+      framing and Fight AI / Ceiling boss displays. Most-frequently top-coded
+      percentile (45/45 capped SOCs hit p90 = 239200 in May 2024). National
+      wage statistic — not personal data.
+    is_pii: false
+    pii_rationale: ""
+    description: >
+      OEWS annual 90th-percentile wage. Source:
+      base.bls_oews.wage_annual_p90. Often top-coded at $239,200 for high-end
+      occupations.
+    constraints:
+      - "CHECK (wage_p90 IS NULL OR (wage_p90 >= 20000 AND wage_p90 <= 239200))"
+
   # --- Entry Requirements (Carried) ---
 
   - name: education_code
@@ -606,7 +706,9 @@ breaking_changes:
 
 # Lineage reference.
 lineage:
-  source_table: base.bls_ooh
+  source_tables:
+    - base.bls_ooh
+    - base.bls_oews   # added in 1.1.0 — LEFT JOIN on soc_code for wage percentiles
   transformation: src/gold/bls_ooh_occupation_profiles.py
 
 # Consumers -- downstream tables and processes that depend on this contract.

@@ -741,8 +741,10 @@ class TestGoldSchema:
     """Tests for the Gold Iceberg schema definition."""
 
     def test_schema_field_count(self):
+        # 31 baseline + 4 OEWS wage percentile columns (IDs 32-35,
+        # spec ingest-bls-oews-wage-percentiles §Zone 3).
         schema = get_gold_schema()
-        assert len(schema.fields) == 31
+        assert len(schema.fields) == 35
 
     def test_required_fields(self):
         schema = get_gold_schema()
@@ -771,8 +773,19 @@ class TestGoldSchema:
             "education_code", "education_level_name",
             "work_experience_code", "training_code",
             "market_score", "market_score_rounded",
+            # OEWS wage distribution (spec ingest-bls-oews-wage-percentiles)
+            "wage_p10", "wage_p25", "wage_p75", "wage_p90",
         }
         assert expected_nullable == nullable
+
+    def test_oews_wage_percentile_field_ids(self):
+        """OEWS columns must use the spec-reserved IDs 32-35."""
+        schema = get_gold_schema()
+        ids_by_name = {f.name: f.field_id for f in schema.fields}
+        assert ids_by_name["wage_p10"] == 32
+        assert ids_by_name["wage_p25"] == 33
+        assert ids_by_name["wage_p75"] == 34
+        assert ids_by_name["wage_p90"] == 35
 
 
 # ---------------------------------------------------------------------------
@@ -897,3 +910,140 @@ class TestEndToEnd:
         result = derive_gold_rows(multi_rows)
         soc_codes = [r["soc_code"] for r in result]
         assert soc_codes == sorted(soc_codes)
+
+
+# ---------------------------------------------------------------------------
+# Tests: OEWS Wage Distribution Enrichment
+# Spec: docs/specs/ingest-bls-oews-wage-percentiles.md §Zone 3.
+# ---------------------------------------------------------------------------
+
+
+def _make_oews_row(
+    soc_code: str,
+    wage_annual_p10: float | None = 50000.0,
+    wage_annual_p25: float | None = 75000.0,
+    wage_annual_p75: float | None = 150000.0,
+    wage_annual_p90: float | None = 200000.0,
+) -> dict:
+    return {
+        "soc_code": soc_code,
+        "wage_annual_p10": wage_annual_p10,
+        "wage_annual_p25": wage_annual_p25,
+        "wage_annual_p75": wage_annual_p75,
+        "wage_annual_p90": wage_annual_p90,
+    }
+
+
+class TestOewsEnrichment:
+    """Tests for the LEFT JOIN of base.bls_oews into occupation_profiles."""
+
+    def test_oews_columns_present_when_oews_provided(self, single_row):
+        oews = [_make_oews_row("15-1252")]
+        result = derive_gold_rows(single_row, oews_rows=oews)
+        assert "wage_p10" in result[0]
+        assert "wage_p25" in result[0]
+        assert "wage_p75" in result[0]
+        assert "wage_p90" in result[0]
+
+    def test_oews_columns_null_when_no_oews_data(self, single_row):
+        """When oews_rows is None or empty, wage_p* columns are null."""
+        result = derive_gold_rows(single_row, oews_rows=None)
+        assert result[0]["wage_p10"] is None
+        assert result[0]["wage_p25"] is None
+        assert result[0]["wage_p75"] is None
+        assert result[0]["wage_p90"] is None
+
+    def test_oews_columns_null_with_empty_list(self, single_row):
+        result = derive_gold_rows(single_row, oews_rows=[])
+        assert result[0]["wage_p10"] is None
+        assert result[0]["wage_p25"] is None
+        assert result[0]["wage_p75"] is None
+        assert result[0]["wage_p90"] is None
+
+    def test_oews_values_pass_through_directly(self, single_row):
+        """OEWS values land verbatim in the wage_p* columns."""
+        oews = [_make_oews_row(
+            "15-1252",
+            wage_annual_p10=77020.0,
+            wage_annual_p25=98220.0,
+            wage_annual_p75=168570.0,
+            wage_annual_p90=208620.0,
+        )]
+        result = derive_gold_rows(single_row, oews_rows=oews)
+        assert result[0]["wage_p10"] == 77020.0
+        assert result[0]["wage_p25"] == 98220.0
+        assert result[0]["wage_p75"] == 168570.0
+        assert result[0]["wage_p90"] == 208620.0
+
+    def test_oews_join_misses_yield_null_columns(self, multi_rows):
+        """SOCs in occupation_profiles without OEWS rows get null wage_p*."""
+        # Provide OEWS data only for 15-1252; the other SOCs in multi_rows
+        # should have null wage_p* values.
+        oews = [_make_oews_row("15-1252")]
+        result = derive_gold_rows(multi_rows, oews_rows=oews)
+
+        sd = next(r for r in result if r["soc_code"] == "15-1252")
+        assert sd["wage_p10"] == 50000.0
+        assert sd["wage_p25"] == 75000.0
+
+        # Anesthesiologists (29-1211) has no OEWS row in this fixture
+        anes = next(r for r in result if r["soc_code"] == "29-1211")
+        assert anes["wage_p10"] is None
+        assert anes["wage_p25"] is None
+        assert anes["wage_p75"] is None
+        assert anes["wage_p90"] is None
+
+    def test_oews_monotonicity_preserved_through_join(self):
+        """A monotone OEWS row stays monotone after the LEFT JOIN."""
+        silver = [_make_silver_row(soc_code="15-1252", median_annual_wage=130000.0)]
+        oews = [_make_oews_row(
+            "15-1252",
+            wage_annual_p10=77020.0,
+            wage_annual_p25=98220.0,
+            wage_annual_p75=168570.0,
+            wage_annual_p90=208620.0,
+        )]
+        result = derive_gold_rows(silver, oews_rows=oews)
+        row = result[0]
+        assert row["wage_p10"] <= row["wage_p25"]
+        assert row["wage_p25"] <= row["wage_p75"]
+        assert row["wage_p75"] <= row["wage_p90"]
+
+    def test_oews_top_coded_values_pass_through(self):
+        """A capped row keeps its 239200 percentiles after the JOIN."""
+        silver = [_make_silver_row(soc_code="11-1011", median_annual_wage=206420.0)]
+        oews = [_make_oews_row(
+            "11-1011",
+            wage_annual_p10=90050.0,
+            wage_annual_p25=130880.0,
+            wage_annual_p75=239200.0,
+            wage_annual_p90=239200.0,
+        )]
+        result = derive_gold_rows(silver, oews_rows=oews)
+        row = result[0]
+        assert row["wage_p75"] == 239200.0
+        assert row["wage_p90"] == 239200.0
+
+    def test_oews_with_null_percentile(self):
+        """Null OEWS percentiles flow through as null."""
+        silver = [_make_silver_row(soc_code="27-2011", median_annual_wage=None,
+                                    wage_available=False)]
+        oews = [_make_oews_row(
+            "27-2011",
+            wage_annual_p10=None,
+            wage_annual_p25=None,
+            wage_annual_p75=None,
+            wage_annual_p90=None,
+        )]
+        result = derive_gold_rows(silver, oews_rows=oews)
+        row = result[0]
+        assert row["wage_p10"] is None
+        assert row["wage_p25"] is None
+        assert row["wage_p75"] is None
+        assert row["wage_p90"] is None
+
+    def test_oews_left_join_preserves_silver_row_count(self, multi_rows):
+        """LEFT JOIN must not drop any rows from occupation_profiles."""
+        oews = [_make_oews_row("15-1252")]  # only 1 of 8 SOCs
+        result = derive_gold_rows(multi_rows, oews_rows=oews)
+        assert len(result) == len(multi_rows)

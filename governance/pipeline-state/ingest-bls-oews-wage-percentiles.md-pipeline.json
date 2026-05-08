@@ -1,0 +1,200 @@
+{
+  "spec": "ingest-bls-oews-wage-percentiles.md",
+  "zone": "bronze",
+  "mode": "greenfield",
+  "started": "2026-05-07T02:25:46.784808+00:00",
+  "steps": {
+    "governance-reviewer-pre": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T02:36:59.559301+00:00",
+      "output": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+      "output_hash": "sha256:cc0ed32b2ac563df09e6d55d257b511f3bd35380533cb16b5cae7ba482462fb1"
+    },
+    "primary-agent": {
+      "status": "COMPLETED",
+      "agent": "@primary-agent",
+      "requires": [
+        "governance-reviewer-pre"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T02:46:19.476388+00:00",
+      "output": "src/raw/bls_oews_ingestor.py",
+      "output_hash": "sha256:65eaa76ca1199bcec7cc5a1fdad72503fc4ccae1cdb883ae7a7ba9606fe8c64d"
+    },
+    "data-analyst": {
+      "status": "COMPLETED",
+      "agent": "@data-analyst",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T02:53:01.469248+00:00",
+      "output": "governance/eda/raw-bls-oews-eda.md",
+      "output_hash": "sha256:db25a26fd03055f5bdd26da4d9f3a0b149dc187ffda288d26603ee0813d83873"
+    },
+    "domain-context": {
+      "status": "COMPLETED",
+      "agent": "@domain-context",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T02:59:43.357260+00:00",
+      "output": "governance/domain-context.md",
+      "output_hash": "sha256:30bf39fa3cbd6784111756862cc066716305a05816afe2e7af5ad963f0fb7efc"
+    },
+    "dq-rule-writer": {
+      "status": "COMPLETED",
+      "agent": "@dq-rule-writer",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:05:04.582921+00:00",
+      "output": "governance/dq-rules/raw-ingest-bls-oews.json",
+      "output_hash": "sha256:78f39e90cf6daa8d85c46f0ea5f72f25dca8e89991b97ee84b3efd4577b7d7b3"
+    },
+    "dq-engineer": {
+      "status": "COMPLETED",
+      "agent": "@dq-engineer",
+      "requires": [
+        "dq-rule-writer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:08:24.570630+00:00",
+      "output": "governance/dq-scorecards/raw-ingest-bls-oews-scorecard.md",
+      "output_hash": "sha256:8dc6debe84cb8d27d4670ede248c2a23af868d5c21b932314fdd4a0d231999c6"
+    },
+    "chaos-monkey": {
+      "status": "COMPLETED",
+      "agent": "@chaos-monkey",
+      "requires": [
+        "dq-engineer"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:23:29.843950+00:00",
+      "output": "governance/chaos-manifests/raw-ingest-bls-oews-chaos.yaml",
+      "output_hash": "sha256:a0e6b500b8d24c314f9b3c6249ea4cd52c1d4ea53d562591a7a2eddac393237d"
+    },
+    "entity-resolver": {
+      "status": "COMPLETED",
+      "agent": "@entity-resolver",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:36:31.651490+00:00",
+      "output": "governance/entity-resolution/raw-bls-oews-entity-report.md",
+      "output_hash": "sha256:5269ef99e47b86ccf938a5d8fad47f27a0208b1abc77964263e8b4ea65a71496"
+    },
+    "pii-scanner": {
+      "status": "COMPLETED",
+      "agent": "@pii-scanner",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:36:33.946327+00:00",
+      "output": "governance/pii-reports/raw-bls-oews-pii-report.md",
+      "output_hash": "sha256:08d0c1d3bd25cc6e2e529c4204e058007e92d7243c9d6da065ce31ed3618203a"
+    },
+    "temporal-modeler": {
+      "status": "COMPLETED",
+      "agent": "@temporal-modeler",
+      "requires": [
+        "data-analyst"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:36:36.212648+00:00",
+      "output": "governance/temporal-models/raw-bls-oews-temporal-assessment.md",
+      "output_hash": "sha256:ae0de459affa19027ce694f49622ad8f639591583893b2658e57a49afb306c68"
+    },
+    "lineage-tracker": {
+      "status": "COMPLETED",
+      "agent": "@lineage-tracker",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:38:35.653758+00:00",
+      "output": "governance/lineage/raw-ingest-bls-oews-20260507T033713Z.json",
+      "output_hash": "sha256:9693bc19b693089937ffd4cedc55d9ef78cbbf2c589c40d50cde8f0ce374f527"
+    },
+    "cde-tagger": {
+      "status": "COMPLETED",
+      "agent": "@cde-tagger",
+      "requires": [
+        "primary-agent"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:44:17.158925+00:00",
+      "output": "governance/data-contracts/raw-bls-oews.yaml",
+      "output_hash": "sha256:0ff624191a764548a7953d1c755e5d22bdae25935d9374b53965fa70d1aa2d43"
+    },
+    "doc-generator": {
+      "status": "COMPLETED",
+      "agent": "@doc-generator",
+      "requires": [
+        "cde-tagger"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:53:40.248226+00:00",
+      "output": "governance/data-dictionary.json",
+      "output_hash": "sha256:a3e39d1907b9d82954e7f4f8f779d08db9964f71b340d202af140667adb71efe"
+    },
+    "adversarial-auditor": {
+      "status": "COMPLETED",
+      "agent": "@adversarial-auditor",
+      "requires": [
+        "chaos-monkey"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:36:38.445784+00:00",
+      "output": "governance/audit-trail/2026-05-06-adversarial-auditor-bls-oews.md",
+      "output_hash": "sha256:a0c21124973ddd5ef4efae635b6c99de91c894462b7d6cc44ae20fee52813c93"
+    },
+    "governance-reviewer-post": {
+      "status": "COMPLETED",
+      "agent": "@governance-reviewer",
+      "requires": [
+        "doc-generator"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T03:57:17.147660+00:00",
+      "output": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+      "output_hash": "sha256:77f42ec4434e13281ccabb8b7564d182c09217303715a87c0360655c992125d3"
+    },
+    "staff-engineer": {
+      "status": "COMPLETED",
+      "agent": "@staff-engineer",
+      "requires": [
+        "governance-reviewer-post"
+      ],
+      "blocking": false,
+      "skippable": false,
+      "completed_at": "2026-05-07T04:00:34.641073+00:00",
+      "output": "docs/specs/ingest-bls-oews-wage-percentiles.md",
+      "output_hash": "sha256:227cdc9be08e88b03009b61fd302d3088373eabde7041b0e0b666d5894541336"
+    }
+  },
+  "skipped_steps": {},
+  "approvals": {}
+}
