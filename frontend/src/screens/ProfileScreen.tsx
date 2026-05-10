@@ -79,6 +79,14 @@ export function ProfileScreen() {
   const [rerollError, setRerollError] = useState<string | null>(null);
   const [nameKey, setNameKey] = useState(0);
 
+  // Warm up Gemma model weights while the student picks their profile.
+  useEffect(() => {
+    fetch(
+      `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}/health/warmup`,
+      { method: "POST" },
+    ).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (profileName) return;
     let cancelled = false;

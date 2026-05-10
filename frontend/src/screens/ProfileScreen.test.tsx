@@ -10,7 +10,14 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const fetchMock = vi.fn();
+const profileFetchMock = vi.fn();
+const fetchMock = vi.fn((...args: unknown[]) => {
+  const url = String(args[0] ?? "");
+  if (url.includes("/health/warmup")) {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+  }
+  return profileFetchMock(...args);
+});
 vi.stubGlobal("fetch", fetchMock);
 
 function renderProfile() {
@@ -22,7 +29,7 @@ function renderProfile() {
 }
 
 beforeEach(() => {
-  fetchMock.mockReset();
+  profileFetchMock.mockReset();
   mockNavigate.mockReset();
   useProfileStore.setState({
     profileName: "dancing happy bear",
@@ -39,7 +46,7 @@ describe("ProfileScreen", () => {
   });
 
   it("reroll swaps name", async () => {
-    fetchMock.mockResolvedValueOnce({
+    profileFetchMock.mockResolvedValueOnce({
       ok: true,
       json: () =>
         Promise.resolve({
@@ -59,8 +66,16 @@ describe("ProfileScreen", () => {
     });
   });
 
+  it("fires warmup on mount", () => {
+    renderProfile();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/health/warmup"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("auto-generates profile when none exists", async () => {
-    fetchMock.mockResolvedValueOnce({
+    profileFetchMock.mockResolvedValueOnce({
       ok: true,
       json: () =>
         Promise.resolve({
