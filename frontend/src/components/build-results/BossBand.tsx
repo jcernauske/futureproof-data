@@ -10,6 +10,7 @@ import { NarrativeTimeline } from "./NarrativeTimeline";
 import type { NarrativeEntry } from "./NarrativeTimeline";
 import { useT } from "@/i18n/useT";
 import { useProfileStore } from "@/store/profileStore";
+import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { localizeProfileName } from "@/i18n/profileName";
 
 const MAX_REROLLS = 3;
@@ -55,6 +56,7 @@ interface BossBandProps {
   playerEmoji: string;
   playerName: string;
   skillPool: AppliedSkill[];
+  skillPoolLoading?: boolean;
   onRerollComplete: (updatedFight: BossFightResult) => void;
   onSkillsConsumed: (usedSkillIds: string[]) => void;
   isRevealed: boolean;
@@ -82,6 +84,7 @@ const STAT_DELTAS: { key: string; field: keyof AppliedSkill; signMultiplier?: nu
   { key: "grw", field: "delta_grw" },
   { key: "brn", field: "delta_burnout_raw", signMultiplier: -1 },
   { key: "ceil", field: "delta_ceiling_raw" },
+  { key: "loans", field: "delta_loans_raw", signMultiplier: -1 },
 ];
 
 export function BossBand({
@@ -90,6 +93,7 @@ export function BossBand({
   playerEmoji,
   playerName,
   skillPool,
+  skillPoolLoading = false,
   onRerollComplete,
   onSkillsConsumed,
   isRevealed,
@@ -127,6 +131,12 @@ export function BossBand({
 
   const availableSkills = skillPool.filter((s) => s.targets.includes(fight.boss));
   const canReroll = localResult !== "win" && availableSkills.length > 0 && rerollCount < MAX_REROLLS;
+  const showSkillLoading =
+    localResult !== "win" &&
+    availableSkills.length === 0 &&
+    rerollCount < MAX_REROLLS &&
+    showReroll &&
+    skillPoolLoading;
   const resultColors = RESULT_COLORS[localResult] ?? RESULT_COLORS.unknown;
   const firstName = localizedPlayerName.split(" ")[0] ?? localizedPlayerName;
 
@@ -472,6 +482,42 @@ export function BossBand({
         )}
 
         {/* Reroll section */}
+        {showSkillLoading && (
+          <div
+            data-testid={`skill-pool-loading-${fight.boss}`}
+            role="status"
+            aria-label={t("build.skillsLoadingAria").replace("{bossName}", localizedBossName)}
+            className="rounded-[14px] border border-border-subtle mt-4"
+            style={{ padding: 16, background: "rgba(45,48,96,0.35)" }}
+          >
+            <div className="flex items-center gap-2">
+              <GemmaSpinner size={18} className="flex-shrink-0" />
+              <div className="font-display font-semibold text-text-secondary" style={{ fontSize: 15 }}>
+                {t("build.skillsLoading")}
+              </div>
+            </div>
+            <div className="skill-grid-responsive grid gap-2.5 mt-3" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+              {[0, 1, 2].map((idx) => (
+                <div
+                  key={idx}
+                  className="rounded-[14px] border border-border-subtle"
+                  style={{
+                    minHeight: 86,
+                    padding: "12px 14px",
+                    background: "var(--color-bg-mid)",
+                    opacity: 0.72,
+                    animation: `narrativePulse 2s ease-in-out ${idx * 0.18}s infinite`,
+                  }}
+                >
+                  <div className="h-3 rounded-full bg-white/10" style={{ width: `${72 - idx * 10}%` }} />
+                  <div className="h-2.5 rounded-full bg-white/10 mt-3" style={{ width: "92%" }} />
+                  <div className="h-2.5 rounded-full bg-white/10 mt-2" style={{ width: "58%" }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {canReroll && showReroll && (
           <div
             className="rounded-[14px] border border-border-subtle mt-4"

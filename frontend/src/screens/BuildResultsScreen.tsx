@@ -139,6 +139,7 @@ export function BuildResultsScreen() {
   const [chatOpenerPrompt, setChatOpenerPrompt] = useState<string | null>(null);
   const [chatStarters, setChatStarters] = useState<string[] | undefined>();
   const [compareOpen, setCompareOpen] = useState(false);
+  const [skillPoolLoading, setSkillPoolLoading] = useState(false);
 
   const openChat = useCallback(
     (scope: AskScope, chipText: string, openerPrompt?: string, starters?: string[]) => {
@@ -322,6 +323,7 @@ export function BuildResultsScreen() {
   const runBuild = useCallback(async () => {
     if (!selectedCareer || !school || !major || !profileName) return;
     setIsBuilding(true);
+    setSkillPoolLoading(false);
     setError(null);
 
     const lookupCip = major.parentCip || major.cipCode;
@@ -359,6 +361,7 @@ export function BuildResultsScreen() {
         case "skeleton":
           setBuild(event.build);
           setFights(event.build.gauntlet.fights);
+          setSkillPoolLoading(true);
           setIsBuilding(false);
           useBuildsCountStore.getState().refresh();
           fireCheckpoint("/my-build");
@@ -370,12 +373,14 @@ export function BuildResultsScreen() {
           updateBuild((prev) => ({ ...prev, skill_recs: event.recs }));
           break;
         case "skill_pool":
+          setSkillPoolLoading(false);
           updateBuild((prev) => ({ ...prev, skill_pool: event.pool }));
           break;
         case "guidance":
           updateBuild((prev) => ({ ...prev, guidance: event.narrative }));
           break;
         case "done":
+          setSkillPoolLoading(false);
           break;
       }
     };
@@ -405,12 +410,14 @@ export function BuildResultsScreen() {
         if (cancelledRef.current) return;
         setBuild(result);
         setFights(result.gauntlet.fights);
+        setSkillPoolLoading(false);
         setIsBuilding(false);
         useBuildsCountStore.getState().refresh();
         fireCheckpoint("/my-build");
       } catch (fallbackErr) {
         if (cancelledRef.current) return;
         setError(fallbackErr instanceof Error ? fallbackErr.message : "Build failed");
+        setSkillPoolLoading(false);
         setIsBuilding(false);
       }
     }
@@ -701,7 +708,6 @@ export function BuildResultsScreen() {
         <div className="flex justify-end items-center gap-4 flex-wrap" style={{ marginTop: 16 }}>
           <ExportPdfButton
             buildId={build.build_id}
-            defaultStudentName={build.profile_name}
             schoolName={build.school_name}
             programName={career.program_name || build.program_name || career.occupation_title}
           />
@@ -756,7 +762,6 @@ export function BuildResultsScreen() {
               career={career}
               loanPct={career.loan_pct}
               isInState={career.is_out_of_state != null ? !career.is_out_of_state : (homeState && school?.stateAbbr ? homeState === school.stateAbbr : null)}
-              schoolName={school?.name}
             />
           </div>
           <InstitutionCard
@@ -1020,6 +1025,7 @@ export function BuildResultsScreen() {
                   playerEmoji={animalEmoji ?? "🐻"}
                   playerName={profileName ?? "Adventurer"}
                   skillPool={availableSkillPool}
+                  skillPoolLoading={skillPoolLoading}
                   onRerollComplete={handleRerollComplete}
                   onSkillsConsumed={handleSkillsConsumed}
                   isRevealed={revealedBands.has(fight.boss)}

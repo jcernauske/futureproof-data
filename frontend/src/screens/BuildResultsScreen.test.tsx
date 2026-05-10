@@ -230,6 +230,7 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
         delta_grw: 0,
         delta_burnout_raw: 0,
         delta_ceiling_raw: 0,
+        delta_loans_raw: 0,
       },
     ],
     next_steps: "",
