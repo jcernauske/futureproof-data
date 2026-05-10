@@ -2,7 +2,7 @@
 
 Covers:
 - generate_build_pdf returns valid PDF bytes (2 pages).
-- generate_comparison_pdf accepts 2 or 3 builds, rejects 4+ and cross-major.
+- generate_comparison_pdf accepts 2-4 builds, rejects 5+ and cross-major.
 - No PII written to disk during PDF generation (BytesIO only).
 - Insufficient chip renders for null raw_score boss.
 - Cost strip renders debt_to_earnings as f"{v*100:.0f}%".
@@ -182,7 +182,7 @@ class TestNoPiiWrittenToDisk:
 
 
 # ---------------------------------------------------------------------------
-# P0: generate_comparison_pdf — cross-major + over-3 + 2..3 acceptance.
+# P0: generate_comparison_pdf — cross-major + over-4 + 2..4 acceptance.
 # ---------------------------------------------------------------------------
 
 
@@ -209,7 +209,26 @@ class TestGenerateComparisonPdf:
         # Cross-major title fallback — neither major name leads the title.
         assert "Career comparison" in text
 
-    def test_rejects_more_than_3_builds(self, fixture_three_same_major_builds):
+    def test_rejects_more_than_4_builds(self, fixture_three_same_major_builds):
+        from tests.services.conftest import make_fixture_build  # type: ignore
+
+        builds = fixture_three_same_major_builds + [
+            make_fixture_build(
+                school_name="University of Notre Dame",
+                cipcode="14.1903",
+                unitid=152080,
+            ),
+            make_fixture_build(
+                school_name="University of Michigan",
+                cipcode="14.1903",
+                unitid=170976,
+            ),
+        ]
+        assert len(builds) == 5
+        with pytest.raises(ValueError):
+            pdf_export.generate_comparison_pdf(builds)
+
+    def test_accepts_4_builds_same_major(self, fixture_three_same_major_builds):
         from tests.services.conftest import make_fixture_build  # type: ignore
 
         builds = fixture_three_same_major_builds + [
@@ -219,9 +238,10 @@ class TestGenerateComparisonPdf:
                 unitid=152080,
             )
         ]
-        assert len(builds) == 4
-        with pytest.raises(ValueError):
-            pdf_export.generate_comparison_pdf(builds)
+        out = pdf_export.generate_comparison_pdf(builds)
+        assert isinstance(out, bytes)
+        assert out[:4] == b"%PDF"
+        assert _pdf_page_count(out) >= 1
 
     def test_rejects_one_or_zero_builds(self, fixture_build):
         with pytest.raises(ValueError):

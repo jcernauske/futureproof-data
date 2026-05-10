@@ -30,6 +30,7 @@ function makeSkill(overrides?: Partial<AppliedSkill>): AppliedSkill {
     delta_grw: 1,
     delta_burnout_raw: 0,
     delta_ceiling_raw: 2,
+    delta_loans_raw: 0,
     ...overrides,
   };
 }

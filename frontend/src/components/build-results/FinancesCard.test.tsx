@@ -135,51 +135,101 @@ describe("FinancesCard — residency-aware cost display", () => {
   });
 });
 
-describe("FinancesCard — year-one salary display", () => {
-  it("renders year-one range when both p25 and p75 are set", () => {
+describe("FinancesCard — Year-1 peer band", () => {
+  it("renders the peer band visualization when p25 and p75 are set", () => {
     render(
       <FinancesCard
-        career={makeCareer({ earnings_1yr_p25: 38_000, earnings_1yr_p75: 78_000 })}
+        career={makeCareer({
+          earnings_1yr_p25: 38_000,
+          earnings_1yr_p75: 78_000,
+          earnings_1yr_median: 60_000,
+        })}
         loanPct={1.0}
         isInState={null}
       />,
     );
-    expect(screen.getByText("$38,000 – $78,000")).toBeInTheDocument();
-    expect(screen.getByText("Year-one earnings")).toBeInTheDocument();
+    expect(screen.getByTestId("year1-salary-bar")).toBeInTheDocument();
+    expect(screen.getByText("Peer band · Year-1 (this field)")).toBeInTheDocument();
+    // SalaryBar uses formatSalaryShort ($XXK) — verify peer p25/p75 render.
+    expect(screen.getByText("$38K")).toBeInTheDocument();
+    expect(screen.getByText("$78K")).toBeInTheDocument();
+    // Program median pill ($60K) — inside the peer band, no callout.
+    expect(screen.getByText("$60K")).toBeInTheDocument();
+    expect(screen.queryByText(/Standout earnings/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Earnings caution/)).not.toBeInTheDocument();
   });
 
-  it("renders school name in year-one label when provided", () => {
+  it("flags Standout earnings when program median exceeds peer p75", () => {
     render(
       <FinancesCard
-        career={makeCareer({ earnings_1yr_p25: 38_000, earnings_1yr_p75: 78_000 })}
+        career={makeCareer({
+          earnings_1yr_p25: 38_000,
+          earnings_1yr_p75: 50_000,
+          earnings_1yr_median: 63_371, // IU/Marketing real-world case
+        })}
         loanPct={1.0}
         isInState={null}
-        schoolName="Indiana University"
       />,
     );
-    expect(screen.getByText("Year-one from Indiana University")).toBeInTheDocument();
+    expect(screen.getByText(/Standout earnings/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/beats the peer-program 75th percentile/),
+    ).toBeInTheDocument();
   });
 
-  it("falls back to earnings_1yr_median when p25/p75 missing", () => {
+  it("flags Earnings caution when program median sits below peer p25", () => {
     render(
       <FinancesCard
-        career={makeCareer({ earnings_1yr_median: 45_000, earnings_1yr_p25: null, earnings_1yr_p75: null })}
+        career={makeCareer({
+          earnings_1yr_p25: 50_000,
+          earnings_1yr_p75: 80_000,
+          earnings_1yr_median: 35_000,
+        })}
         loanPct={1.0}
         isInState={null}
       />,
     );
-    expect(screen.getByText("$45,000 / yr")).toBeInTheDocument();
+    expect(screen.getByText(/Earnings caution/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/sits below the peer-program 25th percentile/),
+    ).toBeInTheDocument();
   });
 
-  it("omits year-one row when all earnings fields are null", () => {
+  it("falls back to mid-career wage when program median is null", () => {
     render(
       <FinancesCard
-        career={makeCareer({ earnings_1yr_median: null, earnings_1yr_p25: null, earnings_1yr_p75: null })}
+        career={makeCareer({
+          earnings_1yr_p25: 38_000,
+          earnings_1yr_p75: 78_000,
+          earnings_1yr_median: null,
+          median_annual_wage: 92_000,
+        })}
         loanPct={1.0}
         isInState={null}
       />,
     );
-    expect(screen.queryByText(/Year-one/)).not.toBeInTheDocument();
+    // Pill shows the career-wage fallback in $K shorthand.
+    expect(screen.getByText("$92K")).toBeInTheDocument();
+    expect(
+      screen.getByText(/career wage reference because program median earnings are unavailable/),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the peer band entirely when no salary signal exists", () => {
+    render(
+      <FinancesCard
+        career={makeCareer({
+          earnings_1yr_median: null,
+          earnings_1yr_p25: null,
+          earnings_1yr_p75: null,
+          median_annual_wage: null,
+        })}
+        loanPct={1.0}
+        isInState={null}
+      />,
+    );
+    expect(screen.queryByTestId("year1-salary-bar")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Peer band/)).not.toBeInTheDocument();
   });
 });
 
@@ -250,7 +300,7 @@ describe("FinancesCard — Career salary range (OEWS, long-term: code 1)", () =>
     expect(screen.queryByText("Career salary range")).not.toBeInTheDocument();
   });
 
-  it("renders career salary range alongside year-one row (they are different concepts)", () => {
+  it("renders career salary range alongside the Year-1 peer band (they are different concepts)", () => {
     render(
       <FinancesCard
         career={makeCareer({
@@ -265,11 +315,15 @@ describe("FinancesCard — Career salary range (OEWS, long-term: code 1)", () =>
         isInState={null}
       />,
     );
-    // Both rows present — career-level (OEWS) and program-level (Scorecard).
+    // OEWS career-level row uses the comma-formatted range.
     expect(screen.getByText("Career salary range")).toBeInTheDocument();
     expect(screen.getByText("$98,000 – $168,000")).toBeInTheDocument();
-    expect(screen.getByText("$60,000 – $90,000")).toBeInTheDocument();
-    expect(screen.getByText("Year-one earnings")).toBeInTheDocument();
+    // Year-1 row is now the peer band visualization with its own label set.
+    expect(screen.getByText("Peer band · Year-1 (this field)")).toBeInTheDocument();
+    expect(screen.getByTestId("year1-salary-bar")).toBeInTheDocument();
+    // Peer band labels render at $K shorthand inside the bar.
+    expect(screen.getByText("$60K")).toBeInTheDocument();
+    expect(screen.getByText("$90K")).toBeInTheDocument();
   });
 });
 

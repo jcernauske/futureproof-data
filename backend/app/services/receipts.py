@@ -370,6 +370,8 @@ def _skill_delta_str(skill: AppliedSkill) -> str:
         parts.append(f"burnout{skill.delta_burnout_raw:+d}")
     if skill.delta_ceiling_raw:
         parts.append(f"ceiling{skill.delta_ceiling_raw:+d}")
+    if skill.delta_loans_raw:
+        parts.append(f"loans{skill.delta_loans_raw:+d}")
     return ", ".join(parts) or "—"
 
 

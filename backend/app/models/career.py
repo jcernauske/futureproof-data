@@ -313,9 +313,9 @@ class AppliedSkill(BaseModel):
 
     ``targets`` lists the bosses this skill should surface on during a
     loss screen. Stat deltas (``delta_ern`` etc.) apply build-wide once
-    the skill is crafted. ``delta_burnout_raw`` and ``delta_ceiling_raw``
-    nudge the raw boss scores directly — negative reduces burnout risk,
-    positive raises the ceiling.
+    the skill is crafted. ``delta_burnout_raw``, ``delta_ceiling_raw``,
+    and ``delta_loans_raw`` nudge the raw boss scores directly — negative
+    reduces burnout/loans risk, positive raises the ceiling.
     """
 
     id: str
@@ -330,6 +330,7 @@ class AppliedSkill(BaseModel):
     # AURA is institution-level so skills cannot shift it.
     delta_burnout_raw: int = 0
     delta_ceiling_raw: int = 0
+    delta_loans_raw: int = 0
 
 
 class CareerDescription(BaseModel):

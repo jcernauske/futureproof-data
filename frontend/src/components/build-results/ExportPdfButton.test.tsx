@@ -5,8 +5,9 @@
  *
  * Covers:
  *  - test_click_triggers_api_and_download — POST + URL.createObjectURL.
- *  - test_optional_name_field_prefills_from_profile — defaultStudentName.
  *  - test_error_state_shown_on_api_failure — inline error toast.
+ *  - The optional student-name input was removed per UX feedback —
+ *    PDF exports always go out without a custom name.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -40,7 +41,6 @@ describe("ExportPdfButton", () => {
     render(
       <ExportPdfButton
         buildId="build-1"
-        defaultStudentName=""
         schoolName="Indiana University"
         programName="Mechanical Engineering"
       />,
@@ -52,10 +52,10 @@ describe("ExportPdfButton", () => {
       expect(mockExportBuildPdf).toHaveBeenCalledTimes(1);
     });
 
-    // First arg is the build_id; second is options.
-    const [buildId, opts] = mockExportBuildPdf.mock.calls[0]!;
+    // The button no longer collects a student name; the API is called
+    // with just the build_id.
+    const [buildId] = mockExportBuildPdf.mock.calls[0]!;
     expect(buildId).toBe("build-1");
-    expect(opts).toEqual({ studentName: null });
 
     // downloadBlobAs is called with the blob and a slugged filename.
     await waitFor(() => {
@@ -69,71 +69,17 @@ describe("ExportPdfButton", () => {
     expect(filename).toContain("mechanical-engineering");
   });
 
-  it("prefills the optional name input from defaultStudentName (P1)", () => {
+  it("does not render a student-name input", () => {
     render(
       <ExportPdfButton
         buildId="build-1"
-        defaultStudentName="Rowan"
         schoolName="Test U"
         programName="Test Program"
       />,
     );
-
-    const input = screen.getByTestId(
-      "input-export-student-name",
-    ) as HTMLInputElement;
-    expect(input.value).toBe("Rowan");
-  });
-
-  it("sends the typed student name to the API (P1)", async () => {
-    const fakeBlob = new Blob(["%PDF-1.4 ..."], { type: "application/pdf" });
-    mockExportBuildPdf.mockResolvedValue(fakeBlob);
-
-    render(
-      <ExportPdfButton
-        buildId="build-1"
-        defaultStudentName="Rowan"
-        schoolName="Test U"
-        programName="Test Program"
-      />,
-    );
-
-    // Edit the value before clicking.
-    const input = screen.getByTestId(
-      "input-export-student-name",
-    ) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "Sam" } });
-
-    fireEvent.click(screen.getByTestId("btn-export-pdf-build"));
-
-    await waitFor(() => {
-      expect(mockExportBuildPdf).toHaveBeenCalledTimes(1);
-    });
-    const [, opts] = mockExportBuildPdf.mock.calls[0]!;
-    expect(opts).toEqual({ studentName: "Sam" });
-  });
-
-  it("sends null when the name input is empty/whitespace (P1)", async () => {
-    const fakeBlob = new Blob(["%PDF-1.4 ..."], { type: "application/pdf" });
-    mockExportBuildPdf.mockResolvedValue(fakeBlob);
-
-    render(
-      <ExportPdfButton
-        buildId="build-1"
-        defaultStudentName="   "
-        schoolName="Test U"
-        programName="Test Program"
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId("btn-export-pdf-build"));
-
-    await waitFor(() => {
-      expect(mockExportBuildPdf).toHaveBeenCalledTimes(1);
-    });
-    const [, opts] = mockExportBuildPdf.mock.calls[0]!;
-    // Whitespace-only is normalized to null per ExportPdfButton.tsx.
-    expect(opts).toEqual({ studentName: null });
+    expect(
+      screen.queryByTestId("input-export-student-name"),
+    ).toBeNull();
   });
 
   it("shows an inline error alert on API failure (P1)", async () => {
@@ -142,7 +88,6 @@ describe("ExportPdfButton", () => {
     render(
       <ExportPdfButton
         buildId="build-1"
-        defaultStudentName=""
         schoolName="Test U"
         programName="Test Program"
       />,
@@ -168,7 +113,6 @@ describe("ExportPdfButton", () => {
     render(
       <ExportPdfButton
         buildId="build-1"
-        defaultStudentName=""
         schoolName="Test U"
         programName="Test Program"
       />,

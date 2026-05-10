@@ -86,7 +86,11 @@ FALLBACK_POOL: list[AppliedSkill] = [
         # Re-bucket: legacy delta_hmn=2 → delta_res=2.
         delta_res=2,
     ),
-    # --- Fight Student Loans (ROI) -----------------------------------
+    # --- Fight Student Loans (ROI + raw loans boss score) ------------
+    # delta_loans_raw directly reduces the financing-aware loans boss
+    # score (_score_loans uses 11 - bosses.loans). delta_roi raises the
+    # pentagon ROI display (and serves as the legacy fallback for rows
+    # missing bosses.loans).
     AppliedSkill(
         id="cc_transfer_first_year",
         title="Community College Transfer (Year 1)",
@@ -96,6 +100,7 @@ FALLBACK_POOL: list[AppliedSkill] = [
         ),
         targets=["loans"],
         delta_roi=2,
+        delta_loans_raw=-2,
     ),
     AppliedSkill(
         id="work_study",
@@ -106,6 +111,7 @@ FALLBACK_POOL: list[AppliedSkill] = [
         ),
         targets=["loans"],
         delta_roi=1,
+        delta_loans_raw=-1,
     ),
     AppliedSkill(
         id="scholarship_sprint",
@@ -117,6 +123,7 @@ FALLBACK_POOL: list[AppliedSkill] = [
         ),
         targets=["loans"],
         delta_roi=2,
+        delta_loans_raw=-2,
     ),
     AppliedSkill(
         id="instate_tuition",
@@ -127,6 +134,7 @@ FALLBACK_POOL: list[AppliedSkill] = [
         ),
         targets=["loans"],
         delta_roi=1,
+        delta_loans_raw=-1,
     ),
     # --- Fight the Market (GRW + ERN) --------------------------------
     AppliedSkill(
@@ -284,6 +292,8 @@ def format_impact(skill: AppliedSkill) -> str:
         parts.append(f"burnout{skill.delta_burnout_raw:+d}")
     if skill.delta_ceiling_raw:
         parts.append(f"ceiling{skill.delta_ceiling_raw:+d}")
+    if skill.delta_loans_raw:
+        parts.append(f"loans{skill.delta_loans_raw:+d}")
     return ", ".join(parts) or "—"
 
 
@@ -300,9 +310,14 @@ def apply_skills(
     """Return a copy of ``career`` with every crafted skill stacked in.
 
     Stat deltas accumulate additively and clamp to [1, 10]. ``None``
-    stats stay ``None`` (can't boost what isn't there). Burnout raw
-    delta is clamped so it can't push the raw score below 1 or above
-    10. Same for ceiling raw.
+    stats stay ``None`` (can't boost what isn't there). Burnout, ceiling,
+    and loans raw deltas clamp so they can't push the raw score below 1
+    or above 10.
+
+    ``raw_stat_res`` is also bumped by ``sum_res`` so Fight AI (which
+    scores from the underlying raw_stat_res + raw_stat_hmn rather than
+    the blended pentagon RES) responds to AI-targeted skills. Initial
+    scoring is unaffected because apply_skills only runs on rerolls.
     """
     if not skills:
         return career
@@ -313,6 +328,7 @@ def apply_skills(
     sum_grw = sum(s.delta_grw for s in skills)
     sum_burnout = sum(s.delta_burnout_raw for s in skills)
     sum_ceiling = sum(s.delta_ceiling_raw for s in skills)
+    sum_loans = sum(s.delta_loans_raw for s in skills)
 
     stats = career.stats
     # AURA passes through unchanged — institution-level by construction;
@@ -332,19 +348,28 @@ def apply_skills(
     new_ceiling = bosses.ceiling
     if new_ceiling is not None and sum_ceiling:
         new_ceiling = max(1, min(10, new_ceiling + sum_ceiling))
+    new_loans = bosses.loans
+    if new_loans is not None and sum_loans:
+        new_loans = max(1, min(10, new_loans + sum_loans))
 
     new_bosses = BossScores(
         ai=bosses.ai,
-        loans=bosses.loans,
+        loans=new_loans,
         market=bosses.market,
         burnout=new_burnout,
         ceiling=new_ceiling,
     )
 
+    # Mirror sum_res into raw_stat_res so Fight AI (which reads raws,
+    # not the blended stats.res) reflects AI-targeted skill picks.
+    update: dict[str, object] = {"stats": new_stats, "bosses": new_bosses}
+    if career.raw_stat_res is not None and sum_res:
+        update["raw_stat_res"] = max(1, min(10, career.raw_stat_res + sum_res))
+
     # model_copy(update=...) gives us a new CareerOutcome without
     # touching the original — important because the CLI re-applies the
     # full skill list on every reroll iteration.
-    return career.model_copy(update={"stats": new_stats, "bosses": new_bosses})
+    return career.model_copy(update=update)
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +405,17 @@ _POOL_SYSTEM = (
     "THIS student."
 )
 
+_COMPACT_POOL_SYSTEM = (
+    "Generate concrete school skills for a student's weak or mixed career "
+    "areas. Return only pipe-delimited lines, no markdown or preamble:\n"
+    "boss|Title|DELTAS|Rationale\n\n"
+    "Make 3-5 skills for each listed boss. Titles should be specific "
+    "courses, minors, clubs, certifications, projects, internships, or "
+    "cost actions. Never change school or major. Rationale is one plain "
+    "student-facing sentence and must not mention stat codes, scores, "
+    "outcome labels, or game words."
+)
+
 
 _BOSS_DESCRIPTIONS: dict[BossId, str] = {
     "ai": (
@@ -390,6 +426,14 @@ _BOSS_DESCRIPTIONS: dict[BossId, str] = {
     "market": "Fight the Market (tests GRW — job market demand and growth)",
     "burnout": "Fight Burnout (tests burnout risk from O*NET work context)",
     "ceiling": "Fight the Ceiling (tests long-term earnings trajectory)",
+}
+
+_COMPACT_BOSS_DESCRIPTIONS: dict[BossId, str] = {
+    "ai": "AI risk: needs more human judgment, creativity, or AI-directing skill",
+    "loans": "Debt risk: needs lower borrowing or better debt-to-pay fit",
+    "market": "Market risk: needs stronger demand signal or employer access",
+    "burnout": "Burnout risk: needs stress, workload, or work-boundary protection",
+    "ceiling": "Pay-ceiling risk: needs leadership, specialization, or credential lift",
 }
 
 
@@ -406,7 +450,7 @@ _DELTA_TOKEN = re.compile(
     # Pentagon-stat-reshape: hmn parses but folds into res (Gemma may
     # still emit "HMN+1" for one release; we re-bucket on the parser
     # side so the Gemma prompt change doesn't break legacy outputs).
-    r"(ern|roi|res|grw|hmn|burnout|ceiling)\s*([+\-])\s*(\d+)",
+    r"(ern|roi|res|grw|hmn|burnout|ceiling|loans)\s*([+\-])\s*(\d+)",
     re.IGNORECASE,
 )
 
@@ -449,10 +493,15 @@ def _pool_prompt(
         f"Rules:\n"
         f"- boss = one of: ai, loans, market, burnout, ceiling\n"
         f"- DELTAS = comma-separated STAT+N pairs, e.g. RES+2,GRW+1\n"
-        f"- Valid stats: ERN, ROI, RES, GRW, burnout, ceiling\n"
+        f"- Valid stats: ERN, ROI, RES, GRW, burnout, ceiling, loans\n"
         f"- DO NOT emit AURA deltas — AURA is institution-level and "
         f"  cannot be shifted by skills.\n"
+        f"- Skills only HELP. Pentagon stats (ERN/ROI/RES/GRW) take "
+        f"  POSITIVE deltas only. burnout and loans take NEGATIVE "
+        f"  deltas only (lower risk). ceiling takes POSITIVE deltas "
+        f"  only (higher ceiling). Wrong-sign deltas are dropped.\n"
         f"- Use burnout-N (negative) to reduce burnout risk\n"
+        f"- Use loans-N (negative) to reduce loan burden\n"
         f"- Use ceiling+N (positive) to raise the earnings ceiling\n"
         f"- Stat magnitudes should be +1 or +2 (rarely +3)\n"
         f"- Skills must name real, specific things the student at "
@@ -464,6 +513,40 @@ def _pool_prompt(
         f"analytics minor teaches marketers to direct AI tools, not "
         f"compete with them.\n\n"
         f"Now generate 3-5 skills per lost boss listed above."
+    )
+
+
+def _compact_pool_prompt(
+    career: CareerOutcome,
+    rerollable_bosses: list[tuple[BossId, str]],
+) -> str:
+    stats = career.stats
+    boss_block = "\n".join(
+        f"- {boss}: {_COMPACT_BOSS_DESCRIPTIONS[boss]} ({result})"
+        for boss, result in rerollable_bosses
+        if boss in _COMPACT_BOSS_DESCRIPTIONS
+    )
+    top_human = ", ".join(
+        str(item.get("activity", ""))
+        for item in career.top_human_activities[:3]
+        if item.get("activity")
+    )
+    return (
+        f"School: {career.institution_name}\n"
+        f"Major: {career.program_name}\n"
+        f"Career: {career.occupation_title}\n"
+        f"Scores: earnings {stats.ern}, debt/ROI {stats.roi}, "
+        f"AI resilience {stats.res}, market growth {stats.grw}\n"
+        f"Human activities: {top_human or 'none listed'}\n\n"
+        f"Bosses needing skills:\n{boss_block}\n\n"
+        "Output one line per skill:\n"
+        "boss|Specific title|DELTAS|One-sentence rationale\n\n"
+        "Allowed bosses: ai, loans, market, burnout, ceiling.\n"
+        "Allowed deltas: ERN+N, ROI+N, RES+N, GRW+N, burnout-N, "
+        "loans-N, ceiling+N. Use N=1 or 2, rarely 3. No AURA. "
+        "Use only helpful signs: plus for ERN/ROI/RES/GRW/ceiling, "
+        "minus for burnout/loans.\n"
+        "Now generate 3-5 skills for each listed boss."
     )
 
 
@@ -504,6 +587,7 @@ def _parse_pool(
             "grw": 0,
             "burnout": 0,
             "ceiling": 0,
+            "loans": 0,
         }
         for token in _DELTA_TOKEN.finditer(match.group("deltas")):
             stat = token.group(1).lower()
@@ -515,6 +599,19 @@ def _parse_pool(
             if stat == "hmn":
                 stat = "res"
             deltas[stat] += sign * magnitude
+
+        # Sign-clamp: skills can only HELP. Gemma occasionally flips
+        # signs (e.g. emits "burnout+2" for a stress-relief skill it
+        # described as helpful). Drop wrong-direction deltas to zero so
+        # a reroll can never downgrade an outcome (the verdict is a
+        # deterministic threshold over monotonic stat scores).
+        deltas["ern"] = max(0, deltas["ern"])
+        deltas["roi"] = max(0, deltas["roi"])
+        deltas["res"] = max(0, deltas["res"])
+        deltas["grw"] = max(0, deltas["grw"])
+        deltas["burnout"] = min(0, deltas["burnout"])
+        deltas["ceiling"] = max(0, deltas["ceiling"])
+        deltas["loans"] = min(0, deltas["loans"])
 
         if not any(deltas.values()):
             continue
@@ -536,6 +633,7 @@ def _parse_pool(
                 delta_grw=deltas["grw"],
                 delta_burnout_raw=deltas["burnout"],
                 delta_ceiling_raw=deltas["ceiling"],
+                delta_loans_raw=deltas["loans"],
             )
         )
     return skills
@@ -650,10 +748,21 @@ async def generate_pool_async(
         return []
 
     system = f"{_POOL_SYSTEM}\n\n{gemma_language_instruction(locale)}"
+    profile = gemma_client.runtime_profile()
+    compact = profile.tier == "compact_local"
+    system_core = _COMPACT_POOL_SYSTEM if compact else _POOL_SYSTEM
+    prompt = (
+        _compact_pool_prompt(career, rerollable)
+        if compact
+        else _pool_prompt(career, rerollable)
+    )
+    system = f"{system_core}\n\n{gemma_language_instruction(locale)}"
     text = await gemma_client.generate_async(
         system=system,
-        user=_pool_prompt(career, rerollable),
-        max_tokens=2000,
+        user=prompt,
+        max_tokens=profile.build_pool_max_tokens,
         temperature=0.5,
+        timeout_s=profile.build_gemma_timeout_s,
+        extra={"call_site": "skill_pool", "profile_tier": profile.tier},
     )
     return _finalize_pool(text, rerollable)

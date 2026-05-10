@@ -92,6 +92,16 @@ _SYSTEM = (
     "output verbatim; any markdown characters appear literally."
 )
 
+_COMPACT_SYSTEM = (
+    "You are Gemma writing a short career-path read for a high school "
+    "student. Use the student's actual school, major, career, salary, "
+    "debt, and weak spots. Write 3-4 short sentences total.\n\n"
+    "No markdown. No bullets. Do not use stat codes, score fractions, "
+    "outcome labels, or game words like fight, boss, gauntlet, battle, "
+    "beat, or defeat. Be concrete: say what looks strongest, what looks "
+    "riskiest, and one action the student can take while in school."
+)
+
 
 def _format_bosses(gauntlet: GauntletResult) -> str:
     lines = []
@@ -165,6 +175,39 @@ def _prompt(
         "If they lost a boss fight, explain what they can do about it. "
         "Mention 1-2 concrete actions they can take while still in school. "
         "Write at a 6th grade reading level. No jargon."
+    )
+
+
+def _compact_prompt(
+    career: CareerOutcome,
+    gauntlet: GauntletResult,
+    branches: list[CareerBranch],
+) -> str:
+    wage = fmt_dollars(career.median_annual_wage)
+    weak = _weak_spot_phrases(gauntlet) or "none"
+    strong = [
+        f.label.replace("Fight ", "")
+        for f in gauntlet.fights
+        if f.result == "win"
+    ]
+    mixed = [
+        f.label.replace("Fight ", "")
+        for f in gauntlet.fights
+        if f.result == "draw"
+    ]
+    branch_titles = ", ".join(b.to_title for b in branches[:3]) or "none"
+    return (
+        f"School: {career.institution_name}\n"
+        f"Major: {career.program_name}\n"
+        f"Career: {career.occupation_title}\n"
+        f"Median salary: {wage}\n"
+        f"Entry education: {career.education_level_name or 'unknown'}\n"
+        f"Weakest areas: {weak}\n"
+        f"Strong areas: {', '.join(strong) or 'none'}\n"
+        f"Mixed areas: {', '.join(mixed) or 'none'}\n"
+        f"Possible next career branches: {branch_titles}\n\n"
+        "Write 3-4 sentences. Do not invent school facts. Use only the "
+        "data above."
     )
 
 
@@ -259,12 +302,22 @@ async def generate_guidance_async(
 ) -> str:
     """Async variant — same fallback contract as :func:`generate_guidance`."""
     locale = normalize_locale(locale)
-    system = f"{_SYSTEM}\n\n{gemma_language_instruction(locale)}"
+    profile = gemma_client.runtime_profile()
+    compact = profile.tier == "compact_local"
+    system_core = _COMPACT_SYSTEM if compact else _SYSTEM
+    prompt = (
+        _compact_prompt(career, gauntlet, branches)
+        if compact
+        else _prompt(career, gauntlet, branches)
+    )
+    system = f"{system_core}\n\n{gemma_language_instruction(locale)}"
     text = await gemma_client.generate_async(
         system=system,
-        user=_prompt(career, gauntlet, branches),
-        max_tokens=1200,
+        user=prompt,
+        max_tokens=profile.build_guidance_max_tokens,
         temperature=0.7,
+        timeout_s=profile.build_gemma_timeout_s,
+        extra={"call_site": "guidance", "profile_tier": profile.tier},
     )
     if text:
         return strip_markdown(text)

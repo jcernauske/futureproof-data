@@ -25,6 +25,8 @@ function getPhaseAccent(pathname: string): string {
     return "bg-accent-empathy";
   if (pathname.startsWith("/builds"))
     return "bg-accent-info";
+  if (pathname.startsWith("/about"))
+    return "bg-accent-info";
   return "";
 }
 
@@ -96,6 +98,7 @@ export function AppHeader() {
 
   const showMyBuilds = !isGauntletFight;
   const showCompare = !isGauntletFight;
+  const showAbout = !isGauntletFight;
   const showNewBuild = !isGauntletFight;
   const compareDisabled = (buildsCount ?? 0) < 2;
 
@@ -192,6 +195,25 @@ export function AppHeader() {
                 </svg>
                 <span className="hidden desktop:inline">
                   {t("header.compareLabel")}
+                </span>
+              </motion.button>
+            )}
+            {showAbout && (
+              <motion.button
+                data-testid="header-about"
+                className="font-body text-small text-text-muted px-3 py-1.5 rounded-full cursor-pointer transition-all duration-normal hover:text-text-primary hover:bg-bp-surface inline-flex items-center gap-1.5"
+                initial={false}
+                onClick={() => navigate("/about")}
+                aria-label={t("header.aboutAria")}
+                title={t("header.aboutAria")}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="block shrink-0">
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M7 6 L7 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <circle cx="7" cy="4.2" r="0.8" fill="currentColor" />
+                </svg>
+                <span className="hidden desktop:inline">
+                  {t("header.aboutLabel")}
                 </span>
               </motion.button>
             )}

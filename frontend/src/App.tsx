@@ -7,6 +7,7 @@ import { SaveWrappedScreen } from "@/screens/SaveWrappedScreen";
 import { MenuScreen } from "@/screens/MenuScreen";
 import { MockupsShowcase } from "@/screens/MockupsShowcase";
 import { BuildResultsScreen } from "@/screens/BuildResultsScreen";
+import { AboutScreen } from "@/screens/AboutScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { GlobalChrome } from "@/components/ui/GlobalChrome";
@@ -34,6 +35,7 @@ export function AppRoutes() {
         <Route path="/save" element={<SaveWrappedScreen />} />
         <Route path="/menu" element={<Navigate to="/builds" replace />} />
         <Route path="/builds" element={<MenuScreen />} />
+        <Route path="/about" element={<AboutScreen />} />
         <Route path="/mockups/horizon" element={<MockupsShowcase />} />
       </Routes>
     </>

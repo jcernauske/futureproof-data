@@ -609,10 +609,10 @@ describe("CompareView", () => {
       expect(screen.getByTestId("salary-berkeley-cs-001")).toBeInTheDocument();
     });
 
-    // The salary bar for Berkeley should show a range aria-label.
+    // The salary bar for Berkeley should expose a peer-band aria-label.
     // Berkeley: wage=130000, p25=91000, p75=169000
     const berkeleySalary = screen.getByTestId("salary-berkeley-cs-001");
-    const rangeLabel = berkeleySalary.querySelector('[aria-label*="Salary range"]');
+    const rangeLabel = berkeleySalary.querySelector('[aria-label*="Peer Year-1 band"]');
     expect(rangeLabel).not.toBeNull();
 
     // The p25/p75 formatted values should appear as range labels.
@@ -734,38 +734,40 @@ describe("CompareView", () => {
       expect(btn.disabled).toBe(false);
     });
 
-    it("disables the button when 4 builds are selected", async () => {
-      const fourBuild = makeCompareResult({
+    it("disables the button when 5 builds are selected", async () => {
+      const fiveBuild = makeCompareResult({
         builds: [
           makeBuild("a", "School A", "Major A", "Career A", "11-0001"),
           makeBuild("b", "School B", "Major A", "Career B", "11-0002"),
           makeBuild("c", "School C", "Major A", "Career C", "11-0003"),
           makeBuild("d", "School D", "Major A", "Career D", "11-0004"),
+          makeBuild("e", "School E", "Major A", "Career E", "11-0005"),
         ],
         stats: [
-          { label: "ERN", values: [7, 6, 8, 5] },
-          { label: "ROI", values: [6, 7, 5, 8] },
-          { label: "RES", values: [5, 4, 6, 7] },
-          { label: "GRW", values: [8, 9, 7, 6] },
-          { label: "AURA", values: [4, 5, 3, 9] },
+          { label: "ERN", values: [7, 6, 8, 5, 4] },
+          { label: "ROI", values: [6, 7, 5, 8, 3] },
+          { label: "RES", values: [5, 4, 6, 7, 5] },
+          { label: "GRW", values: [8, 9, 7, 6, 5] },
+          { label: "AURA", values: [4, 5, 3, 9, 6] },
         ],
         bosses: [
-          { label: "AI", boss_id: "ai", values: ["WIN", "DRAW", "LOSE", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "DRAW", "LOSE", "WIN"] },
-          { label: "Loans", boss_id: "loans", values: ["WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN"] },
-          { label: "Market", boss_id: "market", values: ["WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN"] },
-          { label: "Burnout", boss_id: "burnout", values: ["DRAW", "DRAW", "DRAW", "DRAW"], skill_counts: [0, 0, 0, 0], original_values: ["DRAW", "DRAW", "DRAW", "DRAW"] },
-          { label: "Ceiling", boss_id: "ceiling", values: ["WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN"] },
+          { label: "AI", boss_id: "ai", values: ["WIN", "DRAW", "LOSE", "WIN", "WIN"], skill_counts: [0, 0, 0, 0, 0], original_values: ["WIN", "DRAW", "LOSE", "WIN", "WIN"] },
+          { label: "Loans", boss_id: "loans", values: ["WIN", "WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN", "WIN"] },
+          { label: "Market", boss_id: "market", values: ["WIN", "WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN", "WIN"] },
+          { label: "Burnout", boss_id: "burnout", values: ["DRAW", "DRAW", "DRAW", "DRAW", "DRAW"], skill_counts: [0, 0, 0, 0, 0], original_values: ["DRAW", "DRAW", "DRAW", "DRAW", "DRAW"] },
+          { label: "Ceiling", boss_id: "ceiling", values: ["WIN", "WIN", "WIN", "WIN", "WIN"], skill_counts: [0, 0, 0, 0, 0], original_values: ["WIN", "WIN", "WIN", "WIN", "WIN"] },
         ],
         branches: [
           { build_id: "a", career: "Career A", destinations: [] },
           { build_id: "b", career: "Career B", destinations: [] },
           { build_id: "c", career: "Career C", destinations: [] },
           { build_id: "d", career: "Career D", destinations: [] },
+          { build_id: "e", career: "Career E", destinations: [] },
         ],
       });
-      mockCompareBuilds.mockResolvedValue(fourBuild);
+      mockCompareBuilds.mockResolvedValue(fiveBuild);
 
-      renderCV(["a", "b", "c", "d"]);
+      renderCV(["a", "b", "c", "d", "e"]);
 
       await waitFor(() => {
         expect(screen.getByTestId("btn-export-pdf-compare")).toBeInTheDocument();
@@ -775,9 +777,9 @@ describe("CompareView", () => {
         "btn-export-pdf-compare",
       ) as HTMLButtonElement;
       expect(btn.disabled).toBe(true);
-      // Tooltip mentions the 3-school cap.
+      // Tooltip mentions the 4-school cap.
       const tooltip = btn.getAttribute("title") ?? "";
-      expect(tooltip.toLowerCase()).toMatch(/3|three|deselect/);
+      expect(tooltip.toLowerCase()).toMatch(/4|four|deselect/);
     });
 
     it("enables the button for 3 same-major builds", async () => {

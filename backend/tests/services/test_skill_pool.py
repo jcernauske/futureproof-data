@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+
 from app.models.career import (
     AppliedSkill,
     BossScores,
@@ -19,6 +22,9 @@ def _career(
     aura: int | None = 5,
     burnout: int | None = 5,
     ceiling: int | None = 5,
+    loans: int | None = 5,
+    raw_stat_res: int | None = 5,
+    raw_stat_hmn: int | None = 5,
 ) -> CareerOutcome:
     return CareerOutcome(
         unitid=1,
@@ -29,8 +35,10 @@ def _career(
         occupation_title="Marketing Managers",
         stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, aura=aura),
         bosses=BossScores(
-            ai=5, loans=5, market=5, burnout=burnout, ceiling=ceiling
+            ai=5, loans=loans, market=5, burnout=burnout, ceiling=ceiling
         ),
+        raw_stat_res=raw_stat_res,
+        raw_stat_hmn=raw_stat_hmn,
     )
 
 
@@ -75,6 +83,19 @@ class TestFallbackPoolIntegrity:
             assert len(results) >= 3, (
                 f"fallback pool has only {len(results)} skill(s) for "
                 f"boss {boss_id!r}; generate_pool padding needs >= 3"
+            )
+
+    def test_loans_skills_carry_delta_loans_raw(self):
+        # Fight Loans scores from bosses.loans (the financing-aware boss
+        # score) on most rows; delta_roi alone only affects the legacy
+        # fallback. Every fallback loan skill must emit delta_loans_raw
+        # so loans-targeted skills actually move the verdict.
+        loans_skills = skill_pool.get_skills_for_boss("loans")
+        for skill in loans_skills:
+            assert skill.delta_loans_raw < 0, (
+                f"{skill.id} targets 'loans' but has no delta_loans_raw; "
+                f"_score_loans reads bosses.loans which only delta_loans_raw "
+                f"can mutate"
             )
 
 
@@ -198,6 +219,66 @@ class TestApplySkills:
         new_career = skill_pool.apply_skills(career, [skill])
         assert new_career.bosses.ceiling == 10
 
+    def test_res_delta_also_bumps_raw_stat_res(self):
+        # Fight AI scores from raw_stat_res + raw_stat_hmn, not the
+        # blended pentagon RES. apply_skills must mirror sum_res into
+        # raw_stat_res so AI-targeted skills actually move the verdict.
+        career = _career(res=5, raw_stat_res=5)
+        skill = AppliedSkill(
+            id="ai_skill",
+            title="Analytics Minor",
+            rationale="",
+            targets=["ai"],
+            delta_res=2,
+        )
+        new_career = skill_pool.apply_skills(career, [skill])
+        assert new_career.stats.res == 7
+        assert new_career.raw_stat_res == 7
+
+    def test_raw_stat_res_clamps_to_ten(self):
+        career = _career(raw_stat_res=9)
+        skill = AppliedSkill(
+            id="ai_skill",
+            title="x",
+            rationale="",
+            targets=["ai"],
+            delta_res=5,
+        )
+        new_career = skill_pool.apply_skills(career, [skill])
+        assert new_career.raw_stat_res == 10
+
+    def test_raw_stat_res_stays_none_when_unset(self):
+        career = _career(raw_stat_res=None)
+        skill = AppliedSkill(
+            id="x", title="x", rationale="", targets=["ai"], delta_res=2
+        )
+        new_career = skill_pool.apply_skills(career, [skill])
+        assert new_career.raw_stat_res is None
+
+    def test_loans_delta_reduces_raw_score(self):
+        # delta_loans_raw directly mutates bosses.loans so Fight Loans
+        # (which scores from 11 - bosses.loans) actually responds to
+        # loans-targeted skills.
+        career = _career(loans=7)
+        skill = AppliedSkill(
+            id="cc_transfer",
+            title="CC Transfer",
+            rationale="",
+            targets=["loans"],
+            delta_loans_raw=-2,
+        )
+        new_career = skill_pool.apply_skills(career, [skill])
+        assert new_career.bosses.loans == 5
+
+    def test_loans_delta_clamps_to_floor(self):
+        career = _career(loans=2)
+        skill = AppliedSkill(
+            id="x", title="x", rationale="",
+            targets=["loans"], delta_loans_raw=-5,
+        )
+        new_career = skill_pool.apply_skills(career, [skill])
+        assert new_career.bosses.loans == 1
+
 
 class TestFormatImpact:
     def test_single_stat(self):
@@ -236,6 +317,13 @@ class TestFormatImpact:
             delta_burnout_raw=-2,
         )
         assert "burnout-2" in skill_pool.format_impact(skill)
+
+    def test_loans_raw_shows_signed(self):
+        skill = AppliedSkill(
+            id="x", title="X", rationale="",
+            targets=["loans"], delta_loans_raw=-2,
+        )
+        assert "loans-2" in skill_pool.format_impact(skill)
 
     def test_empty_skill_returns_dash(self):
         skill = AppliedSkill(
@@ -441,6 +529,49 @@ class TestParsePool:
         assert len(skills) == 1
         assert skills[0].delta_ceiling_raw == 2
 
+    def test_parses_loans_raw(self):
+        text = "loans|CC transfer|loans-2|Lower-tuition first year."
+        skills = skill_pool._parse_pool(text, ["loans"])
+        assert len(skills) == 1
+        assert skills[0].delta_loans_raw == -2
+
+    def test_clamps_wrong_sign_burnout_to_zero(self):
+        # Gemma sometimes flips the sign on burnout (emits +N for a
+        # stress-relief skill it described as helpful). The parser must
+        # drop the wrong-direction delta to zero so a reroll can never
+        # downgrade a result. If burnout is the ONLY signal and it's
+        # clamped to zero, the skill has no impact and is dropped.
+        text = (
+            "burnout|Volunteering on campus|burnout+2|"
+            "Service work that helps you handle stress.\n"
+            "burnout|Mindfulness elective|RES+1,burnout+1|"
+            "Stress relief while raising resilience.\n"
+        )
+        skills = skill_pool._parse_pool(text, ["burnout"])
+        # First line: only burnout+2, clamped to 0 → no impact → dropped.
+        # Second line: RES+1 survives, burnout+1 clamps to 0.
+        assert len(skills) == 1
+        assert skills[0].title == "Mindfulness elective"
+        assert skills[0].delta_burnout_raw == 0
+        assert skills[0].delta_res == 1
+
+    def test_clamps_wrong_sign_loans_to_zero(self):
+        text = "loans|Bad sign|loans+3|Wrong direction."
+        skills = skill_pool._parse_pool(text, ["loans"])
+        assert skills == []
+
+    def test_clamps_wrong_sign_pentagon_to_zero(self):
+        text = "ai|Wrong sign skill|RES-2,GRW+1|Mixed signals."
+        skills = skill_pool._parse_pool(text, ["ai"])
+        assert len(skills) == 1
+        assert skills[0].delta_res == 0
+        assert skills[0].delta_grw == 1
+
+    def test_clamps_wrong_sign_ceiling_to_zero(self):
+        text = "ceiling|Bad ceiling|ceiling-3|Wrong direction."
+        skills = skill_pool._parse_pool(text, ["ceiling"])
+        assert skills == []
+
     def test_dedupes_by_derived_id(self):
         text = (
             "ai|Repeat Skill|RES+1|First rationale.\n"
@@ -584,6 +715,99 @@ class TestGeneratePool:
         # Won boss (market) should have zero skills.
         market_count = sum(1 for s in pool if "market" in s.targets)
         assert market_count == 0
+
+    def test_generate_pool_async_uses_compact_prompt_for_local_e4b(
+        self, monkeypatch,
+    ):
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            skill_pool.gemma_client,
+            "runtime_profile",
+            lambda: SimpleNamespace(
+                tier="compact_local",
+                build_pool_max_tokens=321,
+                build_gemma_timeout_s=6.5,
+            ),
+        )
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return (
+                "ai|AI Literacy Course|RES+1|This helps the student direct "
+                "AI tools in marketing.\n"
+                "ai|Customer Interview Project|RES+1|This builds human "
+                "judgment about what customers need.\n"
+                "ai|Marketing Analytics Internship|RES+2|This gives real "
+                "practice using data with people skills.\n"
+            )
+
+        monkeypatch.setattr(
+            skill_pool.gemma_client, "generate_async", fake_generate_async,
+        )
+
+        result = asyncio.run(
+            skill_pool.generate_pool_async(_career(), _draw_ai_gauntlet())
+        )
+
+        assert len([s for s in result if "ai" in s.targets]) >= 3
+        assert captured["max_tokens"] == 321
+        assert captured["timeout_s"] == 6.5
+        assert captured["extra"] == {
+            "call_site": "skill_pool",
+            "profile_tier": "compact_local",
+        }
+        system = captured["system"]
+        user = captured["user"]
+        assert isinstance(system, str)
+        assert isinstance(user, str)
+        assert "Generate concrete school skills" in system
+        assert "Make 3-5 skills for each listed boss" in system
+        assert "Output format is strict" not in system
+        assert "Bosses needing skills" in user
+        assert "Now generate 3-5 skills for each listed boss" in user
+
+    def test_generate_pool_async_keeps_rich_prompt_for_full_profile(
+        self, monkeypatch,
+    ):
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            skill_pool.gemma_client,
+            "runtime_profile",
+            lambda: SimpleNamespace(
+                tier="full",
+                build_pool_max_tokens=2000,
+                build_gemma_timeout_s=None,
+            ),
+        )
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return (
+                "ai|AI Literacy Course|RES+1|This helps the student direct "
+                "AI tools in marketing.\n"
+                "ai|Customer Interview Project|RES+1|This builds human "
+                "judgment about what customers need.\n"
+                "ai|Marketing Analytics Internship|RES+2|This gives real "
+                "practice using data with people skills.\n"
+            )
+
+        monkeypatch.setattr(
+            skill_pool.gemma_client, "generate_async", fake_generate_async,
+        )
+
+        asyncio.run(
+            skill_pool.generate_pool_async(_career(), _draw_ai_gauntlet())
+        )
+
+        system = captured["system"]
+        user = captured["user"]
+        assert isinstance(system, str)
+        assert isinstance(user, str)
+        assert "Output format is strict" in system
+        assert "Lost or drawn boss fights" in user
+        assert captured["max_tokens"] == 2000
 
 
 class TestGetSkillsForBossWithExplicitPool:

@@ -24,6 +24,9 @@ from fastapi import APIRouter, HTTPException, Response
 
 from app import state
 from app.models.api import (
+    CompareInsightsPayload,
+    ComparePivotalPayload,
+    CompareProsConsItem,
     ExportBuildPdfRequest,
     ExportComparisonPdfRequest,
 )
@@ -31,6 +34,11 @@ from app.models.career import Build
 from app.services import builds as builds_service
 from app.services import career_description, pdf_export, pdf_questions
 from app.services.career_description import CareerDescriptionUnavailable
+from app.services.guidance import (
+    generate_compare_pivotal_async,
+    generate_compare_pros_cons_async,
+    generate_compare_summary_async,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -148,26 +156,82 @@ async def export_build_pdf(
     )
 
 
+async def _resolve_compare_insights(
+    builds: list[Build],
+) -> CompareInsightsPayload | None:
+    """Fire the three compare-insights Gemma calls in parallel and
+    coerce the results into a CompareInsightsPayload.
+
+    Mirrors ``routers/builds_collection.compare_insights`` but skips
+    money_insight (already covered by the PDF's Cost & ROI strip) and
+    drops the 4th call to keep export latency bounded. Each call may
+    fail independently; the corresponding sub-block becomes None and
+    the renderer silently omits it.
+    """
+    results = await asyncio.gather(
+        generate_compare_summary_async(builds),
+        generate_compare_pros_cons_async(builds),
+        generate_compare_pivotal_async(builds),
+        return_exceptions=True,
+    )
+    summary, pros_cons_raw, pivotal_raw = results
+
+    summary_text = summary if isinstance(summary, str) else None
+    pros_cons_items: list[CompareProsConsItem] | None = None
+    if isinstance(pros_cons_raw, list):
+        try:
+            pros_cons_items = [
+                CompareProsConsItem.model_validate(item)
+                for item in pros_cons_raw
+            ]
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("compare-pdf pros_cons coerce failed: %s", exc)
+
+    pivotal_payload: ComparePivotalPayload | None = None
+    if isinstance(pivotal_raw, dict):
+        try:
+            pivotal_payload = ComparePivotalPayload.model_validate(pivotal_raw)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("compare-pdf pivotal coerce failed: %s", exc)
+
+    if not (summary_text or pros_cons_items or pivotal_payload):
+        return None
+    return CompareInsightsPayload(
+        compare_summary=summary_text,
+        pros_cons=pros_cons_items,
+        pivotal=pivotal_payload,
+    )
+
+
 @router.post("/builds/compare/pdf")
 async def export_comparison_pdf(
     body: ExportComparisonPdfRequest,
 ) -> Response:
-    """Render the 1-page Comparison PDF and return application/pdf bytes.
+    """Render the multi-page Comparison PDF and return application/pdf bytes.
 
     Validation order:
-    1. Pydantic enforces 2 ≤ len(build_ids) ≤ 3.
+    1. Pydantic enforces 2 ≤ len(build_ids) ≤ 4.
     2. Each build_id must resolve (404 on first missing).
 
     Cross-major comparisons are SUPPORTED — the in-app CompareView shows
     them, the PDF matches that contract. The PDF title falls back to
     "Career comparison" when majors differ.
+
+    ``body.insights`` is the Gemma-generated editorial block from
+    /builds/compare-insights. When the frontend has already loaded it
+    for the on-screen Gemma's Verdict, it forwards the payload here so
+    the PDF reuses it instead of re-firing the 3 Gemma calls. When
+    omitted (or None), this endpoint fires those calls itself in
+    parallel before rendering. Each Gemma sub-call may fail
+    independently; the PDF silently omits the corresponding sub-block.
     """
     builds: list[Build] = [_load_build_or_404(bid) for bid in body.build_ids]
+    insights = body.insights or await _resolve_compare_insights(builds)
 
     try:
         # CPU-bound sync render → worker thread (staff-engineer P1 fix).
         pdf_bytes = await asyncio.to_thread(
-            pdf_export.generate_comparison_pdf, builds,
+            pdf_export.generate_comparison_pdf, builds, insights=insights,
         )
     except ValueError as exc:
         # Should be unreachable given the validation above, but kept as a

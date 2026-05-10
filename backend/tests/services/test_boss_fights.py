@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from app.models.career import BossScores, CareerOutcome, PentagonStats
 from app.services import boss_fights
 
@@ -616,6 +618,102 @@ class TestNarrateOne:
             boss_fights.narrate_one(_career(ceiling=None, ern=None), fight)
         )
         assert text == boss_fights._fallback_narrative(fight)
+
+    def test_narrate_one_uses_compact_profile_for_local_e4b(self, monkeypatch):
+        import asyncio
+
+        from app.models.career import BossFightResult
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            gemma_client,
+            "runtime_profile",
+            lambda: SimpleNamespace(
+                tier="compact_local",
+                build_narrative_max_tokens=123,
+                build_gemma_timeout_s=4.5,
+            ),
+        )
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return "compact note"
+
+        monkeypatch.setattr(gemma_client, "generate_async", fake_generate_async)
+
+        fight = BossFightResult(
+            boss="ai",  # type: ignore[arg-type]
+            label="Fight AI",
+            result="lose",  # type: ignore[arg-type]
+            raw_score=7,
+            threshold_win=14,
+            threshold_draw=10,
+            reason="AI exposure is high",
+        )
+
+        text = asyncio.run(boss_fights.narrate_one(_career(res=3, aura=4), fight))
+
+        assert text == "compact note"
+        assert captured["max_tokens"] == 123
+        assert captured["timeout_s"] == 4.5
+        assert captured["extra"] == {
+            "call_site": "boss_narrative",
+            "boss_id": "ai",
+            "profile_tier": "compact_local",
+        }
+        system = captured["system"]
+        user = captured["user"]
+        assert isinstance(system, str)
+        assert isinstance(user, str)
+        assert "2 sentences only" in system
+        assert "Every sentence you write must translate" not in system
+        assert "Your stats explained" not in user
+
+    def test_narrate_one_keeps_rich_prompt_for_full_profile(self, monkeypatch):
+        import asyncio
+
+        from app.models.career import BossFightResult
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            gemma_client,
+            "runtime_profile",
+            lambda: SimpleNamespace(
+                tier="full",
+                build_narrative_max_tokens=800,
+                build_gemma_timeout_s=None,
+            ),
+        )
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return "rich note"
+
+        monkeypatch.setattr(gemma_client, "generate_async", fake_generate_async)
+
+        fight = BossFightResult(
+            boss="ai",  # type: ignore[arg-type]
+            label="Fight AI",
+            result="lose",  # type: ignore[arg-type]
+            raw_score=7,
+            threshold_win=14,
+            threshold_draw=10,
+            reason="AI exposure is high",
+        )
+
+        asyncio.run(boss_fights.narrate_one(_career(res=3, aura=4), fight))
+
+        system = captured["system"]
+        user = captured["user"]
+        assert isinstance(system, str)
+        assert isinstance(user, str)
+        assert "Every sentence you write must translate" in system
+        assert "Your stats explained" in user
+        assert captured["max_tokens"] == 800
 
     def test_narrate_one_propagates_unexpected_exception(self, monkeypatch):
         """Unexpected bugs must bubble up — the router's

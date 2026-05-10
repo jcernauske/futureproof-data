@@ -496,6 +496,29 @@ async def stream_initial_resolution(
         "major_text": major_text,
         "input_normalized": input_normalized,
     }
+    profile = gemma_client.runtime_profile()
+
+    if not profile.rich_intent_streaming:
+        intent_result = _fallback_resolve(
+            major_text, school_cips, programs, school_name=school_name
+        )
+        if intent_result is None:
+            intent_result = _build_intent_result_from_tail(
+                major_text=major_text,
+                prose="",
+                parsed=None,
+                school_cips=school_cips,
+                programs=programs,
+            )
+        if intent_result.reasoning:
+            yield {"event": "delta", "data": {"text": intent_result.reasoning}}
+        yield {"event": "structured", "data": intent_result.model_dump()}
+        suggestions = community_suggestions.get_suggestions(
+            unitid=unitid, input_normalized=input_normalized
+        )
+        yield {"event": "suggestions", "data": list(suggestions)}
+        yield {"event": "done", "data": {}}
+        return
 
     # Prose-vs-tail streaming state machine. We hold back the last
     # ``len(_JSON_DELIM) - 1`` chars so a chunk that ends mid-
@@ -639,29 +662,165 @@ def _merge_confirmed_focus_into_keywords(ir: IntentResult) -> IntentResult:
 
 
 _FALLBACK_JSON_SYSTEM = """\
-Pick the best CIP code for the student's input from the list below.
-If multiple programs genuinely match, return up to 3 ranked by relevance.
-Reply with ONLY a JSON object, nothing else. No explanation, no markdown.
+Choose the best program for the student's input.
 
-{{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
-"confidence": "high", "parent_cip": "XX.XX", \
-"alternatives": [{{"cip": "XX.XXXX", "title": "Second Match", \
-"why": "reason", "parent_cip": "XX.XX"}}], \
-"remaining_count": 0, "narrowing_hint": "", \
-"intent_keywords": ["keyword1"]}}
+Student input: {student_input}
+School: {school_name}
 
-Programs at this school:
-{school_cip_list}
+Return ONLY this JSON object:
+{{"matched_cip":"XX.XXXX","matched_title":"Program Title",\
+"confidence":"high|medium|low","parent_cip":"XX.XX",\
+"alternatives":[],"remaining_count":0,"narrowing_hint":"",\
+"intent_keywords":[]}}
 
-Crosswalk codes:
-{crosswalk_cip_list}
+Candidate programs:
+{candidate_list}
+
+Rules:
+- matched_cip MUST be one candidate code.
+- parent_cip MUST use that candidate's parent value.
+- If the student named a specific program, prefer a specific crosswalk
+  candidate over a broad school-reported family.
+- Include alternatives only when another candidate genuinely matches the input.
+- No markdown. No explanation. No disclaimer.
 """
+
+
+def _intent_match_tokens(text: str) -> set[str]:
+    """Small tokenizer for compact e4b candidate filtering."""
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", text.lower())
+        if len(token) >= 3
+    }
+
+
+def _candidate_score(title: str, tokens: set[str], phrase: str) -> int:
+    lowered = title.lower()
+    score = 0
+    if phrase and phrase in lowered:
+        score += 100
+    for token in tokens:
+        if token in lowered:
+            score += 20
+    return score
+
+
+def _parent_for_candidate(
+    cipcode: str,
+    school_cips: list[dict[str, str]],
+) -> str:
+    cip4 = cipcode[:5] if len(cipcode) >= 5 else cipcode
+    return next(
+        (
+            c["cipcode"][:5]
+            for c in school_cips
+            if c.get("cipcode", "")[:2] == cip4[:2]
+        ),
+        cip4,
+    )
+
+
+def _compact_fallback_candidates(
+    *,
+    major_text: str,
+    school_cips: list[dict[str, str]],
+    crosswalk_cips: list[dict[str, str]],
+    max_candidates: int = 12,
+) -> list[dict[str, str]]:
+    """Return a short candidate list for the compact local Gemma prompt.
+
+    The rich prompt can contain hundreds of school and crosswalk rows.
+    Compact local models behave better when they choose from a small,
+    relevant set that already contains the likely answer and its school
+    reporting parent.
+    """
+    phrase = " ".join(major_text.lower().split())
+    tokens = _intent_match_tokens(major_text)
+    candidates_by_code: dict[str, dict[str, str | int]] = {}
+
+    def add(
+        *,
+        code: str,
+        title: str,
+        parent: str,
+        source: str,
+        score: int,
+    ) -> None:
+        if not code or not title:
+            return
+        existing = candidates_by_code.get(code)
+        if existing is None or score > int(existing["score"]):
+            candidates_by_code[code] = {
+                "code": code,
+                "title": title,
+                "parent": parent,
+                "source": source,
+                "score": score,
+            }
+
+    boosted_families: set[str] = set()
+    for c in crosswalk_cips:
+        code = c.get("cipcode", "")
+        title = c.get("cip_title", "")
+        score = _candidate_score(title, tokens, phrase)
+        if score <= 0:
+            continue
+        boosted_families.add(code[:2])
+        add(
+            code=code,
+            title=title,
+            parent=_parent_for_candidate(code, school_cips),
+            source="crosswalk",
+            score=score + 10,
+        )
+
+    for c in school_cips:
+        code = c.get("cipcode", "")
+        title = c.get("program_name", "")
+        score = _candidate_score(title, tokens, phrase)
+        if score > 0 or code[:2] in boosted_families:
+            add(
+                code=code,
+                title=title,
+                parent=code[:5],
+                source="school",
+                score=score + (5 if score > 0 else 1),
+            )
+
+    if not candidates_by_code:
+        for c in intent._sample_crosswalk(
+            crosswalk_cips, max_total=max_candidates, student_input=major_text,
+        ):
+            code = c.get("cipcode", "")
+            add(
+                code=code,
+                title=c.get("cip_title", ""),
+                parent=_parent_for_candidate(code, school_cips),
+                source="crosswalk",
+                score=1,
+            )
+
+    ordered = sorted(
+        candidates_by_code.values(),
+        key=lambda c: (-int(c["score"]), str(c["code"])),
+    )
+    return [
+        {
+            "code": str(c["code"]),
+            "title": str(c["title"]),
+            "parent": str(c["parent"]),
+            "source": str(c["source"]),
+        }
+        for c in ordered[:max_candidates]
+    ]
 
 
 def _fallback_resolve(
     major_text: str,
     school_cips: list[dict[str, str]],
     programs: Sequence[Mapping[str, Any]],
+    school_name: str = "",
 ) -> IntentResult | None:
     """Simple JSON-only Gemma call as fallback.
 
@@ -673,23 +832,29 @@ def _fallback_resolve(
         c.get("cipcode", "")[:2] for c in school_cips if c.get("cipcode")
     })
     crosswalk_cips = intent._get_crosswalk_cips_for_families(family_prefixes)
-    sampled = intent._sample_crosswalk(crosswalk_cips, student_input=major_text)
-
-    school_list = "\n".join(
-        f"- {c['cipcode']} {c['program_name']}" for c in school_cips
-    ) or "(none)"
-    xwalk_list = "\n".join(
-        f"- {c['cipcode']} {c['cip_title']}" for c in sampled
+    candidates = _compact_fallback_candidates(
+        major_text=major_text,
+        school_cips=school_cips,
+        crosswalk_cips=crosswalk_cips,
+    )
+    candidate_list = "\n".join(
+        (
+            f"- {c['code']} | {c['title']} | parent {c['parent']} "
+            f"| {c['source']}"
+        )
+        for c in candidates
     ) or "(none)"
 
     system = _FALLBACK_JSON_SYSTEM.format(
-        school_cip_list=school_list, crosswalk_cip_list=xwalk_list,
+        student_input=major_text,
+        school_name=school_name or "the selected school",
+        candidate_list=candidate_list,
     )
     try:
         raw = gemma_client.generate(
             system=system,
             user=f'Student typed: "{major_text}"',
-            max_tokens=400,
+            max_tokens=gemma_client.runtime_profile().intent_fallback_max_tokens,
             temperature=0.0,
             response_format={"type": "json_object"},
             extra={"call_site": "set_your_course_fallback_resolve"},
@@ -716,11 +881,13 @@ def _fallback_resolve(
         )
         remaining_count = max(0, min(50, int(parsed.get("remaining_count", 0) or 0)))
         narrowing_hint = str(parsed.get("narrowing_hint", "") or "").strip()[:120]
+        clean_title = _NUMERIC_CODE_PARENTHETICAL.sub("", matched_title).strip()
+        reasoning_title = clean_title.rstrip(".")
         return IntentResult(
             matched_cip=matched_cip,
-            matched_title=_NUMERIC_CODE_PARENTHETICAL.sub("", matched_title),
+            matched_title=clean_title,
             confidence=confidence,
-            reasoning=f"Matched to {matched_title}.",
+            reasoning=f"Matched to {reasoning_title}.",
             careers_preview=[],
             needs_clarification=confidence == "low",
             alternatives=alternatives,

@@ -199,6 +199,7 @@ export interface AppliedSkill {
   // institution-level → skills cannot shift it.
   delta_burnout_raw: number;
   delta_ceiling_raw: number;
+  delta_loans_raw: number;
 }
 
 // Peer-school leaderboard (feature-compare-schools-for-career.md).

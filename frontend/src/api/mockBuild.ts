@@ -167,8 +167,8 @@ export async function mockCreateBuild(
   ];
 
   const skillPool: AppliedSkill[] = [
-    { id: "sk-cloud", title: "Cloud Architecture", rationale: "Cloud skills are the #1 hiring signal.", targets: ["market", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 0, delta_grw: 1, delta_burnout_raw: 0, delta_ceiling_raw: 2 },
-    { id: "sk-lead", title: "Technical Leadership", rationale: "People management unlocks higher earnings.", targets: ["burnout", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 2, delta_grw: 0, delta_burnout_raw: -1, delta_ceiling_raw: 3 },
+    { id: "sk-cloud", title: "Cloud Architecture", rationale: "Cloud skills are the #1 hiring signal.", targets: ["market", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 0, delta_grw: 1, delta_burnout_raw: 0, delta_ceiling_raw: 2, delta_loans_raw: 0 },
+    { id: "sk-lead", title: "Technical Leadership", rationale: "People management unlocks higher earnings.", targets: ["burnout", "ceiling"], delta_ern: 1, delta_roi: 0, delta_res: 2, delta_grw: 0, delta_burnout_raw: -1, delta_ceiling_raw: 3, delta_loans_raw: 0 },
   ];
 
   return {

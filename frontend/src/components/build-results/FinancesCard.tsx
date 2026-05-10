@@ -1,12 +1,12 @@
 import { useT } from "@/i18n/useT";
 import type { CareerOutcome } from "@/types/build";
 import { fmtMoney, roiColorClass } from "@/lib/format";
+import { Year1SalaryBar } from "@/components/shared/Year1SalaryBar";
 
 interface FinancesCardProps {
   career: CareerOutcome;
   loanPct: number;
   isInState: boolean | null;
-  schoolName?: string;
 }
 
 function fmt(value: number | null, multiply?: number): string {
@@ -119,23 +119,19 @@ function DebtVsMedianIndicator({
   return null;
 }
 
-export function FinancesCard({ career, loanPct, isInState, schoolName }: FinancesCardProps) {
+export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) {
   const t = useT();
 
   const midCareerSalary = career.median_annual_wage;
   const publishedCost4yr = career.published_cost_4yr;
 
-  const p25 = career.earnings_1yr_p25;
-  const p75 = career.earnings_1yr_p75;
-  const hasYearOneRange = typeof p25 === "number" && typeof p75 === "number";
-  const yearOneValue = hasYearOneRange
-    ? `${fmtMoney(p25)} – ${fmtMoney(p75)}`
-    : career.earnings_1yr_median != null
-      ? `${fmt(career.earnings_1yr_median)} / yr`
-      : null;
-  const yearOneLabel = schoolName
-    ? t("build.yearOneFrom").replace("{school}", schoolName)
-    : t("build.yearOne");
+  const peerP25 = career.earnings_1yr_p25 ?? null;
+  const peerP75 = career.earnings_1yr_p75 ?? null;
+  const programMedian = career.earnings_1yr_median ?? null;
+  const hasYearOneSurface =
+    (peerP25 != null && peerP75 != null) ||
+    programMedian != null ||
+    midCareerSalary != null;
 
   const modeledDebt = career.modeled_total_debt;
   const medianRef = career.debt_median_reference ?? career.debt_median ?? null;
@@ -199,8 +195,22 @@ export function FinancesCard({ career, loanPct, isInState, schoolName }: Finance
         }
         return null;
       })()}
-      {yearOneValue && (
-        <Row label={yearOneLabel} value={yearOneValue} />
+      {hasYearOneSurface && (
+        <div className="py-3 border-b border-border-subtle">
+          <div className="font-body text-small text-text-secondary mb-1">
+            {t("build.year1PeerBandLabel")}
+          </div>
+          <p className="font-body text-micro text-text-muted mb-2">
+            {t("build.year1PeerBandSubtitle")}
+          </p>
+          <Year1SalaryBar
+            programMedian={programMedian}
+            careerMedian={midCareerSalary}
+            peerP25={peerP25}
+            peerP75={peerP75}
+            testId="year1-salary-bar"
+          />
+        </div>
       )}
       {publishedCost4yr !== null && publishedCost4yr !== undefined && (
         <Row

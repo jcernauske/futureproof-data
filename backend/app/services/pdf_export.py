@@ -33,6 +33,7 @@ import logging
 import math
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, String
@@ -56,15 +57,20 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from app.models.api import AudienceQuestions, RiskLevel
-from app.models.career import Build, SkillRec
+from app.models.api import (
+    AudienceQuestions,
+    CompareInsightsPayload,
+    CompareProsConsItem,
+    RiskLevel,
+)
+from app.models.career import Build, CareerBranch, SkillRec
 from app.services.career_description import (
+    CAREER_DESC_FORBIDDEN_TERMS,
     DISCLAIMER_TIER_B,
     DISCLAIMER_TIER_C,
 )
 from app.services.pdf_copy import (
     BOSS_ORDER,
-    RPG_TERMS_FORBIDDEN_IN_PDF,
     boss_advisory_label,
     contains_forbidden_term,
     data_coverage_caveat,
@@ -302,7 +308,12 @@ def _draw_pentagon(
     d = Drawing(w, h)
 
     keys = ["ern", "roi", "res", "grw", "aura"]
-    angles = [math.radians(-90 + 72 * i) for i in range(5)]
+    # ERN at the top (12 o'clock), then clockwise — matches the web
+    # /my-build pentagon. ReportLab's coordinate system is y-up, so
+    # +90° puts ERN above center; subtracting 72° per step rotates
+    # clockwise: ROI upper-right, RES lower-right, GRW lower-left,
+    # AURA upper-left.
+    angles = [math.radians(90 - 72 * i) for i in range(5)]
 
     for scale in [0.25, 0.50, 0.75, 1.0]:
         pts: list[float] = []
@@ -547,6 +558,24 @@ def _fmt_pct(v: float | None) -> str:
     return f"{v * 100:.0f}%"
 
 
+def _year1_earnings_with_fallback(career: Any) -> tuple[float | None, bool]:
+    """Pick the Year-1 earnings value to render, mirroring MoneySection.tsx.
+
+    Returns (value, used_fallback). Order:
+      1. ``earnings_1yr_median`` (program-specific Scorecard median).
+      2. ``median_annual_wage`` (career-level OEWS mid-career) — used as a
+         "career wage reference" when the program-level value is null.
+      3. None — surface "—".
+
+    used_fallback=True flags the cell for the asterisk + footnote pattern.
+    """
+    if career.earnings_1yr_median is not None:
+        return career.earnings_1yr_median, False
+    if career.median_annual_wage is not None:
+        return career.median_annual_wage, True
+    return None, False
+
+
 def _about_this_career_section(build: Build) -> list[object]:
     """Render the page-1 "About this career" section.
 
@@ -577,7 +606,7 @@ def _about_this_career_section(build: Build) -> list[object]:
     if not (4 <= len(tasks) <= 6):
         return []
     combined = summary + " " + " ".join(tasks)
-    if contains_forbidden_term(combined, RPG_TERMS_FORBIDDEN_IN_PDF):
+    if contains_forbidden_term(combined, CAREER_DESC_FORBIDDEN_TERMS):
         logger.warning(
             "pdf_export: forbidden term in career_description for soc=%s — "
             "skipping section.",
@@ -625,7 +654,6 @@ def _about_this_career_section(build: Build) -> list[object]:
             )
         )
 
-    story.append(Spacer(1, 8))
     return story
 
 
@@ -692,11 +720,6 @@ def _build_page1(build: Build, student_name: str | None) -> list[object]:
     story.append(Paragraph(_safe(verdict_line(build)), s["verdict"]))
     story.append(Spacer(1, 8))
 
-    # "About this career" section (feature-career-description-on-pdf.md).
-    # Sits between verdict line and pentagon. Silently skipped when no
-    # description is attached or when defensive voice/length checks fail.
-    story.extend(_about_this_career_section(build))
-
     # Pentagon + stat micro-table
     stats_dict = {
         "ern": build.career.stats.ern,
@@ -755,15 +778,18 @@ def _build_page1(build: Build, student_name: str | None) -> list[object]:
         "cost_value", fontName=_font("SpaceMono"), fontSize=9, leading=12,
         textColor=INK_PRIMARY, alignment=TA_CENTER,
     )
+    year1_val, year1_fallback = _year1_earnings_with_fallback(build.career)
+    year1_label = "Year-1 median earnings*" if year1_fallback else "Year-1 median earnings"
+    year1_text = f"{_fmt_currency(year1_val)}*" if year1_fallback else _fmt_currency(year1_val)
     cost_data = [[
         Paragraph("4-year cost", label_style),
         Paragraph("Modeled debt", label_style),
-        Paragraph("Year-1 median earnings", label_style),
+        Paragraph(year1_label, label_style),
         Paragraph("Debt-to-earnings (yr-1)", label_style),
     ], [
         Paragraph(_fmt_currency(build.career.published_cost_4yr), value_style),
         Paragraph(_fmt_currency(build.career.modeled_total_debt), value_style),
-        Paragraph(_fmt_currency(build.career.earnings_1yr_median), value_style),
+        Paragraph(year1_text, value_style),
         Paragraph(_fmt_pct(build.career.debt_to_earnings_annual), value_style),
     ]]
     cw = LIVE_W / 4
@@ -779,6 +805,63 @@ def _build_page1(build: Build, student_name: str | None) -> list[object]:
         ("LINEBEFORE", (1, 0), (-1, -1), 0.5, RULE_LIGHT),
     ]))
     story.append(cost_table)
+    # Peer-band sub-line + standout/caution callout.
+    # The Year-1 cell above renders THIS school's program median (when
+    # populated). The peer band below contextualizes that figure against the
+    # 25th–75th percentile of all schools' program medians within this
+    # 2-digit CIP family (computed in src/gold/college_scorecard_career_
+    # outcomes.py §cip_bands). Mirrors the on-screen Year1SalaryBar +
+    # MoneySection design — the "Standout earnings" / "Earnings caution"
+    # callouts surface when the program median sits outside its peer band.
+    peer_p25 = build.career.earnings_1yr_p25
+    peer_p75 = build.career.earnings_1yr_p75
+    prog_med = build.career.earnings_1yr_median
+    if peer_p25 is not None and peer_p75 is not None:
+        peer_band_style = _style(
+            "year1_peer_band", fontName=_font("Nunito"), fontSize=8,
+            leading=11, textColor=INK_SECONDARY, alignment=TA_LEFT,
+        )
+        story.append(Spacer(1, 4))
+        band = (
+            f"<b>Year-1 peer band (this field):</b> "
+            f"{_fmt_currency(peer_p25)} – {_fmt_currency(peer_p75)}"
+        )
+        if prog_med is None:
+            tail = " · Program-median Year-1 earnings unavailable for this school."
+        elif prog_med > peer_p75:
+            tail = (
+                f" · <b><font color=\"#2D7A4F\">Standout earnings</font></b> — "
+                f"this program's median ({_fmt_currency(prog_med)}) beats the "
+                f"peer 75th percentile."
+            )
+        elif prog_med < peer_p25:
+            tail = (
+                f" · <b><font color=\"#8B1A1A\">Earnings caution</font></b> — "
+                f"this program's median ({_fmt_currency(prog_med)}) sits below "
+                f"the peer 25th percentile."
+            )
+        else:
+            tail = (
+                f" · This program's median ({_fmt_currency(prog_med)}) sits "
+                f"within the peer band."
+            )
+        story.append(Paragraph(band + tail, peer_band_style))
+    if year1_fallback:
+        # Asterisk footnote: program-median earnings unavailable for this
+        # school; we substitute the career-level OEWS mid-career wage so the
+        # reader has a salary anchor instead of a blank cell. Mirrors the
+        # MoneySection.tsx fallback in /builds compare view.
+        footnote_style = _style(
+            "year1_footnote", fontName=_font("Nunito"), fontSize=7.5,
+            leading=10, textColor=INK_SECONDARY, alignment=TA_LEFT,
+        )
+        story.append(Spacer(1, 2))
+        story.append(Paragraph(
+            "* Program-median Year-1 earnings unavailable; figure shown is "
+            "the career-level mid-career wage (national OEWS median) as a "
+            "reference. Not a graduate's first-year salary.",
+            footnote_style,
+        ))
     story.append(Spacer(1, 8))
 
     # Career Risk Profile — 5 rows
@@ -864,6 +947,16 @@ def _classify_skill_bucket(rec: SkillRec) -> str:
 
 def _build_page2(build: Build, audience_questions: AudienceQuestions) -> list[object]:
     story: list[object] = []
+
+    # "About this career" section (feature-career-description-on-pdf.md).
+    # Originally placed on page 1 between verdict and pentagon (per the
+    # design vision), but the section's ~150pt height pushed the 5-row
+    # risk profile across the page boundary, leaving SUGGESTED SKILLS
+    # stranded on page 3. Relocating to the top of page 2 — the natural
+    # "context" lead-in before the skills/questions block — keeps the
+    # PDF at a clean 2 pages. Silently skipped when no description is
+    # attached or when defensive voice/length checks fail.
+    story.extend(_about_this_career_section(build))
 
     # SUGGESTED SKILLS
     story.extend(_section_header("SUGGESTED SKILLS"))
@@ -1056,6 +1149,35 @@ def _short_school(name: str) -> str:
     return name.split()[0]
 
 
+def _column_labels(builds: list[Build]) -> list[str]:
+    """Per-column header labels for the comparison tables.
+
+    A student can compare two builds at the same school with different
+    careers (or the same career across schools that happen to share a
+    leading word — "University of Illinois" vs "University of
+    Michigan"). The naive `_short_school` collapses both cases into
+    "University". This helper picks the smallest disambiguating label
+    per column:
+      - When the leading-token short label is unique across the set,
+        return it (back-compat with the prior layout).
+      - Otherwise fall back to "<School short> · <Career short>" so
+        each column reads independently.
+    """
+    short_labels = [_short_school(b.school_name) for b in builds]
+    seen: dict[str, int] = {}
+    for label in short_labels:
+        seen[label] = seen.get(label, 0) + 1
+    out: list[str] = []
+    for b, label in zip(builds, short_labels):
+        if seen.get(label, 0) <= 1:
+            out.append(label)
+        else:
+            career = (b.career.occupation_title or "").split(",")[0].strip()
+            career_short = " ".join(career.split()[:2]) if career else ""
+            out.append(f"{label} · {career_short}" if career_short else label)
+    return out
+
+
 def _build_comparison(builds: list[Build]) -> list[object]:
     s = _styles()
     n = len(builds)
@@ -1073,10 +1195,11 @@ def _build_comparison(builds: list[Build]) -> list[object]:
                textColor=INK_PRIMARY),
     ))
     residency_parts: list[str] = []
-    for b in builds:
+    column_labels = _column_labels(builds)
+    for b, label in zip(builds, column_labels):
         in_state = bool(b.home_state) and not b.career.is_out_of_state
         residency_parts.append(
-            f"{_safe(_short_school(b.school_name))}: "
+            f"{_safe(label)}: "
             f"{'in-state' if in_state else 'out-of-state'}"
         )
     story.append(Paragraph(
@@ -1087,8 +1210,13 @@ def _build_comparison(builds: list[Build]) -> list[object]:
     story.append(HRFlowable(width="100%", thickness=1.0, color=INK_PRIMARY,
                             spaceAfter=4))
 
-    # Mini-pentagon strip
+    # Mini-pentagon strip — school name + career so a same-school /
+    # different-career comparison reads independently.
     col_w = LIVE_W / n
+    career_style = _style(
+        "comp_career", fontName=_font("Nunito"), fontSize=8, leading=10,
+        textColor=INK_SECONDARY, alignment=TA_CENTER,
+    )
     school_blocks: list[object] = []
     for b in builds:
         stats_dict = {
@@ -1099,10 +1227,14 @@ def _build_comparison(builds: list[Build]) -> list[object]:
         pentagon = _draw_pentagon(stats_dict, 0.28 * inch,
                                   show_value_labels=False, show_stat_labels=True,
                                   label_font_size=5.0)
-        block = Table(
-            [[Paragraph(_safe(b.school_name), s["school_name"])], [pentagon]],
-            colWidths=[col_w - 8],
-        )
+        career_title = b.career.occupation_title or ""
+        block_rows: list[list[object]] = [
+            [Paragraph(_safe(b.school_name), s["school_name"])],
+        ]
+        if career_title:
+            block_rows.append([Paragraph(_safe(career_title), career_style)])
+        block_rows.append([pentagon])
+        block = Table(block_rows, colWidths=[col_w - 8])
         block.setStyle(TableStyle([
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("TOPPADDING", (0, 0), (-1, -1), 0),
@@ -1129,10 +1261,11 @@ def _build_comparison(builds: list[Build]) -> list[object]:
     stat_keys = ("ern", "roi", "res", "grw", "aura")
     label_w = 1.80 * inch
     val_w = (LIVE_W - label_w) / n
+    column_labels = _column_labels(builds)
     hdr_row = [Paragraph("Stat", _style("stat_hdr", fontName=_font("NunitoBold"),
                                         fontSize=8, leading=10, textColor=white))]
-    for b in builds:
-        hdr_row.append(Paragraph(_safe(_short_school(b.school_name)),
+    for label in column_labels:
+        hdr_row.append(Paragraph(_safe(label),
                                  _style("stat_hdr_sch", fontName=_font("NunitoBold"),
                                         fontSize=8, leading=10, textColor=white,
                                         alignment=TA_CENTER)))
@@ -1193,39 +1326,115 @@ def _build_comparison(builds: list[Build]) -> list[object]:
                        leading=11, textColor=INK_SECONDARY)
     data_style = _style("cost_data", fontName=_font("SpaceMono"), fontSize=9,
                         leading=12, textColor=INK_PRIMARY, alignment=TA_CENTER)
+    # Year-1 earnings: per-build fallback to median_annual_wage when the
+    # program-specific median is null (mirrors MoneySection.tsx). Track which
+    # columns used the fallback so they get an asterisk + a footnote — same
+    # pattern as the single-build PDF and the on-screen Compare view.
+    year1_pairs = [_year1_earnings_with_fallback(b.career) for b in builds]
+    year1_values: list[float | None] = [val for val, _ in year1_pairs]
+    year1_fallbacks: list[bool] = [fb for _, fb in year1_pairs]
+    # Peer band per school — `earnings_1yr_p25/p75` are 2-digit-CIP-family
+    # cross-institution percentiles (src/gold/college_scorecard_career_
+    # outcomes.py §cip_bands). Rendered as a separate "Year-1 peer band" row
+    # so the program-median row above it is clearly THIS school's program,
+    # not a peer-wide range. Mirrors MoneySection's two-axis design.
+    peer_bands: list[tuple[float | None, float | None]] = [
+        (b.career.earnings_1yr_p25, b.career.earnings_1yr_p75) for b in builds
+    ]
+    has_any_peer_band = any(p25 is not None and p75 is not None for p25, p75 in peer_bands)
+    # Standout/caution flags per build (program median above peer p75 / below
+    # peer p25). Used to color the program-median cells.
+    year1_position: list[str | None] = []
+    for (p25, p75), b in zip(peer_bands, builds):
+        prog = b.career.earnings_1yr_median
+        if p25 is None or p75 is None or prog is None:
+            year1_position.append(None)
+        elif prog > p75:
+            year1_position.append("above")
+        elif prog < p25:
+            year1_position.append("below")
+        else:
+            year1_position.append("inside")
     cost_rows: list[tuple[str, list[float | None], str]] = [
         ("4-year cost",
          [b.career.published_cost_4yr for b in builds], "low"),
         ("Modeled debt",
          [b.career.modeled_total_debt for b in builds], "low"),
-        ("Year-1 earnings",
-         [b.career.earnings_1yr_median for b in builds], "high"),
+        ("Year-1 program median",
+         year1_values, "high"),
         ("Debt-to-earnings (yr-1)",
          [b.career.debt_to_earnings_annual for b in builds], "low"),
     ]
     cost_table_rows: list[list[object]] = [
         [Paragraph("", hdr_style)] +
-        [Paragraph(_safe(_short_school(b.school_name)), hdr_style) for b in builds]
+        [Paragraph(_safe(label), hdr_style) for label in _column_labels(builds)]
     ]
     cost_cell_styles: list[object] = []
+    # Peer-band row inserts between "Modeled debt" (row 2) and "Year-1
+    # program median" (row 3). Track its row index so it skips leader
+    # highlighting (it's informational, not comparable as a single number).
+    has_peer_band_row = has_any_peer_band
+    program_median_row_offset = 1 if has_peer_band_row else 0
     for row_i, (label, values, direction) in enumerate(cost_rows, start=1):
-        valid = [v for v in values if v is not None]  # type: ignore[misc]
-        if valid:
-            target = min(valid) if direction == "low" else max(valid)
-            leaders = [i for i, v in enumerate(values) if v is not None and v == target]
-            if len(leaders) > 1 and len(leaders) == len([v for v in values if v is not None]):
+        if label == "Year-1 program median" and has_peer_band_row:
+            # Insert the peer-band row immediately above program-median.
+            band_cells: list[object] = [Paragraph("Year-1 peer band", lbl_style)]
+            for p25, p75 in peer_bands:
+                if p25 is None or p75 is None:
+                    band_text = "—"
+                else:
+                    band_text = f"{_fmt_currency(p25)} – {_fmt_currency(p75)}"
+                band_cells.append(Paragraph(band_text, data_style))
+            cost_table_rows.append(band_cells)
+        actual_row_i = row_i + (program_median_row_offset if (
+            label == "Year-1 program median" or
+            label == "Debt-to-earnings (yr-1)"
+        ) else 0)
+        # Year-1 program median row: don't let a fallback value win the
+        # "leading" highlight — we'd be comparing a year-1 program median
+        # against a mid-career wage.
+        leader_values: list[float | None]
+        if label == "Year-1 program median":
+            leader_values = [
+                v if not fb else None
+                for v, fb in zip(values, year1_fallbacks)
+            ]
+        else:
+            leader_values = values
+        valid_leader: list[float] = [
+            v for v in leader_values if v is not None
+        ]
+        if valid_leader:
+            target = min(valid_leader) if direction == "low" else max(valid_leader)
+            leaders = [
+                i for i, v in enumerate(leader_values)
+                if v is not None and v == target
+            ]
+            if len(leaders) > 1 and len(leaders) == len(valid_leader):
                 leaders = []
         else:
             leaders = []
         formatter = _fmt_pct if label.startswith("Debt-to-earnings") else _fmt_currency
-        row = [Paragraph(label, lbl_style)] + [
-            Paragraph(formatter(v), data_style) for v in values
-        ]
+        cost_cells: list[object]
+        if label == "Year-1 program median":
+            cost_cells = []
+            for cv, fb, pos in zip(values, year1_fallbacks, year1_position):
+                txt = _fmt_currency(cv)
+                if fb:
+                    txt += "*"
+                if pos == "above":
+                    txt = f'<font color="#2D7A4F"><b>{txt} ↑</b></font>'
+                elif pos == "below":
+                    txt = f'<font color="#8B1A1A"><b>{txt} ↓</b></font>'
+                cost_cells.append(Paragraph(txt, data_style))
+        else:
+            cost_cells = [Paragraph(formatter(cv), data_style) for cv in values]
+        row = [Paragraph(label, lbl_style)] + cost_cells
         cost_table_rows.append(row)
         for col_i in leaders:
             cost_cell_styles.append(
                 ("BACKGROUND",
-                 (col_i + 1, row_i), (col_i + 1, row_i),
+                 (col_i + 1, actual_row_i), (col_i + 1, actual_row_i),
                  LEADING_CELL_BG)
             )
     cost_tbl = Table(cost_table_rows,
@@ -1245,6 +1454,18 @@ def _build_comparison(builds: list[Build]) -> list[object]:
         *cost_cell_styles,
     ]))
     story.append(cost_tbl)
+    if any(year1_fallbacks):
+        footnote_style = _style(
+            "compare_year1_footnote", fontName=_font("Nunito"), fontSize=7.5,
+            leading=10, textColor=INK_SECONDARY, alignment=TA_LEFT,
+        )
+        story.append(Spacer(1, 2))
+        story.append(Paragraph(
+            "* Program-median Year-1 earnings unavailable for this school; "
+            "figure shown is the career-level mid-career wage (national OEWS "
+            "median) as a reference. Excluded from the Year-1 leader highlight.",
+            footnote_style,
+        ))
     story.append(Spacer(1, 4))
 
     # CAREER RISK PROFILE
@@ -1259,7 +1480,7 @@ def _build_comparison(builds: list[Build]) -> list[object]:
                             leading=11, textColor=INK_SECONDARY)
     risk_table_rows: list[list[object]] = [
         [Paragraph("Risk Factor", hdr_left)] +
-        [Paragraph(_safe(_short_school(b.school_name)), hdr_center) for b in builds]
+        [Paragraph(_safe(label), hdr_center) for label in _column_labels(builds)]
     ]
     risk_cell_styles: list[object] = []
     for row_i, boss in enumerate(BOSS_ORDER, start=1):
@@ -1308,6 +1529,490 @@ def _build_comparison(builds: list[Build]) -> list[object]:
 
 
 # ---------------------------------------------------------------------------
+# Comparison PDF — extended sections (page 2+).
+#
+# These sections mirror the depth of the on-screen CompareView:
+#   - SCHOOL PROFILE: institution control + state + residency
+#   - COST BREAKDOWN: tuition (in/out) + room/board + net price + 4yr
+#   - CAREER BRANCHES: top related careers per build
+#   - GEMMA'S VERDICT: editorial block (summary + Big Choice + pros/cons +
+#     decade projection + pivot question), forwarded from the compare
+#     screen via ExportComparisonPdfRequest.insights or fetched server-
+#     side as a fallback.
+# ---------------------------------------------------------------------------
+
+
+def _short_name_row(builds: list[Build]) -> list[object]:
+    """Per-school header row reused across the extended comparison
+    sections so each table reads independently."""
+    cells: list[object] = [Paragraph(
+        "",
+        _style("ext_hdr_blank", fontName=_font("NunitoBold"), fontSize=8,
+               leading=10, textColor=white),
+    )]
+    for label in _column_labels(builds):
+        cells.append(Paragraph(
+            _safe(label),
+            _style("ext_hdr_sch", fontName=_font("NunitoBold"), fontSize=8,
+                   leading=10, textColor=white, alignment=TA_CENTER),
+        ))
+    return cells
+
+
+def _build_comparison_school_profile(builds: list[Build]) -> list[object]:
+    """SCHOOL PROFILE section — institution control, state, residency."""
+    s = _styles()
+    story: list[object] = []
+    story.extend(_section_header("SCHOOL PROFILE", compact=True))
+
+    n = len(builds)
+    label_w = 1.50 * inch
+    val_w = (LIVE_W - label_w) / n
+
+    rows: list[list[object]] = [_short_name_row(builds)]
+    cell_styles: list[object] = []
+
+    def _label(text: str) -> Paragraph:
+        return Paragraph(
+            text,
+            _style("ext_lbl", fontName=_font("NunitoBold"), fontSize=8,
+                   leading=11, textColor=INK_SECONDARY),
+        )
+
+    def _val(text: str, *, lead: bool = False) -> Paragraph:
+        return Paragraph(
+            text,
+            s["comp_lead"] if lead else s["comp_value"],
+        )
+
+    rows.append([_label("Type")] + [
+        _val(_safe(b.career.institution_control or "—")) for b in builds
+    ])
+    rows.append([_label("State")] + [
+        _val(_safe(b.career.state_abbr or "—")) for b in builds
+    ])
+    rows.append([_label("Residency")] + [
+        _val(
+            "out-of-state" if b.career.is_out_of_state
+            else ("in-state" if b.home_state else "—")
+        )
+        for b in builds
+    ])
+    rows.append([_label("Major")] + [
+        _val(_safe(_shorten(b.career.program_name or b.major_text or "—", 40)))
+        for b in builds
+    ])
+    rows.append([_label("Career")] + [
+        _val(_safe(_shorten(b.career.occupation_title or "—", 40)))
+        for b in builds
+    ])
+
+    tbl = Table(rows, colWidths=[label_w] + [val_w] * n, repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), INK_PRIMARY),
+        ("FONTNAME", (0, 1), (-1, -1), _font("Nunito")),
+        ("FONTSIZE", (0, 1), (-1, -1), 8.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, BG_ROW_ALT]),
+        ("LINEBELOW", (0, 0), (-1, -2), 0.4, RULE_LIGHT),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.75, RULE_LIGHT),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        *cell_styles,
+    ]))
+    story.append(tbl)
+    story.append(Spacer(1, 4))
+    return story
+
+
+def _build_comparison_cost_breakdown(builds: list[Build]) -> list[object]:
+    """COST BREAKDOWN section — residency-aware tuition + COA when the
+    student's home state is known on every build; falls back to
+    showing both in-state and out-of-state tuition rows + an
+    in-state-only COA label when residency context is missing.
+
+    The published ``cost_of_attendance_annual`` field is the school's
+    in-state COA. For an out-of-state student attending a public
+    school, the actual COA = in-state COA + (OOS tuition − in-state
+    tuition). The residency-aware annual COA is derived from
+    ``published_cost_4yr / 4`` (which the stat engine already computes
+    correctly for each student's residency)."""
+    s = _styles()
+    story: list[object] = []
+    story.extend(_section_header("COST BREAKDOWN", compact=True))
+
+    # Residency context is "known" only when every build carries a
+    # home_state. Mixing known + unknown across columns would force a
+    # split label per cell — uglier than just falling back to the both-
+    # tuitions presentation.
+    residency_known = all(b.home_state for b in builds)
+
+    n = len(builds)
+    label_w = 1.80 * inch
+    val_w = (LIVE_W - label_w) / n
+
+    def _label(text: str) -> Paragraph:
+        return Paragraph(
+            text,
+            _style("ext_cost_lbl", fontName=_font("NunitoBold"), fontSize=8,
+                   leading=11, textColor=INK_SECONDARY),
+        )
+
+    def _money_val(v: float | None, *, lead: bool = False) -> Paragraph:
+        return Paragraph(
+            _fmt_currency(v),
+            s["comp_lead"] if lead else s["comp_value"],
+        )
+
+    def _row_from_values(
+        label: str,
+        vals: list[float | None],
+        *,
+        lower_wins: bool = True,
+    ) -> list[object]:
+        valid = [v for v in vals if v is not None]
+        if not valid:
+            leaders: list[int] = []
+        else:
+            extreme = min(valid) if lower_wins else max(valid)
+            leaders = [i for i, v in enumerate(vals) if v is not None and v == extreme]
+            # Tie-breaker: when all real values tie, no one leads.
+            if len(leaders) > 1 and len(leaders) == len(valid):
+                leaders = []
+        cells: list[object] = [_label(label)]
+        for i, v in enumerate(vals):
+            cells.append(_money_val(v, lead=i in leaders))
+        return cells
+
+    def _money_row(label: str, attr: str, *, lower_wins: bool = True) -> list[object]:
+        vals: list[float | None] = [
+            getattr(b.career, attr, None) for b in builds
+        ]
+        return _row_from_values(label, vals, lower_wins=lower_wins)
+
+    rows: list[list[object]] = [_short_name_row(builds)]
+
+    if residency_known:
+        # Single tuition row — residency-correct value per school.
+        # Per-cell value = OOS tuition when the student is out-of-state
+        # at that school, otherwise in-state.
+        tuition_vals: list[float | None] = []
+        for b in builds:
+            if b.career.is_out_of_state:
+                tuition_vals.append(b.career.tuition_out_of_state)
+            else:
+                tuition_vals.append(b.career.tuition_in_state)
+        rows.append(_row_from_values("Tuition (annual, residency-aware)", tuition_vals))
+    else:
+        # No residency context — show both rows so the reader can pick.
+        rows.append(_money_row("Tuition (in-state)", "tuition_in_state"))
+        rows.append(_money_row("Tuition (out-of-state)", "tuition_out_of_state"))
+
+    rows.append(_money_row("Room & board (on-campus)", "room_board_on_campus"))
+    rows.append(_money_row("Net price (annual avg, after aid)", "net_price_annual"))
+
+    if residency_known:
+        # Residency-aware annual COA = published_cost_4yr / 4 (the stat
+        # engine has already added the OOS tuition gap for OOS students
+        # at public schools). Avoids the confusing "COA < OOS tuition"
+        # mismatch where the published in-state COA looks lower than
+        # the OOS tuition row.
+        coa_vals: list[float | None] = [
+            (b.career.published_cost_4yr / 4) if b.career.published_cost_4yr is not None else None
+            for b in builds
+        ]
+        rows.append(_row_from_values("Cost of attendance (annual, residency-aware)", coa_vals))
+    else:
+        # Published COA is the school's in-state figure — label it
+        # explicitly so a reader doesn't compare it against the OOS
+        # tuition row above.
+        rows.append(_money_row("Cost of attendance (annual, in-state)", "cost_of_attendance_annual"))
+
+    rows.append(_money_row("4-year cost (residency-aware)", "published_cost_4yr"))
+    rows.append(_money_row("Modeled total debt", "modeled_total_debt"))
+
+    tbl = Table(rows, colWidths=[label_w] + [val_w] * n, repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), INK_PRIMARY),
+        ("FONTNAME", (0, 1), (-1, -1), _font("Nunito")),
+        ("FONTSIZE", (0, 1), (-1, -1), 8.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, BG_ROW_ALT]),
+        ("LINEBELOW", (0, 0), (-1, -2), 0.4, RULE_LIGHT),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.75, RULE_LIGHT),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+    ]))
+    story.append(tbl)
+    story.append(Spacer(1, 4))
+    return story
+
+
+def _build_comparison_branches(builds: list[Build]) -> list[object]:
+    """CAREER BRANCHES section — top 3 related careers per school."""
+    if not any(b.branches for b in builds):
+        return []  # No branch data → omit the section silently.
+
+    s = _styles()
+    story: list[object] = []
+    story.extend(_section_header("CAREER BRANCHES", compact=True))
+    story.append(Paragraph(
+        "Where each path can lead next — top related careers and how their "
+        "stats compare against the starting role.",
+        _style("ext_intro", fontName=_font("Nunito"), fontSize=8, leading=11,
+               textColor=INK_SECONDARY, spaceAfter=4),
+    ))
+
+    n = len(builds)
+    col_w = LIVE_W / n
+
+    def _label(text: str) -> Paragraph:
+        return Paragraph(
+            _safe(text),
+            _style("ext_branch_sch", fontName=_font("NunitoBold"), fontSize=8,
+                   leading=10, textColor=INK_PRIMARY, alignment=TA_CENTER),
+        )
+
+    column_labels = _column_labels(builds)
+
+    def _branch_block(b: Build, header_label: str) -> Table:
+        rows: list[list[object]] = [[_label(header_label)]]
+        if not b.branches:
+            rows.append([Paragraph(
+                "No branch data.",
+                _style("ext_branch_empty", fontName=_font("NunitoItalic"),
+                       fontSize=7.5, leading=10, textColor=INK_MUTED,
+                       alignment=TA_CENTER),
+            )])
+        else:
+            for branch in b.branches[:3]:
+                title_cell = Paragraph(
+                    _safe(_shorten(branch.to_title or "—", 40)),
+                    _style("ext_branch_title", fontName=_font("NunitoBold"),
+                           fontSize=8, leading=10, textColor=INK_PRIMARY),
+                )
+                deltas = _format_branch_deltas(branch)
+                meta_cell = Paragraph(
+                    _safe(deltas) if deltas else "—",
+                    _style("ext_branch_meta", fontName=_font("Nunito"),
+                           fontSize=7.5, leading=10, textColor=INK_SECONDARY),
+                )
+                rows.append([title_cell])
+                rows.append([meta_cell])
+        block = Table(rows, colWidths=[col_w - 8])
+        block.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("BACKGROUND", (0, 0), (0, 0), BG_ROW_ALT),
+            ("LINEBELOW", (0, 0), (0, 0), 0.5, RULE_LIGHT),
+        ]))
+        return block
+
+    strip = Table(
+        [[_branch_block(b, label) for b, label in zip(builds, column_labels)]],
+        colWidths=[col_w] * n,
+    )
+    strip.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LINEBEFORE", (1, 0), (n - 1, -1), 0.4, RULE_LIGHT),
+    ]))
+    story.append(strip)
+    story.append(Spacer(1, 4))
+    return story
+
+
+def _format_branch_deltas(branch: CareerBranch) -> str:
+    """Compact 'ERN +2 · ROI -1' style summary for a branch.
+
+    Only renders deltas that are non-None and non-zero. Empty result
+    when nothing meaningful changes (rare — most branches shift at
+    least one stat)."""
+    parts: list[str] = []
+    for label, val in (
+        ("ERN", branch.delta_ern),
+        ("ROI", branch.delta_roi),
+        ("RES", branch.delta_res),
+        ("GRW", branch.delta_grw),
+    ):
+        if val is None or val == 0:
+            continue
+        parts.append(f"{label} {val:+d}")
+    return "  ·  ".join(parts)
+
+
+def _build_comparison_gemma_verdict(
+    builds: list[Build],
+    insights: "CompareInsightsPayload | None",
+) -> list[object]:
+    """GEMMA'S VERDICT section — compare summary + Big Choice + per-build
+    pros/cons + decade projection + pivot question. Each sub-block is
+    optional and renders only when its data is present."""
+    if insights is None:
+        return []
+
+    has_any = any([
+        insights.compare_summary,
+        insights.pivotal,
+        insights.pros_cons,
+    ])
+    if not has_any:
+        return []
+
+    s = _styles()
+    story: list[object] = []
+    story.extend(_section_header("GEMMA'S VERDICT", compact=True))
+
+    body = _style(
+        "verdict_body", fontName=_font("Nunito"), fontSize=9, leading=12,
+        textColor=INK_SECONDARY, spaceAfter=4,
+    )
+    label = _style(
+        "verdict_label", fontName=_font("NunitoBold"), fontSize=8,
+        leading=11, textColor=INK_PRIMARY,
+        # 10pt of air above each subsection label so "Big Choice",
+        # "Pros & Cons by school", "In ten years", and "Sit with this"
+        # read as fresh subsections instead of trailing prose.
+        spaceBefore=10, spaceAfter=2,
+    )
+
+    if insights.compare_summary:
+        story.append(Paragraph(_safe(insights.compare_summary.strip()), body))
+
+    if insights.pivotal:
+        story.append(Paragraph("Big Choice", label))
+        story.append(Paragraph(
+            _safe(insights.pivotal.meta_tradeoff),
+            _style("verdict_meta", fontName=_font("FredokaOne"), fontSize=11,
+                   leading=14, textColor=INK_PRIMARY, spaceAfter=2),
+        ))
+        story.append(Paragraph(_safe(insights.pivotal.meta_explanation), body))
+
+    if insights.pros_cons:
+        story.append(Paragraph("Pros & Cons by school", label))
+        story.extend(_render_pros_cons_grid(builds, insights.pros_cons))
+
+    if insights.pivotal and insights.pivotal.decade_projection:
+        story.append(Paragraph("In ten years", label))
+        story.append(Paragraph(_safe(insights.pivotal.decade_projection), body))
+
+    if insights.pivotal and insights.pivotal.pivot_question:
+        story.append(Paragraph("Sit with this", label))
+        story.append(Paragraph(
+            _safe(insights.pivotal.pivot_question),
+            _style("verdict_pivot", fontName=_font("FredokaOne"), fontSize=10,
+                   leading=13, textColor=INK_PRIMARY, spaceAfter=4),
+        ))
+
+    return story
+
+
+def _render_pros_cons_grid(
+    builds: list[Build],
+    items: "list[CompareProsConsItem]",
+) -> list[object]:
+    """Per-build pros/cons cards arranged in a single horizontal strip
+    (one column per build), matching the on-screen CompareProsCons
+    layout."""
+    if not items:
+        return []
+    by_id: dict[str, "CompareProsConsItem"] = {item.build_id: item for item in items}
+
+    n = len(builds)
+    col_w = LIVE_W / n
+
+    title_style = _style(
+        "pc_title", fontName=_font("NunitoBold"), fontSize=8, leading=10,
+        textColor=INK_PRIMARY, alignment=TA_CENTER,
+    )
+    pro_style = _style(
+        "pc_pro", fontName=_font("Nunito"), fontSize=7.5, leading=10,
+        textColor=INK_SECONDARY, leftIndent=8, firstLineIndent=-8,
+        spaceAfter=1,
+    )
+    con_style = _style(
+        "pc_con", fontName=_font("Nunito"), fontSize=7.5, leading=10,
+        textColor=INK_SECONDARY, leftIndent=8, firstLineIndent=-8,
+        spaceAfter=1,
+    )
+    sub_style = _style(
+        "pc_sub", fontName=_font("NunitoBold"), fontSize=7, leading=9,
+        textColor=INK_MUTED, spaceAfter=1,
+    )
+
+    column_labels = _column_labels(builds)
+
+    def _build_block(b: Build, header_label: str) -> Table:
+        rows: list[list[object]] = [[Paragraph(
+            _safe(header_label),
+            title_style,
+        )]]
+        item = by_id.get(b.build_id)
+        if item is None:
+            rows.append([Paragraph(
+                "—",
+                _style("pc_empty", fontName=_font("NunitoItalic"),
+                       fontSize=7.5, leading=10, textColor=INK_MUTED),
+            )])
+        else:
+            rows.append([Paragraph("PROS", sub_style)])
+            for pro in item.pros[:2]:
+                rows.append([Paragraph(f"+ {_safe(pro)}", pro_style)])
+            rows.append([Paragraph("CONS", sub_style)])
+            for con in item.cons[:2]:
+                rows.append([Paragraph(f"− {_safe(con)}", con_style)])
+        block = Table(rows, colWidths=[col_w - 8])
+        block.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("BACKGROUND", (0, 0), (0, 0), BG_ROW_ALT),
+            ("LINEBELOW", (0, 0), (0, 0), 0.5, RULE_LIGHT),
+        ]))
+        return block
+
+    strip = Table(
+        [[_build_block(b, label) for b, label in zip(builds, column_labels)]],
+        colWidths=[col_w] * n,
+    )
+    strip.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("LINEBEFORE", (1, 0), (n - 1, -1), 0.4, RULE_LIGHT),
+    ]))
+    return [strip, Spacer(1, 4)]
+
+
+def _shorten(text: str, max_len: int) -> str:
+    """Truncate ``text`` to ``max_len`` chars with an ellipsis tail.
+
+    Used by the comparison extended sections so multi-column tables
+    don't blow out their cells when school names or career titles run
+    long.
+    """
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 1].rstrip() + "…"
+
+
+# ---------------------------------------------------------------------------
 # Public API.
 # ---------------------------------------------------------------------------
 
@@ -1340,18 +2045,38 @@ def generate_build_pdf(
     return buf.getvalue()
 
 
-def generate_comparison_pdf(builds: list[Build]) -> bytes:
-    """Render the 1-page (2-max) Comparison PDF for 2-3 builds.
+def generate_comparison_pdf(
+    builds: list[Build],
+    *,
+    insights: CompareInsightsPayload | None = None,
+) -> bytes:
+    """Render the multi-page Comparison PDF for 2-4 builds.
 
     Cross-major comparisons are supported — the in-app CompareView shows
     them, the PDF matches that contract. Stats (0-10), cost/ROI (dollars
     and %), and the 5-row risk profile are all directly comparable
     across majors. Title falls back to "Career comparison" when majors
     differ.
+
+    Section flow (page-1 → tail):
+        1. Mini-pentagon strip + STATS / COST & ROI / RISK / WHERE
+           EACH PULLS AHEAD (the original 1-page summary)
+        2. SCHOOL PROFILE (control, state, residency, major, career)
+        3. COST BREAKDOWN (tuition in/out, R&B, net price, COA, debt)
+        4. CAREER BRANCHES (top related careers per build, when
+           branch data is present on at least one build)
+        5. GEMMA'S VERDICT (compare summary + Big Choice + per-build
+           pros/cons + decade projection + pivot question; rendered
+           only when ``insights`` is non-None and at least one of its
+           sub-blocks has data)
+
+    The PDF flows naturally across pages — ReportLab's flowables wrap
+    onto page 2/3 as content demands. No explicit PageBreak is forced
+    inside the comparison.
     """
-    if not (2 <= len(builds) <= 3):
+    if not (2 <= len(builds) <= 4):
         raise ValueError(
-            f"Comparison PDF requires 2-3 builds; got {len(builds)}"
+            f"Comparison PDF requires 2-4 builds; got {len(builds)}"
         )
     _register_fonts()
     majors = {(b.career.program_name or b.major_text or "") for b in builds}
@@ -1362,5 +2087,9 @@ def generate_comparison_pdf(builds: list[Build]) -> bytes:
     doc = _make_doc(buf, title)
     story: list[object] = [NextPageTemplate("last")]
     story.extend(_build_comparison(builds))
+    story.extend(_build_comparison_school_profile(builds))
+    story.extend(_build_comparison_cost_breakdown(builds))
+    story.extend(_build_comparison_branches(builds))
+    story.extend(_build_comparison_gemma_verdict(builds, insights))
     doc.build(story)
     return buf.getvalue()

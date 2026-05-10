@@ -17,6 +17,7 @@ const STAT_LABELS: Record<string, { label: string; signMultiplier?: number }> = 
   delta_grw: { label: "GRW" },
   delta_burnout_raw: { label: "BRN", signMultiplier: -1 },
   delta_ceiling_raw: { label: "CEIL" },
+  delta_loans_raw: { label: "LOANS", signMultiplier: -1 },
 };
 
 function getStatDeltas(skill: AppliedSkill): Array<{ label: string; value: number }> {

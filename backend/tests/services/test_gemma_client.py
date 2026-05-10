@@ -22,6 +22,36 @@ import pytest
 from app.services import gemma_client
 
 
+def test_runtime_profile_keeps_26b_on_rich_path() -> None:
+    cfg = gemma_client.InferenceConfig(
+        backend="ollama",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma4:26b",
+    )
+
+    profile = gemma_client.runtime_profile(cfg)
+
+    assert profile.tier == "full"
+    assert profile.rich_intent_streaming is True
+    assert profile.intent_fallback_max_tokens == 200
+
+
+def test_runtime_profile_uses_compact_guardrails_for_e4b() -> None:
+    cfg = gemma_client.InferenceConfig(
+        backend="ollama",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma4:e4b",
+    )
+
+    profile = gemma_client.runtime_profile(cfg)
+
+    assert profile.tier == "compact_local"
+    assert profile.rich_intent_streaming is False
+    assert profile.intent_fallback_max_tokens > 200
+
+
 @pytest.mark.asyncio
 async def test_generate_async_respects_semaphore(monkeypatch, tmp_path):
     """Cap concurrency at 2 and fire 6 slow requests — no more than 2 in-flight at once.
@@ -408,6 +438,92 @@ def test_generate_with_tools_parses_tool_call(monkeypatch, tmp_path):
     assert result["name"] == "expand_socs"
     assert result["arguments"]["soc_codes"] == ["29-1228"]
     assert result["arguments"]["rationale"] == "pre-med intent"
+
+    gemma_client.reset_cache()
+
+
+def test_generate_with_tools_ollama_uses_native_tool_endpoint(
+    monkeypatch, tmp_path,
+):
+    """Ollama should use native /api/chat tools with think=false, not the
+    OpenAI-compatible tool endpoint."""
+    monkeypatch.delenv("GEMMA_LOG_DISABLED", raising=False)
+    gemma_client.reset_cache()
+
+    log_path = tmp_path / "gemma.jsonl"
+    monkeypatch.setattr(gemma_client, "_log_path", lambda: log_path)
+
+    cfg = gemma_client.InferenceConfig(
+        backend="ollama",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma4:e4b",
+    )
+
+    from functools import lru_cache
+
+    @lru_cache(maxsize=1)
+    def _stub_cached_client():
+        return object(), cfg
+
+    captured: dict[str, object] = {}
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "message": {
+                    "tool_calls": [{
+                        "function": {
+                            "name": "expand_socs",
+                            "arguments": {
+                                "soc_codes": ["29-1215"],
+                                "rationale": "physician role",
+                            },
+                        },
+                    }],
+                },
+            }
+
+    def _post(url, *, json, timeout):  # noqa: A002
+        captured["url"] = url
+        captured["payload"] = json
+        captured["timeout"] = timeout
+        return _Resp()
+
+    monkeypatch.setattr(gemma_client, "_cached_client", _stub_cached_client)
+    monkeypatch.setattr(gemma_client.httpx, "post", _post)
+
+    result = gemma_client.generate_with_tools(
+        system="You expand SOCs.",
+        user="Student wants doctor.",
+        tools=[{"type": "function", "function": {"name": "expand_socs"}}],
+        tool_choice="required",
+        extra={"call_site": "soc_expansion"},
+    )
+
+    assert result is not None
+    assert result["name"] == "expand_socs"
+    assert result["arguments"]["soc_codes"] == ["29-1215"]
+    assert captured["url"] == "http://localhost:11434/api/chat"
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["think"] is False
+    assert payload["stream"] is False
+    assert payload["tools"] == [
+        {"type": "function", "function": {"name": "expand_socs"}}
+    ]
+    assert payload["options"] == {"num_predict": 600, "temperature": 0.0}
+
+    lines = [ln for ln in log_path.read_text().splitlines() if ln.strip()]
+    assert len(lines) == 1
+    record = json.loads(lines[0])
+    assert record["backend"] == "ollama"
+    assert record["tool_call_made"] is True
+    assert record["tool_choice_honored"] is True
+    assert record["tool_name"] == "expand_socs"
 
     gemma_client.reset_cache()
 

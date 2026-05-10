@@ -36,6 +36,14 @@ interface WinnerOutcome {
   dim: Dimension;
   winnerIndex: number | null; // null when all values missing
   tied: boolean;
+  // Number of builds within ½-pt tolerance of the leading value. Used
+  // to phrase the tied state correctly for 2-, 3-, and 4-way ties
+  // ("Both at 5" vs "All 4 at 5"). Always 0 when ``tied === false``.
+  tiedCount: number;
+  // Total number of builds with a finite value for this dimension.
+  // Used to detect "all-builds-tied" vs "subset tied" so the copy can
+  // choose between "All N at X" and "N-way tie at X".
+  finiteCount: number;
   winnerValue: number | null;
   runnerUpValue: number | null;
 }
@@ -129,6 +137,34 @@ function isTied(values: (number | null)[]): boolean {
   return max - min < 0.5; // pentagon-stat tolerance: half a point
 }
 
+function tiedPhrase(
+  tiedCount: number,
+  finiteCount: number,
+  formattedValue: string,
+): string {
+  // 2-way tie → familiar "Both at X". 3+ way tie → "All N at X" when
+  // every finite-valued build is part of the tie; otherwise an
+  // explicit "N-way tie at X" so the reader knows it's not unanimous.
+  if (tiedCount <= 2) return `Both at ${formattedValue}`;
+  if (tiedCount === finiteCount) return `All ${tiedCount} at ${formattedValue}`;
+  return `${tiedCount}-way tie at ${formattedValue}`;
+}
+
+
+function tieCounts(
+  values: (number | null)[],
+  direction: Direction,
+): { tiedCount: number; finiteCount: number } {
+  const finite = values.filter(
+    (v): v is number => v !== null && Number.isFinite(v),
+  );
+  if (finite.length === 0) return { tiedCount: 0, finiteCount: 0 };
+  const leader = direction === "max" ? Math.max(...finite) : Math.min(...finite);
+  // Same ½-pt tolerance as isTied so the count and the boolean agree.
+  const tiedCount = finite.filter((v) => Math.abs(v - leader) < 0.5).length;
+  return { tiedCount, finiteCount: finite.length };
+}
+
 function buildDimensions(result: CompareResult): Dimension[] {
   const dims: Dimension[] = [];
 
@@ -185,6 +221,7 @@ export function CompareWinners({
     return dims.map((dim) => {
       const winnerIndex = pickWinner(dim.values, dim.direction);
       const tied = isTied(dim.values);
+      const { tiedCount, finiteCount } = tieCounts(dim.values, dim.direction);
       const winnerValue = winnerIndex !== null ? dim.values[winnerIndex] ?? null : null;
 
       const runnerUpValue = (() => {
@@ -199,7 +236,15 @@ export function CompareWinners({
         return dim.direction === "max" ? Math.max(...others) : Math.min(...others);
       })();
 
-      return { dim, winnerIndex, tied, winnerValue, runnerUpValue };
+      return {
+        dim,
+        winnerIndex,
+        tied,
+        tiedCount,
+        finiteCount,
+        winnerValue,
+        runnerUpValue,
+      };
     });
   }, [result]);
 
@@ -213,7 +258,7 @@ export function CompareWinners({
       initial="hidden"
       animate="visible"
     >
-      {outcomes.map(({ dim, winnerIndex, tied, winnerValue, runnerUpValue }) => {
+      {outcomes.map(({ dim, winnerIndex, tied, tiedCount, finiteCount, winnerValue, runnerUpValue }) => {
         const winnerBuild = winnerIndex !== null ? result.builds[winnerIndex] : null;
         const dimUnavailable = winnerIndex === null;
         const isHighlighted =
@@ -302,7 +347,7 @@ export function CompareWinners({
                 </p>
                 {winnerValue !== null && (
                   <p className="font-data text-data-sm text-text-secondary">
-                    Both at {dim.format(winnerValue)}
+                    {tiedPhrase(tiedCount, finiteCount, dim.format(winnerValue))}
                   </p>
                 )}
               </div>

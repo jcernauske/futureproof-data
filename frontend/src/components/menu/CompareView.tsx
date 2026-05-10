@@ -666,7 +666,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
   const exportPdfDisabledReason = useMemo<string | null>(() => {
     const builds = result?.builds ?? [];
     if (builds.length < 2) return t("compare.exportPdfDisabledFew");
-    if (builds.length > 3) return t("compare.exportPdfDisabledMany");
+    if (builds.length > 4) return t("compare.exportPdfDisabledMany");
     return null;
   }, [result?.builds, t]);
 
@@ -676,7 +676,12 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     setPdfState("loading");
     setPdfErrorMsg(null);
     try {
-      const blob = await exportComparisonPdf(buildIds);
+      // Forward the already-loaded Gemma insights so the PDF reuses
+      // the same editorial block the student saw on-screen — avoids
+      // a 5-10s re-fire of 3 Gemma calls server-side.
+      const blob = await exportComparisonPdf(buildIds, {
+        insights: insights ?? null,
+      });
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const major = (result?.builds[0]?.major_text || "compare")
         .toLowerCase()
@@ -698,7 +703,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         setPdfErrorMsg(null);
       }, 8000);
     }
-  }, [buildIds, exportPdfDisabledReason, pdfState, result?.builds, t]);
+  }, [buildIds, exportPdfDisabledReason, insights, pdfState, result?.builds, t]);
 
   const handleOpenBuild = useCallback(async (buildId: string) => {
     try {

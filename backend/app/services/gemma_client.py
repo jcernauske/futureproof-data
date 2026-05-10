@@ -70,6 +70,72 @@ class InferenceConfig:
     model: str
 
 
+@dataclass(frozen=True)
+class ModelRuntimeProfile:
+    """Behavior switches for known model/runtime combinations."""
+
+    tier: str
+    rich_intent_streaming: bool
+    intent_fallback_max_tokens: int
+    build_gemma_timeout_s: float | None
+    build_narrative_max_tokens: int
+    build_recs_max_tokens: int
+    build_pool_max_tokens: int
+    build_guidance_max_tokens: int
+    eager_career_description: bool
+    sequential_build_stream: bool
+    ask_tool_wall_time_s: float
+    ask_max_tokens: int
+
+
+def runtime_profile(config: InferenceConfig | None = None) -> ModelRuntimeProfile:
+    """Return model-specific guardrails without changing the selected model.
+
+    The local compact Gemma variants are useful for offline demos, but they
+    are much less reliable at prose-plus-structured-output prompts than the
+    26B class models. Keep the richer UX for stronger models and only route
+    compact Ollama models through simpler structured-output paths.
+    """
+    if config is None:
+        config = current_config()
+
+    model = config.model.lower()
+    compact_local = (
+        config.backend == "ollama"
+        and "26b" not in model
+        and any(tag in model for tag in ("e2b", "e4b", "2b", "4b", "4.5b"))
+    )
+    if compact_local:
+        return ModelRuntimeProfile(
+            tier="compact_local",
+            rich_intent_streaming=False,
+            intent_fallback_max_tokens=700,
+            build_gemma_timeout_s=60.0,
+            build_narrative_max_tokens=400,
+            build_recs_max_tokens=500,
+            build_pool_max_tokens=900,
+            build_guidance_max_tokens=600,
+            eager_career_description=False,
+            sequential_build_stream=True,
+            ask_tool_wall_time_s=15.0,
+            ask_max_tokens=700,
+        )
+    return ModelRuntimeProfile(
+        tier="full",
+        rich_intent_streaming=True,
+        intent_fallback_max_tokens=200,
+        build_gemma_timeout_s=None,
+        build_narrative_max_tokens=800,
+        build_recs_max_tokens=800,
+        build_pool_max_tokens=2000,
+        build_guidance_max_tokens=1200,
+        eager_career_description=True,
+        sequential_build_stream=False,
+        ask_tool_wall_time_s=45.0,
+        ask_max_tokens=1200,
+    )
+
+
 def _resolve_config() -> InferenceConfig:
     _ensure_env_loaded()
     backend = os.environ.get("INFERENCE_BACKEND", "ollama").strip().lower()
@@ -333,6 +399,8 @@ def generate(
     seed: int | None = None,
     model: str | None = None,
     extra: dict[str, Any] | None = None,
+    timeout_s: float | None = None,
+    response_format: str | dict[str, Any] | None = None,
 ) -> str:
     """Run a single chat completion and return the assistant text.
 
@@ -357,6 +425,8 @@ def generate(
         seed=seed,
         model=model,
         extra=extra,
+        timeout_s=timeout_s,
+        response_format=response_format,
     )
 
 
@@ -522,6 +592,8 @@ async def generate_async(
     seed: int | None = None,
     model: str | None = None,
     extra: dict[str, Any] | None = None,
+    timeout_s: float | None = None,
+    response_format: str | dict[str, Any] | None = None,
 ) -> str:
     """Async variant of :func:`generate`.
 
@@ -543,6 +615,8 @@ async def generate_async(
             seed=seed,
             model=model,
             extra=extra,
+            timeout_s=timeout_s,
+            response_format=response_format,
         )
 
 
@@ -733,11 +807,16 @@ def generate_with_tools(
     temperature: float = 0.0,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Issue a chat completion with OpenAI-compatible function-calling.
+    """Issue a chat completion with function-calling.
 
     Returns ``{"name": <fn_name>, "arguments": <dict>}`` for the first
     tool call in the response, or ``None`` if the model returned a
     plain message instead of calling a tool, or on transport error.
+
+    OpenRouter uses OpenAI-compatible ``tools``. Ollama uses native
+    ``/api/chat`` with ``think: false`` because its OpenAI-compatible
+    endpoint can spend the response budget on hidden thinking and return
+    no usable tool call.
 
     Works with both INFERENCE_BACKEND=ollama and openrouter.
     Logs to logs/gemma.jsonl with extra["call_site"] for traceability.
@@ -760,6 +839,104 @@ def generate_with_tools(
     if extra:
         record = {**extra, **record}
     started = time.perf_counter()
+
+    if config.backend == "ollama":
+        url = f"{_ollama_native_url(config)}/api/chat"
+        payload: dict[str, Any] = {
+            "model": resolved_model,
+            "messages": full_messages,
+            "think": False,
+            "stream": False,
+            "tools": tools,
+            "options": {
+                "num_predict": max_tokens,
+                "temperature": temperature,
+            },
+        }
+        try:
+            resp = httpx.post(url, json=payload, timeout=180.0)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+            record["error"] = f"{type(exc).__name__}: {exc}"
+            record["tool_call_made"] = False
+            _log_exchange(record)
+            logger.warning(
+                "gemma generate_with_tools failed backend=%s: %s",
+                config.backend, exc,
+            )
+            return None
+
+        record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+        message = data.get("message", {})
+        tool_calls = message.get("tool_calls") or []
+
+        if not tool_calls:
+            content = str(message.get("content", "") or "").strip()
+            record["tool_call_made"] = False
+            record["tool_choice_honored"] = False
+            record["response"] = content
+
+            parsed = _try_parse_json_from_content(content, tools)
+            if parsed is not None:
+                record["tool_call_made"] = True
+                record["tool_choice_honored"] = False
+                record["fallback"] = "content_json_parse"
+                record["tool_name"] = parsed["name"]
+                record["tool_arguments"] = parsed["arguments"]
+                _log_exchange(record)
+                logger.info(
+                    "gemma generate_with_tools: extracted tool call "
+                    "from content (backend=%s)",
+                    config.backend,
+                )
+                return parsed
+
+            logger.info(
+                "gemma generate_with_tools: no tool_calls, "
+                "retrying as plain JSON prompt (backend=%s)",
+                config.backend,
+            )
+            _log_exchange(record)
+
+            return _fallback_prompt_for_json(
+                system=system,
+                user=user,
+                tools=tools,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                extra=extra,
+            )
+
+        tc = tool_calls[0]
+        fn = tc.get("function", {}) if isinstance(tc, dict) else {}
+        fn_name = str(fn.get("name", "") or "")
+        fn_args_raw = fn.get("arguments", {})
+        if not isinstance(fn_args_raw, dict):
+            try:
+                fn_args_raw = (
+                    json.loads(fn_args_raw)
+                    if isinstance(fn_args_raw, str)
+                    else {}
+                )
+            except json.JSONDecodeError:
+                record["tool_call_made"] = True
+                record["error"] = f"unparseable_arguments: {str(fn_args_raw)[:200]}"
+                _log_exchange(record)
+                logger.warning(
+                    "gemma generate_with_tools: unparseable tool args: %s",
+                    str(fn_args_raw)[:200],
+                )
+                return None
+
+        record["tool_call_made"] = True
+        record["tool_choice_honored"] = True
+        record["tool_name"] = fn_name
+        record["tool_arguments"] = fn_args_raw
+        _log_exchange(record)
+
+        return {"name": fn_name, "arguments": fn_args_raw}
 
     completion_kwargs: dict[str, Any] = {
         "model": resolved_model,

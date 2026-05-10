@@ -2,7 +2,7 @@
  * ExportPdfButton — single-build PDF export trigger on /my-build.
  *
  * Click flow:
- *   1. POST /build/{build_id}/pdf with optional student_name body.
+ *   1. POST /build/{build_id}/pdf.
  *   2. Receive application/pdf bytes as a Blob.
  *   3. Trigger a browser download via URL.createObjectURL.
  *
@@ -21,19 +21,16 @@ import { useT } from "@/i18n/useT";
 
 interface ExportPdfButtonProps {
   buildId: string;
-  defaultStudentName?: string;
   schoolName: string;
   programName: string;
 }
 
 export function ExportPdfButton({
   buildId,
-  defaultStudentName = "",
   schoolName,
   programName,
 }: ExportPdfButtonProps) {
   const t = useT();
-  const [studentName, setStudentName] = useState(defaultStudentName);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -42,9 +39,7 @@ export function ExportPdfButton({
     setState("loading");
     setErrorMsg(null);
     try {
-      const blob = await exportBuildPdf(buildId, {
-        studentName: studentName.trim() || null,
-      });
+      const blob = await exportBuildPdf(buildId);
       const safe = (s: string) =>
         s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -66,18 +61,6 @@ export function ExportPdfButton({
 
   return (
     <div className="flex items-center gap-2">
-      <input
-        id="input-export-student-name"
-        data-testid="input-export-student-name"
-        type="text"
-        value={studentName}
-        onChange={(e) => setStudentName(e.target.value.slice(0, 80))}
-        placeholder={t("build.exportPdfNamePlaceholder")}
-        aria-label={t("build.exportPdfNameLabel")}
-        maxLength={80}
-        className="font-body text-text-secondary bg-bp-mid hover:bg-bp-surface focus:bg-bp-surface px-2 h-8 rounded border border-border-subtle focus:border-border-strong transition-colors"
-        style={{ fontSize: 13, width: 168 }}
-      />
       <button
         type="button"
         data-testid="btn-export-pdf-build"

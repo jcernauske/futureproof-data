@@ -355,10 +355,10 @@ function SheetEnclosure({
           ref={closeBtnRef}
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 px-3 py-1 text-text-secondary hover:text-text-primary"
           aria-label={t("compareSchools.close")}
+          className="absolute top-4 right-4 z-20 shrink-0 w-9 h-9 rounded-full bg-bp-surface hover:bg-bp-raised text-text-primary flex items-center justify-center transition-colors duration-normal cursor-pointer"
         >
-          ×
+          ✕
         </button>
       </motion.aside>
     </>
@@ -526,7 +526,7 @@ function PanelHeader({
       : t("compareSchools.byCipSoc.subtitle");
   const programShort = shortenProgramName(programName ?? "");
   return (
-    <div className="px-5 pt-5 pb-4 border-b border-border-subtle sticky top-0 bg-bp-mid z-10">
+    <div className="px-5 pt-5 pb-4 pr-16 border-b border-border-subtle sticky top-0 bg-bp-mid z-10">
       <span
         role="status"
         data-testid="chip-leaderboard-mode"

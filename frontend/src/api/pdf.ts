@@ -12,6 +12,7 @@
  */
 
 import { formatErrorDetail } from "@/api/client";
+import type { CompareInsights } from "@/api/menu";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -40,6 +41,13 @@ export async function exportBuildPdf(
 
 export interface ExportComparisonPdfOptions {
   studentName?: string | null;
+  // Already-loaded Gemma insights from /builds/compare-insights.
+  // Forwarding them here lets the PDF reuse the on-screen editorial
+  // content (compare summary, Big Choice, pros/cons, decade
+  // projection, pivot question) instead of re-firing 3 Gemma calls
+  // — saves ~5-10s of PDF export latency. When omitted, the backend
+  // generates its own insights before rendering.
+  insights?: CompareInsights | null;
 }
 
 export async function exportComparisonPdf(
@@ -52,6 +60,7 @@ export async function exportComparisonPdf(
     body: JSON.stringify({
       build_ids: buildIds,
       student_name: opts.studentName ?? null,
+      insights: opts.insights ?? null,
     }),
   });
   if (!res.ok) {

@@ -62,6 +62,8 @@ def _format_skill_deltas(skill: AppliedSkill) -> str:
         parts.append(f"Burnout risk {skill.delta_burnout_raw:+d}")
     if skill.delta_ceiling_raw:
         parts.append(f"Ceiling {skill.delta_ceiling_raw:+d}")
+    if skill.delta_loans_raw:
+        parts.append(f"Loan burden {skill.delta_loans_raw:+d}")
     return ", ".join(parts) or "—"
 
 

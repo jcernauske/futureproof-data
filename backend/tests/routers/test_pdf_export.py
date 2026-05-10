@@ -3,7 +3,7 @@
 Covers:
 - POST /build/{id}/pdf returns Content-Type: application/pdf.
 - POST /builds/compare/pdf 400 on cross-major.
-- Pydantic-level validation of len(build_ids) ∈ [2, 3].
+- Pydantic-level validation of len(build_ids) ∈ [2, 4].
 - 500 on ReportLab render failure (with CORS-friendly headers).
 - 404 when build_id is unknown.
 
@@ -65,6 +65,41 @@ def stub_audience_questions(monkeypatch):
         AsyncMock(return_value=aq),
     )
     return aq
+
+
+@pytest.fixture(autouse=True)
+def stub_compare_insights_gemma(monkeypatch):
+    """Stub the three compare-insights Gemma helpers used by the
+    /builds/compare/pdf endpoint when the request omits ``insights``.
+
+    Without this, every comparison-PDF router test fires real Gemma
+    calls (~20s per test). Returns deterministic placeholders that
+    let the renderer exercise the GEMMA'S VERDICT section without
+    network — content still flows through the real Pydantic coercion
+    path in ``_resolve_compare_insights``.
+    """
+    from app.routers import pdf_export as pdf_export_router
+
+    async def _summary(_builds, locale="en"):
+        return "Stub compare summary."
+
+    async def _pros_cons(_builds, locale="en"):
+        return [
+            {"build_id": b.build_id, "pros": ["Stub pro"], "cons": ["Stub con"]}
+            for b in _builds
+        ]
+
+    async def _pivotal(_builds, locale="en"):
+        return {
+            "meta_tradeoff": "Stub Big Choice.",
+            "meta_explanation": "Stub Big Choice explanation.",
+            "decade_projection": "Stub decade projection.",
+            "pivot_question": "Stub pivot question.",
+        }
+
+    monkeypatch.setattr(pdf_export_router, "generate_compare_summary_async", _summary)
+    monkeypatch.setattr(pdf_export_router, "generate_compare_pros_cons_async", _pros_cons)
+    monkeypatch.setattr(pdf_export_router, "generate_compare_pivotal_async", _pivotal)
 
 
 @pytest.fixture
@@ -239,13 +274,13 @@ class TestPostComparePdf:
         resp = client.post("/builds/compare/pdf", json={"build_ids": ["b1"]})
         assert resp.status_code == 422
 
-    def test_post_compare_pdf_validation_rejects_four_builds(
+    def test_post_compare_pdf_validation_rejects_five_builds(
         self, client, isolated_builds_db,
     ):
-        """Pydantic max_length=3 rejects length 4 → 422."""
+        """Pydantic max_length=4 rejects length 5 → 422."""
         resp = client.post(
             "/builds/compare/pdf",
-            json={"build_ids": ["b1", "b2", "b3", "b4"]},
+            json={"build_ids": ["b1", "b2", "b3", "b4", "b5"]},
         )
         assert resp.status_code == 422
 

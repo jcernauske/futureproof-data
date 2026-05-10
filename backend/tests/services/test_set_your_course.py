@@ -330,6 +330,69 @@ class TestStreamInitial:
         assert "**" not in reasoning
 
     @pytest.mark.asyncio
+    async def test_compact_local_model_skips_rich_streaming_prompt(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_intent_helpers: None,
+    ) -> None:
+        """Small local models should not stream the rich prose+JSON prompt.
+
+        ``gemma4:e4b`` can emit labels, fake codes, and disclaimers before
+        the delimiter. Use the JSON-only fallback path instead so malformed
+        prose never reaches the visible loading panel.
+        """
+        monkeypatch.setattr(
+            gemma_client,
+            "runtime_profile",
+            lambda: gemma_client.ModelRuntimeProfile(
+                tier="compact_local",
+                rich_intent_streaming=False,
+                intent_fallback_max_tokens=700,
+                build_gemma_timeout_s=60.0,
+                build_narrative_max_tokens=400,
+                build_recs_max_tokens=500,
+                build_pool_max_tokens=900,
+                build_guidance_max_tokens=600,
+                eager_career_description=False,
+                sequential_build_stream=True,
+                ask_tool_wall_time_s=15.0,
+                ask_max_tokens=700,
+            ),
+        )
+
+        async def _unexpected_stream(**_kwargs: Any) -> AsyncIterator[str]:
+            raise AssertionError("compact local profile should not stream rich prompt")
+            yield ""  # pragma: no cover
+
+        monkeypatch.setattr(gemma_client, "generate_stream_async", _unexpected_stream)
+        monkeypatch.setattr(
+            set_your_course,
+            "_fallback_resolve",
+            lambda *args, **kwargs: _make_current_resolution(
+                reasoning="Matched to Marketing."
+            ),
+        )
+
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="marketing",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[],
+        ):
+            events.append(event)
+
+        emitted = "".join(
+            e["data"]["text"] for e in events if e["event"] == "delta"
+        )
+        assert emitted == "Matched to Marketing."
+        assert "Recommended Program" not in emitted
+        assert "Disclaimer" not in emitted
+        structured = next(e for e in events if e["event"] == "structured")
+        assert structured["data"]["matched_cip"] == "52.1401"
+        assert events[-1]["event"] == "done"
+
+    @pytest.mark.asyncio
     async def test_transport_failure_returns_empty(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1480,6 +1543,62 @@ class TestMultiCipResolution:
         assert result.alternatives[1]["cip"] == "14.1901"
         assert result.remaining_count == 8
         assert result.narrowing_hint == "Try civil engineering"
+
+    def test_fallback_prompt_uses_compact_candidate_list(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The compact e4b fallback prompt should not dump the whole
+        school/crosswalk universe. It should show only likely candidates
+        plus the school-reported parent family."""
+        monkeypatch.setattr(
+            intent,
+            "_get_crosswalk_cips_for_families",
+            lambda _families: [
+                {
+                    "cipcode": "52.1401",
+                    "cip_title": "Marketing/Marketing Management, General",
+                },
+                {"cipcode": "52.1402", "cip_title": "Marketing Research"},
+                {"cipcode": "52.1404", "cip_title": "Digital Marketing"},
+                {"cipcode": "11.0101", "cip_title": "Computer Science"},
+            ],
+        )
+        captured: dict[str, Any] = {}
+
+        def _fake_generate(**kwargs: Any) -> str:
+            captured.update(kwargs)
+            return (
+                '{"matched_cip": "52.1401", '
+                '"matched_title": "Marketing/Marketing Management, General", '
+                '"confidence": "high", "parent_cip": "52.01", '
+                '"alternatives": [], "remaining_count": 0, '
+                '"narrowing_hint": "", "intent_keywords": []}'
+            )
+
+        monkeypatch.setattr(gemma_client, "generate", _fake_generate)
+        school_cips = [
+            {"cipcode": "52.01", "program_name": "Business/Commerce, General"},
+            {"cipcode": "52.10", "program_name": "Human Resources Management"},
+            {"cipcode": "11.07", "program_name": "Computer Science"},
+        ]
+
+        result = set_your_course._fallback_resolve(
+            "marketing",
+            school_cips,
+            programs=[],
+            school_name="Indiana University-Bloomington",
+        )
+
+        assert result is not None
+        assert result.matched_cip == "52.1401"
+        system = captured["system"]
+        assert "Student input: marketing" in system
+        assert "52.1401 | Marketing/Marketing Management, General" in system
+        assert "52.01 | Business/Commerce, General | parent 52.01 | school" in system
+        assert "11.0101 | Computer Science" not in system
+        assert "Programs at this school:" not in system
+        assert "Crosswalk codes:" not in system
 
     def test_stream_multi_cip_remaining_count_and_hint(
         self,

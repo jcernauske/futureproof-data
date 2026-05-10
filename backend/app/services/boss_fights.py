@@ -679,6 +679,16 @@ _NARRATIVE_SYSTEM = (
     "markdown characters appear literally."
 )
 
+_COMPACT_NARRATIVE_SYSTEM = (
+    "You are Gemma writing one short note for a high school student. "
+    "Explain what one career-path risk means in real life.\n\n"
+    "Rules: write 2 sentences only. Use plain English. No markdown. "
+    "Do not use stat codes, score fractions, outcome labels, or game "
+    "words like fight, boss, gauntlet, battle, beat, or defeat. "
+    "Name the practical reason and one concrete lever the student can "
+    "control."
+)
+
 _BOSS_LEVER_HINT: dict[str, str] = {
     "ai": (
         "This score comes from two inputs: how exposed the occupation is "
@@ -786,6 +796,42 @@ def _narrative_prompt(
     parts.extend([
         "",
         instructions,
+    ])
+    return "\n".join(parts)
+
+
+def _compact_outcome_phrase(fight: BossFightResult) -> str:
+    if fight.result == "win":
+        return "strong"
+    if fight.result == "draw":
+        return "mixed"
+    if fight.result == "lose":
+        return "tough"
+    return "unclear"
+
+
+def _compact_narrative_prompt(
+    career: CareerOutcome, fight: BossFightResult
+) -> str:
+    context = _boss_context(career, fight.boss)
+    parts = [
+        f"Career: {career.occupation_title}",
+        f"School/major: {career.institution_name} — {career.program_name}",
+        f"Topic: {fight.label.replace('Fight ', '')}",
+        f"Read: {_compact_outcome_phrase(fight)} — {fight.reason}",
+        "",
+        "Scoring context:",
+        _scoring_explanation(fight),
+    ]
+    gap = _gap_description(fight)
+    if gap:
+        parts.append(gap)
+    if context:
+        parts.extend(["", context])
+    parts.extend([
+        "",
+        "Write the student-facing note now. Mention actual dollar amounts "
+        "only if provided above.",
     ])
     return "\n".join(parts)
 
@@ -1100,14 +1146,32 @@ async def narrate_one(
     locale = normalize_locale(locale)
     if fight.result == "unknown":
         return _fallback_narrative(fight, locale)
-    system = f"{_NARRATIVE_SYSTEM}\n\n{gemma_language_instruction(locale)}"
+    profile = gemma_client.runtime_profile()
+    compact = profile.tier == "compact_local"
+    system_core = _COMPACT_NARRATIVE_SYSTEM if compact else _NARRATIVE_SYSTEM
+    prompt = (
+        _compact_narrative_prompt(career, fight)
+        if compact
+        else _narrative_prompt(career, fight)
+    )
+    system = f"{system_core}\n\n{gemma_language_instruction(locale)}"
     narrative = await gemma_client.generate_async(
         system=system,
-        user=_narrative_prompt(career, fight),
-        max_tokens=800,
+        user=prompt,
+        max_tokens=profile.build_narrative_max_tokens,
         temperature=0.7,
+        timeout_s=profile.build_gemma_timeout_s,
+        extra={
+            "call_site": "boss_narrative",
+            "boss_id": fight.boss,
+            "profile_tier": profile.tier,
+        },
     )
-    return strip_markdown(narrative) if narrative else _fallback_narrative(fight, locale)
+    return (
+        strip_markdown(narrative)
+        if narrative
+        else _fallback_narrative(fight, locale)
+    )
 
 
 def run_gauntlet(
@@ -1144,7 +1208,11 @@ def run_gauntlet(
             except Exception as exc:
                 logger.warning("boss narrative gen failed: %s", exc)
                 narrative = ""
-            fight.narrative = strip_markdown(narrative) if narrative else _fallback_narrative(fight, locale)
+            fight.narrative = (
+                strip_markdown(narrative)
+                if narrative
+                else _fallback_narrative(fight, locale)
+            )
 
     return gauntlet
 

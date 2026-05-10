@@ -218,10 +218,13 @@ async def generate_recs_async(
     """
     locale = normalize_locale(locale)
     system = f"{_SYSTEM}\n\n{gemma_language_instruction(locale)}"
+    profile = gemma_client.runtime_profile()
     text = await gemma_client.generate_async(
         system=system,
         user=_prompt(career, gauntlet),
-        max_tokens=800,
+        max_tokens=profile.build_recs_max_tokens,
         temperature=0.6,
+        timeout_s=profile.build_gemma_timeout_s,
+        extra={"call_site": "skill_recs", "profile_tier": profile.tier},
     )
     return _parse_recs(text, career)

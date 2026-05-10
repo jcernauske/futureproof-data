@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from app.models.career import (
     BossFightResult,
     BossScores,
@@ -327,6 +329,95 @@ class TestGuidanceLocale:
         assert isinstance(system, str)
         assert "Write all student-facing prose in Spanish" in system
         assert "deuda estudiantil" in system
+
+    def test_generate_guidance_async_uses_compact_profile_for_local_e4b(
+        self, monkeypatch
+    ):
+        import asyncio
+
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            gemma_client,
+            "runtime_profile",
+            lambda: SimpleNamespace(
+                tier="compact_local",
+                build_guidance_max_tokens=234,
+                build_gemma_timeout_s=5.5,
+            ),
+        )
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return "compact guidance"
+
+        monkeypatch.setattr(
+            gemma_client, "generate_async", fake_generate_async
+        )
+
+        text = asyncio.run(
+            guidance.generate_guidance_async(
+                _career(), _gauntlet(), [], locale="en"
+            )
+        )
+
+        assert text == "compact guidance"
+        assert captured["max_tokens"] == 234
+        assert captured["timeout_s"] == 5.5
+        assert captured["extra"] == {
+            "call_site": "guidance",
+            "profile_tier": "compact_local",
+        }
+        system = captured["system"]
+        user = captured["user"]
+        assert isinstance(system, str)
+        assert isinstance(user, str)
+        assert "3-4 short sentences total" in system
+        assert "Paragraph 1" not in system
+        assert "Do not invent school facts" in user
+
+    def test_generate_guidance_async_keeps_rich_prompt_for_full_profile(
+        self, monkeypatch
+    ):
+        import asyncio
+
+        from app.services import gemma_client
+
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            gemma_client,
+            "runtime_profile",
+            lambda: SimpleNamespace(
+                tier="full",
+                build_guidance_max_tokens=1200,
+                build_gemma_timeout_s=None,
+            ),
+        )
+
+        async def fake_generate_async(**kwargs):
+            captured.update(kwargs)
+            return "rich guidance"
+
+        monkeypatch.setattr(
+            gemma_client, "generate_async", fake_generate_async
+        )
+
+        asyncio.run(
+            guidance.generate_guidance_async(
+                _career(), _gauntlet(), [], locale="en"
+            )
+        )
+
+        system = captured["system"]
+        user = captured["user"]
+        assert isinstance(system, str)
+        assert isinstance(user, str)
+        assert "Paragraph 1" in system
+        assert "PARAGRAPH 1" in user
+        assert captured["max_tokens"] == 1200
 
     def test_chat_with_context_passes_spanish_instruction(self, monkeypatch):
         """chat_with_context must thread locale into the system prompt."""

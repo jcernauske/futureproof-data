@@ -4242,6 +4242,9 @@ def _context_for_skill(build: Build, skill_id: str) -> str:
     if skill.delta_ceiling_raw:
         sign = "+" if skill.delta_ceiling_raw > 0 else ""
         raw_parts.append(f"Career Ceiling raw score {sign}{skill.delta_ceiling_raw}")
+    if skill.delta_loans_raw:
+        sign = "+" if skill.delta_loans_raw > 0 else ""
+        raw_parts.append(f"Student Loans raw score {sign}{skill.delta_loans_raw}")
     if raw_parts:
         lines.append(_helper("raw-score deltas if applied: " + "; ".join(raw_parts)))
 
