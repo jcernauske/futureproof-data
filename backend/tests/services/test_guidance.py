@@ -108,6 +108,29 @@ class TestGenerateGuidance:
         assert "LOSE" in prompt
         assert "RES 3" in prompt
 
+    def test_markdown_in_gemma_output_is_stripped(self, monkeypatch):
+        """When the small Ollama model returns markdown despite the
+        prompt forbidding it, ``generate_guidance`` must strip the
+        markdown characters before returning. The frontend renders
+        guidance as plain text via ``whitespace-pre-wrap``."""
+        from app.services import gemma_client
+
+        markdown_response = (
+            "**IU-B Marketing** is strong on *ROI* but weak on AI "
+            "resilience.\n\n## Key Concern\n- High AI exposure"
+        )
+        monkeypatch.setattr(
+            gemma_client, "generate", lambda **kwargs: markdown_response
+        )
+        text = guidance.generate_guidance(_career(), _gauntlet(), [])
+        assert "**" not in text
+        assert "## " not in text
+        # Bullet markers stripped.
+        assert "- High AI exposure" not in text
+        # Content survives.
+        assert "IU-B Marketing" in text
+        assert "ROI" in text
+
 
 class TestChatWithContext:
     def test_system_prompt_carries_build_context(self, monkeypatch):

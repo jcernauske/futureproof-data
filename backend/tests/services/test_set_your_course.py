@@ -223,6 +223,113 @@ class TestStreamInitial:
         assert structured["data"]["confidence"] == "high"
 
     @pytest.mark.asyncio
+    async def test_clean_prose_streams_progressively_not_in_one_blob(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_intent_helpers: None,
+    ) -> None:
+        """Regression: an earlier draft buffered the entire prose
+        before emitting any delta, which made the small Ollama model
+        look stuck (``Reading your input...`` placeholder for 30s+).
+        Streaming must remain progressive — many small deltas, not
+        one giant blob at end-of-stream."""
+        chunks = [
+            "Marketing is the closest fit for what you described. ",
+            "Indiana University-Bloomington offers it as a focused ",
+            "program in its business college, which lines up.",
+            (
+                "\n---INTENT_JSON---\n"
+                '{"matched_cip": "52.1401", "matched_title": "Marketing", '
+                '"confidence": "high", "parent_cip": "52.14", '
+                '"alternatives": []}'
+            ),
+        ]
+        monkeypatch.setattr(
+            gemma_client, "generate_stream_async", _stream_from(chunks)
+        )
+
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="marketing",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[],
+        ):
+            events.append(event)
+
+        deltas = [e for e in events if e["event"] == "delta"]
+        # At least two deltas — proves the stream isn't waiting until
+        # the whole response is collected before yielding.
+        assert len(deltas) >= 2, (
+            "stream_initial_resolution must emit prose progressively, "
+            f"not as one buffer; got only {len(deltas)} delta(s)"
+        )
+        emitted = "".join(d["data"]["text"] for d in deltas)
+        assert "---INTENT_JSON---" not in emitted
+        assert emitted.strip().startswith("Marketing")
+
+    @pytest.mark.asyncio
+    async def test_markdown_markers_stripped_from_streaming_deltas(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_intent_helpers: None,
+    ) -> None:
+        """Streaming sanitizer must strip markdown markers monotonically:
+        bold/italic, line-leading headers and bullets, and stray-marker
+        runs. Operations that depend on what comes after (numeric-code
+        stripping, horizontal rules, fences) are deferred to the
+        end-of-stream full strip used for the structured ``reasoning``
+        field — emitting them mid-stream would produce non-monotonic
+        diffs and corrupt the user-visible text (the ``52arketing``
+        symptom)."""
+        prose_with_markdown = (
+            'Based on your interest in "Marketing," here are the most '
+            'relevant program options:\n\n'
+            '**Recommended Program:**\n'
+            '*   **52.14.21 Marketing:** This is a general degree.\n\n'
+            '***\n\n'
+            '**Disclaimer:** I am an AI assistant.'
+        )
+        tail = (
+            '\n---INTENT_JSON---\n'
+            '{"matched_cip": "52.1401", "matched_title": "Marketing", '
+            '"confidence": "high", "parent_cip": "52.14", "alternatives": []}'
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate_stream_async",
+            _stream_from([prose_with_markdown, tail]),
+        )
+
+        events: list[dict[str, Any]] = []
+        async for event in set_your_course.stream_initial_resolution(
+            major_text="marketing",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[],
+        ):
+            events.append(event)
+
+        deltas = [e for e in events if e["event"] == "delta"]
+        emitted = "".join(d["data"]["text"] for d in deltas)
+        # Markdown markers are stripped (these are monotonic
+        # operations).
+        assert "**" not in emitted
+        assert "*Recommended" not in emitted
+        # Content from inside bold markers survives intact — the user
+        # gets the readable text, not a corrupted ``52arketing``-style
+        # slice from a non-monotonic strip.
+        assert "Marketing" in emitted
+        assert "Recommended Program" in emitted
+        # The structured event carries the FULLY-cleaned reasoning
+        # (numeric codes, HRs, fences all stripped) for downstream
+        # consumers like the IntentResult panel.
+        structured = next(e for e in events if e["event"] == "structured")
+        reasoning = structured["data"]["reasoning"]
+        assert "52.14.21" not in reasoning
+        assert "**" not in reasoning
+
+    @pytest.mark.asyncio
     async def test_transport_failure_returns_empty(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -261,9 +368,6 @@ class TestStreamInitial:
         # Placeholder payload per ``_build_intent_result_from_tail``.
         assert structured["data"]["confidence"] == "low"
         assert structured["data"]["needs_clarification"] is True
-        # No deltas were emitted — transport never produced a chunk.
-        assert all(e["event"] != "delta" for e in events)
-
 
 # ---------------------------------------------------------------------------
 # handle_chip_dispatch

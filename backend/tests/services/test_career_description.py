@@ -659,3 +659,41 @@ async def test_parse_retry_uses_strengthened_prompt(
     assert desc.anchor_tier == "activities"
     assert len(captured) == 2
     assert "Output ONLY valid JSON matching the schema" in captured[1]
+
+
+# ---------------------------------------------------------------------------
+# Markdown-leak regression: small Ollama models put **bold** inside the
+# JSON summary/task strings. We strip those before returning.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_markdown_in_summary_and_tasks_is_stripped(
+    monkeypatch, patched_mcp_activities,
+):
+    response = json.dumps({
+        "summary": (
+            "**Financial analysts** study filings and market data to guide "
+            "*investment* decisions. They assemble models, brief managers."
+        ),
+        "tasks": [
+            "Analyze **company filings** and earnings calls",
+            "Assemble *valuation* and scenario models",
+            "Brief portfolio managers on positions",
+            "Read industry reports and competitor data",
+        ],
+    })
+    monkeypatch.setattr(
+        gemma_client, "generate_async", AsyncMock(return_value=response)
+    )
+
+    desc = await career_description.get_or_generate(
+        "13-2051", "Financial and Investment Analysts",
+    )
+    assert "**" not in desc.summary
+    assert "*investment*" not in desc.summary
+    # Content survives stripping.
+    assert "Financial analysts" in desc.summary
+    for task in desc.tasks:
+        assert "**" not in task
+        assert "*valuation*" not in task

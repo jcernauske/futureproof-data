@@ -395,6 +395,33 @@ class TestScoreAndNarrateSplit:
         # blank, but here we returned a real string for all).
         assert all(f.narrative == "Sync coach note." for f in gauntlet.fights)
 
+    def test_run_gauntlet_strips_markdown_from_narrative(self, monkeypatch):
+        """Regression: the small Ollama model emits markdown despite
+        the prompt forbidding it. The narrative is rendered as plain
+        text in BossFightCard, so any markdown that survives renders
+        literally as asterisks."""
+        from app.services import gemma_client
+
+        def fake_generate(**kwargs):
+            return (
+                "## Major Risk\n"
+                "**This work** is *exposed* to AI."
+            )
+
+        monkeypatch.setattr(gemma_client, "generate", fake_generate)
+        gauntlet = boss_fights.run_gauntlet(
+            _career(res=8, aura=8, roi=7, grw=6, burnout=3, ceiling=7, ern=6),
+            with_narratives=True,
+        )
+        for f in gauntlet.fights:
+            # Line-leading ## header marker stripped; content kept.
+            assert not f.narrative.startswith("## ")
+            assert "Major Risk" in f.narrative
+            # Inline markdown stripped.
+            assert "**" not in f.narrative
+            assert "*exposed*" not in f.narrative
+            assert "exposed" in f.narrative
+
     def test_run_gauntlet_skips_gemma_for_unknown_fights(self, monkeypatch):
         """Same UNKNOWN short-circuit as narrate_one, on the sync path.
 

@@ -30,6 +30,7 @@ from app.services.locale import (
     gemma_language_instruction,
     normalize_locale,
 )
+from app.services.prose_sanitize import strip_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -670,7 +671,12 @@ _NARRATIVE_SYSTEM = (
     "If the prompt tells you there is no data for this piece of the "
     "career path, say so plainly. Do not invent a number, do not "
     "guess, do not fill silence with generic advice. A short, honest "
-    "'there isn't enough data to say' is better than a made-up answer."
+    "'there isn't enough data to say' is better than a made-up answer.\n\n"
+    "Output format (STRICT): plain prose only. No markdown formatting "
+    "of any kind — no asterisks (*, **), no underscores for emphasis, "
+    "no headers, no bullet points, no horizontal rules, no triple "
+    "backticks. The frontend renders your output verbatim; any "
+    "markdown characters appear literally."
 )
 
 _BOSS_LEVER_HINT: dict[str, str] = {
@@ -855,7 +861,7 @@ def generate_reroll_commentary(
     except Exception as exc:
         logger.warning("reroll commentary gen failed: %s", exc)
         return ""
-    return text or ""
+    return strip_markdown(text) if text else ""
 
 
 async def generate_reroll_commentary_async(
@@ -882,7 +888,7 @@ async def generate_reroll_commentary_async(
     except Exception as exc:
         logger.warning("reroll commentary gen failed: %s", exc)
         return ""
-    return text or ""
+    return strip_markdown(text) if text else ""
 
 
 def _wrapup_prompt(
@@ -955,7 +961,7 @@ async def generate_wrapup_async(
     except Exception as exc:
         logger.warning("wrapup commentary gen failed: %s", exc)
         return ""
-    return text or ""
+    return strip_markdown(text) if text else ""
 
 
 # Per-topic no-data copy. Shown verbatim when the scorer has no inputs
@@ -1101,7 +1107,7 @@ async def narrate_one(
         max_tokens=800,
         temperature=0.7,
     )
-    return narrative or _fallback_narrative(fight, locale)
+    return strip_markdown(narrative) if narrative else _fallback_narrative(fight, locale)
 
 
 def run_gauntlet(
@@ -1138,7 +1144,7 @@ def run_gauntlet(
             except Exception as exc:
                 logger.warning("boss narrative gen failed: %s", exc)
                 narrative = ""
-            fight.narrative = narrative or _fallback_narrative(fight, locale)
+            fight.narrative = strip_markdown(narrative) if narrative else _fallback_narrative(fight, locale)
 
     return gauntlet
 

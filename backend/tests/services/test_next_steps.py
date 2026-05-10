@@ -133,3 +133,36 @@ class TestNextStepsLocale:
 
         system = captured["system"]
         assert "Write student-facing prose in English" in system
+
+    def test_inline_markdown_stripped_h2_and_numbered_list_preserved(
+        self, monkeypatch, isolated_builds_dir
+    ):
+        """The frontend NextSteps parser splits on ``## `` headers and
+        renders numbered ``1.`` items, so those must survive. Inline
+        markdown inside an item (bold/italic) must be stripped before
+        the response is returned."""
+        from app.services import gemma_client
+
+        markdown_response = (
+            "## Questions to Ask Your Counselor\n"
+            "1. Ask about **scholarship** programs.\n"
+            "2. Ask about *internships* in marketing.\n\n"
+            "## Things to Verify\n"
+            "1. Verify the program is **accredited**.\n"
+        )
+        monkeypatch.setattr(
+            gemma_client, "generate", lambda **kw: markdown_response
+        )
+        build = _make_build()
+        text = next_steps.generate_next_steps(build)
+
+        # Section headers and numbered items survive.
+        assert "## Questions to Ask Your Counselor" in text
+        assert "## Things to Verify" in text
+        assert "1. Ask about scholarship programs." in text
+        assert "2. Ask about internships in marketing." in text
+        assert "1. Verify the program is accredited." in text
+        # Inline markdown is gone.
+        assert "**" not in text
+        assert "*internships*" not in text
+        assert "*scholarship*" not in text

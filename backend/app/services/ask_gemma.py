@@ -3145,6 +3145,12 @@ async def chat_ask(
     The router resolves ``scope.build_ids`` to ``Build``s before
     calling. Empty string from the tool loop (any cause) routes to
     ``fallback_text("chat_unavailable", locale)`` with status 200.
+
+    NOTE: Unlike the streaming intent, guidance, and boss-narrative
+    surfaces, this surface intentionally preserves markdown. The
+    frontend ``ChatMessage.tsx`` renders chat replies through
+    ``react-markdown`` with an allowlist (p/strong/em/ul/ol/li/links/
+    inline-code), so bold and lists are part of the contract.
     """
     norm_locale = normalize_locale(locale)
 

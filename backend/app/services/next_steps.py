@@ -18,6 +18,7 @@ from app.services.locale import (
     gemma_language_instruction,
     normalize_locale,
 )
+from app.services.prose_sanitize import strip_inline_markdown_preserving_h2
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,13 @@ _SYSTEM = (
     "Output format: four markdown ## sections as specified below, "
     "3-5 numbered items per section, each verb-led. One or two plain "
     "sentences per item at a 7th-grade reading level. No preamble, "
-    "no closing, no bullets inside items."
+    "no closing, no bullets inside items.\n\n"
+    "Inside the items, plain prose only. No bold (**), no italic (*), "
+    "no underscores for emphasis, no inline code backticks, no nested "
+    "bullets, no horizontal rules, no triple backticks. The ## section "
+    "markers and the ``1.`` / ``2.`` numbered list markers are the "
+    "ONLY formatting you should emit; everything else inside an item "
+    "is plain text."
 )
 
 
@@ -163,7 +170,7 @@ def generate_next_steps(build: Build, locale: AppLocale | None = None) -> str:
         temperature=0.7,
     )
     if text:
-        return text
+        return strip_inline_markdown_preserving_h2(text)
 
     logger.warning("next_steps gen failed; using fallback")
     return fallback_text("next_steps_unavailable", effective_locale)

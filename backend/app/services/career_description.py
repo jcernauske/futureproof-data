@@ -40,6 +40,7 @@ from app.services.pdf_copy import (
     RPG_TERMS_FORBIDDEN_IN_PDF,
     contains_forbidden_term,
 )
+from app.services.prose_sanitize import strip_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,29 @@ logger = logging.getLogger(__name__)
 # Bump when prompts change to invalidate the per-process cache without a
 # full restart story. Keyed on (soc, _PROMPT_VERSION) so concurrent demo
 # users don't see drift across a hot prompt edit.
-_PROMPT_VERSION = "v1"
+_PROMPT_VERSION = "v2"
+
+# Voice-check vocabulary. Career-description coach prose is plain English,
+# so common workplace verbs that share a spelling with RPG nouns ("build
+# relationships", "win clients", "draw conclusions") would otherwise
+# trigger false-positive failures. We start from the PDF-text frozenset
+# and subtract bare verbs that have legitimate non-game usage. The
+# game-specific compound phrases ("boss fight", "fight ai", "level up")
+# stay banned. Observed real failures: fundraising / marketing SOCs
+# producing copy with "build relationships" and "build campaigns".
+CAREER_DESC_FORBIDDEN_TERMS: frozenset[str] = RPG_TERMS_FORBIDDEN_IN_PDF - {
+    "build",
+    "builds",
+    "win",
+    "wins",
+    "lose",
+    "lost",
+    "won",
+    "draw",
+    "draws",
+    "losses",
+    "fight",
+}
 
 _MAX_TOKENS = 400
 _SUMMARY_CHAR_LIMIT = 500
@@ -88,7 +111,7 @@ Rules:
 - Use plain words a 16-year-old understands. Technical terms only when the activity itself is technical, and never as jargon for its own sake.
 
 Never use these words or framings — they belong to the app's game layer, not this description, and they will be rejected by an automated check:
-boss, bosses, boss fight, gauntlet, fight, win, lose, draw, won, lost, build, builds, reroll, level up, leveled up, quest, battle, defeat, victory.
+boss, bosses, boss fight, gauntlet, reroll, level up, leveled up, quest, battle, defeat, victory.
 
 Never write: "exciting career", "rewarding career", "make a difference", "your journey", "passion", "dream job", "unlock", "empower", "transform". Never use exclamation points. Never start the summary with "This career" or "In this career" — describe the work directly.
 
@@ -114,7 +137,7 @@ Rules:
 - Use plain words a 16-year-old understands.
 
 Never use these words or framings — they belong to the app's game layer, not this description, and they will be rejected by an automated check:
-boss, bosses, boss fight, gauntlet, fight, win, lose, draw, won, lost, build, builds, reroll, level up, leveled up, quest, battle, defeat, victory.
+boss, bosses, boss fight, gauntlet, reroll, level up, leveled up, quest, battle, defeat, victory.
 
 Never write: "exciting career", "rewarding career", "make a difference", "your journey", "passion", "dream job", "unlock", "empower", "transform". Never use exclamation points. Never name a specific software product, certification body, or company unless the BLS summary names it first.
 
@@ -140,7 +163,7 @@ Rules:
 - Use plain words a 16-year-old understands.
 
 Never use these words or framings — they belong to the app's game layer, not this description, and they will be rejected by an automated check:
-boss, bosses, boss fight, gauntlet, fight, win, lose, draw, won, lost, build, builds, reroll, level up, leveled up, quest, battle, defeat, victory.
+boss, bosses, boss fight, gauntlet, reroll, level up, leveled up, quest, battle, defeat, victory.
 
 Never write: "exciting career", "rewarding career", "make a difference", "your journey", "passion", "dream job", "unlock", "empower", "transform". Never use exclamation points. Never name a specific software product, certification body, employer, or salary figure — you do not have the data to back any of those, and the disclaimer line below your description tells the reader exactly that.
 
@@ -603,7 +626,7 @@ def _parse_and_validate(
     if not isinstance(tasks_raw, list):
         return ("parse", "", [])
 
-    summary_clean = summary.strip()
+    summary_clean = strip_markdown(summary.strip())
     if len(summary_clean) > _SUMMARY_CHAR_LIMIT:
         return ("parse", "", [])
 
@@ -611,7 +634,7 @@ def _parse_and_validate(
     for item in tasks_raw:
         if not isinstance(item, str):
             return ("parse", "", [])
-        text = item.strip().rstrip(".")
+        text = strip_markdown(item.strip()).rstrip(".")
         if not text:
             continue
         if len(text) > _TASK_CHAR_LIMIT:
@@ -637,11 +660,11 @@ def _collect_forbidden_terms(summary: str, tasks: list[str]) -> list[str]:
     contract; this helper exists just so the retry can be specific.
     """
     text = summary + " " + " ".join(tasks)
-    if not contains_forbidden_term(text, RPG_TERMS_FORBIDDEN_IN_PDF):
+    if not contains_forbidden_term(text, CAREER_DESC_FORBIDDEN_TERMS):
         return []
     seen: set[str] = set()
     found: list[str] = []
-    for term in RPG_TERMS_FORBIDDEN_IN_PDF:
+    for term in CAREER_DESC_FORBIDDEN_TERMS:
         pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.I)
         if pattern.search(text):
             t_low = term.lower()

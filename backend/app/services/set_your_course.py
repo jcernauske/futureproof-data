@@ -34,9 +34,11 @@ from app.services import (
     gemma_client,
     intent,
     mcp_client,
+    prose_sanitize,
 )
 from app.services.correction_log import CorrectionLogRecord
 from app.services.locale import AppLocale, gemma_language_instruction, normalize_locale
+from app.services.prose_sanitize import _NUMERIC_CODE_PARENTHETICAL
 
 logger = logging.getLogger(__name__)
 
@@ -248,12 +250,35 @@ _STREAM_INTENT_SYSTEM_PROMPT = """\
 You map a student's free-text major to a program (CIP code). Your
 response has two parts separated by a delimiter.
 
+# Output format (STRICT — read carefully)
+Plain text only in Part 1. Absolutely no markdown formatting of any
+kind: no asterisks (* or **), no underscores for emphasis (_ or __),
+no headers (#, ##, ###), no bullet points, no numbered lists, no
+horizontal rules (---, ***), no triple backticks, no inline code
+backticks. No labels like "Recommended Program:" or "Other Options:".
+No disclaimers ("I am an AI assistant..."). No more than two sentences
+before the delimiter. No numeric codes anywhere in the prose — not
+even in parentheses. The prose is shown verbatim to a student in a
+plain-text panel; any formatting characters you emit will render
+literally.
+
+Correct example for an unrelated input (do not copy this content —
+it is here only to show the FORMAT). Two sentences, then the
+delimiter, then a single-line JSON object. No labels, no bullets,
+no disclaimers, no markdown.
+Biology is the closest fit. The school offers it as a focused
+science program that lines up with the wording used.
+---INTENT_JSON---
+{{"matched_cip": "26.0101", "matched_title": "Biology", \
+"confidence": "high", "parent_cip": "26.01", "alternatives": [], \
+"remaining_count": 0, "narrowing_hint": "", "intent_keywords": []}}
+
 # Part 1: Prose (streamed to the student)
 Two sentences. First sentence names the program the student seems to
 mean. Second sentence explains why that reading fits their wording.
-Direct, confident, no hedging. Never use internal taxonomy terms in the
-prose — no "CIP," "SOC," "crosswalk," or numeric codes. Use the plain-
-English program title (e.g. "Marketing" or "Biology") not the code.
+Direct, confident, no hedging. Plain-English program title only
+(e.g. "Marketing" or "Biology") — never the numeric code, never the
+phrase "CIP" or "SOC" or "crosswalk".
 
 # Part 2: JSON tail (parsed by the backend)
 After the two sentences, emit EXACTLY this delimiter on its own line:
@@ -347,7 +372,7 @@ MUST appear in one of them.
 
 _JSON_DELIM = "---INTENT_JSON---"
 _CIP_PATTERN = re.compile(r"^\d{2}\.\d{4}$")
-_NUMERIC_CODE_PARENTHETICAL = re.compile(r"\s*\(\s*\d{2}\.\d{2,4}\s*\)")
+# _NUMERIC_CODE_PARENTHETICAL is re-exported from app.services.prose_sanitize.
 
 
 async def stream_initial_resolution(
@@ -472,14 +497,25 @@ async def stream_initial_resolution(
         "input_normalized": input_normalized,
     }
 
-    # Prose-vs-tail state machine. We emit delta events with prose only,
-    # holding back the tail end of each chunk until we can confirm it's
-    # not the start of the delimiter. Without the hold-back, a chunk
-    # carrying "---INTENT_JSON" (without the trailing "---") would be
-    # emitted as prose before the next chunk completes the delimiter.
+    # Prose-vs-tail streaming state machine. We hold back the last
+    # ``len(_JSON_DELIM) - 1`` chars so a chunk that ends mid-
+    # delimiter doesn't leak the delimiter prefix as prose. The held-
+    # back safe prefix is run through the *monotonic* sanitizer
+    # (matched bold/italic + line-leading header/bullet markers +
+    # stray-marker sweep) — a strict subset of the full
+    # ``strip_markdown`` that omits non-monotonic operations
+    # (numeric-code stripping, horizontal rules, fences). Without that
+    # subset, a partial ``"**52.1"`` cleans to ``"52.1"`` while the
+    # eventual ``"**52.1421 Marketing**"`` cleans to ``"Marketing"``,
+    # the diff goes negative, and the user sees corrupted output.
+    # Anything the streaming pass leaves behind (notably any numeric
+    # codes the model still emits despite the prompt) is mopped up by
+    # the full ``strip_markdown`` at end-of-stream — but we only emit
+    # ADDITIONS there, never silently rewrite what the user has
+    # already seen.
     assembled: list[str] = []
     delim_seen = False
-    emitted_len = 0
+    emitted_clean_len = 0
     holdback = len(_JSON_DELIM) - 1
 
     try:
@@ -497,41 +533,43 @@ async def stream_initial_resolution(
             combined = "".join(assembled)
             delim_idx = combined.find(_JSON_DELIM)
             if delim_idx != -1:
-                # Full delimiter present. Flush prose up to it and stop.
-                if delim_idx > emitted_len:
-                    yield {
-                        "event": "delta",
-                        "data": {"text": combined[emitted_len:delim_idx]},
-                    }
-                emitted_len = delim_idx
+                raw_prefix = combined[:delim_idx]
                 delim_seen = True
             else:
-                # No delimiter yet. Emit everything except the last
-                # (len(delim) - 1) chars, which could be the start of a
-                # delimiter completing in the next chunk.
-                safe_end = max(emitted_len, len(combined) - holdback)
-                if safe_end > emitted_len:
-                    yield {
-                        "event": "delta",
-                        "data": {"text": combined[emitted_len:safe_end]},
-                    }
-                    emitted_len = safe_end
+                safe_end = max(0, len(combined) - holdback)
+                if safe_end == 0:
+                    continue
+                raw_prefix = combined[:safe_end]
+            clean_prefix, _ = prose_sanitize.strip_markdown_streaming(
+                raw_prefix, holdback=0,
+            )
+            if len(clean_prefix) > emitted_clean_len:
+                yield {
+                    "event": "delta",
+                    "data": {
+                        "text": clean_prefix[emitted_clean_len:],
+                    },
+                }
+                emitted_clean_len = len(clean_prefix)
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("stream_initial_resolution gemma error: %s", exc)
 
-    # Stream ended. If no delimiter ever arrived, flush any remaining
-    # held-back prose so legitimate tail text doesn't get dropped.
-    if not delim_seen:
-        full = "".join(assembled)
-        if len(full) > emitted_len:
-            yield {
-                "event": "delta",
-                "data": {"text": full[emitted_len:]},
-            }
-
-    # Parse the tail.
     full = "".join(assembled)
-    prose, tail = _split_at_delim(full)
+    raw_prose, tail = _split_at_delim(full)
+    # End-of-stream: re-run the streaming-safe pass on the full prose
+    # so anything held back during the loop reaches the client. Then
+    # compute the fully-cleaned reasoning for downstream consumers.
+    streaming_clean_full, _ = prose_sanitize.strip_markdown_streaming(
+        raw_prose, holdback=0,
+    )
+    if len(streaming_clean_full) > emitted_clean_len:
+        yield {
+            "event": "delta",
+            "data": {"text": streaming_clean_full[emitted_clean_len:]},
+        }
+        emitted_clean_len = len(streaming_clean_full)
+
+    prose = prose_sanitize.strip_markdown(raw_prose)
     parsed_json = _safe_parse_tail(tail)
 
     intent_result = _build_intent_result_from_tail(
@@ -651,8 +689,10 @@ def _fallback_resolve(
         raw = gemma_client.generate(
             system=system,
             user=f'Student typed: "{major_text}"',
-            max_tokens=200,
+            max_tokens=400,
             temperature=0.0,
+            response_format={"type": "json_object"},
+            extra={"call_site": "set_your_course_fallback_resolve"},
         )
         parsed = _safe_parse_tail(raw)
         if not parsed or not parsed.get("matched_cip"):

@@ -29,6 +29,7 @@ from app.services.locale import (
     gemma_language_instruction,
     normalize_locale,
 )
+from app.services.prose_sanitize import strip_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,12 @@ _SYSTEM = (
     "things the student can do while still in school to strengthen the "
     "weakest part of the picture.\n\n"
     "Write at a 7th-grade reading level. Never doom-frame — the "
-    "student can always change school, major, or path."
+    "student can always change school, major, or path.\n\n"
+    "Output format (STRICT): plain prose only. No markdown formatting "
+    "of any kind — no asterisks (*, **), no underscores for emphasis, "
+    "no headers (#, ##), no bullet points, no numbered lists, no "
+    "horizontal rules, no triple backticks. The frontend renders your "
+    "output verbatim; any markdown characters appear literally."
 )
 
 
@@ -239,7 +245,7 @@ def generate_guidance(
         temperature=0.7,
     )
     if text:
-        return text
+        return strip_markdown(text)
 
     logger.warning("guidance gen failed; using deterministic fallback")
     return _fallback_narrative(career, gauntlet, locale)
@@ -261,7 +267,7 @@ async def generate_guidance_async(
         temperature=0.7,
     )
     if text:
-        return text
+        return strip_markdown(text)
 
     logger.warning("guidance gen failed; using deterministic fallback")
     return _fallback_narrative(career, gauntlet, locale)
@@ -387,7 +393,7 @@ def chat_with_context(
         temperature=0.7,
     )
     if text:
-        return text
+        return strip_markdown(text)
 
     logger.warning("chat_with_context failed; using fallback")
     return fallback_text("chat_unavailable", locale)
@@ -471,7 +477,7 @@ async def generate_money_insight_async(
         temperature=0.7,
     )
     if text:
-        return text
+        return strip_markdown(text)
     logger.warning("money insight gen failed; returning None")
     return None
 
@@ -572,7 +578,7 @@ async def generate_compare_summary_async(
         temperature=0.7,
     )
     if text:
-        return text
+        return strip_markdown(text)
     logger.warning("compare summary gen failed; returning None")
     return None
 
@@ -687,8 +693,12 @@ async def generate_compare_pros_cons_async(
         out.append(
             {
                 "build_id": bid,
-                "pros": [str(p) for p in pros if isinstance(p, str)][:3],
-                "cons": [str(c) for c in cons if isinstance(c, str)][:3],
+                "pros": [
+                    strip_markdown(str(p)) for p in pros if isinstance(p, str)
+                ][:3],
+                "cons": [
+                    strip_markdown(str(c)) for c in cons if isinstance(c, str)
+                ][:3],
             }
         )
     return out if out else None
@@ -890,4 +900,4 @@ async def generate_compare_pivotal_async(
         logger.warning("compare pivotal missing required field(s)")
         return None
 
-    return {k: parsed[k].strip() for k in required}
+    return {k: strip_markdown(parsed[k]) for k in required}
