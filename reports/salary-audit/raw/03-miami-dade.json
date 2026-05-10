@@ -1,0 +1,82 @@
+{
+  "idx": 3,
+  "slug": "miami-dade",
+  "school_query": "Miami Dade College",
+  "major": "Nursing",
+  "school_name_displayed": "Miami Dade College",
+  "cip_resolved": null,
+  "career_title": "Registered nurses",
+  "soc_code": "29-1141",
+  "work_experience_code": null,
+  "build_id": "/my-build",
+  "set_your_course_card": {
+    "soc_code": "29-1141",
+    "title": "Registered nurses",
+    "raw_text": "\ud83e\ude7aRegistered nurses\u2726$66,030 \u2013 $78,610starting range$93,600mid-career",
+    "dollars": [
+      "$66,030",
+      "$78,610",
+      "$93,600"
+    ],
+    "label_starting_range": true,
+    "label_typical_range": false,
+    "label_year_one": false,
+    "label_mid_career": true
+  },
+  "finances_card": {
+    "raw_text": "FinancesMid-career salary$93,600 / yrCareer starting range$66,030 \u2013 $78,610Registered nursesPeer band \u00b7 Year-1 (this field)Middle 50% of peer programs in this CIP family. Pill marks this program's Year-1 median when available.$74KPeer 25th$33KPeer 75th$63KStandout earningsThis program beats the peer-program 75th percentile for this field.Published cost (4 yr)$50,140Avg. net price (4 yr)$23,716Aid context only; not used for modeled debtFinancing50%Modeled debt$25,070Program median debt$9,687Your modeled debt is significantly above the program median.ROI: Moderate ROI",
+    "dollars": [
+      "$93,600",
+      "$66,030",
+      "$78,610",
+      "$74K",
+      "$33K",
+      "$63K",
+      "$50,140",
+      "$23,716",
+      "$25,070",
+      "$9,687"
+    ],
+    "pcts": [
+      "50%",
+      "50%"
+    ],
+    "has_mid_career": true,
+    "has_year_one": false,
+    "has_starting_range": true,
+    "has_typical_range": false,
+    "has_published_cost": true
+  },
+  "ern_popover": {
+    "opened": true,
+    "raw_text": "Earning PowerMeasures how your expected salary compares to graduates from similar programs nationally, based on median earnings 1 and 4 years after graduation.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+    "dollars": [],
+    "mentions_year_one": false,
+    "mentions_starting_salary": false,
+    "mentions_4yr_cost": true
+  },
+  "roi_popover": {
+    "opened": true,
+    "raw_text": "Return on InvestmentA 15-year payback multiplier. Projects cumulative earnings over a typical 15-year repayment window (starting salary grown at flat 3% annually) and divides by the program's 4-year published cost. Higher = better. Financing-agnostic \u2014 the loan slider doesn't move it.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+    "dollars": [],
+    "mentions_year_one": false,
+    "mentions_starting_salary": true,
+    "mentions_4yr_cost": true
+  },
+  "pdf_text": "FUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Miami Dade College \u00b7 Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing.\nPage 1\n\u0000 Glad True Owl\n Miami Dade College \u00b7 Registered Nursing, Nursing Administration, Nursing\n Research and Clinical Nursing. \u00b7 As of May 09, 2026\nResidency: in-state, FL\nRegistered Nursing, Nursing Administration, Nursing\nResearch and Clinical Nursing. at Miami Dade\nCollege: the data shows steady fundamentals with\none or two factors to watch. Cost is high relative to\nyear-1 earnings.\nERN\n9/10\n ROI\n10/10\nRES\n8/10\nGRW\n6/10\nAURA\n3/10\n\u0000\nERN\n9/10\nEarnings\n\u0000\nROI\n10/10\nReturn on Investment\n\u0000\nRES\n8/10\nAI Resilience\n\u0000\nGRW\n6/10\nGrowth\n\u0000\nAURA\n3/10\nBrand Gravity\nCOST & ROI\n 4-year cost\n Modeled debt\n Year-1 median earnings\n Debt-to-earnings (yr-1)\n $50,140\n $25,070\n $73,541\n 68%\nYear-1 peer band (this field): $32,935 \u2013 $62,573 \u00b7 Standout earnings \u2014 this program's median ($73,541) beats the peer 75th percentile.\nCAREER RISK PROFILE\nRisk Factor\n Level\nContext\nAI displacement risk\n LOW\nAI exposure for this occupation sits at the 93th percentile \u2014 most core tasks remain\nhuman-led.\nDebt burden\n LOW\nModeled year-1 debt service is 68% of starting earnings \u2014 comfortably below the\n10% guideline.\nJob market outlook\n LOW\nBLS classifies this as a growing field (growing).\nBurnout risk\n MODERATE\nThis occupation has at least one demand worth understanding.\nEarnings ceiling\n MODERATE\nYear-1 75th-percentile wage is $62,573 \u2014 modest upside above the median.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Miami Dade College \u00b7 Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing.\nPage 2\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nABOUT THIS CAREER\nRegistered nurses provide direct care and support to patients in various healthcare settings. They use medical knowledge to\nmonitor health, solve clinical problems, and manage patient information. The work focuses on maintaining patient safety and\ncoordinating care through constant observation and documentation.\nDay-to-day\n\u2022  Provide direct care and assistance to patients\n \n\u2022  Apply medical knowledge to patient situations\n \n\u2022  Solve problems and make clinical decisions\n \n\u2022  Record and document patient information\n \n\u2022  Gather health information from patients and staff\n \nSUGGESTED SKILLS\nBring this list to your admissions counselor \u2014 these are the skills the data says will lift your outcomes.\nQUESTIONS & FOLLOW-UPS\nASK THE COLLEGE\n\u2022 Which majors at Miami Dade College most often lead graduates into Registered nurses?\n\u2022 How can I augment this major with the suggested skills above \u2014 through coursework, clubs, or internships you already offer?\n\u2022 Show me the specific clinical placement rates for Miami Dade College nursing students.\n\u2022 Connect me with alumni who have transitioned from clinical nursing into nursing administration.\nASK YOUR PARENTS\n\u2022 Can our family cover the remaining costs if the debt burden exceeds the low estimate shown here?\n\u2022 How much of this tuition can you spare if I decide to pursue nursing research instead of clinical work?\nASK YOURSELF\n\u2022 Will I sustain my performance if I hit the moderate burnout risk levels common in nursing?\n\u2022 Do I have the stamina to reach the earnings ceiling indicated for this career path?\nGLOSSARY\nCIP\nFederal program code (Classification of Instructional\nPrograms) \u2014 the standard for naming college majors.\nRES\nAI Resilience \u2014 how much of this occupation's work is\nhard for AI to do, blended from task-level data.\nSOC\nFederal occupation code (Standard Occupational\nClassification) \u2014 how the BLS names jobs.\nGRW\nGrowth \u2014 the BLS 10-year employment-change\nprojection for this occupation.\nERN\nEarnings \u2014 typical pay for graduates of this program\nworking in this occupation.\nAURA\nBrand Gravity \u2014 institutional pull (selectivity, completion,\nfinancial standing) shared by every program at the school.\nROI\nReturn on Investment \u2014 how the cost of this program\ncompares to what graduates earn.\nCareer\nrisk\nFive factors that affect long-term outcomes: AI\ndisplacement, debt burden, job market, burnout, and\nearnings ceiling.\n",
+  "pdf_dollars": [
+    "$50,140",
+    "$25,070",
+    "$73,541",
+    "$32,935",
+    "$62,573",
+    "$73,541",
+    "$62,573"
+  ],
+  "pdf_pcts": [
+    "68%",
+    "68%",
+    "10%"
+  ],
+  "error": null
+}

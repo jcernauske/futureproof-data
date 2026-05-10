@@ -1,0 +1,456 @@
+{
+  "schools": [
+    {
+      "idx": 1,
+      "slug": "iu",
+      "school_query": "Indiana University-Bloomington",
+      "major": "Marketing",
+      "school_name_displayed": "Indiana University-Bloomington",
+      "cip_resolved": null,
+      "career_title": "Fundraisers",
+      "soc_code": "13-1131",
+      "work_experience_code": null,
+      "build_id": "/my-build",
+      "set_your_course_card": {
+        "soc_code": "13-1131",
+        "title": "Fundraisers",
+        "raw_text": "\ud83d\udccaFundraisers\u2726$43,200 \u2013 $52,590starting range$66,490mid-career",
+        "dollars": [
+          "$43,200",
+          "$52,590",
+          "$66,490"
+        ],
+        "label_starting_range": true,
+        "label_typical_range": false,
+        "label_year_one": false,
+        "label_mid_career": true
+      },
+      "finances_card": {
+        "raw_text": "FinancesMid-career salary$66,490 / yrCareer starting range$43,200 \u2013 $52,590FundraisersPeer band \u00b7 Year-1 (this field)Middle 50% of peer programs in this CIP family. Pill marks this program's Year-1 median when available.$63KPeer 25th$39KPeer 75th$50KStandout earningsThis program beats the peer-program 75th percentile for this field.Published cost (4 yr)$109,444Avg. net price (4 yr)$61,368Aid context only; not used for modeled debtFinancing50%Modeled debt$54,722Program median debt$19,500Your modeled debt is significantly above the program median.ROI: Challenging ROI",
+        "dollars": [
+          "$66,490",
+          "$43,200",
+          "$52,590",
+          "$63K",
+          "$39K",
+          "$50K",
+          "$109,444",
+          "$61,368",
+          "$54,722",
+          "$19,500"
+        ],
+        "pcts": [
+          "50%",
+          "50%"
+        ],
+        "has_mid_career": true,
+        "has_year_one": false,
+        "has_starting_range": true,
+        "has_typical_range": false,
+        "has_published_cost": true
+      },
+      "ern_popover": {
+        "opened": true,
+        "raw_text": "Earning PowerMeasures how your expected salary compares to graduates from similar programs nationally, based on median earnings 1 and 4 years after graduation.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": false,
+        "mentions_4yr_cost": true
+      },
+      "roi_popover": {
+        "opened": true,
+        "raw_text": "Return on InvestmentA 15-year payback multiplier. Projects cumulative earnings over a typical 15-year repayment window (starting salary grown at flat 3% annually) and divides by the program's 4-year published cost. Higher = better. Financing-agnostic \u2014 the loan slider doesn't move it.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": true,
+        "mentions_4yr_cost": true
+      },
+      "pdf_text": "FUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Indiana University-Bloomington \u00b7 Marketing/Marketing Management, General\nPage 1\n\u0000 Loyal Real Cat\n Indiana University-Bloomington \u00b7 Marketing/Marketing Management,\n General \u00b7 As of May 09, 2026\nResidency: in-state, IN\nMarketing/Marketing Management, General at\nIndiana University-Bloomington: the data shows\nsteady fundamentals with one or two factors to\nwatch. Cost is high relative to year-1 earnings.\nERN\n8/10\n ROI\n8/10\nRES\n7/10\nGRW\n6/10\nAURA\n6/10\n\u0000\nERN\n8/10\nEarnings\n\u0000\nROI\n8/10\nReturn on Investment\n\u0000\nRES\n7/10\nAI Resilience\n\u0000\nGRW\n6/10\nGrowth\n\u0000\nAURA\n6/10\nBrand Gravity\nCOST & ROI\n 4-year cost\n Modeled debt\n Year-1 median earnings\n Debt-to-earnings (yr-1)\n $109,444\n $54,722\n $63,371\n 173%\nYear-1 peer band (this field): $38,515 \u2013 $49,674 \u00b7 Standout earnings \u2014 this program's median ($63,371) beats the peer 75th percentile.\nCAREER RISK PROFILE\nRisk Factor\n Level\nContext\nAI displacement risk\n MODERATE\nAI displacement risk is moderate for this occupation.\nDebt burden\n ELEVATED\nModeled year-1 debt service is 173% of starting earnings \u2014 above the recommended\nceiling for new graduates.\nJob market outlook\n LOW\nBLS classifies this as a growing field (growing).\nBurnout risk\n MODERATE\nThis occupation has at least one demand worth understanding.\nEarnings ceiling\n LOW\nYear-1 75th-percentile wage is $49,674 \u2014 meaningful upside above the median.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Indiana University-Bloomington \u00b7 Marketing/Marketing Management, General\nPage 2\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nABOUT THIS CAREER\nFundraisers secure the money needed to run organizations and support their goals. You build long-term relationships with\ndonors and communicate with people outside your group to gather support. The work involves gathering information and\ncreating strategies to meet financial objectives.\nDay-to-day\n\u2022  Build and maintain relationships with donors\n \n\u2022  Communicate with people outside the organization\n \n\u2022  Gather information to support goals\n \n\u2022  Develop objectives and strategies\n \n\u2022  Make decisions to solve problems\n \nSUGGESTED SKILLS\nBring this list to your admissions counselor \u2014 these are the skills the data says will lift your outcomes.\nCAREER-LAUNCH SKILLS\n\u2022 Public Relations Club\nERN+1\n Coursework\n Clubs / orgs\n Internship / cert\nAsk: \"Building a network of peers helps you practice the interpersonal skills needed to connect with donors.\"\n\u2022 Nonprofit Management Minor\nROI+2\n Coursework\n Clubs / orgs\n Internship / cert\nAsk: \"Understanding how organizations handle money makes you a more effective fundraiser.\"\n\u2022 Consumer Behavior Course\nRES+1\n Coursework\n Clubs / orgs\n Internship / cert\nAsk: \"Studying why people make choices helps you solve problems when trying to influence supporters.\"\n\u2022 Creative Writing Course\nGRW+1\n Coursework\n Clubs / orgs\n Internship / cert\nAsk: \"Learning to tell stories helps you communicate a cause in a way that moves people to give.\"\nQUESTIONS & FOLLOW-UPS\nASK THE COLLEGE\n\u2022 Which majors at Indiana University-Bloomington most often lead graduates into Fundraisers?\n\u2022 How can I augment this major with the suggested skills above \u2014 through coursework, clubs, or internships you already offer?\n\u2022 What outcomes data do you publish for this program \u2014 median earnings one year out, employment rate, average debt at\ngraduation?\nASK YOUR PARENTS\n\u2022 If the loan numbers on page 1 are accurate, can our family carry that monthly payment alongside everything else after I graduate?\n\u2022 Whose career did you watch up close growing up \u2014 and what about it would you want for me, or want to spare me from?\nASK YOURSELF\n\u2022 Will I still want to be doing this work in 10 years if the day-to-day looks like the O*NET task profile on page 1?\n\u2022 Am I picking this major because it interests me, or because it's familiar \u2014 and would I know the difference yet?\nGLOSSARY\nCIP\nFederal program code (Classification of Instructional\nPrograms) \u2014 the standard for naming college majors.\nRES\nAI Resilience \u2014 how much of this occupation's work is\nhard for AI to do, blended from task-level data.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Indiana University-Bloomington \u00b7 Marketing/Marketing Management, General\nPage 3\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nSOC\nFederal occupation code (Standard Occupational\nClassification) \u2014 how the BLS names jobs.\nGRW\nGrowth \u2014 the BLS 10-year employment-change\nprojection for this occupation.\nERN\nEarnings \u2014 typical pay for graduates of this program\nworking in this occupation.\nAURA\nBrand Gravity \u2014 institutional pull (selectivity, completion,\nfinancial standing) shared by every program at the school.\nROI\nReturn on Investment \u2014 how the cost of this program\ncompares to what graduates earn.\nCareer\nrisk\nFive factors that affect long-term outcomes: AI\ndisplacement, debt burden, job market, burnout, and\nearnings ceiling.\n",
+      "pdf_dollars": [
+        "$109,444",
+        "$54,722",
+        "$63,371",
+        "$38,515",
+        "$49,674",
+        "$63,371",
+        "$49,674"
+      ],
+      "pdf_pcts": [
+        "173%",
+        "173%"
+      ],
+      "error": null
+    },
+    {
+      "idx": 2,
+      "slug": "harvard",
+      "school_query": "Harvard University",
+      "major": "Computer Science",
+      "school_name_displayed": "Harvard University",
+      "cip_resolved": null,
+      "career_title": "Computer network support specialists",
+      "soc_code": "15-1231",
+      "work_experience_code": null,
+      "build_id": "/my-build",
+      "set_your_course_card": {
+        "soc_code": "15-1231",
+        "title": "Computer network support specialists",
+        "raw_text": "\ud83d\udcbbComputer network support specialists\u2726$46,010 \u2013 $56,720starting range$73,340mid-career",
+        "dollars": [
+          "$46,010",
+          "$56,720",
+          "$73,340"
+        ],
+        "label_starting_range": true,
+        "label_typical_range": false,
+        "label_year_one": false,
+        "label_mid_career": true
+      },
+      "finances_card": {
+        "raw_text": "FinancesMid-career salary$73,340 / yrCareer starting range$46,010 \u2013 $56,720Computer network support specialistsPeer band \u00b7 Year-1 (this field)Middle 50% of peer programs in this CIP family. Pill marks this program's Year-1 median when available.$140KPeer 25th$47KPeer 75th$66KStandout earningsThis program beats the peer-program 75th percentile for this field.Published cost (4 yr)$331,368Avg. net price (4 yr)$67,264Aid context only; not used for modeled debtFinancing50%Modeled debt$165,684ROI: Challenging ROI",
+        "dollars": [
+          "$73,340",
+          "$46,010",
+          "$56,720",
+          "$140K",
+          "$47K",
+          "$66K",
+          "$331,368",
+          "$67,264",
+          "$165,684"
+        ],
+        "pcts": [
+          "50%",
+          "50%"
+        ],
+        "has_mid_career": true,
+        "has_year_one": false,
+        "has_starting_range": true,
+        "has_typical_range": false,
+        "has_published_cost": true
+      },
+      "ern_popover": {
+        "opened": true,
+        "raw_text": "Earning PowerMeasures how your expected salary compares to graduates from similar programs nationally, based on median earnings 1 and 4 years after graduation.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": false,
+        "mentions_4yr_cost": true
+      },
+      "roi_popover": {
+        "opened": true,
+        "raw_text": "Return on InvestmentA 15-year payback multiplier. Projects cumulative earnings over a typical 15-year repayment window (starting salary grown at flat 3% annually) and divides by the program's 4-year published cost. Higher = better. Financing-agnostic \u2014 the loan slider doesn't move it.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": true,
+        "mentions_4yr_cost": true
+      },
+      "pdf_text": "FUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Harvard University \u00b7 Computer Science.\nPage 1\n\u0000 Ready Fun Bear\n Harvard University \u00b7 Computer Science. \u00b7 As of May 09, 2026\nResidency: in-state, MA\nComputer Science. at Harvard University: the data\nshows two or more risk factors worth weighing. Cost\nis high relative to year-1 earnings.\nERN\n9/10\n ROI\n7/10\nRES\n4/10\nGRW\n5/10\nAURA\n9/10\n\u0000\nERN\n9/10\nEarnings\n\u0000\nROI\n7/10\nReturn on Investment\n\u0000\nRES\n4/10\nAI Resilience\n\u0000\nGRW\n5/10\nGrowth\n\u0000\nAURA\n9/10\nBrand Gravity\nCOST & ROI\n 4-year cost\n Modeled debt\n Year-1 median earnings\n Debt-to-earnings (yr-1)\n $331,368\n $165,684\n $140,072\n 237%\nYear-1 peer band (this field): $46,984 \u2013 $65,661 \u00b7 Standout earnings \u2014 this program's median ($140,072) beats the peer 75th percentile.\nCAREER RISK PROFILE\nRisk Factor\n Level\nContext\nAI displacement risk\n ELEVATED\nAI displacement risk is elevated for this occupation.\nDebt burden\n HIGH\nModeled year-1 debt service is 237% of starting earnings \u2014 well above what\nearly-career income typically supports.\nJob market outlook\n MODERATE\nBLS classifies this as roughly steady demand (growing).\nBurnout risk\n MODERATE\nThis occupation has at least one demand worth understanding.\nEarnings ceiling\n ELEVATED\nYear-1 75th-percentile wage is $65,661 \u2014 limited room to grow above the median.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Harvard University \u00b7 Computer Science.\nPage 2\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nABOUT THIS CAREER\nKeep computer networks running and secure for organizations. You solve technical problems and manage the hardware and\nsoftware that connects people. This role involves constant learning to stay current with new technology.\nDay-to-day\n\u2022  Work directly with computer systems\n \n\u2022  Research information to solve technical issues\n \n\u2022  Update technical knowledge regularly\n \n\u2022  Communicate with supervisors and teammates\n \n\u2022  Build professional relationships with colleagues\n \nSUGGESTED SKILLS\nBring this list to your admissions counselor \u2014 these are the skills the data says will lift your outcomes.\nQUESTIONS & FOLLOW-UPS\nASK THE COLLEGE\n\u2022 Which majors at Harvard University most often lead graduates into Computer network support specialists?\n\u2022 How can I augment this major with the suggested skills above \u2014 through coursework, clubs, or internships you already offer?\n\u2022 Show me how the Computer Science department integrates curriculum to mitigate AI displacement risks for network specialists.\n\u2022 Publish the specific career placement data for Harvard Computer Science graduates entering technical support roles.\nASK YOUR PARENTS\n\u2022 Can our family cover the high debt burden associated with this Harvard tuition without compromising our long-term stability?\n\u2022 How much of this debt service can you spare if the job market outlook for network specialists remains only moderate?\nASK YOURSELF\n\u2022 Will I tolerate the moderate burnout risk inherent in a career as a computer network support specialist?\n\u2022 Am I prepared to pivot my skills if AI displacement impacts this specific career path?\nGLOSSARY\nCIP\nFederal program code (Classification of Instructional\nPrograms) \u2014 the standard for naming college majors.\nRES\nAI Resilience \u2014 how much of this occupation's work is\nhard for AI to do, blended from task-level data.\nSOC\nFederal occupation code (Standard Occupational\nClassification) \u2014 how the BLS names jobs.\nGRW\nGrowth \u2014 the BLS 10-year employment-change\nprojection for this occupation.\nERN\nEarnings \u2014 typical pay for graduates of this program\nworking in this occupation.\nAURA\nBrand Gravity \u2014 institutional pull (selectivity, completion,\nfinancial standing) shared by every program at the school.\nROI\nReturn on Investment \u2014 how the cost of this program\ncompares to what graduates earn.\nCareer\nrisk\nFive factors that affect long-term outcomes: AI\ndisplacement, debt burden, job market, burnout, and\nearnings ceiling.\n",
+      "pdf_dollars": [
+        "$331,368",
+        "$165,684",
+        "$140,072",
+        "$46,984",
+        "$65,661",
+        "$140,072",
+        "$65,661"
+      ],
+      "pdf_pcts": [
+        "237%",
+        "237%"
+      ],
+      "error": null
+    },
+    {
+      "idx": 3,
+      "slug": "miami-dade",
+      "school_query": "Miami Dade College",
+      "major": "Nursing",
+      "school_name_displayed": "Miami Dade College",
+      "cip_resolved": null,
+      "career_title": "Registered nurses",
+      "soc_code": "29-1141",
+      "work_experience_code": null,
+      "build_id": "/my-build",
+      "set_your_course_card": {
+        "soc_code": "29-1141",
+        "title": "Registered nurses",
+        "raw_text": "\ud83e\ude7aRegistered nurses\u2726$66,030 \u2013 $78,610starting range$93,600mid-career",
+        "dollars": [
+          "$66,030",
+          "$78,610",
+          "$93,600"
+        ],
+        "label_starting_range": true,
+        "label_typical_range": false,
+        "label_year_one": false,
+        "label_mid_career": true
+      },
+      "finances_card": {
+        "raw_text": "FinancesMid-career salary$93,600 / yrCareer starting range$66,030 \u2013 $78,610Registered nursesPeer band \u00b7 Year-1 (this field)Middle 50% of peer programs in this CIP family. Pill marks this program's Year-1 median when available.$74KPeer 25th$33KPeer 75th$63KStandout earningsThis program beats the peer-program 75th percentile for this field.Published cost (4 yr)$50,140Avg. net price (4 yr)$23,716Aid context only; not used for modeled debtFinancing50%Modeled debt$25,070Program median debt$9,687Your modeled debt is significantly above the program median.ROI: Moderate ROI",
+        "dollars": [
+          "$93,600",
+          "$66,030",
+          "$78,610",
+          "$74K",
+          "$33K",
+          "$63K",
+          "$50,140",
+          "$23,716",
+          "$25,070",
+          "$9,687"
+        ],
+        "pcts": [
+          "50%",
+          "50%"
+        ],
+        "has_mid_career": true,
+        "has_year_one": false,
+        "has_starting_range": true,
+        "has_typical_range": false,
+        "has_published_cost": true
+      },
+      "ern_popover": {
+        "opened": true,
+        "raw_text": "Earning PowerMeasures how your expected salary compares to graduates from similar programs nationally, based on median earnings 1 and 4 years after graduation.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": false,
+        "mentions_4yr_cost": true
+      },
+      "roi_popover": {
+        "opened": true,
+        "raw_text": "Return on InvestmentA 15-year payback multiplier. Projects cumulative earnings over a typical 15-year repayment window (starting salary grown at flat 3% annually) and divides by the program's 4-year published cost. Higher = better. Financing-agnostic \u2014 the loan slider doesn't move it.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": true,
+        "mentions_4yr_cost": true
+      },
+      "pdf_text": "FUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Miami Dade College \u00b7 Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing.\nPage 1\n\u0000 Glad True Owl\n Miami Dade College \u00b7 Registered Nursing, Nursing Administration, Nursing\n Research and Clinical Nursing. \u00b7 As of May 09, 2026\nResidency: in-state, FL\nRegistered Nursing, Nursing Administration, Nursing\nResearch and Clinical Nursing. at Miami Dade\nCollege: the data shows steady fundamentals with\none or two factors to watch. Cost is high relative to\nyear-1 earnings.\nERN\n9/10\n ROI\n10/10\nRES\n8/10\nGRW\n6/10\nAURA\n3/10\n\u0000\nERN\n9/10\nEarnings\n\u0000\nROI\n10/10\nReturn on Investment\n\u0000\nRES\n8/10\nAI Resilience\n\u0000\nGRW\n6/10\nGrowth\n\u0000\nAURA\n3/10\nBrand Gravity\nCOST & ROI\n 4-year cost\n Modeled debt\n Year-1 median earnings\n Debt-to-earnings (yr-1)\n $50,140\n $25,070\n $73,541\n 68%\nYear-1 peer band (this field): $32,935 \u2013 $62,573 \u00b7 Standout earnings \u2014 this program's median ($73,541) beats the peer 75th percentile.\nCAREER RISK PROFILE\nRisk Factor\n Level\nContext\nAI displacement risk\n LOW\nAI exposure for this occupation sits at the 93th percentile \u2014 most core tasks remain\nhuman-led.\nDebt burden\n LOW\nModeled year-1 debt service is 68% of starting earnings \u2014 comfortably below the\n10% guideline.\nJob market outlook\n LOW\nBLS classifies this as a growing field (growing).\nBurnout risk\n MODERATE\nThis occupation has at least one demand worth understanding.\nEarnings ceiling\n MODERATE\nYear-1 75th-percentile wage is $62,573 \u2014 modest upside above the median.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Miami Dade College \u00b7 Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing.\nPage 2\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nABOUT THIS CAREER\nRegistered nurses provide direct care and support to patients in various healthcare settings. They use medical knowledge to\nmonitor health, solve clinical problems, and manage patient information. The work focuses on maintaining patient safety and\ncoordinating care through constant observation and documentation.\nDay-to-day\n\u2022  Provide direct care and assistance to patients\n \n\u2022  Apply medical knowledge to patient situations\n \n\u2022  Solve problems and make clinical decisions\n \n\u2022  Record and document patient information\n \n\u2022  Gather health information from patients and staff\n \nSUGGESTED SKILLS\nBring this list to your admissions counselor \u2014 these are the skills the data says will lift your outcomes.\nQUESTIONS & FOLLOW-UPS\nASK THE COLLEGE\n\u2022 Which majors at Miami Dade College most often lead graduates into Registered nurses?\n\u2022 How can I augment this major with the suggested skills above \u2014 through coursework, clubs, or internships you already offer?\n\u2022 Show me the specific clinical placement rates for Miami Dade College nursing students.\n\u2022 Connect me with alumni who have transitioned from clinical nursing into nursing administration.\nASK YOUR PARENTS\n\u2022 Can our family cover the remaining costs if the debt burden exceeds the low estimate shown here?\n\u2022 How much of this tuition can you spare if I decide to pursue nursing research instead of clinical work?\nASK YOURSELF\n\u2022 Will I sustain my performance if I hit the moderate burnout risk levels common in nursing?\n\u2022 Do I have the stamina to reach the earnings ceiling indicated for this career path?\nGLOSSARY\nCIP\nFederal program code (Classification of Instructional\nPrograms) \u2014 the standard for naming college majors.\nRES\nAI Resilience \u2014 how much of this occupation's work is\nhard for AI to do, blended from task-level data.\nSOC\nFederal occupation code (Standard Occupational\nClassification) \u2014 how the BLS names jobs.\nGRW\nGrowth \u2014 the BLS 10-year employment-change\nprojection for this occupation.\nERN\nEarnings \u2014 typical pay for graduates of this program\nworking in this occupation.\nAURA\nBrand Gravity \u2014 institutional pull (selectivity, completion,\nfinancial standing) shared by every program at the school.\nROI\nReturn on Investment \u2014 how the cost of this program\ncompares to what graduates earn.\nCareer\nrisk\nFive factors that affect long-term outcomes: AI\ndisplacement, debt burden, job market, burnout, and\nearnings ceiling.\n",
+      "pdf_dollars": [
+        "$50,140",
+        "$25,070",
+        "$73,541",
+        "$32,935",
+        "$62,573",
+        "$73,541",
+        "$62,573"
+      ],
+      "pdf_pcts": [
+        "68%",
+        "68%",
+        "10%"
+      ],
+      "error": null
+    },
+    {
+      "idx": 4,
+      "slug": "caltech",
+      "school_query": "California Institute of Technology",
+      "major": "Mechanical Engineering",
+      "school_name_displayed": "California Institute of Technology",
+      "cip_resolved": null,
+      "career_title": "Aerospace engineers",
+      "soc_code": "17-2011",
+      "work_experience_code": null,
+      "build_id": "/my-build",
+      "set_your_course_card": {
+        "soc_code": "17-2011",
+        "title": "Aerospace engineers",
+        "raw_text": "\ud83d\udee0\ufe0fAerospace engineers\u2726$85,350 \u2013 $104,740starting range$134,830mid-career",
+        "dollars": [
+          "$85,350",
+          "$104,740",
+          "$134,830"
+        ],
+        "label_starting_range": true,
+        "label_typical_range": false,
+        "label_year_one": false,
+        "label_mid_career": true
+      },
+      "finances_card": {
+        "raw_text": "FinancesMid-career salary$134,830 / yrCareer starting range$85,350 \u2013 $104,740Aerospace engineersPeer band \u00b7 Year-1 (this field)Middle 50% of peer programs in this CIP family. Pill marks this program's Year-1 median when available.$135KPeer 25th$60KPeer 75th$70KPill is a career wage reference because program median earnings are unavailable.Published cost (4 yr)$334,392Avg. net price (4 yr)$75,608Aid context only; not used for modeled debtFinancing50%Modeled debt$167,196ROI: Insufficient data",
+        "dollars": [
+          "$134,830",
+          "$85,350",
+          "$104,740",
+          "$135K",
+          "$60K",
+          "$70K",
+          "$334,392",
+          "$75,608",
+          "$167,196"
+        ],
+        "pcts": [
+          "50%",
+          "50%"
+        ],
+        "has_mid_career": true,
+        "has_year_one": false,
+        "has_starting_range": true,
+        "has_typical_range": false,
+        "has_published_cost": true
+      },
+      "ern_popover": {
+        "opened": true,
+        "raw_text": "Earning PowerMeasures how your expected salary compares to graduates from similar programs nationally, based on median earnings 1 and 4 years after graduation.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": false,
+        "mentions_4yr_cost": true
+      },
+      "roi_popover": {
+        "opened": true,
+        "raw_text": "Return on InvestmentA 15-year payback multiplier. Projects cumulative earnings over a typical 15-year repayment window (starting salary grown at flat 3% annually) and divides by the program's 4-year published cost. Higher = better. Financing-agnostic \u2014 the loan slider doesn't move it.Source: College Scorecard\u2726Ask Gemma about this\n        @keyframes popoverIn {\n          from { opacity: 0; transform: translateY(-6px); }\n          to { opacity: 1; transform: translateY(0); }\n        }",
+        "dollars": [],
+        "mentions_year_one": false,
+        "mentions_starting_salary": true,
+        "mentions_4yr_cost": true
+      },
+      "pdf_text": "FUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 California Institute of Technology \u00b7 Mechanical Engineering.\nPage 1\n\u0000 Glad Spry Penguin\nCalifornia Institute of Technology \u00b7 Mechanical Engineering. \u00b7 As of May 09,\n 2026\nResidency: in-state, CA\nMechanical Engineering. at California Institute of\nTechnology: the data shows two or more risk\nfactors worth weighing. Cost-to-earnings is\nunavailable for this program.\nERN\n ROI\nRES\n4/10\nGRW\n7/10\nAURA\n9/10\n\u0000\nERN\n\u2014\nEarnings\n\u0000\nROI\n\u2014\nReturn on Investment\n\u0000\nRES\n4/10\nAI Resilience\n\u0000\nGRW\n7/10\nGrowth\n\u0000\nAURA\n9/10\nBrand Gravity\nCOST & ROI\n 4-year cost\n Modeled debt\n Year-1 median earnings*\n Debt-to-earnings (yr-1)\n $334,392\n $167,196\n $134,830*\n \u2014\nYear-1 peer band (this field): $60,121 \u2013 $69,541 \u00b7 Program-median Year-1 earnings unavailable for this school.\n* Program-median Year-1 earnings unavailable; figure shown is the career-level mid-career wage (national OEWS median) as a reference. Not a\ngraduate's first-year salary.\nCAREER RISK PROFILE\nRisk Factor\n Level\nContext\nAI displacement risk\n ELEVATED\nAI exposure sits at the 41th percentile \u2014 a meaningful share of tasks could shift to AI\nwithin a decade.\nDebt burden\n Insufficient data\nData unavailable for this program.\nJob market outlook\n LOW\nBLS classifies this as a growing field (growing).\nBurnout risk\n MODERATE\nThis occupation has at least one demand worth understanding.\nEarnings ceiling\n ELEVATED\nYear-1 75th-percentile wage is $69,541 \u2014 limited room to grow above the median.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 California Institute of Technology \u00b7 Mechanical Engineering.\nPage 2\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nABOUT THIS CAREER\nDesign and develop aircraft, spacecraft, and satellites. Use computer software to analyze complex data and solve technical\nproblems. Research information to make informed decisions about flight systems and structures.\nDay-to-day\n\u2022  Use computers to design and model systems\n \n\u2022  Analyze technical data and information\n \n\u2022  Process complex engineering information\n \n\u2022  Solve technical problems and make decisions\n \n\u2022  Research and gather new information\n \nSUGGESTED SKILLS\nBring this list to your admissions counselor \u2014 these are the skills the data says will lift your outcomes.\nQUESTIONS & FOLLOW-UPS\nASK THE COLLEGE\n\u2022 Which majors at California Institute of Technology most often lead graduates into Aerospace engineers?\n\u2022 How can I augment this major with the suggested skills above \u2014 through coursework, clubs, or internships you already offer?\n\u2022 Show me how the Mechanical Engineering department integrates machine learning to mitigate AI displacement risks in aerospace\ndesign.\n\u2022 Connect me with alumni who have navigated the elevated earnings ceiling in the aerospace sector.\nASK YOUR PARENTS\n\u2022 Can our family cover the cost of this program if the debt-to-earnings ratio remains high due to the projected earnings ceiling?\n\u2022 How much of our savings should we set aside to spare me from high debt service if the aerospace job market remains low?\nASK YOURSELF\n\u2022 Will I sustain the daily workload of an aerospace engineer if the burnout risk is moderate?\n\u2022 Do I have the technical aptitude to stay ahead of the automation occurring in mechanical engineering?\nGLOSSARY\nCIP\nFederal program code (Classification of Instructional\nPrograms) \u2014 the standard for naming college majors.\nRES\nAI Resilience \u2014 how much of this occupation's work is\nhard for AI to do, blended from task-level data.\nSOC\nFederal occupation code (Standard Occupational\nClassification) \u2014 how the BLS names jobs.\nGRW\nGrowth \u2014 the BLS 10-year employment-change\nprojection for this occupation.\nERN\nEarnings \u2014 typical pay for graduates of this program\nworking in this occupation.\nAURA\nBrand Gravity \u2014 institutional pull (selectivity, completion,\nfinancial standing) shared by every program at the school.\nROI\nReturn on Investment \u2014 how the cost of this program\ncompares to what graduates earn.\nCareer\nrisk\nFive factors that affect long-term outcomes: AI\ndisplacement, debt burden, job market, burnout, and\nearnings ceiling.\n",
+      "pdf_dollars": [
+        "$334,392",
+        "$167,196",
+        "$134,830",
+        "$60,121",
+        "$69,541",
+        "$69,541"
+      ],
+      "pdf_pcts": [],
+      "error": null
+    }
+  ],
+  "compare": {
+    "builds_in_view": [
+      "card-build-miami-dade-college-004",
+      "card-build-california-institute-of-technology-005",
+      "card-build-miami-dade-college-003",
+      "card-build-harvard-university-006",
+      "card-build-indiana-university-bloomington-009",
+      "card-build-harvard-university-005",
+      "card-build-california-institute-of-technology-004",
+      "card-build-miami-dade-college-002",
+      "card-build-harvard-university-004",
+      "card-build-indiana-university-bloomington-008",
+      "card-build-california-institute-of-technology-003",
+      "card-build-miami-dade-college-001",
+      "card-build-harvard-university-003",
+      "card-build-indiana-university-bloomington-007",
+      "card-build-california-institute-of-technology-002",
+      "card-build-harvard-university-002",
+      "card-build-california-institute-of-technology-001",
+      "card-build-harvard-university-001",
+      "card-build-indiana-university-bloomington-006",
+      "card-build-indiana-university-bloomington-005",
+      "card-build-indiana-university-bloomington-004",
+      "card-build-indiana-university-bloomington-003",
+      "card-build-indiana-university-bloomington-002",
+      "card-build-indiana-university-bloomington-001",
+      "card-build-university-of-illinois-urbana-champaign-002",
+      "card-build-university-of-illinois-urbana-champaign-001",
+      "card-build-louisiana-state-university-shreveport-001",
+      "card-build-delaware-state-university-001",
+      "card-build-university-of-michigan-ann-arbor-002",
+      "card-build-university-of-michigan-ann-arbor-001"
+    ],
+    "money_section_text": "Early SalaryBand shows the middle 50% of peer programs in this field. The pill marks this school/program's reported early-earnings median when available.Peer 25th-75thThis program medianMiami Dade College$74KPeer 25th$33KPeer 75th$63KStandout earningsThis program beats the peer-program 75th percentile for this field.California Institute of Technology$135KPeer 25th$60KPeer 75th$70KPill is a career wage reference because program median earnings are unavailable.Miami Dade College$74KPeer 25th$33KPeer 75th$63KStandout earningsThis program beats the peer-program 75th percentile for this field.Harvard University$140KPeer 25th$47KPeer 75th$66KStandout earningsThis program beats the peer-program 75th percentile for this field.",
+    "money_section_dollars": [
+      "$74K",
+      "$33K",
+      "$63K",
+      "$135K",
+      "$60K",
+      "$70K",
+      "$74K",
+      "$33K",
+      "$63K",
+      "$140K",
+      "$47K",
+      "$66K"
+    ],
+    "pdf_text": "FUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Career comparison \u00b7 4-School Comparison\nPage 1\nCareer comparison \u2014 comparing 4 schools \u00b7 As of May 09, 2026\nResidency: Miami \u00b7 Registered nurses: in-state | California: in-state | Miami \u00b7 Registered nurses: in-state | Harvard: in-state\n Miami Dade College\n Registered nurses\nERN\nROI\nRES\nGRW\nAURA\n California Institute of\n Technology\n Aerospace engineers\nERN\nROI\nRES\nGRW\nAURA\n Miami Dade College\n Registered nurses\nERN\nROI\nRES\nGRW\nAURA\n Harvard University\n Computer network support\n specialists\nERN\nROI\nRES\nGRW\nAURA\nSTATS AT A GLANCE\nStat\n Miami \u00b7 Registered\n nurses\n California\n Miami \u00b7 Registered\n nurses\n Harvard\nERN Earnings\n 9/10\n \u2014\n 9/10\n 9/10\nROI Return on Investment\n 10/10\n \u2014\n 10/10\n 7/10\nRES AI Resilience\n 8/10\n 4/10\n 8/10\n 4/10\nGRW Growth\n 6/10\n 7/10\n 6/10\n 5/10\nAURA Brand Gravity\n 3/10\n 9/10\n 3/10\n 9/10\nCOST & ROI\n Miami \u00b7 Registered\n nurses\n California\n Miami \u00b7 Registered\n nurses\n Harvard\n4-year cost\n $50,140\n $334,392\n $50,140\n $331,368\nModeled debt\n $25,070\n $167,196\n $25,070\n $165,684\nYear-1 peer band\n $32,935 \u2013\n $62,573\n $60,121 \u2013\n $69,541\n $32,935 \u2013\n $62,573\n $46,984 \u2013\n $65,661\nYear-1 program median\n $73,541 \u2191\n $134,830*\n $73,541 \u2191\n $140,072 \u2191\nDebt-to-earnings (yr-1)\n 68%\n \u2014\n 68%\n 237%\n* Program-median Year-1 earnings unavailable for this school; figure shown is the career-level mid-career wage (national OEWS median) as a\nreference. Excluded from the Year-1 leader highlight.\nCAREER RISK PROFILE\nRisk Factor\n Miami \u00b7 Registered\n nurses\n California\n Miami \u00b7 Registered\n nurses\n Harvard\nAI displacement risk\n LOW\n ELEVATED\n LOW\n ELEVATED\nDebt burden\n LOW\n Insufficient data\n LOW\n HIGH\nJob market outlook\n LOW\n LOW\n LOW\n MODERATE\nBurnout risk\n MODERATE\n MODERATE\n MODERATE\n MODERATE\nEarnings ceiling\n MODERATE\n ELEVATED\n MODERATE\n ELEVATED\nWHERE EACH SCHOOL PULLS AHEAD\nMiami Dade College \u2014 no clear leader on these factors; trade-offs are even.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Career comparison \u00b7 4-School Comparison\nPage 2\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nCalifornia Institute of Technology \u2014 leads on Growth.\nMiami Dade College \u2014 no clear leader on these factors; trade-offs are even.\nHarvard University \u2014 leads on Year-1 earnings.\nSCHOOL PROFILE\n Miami \u00b7 Registered\n nurses\n California\n Miami \u00b7 Registered\n nurses\n Harvard\nType\n Public\n Private\nnonprofit\n Public\n Private\nnonprofit\nState\n FL\n CA\n FL\n MA\nResidency\n in-state\n in-state\n in-state\n in-state\nMajor\n Registered\n Nursing,\n Nursing\nAdministrat\u2026\n Mechanical\nEngineering.\n Registered\n Nursing,\n Nursing\nAdministrat\u2026\n Computer\nScience.\nCareer\n Registered\n nurses\n Aerospace\nengineers\n Registered\n nurses\n Computer\n network\nsupport\nspecialists\nCOST BREAKDOWN\n Miami \u00b7 Registered\n nurses\n California\n Miami \u00b7 Registered\n nurses\n Harvard\nTuition (annual,\nresidency-aware)\n $2,838\n $63,255\n $2,838\n $59,076\nRoom & board (on-campus)\n \u2014\n $19,503\n \u2014\n $20,374\nNet price (annual avg, after aid)\n $5,929\n $18,902\n $5,929\n $16,816\nCost of attendance (annual,\nresidency-aware)\n $12,535\n $83,598\n $12,535\n $82,842\n4-year cost (residency-aware)\n $50,140\n $334,392\n $50,140\n $331,368\nModeled total debt\n $25,070\n $167,196\n $25,070\n $165,684\nCAREER BRANCHES\nWhere each path can lead next \u2014 top related careers and how their stats compare against the starting role.\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Career comparison \u00b7 4-School Comparison\nPage 3\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\n Miami \u00b7 Registered nurses\nNurse Practitioners\nERN +2 \u00b7 ROI +1 \u00b7 RES -1 \u00b7 GRW\n+4\nPsychiatrists\nRES -1 \u00b7 GRW +1\nParamedics\nERN -2 \u00b7 ROI -1 \u00b7 GRW +1\n California\nAerospace Engineering and\nOperations Te\u2026\nERN -2 \u00b7 ROI -1 \u00b7 RES +1\nElectro-Mechanical and\nMechatronics Tec\u2026\nERN -2 \u00b7 ROI -1 \u00b7 RES +1 \u00b7 GRW\n-2\nAvionics Technicians\nERN -2 \u00b7 ROI -1 \u00b7 RES +2\n Miami \u00b7 Registered nurses\nNurse Practitioners\nERN +2 \u00b7 ROI +1 \u00b7 RES -1 \u00b7 GRW\n+4\nPsychiatrists\nRES -1 \u00b7 GRW +1\nParamedics\nERN -2 \u00b7 ROI -1 \u00b7 GRW +1\n Harvard\nComputer Network\nArchitects\nERN +2 \u00b7 ROI +1 \u00b7 RES +1 \u00b7 GRW\n+3\nNetwork and Computer\nSystems Administra\u2026\nERN +2 \u00b7 ROI +1 \u00b7 RES +1 \u00b7 GRW\n-2\nComputer User Support\nSpecialists\nERN -1 \u00b7 GRW -1\nGEMMA'S VERDICT\nMiami Dade College focuses on getting you into the workforce quickly with very little debt. You optimize for financial safety\nbecause your starting salary for Registered nurses covers your $25,070 in student loans in about one year. The tradeoff is that\nthe school name carries less weight on a resume and you might hit a career ceiling sooner than in other fields. California\nInstitute of Technology optimizes for high prestige and a high median salary of $134,830 as an Aerospace engineer. This path\noffers a growing job market but requires you to take on a large amount of debt, totaling $167,196. You are trading financial\nease and protection against automation for a powerful brand name and a high-level technical career. Harvard University\noptimizes for extreme brand recognition and a very high starting salary of $140,072 for Computer network support\nspecialists. However, the cost of the degree is very high, leaving you with $165,684 in debt that takes longer to pay back\nrelative to your earnings. You also face a higher risk of your specific job tasks being changed by AI technology. Your decision\ncomes down to whether you want to prioritize immediate financial stability or invest heavily in a high-prestige name for\nlong-term career potential.\nBig Choice\nLow Debt or High Prestige\nNursing at Miami Dade College costs only $25,070 in debt compared to $167,196 for Caltech or $165,684 for Harvard.\nPros & Cons by school\n Miami \u00b7 Registered nurses\nPROS\n+ Total debt of $25,070 is\n $142,126 lower than the\nCaltech aerospace path.\n+ Starting salary of $73,541\n covers the $5,929 annual cost\nin one year.\nCONS\n\u2212 Median salary of $93,600 is\n $41,230 less than aerospace\nengineers.\n\u2212 The school brand signal is a\n 3/10 compared to Harvard's\n9/10.\n California\nPROS\n+ Median salary of $134,830 is\n $41,230 higher than\nregistered nurses.\n+ The school carries a 9/10\n brand signal compared to\nMiami Dade's 3/10.\nCONS\n\u2212 Total debt of $167,196 is\n $142,126 more than the\nnursing path.\n\u2212 AI resilience is 4/10, which is\n lower than the nursing 8/10.\n Miami \u00b7 Registered nurses\nPROS\n+ Total debt of $25,070 is\n $140,614 less than the\nHarvard path.\n+ Starting salary of $73,541 is\n higher than the $140,072\nHarvard specialist start.\nCONS\n\u2212 Median salary of $93,600 is\n $41,230 less than aerospace\nengineers.\n\u2212 The school brand signal is a\n 3/10 compared to Harvard's\n9/10.\n Harvard\nPROS\n+ Starting salary of $140,072 is\n $66,529 more than nursing\ngraduates.\n+ The school carries a 9/10\n brand signal compared to\nMiami Dade's 3/10.\nCONS\n\u2212 Total debt of $165,684 is\n $140,614 more than the\nnursing path.\n\u2212 Cost is 2.4x annual salary,\n which is harder than the\nnursing ROI.\nIn ten years\nBy 30, Miami Dade nurses earning $93,600 will have cleared debt and likely be Nurse Practitioners with $748,800 in total\nearnings. Caltech aerospace engineers will have earned $1,078,640 but still be paying off heavy loans while working as\nMechanical Engineers. Harvard specialists will have earned $586,720, likely working as Network Architects while managing\nmassive debt.\nSit with this\n\nFUTUREPROOF\nFOR STUDENT + COUNSELOR USE ONLY\nFutureProof \u00b7 Career comparison \u00b7 4-School Comparison\nPage 4\nSources: BLS OOH \u00b7 College Scorecard \u00b7 O*NET \u00b7 Ka\nrpathy AI Exposure \u00b7 BEA RPP. Powered by Gemma 4.\nHow much is the Harvard or Caltech name worth to you if you are still paying off $165,000 in debt while a\nMiami Dade nurse is already saving for a house?\n",
+    "pdf_dollars": [
+      "$50,140",
+      "$334,392",
+      "$50,140",
+      "$331,368",
+      "$25,070",
+      "$167,196",
+      "$25,070",
+      "$165,684",
+      "$32,935",
+      "$62,573",
+      "$60,121",
+      "$69,541",
+      "$32,935",
+      "$62,573",
+      "$46,984",
+      "$65,661",
+      "$73,541",
+      "$134,830",
+      "$73,541",
+      "$140,072",
+      "$2,838",
+      "$63,255",
+      "$2,838",
+      "$59,076",
+      "$19,503",
+      "$20,374",
+      "$5,929",
+      "$18,902",
+      "$5,929",
+      "$16,816",
+      "$12,535",
+      "$83,598",
+      "$12,535",
+      "$82,842",
+      "$50,140",
+      "$334,392",
+      "$50,140",
+      "$331,368",
+      "$25,070",
+      "$167,196",
+      "$25,070",
+      "$165,684",
+      "$25,070",
+      "$134,830",
+      "$167,196",
+      "$140,072",
+      "$165,684",
+      "$25,070",
+      "$167,196",
+      "$165,684",
+      "$25,070",
+      "$142,126",
+      "$73,541",
+      "$5,929",
+      "$93,600",
+      "$41,230",
+      "$134,830",
+      "$41,230",
+      "$167,196",
+      "$142,126",
+      "$25,070",
+      "$140,614",
+      "$73,541",
+      "$140,072",
+      "$93,600",
+      "$41,230",
+      "$140,072",
+      "$66,529",
+      "$165,684",
+      "$140,614",
+      "$93,600",
+      "$748,800",
+      "$1,078,640",
+      "$586,720,",
+      "$165,000"
+    ],
+    "pdf_pcts": [
+      "68%",
+      "68%",
+      "237%"
+    ],
+    "error": null
+  }
+}
