@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiGet } from "@/api/client";
+import { requestPrefetch } from "@/api/prefetch";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
@@ -83,11 +84,12 @@ export function SetYourCourseScreen() {
       target_id: career.soc_code,
     });
     setChatChipText(`Asking about: ${career.occupation_title}`);
-    setChatOpenerPrompt(
-      `Describe in detail what a ${career.occupation_title} does day-to-day, ` +
-      "what kind of person fits this work, and what makes it pay what it " +
-      "pays. Pull occupation data so the description is grounded.",
-    );
+    // No opener prompt — the structured "About this career" card IS the
+    // answer to "what does this career do." Auto-firing the freeform
+    // describe-in-detail opener was producing a duplicate description
+    // beneath the card. Chat starts empty; the student types their own
+    // follow-up if they want to dig deeper.
+    setChatOpenerPrompt(null);
     setChatOpen(true);
 
     // Cache-first: synchronous hit → render populated; miss → loading
@@ -192,6 +194,45 @@ export function SetYourCourseScreen() {
     if (publishedCost4yr === null) return null;
     return publishedCost4yr / 4;
   }, [publishedCost4yr]);
+
+  // Speculative prefetch: fire stat engine + branches + career description
+  // as soon as the student has a school, resolution, and selected career.
+  // Re-fires when sliders change so the build stream always finds a matching
+  // cache entry with the final slider values.
+  const prefetchAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    if (!school || !currentResolution || !selectedCareer) return;
+
+    prefetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    prefetchAbortRef.current = controller;
+
+    const lookupCip = currentResolution.parent_cip || currentResolution.matched_cip;
+    const studentCip = currentResolution.parent_cip ? currentResolution.matched_cip : null;
+
+    requestPrefetch({
+      unitid: school.unitid,
+      cipcode: lookupCip,
+      soc_code: selectedCareer.soc_code,
+      occupation_title: selectedCareer.occupation_title,
+      effort: effort.level,
+      loan_pct: loans.percentage / 100,
+      student_major: currentResolution.student_major_text ?? null,
+      student_cip: studentCip,
+      intent_keywords: currentResolution.intent_keywords ?? [],
+      home_state: homeState ?? null,
+    }, controller.signal);
+
+    return () => { controller.abort(); };
+  }, [
+    school?.unitid,
+    currentResolution?.matched_cip,
+    currentResolution?.parent_cip,
+    selectedCareer?.soc_code,
+    effort.level,
+    loans.percentage,
+    homeState,
+  ]);
 
   // Profile guard — bounce to /profile if the profile isn't set. Stash this
   // route so ProfileScreen returns here after onboarding.
@@ -923,6 +964,7 @@ export function SetYourCourseScreen() {
         chipText={chatChipText}
         openerPrompt={chatOpenerPrompt ?? undefined}
         careerDescription={careerDescription}
+        starters={[]}
         onClose={closeChat}
       />
     </div>

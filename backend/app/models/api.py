@@ -82,6 +82,31 @@ class BuildRequest(BaseModel):
         return v
 
 
+class PrefetchRequest(BaseModel):
+    """POST /build/prefetch — speculative stat engine + branches + career desc."""
+
+    unitid: int
+    cipcode: str
+    soc_code: str
+    occupation_title: str | None = None
+    effort: str = "balanced"
+    loan_pct: float = 1.0
+    student_major: str | None = None
+    student_cip: str | None = None
+    intent_keywords: list[str] = Field(default_factory=list)
+    home_state: str | None = None
+
+    @field_validator("home_state", mode="before")
+    @classmethod
+    def _normalize_home_state(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        v = v.strip().upper()
+        if not re.fullmatch(r"[A-Z]{2}", v):
+            raise ValueError("must be a 2-letter state abbreviation")
+        return v
+
+
 class RerollRequest(BaseModel):
     boss_id: str
     skill_ids: list[str]
@@ -784,15 +809,59 @@ class ExportBuildPdfRequest(BaseModel):
     student_name: str | None = Field(default=None, max_length=80)
 
 
+class CompareProsConsItem(BaseModel):
+    """One build's pros/cons array, as returned by
+    ``generate_compare_pros_cons_async``. Used to forward already-loaded
+    Gemma insights from the compare screen into the PDF export so the
+    PDF doesn't have to re-fire those Gemma calls."""
+
+    build_id: str
+    pros: list[str] = Field(default_factory=list)
+    cons: list[str] = Field(default_factory=list)
+
+
+class ComparePivotalPayload(BaseModel):
+    """Editorial pivotal-moment block from
+    ``generate_compare_pivotal_async``. All four fields are required
+    when the dict is present (the service returns None on partial
+    success)."""
+
+    meta_tradeoff: str
+    meta_explanation: str
+    decade_projection: str
+    pivot_question: str
+
+
+class CompareInsightsPayload(BaseModel):
+    """Optional Gemma-generated insights forwarded from the compare
+    screen into the PDF export request. Each field is independent —
+    any may be None when the upstream Gemma call failed. The PDF
+    silently omits sections whose data is missing."""
+
+    money_insight: str | None = None
+    compare_summary: str | None = None
+    pros_cons: list[CompareProsConsItem] | None = None
+    pivotal: ComparePivotalPayload | None = None
+
+
 class ExportComparisonPdfRequest(BaseModel):
     """POST /builds/compare/pdf body.
 
-    Pydantic enforces the 2..3 build cap at validation time. Same-major
-    (4-digit CIP family) check is done in the router after the builds load.
+    Pydantic enforces the 2..4 build cap at validation time, matching
+    the in-app CompareView selection cap (MenuScreen.tsx). Same-major
+    (4-digit CIP family) check is done in the router after the builds
+    load.
+
+    ``insights`` is optional — when the frontend has already fetched
+    /builds/compare-insights for the on-screen Gemma's Verdict block,
+    it forwards the same payload here so the PDF reuses it instead of
+    re-firing the 3 Gemma calls (saves ~5-10s of export latency). When
+    omitted, the PDF router fetches insights itself.
     """
 
-    build_ids: list[str] = Field(..., min_length=2, max_length=3)
+    build_ids: list[str] = Field(..., min_length=2, max_length=4)
     student_name: str | None = Field(default=None, max_length=80)
+    insights: CompareInsightsPayload | None = None
 
 
 class AudienceQuestion(BaseModel):

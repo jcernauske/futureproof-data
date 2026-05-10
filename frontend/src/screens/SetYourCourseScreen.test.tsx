@@ -141,6 +141,11 @@ vi.mock("@/api/tree", () => ({
   getBranchesForSoc: vi.fn().mockResolvedValue([]),
 }));
 
+const mockRequestPrefetch = vi.fn();
+vi.mock("@/api/prefetch", () => ({
+  requestPrefetch: (...args: unknown[]) => mockRequestPrefetch(...args),
+}));
+
 import { commitResolution } from "@/api/intent";
 import { getOutcomes } from "@/api/build";
 import { SetYourCourseScreen } from "./SetYourCourseScreen";
@@ -198,6 +203,7 @@ beforeEach(() => {
   window.scrollTo = vi.fn();
   mockNavigate.mockReset();
   mockAskGemmaStream.mockClear();
+  mockRequestPrefetch.mockReset();
   mockLoadCareerDescription.mockReset();
   mockGetCachedCareerDescription.mockReset();
   // Default: cache miss, fetch resolves to a populated description.
@@ -558,7 +564,11 @@ describe("TestSocRevealStates", () => {
     expect(screen.getByTestId("btn-ask-career-11-9121")).toBeInTheDocument();
   });
 
-  it("clicking the career sparkle opens the chat and auto-fires a career-scope opener", async () => {
+  it("clicking the career sparkle opens the chat with a career scope and no auto-fired opener", async () => {
+    // The structured "About this career" card is now the answer; the
+    // freeform describe-in-detail opener that used to auto-fire was
+    // producing a duplicate description below the card. Chat starts
+    // empty — the student types their own follow-up.
     const careers = makeCareers();
     vi.mocked(getOutcomes).mockResolvedValue(careers);
     seedWithResolvedMajor();
@@ -573,21 +583,10 @@ describe("TestSocRevealStates", () => {
       expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
     });
 
-    // The opener fires askGemmaStream with kind="career", target_id=SOC,
-    // and a prompt that includes the occupation title.
-    await waitFor(() => {
-      expect(mockAskGemmaStream).toHaveBeenCalledTimes(1);
-    });
-    const openerCall = mockAskGemmaStream.mock.calls[0]!;
-    const scope = openerCall[0] as {
-      kind: string;
-      target_id: string;
-      build_ids: string[];
-    };
-    expect(scope.kind).toBe("career");
-    expect(scope.target_id).toBe("19-4021");
-    expect(scope.build_ids).toEqual([]);
-    expect(openerCall[1]).toMatch(/describe in detail/i);
+    // No opener fires — askGemmaStream stays untouched until the user
+    // types something into the chat.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockAskGemmaStream).not.toHaveBeenCalled();
   });
 
   // -------------------------------------------------------------------
@@ -837,5 +836,50 @@ describe("TestCipPicker", () => {
     expect(hint).toBeInTheDocument();
     expect(hint.textContent).toMatch(/11 more programs match/);
     expect(hint.textContent).toMatch(/Try civil engineering/);
+  });
+});
+
+
+// ===========================================================================
+// TestPrefetch — speculative build prefetch fires on career select
+// ===========================================================================
+
+describe("TestPrefetch", () => {
+  it("fires requestPrefetch when school + resolution + career are set", async () => {
+    seedState({
+      initialResolution: { ...RESOLVED_MARKETING },
+      currentResolution: { ...RESOLVED_MARKETING },
+    });
+    useBuildStore.setState({
+      selectedCareer: makeCareer({
+        soc_code: "19-4021",
+        occupation_title: "Biological Technician",
+      }),
+    });
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(mockRequestPrefetch).toHaveBeenCalledTimes(1);
+    });
+
+    const call = mockRequestPrefetch.mock.calls[0] as [Record<string, unknown>];
+    const params = call[0];
+    expect(params.unitid).toBe(151351);
+    expect(params.cipcode).toBe("52.1401");
+    expect(params.soc_code).toBe("19-4021");
+    expect(params.effort).toBe("balanced");
+    expect(params.loan_pct).toBe(0.5);
+  });
+
+  it("does not fire prefetch when no career is selected", () => {
+    seedState({
+      initialResolution: { ...RESOLVED_MARKETING },
+      currentResolution: { ...RESOLVED_MARKETING },
+    });
+
+    renderScreen();
+
+    expect(mockRequestPrefetch).not.toHaveBeenCalled();
   });
 });

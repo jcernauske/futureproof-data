@@ -10,6 +10,7 @@ from app import state
 from app.models.api import (
     BuildRequest,
     OutcomesRequest,
+    PrefetchRequest,
     RebuildRequest,
     TierRequest,
 )
@@ -28,7 +29,9 @@ from app.services import (
     builds,
     career_description,
     career_tiering,
+    gemma_client,
     guidance,
+    prefetch,
     skill_pool,
     skill_recs,
     stat_engine,
@@ -39,6 +42,30 @@ from app.services.locale import AppLocale
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.post("/prefetch", status_code=202)
+async def start_prefetch(request: PrefetchRequest):
+    """Speculatively start stat engine + branches + career description.
+
+    Called from /set-your-course when the student clicks a career card.
+    The build stream consumes the result if it's ready by the time
+    ``POST /build/stream`` fires.
+    """
+    key = prefetch.start(
+        unitid=request.unitid,
+        cipcode=request.cipcode,
+        soc_code=request.soc_code,
+        effort=request.effort,
+        loan_pct=request.loan_pct,
+        student_major=request.student_major,
+        student_cip=request.student_cip,
+        intent_keywords=request.intent_keywords or None,
+        home_state=request.home_state,
+        occupation_title=request.occupation_title,
+    )
+    return {"status": "started", "key": list(key)}
+
 
 
 @router.post("/outcomes")
@@ -268,35 +295,51 @@ async def create_build_stream(request: BuildRequest) -> StreamingResponse:
 
 
 async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
-    career_task = asyncio.to_thread(
-        stat_engine.compute_one,
-        unitid=request.unitid,
-        cipcode=request.cipcode,
-        soc_code=request.selected_soc,
-        student_major=request.student_major,
-        student_cip=request.student_cip,
-        effort=cast(EffortLevel, request.effort),
-        loan_pct=request.loan_pct,
-        intent_keywords=request.intent_keywords or None,
-        home_state=request.home_state,
+    # Try to consume a prefetch result from /set-your-course.
+    pf_key = prefetch.make_key(
+        request.unitid, request.cipcode, request.selected_soc,
+        request.effort, request.loan_pct, request.student_major,
+        request.student_cip, request.home_state,
     )
-    branches_task = asyncio.to_thread(
-        branch_tree.get_branches, request.selected_soc,
-    )
+    pf_result = await prefetch.consume(pf_key)
 
-    try:
-        career, branches_list = await asyncio.gather(
-            career_task, branches_task,
+    if pf_result and pf_result.career:
+        logger.info(
+            "build_stream using prefetched result for soc=%s",
+            request.selected_soc,
         )
-    except ValueError as exc:
-        yield sse_event("error", {"detail": str(exc)})
-        return
-    except LookupError:
-        yield sse_event(
-            "error",
-            {"detail": "We don't have enough data for that career at this school."},
+        career: CareerOutcome = pf_result.career
+        branches_list: list[CareerBranch] = pf_result.branches
+    else:
+        career_task = asyncio.to_thread(
+            stat_engine.compute_one,
+            unitid=request.unitid,
+            cipcode=request.cipcode,
+            soc_code=request.selected_soc,
+            student_major=request.student_major,
+            student_cip=request.student_cip,
+            effort=cast(EffortLevel, request.effort),
+            loan_pct=request.loan_pct,
+            intent_keywords=request.intent_keywords or None,
+            home_state=request.home_state,
         )
-        return
+        branches_task = asyncio.to_thread(
+            branch_tree.get_branches, request.selected_soc,
+        )
+
+        try:
+            career, branches_list = await asyncio.gather(
+                career_task, branches_task,
+            )
+        except ValueError as exc:
+            yield sse_event("error", {"detail": str(exc)})
+            return
+        except LookupError:
+            yield sse_event(
+                "error",
+                {"detail": "We don't have enough data for that career at this school."},
+            )
+            return
 
     if not career.program_name and request.cip_title:
         career.program_name = request.cip_title
@@ -382,6 +425,8 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
         # fallback path still runs server-side on export. We do NOT
         # yield this as its own SSE event (out of scope per §4); the
         # final-build commit picks it up via the captured result below.
+        if not gemma_client.runtime_profile().eager_career_description:
+            return ("_career_description", None)
         try:
             d = await career_description.get_or_generate(
                 career.soc_code, career.occupation_title,
@@ -396,13 +441,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
             return ("_career_description", None)
         return ("_career_description", d.model_dump(mode="json"))
 
-    tasks = [
-        *[asyncio.create_task(_narrate(f)) for f in gauntlet.fights],
-        asyncio.create_task(_recs()),
-        asyncio.create_task(_pool()),
-        asyncio.create_task(_guide()),
-        asyncio.create_task(_desc()),
-    ]
+    profile = gemma_client.runtime_profile()
 
     recs_result: list[SkillRec] = []
     pool_result: list[AppliedSkill] = []
@@ -410,29 +449,102 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
     desc_result: CareerDescription | None = None
 
     try:
-        for coro in asyncio.as_completed(tasks):
-            event_name, event_data = await coro
+        if profile.sequential_build_stream:
+            # Local compact Ollama models serialize most short prose calls,
+            # but the skill pool is the long pole and students need those
+            # skills. Run it in its own lane while visible notes continue
+            # sequentially in the other lane. Full/26B keeps the richer
+            # as_completed fanout below.
+            pool_task = asyncio.create_task(_pool())
+            pool_emitted = False
 
-            if event_name == "_career_description":
-                # Internal-only: never yielded as SSE in this round.
-                if event_data is not None:
-                    desc_result = CareerDescription.model_validate(event_data)
-                continue
+            async def _drain_pool_if_ready() -> str | None:
+                nonlocal pool_emitted, pool_result
+                if pool_emitted or not pool_task.done():
+                    return None
+                event_name, event_data = await pool_task
+                assert event_name == "skill_pool"
+                assert event_data is not None
+                pool_result = [
+                    AppliedSkill.model_validate(s) for s in event_data
+                ]
+                pool_emitted = True
+                return sse_event(event_name, event_data)
 
-            # event_data is non-None for every other branch by construction
-            # of the corresponding _narrate / _recs / _pool / _guide helpers.
-            assert event_data is not None
-            yield sse_event(event_name, event_data)
+            steps = [
+                *[(lambda fight=f: _narrate(fight)) for f in gauntlet.fights],
+                _recs,
+                _guide,
+                _desc,
+            ]
+            for step in steps:
+                event_name, event_data = await step()
 
-            if event_name == "skill_recs":
-                recs_result = [SkillRec.model_validate(r) for r in event_data]
-            elif event_name == "skill_pool":
-                pool_result = [AppliedSkill.model_validate(s) for s in event_data]
-            elif event_name == "guidance":
-                guidance_result = cast("dict[str, str]", event_data)["narrative"]
+                if event_name == "_career_description":
+                    if event_data is not None:
+                        desc_result = CareerDescription.model_validate(event_data)
+                    continue
+
+                assert event_data is not None
+                yield sse_event(event_name, event_data)
+
+                if event_name == "skill_recs":
+                    recs_result = [SkillRec.model_validate(r) for r in event_data]
+                elif event_name == "skill_pool":
+                    pool_result = [
+                        AppliedSkill.model_validate(s) for s in event_data
+                    ]
+                elif event_name == "guidance":
+                    guidance_result = cast("dict[str, str]", event_data)["narrative"]
+
+                pool_event = await _drain_pool_if_ready()
+                if pool_event is not None:
+                    yield pool_event
+
+            if not pool_emitted:
+                event_name, event_data = await pool_task
+                assert event_name == "skill_pool"
+                assert event_data is not None
+                yield sse_event(event_name, event_data)
+                pool_result = [
+                    AppliedSkill.model_validate(s) for s in event_data
+                ]
+        else:
+            tasks = [
+                *[asyncio.create_task(_narrate(f)) for f in gauntlet.fights],
+                asyncio.create_task(_recs()),
+                asyncio.create_task(_pool()),
+                asyncio.create_task(_guide()),
+                asyncio.create_task(_desc()),
+            ]
+            for coro in asyncio.as_completed(tasks):
+                event_name, event_data = await coro
+
+                if event_name == "_career_description":
+                    # Internal-only: never yielded as SSE in this round.
+                    if event_data is not None:
+                        desc_result = CareerDescription.model_validate(event_data)
+                    continue
+
+                # event_data is non-None for every other branch by construction
+                # of the corresponding _narrate / _recs / _pool / _guide helpers.
+                assert event_data is not None
+                yield sse_event(event_name, event_data)
+
+                if event_name == "skill_recs":
+                    recs_result = [SkillRec.model_validate(r) for r in event_data]
+                elif event_name == "skill_pool":
+                    pool_result = [
+                        AppliedSkill.model_validate(s) for s in event_data
+                    ]
+                elif event_name == "guidance":
+                    guidance_result = cast("dict[str, str]", event_data)["narrative"]
     except (asyncio.CancelledError, GeneratorExit):
-        for t in tasks:
-            t.cancel()
+        if "pool_task" in locals() and not pool_task.done():
+            pool_task.cancel()
+        if "tasks" in locals():
+            for t in tasks:
+                t.cancel()
         return
 
     final_build = skeleton.model_copy(update={

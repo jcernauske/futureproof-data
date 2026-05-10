@@ -12,9 +12,11 @@ No network, no DuckDB, no Gemma.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -38,7 +40,9 @@ from app.services import (
     boss_fights,
     branch_tree,
     builds,
+    gemma_client,
     guidance,
+    prefetch,
     skill_pool,
     skill_recs,
     stat_engine,
@@ -425,6 +429,71 @@ class TestStreamBuildEmitsDoneLast:
 
         emitted_bosses = {e[1]["boss_id"] for e in boss_events}
         assert emitted_bosses == {"ai", "loans", "market", "burnout", "ceiling"}
+
+    def test_compact_profile_runs_skill_pool_in_second_lane(
+        self, isolated_builds_db, monkeypatch,
+    ):
+        """Compact local builds start skill-pool generation while the first
+        boss narrative is still running, but still emit skill_pool once."""
+        call_log: list[tuple[str, float]] = []
+
+        monkeypatch.setattr(stat_engine, "compute_one", lambda **kw: _career())
+        monkeypatch.setattr(branch_tree, "get_branches", lambda *a, **kw: _branches())
+        monkeypatch.setattr(boss_fights, "score_gauntlet", lambda c: _gauntlet())
+        monkeypatch.setattr(
+            gemma_client,
+            "runtime_profile",
+            lambda: SimpleNamespace(
+                sequential_build_stream=True,
+                eager_career_description=False,
+            ),
+        )
+
+        async def _slow_narrate(career_obj, fight, locale="en"):
+            call_log.append((f"narrate:{fight.boss}", time.monotonic()))
+            await asyncio.sleep(0.05)
+            return f"Narrative for {fight.boss}."
+
+        monkeypatch.setattr(boss_fights, "narrate_one", _slow_narrate)
+
+        async def _slow_pool(career_obj, gauntlet_obj, locale="en"):
+            call_log.append(("skill_pool", time.monotonic()))
+            await asyncio.sleep(0.02)
+            return [
+                AppliedSkill(
+                    id="test_skill_1",
+                    title="Test Skill",
+                    rationale="A test.",
+                    targets=["loans"],
+                    delta_roi=1,
+                ),
+            ]
+
+        monkeypatch.setattr(skill_pool, "generate_pool_async", _slow_pool)
+
+        async def _mock_recs(career_obj, gauntlet_obj, locale="en"):
+            return []
+
+        monkeypatch.setattr(skill_recs, "generate_recs_async", _mock_recs)
+
+        async def _mock_guidance(career_obj, gauntlet_obj, branches_list, locale="en"):
+            return "Guidance."
+
+        monkeypatch.setattr(guidance, "generate_guidance_async", _mock_guidance)
+        monkeypatch.setattr(state, "store_build", lambda b: b.build_id)
+        monkeypatch.setattr(builds, "save_build", lambda b: None)
+
+        client = TestClient(create_app())
+        response = client.post("/build/stream", json=_build_request_body())
+
+        assert response.status_code == 200
+        events = _parse_sse_events(response.text)
+        event_types = [e[0] for e in events]
+        assert event_types.count("skill_pool") == 1
+        assert "done" in event_types
+
+        starts = dict(call_log)
+        assert starts["skill_pool"] - starts["narrate:ai"] < 0.03
 
 
 # ===========================================================================
@@ -856,3 +925,73 @@ class TestExistingBuildEndpointNotBroken:
         assert "build_id" in body
         assert body["school_name"] == "Indiana University-Bloomington"
         assert body["career"]["soc_code"] == "13-1161"
+
+
+# ===========================================================================
+# Prefetch endpoint tests
+# ===========================================================================
+
+
+def _prefetch_request_body() -> dict[str, Any]:
+    return {
+        "unitid": 151351,
+        "cipcode": "52.14",
+        "soc_code": "13-1161",
+        "occupation_title": "Market Research Analysts",
+        "effort": "balanced",
+        "loan_pct": 1.0,
+        "student_major": None,
+        "student_cip": None,
+        "intent_keywords": [],
+        "home_state": None,
+    }
+
+
+class TestPrefetchEndpoint:
+    """POST /build/prefetch kicks off speculative computation."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_prefetch(self):
+        prefetch.clear_all()
+        yield
+        prefetch.clear_all()
+
+    def test_prefetch_returns_202(self, stream_client):
+        response = stream_client.post(
+            "/build/prefetch",
+            json=_prefetch_request_body(),
+        )
+        assert response.status_code == 202
+        body = response.json()
+        assert body["status"] == "started"
+
+    def test_build_stream_consumes_prefetch(self, stream_client):
+        stream_client.post(
+            "/build/prefetch",
+            json=_prefetch_request_body(),
+        )
+
+        response = stream_client.post(
+            "/build/stream",
+            json=_build_request_body(),
+        )
+        assert response.status_code == 200
+        events = _parse_sse_events(response.text)
+        event_types = [e[0] for e in events]
+        assert "skeleton" in event_types
+        assert "done" in event_types
+
+    def test_prefetch_with_different_sliders_no_match(
+        self, stream_client,
+    ):
+        body = _prefetch_request_body()
+        body["effort"] = "high"
+        stream_client.post("/build/prefetch", json=body)
+
+        response = stream_client.post(
+            "/build/stream",
+            json=_build_request_body(),
+        )
+        assert response.status_code == 200
+        events = _parse_sse_events(response.text)
+        assert any(e[0] == "skeleton" for e in events)
