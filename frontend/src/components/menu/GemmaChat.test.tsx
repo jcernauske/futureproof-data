@@ -958,8 +958,11 @@ describe("GemmaChat", () => {
       expect(screen.queryByTestId("career-desc-disclaimer")).toBeNull();
     });
 
-    it("career_scope_renders_skeleton_then_content — loading shows skeleton, populated shows content", () => {
-      // First render: loading sentinel → skeleton (no real summary text).
+    it("career_scope_loading_renders_no_card_then_populated_content", () => {
+      // First render: loading sentinel → NO card mounted. The structured
+      // layout (title row, summary lines, bullet rhythm) was leaking
+      // through as empty formatting before Gemma had anything to show;
+      // the panel now stays clean until populated content arrives.
       const { rerender } = render(
         <GemmaChat
           open={true}
@@ -970,19 +973,9 @@ describe("GemmaChat", () => {
           careerDescription="loading"
         />,
       );
-      // Skeleton card mounts with the same testid.
-      const loadingCard = screen.getByTestId("card-career-description");
-      expect(loadingCard).toBeInTheDocument();
-      // a11y attribute present in the loading state.
-      expect(loadingCard).toHaveAttribute("role", "status");
-      expect(loadingCard).toHaveAttribute("aria-live", "polite");
-      // No summary text yet — that lives only in the populated branch.
-      expect(
-        screen.queryByText(/Financial analysts study filings/i),
-      ).toBeNull();
+      expect(screen.queryByTestId("card-career-description")).toBeNull();
 
-      // Second render: populated → real summary appears, no longer in
-      // loading state.
+      // Second render: populated → real summary appears.
       const desc = makeCareerDesc();
       rerender(
         <GemmaChat
@@ -994,9 +987,9 @@ describe("GemmaChat", () => {
           careerDescription={desc}
         />,
       );
-      const populated = screen.getByTestId("card-career-description");
-      // Now the populated branch — no role="status" on the wrapper.
-      expect(populated.getAttribute("role")).toBeNull();
+      expect(
+        screen.getByTestId("card-career-description"),
+      ).toBeInTheDocument();
       expect(
         screen.getByText(/Financial analysts study filings/i),
       ).toBeInTheDocument();

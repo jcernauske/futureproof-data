@@ -375,71 +375,39 @@ export function GemmaChat({
     }
 
     if (desc === "loading") {
+      // No skeleton card — the structured layout (title row, summary
+      // lines, bullet rhythm) was leaking through as empty formatting
+      // before Gemma had anything to show. Render only the small
+      // ✦ + typing-dots row so the student knows a response is on its
+      // way; the populated card replaces it on resolution.
       return (
         <div
-          data-testid="card-career-description"
+          data-testid="card-career-description-loading"
           role="status"
           aria-live="polite"
           aria-label="Loading career description"
-          className="rounded-xl bg-bp-surface border border-border-subtle p-5 mb-4 shadow-sm"
+          className="flex items-start gap-2 mb-4"
         >
-          <div className="flex items-center gap-2.5 mb-4">
-            <span aria-hidden className="text-accent-insight text-base">✦</span>
-            <motion.span
-              aria-hidden
-              className="h-[22px] w-[220px] rounded-md bg-bp-raised/60"
-              animate={{ opacity: [0.5, 0.85, 0.5] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.span
-              aria-hidden
-              className="ml-auto h-[22px] w-[80px] rounded-sm bg-bp-raised/60"
-              animate={{ opacity: [0.5, 0.85, 0.5] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 mb-4">
-            {[100, 100, 70].map((w, i) => (
+          <span
+            aria-hidden
+            className="shrink-0 mt-2 w-6 h-6 rounded-full bg-accent-insight/15 text-accent-insight flex items-center justify-center text-micro"
+          >
+            ✦
+          </span>
+          <div className="px-4 py-3 bg-bp-deep rounded-lg rounded-tl-sm flex items-center gap-1.5">
+            {[0, 1, 2].map((dotIdx) => (
               <motion.span
-                key={i}
-                aria-hidden
-                className="h-[14px] rounded-md bg-bp-raised/60"
-                style={{ width: `${w}%` }}
-                animate={{ opacity: [0.5, 0.85, 0.5] }}
+                key={dotIdx}
+                className="w-1.5 h-1.5 rounded-full bg-text-secondary"
+                animate={{ opacity: [0.3, 1, 0.3] }}
                 transition={{
-                  duration: 1.6,
+                  duration: 1.2,
                   repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.05 * i,
+                  delay: dotIdx * 0.15,
                 }}
               />
             ))}
           </div>
-          <motion.span
-            aria-hidden
-            className="block h-[10px] w-[80px] rounded-sm bg-bp-raised/60 mb-2"
-            animate={{ opacity: [0.5, 0.85, 0.5] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <ul role="list" className="flex flex-col gap-2">
-            {[88, 76, 92, 82].map((w, i) => (
-              <li key={i} className="flex items-start gap-3">
-                <span aria-hidden className="text-accent-insight text-base leading-tight pt-0.5">•</span>
-                <motion.span
-                  aria-hidden
-                  className="h-[12px] rounded-md bg-bp-raised/60 flex-1 max-w-full"
-                  style={{ width: `${w}%` }}
-                  animate={{ opacity: [0.5, 0.85, 0.5] }}
-                  transition={{
-                    duration: 1.6,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 0.06 * i,
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
         </div>
       );
     }
@@ -745,7 +713,7 @@ export function GemmaChat({
                 ? renderCareerDescriptionCard(careerDescription, scope.target_id)
                 : null}
 
-              {history.length === 0 && !sending && (
+              {history.length === 0 && !sending && !(startersProp && startersProp.length === 0) && (
                 <motion.div
                   className="flex flex-col gap-3 mt-6"
                   initial="hidden"
