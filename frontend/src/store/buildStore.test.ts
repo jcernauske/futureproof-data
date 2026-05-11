@@ -59,12 +59,13 @@ function makeCareer(soc = "15-1252"): CareerOutcome {
 }
 
 beforeEach(() => {
-  // Hard reset so tests are independent
   useBuildStore.setState({
     tieredCareers: null,
     selectedCareer: null,
     isBuilding: false,
     buildingStage: 0,
+    buildingTotal: 0,
+    completedSteps: new Set<string>(),
     build: null,
   });
   localStorage.clear();
@@ -110,7 +111,7 @@ describe("buildStore", () => {
   });
 
   describe("resetBuild", () => {
-    it("clears build/selectedCareer/tieredCareers/isBuilding/buildingStage", () => {
+    it("clears build/selectedCareer/tieredCareers/isBuilding/buildingStage and progress fields", () => {
       const store = useBuildStore.getState();
       store.setTieredCareers({
         common: [makeCareer("15-1252")],
@@ -120,6 +121,8 @@ describe("buildStore", () => {
       store.setSelectedCareer(makeCareer("15-1252"));
       store.setIsBuilding(true);
       store.setBuildingStage(3);
+      store.setBuildingTotal(9);
+      store.addCompletedStep("skeleton");
       store.setBuild({ build_id: "b-1" } as Build);
 
       store.resetBuild();
@@ -130,6 +133,43 @@ describe("buildStore", () => {
       expect(after.build).toBeNull();
       expect(after.isBuilding).toBe(false);
       expect(after.buildingStage).toBe(0);
+      expect(after.buildingTotal).toBe(0);
+      expect(after.completedSteps.size).toBe(0);
+    });
+  });
+
+  describe("setBuildingStage — function updater", () => {
+    it("accepts a number directly", () => {
+      useBuildStore.getState().setBuildingStage(5);
+      expect(useBuildStore.getState().buildingStage).toBe(5);
+    });
+
+    it("accepts a function updater for safe concurrent increments", () => {
+      useBuildStore.getState().setBuildingStage(3);
+      useBuildStore.getState().setBuildingStage((prev) => prev + 1);
+      useBuildStore.getState().setBuildingStage((prev) => prev + 1);
+      expect(useBuildStore.getState().buildingStage).toBe(5);
+    });
+  });
+
+  describe("addCompletedStep", () => {
+    it("accumulates steps into the set", () => {
+      const store = useBuildStore.getState();
+      store.addCompletedStep("skeleton");
+      store.addCompletedStep("boss_ai");
+      store.addCompletedStep("boss_loans");
+      const steps = useBuildStore.getState().completedSteps;
+      expect(steps.has("skeleton")).toBe(true);
+      expect(steps.has("boss_ai")).toBe(true);
+      expect(steps.has("boss_loans")).toBe(true);
+      expect(steps.size).toBe(3);
+    });
+
+    it("deduplicates — adding same step twice does not increase size", () => {
+      const store = useBuildStore.getState();
+      store.addCompletedStep("skeleton");
+      store.addCompletedStep("skeleton");
+      expect(useBuildStore.getState().completedSteps.size).toBe(1);
     });
   });
 

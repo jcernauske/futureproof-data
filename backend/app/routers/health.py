@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import httpx
 from fastapi import APIRouter
 
 from app import __version__
@@ -12,15 +13,35 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["system"])
 
 
+async def _probe_model(backend: str) -> bool:
+    try:
+        config = gemma_client.current_config()
+        base = config.base_url.rstrip("/v1").rstrip("/")
+        if backend == "ollama":
+            url = f"{base}/api/tags"
+        else:
+            url = f"{config.base_url}/models"
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {config.api_key}"},
+            )
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
     backend, model = gemma_client.health_info()
+    reachable = await _probe_model(backend)
     return HealthResponse(
         status="ok",
         project="futureproof",
         version=__version__,
         inference_backend=backend,
         inference_model=model,
+        model_reachable=reachable,
     )
 
 

@@ -23,6 +23,7 @@ import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildsCountStore } from "@/store/buildsCountStore";
+import { useInferenceStore } from "@/store/inferenceStore";
 import type { Build, BossFightResult, CareerOutcome } from "@/types/build";
 
 // ---------------------------------------------------------------------------
@@ -273,6 +274,8 @@ function seedReady() {
     selectedCareer: makeCareer(),
     isBuilding: false,
     buildingStage: 0,
+    buildingTotal: 0,
+    completedSteps: new Set<string>(),
     build: null,
   });
   useProfileStore.setState({
@@ -311,6 +314,13 @@ beforeEach(() => {
   mockClearSession.mockReset();
   mockClearSession.mockResolvedValue(undefined);
   useBuildsCountStore.setState({ count: null, loading: false, error: null });
+  useInferenceStore.setState({
+    backend: "unknown",
+    model: null,
+    modelReachable: true,
+    loading: false,
+    error: null,
+  });
   sessionStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
@@ -1451,6 +1461,78 @@ describe("BuildResultsScreen -- ROI/RES/GRW explain triggers (P0)", () => {
     });
     renderScreen();
     expect(screen.queryByTestId("btn-explain-aura")).toBeNull();
+  });
+});
+
+describe("BuildResultsScreen -- Ask-build chip set switches on inference backend (P1)", () => {
+  // E4B chip copy lives in BuildResultsScreen.tsx (BUILD_STARTERS_E4B).
+  // Asserting the literal text here is intentional: a copy edit should
+  // require updating this test, not silently changing user-facing chips.
+  const E4B_FIRST_CHIP = "What's the strongest part of this build?";
+  const E4B_LAST_CHIP = "Summarize this build in two sentences.";
+  // Cloud STARTERS lives in components/menu/GemmaChat.tsx. Asserting the
+  // first chip is enough to prove the cloud set is in scope (no need to
+  // duplicate the full array here).
+  const CLOUD_FIRST_CHIP = "How would my salary feel in a few different states?";
+
+  it("renders the context-only chip set when backend === 'ollama'", async () => {
+    seedWithBuild();
+    useInferenceStore.setState({
+      backend: "ollama",
+      model: "gemma4:e4b",
+      modelReachable: true,
+      loading: false,
+      error: null,
+    });
+    renderScreen();
+
+    fireEvent.click(screen.getByTestId("btn-ask-build"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(E4B_FIRST_CHIP)).toBeInTheDocument();
+    expect(screen.getByText(E4B_LAST_CHIP)).toBeInTheDocument();
+    // Cloud chips must NOT render on E4B.
+    expect(screen.queryByText(CLOUD_FIRST_CHIP)).toBeNull();
+  });
+
+  it("renders the cloud STARTERS when backend === 'openrouter'", async () => {
+    seedWithBuild();
+    useInferenceStore.setState({
+      backend: "openrouter",
+      model: "google/gemma-4-26b-a4b-it",
+      modelReachable: true,
+      loading: false,
+      error: null,
+    });
+    renderScreen();
+
+    fireEvent.click(screen.getByTestId("btn-ask-build"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(CLOUD_FIRST_CHIP)).toBeInTheDocument();
+    // E4B chips must NOT render on the cloud profile.
+    expect(screen.queryByText(E4B_FIRST_CHIP)).toBeNull();
+  });
+
+  it("falls through to cloud STARTERS when backend === 'unknown' (health pending)", async () => {
+    // beforeEach already resets to 'unknown'; assert defaults explicitly.
+    seedWithBuild();
+    renderScreen();
+
+    fireEvent.click(screen.getByTestId("btn-ask-build"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(CLOUD_FIRST_CHIP)).toBeInTheDocument();
+    expect(screen.queryByText(E4B_FIRST_CHIP)).toBeNull();
   });
 });
 

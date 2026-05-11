@@ -8,6 +8,7 @@ vi.mock("@/api/health", () => ({
     version: "0.1.0",
     inference_backend: "ollama",
     inference_model: "gemma4:e4b",
+    model_reachable: true,
   }),
 }));
 
@@ -18,6 +19,7 @@ function resetStore() {
   useInferenceStore.setState({
     backend: "unknown",
     model: null,
+    modelReachable: true,
     loading: false,
     error: null,
   });
@@ -63,6 +65,7 @@ describe("InferenceBadge rendering", () => {
     useInferenceStore.setState({
       backend: "ollama",
       model: "gemma4:e4b",
+      modelReachable: true,
       loading: false,
       error: null,
     });
@@ -78,6 +81,7 @@ describe("InferenceBadge rendering", () => {
     useInferenceStore.setState({
       backend: "openrouter",
       model: "google/gemma-4-26b-a4b-it",
+      modelReachable: true,
       loading: false,
       error: null,
     });
@@ -93,6 +97,7 @@ describe("InferenceBadge rendering", () => {
     useInferenceStore.setState({
       backend: "ollama",
       model: "some-mystery-tag",
+      modelReachable: true,
       loading: false,
       error: null,
     });

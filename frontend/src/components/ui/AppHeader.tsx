@@ -125,7 +125,7 @@ export function AppHeader() {
           {/* Left zone: wordmark (tappable home) + inference backend badge */}
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={() => navigate("/")}
+              onClick={() => handleNewBuildClick(true)}
               className="cursor-pointer hover:opacity-80 transition-opacity duration-normal"
               aria-label={t("header.goLandingAria")}
             >

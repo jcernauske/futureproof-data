@@ -113,25 +113,6 @@ export interface CompareResult {
   branches: CompareBranchBuild[];
 }
 
-export interface BuildProsCons {
-  build_id: string;
-  pros: string[];
-  cons: string[];
-}
-
-export interface ComparePivotal {
-  meta_tradeoff: string;
-  meta_explanation: string;
-  decade_projection: string;
-  pivot_question: string;
-}
-
-export interface CompareInsights {
-  money_insight: string | null;
-  compare_summary: string | null;
-  pros_cons: BuildProsCons[] | null;
-  pivotal: ComparePivotal | null;
-}
 
 // `ChatHistoryItem` is a discriminated union exported from
 // `@/types/chat`. Re-exported above so consumers can import either
@@ -160,7 +141,9 @@ export type AskScope =
   | { kind: "branch"; build_ids: [string]; target_id: string }
   // Career-pick scope: the student is exploring a SOC before any build
   // exists, so build_ids is always empty. target_id is the SOC code.
-  | { kind: "career"; build_ids: []; target_id: string };
+  // target_label carries the occupation title + description so Gemma
+  // knows what career the conversation is about.
+  | { kind: "career"; build_ids: []; target_id: string; target_label?: string };
 
 /**
  * One enriched tool-call entry on `AskResponse.tool_calls` — mirrors
@@ -221,10 +204,6 @@ export async function compareBuilds(buildIds: string[]): Promise<CompareResult> 
   return apiPost<CompareResult>("/builds/compare", { build_ids: buildIds });
 }
 
-export async function compareInsights(buildIds: string[]): Promise<CompareInsights> {
-  if (USE_MOCK) return { money_insight: null, compare_summary: null, pros_cons: null, pivotal: null };
-  return apiPost<CompareInsights>("/builds/compare-insights", { build_ids: buildIds });
-}
 
 export async function sendChat(
   buildId: string,

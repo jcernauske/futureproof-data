@@ -343,7 +343,7 @@ export function BranchTreeFlow({
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        panOnScroll
+        zoomOnScroll
         zoomOnPinch
         proOptions={{ hideAttribution: false }}
       >

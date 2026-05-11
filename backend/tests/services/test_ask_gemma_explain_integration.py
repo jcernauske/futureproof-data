@@ -35,6 +35,22 @@ from app.models.career import (
 )
 from app.services import ask_gemma, gemma_client
 
+_FULL_PROFILE = gemma_client.ModelRuntimeProfile(
+    tier="full",
+    rich_intent_streaming=True,
+    intent_fallback_max_tokens=200,
+    build_gemma_timeout_s=None,
+    build_narrative_max_tokens=800,
+    build_recs_max_tokens=800,
+    build_pool_max_tokens=2000,
+    build_guidance_max_tokens=1200,
+    eager_career_description=True,
+    sequential_build_stream=False,
+    ask_tool_wall_time_s=45.0,
+    ask_max_tokens=1200,
+    ask_skip_tool_calling=False,
+)
+
 _IU_UNITID = 151351
 _IU_CIPCODE = "11.0701"
 _IU_SOC = "15-1252"
@@ -194,6 +210,7 @@ async def test_chat_ask_ern_explain_returns_receipt_on_success(
 ) -> None:
     """End-to-end: opener triggers JSON-mode loop → post-processor
     succeeds → AskResponse.response is an ExplainStatReceipt object."""
+    monkeypatch.setattr(gemma_client, "runtime_profile", lambda *a, **kw: _FULL_PROFILE)
     build = _make_build()
 
     async def _fake_loop(**kwargs: Any) -> tuple[str, list]:
@@ -237,6 +254,7 @@ async def test_chat_ask_ern_explain_falls_back_on_parse_failure(
     """When _postprocess_ern_explain_receipt returns None, the response
     is the markdown-spike fallback string — NOT a ValidationError, NOT
     None, NOT an empty AskResponse (P0)."""
+    monkeypatch.setattr(gemma_client, "runtime_profile", lambda *a, **kw: _FULL_PROFILE)
     build = _make_build()
 
     call_count = {"n": 0}
@@ -285,6 +303,7 @@ async def test_chat_ask_ern_explain_fallback_uses_cached_tool_log(
     in this test because the fake loop fires the on_turn_event callbacks
     itself; what matters is that the fallback path's tools=[] argument
     means there are no tools offered to Gemma at all)."""
+    monkeypatch.setattr(gemma_client, "runtime_profile", lambda *a, **kw: _FULL_PROFILE)
     build = _make_build()
 
     call_count = {"n": 0}
@@ -554,6 +573,7 @@ async def test_chat_ask_stream_ern_explain_emits_missing_receipt(
 async def test_score_null_path_logs_structured_record(monkeypatch) -> None:
     """Score-null path appends one record to gemma.jsonl with
     call_site='explain_ern_missing_receipt' and the input-null state."""
+    monkeypatch.setattr(gemma_client, "runtime_profile", lambda *a, **kw: _FULL_PROFILE)
     build = _make_build(ern=None)
 
     captured: list[dict[str, Any]] = []
@@ -597,6 +617,7 @@ async def test_score_null_path_logs_structured_record(monkeypatch) -> None:
 async def test_score_present_path_unchanged(monkeypatch) -> None:
     """Build with non-null stats.ern → the JSON path runs normally; the
     score-null branch is not entered."""
+    monkeypatch.setattr(gemma_client, "runtime_profile", lambda *a, **kw: _FULL_PROFILE)
     build = _make_build(ern=7)
 
     async def _fake_loop(**kwargs: Any) -> tuple[str, list]:
@@ -638,6 +659,7 @@ async def test_chat_ask_stream_ern_explain_emits_receipt_in_final_text(
     """TraceFinalText.response carries an ExplainStatReceipt object
     (with kind='receipt'), not a string, when the JSON path
     succeeds (P0)."""
+    monkeypatch.setattr(gemma_client, "runtime_profile", lambda *a, **kw: _FULL_PROFILE)
     build = _make_build()
 
     async def _fake_loop(**kwargs: Any) -> tuple[str, list]:

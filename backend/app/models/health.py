@@ -7,3 +7,4 @@ class HealthResponse(BaseModel):
     version: str
     inference_backend: str
     inference_model: str
+    model_reachable: bool

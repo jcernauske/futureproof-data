@@ -6,6 +6,7 @@ export type InferenceBackend = "ollama" | "openrouter" | "unknown";
 interface InferenceState {
   backend: InferenceBackend;
   model: string | null;
+  modelReachable: boolean;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -21,6 +22,7 @@ function normalizeBackend(value: string): InferenceBackend {
 export const useInferenceStore = create<InferenceState>((set) => ({
   backend: "unknown",
   model: null,
+  modelReachable: true,
   loading: false,
   error: null,
   refresh: async () => {
@@ -32,6 +34,7 @@ export const useInferenceStore = create<InferenceState>((set) => ({
       set({
         backend: normalizeBackend(data.inference_backend),
         model: data.inference_model || null,
+        modelReachable: data.model_reachable,
         loading: false,
         error: null,
       });

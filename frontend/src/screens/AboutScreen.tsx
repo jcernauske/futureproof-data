@@ -147,7 +147,7 @@ const SOURCES: SourceEntry[] = [
     variant: "model",
     titleKey: "about.sources.gemma.title",
     publisherKey: "about.sources.gemma.publisher",
-    vintage: "v4 · 26B",
+    vintage: "v4",
     blurbKey: "about.sources.gemma.blurb",
     displayUrl: "ai.google.dev/gemma",
     href: "https://ai.google.dev/gemma",
@@ -196,10 +196,10 @@ export function AboutScreen() {
           <p className="font-data text-micro uppercase tracking-[2px] text-text-muted">
             {t("about.header.kicker")}
           </p>
-          <h1 className="font-display text-display text-text-primary leading-tight max-w-[720px]">
+          <h1 className="font-display text-display text-text-primary leading-tight">
             {t("about.header.headline")}
           </h1>
-          <p className="font-body text-body-lg text-text-secondary max-w-[640px]">
+          <p className="font-body text-body-lg text-text-secondary">
             {t("about.header.subhead")}
           </p>
         </motion.header>
@@ -217,7 +217,7 @@ export function AboutScreen() {
           <h2 id="about-why-title" className="font-display text-heading text-text-primary">
             {t("about.why.title")}
           </h2>
-          <p className="font-body text-body text-text-secondary leading-relaxed max-w-[680px]">
+          <p className="font-body text-body text-text-secondary leading-relaxed">
             {t("about.why.body")}
           </p>
         </motion.section>
@@ -235,7 +235,7 @@ export function AboutScreen() {
           <h2 id="about-pipeline-title" className="font-display text-heading text-text-primary">
             {t("about.pipeline.title")}
           </h2>
-          <p className="font-body text-body text-text-secondary leading-relaxed max-w-[680px]">
+          <p className="font-body text-body text-text-secondary leading-relaxed">
             {t("about.pipeline.body")}
           </p>
 
@@ -279,7 +279,7 @@ export function AboutScreen() {
               {t("about.receipts.modelLayer")}
             </p>
           </div>
-          <p className="font-body text-body text-text-secondary leading-relaxed max-w-[680px]">
+          <p className="font-body text-body text-text-secondary leading-relaxed">
             {t("about.receipts.body")}
           </p>
 
@@ -308,20 +308,6 @@ export function AboutScreen() {
           </motion.div>
         </section>
 
-        <motion.div
-          className="rounded-xl bg-bp-mid border border-border-subtle shadow-md p-7 text-center"
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={springs.smooth}
-        >
-          <h3 className="font-display text-subheading font-semibold text-text-primary mb-2">
-            {t("about.closer.title")}
-          </h3>
-          <p className="font-body text-body text-text-secondary max-w-[540px] mx-auto leading-relaxed">
-            {t("about.closer.body")}
-          </p>
-        </motion.div>
       </div>
     </PageContainer>
   );

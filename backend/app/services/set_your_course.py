@@ -17,6 +17,7 @@ import json
 import logging
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
+from functools import lru_cache
 from typing import Any
 
 from app.models.api import (
@@ -686,6 +687,95 @@ Rules:
 """
 
 
+@lru_cache(maxsize=1)
+def _load_cip_to_soc_titles() -> dict[str, list[str]]:
+    """One-shot load of {cipcode: [soc_title, ...]} from Gold crosswalk.
+
+    Called the first time the SOC-destination filter runs. Process-
+    lifetime cache. Call ``_load_cip_to_soc_titles.cache_clear()``
+    to force a reload (tests).
+    """
+    try:
+        server = mcp_client.get_server()
+        rows = server.query_iceberg(
+            "SELECT cipcode, soc_title "
+            "FROM base_cip_soc_crosswalk "
+            "WHERE soc_title IS NOT NULL "
+            "AND cipcode IS NOT NULL"
+        )
+    except Exception:
+        logger.warning(
+            "set_your_course: _load_cip_to_soc_titles query failed; "
+            "SOC-destination filter will be disabled.",
+            exc_info=True,
+        )
+        return {}
+
+    out: dict[str, list[str]] = {}
+    for r in rows:
+        cip = str(r.get("cipcode", "") or "").strip()
+        soc_title = str(r.get("soc_title", "") or "").strip()
+        if not cip or not soc_title:
+            continue
+        out.setdefault(cip, []).append(soc_title)
+    return out
+
+
+def _filter_candidates_by_soc_destinations(
+    *,
+    candidates: list[dict[str, str | int]],
+    query: str,
+) -> list[dict[str, str | int]]:
+    """Drop candidates whose SOC destination titles share no tokens with query.
+
+    Fails open when the CIP-SOC map is empty or every candidate would
+    be filtered out.
+    """
+    cip_to_socs = _load_cip_to_soc_titles()
+    if not cip_to_socs:
+        return candidates
+
+    query_tokens = _intent_match_tokens(query)
+    if not query_tokens:
+        return candidates
+
+    kept: list[dict[str, str | int]] = []
+    dropped_codes: list[str] = []
+    for c in candidates:
+        code = str(c.get("code", ""))
+        soc_titles = cip_to_socs.get(code, [])
+        if not soc_titles:
+            kept.append(c)
+            continue
+        if any(
+            tok in title.lower()
+            for title in soc_titles
+            for tok in query_tokens
+        ):
+            kept.append(c)
+        else:
+            dropped_codes.append(code)
+
+    if not kept:
+        logger.info(
+            "set_your_course: SOC-destination filter would have emptied "
+            "the candidate list for query=%r; failing open.",
+            query,
+        )
+        return candidates
+
+    if dropped_codes:
+        logger.info(
+            "set_your_course: SOC-destination filter kept %d/%d "
+            "candidates for query=%r (dropped %s)",
+            len(kept),
+            len(candidates),
+            query,
+            dropped_codes,
+        )
+    return kept
+
+
 def _intent_match_tokens(text: str) -> set[str]:
     """Small tokenizer for compact e4b candidate filtering."""
     return {
@@ -805,6 +895,10 @@ def _compact_fallback_candidates(
         candidates_by_code.values(),
         key=lambda c: (-int(c["score"]), str(c["code"])),
     )
+    filtered = _filter_candidates_by_soc_destinations(
+        candidates=list(ordered),
+        query=major_text,
+    )
     return [
         {
             "code": str(c["code"]),
@@ -812,7 +906,7 @@ def _compact_fallback_candidates(
             "parent": str(c["parent"]),
             "source": str(c["source"]),
         }
-        for c in ordered[:max_candidates]
+        for c in filtered[:max_candidates]
     ]
 
 
@@ -871,11 +965,11 @@ def _fallback_resolve(
             matched_cip, raw_parent, school_cips
         )
         cip4 = matched_cip[:5] if len(matched_cip) >= 5 else ""
-        parent_cip = next(
-            (c["cipcode"][:5] for c in school_cips
-             if c.get("cipcode", "")[:2] == cip4[:2]),
-            cip4,
-        ) if cip4 else ""
+        parent_cip = (
+            intent._derive_parent_cip(cip4, programs)
+            if cip4
+            else ""
+        )
         alternatives = intent._sanitize_alternatives(
             parsed.get("alternatives"), matched_cip, max_alts=2
         )

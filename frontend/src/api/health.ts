@@ -6,6 +6,7 @@ export interface HealthResponse {
   version: string;
   inference_backend: "ollama" | "openrouter" | string;
   inference_model: string;
+  model_reachable: boolean;
 }
 
 export function fetchHealth(): Promise<HealthResponse> {

@@ -6,7 +6,6 @@
  * - Character cards for each build (P0)
  * - Money section with salary figures (P0)
  * - Skill count badges on boss outcomes (P0)
- * - Gemma summary renders after compareInsights resolves (P2)
  * - Handles 2, 3, and 4 builds (P0)
  */
 
@@ -14,14 +13,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { CompareView } from "./CompareView";
-import type { CompareResult, CompareInsights } from "@/api/menu";
+import type { CompareResult } from "@/api/menu";
 
 const mockCompareBuilds = vi.fn();
-const mockCompareInsights = vi.fn();
 const mockAskGemma = vi.fn();
-// askGemmaStream — happy-path SSE-equivalent default. Compare-scope
-// chat goes through askGemmaStream now. Per Authorized Test
-// Modifications (§4 / C7).
 const mockAskGemmaStream = vi.fn().mockImplementation(
   async (..._args: unknown[]) => {
     const final = { type: "final_text" as const, response: "ok" };
@@ -34,13 +29,13 @@ const mockAskGemmaStream = vi.fn().mockImplementation(
     return { response: "ok", events: [final, done] };
   },
 );
+
 vi.mock("@/api/menu", async () => {
   const actual =
     await vi.importActual<typeof import("@/api/menu")>("@/api/menu");
   return {
     ...actual,
     compareBuilds: (...args: unknown[]) => mockCompareBuilds(...args),
-    compareInsights: (...args: unknown[]) => mockCompareInsights(...args),
     askGemma: (...args: unknown[]) => mockAskGemma(...args),
     askGemmaStream: (...args: Parameters<typeof import("@/api/menu").askGemmaStream>) =>
       mockAskGemmaStream(...args),
@@ -122,16 +117,6 @@ function makeCompareResult(overrides: Partial<CompareResult> = {}): CompareResul
   };
 }
 
-function makeInsights(overrides: Partial<CompareInsights> = {}): CompareInsights {
-  return {
-    money_insight: null,
-    compare_summary: null,
-    pros_cons: null,
-    pivotal: null,
-    ...overrides,
-  };
-}
-
 function renderCV(buildIds: string[], onBack: () => void = () => {}) {
   return render(
     <MemoryRouter>
@@ -142,9 +127,7 @@ function renderCV(buildIds: string[], onBack: () => void = () => {}) {
 
 beforeEach(() => {
   mockCompareBuilds.mockReset();
-  mockCompareInsights.mockReset();
   mockAskGemma.mockReset();
-  mockCompareInsights.mockReturnValue(new Promise(() => {}));
 });
 
 describe("CompareView", () => {
@@ -304,76 +287,6 @@ describe("CompareView", () => {
     expect(convergenceBadges.length).toBeGreaterThanOrEqual(2);
   });
 
-  // --- P2: Gemma summary ---
-
-  it("renders the Gemma summary text once compareInsights resolves (P2)", async () => {
-    mockCompareBuilds.mockResolvedValue(makeCompareResult());
-    mockCompareInsights.mockResolvedValue(
-      makeInsights({
-        compare_summary: "Build A optimizes for earnings; Build B for resilience. Neither is wrong.",
-      }),
-    );
-
-    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
-
-    await waitFor(
-      () => {
-        expect(
-          screen.getByText(/Build A optimizes for earnings/),
-        ).toBeInTheDocument();
-      },
-      { timeout: 3000 },
-    );
-  });
-
-  it("uses Gemma's pivotal tradeoff as the top Big Choice headline", async () => {
-    mockCompareBuilds.mockResolvedValue(makeCompareResult());
-    mockCompareInsights.mockResolvedValue(
-      makeInsights({
-        compare_summary: "The surface tradeoff is simple.",
-        pivotal: {
-          meta_tradeoff: "Big Debt, Big Brand, or High Pay",
-          meta_explanation: "Pick the pressure you are willing to carry.",
-          decade_projection: "The ten-year path depends on execution.",
-          pivot_question: "Which tradeoff still feels worth it?",
-        },
-      }),
-    );
-
-    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
-
-    await waitFor(() => {
-      expect(screen.getAllByText("Big Debt, Big Brand, or High Pay").length).toBeGreaterThanOrEqual(2);
-    });
-
-    expect(screen.getAllByText("Big Choice").length).toBeGreaterThanOrEqual(2);
-    expect(screen.queryByText(/lowers pressure/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/raises upside/i)).not.toBeInTheDocument();
-  });
-
-  it("falls back to loading placeholder when insights fail (saboteur)", async () => {
-    mockCompareBuilds.mockResolvedValue(makeCompareResult());
-    mockCompareInsights.mockRejectedValue(new Error("model unavailable"));
-
-    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
-
-    await screen.findByTestId("region-gemma-compare");
-    expect(screen.getByText(/Reading the tradeoffs/i)).toBeInTheDocument();
-  });
-
-  it("shows a Big Choice loading state instead of fallback copy while Gemma is thinking", async () => {
-    mockCompareBuilds.mockResolvedValue(makeCompareResult());
-    mockCompareInsights.mockReturnValue(new Promise(() => {}));
-
-    renderCV(["berkeley-cs-001", "iu-bloom-mkt-001"]);
-
-    await screen.findByTestId("region-compare");
-
-    expect(screen.getByRole("status", { name: /loading big choice/i })).toBeInTheDocument();
-    expect(screen.queryByText(/lowers pressure/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/raises upside/i)).not.toBeInTheDocument();
-  });
-
   // ===========================================================================
   // Ask Gemma — compare-screen entry point (P0).
   // docs/specs/feature-ask-gemma.md §4 New Tests Required.
@@ -382,16 +295,6 @@ describe("CompareView", () => {
   describe("Ask Gemma compare entry button (P0)", () => {
     it("dispatches a compare scope with all build_ids when btn-ask-compare is clicked", async () => {
       mockCompareBuilds.mockResolvedValue(makeCompareResult());
-      // The button only renders when compare_summary is non-null.
-      mockCompareInsights.mockResolvedValue(
-        makeInsights({
-          compare_summary: "The trade-off is real but workable.",
-        }),
-      );
-      mockAskGemma.mockResolvedValue({
-        response: "DePaul costs more per year, but earnings catch up by year 5.",
-        tool_calls: [],
-      });
 
       render(
         <MemoryRouter>
@@ -402,27 +305,16 @@ describe("CompareView", () => {
         </MemoryRouter>,
       );
 
-      // The summary must resolve before the button renders.
       await waitFor(() => {
-        expect(
-          screen.getByText(/trade-off is real but workable/),
-        ).toBeInTheDocument();
+        expect(screen.getByTestId("btn-ask-compare")).toBeInTheDocument();
       });
 
-      // Chat dialog is hidden initially.
-      expect(screen.queryByTestId("dialog-chat")).toBeNull();
+      fireEvent.click(screen.getByTestId("btn-ask-compare"));
 
-      // Click the entry button.
-      const askButton = screen.getByTestId("btn-ask-compare");
-      fireEvent.click(askButton);
-
-      // Chat dialog opens.
       await waitFor(() => {
         expect(screen.getByTestId("dialog-chat")).toBeInTheDocument();
       });
 
-      // Submit a question — verify the scope routed through askGemma is
-      // a compare scope with all build_ids.
       fireEvent.change(screen.getByTestId("input-chat"), {
         target: { value: "Which one wins on cost?" },
       });
@@ -444,9 +336,6 @@ describe("CompareView", () => {
 
     it("renders the compare scope chip in the chat header when opened", async () => {
       mockCompareBuilds.mockResolvedValue(makeCompareResult());
-      mockCompareInsights.mockResolvedValue(
-        makeInsights({ compare_summary: "Tradeoffs are real." }),
-      );
 
       render(
         <MemoryRouter>
@@ -458,13 +347,11 @@ describe("CompareView", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText("Tradeoffs are real.")).toBeInTheDocument();
+        expect(screen.getByTestId("btn-ask-compare")).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByTestId("btn-ask-compare"));
 
-      // The chat scope chip carries the "Comparing: …" prefix per the
-      // §3 alias table. School names are passed through.
       await waitFor(() => {
         const chip = screen.getByTestId("chip-chat-scope");
         expect(chip).toBeInTheDocument();

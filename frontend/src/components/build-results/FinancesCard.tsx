@@ -1,7 +1,6 @@
 import { useT } from "@/i18n/useT";
 import type { CareerOutcome } from "@/types/build";
-import { fmtMoney, roiColorClass } from "@/lib/format";
-import { Year1SalaryBar } from "@/components/shared/Year1SalaryBar";
+import { fmtMoney } from "@/lib/format";
 
 interface FinancesCardProps {
   career: CareerOutcome;
@@ -17,13 +16,6 @@ function fmt(value: number | null, multiply?: number): string {
 
 function pct(value: number): string {
   return `${Math.round(value * 100)}%`;
-}
-
-function roiLabelKey(dte: number | null): string {
-  if (dte === null) return "build.roi.insufficientData";
-  if (dte <= 0.5) return "build.roi.strong";
-  if (dte <= 1.0) return "build.roi.moderate";
-  return "build.roi.challenging";
 }
 
 interface RowProps {
@@ -68,70 +60,11 @@ function Row({ label, value, muted, highlight, highlightLabel, subtitle, trailin
   );
 }
 
-/**
- * Migrated from the deprecated CareerDetail.tsx. Subtle caution/thrive
- * indicator comparing modeled debt to program median. Renders nothing
- * when either input is missing or non-positive — we don't want to imply
- * a comparison we can't actually make.
- */
-function DebtVsMedianIndicator({
-  modeled,
-  median,
-  t,
-}: {
-  modeled: number | null | undefined;
-  median: number | null | undefined;
-  t: (key: string) => string;
-}) {
-  if (
-    typeof modeled !== "number" ||
-    typeof median !== "number" ||
-    modeled <= 0 ||
-    median <= 0
-  ) {
-    return null;
-  }
-
-  if (modeled > median * 1.2) {
-    return (
-      <p
-        data-testid="debt-indicator-caution"
-        role="note"
-        className="font-data text-data-sm text-accent-caution mt-1"
-      >
-        {t("build.debtIndicator.caution")}
-      </p>
-    );
-  }
-
-  if (modeled < median * 0.8) {
-    return (
-      <p
-        data-testid="debt-indicator-thrive"
-        role="note"
-        className="font-data text-data-sm text-accent-thrive mt-1"
-      >
-        {t("build.debtIndicator.thrive")}
-      </p>
-    );
-  }
-
-  return null;
-}
-
 export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) {
   const t = useT();
 
   const midCareerSalary = career.median_annual_wage;
   const publishedCost4yr = career.published_cost_4yr;
-
-  const peerP25 = career.earnings_1yr_p25 ?? null;
-  const peerP75 = career.earnings_1yr_p75 ?? null;
-  const programMedian = career.earnings_1yr_median ?? null;
-  const hasYearOneSurface =
-    (peerP25 != null && peerP75 != null) ||
-    programMedian != null ||
-    midCareerSalary != null;
 
   const modeledDebt = career.modeled_total_debt;
   const medianRef = career.debt_median_reference ?? career.debt_median ?? null;
@@ -195,23 +128,6 @@ export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) 
         }
         return null;
       })()}
-      {hasYearOneSurface && (
-        <div className="py-3 border-b border-border-subtle">
-          <div className="font-body text-small text-text-secondary mb-1">
-            {t("build.year1PeerBandLabel")}
-          </div>
-          <p className="font-body text-micro text-text-muted mb-2">
-            {t("build.year1PeerBandSubtitle")}
-          </p>
-          <Year1SalaryBar
-            programMedian={programMedian}
-            careerMedian={midCareerSalary}
-            peerP25={peerP25}
-            peerP75={peerP75}
-            testId="year1-salary-bar"
-          />
-        </div>
-      )}
       {publishedCost4yr !== null && publishedCost4yr !== undefined && (
         <Row
           label={t("build.publishedCost4yr")}
@@ -240,15 +156,6 @@ export function FinancesCard({ career, loanPct, isInState }: FinancesCardProps) 
           muted
         />
       )}
-      <DebtVsMedianIndicator modeled={modeledDebt} median={medianRef} t={t} />
-
-      <div className="flex items-center gap-2 mt-3">
-        <span
-          className={`font-data text-small font-bold ${roiColorClass(career.debt_to_earnings_annual)}`}
-        >
-          {t("build.roi.label")}: {t(roiLabelKey(career.debt_to_earnings_annual))}
-        </span>
-      </div>
     </div>
   );
 }

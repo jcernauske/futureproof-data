@@ -876,24 +876,13 @@ export function FutureScreen() {
                 hasUnread={companionUnread}
                 onWidthSettle={handleRailWidthSettle}
                 headerSlot={
-                  <div className="flex flex-row items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
-                      onClick={() => navigate("/my-build")}
-                    >
-                      {t("tree.backBuild")}
-                    </button>
-                    <button
-                      type="button"
-                      className="font-body text-small font-bold text-text-inverse bg-accent-thrive px-4 py-2 rounded-lg transition-all duration-normal hover:brightness-110"
-                      onClick={() => navigate("/save")}
-                      aria-label={t("tree.saveShareAria")}
-                      data-testid="btn-save-share"
-                    >
-                      {t("tree.saveShare")}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="font-body text-small text-text-muted hover:text-text-primary transition-colors duration-normal"
+                    onClick={() => navigate("/my-build")}
+                  >
+                    {t("tree.backBuild")}
+                  </button>
                 }
               >
                 {cardNode && (
@@ -1018,15 +1007,6 @@ export function FutureScreen() {
                 <TreeFallback careerTitle={build.career.occupation_title} />
               </div>
               <div className="flex flex-col gap-3">{renderEmbeddedChat()}</div>
-              <div className="flex flex-col items-center gap-3 mt-6 mb-12">
-                <button
-                  className="font-body text-cta font-bold text-text-inverse bg-accent-thrive px-8 py-3 rounded-lg transition-all duration-normal hover:brightness-110"
-                  onClick={() => navigate("/save")}
-                  data-testid="btn-save-share"
-                >
-                  {t("tree.saveShare")}
-                </button>
-              </div>
             </PageContainer>
           </motion.div>
         )}

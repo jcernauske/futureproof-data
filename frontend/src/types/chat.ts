@@ -28,6 +28,23 @@ export const receiptSourceSchema = z
   .object({
     label: z.string(),
     name: z.string(),
+    url: z.string().nullable().optional(),
+  })
+  .strict();
+
+export const lineageStepSchema = z
+  .object({
+    layer: z.enum(["gold", "silver", "bronze", "upstream"]),
+    table_or_file: z.string(),
+    column: z.string().nullable().optional(),
+    url: z.string().nullable().optional(),
+  })
+  .strict();
+
+export const componentLineageSchema = z
+  .object({
+    component_label: z.string(),
+    steps: z.array(lineageStepSchema).min(1),
   })
   .strict();
 
@@ -58,11 +75,14 @@ export const explainStatReceiptSchema = z
     why_mix_paragraph: z.string().max(800),
     scoring_scale: z.array(scoringTierSchema).nullable().optional(),
     score_provenance: z.string().max(200).nullable().optional(),
+    lineage: z.array(componentLineageSchema).nullable().optional(),
   })
   .strict();
 
 export type ScoringTier = z.infer<typeof scoringTierSchema>;
 export type ReceiptSource = z.infer<typeof receiptSourceSchema>;
+export type LineageStep = z.infer<typeof lineageStepSchema>;
+export type ComponentLineage = z.infer<typeof componentLineageSchema>;
 export type StatComponent = z.infer<typeof statComponentSchema>;
 export type ExplainStatReceipt = z.infer<typeof explainStatReceiptSchema>;
 

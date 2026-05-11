@@ -4,12 +4,12 @@ import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildsCountStore } from "@/store/buildsCountStore";
+import { useInferenceStore } from "@/store/inferenceStore";
 import { createBuild, createBuildStream } from "@/api/build";
 import type { BuildParams, BuildStreamEvent } from "@/api/build";
 import type { Build } from "@/types/build";
 import { clearSession } from "@/api/session";
 import { PentagonChart } from "@/components/PentagonChart";
-import { Button } from "@/components/ui/Button";
 import { CampusHeroBanner } from "@/components/build-results/CampusHeroBanner";
 import { HeroIdentity } from "@/components/build-results/HeroIdentity";
 import { PathCard } from "@/components/build-results/PathCard";
@@ -17,6 +17,7 @@ import { FinancesCard } from "@/components/build-results/FinancesCard";
 import { InstitutionCard } from "@/components/build-results/InstitutionCard";
 import { StatInfoPopover } from "@/components/build-results/StatInfoPopover";
 import { BossBand } from "@/components/build-results/BossBand";
+import { BuildLoadingScreen } from "@/components/build-results/BuildLoadingScreen";
 import { VerdictBadge } from "@/components/build-results/VerdictBadge";
 import { BOSS_META, STAT_COLORS, STAT_INFO } from "@/components/build-results/bossData";
 import { GemmaChat } from "@/components/menu/GemmaChat";
@@ -26,6 +27,7 @@ import { PageContainer } from "@/components/ui/PageContainer";
 import { renderWrapped } from "@/api/wrapped";
 import { ExportPdfButton } from "@/components/build-results/ExportPdfButton";
 import { CompareSchoolsPanel } from "@/components/CompareSchoolsPanel";
+import { fetchSchoolsByCipAndSoc, fetchSchoolsBySoc } from "@/api/careers";
 import { spawnBuildFromRow } from "@/lib/buildSpawn";
 import type { SchoolForCareerRow } from "@/types/build";
 import type { AskScope, AskStatTarget } from "@/api/menu";
@@ -116,13 +118,32 @@ const SKILL_STARTERS = [
   "Where do I learn this?",
 ];
 
+// Build-scope chips when running on Ollama (E4B). Tool calling on
+// gemma4:e4b is unreliable; the cloud STARTERS in GemmaChat were
+// engineered to fire 2-3 tool calls each, which sets up visible
+// failures on E4B. These five answer purely from the build context
+// block already injected by ask_gemma.py — same surfaces shown
+// elsewhere on the page (PentagonChart, FinancesCard, BossBand,
+// Gemma's Summary).
+const BUILD_STARTERS_E4B = [
+  "What's the strongest part of this build?",
+  "Where is this build weakest?",
+  "Walk me through how my debt compares to year-1 salary.",
+  "Which of my five stats is doing the heaviest lifting?",
+  "Summarize this build in two sentences.",
+];
+
 const STAT_KEYS: StatKey[] = ["ern", "roi", "res", "grw", "aura"];
 
 export function BuildResultsScreen() {
   const navigate = useNavigate();
   const { school, major, effort, loans } = useBuildInputStore();
   const { profileName, animalEmoji, homeState, locale } = useProfileStore();
-  const { selectedCareer, build, setBuild, updateBuild, isBuilding, setIsBuilding } = useBuildStore();
+  const inferenceBackend = useInferenceStore((s) => s.backend);
+  const {
+    selectedCareer, build, setBuild, updateBuild, isBuilding, setIsBuilding,
+    buildingStage, buildingTotal,
+  } = useBuildStore();
   const t = useT();
 
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +161,56 @@ export function BuildResultsScreen() {
   const [chatStarters, setChatStarters] = useState<string[] | undefined>();
   const [compareOpen, setCompareOpen] = useState(false);
   const [skillPoolLoading, setSkillPoolLoading] = useState(false);
+  // Rank-of-school summary surfaced above the "See other schools..." CTA.
+  // Fetched at limit=1 because the backend always appends the anchor row
+  // (or returns anchor_estimated_rank) regardless of limit, and the result
+  // is cached server-side so the sheet's later fetch is essentially free.
+  const [rankSummary, setRankSummary] = useState<
+    { rank: number; total: number } | null
+  >(null);
+  const careerSoc = build?.career?.soc_code;
+  const careerCip = build?.career?.cipcode;
+  const careerUnitid = build?.career?.unitid;
+  const careerStatErn = build?.career?.stats?.ern;
+  const careerStatRoi = build?.career?.stats?.roi;
+  useEffect(() => {
+    if (!careerSoc || careerUnitid == null) {
+      setRankSummary(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const opts = {
+          limit: 1,
+          minConfidence: "medium" as const,
+          buildUnitid: careerUnitid,
+          buildCipcode: careerCip,
+          homeState: homeState ?? undefined,
+          anchorStatErn:
+            typeof careerStatErn === "number" ? careerStatErn : undefined,
+          anchorStatRoi:
+            typeof careerStatRoi === "number" ? careerStatRoi : undefined,
+        };
+        const response = careerCip
+          ? await fetchSchoolsByCipAndSoc(careerCip, careerSoc, opts)
+          : await fetchSchoolsBySoc(careerSoc, opts);
+        if (cancelled) return;
+        const anchorRow = response.rows.find((r) => r.is_anchor);
+        const rank = anchorRow?.rank ?? response.anchor_estimated_rank ?? null;
+        if (rank !== null && response.total_qualifying_programs > 0) {
+          setRankSummary({ rank, total: response.total_qualifying_programs });
+        } else {
+          setRankSummary(null);
+        }
+      } catch {
+        if (!cancelled) setRankSummary(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [careerSoc, careerCip, careerUnitid, careerStatErn, careerStatRoi, homeState]);
 
   const openChat = useCallback(
     (scope: AskScope, chipText: string, openerPrompt?: string, starters?: string[]) => {
@@ -234,11 +305,15 @@ export function BuildResultsScreen() {
 
   const handleAskBuild = useCallback(() => {
     if (!build) return;
+    const starters =
+      inferenceBackend === "ollama" ? BUILD_STARTERS_E4B : undefined;
     openChat(
       { kind: "build", build_ids: [build.build_id] },
       t("build.askWholeBuild"),
+      undefined,
+      starters,
     );
-  }, [build, openChat, t]);
+  }, [build, inferenceBackend, openChat, t]);
 
   // Save state for the in-place Save button on the action bar.
   // renderWrapped is the persistence trigger today (it also pre-renders
@@ -357,30 +432,44 @@ export function BuildResultsScreen() {
 
     const onEvent = (event: BuildStreamEvent) => {
       if (cancelledRef.current) return;
+      const store = useBuildStore.getState();
       switch (event.type) {
-        case "skeleton":
+        case "skeleton": {
           setBuild(event.build);
           setFights(event.build.gauntlet.fights);
           setSkillPoolLoading(true);
-          setIsBuilding(false);
+          const total = event.build.gauntlet.fights.length + 4;
+          store.setBuildingTotal(total);
+          store.setBuildingStage(1);
+          store.addCompletedStep("skeleton");
           useBuildsCountStore.getState().refresh();
           fireCheckpoint("/my-build");
           break;
+        }
         case "boss_narrative":
           updateBuild((prev) => mergeBossNarrative(prev, event.boss_id, event.narrative));
+          store.setBuildingStage((prev: number) => prev + 1);
+          store.addCompletedStep(`boss_${event.boss_id}`);
           break;
         case "skill_recs":
           updateBuild((prev) => ({ ...prev, skill_recs: event.recs }));
+          store.setBuildingStage((prev: number) => prev + 1);
+          store.addCompletedStep("skill_recs");
           break;
         case "skill_pool":
           setSkillPoolLoading(false);
           updateBuild((prev) => ({ ...prev, skill_pool: event.pool }));
+          store.setBuildingStage((prev: number) => prev + 1);
+          store.addCompletedStep("skill_pool");
           break;
         case "guidance":
           updateBuild((prev) => ({ ...prev, guidance: event.narrative }));
+          store.setBuildingStage((prev: number) => prev + 1);
+          store.addCompletedStep("guidance");
           break;
         case "done":
           setSkillPoolLoading(false);
+          setIsBuilding(false);
           break;
       }
     };
@@ -554,8 +643,10 @@ export function BuildResultsScreen() {
       visibilityObserver.disconnect();
       centerObserver.disconnect();
     };
+  // `isBuilding` is included so the observer re-runs when the loading
+  // screen unmounts and boss-band refs become available.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [build, fights, triggerReveal, skipToRevealed]);
+  }, [build, fights, isBuilding, triggerReveal, skipToRevealed]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -620,64 +711,17 @@ export function BuildResultsScreen() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <div className="min-h-screen pt-14">
-            <div
-              className="w-full bg-bp-surface"
-              style={{
-                height: 280,
-                backgroundImage: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)",
-                backgroundSize: "200% 100%",
-                animation: "shimmer 1.5s ease-in-out infinite",
-              }}
-            />
-            <div className="flex flex-col items-center justify-center py-16">
-              <span style={{ fontSize: 56, animation: "emojiFloat 2s ease-in-out infinite", marginTop: -40 }}>
-                {animalEmoji ?? "🐻"}
-              </span>
-              <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16 }}>
-                {t("build.analyzing")}
-              </p>
-              <div
-                className="mt-4 rounded-full"
-                style={{
-                  width: 32,
-                  height: 32,
-                  border: "3px solid var(--color-bg-surface)",
-                  borderTopColor: "var(--color-accent-insight)",
-                  animation: "spin 1s linear infinite",
-                }}
-              />
-              {error && (
-                <div className="mt-8 bg-bp-mid rounded-xl p-8 border border-border-subtle max-w-md mx-auto text-center">
-                  <div className="text-accent-alert" style={{ fontSize: 48 }}>⚠</div>
-                  <p className="font-body text-text-secondary mt-4" style={{ fontSize: 16, lineHeight: 1.5 }}>
-                    {t("build.error")}
-                  </p>
-                  <div className="flex gap-3 justify-center mt-6">
-                    <Button variant="primary" onClick={runBuild}>
-                      {t("build.tryAgain")}
-                    </Button>
-                    <Button variant="ghost" onClick={() => navigate("/set-your-course")}>
-                      {t("build.goBack")}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <style>{`
-              @keyframes shimmer {
-                0% { background-position: -200% 0; }
-                100% { background-position: 200% 0; }
-              }
-              @keyframes emojiFloat {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-8px); }
-              }
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-            `}</style>
-          </div>
+          <BuildLoadingScreen
+            animalEmoji={animalEmoji ?? "🐻"}
+            profileName={profileName || "Adventurer"}
+            schoolName={school?.name ?? ""}
+            majorTitle={major?.cipTitle ?? ""}
+            buildingStage={buildingStage}
+            buildingTotal={buildingTotal}
+            error={error}
+            onRetry={runBuild}
+            onGoBack={() => navigate("/set-your-course")}
+          />
         </motion.div>
       ) : (() => {
         const career = build.career;
@@ -784,13 +828,42 @@ export function BuildResultsScreen() {
             type="button"
             data-testid="btn-compare-schools"
             onClick={() => setCompareOpen(true)}
-            className="w-full flex items-center gap-3 h-12 px-4 rounded-xl bg-bp-mid hover:bg-bp-surface border-l-2 border-accent-insight font-display text-body text-text-primary transition-colors text-left"
+            className="w-full flex items-center gap-3 min-h-12 py-3 px-4 rounded-xl bg-bp-mid hover:bg-bp-surface border-l-2 border-accent-insight font-display text-body text-text-primary transition-colors text-left"
           >
-            <span className="flex-1 truncate">
-              {t("compareSchools.bySoc.trigger").replace(
-                "{occupationTitle}",
-                career.occupation_title,
+            <span className="flex-1 min-w-0">
+              {rankSummary && (
+                <span
+                  data-testid="compare-rank-lead"
+                  className="block text-body text-text-primary"
+                >
+                  {t("compareSchools.rankLead")
+                    .replace(
+                      "{institutionName}",
+                      career.institution_name || build.school_name,
+                    )
+                    .replace("{rank}", `#${rankSummary.rank}`)
+                    .replace(
+                      "{total}",
+                      rankSummary.total.toLocaleString(),
+                    )
+                    .replace(
+                      "{programNameShort}",
+                      career.program_name || build.program_name,
+                    )}
+                </span>
               )}
+              <span
+                className={
+                  rankSummary
+                    ? "block text-small text-text-secondary mt-1"
+                    : "block truncate"
+                }
+              >
+                {t("compareSchools.bySoc.trigger").replace(
+                  "{occupationTitle}",
+                  career.occupation_title,
+                )}
+              </span>
             </span>
             <span aria-hidden="true" className="text-text-muted">›</span>
           </button>

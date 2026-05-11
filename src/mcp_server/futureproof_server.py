@@ -4151,6 +4151,7 @@ class FutureProofMCPServer(BaseMCPServer):
         wire_rows = []
         for row in top_n:
             row.setdefault("is_anchor", False)
+            row.setdefault("roi_residency_adjusted", False)
             row["rank"] = int(row.get("abs_rank") or 0)
             wire_rows.append(
                 {k: row.get(k) for k in SCHOOLS_FOR_CAREER_RESPONSE_FIELDS_HTTP}

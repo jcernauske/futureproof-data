@@ -3344,3 +3344,968 @@ class TestAURARegistry:
         """AURA registry points to the real _postprocess_aura_explain_receipt."""
         config = _STAT_EXPLAIN_REGISTRY["AURA"]
         assert config.postprocessor is _postprocess_aura_explain_receipt
+
+
+# ===========================================================================
+# Deterministic receipt builders (compact_local bypass)
+#   spec: docs/specs/refactor-receipt-compact-fallback.md §4
+# ===========================================================================
+
+
+def _make_build_with_extras(
+    *,
+    ern: int | None = 7,
+    roi: int | None = 6,
+    res: int | None = 5,
+    grw: int | None = 8,
+    aura: int | None = 4,
+    published_cost_4yr: float | None = 112_400.0,
+    aura_score_basis: str | None = "three_term",
+    raw_stat_res: int | None = 6,
+    raw_stat_hmn: int | None = 7,
+    growth_category: str | None = "Much faster than average",
+    school: str = "Indiana University-Bloomington",
+    program: str = "Computer Science",
+    occupation: str = "Software Developer",
+    soc: str = _IU_SOC,
+    cipcode: str = _IU_CIPCODE,
+    unitid: int = _IU_UNITID,
+    effort: str = "balanced",
+) -> Build:
+    """Extended _make_build with fields needed by non-ERN deterministic
+    receipt builders (published_cost_4yr, aura_score_basis, raw_stat_res,
+    raw_stat_hmn, growth_category)."""
+    return Build(
+        build_id="iu-cs-test-001",
+        created_at="2026-05-02T00:00:00Z",
+        school_name=school,
+        unitid=unitid,
+        major_text=program,
+        cipcode=cipcode,
+        program_name=program,
+        effort=effort,  # type: ignore[arg-type]
+        loan_pct=1.0,
+        career=CareerOutcome(
+            unitid=unitid,
+            institution_name=school,
+            cipcode=cipcode,
+            program_name=program,
+            soc_code=soc,
+            occupation_title=occupation,
+            stats=PentagonStats(ern=ern, roi=roi, res=res, grw=grw, aura=aura),
+            bosses=BossScores(ai=10, loans=10, market=10, burnout=10, ceiling=10),
+            median_annual_wage=132270.0,
+            earnings_1yr_median=94200.0,
+            published_cost_4yr=published_cost_4yr,
+            aura_score_basis=aura_score_basis,
+            raw_stat_res=raw_stat_res,
+            raw_stat_hmn=raw_stat_hmn,
+            growth_category=growth_category,
+        ),
+        gauntlet=GauntletResult(
+            fights=[], wins=0, losses=0, draws=0, unknown=0, verdict="OK"
+        ),
+        branches=[],
+        skill_recs=[],
+        guidance="",
+        skills_crafted=[],
+        skill_pool=[],
+        profile_name="Test Profile",
+    )
+
+
+def _fake_dispatch_ern(
+    cip_rank: float | None = 0.87,
+    earnings: int | None = 94_200,
+    wage_pct: float | None = 0.92,
+    wage: int | None = 132_270,
+):
+    """Return an async _dispatch stub for ERN tools."""
+    async def _dispatch(name: str, args: dict) -> dict:
+        if name == "get_career_paths":
+            return {
+                "data": [{
+                    "soc_code": _IU_SOC,
+                    "cip_family_earnings_rank": cip_rank,
+                    "earnings_1yr_median": earnings,
+                }],
+                "row_count": 1,
+            }
+        if name == "get_occupation_data":
+            return {
+                "data": {
+                    "wage_percentile_overall": wage_pct,
+                    "median_annual_wage": wage,
+                },
+                "row_count": 1,
+            }
+        return {}
+    return _dispatch
+
+
+def _fake_dispatch_grw(
+    employment_change_pct: float | None = 15.2,
+):
+    """Return an async _dispatch stub for GRW tools."""
+    async def _dispatch(name: str, args: dict) -> dict:
+        if name == "get_occupation_data":
+            data: dict = {}
+            if employment_change_pct is not None:
+                data["employment_change_pct"] = employment_change_pct
+            return {"data": data, "row_count": 1}
+        return {}
+    return _dispatch
+
+
+def _fake_dispatch_aura(
+    aura_score_continuous: float | None = 0.72,
+    endowment_per_fte: float | None = 120_000.0,
+    marketing_ratio: float | None = 0.060,
+    athletic_spend_per_fte: float | None = 3_200.0,
+):
+    """Return an async _dispatch stub for AURA tools."""
+    async def _dispatch(name: str, args: dict) -> dict:
+        if name == "get_institution_aura":
+            data: dict = {}
+            if aura_score_continuous is not None:
+                data["aura_score_continuous"] = aura_score_continuous
+            if endowment_per_fte is not None:
+                data["endowment_per_fte"] = endowment_per_fte
+            if marketing_ratio is not None:
+                data["marketing_ratio"] = marketing_ratio
+            if athletic_spend_per_fte is not None:
+                data["athletic_spend_per_fte"] = athletic_spend_per_fte
+            return {"data": data, "row_count": 1}
+        return {}
+    return _dispatch
+
+
+# ---------------------------------------------------------------------------
+# P0: ERN deterministic receipt
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicERN:
+    """Deterministic ERN receipt builder (compact_local bypass)."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_ern_receipt_valid_schema(
+        self, monkeypatch,
+    ) -> None:
+        """P0: ERN deterministic receipt passes ExplainStatReceipt.model_validate."""
+        build = _make_build_with_extras()
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, tool_log = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        # Round-trip through model_validate to prove schema compliance
+        validated = ExplainStatReceipt.model_validate(receipt.model_dump())
+        assert validated.stat_code == "ERN"
+        assert validated.kind == "receipt"
+        assert validated.score_max == 10
+        assert len(validated.components) == 2
+        assert len(validated.sources) >= 2
+
+    @pytest.mark.asyncio
+    async def test_deterministic_ern_receipt_score_from_build(
+        self, monkeypatch,
+    ) -> None:
+        """P0: ERN receipt score matches build.career.stats.ern, not None."""
+        build = _make_build_with_extras(ern=7)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        assert receipt.score == 7
+
+    @pytest.mark.asyncio
+    async def test_deterministic_ern_receipt_math_line_format(
+        self, monkeypatch,
+    ) -> None:
+        """P0: ERN math_line uses _render_math_line format with score."""
+        build = _make_build_with_extras(ern=7)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        # _render_math_line produces "0.6 x CIP + 0.4 x WAGE -> score N/10"
+        assert "0.6" in receipt.math_line
+        assert "0.4" in receipt.math_line
+        assert "0.87" in receipt.math_line
+        assert "0.92" in receipt.math_line
+        assert "score" in receipt.math_line
+        assert "/10" in receipt.math_line
+
+    @pytest.mark.asyncio
+    async def test_deterministic_ern_handles_null_inputs(
+        self, monkeypatch,
+    ) -> None:
+        """P1: ERN with null cip_rank/wage_pct still produces valid receipt
+        with missing_reason set on affected components."""
+        build = _make_build_with_extras(ern=7)
+        monkeypatch.setattr(
+            ask_gemma, "_dispatch",
+            _fake_dispatch_ern(cip_rank=None, earnings=None, wage_pct=None, wage=None),
+        )
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score == 7
+        by_weight = {c.weight_pct: c for c in receipt.components}
+        assert by_weight[60].value_pct is None
+        assert by_weight[60].missing_reason is not None
+        assert by_weight[40].value_pct is None
+        assert by_weight[40].missing_reason is not None
+        # Math line should show n/a
+        assert "n/a" in receipt.math_line
+
+    @pytest.mark.asyncio
+    async def test_deterministic_ern_null_score(
+        self, monkeypatch,
+    ) -> None:
+        """C2: ERN with ern=None returns receipt with score=None (null-score
+        guard — should use _build_ern_missing_score_receipt path)."""
+        build = _make_build_with_extras(ern=None)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score is None
+        assert receipt.stat_code == "ERN"
+
+
+# ---------------------------------------------------------------------------
+# P0: ROI deterministic receipt
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicROI:
+    """Deterministic ROI receipt builder — no MCP dispatch, reads from build."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_roi_receipt_valid_schema(
+        self, monkeypatch,
+    ) -> None:
+        """P0: ROI deterministic receipt passes ExplainStatReceipt.model_validate."""
+        build = _make_build_with_extras(
+            roi=6, published_cost_4yr=112_400.0,
+        )
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, tool_log = await ask_gemma._build_deterministic_receipt("ROI", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        validated = ExplainStatReceipt.model_validate(receipt.model_dump())
+        assert validated.stat_code == "ROI"
+        assert validated.kind == "receipt"
+        assert validated.score == 6
+        assert validated.score_max == 10
+        assert len(validated.components) == 1
+        assert validated.scoring_scale is not None
+
+    @pytest.mark.asyncio
+    async def test_deterministic_roi_explainer_has_dollar_amounts(
+        self, monkeypatch,
+    ) -> None:
+        """ROI explainer should mention the published cost and earnings."""
+        build = _make_build_with_extras(
+            roi=6, published_cost_4yr=112_400.0,
+        )
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ROI", build)
+
+        explainer = receipt.components[0].explainer
+        # Dollar amounts should appear formatted with commas
+        assert "$112,400" in explainer or "$112400" in explainer
+        # School name should be interpolated
+        assert "Indiana University-Bloomington" in explainer
+
+    @pytest.mark.asyncio
+    async def test_deterministic_roi_null_score(
+        self, monkeypatch,
+    ) -> None:
+        """C2: ROI with roi=None returns receipt with score=None."""
+        build = _make_build_with_extras(roi=None)
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ROI", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score is None
+        assert receipt.stat_code == "ROI"
+        # Missing-score receipt should have missing_reason on the component
+        assert receipt.components[0].missing_reason is not None
+
+    @pytest.mark.asyncio
+    async def test_deterministic_roi_null_cost(
+        self, monkeypatch,
+    ) -> None:
+        """ROI with no published_cost_4yr still produces valid receipt."""
+        build = _make_build_with_extras(roi=6, published_cost_4yr=None)
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ROI", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score == 6
+        assert receipt.components[0].missing_reason is not None
+        assert "cost" in receipt.components[0].missing_reason.lower()
+
+
+# ---------------------------------------------------------------------------
+# P0: RES deterministic receipt
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicRES:
+    """Deterministic RES receipt builder — reuses _build_res_receipt_from_context."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_res_receipt_valid_schema(
+        self, monkeypatch,
+    ) -> None:
+        """P0: RES deterministic receipt passes ExplainStatReceipt.model_validate."""
+        build = _make_build_with_extras(
+            res=5, raw_stat_res=6, raw_stat_hmn=7,
+        )
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, tool_log = await ask_gemma._build_deterministic_receipt("RES", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        validated = ExplainStatReceipt.model_validate(receipt.model_dump())
+        assert validated.stat_code == "RES"
+        assert validated.kind == "receipt"
+        assert validated.score == 5
+        assert validated.score_max == 10
+        assert len(validated.components) == 2
+
+    @pytest.mark.asyncio
+    async def test_deterministic_res_null_score(
+        self, monkeypatch,
+    ) -> None:
+        """C2: RES with res=None returns receipt with score=None."""
+        build = _make_build_with_extras(res=None)
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("RES", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score is None
+        assert receipt.stat_code == "RES"
+        # Both components should have missing_reason set
+        for comp in receipt.components:
+            assert comp.missing_reason is not None
+
+
+# ---------------------------------------------------------------------------
+# P0: GRW deterministic receipt
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicGRW:
+    """Deterministic GRW receipt builder — dispatches get_occupation_data."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_grw_receipt_valid_schema(
+        self, monkeypatch,
+    ) -> None:
+        """P0: GRW deterministic receipt passes ExplainStatReceipt.model_validate."""
+        build = _make_build_with_extras(grw=8)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_grw())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, tool_log = await ask_gemma._build_deterministic_receipt("GRW", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        validated = ExplainStatReceipt.model_validate(receipt.model_dump())
+        assert validated.stat_code == "GRW"
+        assert validated.kind == "receipt"
+        assert validated.score == 8
+        assert validated.score_max == 10
+        assert len(validated.components) == 1
+        assert validated.scoring_scale is not None
+
+    @pytest.mark.asyncio
+    async def test_deterministic_grw_handles_null_employment(
+        self, monkeypatch,
+    ) -> None:
+        """P1: GRW with null employment_change_pct still produces valid receipt
+        with missing_reason set."""
+        build = _make_build_with_extras(grw=8)
+        monkeypatch.setattr(
+            ask_gemma, "_dispatch",
+            _fake_dispatch_grw(employment_change_pct=None),
+        )
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("GRW", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score == 8
+        assert receipt.components[0].missing_reason is not None
+        assert "projection" in receipt.components[0].missing_reason.lower()
+
+    @pytest.mark.asyncio
+    async def test_deterministic_grw_null_score(
+        self, monkeypatch,
+    ) -> None:
+        """C2: GRW with grw=None returns receipt with score=None."""
+        build = _make_build_with_extras(grw=None)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_grw())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("GRW", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score is None
+        assert receipt.stat_code == "GRW"
+        assert receipt.components[0].missing_reason is not None
+
+    @pytest.mark.asyncio
+    async def test_deterministic_grw_explainer_has_pct(
+        self, monkeypatch,
+    ) -> None:
+        """GRW explainer should include the employment change percentage."""
+        build = _make_build_with_extras(grw=8)
+        monkeypatch.setattr(
+            ask_gemma, "_dispatch",
+            _fake_dispatch_grw(employment_change_pct=15.2),
+        )
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("GRW", build)
+
+        explainer = receipt.components[0].explainer
+        assert "15.2" in explainer
+        assert "Software Developer" in explainer
+
+
+# ---------------------------------------------------------------------------
+# P0: AURA deterministic receipt
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicAURA:
+    """Deterministic AURA receipt builder — dispatches get_institution_aura."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_aura_receipt_valid_schema(
+        self, monkeypatch,
+    ) -> None:
+        """P0: AURA deterministic receipt passes ExplainStatReceipt.model_validate."""
+        build = _make_build_with_extras(aura=4, aura_score_basis="three_term")
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_aura())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, tool_log = await ask_gemma._build_deterministic_receipt("AURA", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        validated = ExplainStatReceipt.model_validate(receipt.model_dump())
+        assert validated.stat_code == "AURA"
+        assert validated.kind == "receipt"
+        assert validated.score == 4
+        assert validated.score_max == 10
+        assert len(validated.components) == 1
+        assert validated.scoring_scale is not None
+
+    @pytest.mark.asyncio
+    async def test_deterministic_aura_evidence_bullets(
+        self, monkeypatch,
+    ) -> None:
+        """P1: AURA receipt includes evidence bullets from _build_aura_evidence_bullets."""
+        build = _make_build_with_extras(aura=4, aura_score_basis="three_term")
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_aura(
+            endowment_per_fte=120_000.0,
+            marketing_ratio=0.060,
+            athletic_spend_per_fte=3_200.0,
+        ))
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("AURA", build)
+
+        comp = receipt.components[0]
+        assert comp.evidence_bullets is not None
+        assert len(comp.evidence_bullets) == 3
+        # Evidence should mention each signal
+        bullet_text = " ".join(comp.evidence_bullets)
+        assert "Endowment" in bullet_text
+        assert "Marketing" in bullet_text
+        assert "Athletics" in bullet_text
+
+    @pytest.mark.asyncio
+    async def test_deterministic_aura_score_provenance(
+        self, monkeypatch,
+    ) -> None:
+        """P1: AURA receipt sets score_provenance from _humanize_basis."""
+        build = _make_build_with_extras(aura=4, aura_score_basis="three_term")
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_aura())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("AURA", build)
+
+        # _humanize_basis("three_term") should return a non-None string
+        assert receipt.score_provenance is not None
+        assert isinstance(receipt.score_provenance, str)
+        assert len(receipt.score_provenance) > 0
+
+    @pytest.mark.asyncio
+    async def test_deterministic_aura_null_score(
+        self, monkeypatch,
+    ) -> None:
+        """C2: AURA with aura=None returns receipt with score=None."""
+        build = _make_build_with_extras(aura=None)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_aura())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("AURA", build)
+
+        assert isinstance(receipt, ExplainStatReceipt)
+        assert receipt.score is None
+        assert receipt.stat_code == "AURA"
+        assert receipt.components[0].missing_reason is not None
+
+
+# ---------------------------------------------------------------------------
+# P0: Cross-cutting deterministic receipt properties
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicCrossCutting:
+    """Cross-cutting properties: explainer interpolation, source parity."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_receipt_explainer_interpolates_data(
+        self, monkeypatch,
+    ) -> None:
+        """P0: Explainer prose has school name, dollar amounts — not generic."""
+        build = _make_build_with_extras(ern=7)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        # First component (60% weight) should mention the school
+        school_comp = [c for c in receipt.components if c.weight_pct == 60][0]
+        assert "Indiana University-Bloomington" in school_comp.explainer
+        assert "$94,200" in school_comp.explainer
+
+        # Second component (40% weight) should mention the career
+        career_comp = [c for c in receipt.components if c.weight_pct == 40][0]
+        assert "Software Developer" in career_comp.explainer
+        assert "$132,270" in career_comp.explainer
+
+    @pytest.mark.asyncio
+    async def test_deterministic_receipt_sources_match_gemma_path(
+        self, monkeypatch,
+    ) -> None:
+        """P0: Sources list matches the canonical _<STAT>_RECEIPT_SOURCES constants."""
+        build = _make_build_with_extras()
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        # ERN sources
+        receipt_ern, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+        assert len(receipt_ern.sources) == len(ask_gemma._ERN_RECEIPT_SOURCES)
+        for actual, expected in zip(receipt_ern.sources, ask_gemma._ERN_RECEIPT_SOURCES):
+            assert actual.label == expected.label
+            assert actual.name == expected.name
+
+        # ROI sources (no dispatch needed)
+        receipt_roi, _ = await ask_gemma._build_deterministic_receipt("ROI", build)
+        assert len(receipt_roi.sources) == len(ask_gemma._ROI_RECEIPT_SOURCES)
+        for actual, expected in zip(receipt_roi.sources, ask_gemma._ROI_RECEIPT_SOURCES):
+            assert actual.label == expected.label
+            assert actual.name == expected.name
+
+        # RES sources (no dispatch needed)
+        receipt_res, _ = await ask_gemma._build_deterministic_receipt("RES", build)
+        assert len(receipt_res.sources) == len(ask_gemma._RES_RECEIPT_SOURCES)
+        for actual, expected in zip(receipt_res.sources, ask_gemma._RES_RECEIPT_SOURCES):
+            assert actual.label == expected.label
+            assert actual.name == expected.name
+
+        # GRW sources (needs dispatch)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_grw())
+        receipt_grw, _ = await ask_gemma._build_deterministic_receipt("GRW", build)
+        assert len(receipt_grw.sources) == len(ask_gemma._GRW_RECEIPT_SOURCES)
+        for actual, expected in zip(receipt_grw.sources, ask_gemma._GRW_RECEIPT_SOURCES):
+            assert actual.label == expected.label
+            assert actual.name == expected.name
+
+        # AURA sources (needs dispatch)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_aura())
+        receipt_aura, _ = await ask_gemma._build_deterministic_receipt("AURA", build)
+        assert len(receipt_aura.sources) == len(ask_gemma._AURA_RECEIPT_SOURCES)
+        for actual, expected in zip(receipt_aura.sources, ask_gemma._AURA_RECEIPT_SOURCES):
+            assert actual.label == expected.label
+            assert actual.name == expected.name
+
+    @pytest.mark.asyncio
+    async def test_deterministic_receipt_unknown_stat_code_raises(
+        self, monkeypatch,
+    ) -> None:
+        """Dispatcher raises ValueError for unknown stat codes."""
+        build = _make_build_with_extras()
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        with pytest.raises(ValueError, match="Unknown stat_code"):
+            await ask_gemma._build_deterministic_receipt("XYZ", build)
+
+
+# ---------------------------------------------------------------------------
+# P2: Deterministic receipt logging
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicReceiptLogging:
+    """Verify deterministic receipts log to gemma.jsonl with correct call_site."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_receipt_logging(
+        self, monkeypatch, tmp_path,
+    ) -> None:
+        """P2: Deterministic receipt logs to gemma.jsonl with _deterministic call_site."""
+        build = _make_build_with_extras(ern=7)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+
+        # Enable logging to a temp path
+        monkeypatch.delenv("GEMMA_LOG_DISABLED", raising=False)
+        log_path = tmp_path / "gemma.jsonl"
+        monkeypatch.setattr(gemma_client, "_log_path", lambda: log_path)
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        assert log_path.exists()
+        lines = [ln for ln in log_path.read_text().splitlines() if ln.strip()]
+        assert len(lines) == 1
+        record = json.loads(lines[0])
+        assert record["call_site"] == "explain_ern_receipt_deterministic"
+        assert record["deterministic"] is True
+        assert record["build_id"] == "iu-cs-test-001"
+        assert "tool_dispatch_ms" in record
+        assert record["parse_success"] is True
+
+
+# ===========================================================================
+# Pipeline lineage & source-URL tests (receipt data provenance chain)
+#
+# These tests bind the lineage feature added to deterministic receipts:
+#   - Every deterministic receipt carries the correct lineage chain
+#   - Source URL fields are populated on all receipt sources
+#   - Pydantic model constraints (extra="forbid", defaults) hold
+#   - Component labels in lineage align with component labels in receipt
+# ===========================================================================
+
+
+class TestDeterministicLineageERN:
+    """Lineage chain on ERN deterministic receipt — 2 components, gold→bronze→upstream."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_ern_receipt_has_lineage(
+        self, monkeypatch,
+    ) -> None:
+        """ERN deterministic receipt carries 2-entry lineage matching its
+        2 components, each with steps ordered gold → silver → bronze → upstream."""
+        build = _make_build_with_extras(ern=7)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        assert receipt.lineage is not None
+        assert len(receipt.lineage) == 2
+
+        # First lineage entry matches ERN component 0 (school rank)
+        school_lineage = receipt.lineage[0]
+        assert school_lineage.component_label == "your school's program rank"
+        assert len(school_lineage.steps) >= 4
+        # Layer order: gold → silver → bronze → upstream
+        layers = [s.layer for s in school_lineage.steps]
+        assert layers[0] == "gold"
+        assert layers[1] == "silver"
+        assert layers[2] == "bronze"
+        assert layers[3] == "upstream"
+
+        # Second lineage entry matches ERN component 1 (career pay rank)
+        career_lineage = receipt.lineage[1]
+        assert career_lineage.component_label == "this career's pay rank"
+        assert len(career_lineage.steps) >= 4
+        career_layers = [s.layer for s in career_lineage.steps]
+        assert career_layers[0] == "gold"
+        assert career_layers[1] == "silver"
+        assert career_layers[2] == "bronze"
+        assert career_layers[3] == "upstream"
+
+        # Upstream steps should have URLs
+        school_upstream = [s for s in school_lineage.steps if s.layer == "upstream"]
+        assert len(school_upstream) >= 1
+        assert all(s.url is not None for s in school_upstream)
+        assert all(s.url.startswith("https://") for s in school_upstream if s.url)
+
+
+class TestDeterministicLineageROI:
+    """Lineage chain on ROI deterministic receipt — 1 component."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_roi_receipt_has_lineage(
+        self, monkeypatch,
+    ) -> None:
+        """ROI receipt has 1 lineage entry with label 'your 15-year payback multiplier'."""
+        build = _make_build_with_extras(roi=6)
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ROI", build)
+
+        assert receipt.lineage is not None
+        assert len(receipt.lineage) == 1
+        assert receipt.lineage[0].component_label == "your 15-year payback multiplier"
+        # ROI has 7 steps: 2 gold, 2 silver, 1 bronze, 2 upstream
+        assert len(receipt.lineage[0].steps) == 7
+        # At least one upstream step with a URL
+        upstream_steps = [s for s in receipt.lineage[0].steps if s.layer == "upstream"]
+        assert len(upstream_steps) == 2
+        assert all(s.url is not None for s in upstream_steps)
+
+
+class TestDeterministicLineageGRW:
+    """Lineage chain on GRW deterministic receipt — 1 component."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_grw_receipt_has_lineage(
+        self, monkeypatch,
+    ) -> None:
+        """GRW receipt has 1 lineage entry: 'this career's projected employment change'."""
+        build = _make_build_with_extras(grw=8)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_grw())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("GRW", build)
+
+        assert receipt.lineage is not None
+        assert len(receipt.lineage) == 1
+        assert receipt.lineage[0].component_label == "this career's projected employment change"
+        assert len(receipt.lineage[0].steps) == 4
+        layers = [s.layer for s in receipt.lineage[0].steps]
+        assert layers == ["gold", "silver", "bronze", "upstream"]
+
+
+class TestDeterministicLineageAURA:
+    """Lineage chain on AURA deterministic receipt — 1 component."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_aura_receipt_has_lineage(
+        self, monkeypatch,
+    ) -> None:
+        """AURA receipt has 1 lineage entry: 'your school's brand gravity'."""
+        build = _make_build_with_extras(aura=4)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_aura())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("AURA", build)
+
+        assert receipt.lineage is not None
+        assert len(receipt.lineage) == 1
+        assert receipt.lineage[0].component_label == "your school's brand gravity"
+        # AURA has 5 steps: 1 gold, 2 silver, 2 upstream
+        assert len(receipt.lineage[0].steps) == 5
+        upstream_steps = [s for s in receipt.lineage[0].steps if s.layer == "upstream"]
+        assert len(upstream_steps) == 2
+        assert all(s.url is not None for s in upstream_steps)
+
+
+# ---------------------------------------------------------------------------
+# Source URL coverage — every receipt source tuple has non-None URLs
+# ---------------------------------------------------------------------------
+
+
+class TestReceiptSourceURLs:
+    """Every _*_RECEIPT_SOURCES tuple has URLs on all entries."""
+
+    def test_receipt_source_urls_present(self) -> None:
+        """All 5 receipt source tuples have non-None URL fields starting with https://."""
+        from app.services.ask_gemma import (
+            _ERN_RECEIPT_SOURCES,
+            _ROI_RECEIPT_SOURCES,
+            _RES_RECEIPT_SOURCES,
+            _GRW_RECEIPT_SOURCES,
+            _AURA_RECEIPT_SOURCES,
+        )
+
+        all_sources = {
+            "ERN": _ERN_RECEIPT_SOURCES,
+            "ROI": _ROI_RECEIPT_SOURCES,
+            "RES": _RES_RECEIPT_SOURCES,
+            "GRW": _GRW_RECEIPT_SOURCES,
+            "AURA": _AURA_RECEIPT_SOURCES,
+        }
+
+        for stat_name, sources in all_sources.items():
+            assert len(sources) >= 1, f"{stat_name} has no sources"
+            for i, source in enumerate(sources):
+                assert source.url is not None, (
+                    f"{stat_name} source [{i}] ({source.label!r}) has url=None"
+                )
+                assert source.url.startswith("https://"), (
+                    f"{stat_name} source [{i}] ({source.label!r}) url "
+                    f"{source.url!r} doesn't start with https://"
+                )
+
+
+# ---------------------------------------------------------------------------
+# Lineage ↔ component label alignment
+# ---------------------------------------------------------------------------
+
+
+class TestLineageComponentLabelAlignment:
+    """Lineage component_labels match receipt component labels in order."""
+
+    @pytest.mark.asyncio
+    async def test_lineage_component_labels_match_components(
+        self, monkeypatch,
+    ) -> None:
+        """For ERN: lineage[i].component_label matches components[i].label for all i."""
+        build = _make_build_with_extras(ern=7)
+        monkeypatch.setattr(ask_gemma, "_dispatch", _fake_dispatch_ern())
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("ERN", build)
+
+        assert receipt.lineage is not None
+        assert len(receipt.lineage) == len(receipt.components)
+        for i, (lineage_entry, component) in enumerate(
+            zip(receipt.lineage, receipt.components)
+        ):
+            assert lineage_entry.component_label == component.label, (
+                f"Mismatch at index {i}: lineage has "
+                f"{lineage_entry.component_label!r}, component has {component.label!r}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Pydantic model edge cases (ReceiptSource.url optional, LineageStep extra,
+# ExplainStatReceipt.lineage defaults None)
+# ---------------------------------------------------------------------------
+
+
+class TestLineagePydanticEdgeCases:
+    """Pydantic model constraints for lineage-related fields."""
+
+    def test_receipt_source_url_optional(self) -> None:
+        """ReceiptSource can be constructed without url (defaults to None)."""
+        source = ReceiptSource(label="Test source", name="Test Name")
+        assert source.url is None
+
+    def test_lineage_step_extra_forbid(self) -> None:
+        """LineageStep rejects unknown fields (extra='forbid')."""
+        from app.models.api import LineageStep
+
+        with pytest.raises(ValidationError) as exc_info:
+            LineageStep(
+                layer="gold",
+                table_or_file="some_table",
+                extra_field="bad",  # type: ignore[call-arg]
+            )
+        # Pydantic v2 reports extra fields
+        assert "extra_field" in str(exc_info.value)
+
+    def test_receipt_lineage_defaults_none(self) -> None:
+        """ExplainStatReceipt constructed without lineage kwarg defaults to None."""
+        receipt = ExplainStatReceipt(
+            stat_code="ERN",
+            stat_name="Earning Power",
+            score=7,
+            score_max=10,
+            one_liner="Test one liner for the earning power stat.",
+            components=[
+                {
+                    "weight_pct": 60,
+                    "label": "your school's program rank",
+                    "explainer": "Test explainer for the school rank component.",
+                    "value_pct": 87,
+                    "anchor_text": "IU CS grads",
+                    "anchor_dollars": 94_200,
+                    "missing_reason": None,
+                },
+            ],
+            math_line="0.6 x 0.87 -> score 7/10",
+            sources=[
+                {"label": "Graduate earnings", "name": "College Scorecard"},
+            ],
+            why_mix_paragraph="Two students, two signals, one blended score.",
+        )
+        assert receipt.lineage is None
+
+    def test_component_lineage_extra_forbid(self) -> None:
+        """ComponentLineage rejects unknown fields (extra='forbid')."""
+        from app.models.api import ComponentLineage, LineageStep
+
+        with pytest.raises(ValidationError):
+            ComponentLineage(
+                component_label="test",
+                steps=[
+                    LineageStep(layer="gold", table_or_file="t"),
+                ],
+                rogue_field="bad",  # type: ignore[call-arg]
+            )
+
+    def test_lineage_step_layer_enum_rejects_invalid(self) -> None:
+        """LineageStep.layer must be one of gold/silver/bronze/upstream."""
+        from app.models.api import LineageStep
+
+        with pytest.raises(ValidationError):
+            LineageStep(
+                layer="platinum",  # type: ignore[arg-type]
+                table_or_file="some_table",
+            )
+
+    def test_component_lineage_steps_min_length(self) -> None:
+        """ComponentLineage requires at least 1 step."""
+        from app.models.api import ComponentLineage
+
+        with pytest.raises(ValidationError):
+            ComponentLineage(
+                component_label="empty",
+                steps=[],
+            )
+
+
+# ---------------------------------------------------------------------------
+# RES lineage — 2 components (unique among stats)
+# ---------------------------------------------------------------------------
+
+
+class TestDeterministicLineageRES:
+    """RES lineage has 2 entries matching its 2 components."""
+
+    @pytest.mark.asyncio
+    async def test_deterministic_res_receipt_has_lineage(
+        self, monkeypatch,
+    ) -> None:
+        """RES receipt has 2 lineage entries: AI exposure + human-essential skills."""
+        build = _make_build_with_extras(res=5, raw_stat_res=6, raw_stat_hmn=7)
+        monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+
+        receipt, _ = await ask_gemma._build_deterministic_receipt("RES", build)
+
+        assert receipt.lineage is not None
+        assert len(receipt.lineage) == 2
+
+        # Check labels match the RES lineage constants
+        assert receipt.lineage[0].component_label == "AI exposure"
+        assert receipt.lineage[1].component_label == "human-essential skills"
+
+        # AI exposure chain has 7 steps (gold + 3 silver + 3 upstream)
+        assert len(receipt.lineage[0].steps) == 7
+
+        # Human-essential chain has 4 steps (gold + silver + bronze + upstream)
+        assert len(receipt.lineage[1].steps) == 4

@@ -357,6 +357,7 @@ class TestStreamInitial:
                 sequential_build_stream=True,
                 ask_tool_wall_time_s=15.0,
                 ask_max_tokens=700,
+                ask_skip_tool_calling=True,
             ),
         )
 
@@ -2010,3 +2011,202 @@ class TestRequiresGradCredential:
             assert feeder.cip4
             assert feeder.cip_title
             assert isinstance(feeder.offered_at_school, bool)
+
+
+# ---------------------------------------------------------------------------
+# SOC-destination pre-filter + parent_cip fix tests
+# ---------------------------------------------------------------------------
+
+# ISU (unitid 145813) school CIPs — representative subset.
+_ISU_SCHOOL_CIPS = [
+    {"cipcode": "09.01", "program_name": "Communication and Media Studies."},
+    {"cipcode": "13.10", "program_name": "Special Education and Teaching."},
+    {"cipcode": "52.02", "program_name": "Business Administration, Management and Operations."},
+    {"cipcode": "52.14", "program_name": "Marketing."},
+]
+
+# ISU programs (frontend shape — cipcode + program_name).
+_ISU_PROGRAMS: list[dict[str, Any]] = [
+    {"cipcode": "09.01", "program_name": "Communication and Media Studies."},
+    {"cipcode": "13.10", "program_name": "Special Education and Teaching."},
+    {"cipcode": "52.02", "program_name": "Business Administration, Management and Operations."},
+    {"cipcode": "52.14", "program_name": "Marketing."},
+]
+
+# Realistic SOC titles for the CIPs involved in the test failures.
+_TEST_CIP_SOC_TITLES: dict[str, list[str]] = {
+    "52.1401": [
+        "Advertising and Promotions Managers",
+        "Marketing Managers",
+        "Sales Managers",
+        "Market Research Analysts and Marketing Specialists",
+    ],
+    "52.1402": [
+        "Market Research Analysts and Marketing Specialists",
+    ],
+    "13.1310": [
+        "Business Teachers, Postsecondary",
+        "Career/Technical Education Teachers, Secondary School",
+    ],
+    "09.0903": [
+        "Public Relations Specialists",
+    ],
+    "09.0902": [
+        "Public Relations Specialists",
+        "Community Health Workers",
+        "Health Education Specialists",
+    ],
+    "13.1001": [
+        "Special Education Teachers, Kindergarten and Elementary School",
+        "Special Education Teachers, Middle School",
+        "Special Education Teachers, Secondary School",
+    ],
+}
+
+
+class TestSocDestinationFilter:
+    """Tests for ``_filter_candidates_by_soc_destinations``."""
+
+    def test_marketing_filters_out_education_cips(self, monkeypatch):
+        """'marketing' keeps 52.1401 (Marketing Managers) and drops
+        13.1310 (teaching SOCs)."""
+        monkeypatch.setattr(
+            set_your_course, "_load_cip_to_soc_titles",
+            lambda: _TEST_CIP_SOC_TITLES,
+        )
+        candidates = [
+            {"code": "13.1310", "title": "Marketing Teacher Ed", "parent": "13.13", "source": "crosswalk", "score": 120},
+            {"code": "52.1401", "title": "Marketing/Marketing Management", "parent": "52.14", "source": "crosswalk", "score": 120},
+        ]
+        result = set_your_course._filter_candidates_by_soc_destinations(
+            candidates=candidates, query="marketing",
+        )
+        codes = [c["code"] for c in result]
+        assert "52.1401" in codes
+        assert "13.1310" not in codes
+
+    def test_special_education_keeps_cip_13(self, monkeypatch):
+        """'special education' keeps CIP 13 because SOC titles contain
+        'special education'."""
+        monkeypatch.setattr(
+            set_your_course, "_load_cip_to_soc_titles",
+            lambda: _TEST_CIP_SOC_TITLES,
+        )
+        candidates = [
+            {"code": "13.1001", "title": "Special Education", "parent": "13.10", "source": "crosswalk", "score": 100},
+            {"code": "52.1401", "title": "Marketing", "parent": "52.14", "source": "crosswalk", "score": 20},
+        ]
+        result = set_your_course._filter_candidates_by_soc_destinations(
+            candidates=candidates, query="special education",
+        )
+        codes = [c["code"] for c in result]
+        assert "13.1001" in codes
+
+    def test_marketing_research_keeps_52_1402(self, monkeypatch):
+        """'marketing research' keeps 52.1402 because its SOC includes
+        'Market Research Analysts'."""
+        monkeypatch.setattr(
+            set_your_course, "_load_cip_to_soc_titles",
+            lambda: _TEST_CIP_SOC_TITLES,
+        )
+        candidates = [
+            {"code": "52.1401", "title": "Marketing", "parent": "52.14", "source": "crosswalk", "score": 120},
+            {"code": "52.1402", "title": "Marketing Research", "parent": "52.14", "source": "crosswalk", "score": 140},
+            {"code": "13.1310", "title": "Marketing Teacher Ed", "parent": "13.13", "source": "crosswalk", "score": 120},
+        ]
+        result = set_your_course._filter_candidates_by_soc_destinations(
+            candidates=candidates, query="marketing research",
+        )
+        codes = [c["code"] for c in result]
+        assert "52.1401" in codes
+        assert "52.1402" in codes
+        assert "13.1310" not in codes
+
+    def test_vague_query_fails_open(self, monkeypatch):
+        """Short query with no 3+ char tokens keeps all candidates."""
+        monkeypatch.setattr(
+            set_your_course, "_load_cip_to_soc_titles",
+            lambda: _TEST_CIP_SOC_TITLES,
+        )
+        candidates = [
+            {"code": "52.1401", "title": "Marketing", "parent": "52.14", "source": "crosswalk", "score": 0},
+            {"code": "13.1310", "title": "Marketing Teacher Ed", "parent": "13.13", "source": "crosswalk", "score": 0},
+        ]
+        result = set_your_course._filter_candidates_by_soc_destinations(
+            candidates=candidates, query="x",
+        )
+        assert len(result) == len(candidates)
+
+    def test_empty_soc_map_fails_open(self, monkeypatch):
+        """When the CIP-SOC map is empty, the filter is a no-op."""
+        monkeypatch.setattr(
+            set_your_course, "_load_cip_to_soc_titles", lambda: {},
+        )
+        candidates = [
+            {"code": "52.1401", "title": "Marketing", "parent": "52.14", "source": "crosswalk", "score": 100},
+            {"code": "13.1310", "title": "Marketing Teacher Ed", "parent": "13.13", "source": "crosswalk", "score": 100},
+        ]
+        result = set_your_course._filter_candidates_by_soc_destinations(
+            candidates=candidates, query="marketing",
+        )
+        assert len(result) == len(candidates)
+
+    def test_all_filtered_fails_open(self, monkeypatch):
+        """When every candidate would be dropped, keep all."""
+        monkeypatch.setattr(
+            set_your_course, "_load_cip_to_soc_titles",
+            lambda: {"52.1401": ["Marketing Managers"]},
+        )
+        candidates = [
+            {"code": "99.0001", "title": "Underwater Basket Weaving", "parent": "99.00", "source": "crosswalk", "score": 100},
+        ]
+        result = set_your_course._filter_candidates_by_soc_destinations(
+            candidates=candidates, query="basket weaving",
+        )
+        assert len(result) == len(candidates)
+
+
+class TestFallbackResolveParentCip:
+    """Tests for the parent_cip derivation in ``_fallback_resolve``."""
+
+    def test_parent_cip_uses_derive_parent_cip(self, monkeypatch):
+        """_fallback_resolve uses intent._derive_parent_cip, NOT the
+        naive first-2digit-match. For ISU + marketing (cip4=52.14),
+        the school reports 52.14 directly so parent_cip should be ''."""
+        monkeypatch.setattr(
+            intent, "_get_crosswalk_cips_for_families",
+            lambda fams: [
+                {"cipcode": "52.1401", "cip_title": "Marketing"},
+                {"cipcode": "52.0201", "cip_title": "Business Admin"},
+            ],
+        )
+        monkeypatch.setattr(
+            set_your_course, "_load_cip_to_soc_titles",
+            lambda: _TEST_CIP_SOC_TITLES,
+        )
+        monkeypatch.setattr(
+            intent, "_promote_to_leaf_cip",
+            lambda cip, parent, school_cips: cip,
+        )
+        monkeypatch.setattr(
+            intent, "_sanitize_alternatives",
+            lambda alts, matched, max_alts=2: None,
+        )
+        monkeypatch.setattr(
+            gemma_client, "generate",
+            lambda **kw: '{"matched_cip": "52.1401", "matched_title": "Marketing", "confidence": "high", "parent_cip": "52.14", "alternatives": [], "remaining_count": 0}',
+        )
+
+        result = set_your_course._fallback_resolve(
+            major_text="marketing",
+            school_cips=_ISU_SCHOOL_CIPS,
+            programs=_ISU_PROGRAMS,
+            school_name="Illinois State University",
+        )
+
+        assert result is not None
+        assert result.matched_cip == "52.1401"
+        assert result.parent_cip == "", (
+            f"parent_cip should be '' because ISU reports 52.14 directly, "
+            f"got {result.parent_cip!r}"
+        )

@@ -44,6 +44,26 @@ from app.models.career import (
 )
 from app.services import ask_gemma, gemma_client
 
+
+@pytest.fixture(autouse=True)
+def _force_full_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force full-tier profile so E4B local config doesn't route through
+    the no-tools generate_async path."""
+    monkeypatch.setattr(
+        gemma_client,
+        "runtime_profile",
+        lambda config=None: gemma_client.ModelRuntimeProfile(
+            tier="full", rich_intent_streaming=True,
+            intent_fallback_max_tokens=200, build_gemma_timeout_s=None,
+            build_narrative_max_tokens=800, build_recs_max_tokens=800,
+            build_pool_max_tokens=2000, build_guidance_max_tokens=1200,
+            eager_career_description=True, sequential_build_stream=False,
+            ask_tool_wall_time_s=45.0, ask_max_tokens=1200,
+            ask_skip_tool_calling=False,
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Banned tokens — what the pipeline must never let through.
 # Mirrors test_gemma_voice_contract.py constants exactly so a future

@@ -59,8 +59,6 @@ from reportlab.platypus import (
 
 from app.models.api import (
     AudienceQuestions,
-    CompareInsightsPayload,
-    CompareProsConsItem,
     RiskLevel,
 )
 from app.models.career import Build, CareerBranch, SkillRec
@@ -1853,151 +1851,6 @@ def _format_branch_deltas(branch: CareerBranch) -> str:
     return "  ·  ".join(parts)
 
 
-def _build_comparison_gemma_verdict(
-    builds: list[Build],
-    insights: "CompareInsightsPayload | None",
-) -> list[object]:
-    """GEMMA'S VERDICT section — compare summary + Big Choice + per-build
-    pros/cons + decade projection + pivot question. Each sub-block is
-    optional and renders only when its data is present."""
-    if insights is None:
-        return []
-
-    has_any = any([
-        insights.compare_summary,
-        insights.pivotal,
-        insights.pros_cons,
-    ])
-    if not has_any:
-        return []
-
-    s = _styles()
-    story: list[object] = []
-    story.extend(_section_header("GEMMA'S VERDICT", compact=True))
-
-    body = _style(
-        "verdict_body", fontName=_font("Nunito"), fontSize=9, leading=12,
-        textColor=INK_SECONDARY, spaceAfter=4,
-    )
-    label = _style(
-        "verdict_label", fontName=_font("NunitoBold"), fontSize=8,
-        leading=11, textColor=INK_PRIMARY,
-        # 10pt of air above each subsection label so "Big Choice",
-        # "Pros & Cons by school", "In ten years", and "Sit with this"
-        # read as fresh subsections instead of trailing prose.
-        spaceBefore=10, spaceAfter=2,
-    )
-
-    if insights.compare_summary:
-        story.append(Paragraph(_safe(insights.compare_summary.strip()), body))
-
-    if insights.pivotal:
-        story.append(Paragraph("Big Choice", label))
-        story.append(Paragraph(
-            _safe(insights.pivotal.meta_tradeoff),
-            _style("verdict_meta", fontName=_font("FredokaOne"), fontSize=11,
-                   leading=14, textColor=INK_PRIMARY, spaceAfter=2),
-        ))
-        story.append(Paragraph(_safe(insights.pivotal.meta_explanation), body))
-
-    if insights.pros_cons:
-        story.append(Paragraph("Pros & Cons by school", label))
-        story.extend(_render_pros_cons_grid(builds, insights.pros_cons))
-
-    if insights.pivotal and insights.pivotal.decade_projection:
-        story.append(Paragraph("In ten years", label))
-        story.append(Paragraph(_safe(insights.pivotal.decade_projection), body))
-
-    if insights.pivotal and insights.pivotal.pivot_question:
-        story.append(Paragraph("Sit with this", label))
-        story.append(Paragraph(
-            _safe(insights.pivotal.pivot_question),
-            _style("verdict_pivot", fontName=_font("FredokaOne"), fontSize=10,
-                   leading=13, textColor=INK_PRIMARY, spaceAfter=4),
-        ))
-
-    return story
-
-
-def _render_pros_cons_grid(
-    builds: list[Build],
-    items: "list[CompareProsConsItem]",
-) -> list[object]:
-    """Per-build pros/cons cards arranged in a single horizontal strip
-    (one column per build), matching the on-screen CompareProsCons
-    layout."""
-    if not items:
-        return []
-    by_id: dict[str, "CompareProsConsItem"] = {item.build_id: item for item in items}
-
-    n = len(builds)
-    col_w = LIVE_W / n
-
-    title_style = _style(
-        "pc_title", fontName=_font("NunitoBold"), fontSize=8, leading=10,
-        textColor=INK_PRIMARY, alignment=TA_CENTER,
-    )
-    pro_style = _style(
-        "pc_pro", fontName=_font("Nunito"), fontSize=7.5, leading=10,
-        textColor=INK_SECONDARY, leftIndent=8, firstLineIndent=-8,
-        spaceAfter=1,
-    )
-    con_style = _style(
-        "pc_con", fontName=_font("Nunito"), fontSize=7.5, leading=10,
-        textColor=INK_SECONDARY, leftIndent=8, firstLineIndent=-8,
-        spaceAfter=1,
-    )
-    sub_style = _style(
-        "pc_sub", fontName=_font("NunitoBold"), fontSize=7, leading=9,
-        textColor=INK_MUTED, spaceAfter=1,
-    )
-
-    column_labels = _column_labels(builds)
-
-    def _build_block(b: Build, header_label: str) -> Table:
-        rows: list[list[object]] = [[Paragraph(
-            _safe(header_label),
-            title_style,
-        )]]
-        item = by_id.get(b.build_id)
-        if item is None:
-            rows.append([Paragraph(
-                "—",
-                _style("pc_empty", fontName=_font("NunitoItalic"),
-                       fontSize=7.5, leading=10, textColor=INK_MUTED),
-            )])
-        else:
-            rows.append([Paragraph("PROS", sub_style)])
-            for pro in item.pros[:2]:
-                rows.append([Paragraph(f"+ {_safe(pro)}", pro_style)])
-            rows.append([Paragraph("CONS", sub_style)])
-            for con in item.cons[:2]:
-                rows.append([Paragraph(f"− {_safe(con)}", con_style)])
-        block = Table(rows, colWidths=[col_w - 8])
-        block.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ("BACKGROUND", (0, 0), (0, 0), BG_ROW_ALT),
-            ("LINEBELOW", (0, 0), (0, 0), 0.5, RULE_LIGHT),
-        ]))
-        return block
-
-    strip = Table(
-        [[_build_block(b, label) for b, label in zip(builds, column_labels)]],
-        colWidths=[col_w] * n,
-    )
-    strip.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ("LINEBEFORE", (1, 0), (n - 1, -1), 0.4, RULE_LIGHT),
-    ]))
-    return [strip, Spacer(1, 4)]
 
 
 def _shorten(text: str, max_len: int) -> str:
@@ -2047,8 +1900,6 @@ def generate_build_pdf(
 
 def generate_comparison_pdf(
     builds: list[Build],
-    *,
-    insights: CompareInsightsPayload | None = None,
 ) -> bytes:
     """Render the multi-page Comparison PDF for 2-4 builds.
 
@@ -2065,10 +1916,6 @@ def generate_comparison_pdf(
         3. COST BREAKDOWN (tuition in/out, R&B, net price, COA, debt)
         4. CAREER BRANCHES (top related careers per build, when
            branch data is present on at least one build)
-        5. GEMMA'S VERDICT (compare summary + Big Choice + per-build
-           pros/cons + decade projection + pivot question; rendered
-           only when ``insights`` is non-None and at least one of its
-           sub-blocks has data)
 
     The PDF flows naturally across pages — ReportLab's flowables wrap
     onto page 2/3 as content demands. No explicit PageBreak is forced
@@ -2090,6 +1937,5 @@ def generate_comparison_pdf(
     story.extend(_build_comparison_school_profile(builds))
     story.extend(_build_comparison_cost_breakdown(builds))
     story.extend(_build_comparison_branches(builds))
-    story.extend(_build_comparison_gemma_verdict(builds, insights))
     doc.build(story)
     return buf.getvalue()

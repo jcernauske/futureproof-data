@@ -12,7 +12,6 @@
  */
 
 import { formatErrorDetail } from "@/api/client";
-import type { CompareInsights } from "@/api/menu";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -41,13 +40,6 @@ export async function exportBuildPdf(
 
 export interface ExportComparisonPdfOptions {
   studentName?: string | null;
-  // Already-loaded Gemma insights from /builds/compare-insights.
-  // Forwarding them here lets the PDF reuse the on-screen editorial
-  // content (compare summary, Big Choice, pros/cons, decade
-  // projection, pivot question) instead of re-firing 3 Gemma calls
-  // — saves ~5-10s of PDF export latency. When omitted, the backend
-  // generates its own insights before rendering.
-  insights?: CompareInsights | null;
 }
 
 export async function exportComparisonPdf(
@@ -60,7 +52,6 @@ export async function exportComparisonPdf(
     body: JSON.stringify({
       build_ids: buildIds,
       student_name: opts.studentName ?? null,
-      insights: opts.insights ?? null,
     }),
   });
   if (!res.ok) {
@@ -71,9 +62,7 @@ export async function exportComparisonPdf(
 }
 
 /**
- * Trigger a browser download for a PDF Blob. The filename is taken from
- * the server-provided Content-Disposition header in the canonical flow,
- * but the backend already names it; we only need to wire the click.
+ * Trigger a browser download for a PDF Blob.
  */
 export function downloadBlobAs(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -83,6 +72,5 @@ export function downloadBlobAs(blob: Blob, filename: string): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  // Revoke after a tick — some browsers race the navigation.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

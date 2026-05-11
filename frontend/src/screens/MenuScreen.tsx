@@ -170,12 +170,15 @@ export function MenuScreen() {
 
   // Auto-enter select mode when AppHeader's Compare button drops us at
   // /builds?select=1, so the user only has to pick which builds to compare.
+  // Runs from any mode (including `compare`) so the header Compare button
+  // always returns the user to the picker, even from the results view.
   useEffect(() => {
     if (searchParams.get("select") !== "1") return;
     if (builds.length < 2) return;
-    if (mode !== "list") return;
+    if (mode === "select") return;
     setMode("select");
     setSelectedIds([]);
+    setCompareIds([]);
   }, [searchParams, builds.length, mode]);
 
   // Reset to plain list when AppHeader's My Builds icon drops us back at
@@ -293,18 +296,9 @@ export function MenuScreen() {
                   <p className="font-body text-body text-text-secondary">
                     {t("menu.emptyDescription")}
                   </p>
-                  <div className="flex flex-col tablet:flex-row items-center gap-3">
-                    <Button variant="primary" onClick={handleNewBuild} data-testid="btn-new-build">
-                      {t("menu.startFirstBuild")}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={handleNewBuild}
-                      data-testid="btn-new-build-set-course"
-                    >
-                      {t("menu.tryNewFlow")}
-                    </Button>
-                  </div>
+                  <Button variant="primary" onClick={handleNewBuild} data-testid="btn-new-build">
+                    {t("menu.startFirstBuild")}
+                  </Button>
                 </div>
               )}
               {!loadingList && !listError && builds.length > 0 && (

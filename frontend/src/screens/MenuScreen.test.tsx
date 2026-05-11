@@ -37,7 +37,6 @@ vi.mock("react-router-dom", async () => {
 
 const mockListBuilds = vi.fn();
 const mockCompareBuilds = vi.fn();
-const mockCompareInsights = vi.fn();
 const mockSendChat = vi.fn();
 vi.mock("@/api/menu", async () => {
   const actual =
@@ -46,7 +45,6 @@ vi.mock("@/api/menu", async () => {
     ...actual,
     listBuilds: (...args: unknown[]) => mockListBuilds(...args),
     compareBuilds: (...args: unknown[]) => mockCompareBuilds(...args),
-    compareInsights: (...args: unknown[]) => mockCompareInsights(...args),
     sendChat: (...args: unknown[]) => mockSendChat(...args),
   };
 });
@@ -172,14 +170,12 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockListBuilds.mockReset();
   mockCompareBuilds.mockReset();
-  mockCompareInsights.mockReset();
   mockSendChat.mockReset();
   mockGetBuild.mockReset();
   mockDeleteBuild.mockReset();
   useBuildsCountStore.setState({ count: null, loading: false, error: null });
   // Sane defaults — individual tests can override.
   mockCompareBuilds.mockReturnValue(new Promise(() => {}));
-  mockCompareInsights.mockReturnValue(new Promise(() => {}));
   mockSendChat.mockReturnValue(new Promise(() => {}));
   useProfileStore.setState({
     profileName: "Wandering Otter",

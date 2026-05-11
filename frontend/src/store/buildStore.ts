@@ -8,11 +8,15 @@ interface BuildState {
   setTieredCareers: (tiers: TieredCareers | null) => void;
   setSelectedCareer: (career: CareerOutcome | null) => void;
 
-  // Loading
+  // Loading + progress
   isBuilding: boolean;
   buildingStage: number;
+  buildingTotal: number;
+  completedSteps: Set<string>;
   setIsBuilding: (building: boolean) => void;
-  setBuildingStage: (stage: number) => void;
+  setBuildingStage: (stageOrFn: number | ((prev: number) => number)) => void;
+  setBuildingTotal: (total: number) => void;
+  addCompletedStep: (step: string) => void;
 
   // Screen 6 — Reveal
   build: Build | null;
@@ -37,8 +41,21 @@ export const useBuildStore = create<BuildState>()((set) => ({
 
   isBuilding: false,
   buildingStage: 0,
+  buildingTotal: 0,
+  completedSteps: new Set<string>(),
   setIsBuilding: (isBuilding) => set({ isBuilding }),
-  setBuildingStage: (buildingStage) => set({ buildingStage }),
+  setBuildingStage: (stageOrFn) =>
+    set((state) => ({
+      buildingStage:
+        typeof stageOrFn === "function"
+          ? stageOrFn(state.buildingStage)
+          : stageOrFn,
+    })),
+  setBuildingTotal: (buildingTotal) => set({ buildingTotal }),
+  addCompletedStep: (step) =>
+    set((state) => ({
+      completedSteps: new Set(state.completedSteps).add(step),
+    })),
 
   build: null,
   setBuild: (build) => set({ build }),
@@ -51,6 +68,8 @@ export const useBuildStore = create<BuildState>()((set) => ({
       selectedCareer: null,
       isBuilding: false,
       buildingStage: 0,
+      buildingTotal: 0,
+      completedSteps: new Set<string>(),
       build: null,
     }),
 
@@ -61,5 +80,7 @@ export const useBuildStore = create<BuildState>()((set) => ({
       selectedCareer: data.selectedCareer ?? null,
       isBuilding: false,
       buildingStage: 0,
+      buildingTotal: 0,
+      completedSteps: new Set<string>(),
     }),
 }));

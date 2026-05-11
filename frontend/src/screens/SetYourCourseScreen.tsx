@@ -82,6 +82,7 @@ export function SetYourCourseScreen() {
       kind: "career",
       build_ids: [],
       target_id: career.soc_code,
+      target_label: career.occupation_title,
     });
     setChatChipText(`Asking about: ${career.occupation_title}`);
     // No opener prompt — the structured "About this career" card IS the
@@ -152,6 +153,8 @@ export function SetYourCourseScreen() {
   const [confirmStartOver, setConfirmStartOver] = useState(false);
   const reducedMotion = useReducedMotion();
   const slidersRef = useRef<HTMLDivElement>(null);
+  const [highlightSliders, setHighlightSliders] = useState(false);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isAdjustMode) {
@@ -270,9 +273,39 @@ export function SetYourCourseScreen() {
         feasibility: null,
       });
       fireCheckpoint("/set-your-course");
+      // Soft cue: scroll the effort/loans sliders into view and pulse a
+      // glow so the student notices them before clicking Spec my build.
+      // Defer one frame so layout settles after the selection state update.
+      // Offset for the fixed action bar at the bottom so the sliders fully
+      // clear it instead of hiding under the menu.
+      requestAnimationFrame(() => {
+        const el = slidersRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const actionBar = document.querySelector(
+          '[data-testid="action-bar"]',
+        ) as HTMLElement | null;
+        const obstruction = actionBar?.offsetHeight ?? 96;
+        const breathingRoom = 24;
+        const visibleBottom = window.innerHeight - obstruction - breathingRoom;
+        if (rect.bottom > visibleBottom) {
+          window.scrollBy({ top: rect.bottom - visibleBottom, behavior: "smooth" });
+        } else if (rect.top < 80) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+      setHighlightSliders(true);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(() => setHighlightSliders(false), 1800);
     },
     [setSelectedCareer, setCommittedClick],
   );
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, []);
 
   function handleStartOverRequest() {
     setConfirmStartOver(true);
@@ -837,6 +870,7 @@ export function SetYourCourseScreen() {
                   onSubmit={() => void commit()}
                   submitting={busy}
                   netPriceAnnual={effectivePerYearCost}
+                  highlight={highlightSliders}
                 />
                 {softNudge && (
                   <p
@@ -886,15 +920,18 @@ export function SetYourCourseScreen() {
                 </Button>
                 <motion.button
                   onClick={() => void commit()}
-                  disabled={busy}
+                  disabled={busy || !selectedCareer}
+                  title={!selectedCareer ? t("syc.pickCareerFirst") : undefined}
                   className="w-full bg-accent-thrive text-text-inverse font-body font-bold text-cta h-12 rounded-lg cursor-pointer hover:bg-[#6bc494] hover:shadow-glow-thrive transition-all duration-normal disabled:opacity-60 disabled:cursor-not-allowed"
-                  whileTap={busy ? undefined : { scale: 0.97 }}
+                  whileTap={busy || !selectedCareer ? undefined : { scale: 0.97 }}
                   transition={springs.snappy}
                   data-testid="btn-spec-build-bottom"
                 >
                   {busy
                     ? t("syc.specing").replace("{profileName}", profileName ?? "")
-                    : t("syc.specBuild")}
+                    : selectedCareer
+                      ? t("syc.specBuild")
+                      : t("syc.chooseCareer")}
                 </motion.button>
               </div>
             </PageContainer>

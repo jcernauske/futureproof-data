@@ -21,6 +21,8 @@ interface EffortLoansPanelProps {
    * ~/.claude/plans/why-are-we-still-jaunty-curry.md.
    */
   netPriceAnnual?: number | null;
+  /** Pulse each slider container with a thrive glow — used as a soft cue after career selection. */
+  highlight?: boolean;
 }
 
 const EFFORT_STOPS: SliderStop<string>[] = [
@@ -72,7 +74,14 @@ export function EffortLoansPanel({
   onEffortChange,
   onLoanChange,
   netPriceAnnual,
+  highlight = false,
 }: EffortLoansPanelProps) {
+  const sliderCardClass = [
+    "bg-bp-mid border rounded-xl p-6 transition-all duration-500",
+    highlight
+      ? "border-accent-thrive/60 ring-2 ring-accent-thrive/60 shadow-glow-thrive"
+      : "border-border-subtle ring-0 ring-transparent",
+  ].join(" ");
   function handleEffortChange(level: string) {
     const mapped = EFFORT_MAP[level] ?? EFFORT_MAP.balanced!;
     onEffortChange({
@@ -98,7 +107,7 @@ export function EffortLoansPanel({
       {/* Row 1: effort (left) + loans (right) */}
       <div className="grid grid-cols-1 tablet:grid-cols-2 gap-5">
         {/* Effort slider */}
-        <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
+        <div className={sliderCardClass}>
           <div className="font-display text-[20px] font-semibold text-text-primary text-center mb-6">
             How much time will you have to focus on school?
           </div>
@@ -117,7 +126,7 @@ export function EffortLoansPanel({
         </div>
 
         {/* Loan slider */}
-        <div className="bg-bp-mid border border-border-subtle rounded-xl p-6">
+        <div className={sliderCardClass}>
           <div className="font-display text-[20px] font-semibold text-text-primary text-center mb-6">
             How much of your costs will you cover with loans?
           </div>

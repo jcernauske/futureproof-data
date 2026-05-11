@@ -6,10 +6,8 @@ import { getBuild } from "@/api/build";
 import { useBuildStore } from "@/store/buildStore";
 import {
   compareBuilds,
-  compareInsights,
   type AskScope,
   type CompareResult,
-  type CompareInsights,
 } from "@/api/menu";
 import { PentagonOverlay } from "@/components/menu/PentagonOverlay";
 import { RiskHeadlineGrid } from "@/components/menu/RiskHeadlineCard";
@@ -17,13 +15,11 @@ import { CharacterCard } from "@/components/menu/CharacterCard";
 import { MoneySection } from "@/components/menu/MoneySection";
 import { BranchPreview } from "@/components/menu/BranchPreview";
 import { CompareWinners } from "@/components/menu/CompareWinners";
-import { CompareProsCons } from "@/components/menu/CompareProsCons";
 import { CompareAccordion } from "@/components/menu/CompareAccordion";
 import { CompareCostBreakdown } from "@/components/menu/CompareCostBreakdown";
 import { CompareSchoolProfile } from "@/components/menu/CompareSchoolProfile";
 import { Button } from "@/components/ui/Button";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
-import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { useT } from "@/i18n/useT";
 import { exportComparisonPdf, downloadBlobAs } from "@/api/pdf";
@@ -611,8 +607,6 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [result, setResult] = useState<CompareResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [insights, setInsights] = useState<CompareInsights | null>(null);
-  const [insightsSettled, setInsightsSettled] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
@@ -676,12 +670,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     setPdfState("loading");
     setPdfErrorMsg(null);
     try {
-      // Forward the already-loaded Gemma insights so the PDF reuses
-      // the same editorial block the student saw on-screen — avoids
-      // a 5-10s re-fire of 3 Gemma calls server-side.
-      const blob = await exportComparisonPdf(buildIds, {
-        insights: insights ?? null,
-      });
+      const blob = await exportComparisonPdf(buildIds);
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const major = (result?.builds[0]?.major_text || "compare")
         .toLowerCase()
@@ -703,7 +692,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         setPdfErrorMsg(null);
       }, 8000);
     }
-  }, [buildIds, exportPdfDisabledReason, insights, pdfState, result?.builds, t]);
+  }, [buildIds, exportPdfDisabledReason, pdfState, result?.builds, t]);
 
   const handleOpenBuild = useCallback(async (buildId: string) => {
     try {
@@ -723,15 +712,10 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     }
     let cancelled = false;
     setPhase("loading");
-    setInsights(null);
-    setInsightsSettled(false);
-
-    const dataPromise = compareBuilds(buildIds);
-    const insightsPromise = compareInsights(buildIds);
 
     (async () => {
       try {
-        const data = await dataPromise;
+        const data = await compareBuilds(buildIds);
         if (cancelled) return;
         setResult(data);
         setPhase("ready");
@@ -739,16 +723,6 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Failed to compare builds");
         setPhase("error");
-        return;
-      }
-
-      try {
-        const ins = await insightsPromise;
-        if (!cancelled) setInsights(ins);
-      } catch (e) {
-        console.warn("Compare insights failed (non-blocking):", e);
-      } finally {
-        if (!cancelled) setInsightsSettled(true);
       }
     })();
 
@@ -820,8 +794,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     highestUpsideIndex,
     strongestResilienceIndex,
   });
-  const gemmaHeroTradeoff = insights?.pivotal?.meta_tradeoff?.trim();
-  const heroTradeoff = gemmaHeroTradeoff || (insightsSettled ? fallbackHeroTradeoff : null);
+  const heroTradeoff = fallbackHeroTradeoff;
 
   return (
     <motion.article
@@ -1120,194 +1093,6 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
        * pacing. The section breathes with generous vertical spacing so
        * the student can absorb each insight before the next arrives.
        * ================================================================ */}
-      <motion.section
-        data-testid="region-gemma-compare"
-        aria-label="Gemma's comparison analysis"
-        className="mt-4 pt-6 pb-2"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: {},
-          visible: { transition: { staggerChildren: stagger.slow } },
-        }}
-      >
-        {/* Accent divider — fades from insight to thrive, ~40% width, centered */}
-        <motion.div
-          className="mx-auto mb-8"
-          variants={{
-            hidden: { opacity: 0, scaleX: 0 },
-            visible: { opacity: 1, scaleX: 1, transition: { ...springs.gentle, duration: 0.6 } },
-          }}
-        >
-          <div
-            className="mx-auto h-px w-[40%] max-w-[280px]"
-            style={{
-              background: "linear-gradient(90deg, transparent, var(--color-accent-insight), var(--color-accent-thrive), transparent)",
-            }}
-          />
-        </motion.div>
-
-        {/* Header — GemmaStar + "Gemma's Verdict" left-aligned editorial style */}
-        <motion.div
-          className="flex items-center gap-3 mb-6"
-          variants={{
-            hidden: { opacity: 0, y: 16 },
-            visible: { opacity: 1, y: 0, transition: springs.smooth },
-          }}
-        >
-          <motion.div
-            animate={{ rotate: [0, 8, -4, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <GemmaStar size={22} className="opacity-80" />
-          </motion.div>
-          <h2 className="font-display text-heading font-semibold text-text-primary">
-            Gemma's Verdict
-          </h2>
-        </motion.div>
-
-        <div className="flex flex-col gap-8">
-          {/* Summary lede — magazine lead paragraph */}
-          <motion.div
-            variants={{
-              hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0, transition: springs.smooth },
-            }}
-          >
-            {insights?.compare_summary ? (
-              <p className="font-body text-body-lg text-text-secondary leading-relaxed">
-                {(() => {
-                  const trimmed = insights.compare_summary.trim();
-                  const sentenceMatch = trimmed.match(/^[^.!?]+[.!?]/);
-                  return sentenceMatch ? sentenceMatch[0] : trimmed;
-                })()}
-              </p>
-            ) : (
-              <motion.p
-                animate={{ opacity: [0.4, 0.9, 0.4] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                className="font-body text-body text-text-muted"
-              >
-                Reading the tradeoffs…
-              </motion.p>
-            )}
-          </motion.div>
-
-          {/* Big Choice — editorial thesis callout */}
-          {insights?.pivotal?.meta_tradeoff && (
-            <motion.article
-              data-testid="pivotal-meta-tradeoff"
-              className="relative rounded-lg border border-border-subtle bg-bp-mid/60 shadow-glow-insight overflow-hidden"
-              variants={{
-                hidden: { opacity: 0, y: 24 },
-                visible: { opacity: 1, y: 0, transition: springs.smooth },
-              }}
-            >
-              {/* Left accent bar — insight purple */}
-              <div
-                className="absolute left-0 top-0 bottom-0 w-[3px]"
-                style={{
-                  background: "linear-gradient(180deg, var(--color-accent-insight), var(--color-accent-insight) 60%, transparent)",
-                }}
-              />
-              <div className="pl-6 pr-5 py-5 tablet:pl-7 tablet:pr-6 tablet:py-6">
-                <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-insight mb-3">
-                  Big Choice
-                </p>
-                <p className="font-display text-[24px] font-bold leading-snug text-text-primary tablet:text-heading">
-                  {insights.pivotal.meta_tradeoff}
-                </p>
-                {insights.pivotal.meta_explanation && (
-                  <p className="mt-3 font-body text-[15px] text-text-secondary leading-relaxed">
-                    {insights.pivotal.meta_explanation}
-                  </p>
-                )}
-              </div>
-            </motion.article>
-          )}
-
-          {/* Pros/Cons — editorial prose per build */}
-          {insights?.pros_cons && insights.pros_cons.length > 0 && (
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 24 },
-                visible: { opacity: 1, y: 0, transition: springs.smooth },
-              }}
-            >
-              <CompareProsCons
-                builds={result.builds}
-                prosCons={insights.pros_cons}
-                highlightIndex={null}
-              />
-            </motion.div>
-          )}
-
-          {/* Decade Projection — "In ten years" editorial moment */}
-          {insights?.pivotal?.decade_projection && (
-            <motion.article
-              data-testid="pivotal-decade-projection"
-              className="relative rounded-lg border border-border-subtle bg-bp-mid/40 overflow-hidden"
-              variants={{
-                hidden: { opacity: 0, y: 24 },
-                visible: { opacity: 1, y: 0, transition: springs.smooth },
-              }}
-            >
-              {/* Left accent bar — info blue */}
-              <div
-                className="absolute left-0 top-0 bottom-0 w-[3px]"
-                style={{
-                  background: "linear-gradient(180deg, var(--color-accent-info), var(--color-accent-info) 60%, transparent)",
-                }}
-              />
-              <div className="pl-6 pr-5 py-5 tablet:pl-7 tablet:pr-6 tablet:py-6">
-                <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-info mb-3">
-                  In ten years
-                </p>
-                <p className="font-body text-body-lg text-text-primary leading-relaxed">
-                  {insights.pivotal.decade_projection}
-                </p>
-              </div>
-            </motion.article>
-          )}
-
-          {/* Pivot Question — mic-drop moment. Extra padding, thrive glow,
-              display-weight text. This is the last thing the student reads
-              before deciding to ask Gemma or walk away. Make it count. */}
-          {insights?.pivotal?.pivot_question && (
-            <motion.article
-              data-testid="pivotal-question"
-              className="relative rounded-xl border border-accent-thrive/20 bg-bp-mid/30 shadow-glow-thrive overflow-hidden"
-              variants={{
-                hidden: { opacity: 0, y: 28, scale: 0.98 },
-                visible: { opacity: 1, y: 0, scale: 1, transition: springs.smooth },
-              }}
-            >
-              {/* Left accent bar — thrive green */}
-              <div
-                className="absolute left-0 top-0 bottom-0 w-[3px]"
-                style={{
-                  background: "linear-gradient(180deg, var(--color-accent-thrive), var(--color-accent-thrive) 60%, transparent)",
-                }}
-              />
-              {/* Subtle ambient glow behind the question */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: "radial-gradient(ellipse 80% 60% at 20% 80%, rgba(125, 212, 163, 0.06), transparent 70%)",
-                }}
-              />
-              <div className="relative pl-7 pr-6 py-8 tablet:pl-8 tablet:pr-8">
-                <p className="font-data text-[11px] font-bold tracking-widest uppercase text-accent-thrive mb-4">
-                  Sit with this
-                </p>
-                <p className="font-display text-[22px] font-semibold leading-snug text-text-primary tablet:text-heading">
-                  {insights.pivotal.pivot_question}
-                </p>
-              </div>
-            </motion.article>
-          )}
-        </div>
-      </motion.section>
 
       <AnimatePresence>
         {!chatOpen && compareScope && (

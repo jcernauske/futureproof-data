@@ -2137,3 +2137,35 @@ async def test_hedged_completion_backup_fails_primary_wins(monkeypatch):
     assert call_count == 2
 
     gemma_client.reset_cache()
+
+
+# ---------------------------------------------------------------------------
+# ask_skip_tool_calling on ModelRuntimeProfile
+#   spec: docs/specs/refactor-receipt-compact-fallback.md §4
+# ---------------------------------------------------------------------------
+
+
+def test_compact_local_ask_skip_tool_calling_true() -> None:
+    """P1: compact_local profile has ask_skip_tool_calling=True."""
+    cfg = gemma_client.InferenceConfig(
+        backend="ollama",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma4:e4b",
+    )
+    profile = gemma_client.runtime_profile(cfg)
+    assert profile.tier == "compact_local"
+    assert profile.ask_skip_tool_calling is True
+
+
+def test_full_ask_skip_tool_calling_false() -> None:
+    """P1: full profile has ask_skip_tool_calling=False."""
+    cfg = gemma_client.InferenceConfig(
+        backend="ollama",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma4:26b",
+    )
+    profile = gemma_client.runtime_profile(cfg)
+    assert profile.tier == "full"
+    assert profile.ask_skip_tool_calling is False

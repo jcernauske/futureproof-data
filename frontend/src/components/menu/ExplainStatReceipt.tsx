@@ -492,27 +492,128 @@ export function ExplainStatReceiptCard({
         <ul className="mt-2 flex flex-wrap gap-2">
           {payload.sources.map((s, idx) => {
             const { shortForm, slug } = shortFormForSource(s.name);
+            const pillClasses =
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border-subtle bg-bp-mid hover:bg-bp-raised hover:[border-color:var(--color-stat-ern)] focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none transition-colors duration-fast";
+            const pillContent = (
+              <>
+                <span className="font-body text-text-muted">{s.label}</span>
+                <span aria-hidden className="text-text-muted">
+                  ·
+                </span>
+                <span className="font-body text-text-primary">
+                  {shortForm}
+                </span>
+                {s.url && (
+                  <span aria-hidden className="text-text-muted" style={{ fontSize: 10 }}>
+                    ↗
+                  </span>
+                )}
+              </>
+            );
             return (
               <li key={`${slug}-${idx}`} className="list-none">
-                <button
-                  type="button"
-                  data-testid={`receipt-source-${slug}`}
-                  aria-label={`Source: ${s.name}`}
-                  title={s.name}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border-subtle bg-bp-mid hover:bg-bp-raised hover:[border-color:var(--color-stat-ern)] focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none transition-colors duration-fast"
-                  style={{ fontSize: 12 }}
-                >
-                  <span className="font-body text-text-muted">{s.label}</span>
-                  <span aria-hidden className="text-text-muted">·</span>
-                  <span className="font-body text-text-primary">
-                    {shortForm}
-                  </span>
-                </button>
+                {s.url ? (
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid={`receipt-source-${slug}`}
+                    aria-label={`Source: ${s.name}`}
+                    title={s.name}
+                    className={`${pillClasses} no-underline`}
+                    style={{ fontSize: 12 }}
+                  >
+                    {pillContent}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    data-testid={`receipt-source-${slug}`}
+                    aria-label={`Source: ${s.name}`}
+                    title={s.name}
+                    className={pillClasses}
+                    style={{ fontSize: 12 }}
+                  >
+                    {pillContent}
+                  </button>
+                )}
               </li>
             );
           })}
         </ul>
       </section>
+
+      {/* Data Lineage (collapsible) */}
+      {payload.lineage && payload.lineage.length > 0 && (
+        <section aria-labelledby="receipt-lineage-heading" className="mt-5">
+          <details data-testid="receipt-lineage" open>
+            <summary
+              className="cursor-pointer font-display text-text-muted uppercase select-none"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: "1.5px",
+              }}
+            >
+              Data Lineage
+            </summary>
+            <div className="mt-3 space-y-3">
+              {payload.lineage.map((chain) => (
+                <div
+                  key={chain.component_label}
+                  className="bg-bp-mid rounded-lg p-3 overflow-hidden"
+                >
+                  <h3
+                    className="font-display font-semibold text-text-primary m-0"
+                    style={{ fontSize: 13 }}
+                  >
+                    {chain.component_label}
+                  </h3>
+                  <ol className="mt-2 space-y-1 list-none p-0 m-0">
+                    {chain.steps.map((step, i) => (
+                      <li
+                        key={`${step.layer}-${i}`}
+                        className="flex items-baseline gap-2 font-data text-text-muted min-w-0"
+                        style={{ fontSize: 12 }}
+                      >
+                        <span
+                          className="uppercase font-semibold shrink-0"
+                          style={{ fontSize: 10, minWidth: 56 }}
+                        >
+                          {step.layer}
+                        </span>
+                        <span
+                          className="text-text-secondary truncate min-w-0"
+                          title={step.column ? `${step.table_or_file}.${step.column}` : step.table_or_file}
+                        >
+                          {step.table_or_file}
+                          {step.column && (
+                            <span className="text-text-muted">
+                              .{step.column}
+                            </span>
+                          )}
+                        </span>
+                        {step.url && (
+                          <a
+                            href={step.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-text-muted hover:text-text-primary transition-colors shrink-0"
+                            aria-label={`Open ${step.table_or_file} source`}
+                            style={{ fontSize: 10 }}
+                          >
+                            ↗
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
+          </details>
+        </section>
+      )}
 
       {/* Why we mix both pieces */}
       <section aria-labelledby="receipt-why-heading" className="mt-5">

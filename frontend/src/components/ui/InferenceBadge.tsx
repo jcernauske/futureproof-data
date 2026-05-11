@@ -26,31 +26,40 @@ export function InferenceBadge({ className = "" }: InferenceBadgeProps) {
   const t = useT();
   const backend = useInferenceStore((s) => s.backend);
   const model = useInferenceStore((s) => s.model);
-  const loading = useInferenceStore((s) => s.loading);
+  const modelReachable = useInferenceStore((s) => s.modelReachable);
   const error = useInferenceStore((s) => s.error);
   const refresh = useInferenceStore((s) => s.refresh);
 
   useEffect(() => {
-    if (backend === "unknown" && !loading && !error) {
-      refresh();
-    }
-  }, [backend, loading, error, refresh]);
+    refresh();
+    const id = setInterval(refresh, 15_000);
+    return () => clearInterval(id);
+  }, [refresh]);
 
-  if (backend === "unknown") return null;
+  if (backend === "unknown" && !error) return null;
 
+  const isDown = !!error || !modelReachable;
   const isOllama = backend === "ollama";
-  const label = isOllama
-    ? t("header.inferenceLocalLabel")
-    : t("header.inferenceCloudLabel");
-  const size = extractParameterSize(model);
-  const dotClass = isOllama ? "bg-accent-thrive" : "bg-accent-insight";
-  const ringClass = isOllama
-    ? "ring-1 ring-accent-thrive/30"
-    : "ring-1 ring-accent-insight/30";
-  const titleTemplate = isOllama
-    ? t("header.inferenceLocalTitle")
-    : t("header.inferenceCloudTitle");
-  const title = titleTemplate.replace("{model}", model ?? "—");
+  const label = isDown
+    ? t("header.inferenceDownLabel")
+    : isOllama
+      ? t("header.inferenceLocalLabel")
+      : t("header.inferenceCloudLabel");
+  const size = isDown ? null : extractParameterSize(model);
+  const dotClass = isDown
+    ? "bg-accent-alert"
+    : isOllama ? "bg-accent-thrive" : "bg-accent-insight";
+  const ringClass = isDown
+    ? "ring-1 ring-accent-alert/30"
+    : isOllama
+      ? "ring-1 ring-accent-thrive/30"
+      : "ring-1 ring-accent-insight/30";
+  const title = isDown
+    ? t("header.inferenceDownTitle")
+    : (isOllama
+        ? t("header.inferenceLocalTitle")
+        : t("header.inferenceCloudTitle")
+      ).replace("{model}", model ?? "—");
 
   return (
     <span

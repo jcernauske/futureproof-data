@@ -177,6 +177,10 @@ class AskScope(BaseModel):
     # kind requires at least one build_id (validated below).
     build_ids: list[str] = Field(default_factory=list)
     target_id: str | None = None
+    # Human-readable label for the scoped target. Used by ``career``
+    # scope to pass the occupation title + description so Gemma knows
+    # what career the conversation is about without a tool call.
+    target_label: str | None = None
 
     @model_validator(mode="after")
     def _validate_cardinality(self) -> "AskScope":
@@ -325,6 +329,51 @@ class ReceiptSource(BaseModel):
             "Full source name, e.g. 'College Scorecard "
             "(U.S. Department of Education)'."
         )
+    )
+    url: str | None = Field(
+        default=None,
+        description=(
+            "Canonical upstream URL for this data source. When present, "
+            "the frontend renders the source pill as a clickable link."
+        ),
+    )
+
+
+class LineageStep(BaseModel):
+    """One hop in the data lineage chain (Gold → Silver → Bronze → upstream)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    layer: Literal["gold", "silver", "bronze", "upstream"] = Field(
+        description="Pipeline zone for this hop."
+    )
+    table_or_file: str = Field(
+        description=(
+            "Table name (e.g. 'consumable.career_outcomes') "
+            "or file/URL identifier."
+        )
+    )
+    column: str | None = Field(
+        default=None,
+        description="Column name when applicable (e.g. 'cip_family_earnings_rank')."
+    )
+    url: str | None = Field(
+        default=None,
+        description="Upstream URL for bronze/upstream layers."
+    )
+
+
+class ComponentLineage(BaseModel):
+    """Full lineage chain for one stat component."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    component_label: str = Field(
+        description="Matches StatComponent.label for correlation."
+    )
+    steps: list[LineageStep] = Field(
+        min_length=1,
+        description="Ordered lineage: Gold → Silver → Bronze → Upstream URL."
     )
 
 
@@ -519,6 +568,14 @@ class ExplainStatReceipt(BaseModel):
             "emit None. The renderer surfaces this as a subtle byline "
             "under the score callout when populated; suppresses entirely "
             "when None. Gemma never writes this field."
+        ),
+    )
+    lineage: list[ComponentLineage] | None = Field(
+        default=None,
+        description=(
+            "Per-component pipeline lineage trace (Gold → Silver → "
+            "Bronze → URL). Present only on deterministic receipts; "
+            "Gemma-path receipts emit None."
         ),
     )
 
@@ -809,40 +866,6 @@ class ExportBuildPdfRequest(BaseModel):
     student_name: str | None = Field(default=None, max_length=80)
 
 
-class CompareProsConsItem(BaseModel):
-    """One build's pros/cons array, as returned by
-    ``generate_compare_pros_cons_async``. Used to forward already-loaded
-    Gemma insights from the compare screen into the PDF export so the
-    PDF doesn't have to re-fire those Gemma calls."""
-
-    build_id: str
-    pros: list[str] = Field(default_factory=list)
-    cons: list[str] = Field(default_factory=list)
-
-
-class ComparePivotalPayload(BaseModel):
-    """Editorial pivotal-moment block from
-    ``generate_compare_pivotal_async``. All four fields are required
-    when the dict is present (the service returns None on partial
-    success)."""
-
-    meta_tradeoff: str
-    meta_explanation: str
-    decade_projection: str
-    pivot_question: str
-
-
-class CompareInsightsPayload(BaseModel):
-    """Optional Gemma-generated insights forwarded from the compare
-    screen into the PDF export request. Each field is independent —
-    any may be None when the upstream Gemma call failed. The PDF
-    silently omits sections whose data is missing."""
-
-    money_insight: str | None = None
-    compare_summary: str | None = None
-    pros_cons: list[CompareProsConsItem] | None = None
-    pivotal: ComparePivotalPayload | None = None
-
 
 class ExportComparisonPdfRequest(BaseModel):
     """POST /builds/compare/pdf body.
@@ -851,17 +874,10 @@ class ExportComparisonPdfRequest(BaseModel):
     the in-app CompareView selection cap (MenuScreen.tsx). Same-major
     (4-digit CIP family) check is done in the router after the builds
     load.
-
-    ``insights`` is optional — when the frontend has already fetched
-    /builds/compare-insights for the on-screen Gemma's Verdict block,
-    it forwards the same payload here so the PDF reuses it instead of
-    re-firing the 3 Gemma calls (saves ~5-10s of export latency). When
-    omitted, the PDF router fetches insights itself.
     """
 
     build_ids: list[str] = Field(..., min_length=2, max_length=4)
     student_name: str | None = Field(default=None, max_length=80)
-    insights: CompareInsightsPayload | None = None
 
 
 class AudienceQuestion(BaseModel):

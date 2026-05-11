@@ -51,7 +51,7 @@ def _dispatch(**kwargs: object) -> SchoolsForCareerResponse:
     try:
         return rank_schools_for_career(**kwargs)  # type: ignore[arg-type]
     except ValidationError as exc:
-        logger.exception("schools_for_career response failed validation")
+        logger.exception("schools_for_career response failed validation: %s", exc)
         raise HTTPException(
             status_code=502, detail="upstream_contract_violation"
         ) from exc

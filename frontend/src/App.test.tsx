@@ -30,12 +30,28 @@ vi.mock("@/api/health", () => ({
   }),
 }));
 
-const fetchMock = vi.fn();
+const profileResponseQueue: Array<() => Promise<unknown>> = [];
+
+const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
+  if (typeof url === "string" && url.includes("/health/warmup")) {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+  }
+  const next = profileResponseQueue.shift();
+  if (next) return next();
+  return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+});
 vi.stubGlobal("fetch", fetchMock);
+
+function enqueueProfile(data: { profile_name: string; animal_emoji: string; animal_name: string }) {
+  profileResponseQueue.push(() =>
+    Promise.resolve({ ok: true, json: () => Promise.resolve(data) }),
+  );
+}
 
 describe("App routes", () => {
   beforeEach(() => {
-    fetchMock.mockReset();
+    fetchMock.mockClear();
+    profileResponseQueue.length = 0;
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -44,15 +60,7 @@ describe("App routes", () => {
   });
 
   it("/ redirects to /set-your-course which bounces to /profile for auto-generation", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          profile_name: "calm true owl",
-          animal_emoji: "🦉",
-          animal_name: "owl",
-        }),
-    });
+    enqueueProfile({ profile_name: "calm true owl", animal_emoji: "🦉", animal_name: "owl" });
     render(
       <MemoryRouter initialEntries={["/"]}>
         <AppRoutes />
@@ -104,7 +112,8 @@ describe("App routes", () => {
 
 describe("AppHeader visibility by route", () => {
   beforeEach(() => {
-    fetchMock.mockReset();
+    fetchMock.mockClear();
+    profileResponseQueue.length = 0;
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -114,15 +123,7 @@ describe("AppHeader visibility by route", () => {
   });
 
   it("renders header on / (redirects to app)", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          profile_name: "calm true owl",
-          animal_emoji: "🦉",
-          animal_name: "owl",
-        }),
-    });
+    enqueueProfile({ profile_name: "calm true owl", animal_emoji: "🦉", animal_name: "owl" });
     render(
       <MemoryRouter initialEntries={["/"]}>
         <AppRoutes />
@@ -132,15 +133,7 @@ describe("AppHeader visibility by route", () => {
   });
 
   it("renders header on /profile", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          profile_name: "bold swift fox",
-          animal_emoji: "🦊",
-          animal_name: "fox",
-        }),
-    });
+    enqueueProfile({ profile_name: "bold swift fox", animal_emoji: "🦊", animal_name: "fox" });
     render(
       <MemoryRouter initialEntries={["/profile"]}>
         <AppRoutes />
@@ -150,15 +143,7 @@ describe("AppHeader visibility by route", () => {
   });
 
   it("renders New Build and My Builds on /profile (persistent rack)", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          profile_name: "bold swift fox",
-          animal_emoji: "🦊",
-          animal_name: "fox",
-        }),
-    });
+    enqueueProfile({ profile_name: "bold swift fox", animal_emoji: "🦊", animal_name: "fox" });
     render(
       <MemoryRouter initialEntries={["/profile"]}>
         <AppRoutes />
@@ -172,7 +157,8 @@ describe("AppHeader visibility by route", () => {
 
 describe("Profile-guard redirects", () => {
   beforeEach(() => {
-    fetchMock.mockReset();
+    fetchMock.mockClear();
+    profileResponseQueue.length = 0;
     useProfileStore.setState({
       profileName: null,
       animalEmoji: null,
@@ -181,15 +167,7 @@ describe("Profile-guard redirects", () => {
   });
 
   it("/menu redirects to /builds", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          profile_name: "calm true owl",
-          animal_emoji: "🦉",
-          animal_name: "owl",
-        }),
-    });
+    enqueueProfile({ profile_name: "calm true owl", animal_emoji: "🦉", animal_name: "owl" });
     render(
       <MemoryRouter initialEntries={["/menu"]}>
         <AppRoutes />
@@ -201,15 +179,7 @@ describe("Profile-guard redirects", () => {
   });
 
   it("ProfileScreen auto-generates profile when none exists", async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          profile_name: "dancing happy bear",
-          animal_emoji: "🐻",
-          animal_name: "bear",
-        }),
-    });
+    enqueueProfile({ profile_name: "dancing happy bear", animal_emoji: "🐻", animal_name: "bear" });
     render(
       <MemoryRouter initialEntries={["/profile"]}>
         <AppRoutes />

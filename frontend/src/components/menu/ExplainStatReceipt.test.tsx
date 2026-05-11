@@ -680,3 +680,237 @@ describe("ExplainStatReceiptCard — AURA + score_provenance", () => {
     expect(screen.queryByTestId("receipt-score-provenance")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Source pill link vs button rendering (pipeline lineage feature)
+// Spec: source pills render as <a> when url present, <button> when absent
+// ---------------------------------------------------------------------------
+
+describe("ExplainStatReceiptCard — source pill link/button rendering", () => {
+  it("test_source_pill_renders_as_link_when_url_present", () => {
+    const payload = makeHappyPayload({
+      sources: [
+        {
+          label: "Graduate earnings",
+          name: "College Scorecard (U.S. Department of Education)",
+          url: "https://collegescorecard.ed.gov/",
+        },
+        {
+          label: "Occupation wages",
+          name: "Occupational Outlook Handbook, published by the Bureau of Labor Statistics (BLS)",
+          url: "https://www.bls.gov/ooh/",
+        },
+      ],
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const scorecardPill = screen.getByTestId("receipt-source-college-scorecard");
+    expect(scorecardPill.tagName).toBe("A");
+    expect(scorecardPill).toHaveAttribute("href", "https://collegescorecard.ed.gov/");
+    expect(scorecardPill).toHaveAttribute("target", "_blank");
+    expect(scorecardPill).toHaveAttribute("rel", expect.stringContaining("noopener"));
+
+    const blsPill = screen.getByTestId("receipt-source-bls-ooh");
+    expect(blsPill.tagName).toBe("A");
+    expect(blsPill).toHaveAttribute("href", "https://www.bls.gov/ooh/");
+    expect(blsPill).toHaveAttribute("target", "_blank");
+  });
+
+  it("test_source_pill_renders_as_button_when_url_absent", () => {
+    // Sources without url should render as <button> elements
+    const payload = makeHappyPayload({
+      sources: [
+        {
+          label: "Graduate earnings",
+          name: "College Scorecard (U.S. Department of Education)",
+          // no url field
+        },
+        {
+          label: "Occupation wages",
+          name: "Occupational Outlook Handbook, published by the Bureau of Labor Statistics (BLS)",
+          // no url field
+        },
+      ],
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const scorecardPill = screen.getByTestId("receipt-source-college-scorecard");
+    expect(scorecardPill.tagName).toBe("BUTTON");
+    expect(scorecardPill).not.toHaveAttribute("href");
+    expect(scorecardPill).not.toHaveAttribute("target");
+
+    const blsPill = screen.getByTestId("receipt-source-bls-ooh");
+    expect(blsPill.tagName).toBe("BUTTON");
+  });
+
+  it("test_source_pill_mixed_urls — link and button coexist", () => {
+    // One source with url, one without — verifies mixed rendering
+    const payload = makeHappyPayload({
+      sources: [
+        {
+          label: "Graduate earnings",
+          name: "College Scorecard (U.S. Department of Education)",
+          url: "https://collegescorecard.ed.gov/",
+        },
+        {
+          label: "Occupation wages",
+          name: "Occupational Outlook Handbook, published by the Bureau of Labor Statistics (BLS)",
+          // no url
+        },
+      ],
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const linkPill = screen.getByTestId("receipt-source-college-scorecard");
+    expect(linkPill.tagName).toBe("A");
+    expect(linkPill).toHaveAttribute("href", "https://collegescorecard.ed.gov/");
+
+    const buttonPill = screen.getByTestId("receipt-source-bls-ooh");
+    expect(buttonPill.tagName).toBe("BUTTON");
+  });
+
+  it("test_source_pill_link_shows_external_arrow — visible ↗ glyph", () => {
+    const payload = makeHappyPayload({
+      sources: [
+        {
+          label: "Graduate earnings",
+          name: "College Scorecard (U.S. Department of Education)",
+          url: "https://collegescorecard.ed.gov/",
+        },
+      ],
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const pill = screen.getByTestId("receipt-source-college-scorecard");
+    // The external-link arrow glyph renders when url is present
+    expect(pill.textContent).toContain("↗"); // ↗
+  });
+
+  it("test_source_pill_button_no_arrow — no ↗ glyph without url", () => {
+    const payload = makeHappyPayload({
+      sources: [
+        {
+          label: "Graduate earnings",
+          name: "College Scorecard (U.S. Department of Education)",
+          // no url
+        },
+      ],
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const pill = screen.getByTestId("receipt-source-college-scorecard");
+    expect(pill.textContent).not.toContain("↗");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Data Lineage section rendering (collapsible <details> section)
+// ---------------------------------------------------------------------------
+
+describe("ExplainStatReceiptCard — lineage section", () => {
+  it("test_lineage_section_hidden_when_null", () => {
+    // Default makeHappyPayload has no lineage — section must not render
+    const payload = makeHappyPayload();
+    expect(payload.lineage).toBeUndefined();
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    expect(screen.queryByTestId("receipt-lineage")).toBeNull();
+  });
+
+  it("test_lineage_section_hidden_when_explicitly_null", () => {
+    const payload = makeHappyPayload({ lineage: null });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    expect(screen.queryByTestId("receipt-lineage")).toBeNull();
+  });
+
+  it("test_lineage_section_hidden_when_empty_array", () => {
+    const payload = makeHappyPayload({ lineage: [] });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    expect(screen.queryByTestId("receipt-lineage")).toBeNull();
+  });
+
+  it("test_lineage_section_renders_when_present", () => {
+    const payload = makeHappyPayload({
+      lineage: [
+        {
+          component_label: "your school's program rank",
+          steps: [
+            {
+              layer: "gold" as const,
+              table_or_file: "consumable.career_outcomes",
+              column: "cip_family_earnings_rank",
+            },
+            {
+              layer: "silver" as const,
+              table_or_file: "base.college_scorecard",
+              column: "earnings_1yr_median",
+            },
+            {
+              layer: "bronze" as const,
+              table_or_file: "bronze.college_scorecard",
+            },
+            {
+              layer: "upstream" as const,
+              table_or_file: "College Scorecard Field-of-Study CSV",
+              url: "https://ed-public-download.app.cloud.gov/downloads/Most-Recent-Cohorts-Field-of-Study.csv",
+            },
+          ],
+        },
+        {
+          component_label: "this career's pay rank",
+          steps: [
+            {
+              layer: "gold" as const,
+              table_or_file: "consumable.occupation_profiles",
+              column: "wage_percentile_overall",
+            },
+            {
+              layer: "upstream" as const,
+              table_or_file: "BLS Employment Projections",
+              url: "https://www.bls.gov/emp/tables/occupational-projections-and-characteristics.htm",
+            },
+          ],
+        },
+      ],
+    });
+    render(<ExplainStatReceiptCard payload={payload} />);
+
+    const lineageEl = screen.getByTestId("receipt-lineage");
+    expect(lineageEl).toBeInTheDocument();
+    expect(lineageEl.tagName).toBe("DETAILS");
+
+    // Summary text says "Data Lineage"
+    const summary = lineageEl.querySelector("summary");
+    expect(summary).not.toBeNull();
+    expect(summary!.textContent).toContain("Data Lineage");
+
+    // Both component labels render as headings inside the lineage section
+    // (they also appear in the components section, so scope to lineage)
+    const lineageLabels = lineageEl.querySelectorAll("h3");
+    const lineageLabelTexts = Array.from(lineageLabels).map(
+      (h) => h.textContent,
+    );
+    expect(lineageLabelTexts).toContain("your school's program rank");
+    expect(lineageLabelTexts).toContain("this career's pay rank");
+
+    // Layer labels render (GOLD, SILVER, BRONZE, UPSTREAM)
+    const lineageText = lineageEl.textContent ?? "";
+    expect(lineageText).toContain("gold");
+    expect(lineageText).toContain("silver");
+    expect(lineageText).toContain("bronze");
+    expect(lineageText).toContain("upstream");
+
+    // Table/file names render
+    expect(lineageText).toContain("consumable.career_outcomes");
+    expect(lineageText).toContain("base.college_scorecard");
+
+    // Column names render with dot prefix
+    expect(lineageText).toContain(".cip_family_earnings_rank");
+
+    // Upstream step with URL has a link element
+    const upstreamLinks = lineageEl.querySelectorAll('a[target="_blank"]');
+    expect(upstreamLinks.length).toBeGreaterThan(0);
+  });
+});

@@ -356,7 +356,7 @@ function SheetEnclosure({
           type="button"
           onClick={onClose}
           aria-label={t("compareSchools.close")}
-          className="absolute top-4 right-4 z-20 shrink-0 w-9 h-9 rounded-full bg-bp-surface hover:bg-bp-raised text-text-primary flex items-center justify-center transition-colors duration-normal cursor-pointer"
+          className="absolute top-3 right-3 z-20 shrink-0 w-10 h-10 rounded-lg bg-bp-surface hover:bg-bp-raised text-text-primary text-lg font-bold flex items-center justify-center transition-colors duration-normal cursor-pointer border border-border-subtle"
         >
           ✕
         </button>

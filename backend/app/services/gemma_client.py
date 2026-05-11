@@ -86,6 +86,7 @@ class ModelRuntimeProfile:
     sequential_build_stream: bool
     ask_tool_wall_time_s: float
     ask_max_tokens: int
+    ask_skip_tool_calling: bool
 
 
 def runtime_profile(config: InferenceConfig | None = None) -> ModelRuntimeProfile:
@@ -119,6 +120,7 @@ def runtime_profile(config: InferenceConfig | None = None) -> ModelRuntimeProfil
             sequential_build_stream=True,
             ask_tool_wall_time_s=15.0,
             ask_max_tokens=700,
+            ask_skip_tool_calling=True,
         )
     return ModelRuntimeProfile(
         tier="full",
@@ -133,6 +135,7 @@ def runtime_profile(config: InferenceConfig | None = None) -> ModelRuntimeProfil
         sequential_build_stream=False,
         ask_tool_wall_time_s=45.0,
         ask_max_tokens=1200,
+        ask_skip_tool_calling=False,
     )
 
 
