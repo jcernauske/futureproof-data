@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FutureProof Video — Beat 0f: Not Easy Before</title>
+  <link rel="stylesheet" href="_shared/tokens.css">
+  <link rel="stylesheet" href="_shared/base.css">
+  <style>
+    /*
+     * Beat 0f — "And it's not like it was easy before."
+     *
+     * No red. White-on-dark. Hierarchy: secondary text → strong white.
+     * Pre-roll 2.0s.
+     *   0:00–0:02 "And it's not like"        -> delay 2.0s, slow 1.0s, off-white 400
+     *   0:02–0:04 "it was easy before."      -> delay 4.0s, slow 1.0s, white 700, larger
+     *   0:04+ hold indefinitely.
+     */
+    .content { gap: 16px; }
+
+    .line-1 {
+      font-family: var(--intro-font);
+      font-weight: 400;
+      font-size: 64px;
+      line-height: 1.15;
+      color: var(--intro-text);
+      opacity: 0;
+      animation: fadeIn 1.0s ease-out 2.0s forwards;
+    }
+
+    .line-2 {
+      font-family: var(--intro-font);
+      font-weight: 700;
+      font-size: 110px;
+      line-height: 1.1;
+      letter-spacing: -0.015em;
+      color: var(--intro-text-strong);
+      opacity: 0;
+      animation: fadeInUp 1.0s ease-out 4.0s forwards;
+      transform: translateY(20px);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="content">
+      <div class="line-1 fx">And it's not like</div>
+      <div class="line-2 fx">it was easy before.</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FutureProof — The Forge (Build Loading Screen)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Nunito:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-void: #12131F;
+      --bg-deep: #1B1D30;
+      --bg-mid: #232545;
+      --bg-surface: #2D3060;
+      --bg-raised: #3A3D75;
+
+      --accent-thrive: #7DD4A3;
+      --accent-alert: #F4A97E;
+      --accent-caution: #F2D477;
+      --accent-insight: #B8A9E8;
+      --accent-info: #7BB8E0;
+      --accent-empathy: #E88BA9;
+
+      --stat-ern: #F2D477;
+      --stat-roi: #7DD4A3;
+      --stat-res: #B8A9E8;
+      --stat-grw: #7BB8E0;
+      --stat-aura: #E8B86B;
+
+      --boss-ai: #B8A9E8;
+      --boss-loans: #F4A97E;
+      --boss-market: #7BB8E0;
+      --boss-burnout: #E88BA9;
+      --boss-ceiling: #C4BFB0;
+
+      --text-primary: #F5F0E8;
+      --text-secondary: #C4BFB0;
+      --text-muted: #8A8595;
+      --text-inverse: #1B1D30;
+
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-default: rgba(255, 255, 255, 0.1);
+
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --radius-full: 9999px;
+
+      --shadow-glow-insight: 0 0 20px rgba(184, 169, 232, 0.3);
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background-color: var(--bg-void);
+      background-image:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(45, 48, 96, 0.5) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 50% at 80% 35%, rgba(58, 61, 117, 0.35) 0%, transparent 65%),
+        radial-gradient(ellipse 70% 40% at 50% 70%, rgba(35, 37, 69, 0.6) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 10% 90%, rgba(58, 61, 117, 0.25) 0%, transparent 55%),
+        linear-gradient(180deg, #12131F 0%, #1B1D30 30%, #181A2E 60%, #12131F 100%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ============================================================
+       SCENARIO SWITCHER
+       ============================================================ */
+    .scenario-bar {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: var(--radius-full);
+      background: rgba(35, 37, 69, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-default);
+    }
+    .scenario-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: var(--radius-full);
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s ease-out;
+      white-space: nowrap;
+    }
+    .scenario-btn:hover { color: var(--text-secondary); }
+    .scenario-btn.active {
+      color: var(--text-inverse);
+      background: var(--accent-insight);
+    }
+
+    /* ============================================================
+       THE FORGE — Main container
+       ============================================================ */
+    .forge {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px 40px;
+    }
+
+    /* Ambient background glow */
+    .forge-ambient {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      transition: opacity 1.5s ease-in-out;
+    }
+    .forge-ambient::before {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      left: 50%;
+      top: 40%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(45,48,96,0.5) 0%, transparent 70%);
+      opacity: var(--ambient-intensity, 0);
+      transition: opacity 1.5s ease-in-out;
+    }
+    .forge-ambient::after {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      left: 50%;
+      top: 38%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(184,169,232,0.08) 0%, transparent 60%);
+      opacity: var(--ambient-accent, 0);
+      transition: opacity 1.5s ease-in-out;
+    }
+
+    /* Stars */
+    .star {
+      position: fixed;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: rgba(245, 240, 232, 0.3);
+      pointer-events: none;
+      animation: twinkle 4s ease-in-out infinite;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.05; }
+      50% { opacity: 0.45; }
+    }
+
+    /* Noise overlay */
+    .noise-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      z-index: 1;
+    }
+
+    /* ============================================================
+       CHARACTER
+       ============================================================ */
+    .character-container {
+      position: relative;
+      z-index: 2;
+    }
+    .character-glow {
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(184,169,232,0.12) 0%, transparent 70%);
+      animation: charGlow 4s ease-in-out infinite;
+    }
+    @keyframes charGlow {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+      50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.6; }
+    }
+    .character-emoji {
+      font-size: 96px;
+      display: block;
+      text-align: center;
+      position: relative;
+      animation: charFloat 4s ease-in-out infinite;
+      opacity: 0;
+      filter: blur(8px);
+      transform: scale(0.7);
+    }
+    .character-emoji.materialized {
+      animation: charFloat 4s ease-in-out infinite, charMaterialize 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes charFloat {
+      0%, 100% { transform: translateY(0) scale(var(--char-scale, 1)); }
+      50% { transform: translateY(-6px) scale(var(--char-scale, 1)); }
+    }
+    @keyframes charMaterialize {
+      0% { opacity: 0; filter: blur(8px); --char-scale: 0.7; }
+      60% { opacity: 1; filter: blur(0px); --char-scale: 1.08; }
+      100% { opacity: 1; filter: blur(0px); --char-scale: 1; }
+    }
+
+    /* Completion bounce */
+    .character-emoji.complete {
+      animation: charFloat 4s ease-in-out infinite, charBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes charBounce {
+      0% { --char-scale: 1; }
+      50% { --char-scale: 1.12; }
+      100% { --char-scale: 1; }
+    }
+
+    /* ============================================================
+       IDENTITY INSCRIPTION
+       ============================================================ */
+    .identity {
+      text-align: center;
+      margin-top: 16px;
+      z-index: 2;
+      position: relative;
+    }
+    .identity-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 24px;
+      color: var(--text-primary);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    }
+    .identity-name.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .identity-path {
+      font-family: 'Nunito', sans-serif;
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.5s ease-out 0.3s, transform 0.5s ease-out 0.3s;
+    }
+    .identity-path.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ============================================================
+       GHOST PENTAGON + PROGRESS ARC
+       ============================================================ */
+    .pentagon-container {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin-top: 32px;
+      z-index: 2;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+    }
+    .pentagon-container.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Pentagon SVG */
+    .ghost-pentagon { position: absolute; inset: 0; }
+
+    /* Vertex dot — small white circle, pops with color when arc reaches it */
+    .vertex-dot {
+      transition: fill 0.3s ease-out;
+    }
+    .vertex-dot.lit {
+      animation: vertexPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes vertexPop {
+      0%   { r: 3; opacity: 0.25; }
+      40%  { r: 8; opacity: 1; }
+      70%  { r: 5; opacity: 0.9; }
+      100% { r: 6; opacity: 0.85; }
+    }
+
+    /* Vertex label */
+    .vertex-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      fill: var(--text-muted);
+      text-anchor: middle;
+      opacity: 0;
+      transition: opacity 0.4s ease-out, fill 0.4s ease-out;
+    }
+    .vertex-label.lit {
+      opacity: 0.7;
+    }
+
+    /* Pentagon edge glow on completion */
+    .pentagon-edge {
+      stroke: rgba(255,255,255,0.06);
+      stroke-width: 1;
+      fill: none;
+      transition: stroke 0.5s ease-out, stroke-opacity 0.5s ease-out;
+    }
+    .pentagon-edge.complete {
+      stroke: rgba(255,255,255,0.25);
+    }
+
+    /* Progress arc */
+    .progress-arc-track {
+      fill: none;
+      stroke: rgba(255,255,255,0.04);
+      stroke-width: 2;
+    }
+    .progress-arc {
+      fill: none;
+      stroke: url(#progressGrad);
+      stroke-width: 2;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Completion burst */
+    .completion-burst {
+      position: absolute;
+      inset: -20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(184,169,232,0.2) 0%, rgba(125,212,163,0.1) 30%, transparent 70%);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .completion-burst.active {
+      opacity: 1;
+      transform: scale(1.3);
+    }
+
+    /* ============================================================
+       STAT ONBOARDING TEXT
+       ============================================================ */
+    .stat-text-zone {
+      height: 56px;
+      width: 100%;
+      max-width: 320px;
+      margin-top: 16px;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stat-text-block {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    }
+    .stat-text-block.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .stat-text-block.exiting {
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.2s ease-in, transform 0.2s ease-in;
+    }
+    .stat-text-name {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .stat-text-desc {
+      font-family: 'Nunito', sans-serif;
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      line-height: 1.4;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.3s ease-out 0.15s, transform 0.3s ease-out 0.15s;
+    }
+    .stat-text-block.active .stat-text-desc {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @media (max-width: 768px) {
+      .stat-text-zone { max-width: calc(100% - 40px); height: 52px; }
+      .stat-text-name { font-size: 13px; }
+      .stat-text-desc { font-size: 13px; }
+    }
+
+    /* ============================================================
+       BOSS SILHOUETTES
+       ============================================================ */
+    .boss-row {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 28px;
+      z-index: 2;
+      position: relative;
+      opacity: 0;
+      transition: opacity 0.5s ease-out;
+    }
+    .boss-row.visible { opacity: 1; }
+
+    .boss-silhouette {
+      position: relative;
+      font-size: 28px;
+      line-height: 1;
+      transition: filter 0.5s ease-out;
+    }
+    .boss-silhouette .boss-emoji {
+      display: block;
+      filter: grayscale(1) brightness(0.3);
+      transition: filter 0.5s ease-out;
+    }
+    .boss-silhouette.lit .boss-emoji {
+      filter: grayscale(0) brightness(1);
+    }
+    .boss-silhouette .boss-flash {
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      filter: blur(10px);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .boss-silhouette.lit .boss-flash {
+      opacity: 0.35;
+      transform: scale(1.2);
+    }
+
+    /* ============================================================
+       GEMMA SPINNER (simplified)
+       ============================================================ */
+    .gemma-area {
+      margin-top: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      z-index: 2;
+      position: relative;
+      opacity: 0;
+      transition: opacity 0.5s ease-out;
+    }
+    .gemma-area.visible { opacity: 1; }
+
+    .gemma-spinner {
+      width: 28px;
+      height: 28px;
+      position: relative;
+    }
+    .gemma-spinner svg {
+      animation: gemmaSpin 4s linear infinite;
+    }
+    @keyframes gemmaSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .gemma-spinner .star-inner {
+      animation: gemmaBreath 2s ease-in-out infinite;
+    }
+    @keyframes gemmaBreath {
+      0%, 100% { opacity: 0.6; transform: scale(1.05); transform-origin: 50% 50%; }
+      50% { opacity: 1; transform: scale(0.95); transform-origin: 50% 50%; }
+    }
+
+    /* Status text */
+    .status-text {
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      color: var(--text-secondary);
+      height: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .status-line {
+      position: absolute;
+      inset: 0;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+    }
+    .status-line.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .status-line.exiting {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+
+    /* ============================================================
+       ERROR STATE
+       ============================================================ */
+    .error-card {
+      margin-top: 32px;
+      padding: 32px;
+      background: var(--bg-mid);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--accent-alert);
+      max-width: 400px;
+      text-align: center;
+      z-index: 2;
+      position: relative;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .error-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .error-card .error-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      filter: hue-rotate(0deg);
+    }
+    .error-card p {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .error-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .btn-retry {
+      padding: 10px 24px;
+      border: none;
+      border-radius: var(--radius-lg);
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-inverse);
+      background: var(--accent-thrive);
+      cursor: pointer;
+      transition: transform 0.15s ease-out, box-shadow 0.2s ease-out;
+    }
+    .btn-retry:hover {
+      transform: scale(1.02);
+      box-shadow: 0 0 20px rgba(125, 212, 163, 0.3);
+    }
+    .btn-retry:active { transform: scale(0.97); }
+
+    .btn-ghost {
+      padding: 10px 24px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.15s ease-out;
+    }
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: var(--border-strong);
+    }
+
+    /* ============================================================
+       COMPLETION OVERLAY
+       ============================================================ */
+    .forge-complete-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease-in;
+    }
+    .forge-complete-overlay.active {
+      opacity: 1;
+    }
+    .forge-complete-overlay::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 45%, rgba(184,169,232,0.15) 0%, rgba(125,212,163,0.08) 30%, transparent 60%);
+    }
+
+    /* Bloom exit */
+    .forge.bloom-exit {
+      animation: bloomOut 0.5s ease-in forwards;
+    }
+    @keyframes bloomOut {
+      0% { transform: scale(1); opacity: 1; filter: blur(0px); }
+      100% { transform: scale(1.05); opacity: 0; filter: blur(4px); }
+    }
+
+    /* Results preview (shown after bloom) */
+    .results-preview {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-deep);
+      opacity: 0;
+      transform: scale(0.98);
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+      pointer-events: none;
+    }
+    .results-preview.visible {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+    .results-preview-content {
+      text-align: center;
+      font-family: 'Fredoka', sans-serif;
+    }
+    .results-preview-content h2 {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .results-preview-content p {
+      font-family: 'Nunito', sans-serif;
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+    }
+
+    /* ============================================================
+       MOBILE
+       ============================================================ */
+    @media (max-width: 768px) {
+      .character-emoji { font-size: 80px; }
+      .character-glow { width: 140px; height: 140px; }
+      .identity-name { font-size: 20px; }
+      .identity-path { font-size: 14px; }
+      .pentagon-container { width: 180px; height: 180px; margin-top: 24px; }
+      .boss-row { gap: 16px; }
+      .boss-silhouette { font-size: 24px; }
+      .scenario-bar { font-size: 11px; top: 8px; }
+      .scenario-btn { padding: 6px 10px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Scenario Switcher -->
+  <div class="scenario-bar">
+    <button class="scenario-btn active" onclick="runScenario('full')" id="btn-full">Full Build</button>
+    <button class="scenario-btn" onclick="runScenario('indeterminate')" id="btn-indeterminate">Indeterminate</button>
+    <button class="scenario-btn" onclick="runScenario('error')" id="btn-error">Error</button>
+    <button class="scenario-btn" onclick="runScenario('instant')" id="btn-instant">Instant</button>
+    <button class="scenario-btn" onclick="runScenario('slow')" id="btn-slow">Slow (15s)</button>
+  </div>
+
+  <!-- Stars -->
+  <div id="stars"></div>
+
+  <!-- Noise -->
+  <div class="noise-overlay"></div>
+
+  <!-- Ambient glow -->
+  <div class="forge-ambient" id="ambient"></div>
+
+  <!-- Completion overlay -->
+  <div class="forge-complete-overlay" id="completionOverlay"></div>
+
+  <!-- Results preview (placeholder) -->
+  <div class="results-preview" id="resultsPreview">
+    <div class="results-preview-content">
+      <h2>Your Build Is Ready</h2>
+      <p>This is where the full Build Results screen would appear.</p>
+      <p style="margin-top: 24px; font-size: 13px; color: var(--text-muted);">
+        (In the real app, the pentagon, stats, and boss fights would fade in here.)
+      </p>
+    </div>
+  </div>
+
+  <!-- THE FORGE -->
+  <div class="forge" id="forge">
+
+    <!-- Character -->
+    <div class="character-container">
+      <div class="character-glow"></div>
+      <span class="character-emoji" id="character">🐻</span>
+    </div>
+
+    <!-- Identity inscription -->
+    <div class="identity">
+      <div class="identity-name" id="identityName">Bear_Explorer_42</div>
+      <div class="identity-path" id="identityPath">Studying Finance at Indiana State University</div>
+    </div>
+
+    <!-- Ghost Pentagon + Progress Arc -->
+    <div class="pentagon-container" id="pentagonContainer">
+      <!-- Completion burst -->
+      <div class="completion-burst" id="completionBurst"></div>
+
+      <svg viewBox="0 0 220 220" width="220" height="220" class="ghost-pentagon">
+        <defs>
+          <linearGradient id="progressGrad" gradientUnits="userSpaceOnUse" x1="110" y1="10" x2="110" y2="210">
+            <stop offset="0%" stop-color="#F2D477" />
+            <stop offset="25%" stop-color="#7DD4A3" />
+            <stop offset="50%" stop-color="#B8A9E8" />
+            <stop offset="75%" stop-color="#7BB8E0" />
+            <stop offset="100%" stop-color="#E8B86B" />
+          </linearGradient>
+        </defs>
+
+        <!-- Progress arc (circle behind pentagon) -->
+        <circle cx="110" cy="110" r="95" class="progress-arc-track" />
+        <circle cx="110" cy="110" r="95"
+                class="progress-arc" id="progressArc"
+                stroke-dasharray="597"
+                stroke-dashoffset="597"
+                transform="rotate(-90 110 110)" />
+
+        <!-- Pentagon wireframe -->
+        <polygon id="pentagonEdge" class="pentagon-edge"
+                 points="110,22 209,93 171,198 49,198 11,93" />
+
+        <!-- Vertex dots — small white circles, pop with color when arc reaches them -->
+        <circle id="vertex-ern"  class="vertex-dot" cx="110" cy="22"  r="3" fill="rgba(255,255,255,0.25)" data-color="#F2D477" />
+        <circle id="vertex-roi"  class="vertex-dot" cx="209" cy="93"  r="3" fill="rgba(255,255,255,0.25)" data-color="#7DD4A3" />
+        <circle id="vertex-res"  class="vertex-dot" cx="171" cy="198" r="3" fill="rgba(255,255,255,0.25)" data-color="#B8A9E8" />
+        <circle id="vertex-grw"  class="vertex-dot" cx="49"  cy="198" r="3" fill="rgba(255,255,255,0.25)" data-color="#7BB8E0" />
+        <circle id="vertex-aura" class="vertex-dot" cx="11"  cy="93"  r="3" fill="rgba(255,255,255,0.25)" data-color="#E8B86B" />
+
+        <!-- Vertex labels (outside pentagon) -->
+        <text class="vertex-label" id="label-ern"  x="110" y="12">ERN</text>
+        <text class="vertex-label" id="label-roi"  x="220" y="93">ROI</text>
+        <text class="vertex-label" id="label-res"  x="178" y="215">RES</text>
+        <text class="vertex-label" id="label-grw"  x="42" y="215">GRW</text>
+        <text class="vertex-label" id="label-aura" x="0" y="93">AURA</text>
+
+        <!-- Connecting edges that glow when both vertices are lit -->
+        <line class="edge-line" id="edge-ern-roi"  x1="110" y1="22"  x2="209" y2="93"  stroke="transparent" stroke-width="0.5" />
+        <line class="edge-line" id="edge-roi-res"  x1="209" y1="93"  x2="171" y2="198" stroke="transparent" stroke-width="0.5" />
+        <line class="edge-line" id="edge-res-grw"  x1="171" y1="198" x2="49"  y2="198" stroke="transparent" stroke-width="0.5" />
+        <line class="edge-line" id="edge-grw-aura" x1="49"  y1="198" x2="11"  y2="93"  stroke="transparent" stroke-width="0.5" />
+        <line class="edge-line" id="edge-aura-ern" x1="11"  y1="93"  x2="110" y2="22"  stroke="transparent" stroke-width="0.5" />
+      </svg>
+    </div>
+
+    <!-- Stat onboarding text -->
+    <div class="stat-text-zone" id="statTextZone">
+      <div class="stat-text-block" id="stat-text-ern">
+        <span class="stat-text-name" style="color: #F2D477">EARNING POWER</span>
+        <span class="stat-text-desc">How your earnings stack up against peers.</span>
+      </div>
+      <div class="stat-text-block" id="stat-text-roi">
+        <span class="stat-text-name" style="color: #7DD4A3">RETURN ON INVESTMENT</span>
+        <span class="stat-text-desc">Whether the degree pays back what it costs.</span>
+      </div>
+      <div class="stat-text-block" id="stat-text-res">
+        <span class="stat-text-name" style="color: #B8A9E8">AI RESILIENCE</span>
+        <span class="stat-text-desc">How safe this career is from AI.</span>
+      </div>
+      <div class="stat-text-block" id="stat-text-grw">
+        <span class="stat-text-name" style="color: #7BB8E0">GROWTH OUTLOOK</span>
+        <span class="stat-text-desc">Whether this field is hiring or shrinking.</span>
+      </div>
+      <div class="stat-text-block" id="stat-text-aura">
+        <span class="stat-text-name" style="color: #E8B86B">BRAND GRAVITY</span>
+        <span class="stat-text-desc">How much weight your school's name carries.</span>
+      </div>
+    </div>
+
+    <!-- Boss silhouettes -->
+    <div class="boss-row" id="bossRow">
+      <div class="boss-silhouette" id="boss-ai" data-color="#B8A9E8">
+        <span class="boss-emoji">🤖</span>
+        <div class="boss-flash" style="background: radial-gradient(circle, rgba(184,169,232,0.5) 0%, transparent 70%)"></div>
+      </div>
+      <div class="boss-silhouette" id="boss-loans" data-color="#F4A97E">
+        <span class="boss-emoji">💰</span>
+        <div class="boss-flash" style="background: radial-gradient(circle, rgba(244,169,126,0.5) 0%, transparent 70%)"></div>
+      </div>
+      <div class="boss-silhouette" id="boss-market" data-color="#7BB8E0">
+        <span class="boss-emoji">📊</span>
+        <div class="boss-flash" style="background: radial-gradient(circle, rgba(123,184,224,0.5) 0%, transparent 70%)"></div>
+      </div>
+      <div class="boss-silhouette" id="boss-burnout" data-color="#E88BA9">
+        <span class="boss-emoji">🔥</span>
+        <div class="boss-flash" style="background: radial-gradient(circle, rgba(232,139,169,0.5) 0%, transparent 70%)"></div>
+      </div>
+      <div class="boss-silhouette" id="boss-ceiling" data-color="#C4BFB0">
+        <span class="boss-emoji">🚧</span>
+        <div class="boss-flash" style="background: radial-gradient(circle, rgba(196,191,176,0.5) 0%, transparent 70%)"></div>
+      </div>
+    </div>
+
+    <!-- Gemma spinner + status -->
+    <div class="gemma-area" id="gemmaArea">
+      <div class="gemma-spinner">
+        <svg viewBox="0 0 40 40" width="28" height="28">
+          <circle cx="20" cy="20" r="14" fill="none" stroke="var(--accent-insight)" stroke-width="0.8" opacity="0.3" />
+          <g stroke="var(--accent-insight)" stroke-width="0.6" opacity="0.2">
+            <line x1="20" y1="2" x2="20" y2="38" />
+            <line x1="2" y1="20" x2="38" y2="20" />
+          </g>
+          <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z"
+                fill="url(#gemmaGrad)" />
+          <path class="star-inner"
+                d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z"
+                fill="url(#gemmaGradInner)" />
+          <defs>
+            <linearGradient id="gemmaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+              <stop offset="50%" stop-color="var(--accent-insight)" stop-opacity="0.4" />
+              <stop offset="100%" stop-color="var(--accent-info)" stop-opacity="0.6" />
+            </linearGradient>
+            <linearGradient id="gemmaGradInner" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--accent-info)" />
+              <stop offset="100%" stop-color="var(--accent-insight)" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="status-text" id="statusText">
+        <span class="status-line" id="status-0">Gemma is reading your path...</span>
+        <span class="status-line" id="status-1">Measuring your earning power...</span>
+        <span class="status-line" id="status-2">Sizing up the competition...</span>
+        <span class="status-line" id="status-3">Charting where this path leads...</span>
+        <span class="status-line" id="status-4">Identifying your strongest moves...</span>
+        <span class="status-line" id="status-5">Preparing your battle plan...</span>
+        <span class="status-line" id="status-6">Putting it all together...</span>
+      </div>
+    </div>
+
+    <!-- Error card (hidden by default) -->
+    <div class="error-card" id="errorCard">
+      <div class="error-icon">💫</div>
+      <p>Gemma ran into trouble building your profile. Let's give it another shot.</p>
+      <div class="error-buttons">
+        <button class="btn-retry" onclick="runScenario('full')">Try Again</button>
+        <button class="btn-ghost" onclick="runScenario('indeterminate')">Go Back</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // STARS GENERATION
+    // ============================================================
+    (function createStars() {
+      const container = document.getElementById('stars');
+      for (let i = 0; i < 30; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = (Math.random() * 4) + 's';
+        star.style.opacity = '0';
+        container.appendChild(star);
+      }
+    })();
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let currentTimers = [];
+    let currentStatus = -1;
+    let litVertices = new Set();
+    let litBosses = new Set();
+
+    function clearAllTimers() {
+      currentTimers.forEach(t => clearTimeout(t));
+      currentTimers = [];
+    }
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    function setAmbient(intensity, accent) {
+      const el = document.getElementById('ambient');
+      el.style.setProperty('--ambient-intensity', intensity);
+      el.style.setProperty('--ambient-accent', accent);
+    }
+
+    function showStars() {
+      document.querySelectorAll('.star').forEach((s, i) => {
+        currentTimers.push(setTimeout(() => { s.style.opacity = '1'; }, i * 100));
+      });
+    }
+
+    function setStatus(idx) {
+      if (idx === currentStatus) return;
+      const prev = document.getElementById('status-' + currentStatus);
+      const next = document.getElementById('status-' + idx);
+      if (prev) {
+        prev.classList.remove('active');
+        prev.classList.add('exiting');
+        currentTimers.push(setTimeout(() => prev.classList.remove('exiting'), 300));
+      }
+      if (next) {
+        next.classList.add('active');
+      }
+      currentStatus = idx;
+    }
+
+    let activeStatText = null;
+
+    function showStatText(stat) {
+      if (activeStatText === stat) return;
+      // Exit previous
+      if (activeStatText) {
+        const prev = document.getElementById('stat-text-' + activeStatText);
+        if (prev) {
+          prev.classList.remove('active');
+          prev.classList.add('exiting');
+          const old = activeStatText;
+          currentTimers.push(setTimeout(() => {
+            const el = document.getElementById('stat-text-' + old);
+            if (el) el.classList.remove('exiting');
+          }, 250));
+        }
+      }
+      activeStatText = stat;
+      // Enter new (slight delay for clean swap)
+      currentTimers.push(setTimeout(() => {
+        const next = document.getElementById('stat-text-' + stat);
+        if (next) next.classList.add('active');
+      }, 100));
+    }
+
+    function lightVertex(stat) {
+      if (litVertices.has(stat)) return;
+      litVertices.add(stat);
+      const dot = document.getElementById('vertex-' + stat);
+      const label = document.getElementById('label-' + stat);
+      if (dot) {
+        dot.setAttribute('fill', dot.dataset.color);
+        dot.classList.add('lit');
+      }
+      if (label) {
+        label.classList.add('lit');
+      }
+      showStatText(stat);
+      updateEdges();
+    }
+
+    // Arc reaches each vertex at these % positions (top=0, clockwise)
+    // ERN=top(0%), ROI=72°(20%), RES=144°(40%), GRW=216°(60%), AURA=288°(80%)
+    const VERTEX_THRESHOLDS = [
+      { pct: 0.02, stat: 'ern' },
+      { pct: 0.20, stat: 'roi' },
+      { pct: 0.40, stat: 'res' },
+      { pct: 0.60, stat: 'grw' },
+      { pct: 0.80, stat: 'aura' },
+    ];
+
+    function lightBoss(id) {
+      litBosses.add(id);
+      const boss = document.getElementById('boss-' + id);
+      if (boss) boss.classList.add('lit');
+    }
+
+    function updateEdges() {
+      const edges = [
+        ['ern', 'roi'], ['roi', 'res'], ['res', 'grw'], ['grw', 'aura'], ['aura', 'ern']
+      ];
+      edges.forEach(([a, b]) => {
+        const line = document.getElementById('edge-' + a + '-' + b);
+        if (line && litVertices.has(a) && litVertices.has(b)) {
+          line.setAttribute('stroke', 'rgba(255,255,255,0.18)');
+        }
+      });
+    }
+
+    function setProgress(pct) {
+      const circumference = 2 * Math.PI * 95;
+      const offset = circumference * (1 - pct);
+      document.getElementById('progressArc').style.strokeDashoffset = offset;
+      // Light vertices as the arc reaches them
+      for (const { pct: threshold, stat } of VERTEX_THRESHOLDS) {
+        if (pct >= threshold) lightVertex(stat);
+      }
+    }
+
+    function resetAll() {
+      clearAllTimers();
+      currentStatus = -1;
+      litVertices.clear();
+      litBosses.clear();
+
+      // Reset character
+      const char = document.getElementById('character');
+      char.className = 'character-emoji';
+
+      // Reset identity
+      document.getElementById('identityName').classList.remove('visible');
+      document.getElementById('identityPath').classList.remove('visible');
+
+      // Reset pentagon
+      document.getElementById('pentagonContainer').classList.remove('visible');
+      document.querySelectorAll('.vertex-dot').forEach(d => {
+        d.classList.remove('lit');
+        d.setAttribute('fill', 'rgba(255,255,255,0.25)');
+      });
+      document.querySelectorAll('.vertex-label').forEach(l => l.classList.remove('lit'));
+      document.querySelectorAll('.edge-line').forEach(l => l.setAttribute('stroke', 'transparent'));
+      document.getElementById('pentagonEdge').classList.remove('complete');
+      setProgress(0);
+      document.getElementById('completionBurst').classList.remove('active');
+
+      // Reset bosses
+      document.getElementById('bossRow').classList.remove('visible');
+      document.querySelectorAll('.boss-silhouette').forEach(b => b.classList.remove('lit'));
+
+      // Reset stat text
+      activeStatText = null;
+      document.querySelectorAll('.stat-text-block').forEach(b => {
+        b.classList.remove('active', 'exiting');
+      });
+
+      // Reset gemma area
+      document.getElementById('gemmaArea').classList.remove('visible');
+      document.querySelectorAll('.status-line').forEach(s => {
+        s.classList.remove('active', 'exiting');
+      });
+
+      // Reset error
+      document.getElementById('errorCard').classList.remove('visible');
+
+      // Reset ambient
+      setAmbient(0, 0);
+
+      // Reset overlays
+      document.getElementById('completionOverlay').classList.remove('active');
+      document.getElementById('resultsPreview').classList.remove('visible');
+      document.getElementById('forge').classList.remove('bloom-exit');
+      document.getElementById('forge').style.display = '';
+
+      // Reset stars
+      document.querySelectorAll('.star').forEach(s => s.style.opacity = '0');
+    }
+
+    // ============================================================
+    // SCENARIOS
+    // ============================================================
+    function runScenario(name) {
+      // Update buttons
+      document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-' + name)?.classList.add('active');
+
+      resetAll();
+
+      switch(name) {
+        case 'full': runFullBuild(8000); break;
+        case 'indeterminate': runIndeterminate(); break;
+        case 'error': runError(); break;
+        case 'instant': runFullBuild(2000); break;
+        case 'slow': runFullBuild(15000); break;
+      }
+    }
+
+    function runFullBuild(totalMs) {
+      const forge = document.getElementById('forge');
+      forge.style.display = '';
+
+      // Phase 0: Stars appear
+      showStars();
+
+      // Phase 1: Character materializes (0-800ms)
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('character').classList.add('materialized');
+      }, 200));
+
+      // Phase 2: Identity inscription (600-1200ms)
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('identityName').classList.add('visible');
+      }, 600));
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('identityPath').classList.add('visible');
+      }, 900));
+
+      // Phase 3: Pentagon appears (1200ms)
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('pentagonContainer').classList.add('visible');
+      }, 1200));
+
+      // Phase 4: Boss row appears (1400ms)
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('bossRow').classList.add('visible');
+      }, 1400));
+
+      // Phase 5: Gemma area appears (1500ms)
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('gemmaArea').classList.add('visible');
+        setStatus(0);
+      }, 1500));
+
+      // Phase 6: Progress ramps smoothly — vertices pop when arc reaches them
+      const buildStart = 2000;
+      const buildEnd = totalMs - 1000;
+      const buildDuration = buildEnd - buildStart;
+      const steps = 20;
+      const bossOrder = ['ai', 'loans', 'market', 'burnout', 'ceiling'];
+
+      for (let i = 0; i <= steps; i++) {
+        const t = buildStart + (buildDuration * i / steps);
+        const pct = i / steps;
+        currentTimers.push(setTimeout(() => {
+          setProgress(pct);
+          setAmbient(0.15 + pct * 0.35, 0.08 + pct * 0.27);
+          // Update status text at thresholds
+          if (pct < 0.15) setStatus(1);
+          else if (pct < 0.4) setStatus(2);
+          else if (pct < 0.6) setStatus(3);
+          else if (pct < 0.8) setStatus(4);
+          else if (pct < 0.95) setStatus(5);
+          else setStatus(6);
+          // Light bosses at even intervals
+          const bossIdx = Math.floor(pct / 0.2);
+          for (let b = 0; b < bossIdx && b < bossOrder.length; b++) {
+            lightBoss(bossOrder[b]);
+          }
+        }, t));
+      }
+
+      // Phase 10: Complete!
+      currentTimers.push(setTimeout(() => {
+        // Final sweep — arc + vertices catch anything missed
+        setProgress(1);
+        bossOrder.forEach(b => lightBoss(b));
+        setProgress(1);
+        setStatus(6);
+        setAmbient(0.5, 0.35);
+
+        // Clear stat text for clean completion
+        if (activeStatText) {
+          const last = document.getElementById('stat-text-' + activeStatText);
+          if (last) { last.classList.remove('active'); last.classList.add('exiting'); }
+          activeStatText = null;
+        }
+
+        // Pentagon edge glow
+        document.getElementById('pentagonEdge').classList.add('complete');
+
+        // Completion burst
+        currentTimers.push(setTimeout(() => {
+          document.getElementById('completionBurst').classList.add('active');
+          document.getElementById('completionOverlay').classList.add('active');
+        }, 100));
+
+        // Character bounce
+        currentTimers.push(setTimeout(() => {
+          const char = document.getElementById('character');
+          char.classList.remove('materialized');
+          char.classList.add('complete');
+        }, 300));
+
+        // Hold for 300ms, then bloom out
+        currentTimers.push(setTimeout(() => {
+          document.getElementById('forge').classList.add('bloom-exit');
+        }, 900));
+
+        // Show results preview
+        currentTimers.push(setTimeout(() => {
+          document.getElementById('forge').style.display = 'none';
+          document.getElementById('resultsPreview').classList.add('visible');
+        }, 1400));
+
+      }, totalMs));
+    }
+
+    function runIndeterminate() {
+      showStars();
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('character').classList.add('materialized');
+      }, 200));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('identityName').classList.add('visible');
+      }, 600));
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('identityPath').classList.add('visible');
+      }, 900));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('pentagonContainer').classList.add('visible');
+      }, 1200));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('bossRow').classList.add('visible');
+      }, 1400));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('gemmaArea').classList.add('visible');
+        setStatus(0);
+        setAmbient(0.15, 0.08);
+      }, 1500));
+
+      // Slow indeterminate progress sweep (no vertex triggers)
+      let indPct = 0;
+      function indeterminateStep() {
+        indPct += 0.003;
+        if (indPct > 0.4) indPct = 0;
+        const circumference = 2 * Math.PI * 95;
+        const offset = circumference * (1 - indPct);
+        document.getElementById('progressArc').style.strokeDashoffset = offset;
+        currentTimers.push(setTimeout(indeterminateStep, 50));
+      }
+      currentTimers.push(setTimeout(indeterminateStep, 2000));
+
+      // Cycle status messages slowly
+      let statusIdx = 0;
+      function cycleStatus() {
+        statusIdx = (statusIdx + 1) % 4;
+        setStatus(statusIdx);
+        currentTimers.push(setTimeout(cycleStatus, 3000));
+      }
+      currentTimers.push(setTimeout(cycleStatus, 4000));
+    }
+
+    function runError() {
+      showStars();
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('character').classList.add('materialized');
+      }, 200));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('identityName').classList.add('visible');
+      }, 600));
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('identityPath').classList.add('visible');
+      }, 900));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('pentagonContainer').classList.add('visible');
+      }, 1200));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('bossRow').classList.add('visible');
+      }, 1400));
+
+      currentTimers.push(setTimeout(() => {
+        document.getElementById('gemmaArea').classList.add('visible');
+        setStatus(0);
+        setAmbient(0.15, 0.08);
+        setProgress(0.1);
+      }, 1500));
+
+      // Start making progress (arc triggers vertex pop)
+      currentTimers.push(setTimeout(() => {
+        setProgress(0.2);
+        setStatus(1);
+      }, 2500));
+
+      // Then error hits at ~3.5s
+      currentTimers.push(setTimeout(() => {
+        // Dim everything
+        setAmbient(0.08, 0.04);
+
+        // Dim the vertices back
+        document.querySelectorAll('.vertex-dot').forEach(d => {
+          d.setAttribute('opacity', '0.15');
+        });
+
+        // Slow the character float
+        const char = document.getElementById('character');
+        char.style.animationDuration = '6s';
+
+        // Hide gemma area
+        document.getElementById('gemmaArea').classList.remove('visible');
+
+        // Show error card
+        currentTimers.push(setTimeout(() => {
+          document.getElementById('errorCard').classList.add('visible');
+        }, 300));
+      }, 3500));
+    }
+
+    // ============================================================
+    // AUTO-START
+    // ============================================================
+    window.addEventListener('load', () => {
+      runScenario('full');
+    });
+  </script>
+</body>
+</html>

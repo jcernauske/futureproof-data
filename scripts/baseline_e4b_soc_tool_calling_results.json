@@ -1,0 +1,611 @@
+{
+  "model": "gemma4:e4b",
+  "ollama_native_url": "http://127.0.0.1:11434",
+  "repeats": 3,
+  "results": [
+    {
+      "label": "tool_current_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 9163,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student's intent to be a doctor suggests a preference for roles requiring a doctoral or professional degree, making the listed physician and surgeon roles the most relevant additions.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 8102,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The student intent of \"doctor\" strongly suggests physician or surgeon roles, which are directly represented by several codes in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1222",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_8",
+      "mode": "tool",
+      "candidate_count": 8,
+      "duration_ms": 4817,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student stated \"doctor,\" which directly corresponds to physician and surgeon roles listed in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_3",
+      "mode": "tool",
+      "candidate_count": 3,
+      "duration_ms": 4431,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The candidate pool contains specific SOC codes for different types of physicians (Emergency medicine, Family medicine, and all other physicians) which directly match the student's intent of \"doctor.\"",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "json_short_26",
+      "mode": "json",
+      "candidate_count": 26,
+      "duration_ms": 7128,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        "rationale": "The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specific SOC codes."
+      },
+      "content_preview": "{\"soc_codes\": [\"29-1022\", \"29-1214\", \"29-1215\", \"29-1216\", \"29-1222\"], \"rationale\": \"The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specifi",
+      "has_native_tool_call": false
+    },
+    {
+      "label": "json_short_8",
+      "mode": "json",
+      "candidate_count": 8,
+      "duration_ms": 4749,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        "rationale": "The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicians and medical specialists from the candidate pool."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1229\"],\"rationale\":\"The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicia",
+      "has_native_tool_call": false
+    },
+    {
+      "label": "tool_current_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 9671,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student's intent to be a doctor suggests a preference for roles requiring a doctoral or professional degree, making the listed physician and surgeon roles the most relevant additions.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 8532,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The student intent of \"doctor\" strongly suggests physician or surgeon roles, which are directly represented by several codes in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1222",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_8",
+      "mode": "tool",
+      "candidate_count": 8,
+      "duration_ms": 5100,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student stated \"doctor,\" which directly corresponds to physician and surgeon roles listed in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_3",
+      "mode": "tool",
+      "candidate_count": 3,
+      "duration_ms": 4517,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The candidate pool contains specific SOC codes for different types of physicians (Emergency medicine, Family medicine, and all other physicians) which directly match the student's intent of \"doctor.\"",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "json_short_26",
+      "mode": "json",
+      "candidate_count": 26,
+      "duration_ms": 7500,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        "rationale": "The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specific SOC codes."
+      },
+      "content_preview": "{\"soc_codes\": [\"29-1022\", \"29-1214\", \"29-1215\", \"29-1216\", \"29-1222\"], \"rationale\": \"The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specifi",
+      "has_native_tool_call": false
+    },
+    {
+      "label": "json_short_8",
+      "mode": "json",
+      "candidate_count": 8,
+      "duration_ms": 5082,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        "rationale": "The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicians and medical specialists from the candidate pool."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1229\"],\"rationale\":\"The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicia",
+      "has_native_tool_call": false
+    },
+    {
+      "label": "tool_current_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 10915,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student's intent to be a doctor suggests a preference for roles requiring a doctoral or professional degree, making the listed physician and surgeon roles the most relevant additions.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 9837,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The student intent of \"doctor\" strongly suggests physician or surgeon roles, which are directly represented by several codes in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1222",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_8",
+      "mode": "tool",
+      "candidate_count": 8,
+      "duration_ms": 6225,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student stated \"doctor,\" which directly corresponds to physician and surgeon roles listed in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "tool_short_3",
+      "mode": "tool",
+      "candidate_count": 3,
+      "duration_ms": 5789,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The candidate pool contains specific SOC codes for different types of physicians (Emergency medicine, Family medicine, and all other physicians) which directly match the student's intent of \"doctor.\"",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "label": "json_short_26",
+      "mode": "json",
+      "candidate_count": 26,
+      "duration_ms": 9706,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        "rationale": "The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specific SOC codes."
+      },
+      "content_preview": "{\"soc_codes\": [\"29-1022\", \"29-1214\", \"29-1215\", \"29-1216\", \"29-1222\"], \"rationale\": \"The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specifi",
+      "has_native_tool_call": false
+    },
+    {
+      "label": "json_short_8",
+      "mode": "json",
+      "candidate_count": 8,
+      "duration_ms": 6769,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        "rationale": "The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicians and medical specialists from the candidate pool."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1229\"],\"rationale\":\"The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicia",
+      "has_native_tool_call": false
+    }
+  ],
+  "summary": [
+    {
+      "label": "tool_current_26",
+      "runs": 3,
+      "successes": 3,
+      "success_rate": 1.0,
+      "native_tool_calls": 3,
+      "p50_ms": 9671,
+      "avg_ms": 9916,
+      "selected_examples": [
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      ]
+    },
+    {
+      "label": "tool_short_26",
+      "runs": 3,
+      "successes": 3,
+      "success_rate": 1.0,
+      "native_tool_calls": 3,
+      "p50_ms": 8532,
+      "avg_ms": 8823,
+      "selected_examples": [
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1222",
+          "29-1229"
+        ],
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1222",
+          "29-1229"
+        ]
+      ]
+    },
+    {
+      "label": "tool_short_8",
+      "runs": 3,
+      "successes": 3,
+      "success_rate": 1.0,
+      "native_tool_calls": 3,
+      "p50_ms": 5100,
+      "avg_ms": 5380,
+      "selected_examples": [
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      ]
+    },
+    {
+      "label": "tool_short_3",
+      "runs": 3,
+      "successes": 3,
+      "success_rate": 1.0,
+      "native_tool_calls": 3,
+      "p50_ms": 4517,
+      "avg_ms": 4912,
+      "selected_examples": [
+        [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ],
+        [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      ]
+    },
+    {
+      "label": "json_short_26",
+      "runs": 3,
+      "successes": 3,
+      "success_rate": 1.0,
+      "native_tool_calls": 0,
+      "p50_ms": 7500,
+      "avg_ms": 8111,
+      "selected_examples": [
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      ]
+    },
+    {
+      "label": "json_short_8",
+      "runs": 3,
+      "successes": 3,
+      "success_rate": 1.0,
+      "native_tool_calls": 0,
+      "p50_ms": 5082,
+      "avg_ms": 5533,
+      "selected_examples": [
+        [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ]
+      ]
+    }
+  ]
+}

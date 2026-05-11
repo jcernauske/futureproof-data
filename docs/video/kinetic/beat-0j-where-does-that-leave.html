@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FutureProof Video — Beat 0j: Where Does That Leave a Kid?</title>
+  <link rel="stylesheet" href="_shared/tokens.css">
+  <link rel="stylesheet" href="_shared/base.css">
+  <style>
+    /*
+     * Beat 0j — "So where does that leave a kid?"
+     * Silent beat. A breath, not a punch. No red, smaller scale,
+     * lighter weight than other emphasis beats.
+     *
+     * Pre-roll 2.0s.
+     *   0:00–0:02 "So where does that"   -> delay 2.0s, slow 1.5s, secondary
+     *   0:02–0:04 "leave a kid?"         -> delay 4.0s, slow 1.5s, white 700
+     *   0:04+ hold indefinitely.
+     */
+    .content { gap: 14px; }
+
+    .line-1 {
+      font-family: var(--intro-font);
+      font-weight: 500;
+      font-size: 80px;
+      letter-spacing: -0.005em;
+      line-height: 1.15;
+      color: var(--intro-text);
+      opacity: 0;
+      animation: fadeIn 1.5s ease-out 2.0s forwards;
+    }
+    .line-2 {
+      font-family: var(--intro-font);
+      font-weight: 700;
+      font-size: 96px;
+      letter-spacing: -0.015em;
+      line-height: 1.15;
+      color: var(--intro-text-strong);
+      opacity: 0;
+      animation: fadeInUp 1.5s ease-out 4.0s forwards;
+      transform: translateY(16px);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="content">
+      <div class="line-1 fx">So where does that</div>
+      <div class="line-2 fx">leave a kid?</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FutureProof Video — Beat 0e: AI Wave smash cut</title>
+  <link rel="stylesheet" href="_shared/tokens.css">
+  <link rel="stylesheet" href="_shared/base.css">
+  <style>
+    /*
+     * Beat 0e — AI Wave smash cut (5 images).
+     *
+     * Animation delays match the video-timeline anchors in
+     * docs/specs/video-ai-wave.md (image 01 at 0:16.0, image 05 holds
+     * until 0:19.7, then a ~4s fade to black through 0:24.0). Recording
+     * workflow: load file, reload, walk away — the page sits black until
+     * 0:16, fires the cut sequence, and fades back to black on its own.
+     *
+     * Image filenames are the canonical NN-descriptive-name.png form
+     * specified in the spec; assets live at video/images/ai-wave/ at
+     * the project root, so the relative path from this HTML file is
+     * ../../../video/images/ai-wave/...
+     */
+
+    .smashcut-ai-wave {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--intro-bg);
+    }
+
+    .smashcut-ai-wave img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+    }
+
+    .smashcut-ai-wave img:nth-child(1) {
+      animation: cut 0.7s steps(1) 16.0s forwards;
+    }
+    .smashcut-ai-wave img:nth-child(2) {
+      animation: cut 0.7s steps(1) 16.7s forwards;
+    }
+    .smashcut-ai-wave img:nth-child(3) {
+      animation: cut 0.7s steps(1) 17.4s forwards;
+    }
+    .smashcut-ai-wave img:nth-child(4) {
+      animation: cut 0.7s steps(1) 18.1s forwards;
+    }
+    .smashcut-ai-wave img:nth-child(5) {
+      animation: cut 0.9s steps(1) 18.8s forwards;
+    }
+
+    @keyframes cut {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    /* Post-punchline fade-to-black. The overlay sits above all images and
+       fades in from transparent to fully opaque over 4 seconds, starting
+       the moment image 05's display window ends (0:19.7). Final state is
+       held with forwards so the recording captures clean black. */
+    .smashcut-ai-wave .fade-to-black {
+      position: absolute;
+      inset: 0;
+      background: var(--intro-bg);
+      opacity: 0;
+      animation: fadeToBlack 4.0s ease-in-out 19.7s forwards;
+    }
+
+    @keyframes fadeToBlack {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="smashcut-ai-wave">
+      <img src="../../../video/images/ai-wave/01-goldman.png"
+           alt="Goldman Sachs — How Will AI Affect the Global Workforce?">
+      <img src="../../../video/images/ai-wave/02-worklytics.png"
+           alt="Worklytics — AI Adoption Benchmarks 2025">
+      <img src="../../../video/images/ai-wave/03-mckinsey-40.png"
+           alt="Robotics & Automation News — McKinsey 40% by 2030">
+      <img src="../../../video/images/ai-wave/04-mckinsey-57.png"
+           alt="Medium — McKinsey's November 2025 Bombshell: 57%">
+      <img src="../../../video/images/ai-wave/05-fortune-altman.png"
+           alt="Fortune — Sam Altman / AI washing">
+      <div class="fade-to-black"></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FutureProof Video — Beat 1e–1f: But Here's the Thing</title>
+  <link rel="stylesheet" href="_shared/tokens.css">
+  <link rel="stylesheet" href="_shared/base.css">
+  <style>
+    /*
+     * Beat 1e-1f — "But here's the thing. There is data that can help kids
+     *               make better choices."
+     *
+     * The emotional turn. NO red — this beat doesn't have an emotional landing
+     * that warrants the red accent. Hierarchy through size + weight.
+     * "is" is emphasized via 900 weight, "better choices" via larger size + 900.
+     *
+     * Pre-roll 2.0s.
+     *
+     * State 1e (0:00–0:03) "But here's the thing."
+     *   0:00 fade in              -> delay 2.0s
+     *   0:03 fade out             -> delay 5.0s
+     *
+     * State 1f (0:04–0:08)
+     *   0:04 line 1 fade in       -> delay 6.0s ("There **is** data that can help kids")
+     *   0:06 line 2 fade in       -> delay 8.0s ("make **better choices.**")
+     *   0:08+ hold indefinitely.
+     */
+    .stage { position: relative; }
+
+    .state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .state-content {
+      max-width: 1500px;
+      padding: 0 80px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* State 1e — calm, medium, white */
+    .state-1e {
+      opacity: 0;
+      animation:
+        fadeIn 0.8s ease-out 2.0s forwards,
+        fadeOut 0.5s ease-in 5.0s forwards;
+    }
+    .state-1e .text {
+      font-family: var(--intro-font);
+      font-weight: 500;
+      font-size: 120px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--intro-text-strong);
+    }
+
+    /* State 1f */
+    .state-1f .l1 {
+      font-family: var(--intro-font);
+      font-weight: 500;
+      font-size: 88px;
+      letter-spacing: -0.015em;
+      line-height: 1.15;
+      color: var(--intro-text-strong);
+      opacity: 0;
+      animation: fadeInUp 0.8s ease-out 6.0s forwards;
+      transform: translateY(20px);
+    }
+    .state-1f .l2 {
+      font-family: var(--intro-font);
+      font-weight: 700;
+      font-size: 110px;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: var(--intro-text-strong);
+      opacity: 0;
+      animation: fadeInUp 0.8s ease-out 8.0s forwards;
+      transform: translateY(20px);
+    }
+    .state-1f .em {
+      font-weight: 900;
+      color: var(--intro-text-strong);
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+
+    <div class="state state-1e">
+      <div class="state-content">
+        <div class="text">But here's the thing.</div>
+      </div>
+    </div>
+
+    <div class="state state-1f">
+      <div class="state-content">
+        <div class="l1">There <span class="em">is</span> data that can help kids</div>
+        <div class="l2">make <span class="em">better choices.</span></div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
