@@ -3,7 +3,7 @@
 <p align="center"><i>An RPG-style career planning tool that shows high schoolers where a college degree actually leads — powered by Gemma 4, runnable on a school's own laptop.</i></p>
 
 <p align="center">
-  <img alt="Demo video pending" src="https://img.shields.io/badge/%E2%96%B6-demo_video-TBD-lightgrey">
+  <a href="https://youtu.be/ekmOs2eLHnA"><img alt="Demo video" src="https://img.shields.io/badge/%E2%96%B6-demo_video-red"></a>
   <a href="https://futureproof.hyenastudios.com"><img alt="Live demo" src="https://img.shields.io/badge/%F0%9F%8C%90-live_demo-20BEFF"></a>
   <img alt="License" src="https://img.shields.io/badge/license-Apache_2.0-green">
   <img alt="Built with" src="https://img.shields.io/badge/built_with-Gemma_4-orange">
@@ -31,7 +31,7 @@ The same codebase runs on a school's own hardware via Ollama. No per-query cost.
 
 ## Demo
 
-- **3-minute walkthrough video:** _TBD before submission_ — will be linked here and in the Kaggle writeup.
+- **3-minute walkthrough video:** [Watch on YouTube](https://youtu.be/ekmOs2eLHnA)
 - **Live web demo:** [futureproof.hyenastudios.com](https://futureproof.hyenastudios.com) — hosted frontend + cloud backend running Gemma 4 on managed inference.
 - **Local Gemma 4 demo:** Follow [Quickstart](#quickstart) — same product, runs entirely on your laptop with Ollama.
 - **Screenshots:** [`docs/screenshots/`](docs/screenshots/)
