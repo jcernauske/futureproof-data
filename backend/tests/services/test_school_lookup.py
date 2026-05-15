@@ -101,6 +101,19 @@ class TestSearchSchools:
         names = [m.institution_name for m in matches]
         assert names == sorted(names)
 
+    def test_acronym_rows_pass_through(self, mcp_rows):
+        """Acronym-matched rows from the MCP flow through unchanged.
+
+        The matcher lives in the MCP layer; this service test just
+        guards against regressions in the passthrough — the rows the
+        MCP returns for a query like "IU" appear in the result list.
+        """
+        mcp_rows(_IUB_ROWS)
+        matches = school_lookup.search_schools("IU")
+        unitids = {m.unitid for m in matches}
+        assert 151351 in unitids
+        assert 151324 in unitids
+
 
 # ---------------------------------------------------------------------------
 # get_programs

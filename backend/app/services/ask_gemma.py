@@ -154,7 +154,8 @@ def _helper(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 _SYSTEM_BASE = (
-    "You are Gemma, in a chat thread with a high school student who is "
+    "You are the Guide, FutureProof's career advisor, in a chat thread "
+    "with a high school student who is "
     "looking at the career path that comes out of their school and "
     "major. They're asking a follow-up question about one specific "
     "thing — a stat, a risk-category outcome, an applied skill, the "
@@ -4131,13 +4132,13 @@ async def chat_ask(
     # ONCE with the markdown appendix and cached tool values (no MCP
     # re-fetch).
     if explain_config is not None and text:
-        receipt = explain_config.postprocessor(
+        post_receipt = explain_config.postprocessor(
             text,
             builds[0],
             tool_call_log,
             _current_backend(),
         )
-        if receipt is not None:
+        if post_receipt is not None:
             tool_calls = [
                 TraceEventPayload(
                     turn=t.dispatch_index,
@@ -4149,7 +4150,7 @@ async def chat_ask(
                 )
                 for t in tool_call_log
             ]
-            return AskResponse(response=receipt, tool_calls=tool_calls)
+            return AskResponse(response=post_receipt, tool_calls=tool_calls)
         # JSON parse failed → markdown fallback retry with cached values.
         logger.warning(
             "%s: JSON parse failed; retrying with markdown appendix "
@@ -4516,14 +4517,14 @@ async def chat_ask_stream(
 
         # Explain-receipt post-processing via registry.
         if explain_config is not None and text:
-            receipt = explain_config.postprocessor(
+            post_receipt = explain_config.postprocessor(
                 text,
                 builds[0],
                 tool_call_log,
                 _current_backend(),
             )
-            if receipt is not None:
-                yield TraceFinalText(response=receipt)
+            if post_receipt is not None:
+                yield TraceFinalText(response=post_receipt)
                 yield TraceDone()
                 return
             logger.warning(
@@ -4812,18 +4813,18 @@ def _context_for_stat(build: Build, stat_code: str) -> str:
         method_words = {
             "three_signal": (
                 "based on real-world Claude usage data plus Karpathy's "
-                "and Gemma's task-level estimates (the strongest signal)"
+                "and Gemma 4's task-level estimates (the strongest signal)"
             ),
             "two_signal_no_anthropic": (
-                "based on Karpathy and Gemma task-level estimates "
+                "based on Karpathy and Gemma 4 task-level estimates "
                 "(no real-world Claude usage data yet)"
             ),
             "gemma_plus_anthropic": (
-                "based on real-world Claude usage data plus Gemma's "
+                "based on real-world Claude usage data plus Gemma 4's "
                 "task-level estimates"
             ),
             "gemma_only": (
-                "based only on Gemma's task-level estimates of how "
+                "based only on Gemma 4's task-level estimates of how "
                 "automatable each part of the work is"
             ),
             "karpathy_only": (

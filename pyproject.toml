@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "FutureProof data pipeline — maps school + major to career outcomes and AI exposure analysis using Brightsmith"
 requires-python = ">=3.11"
 dependencies = [
-    "brightsmith @ git+https://github.com/jcernauske/brightsmith.git",
+    "brightsmith @ git+https://github.com/hyena-studios/brightsmith.git",
     "openpyxl>=3.1",
     "openai>=1.40",
     "python-dotenv>=1.0",
@@ -24,7 +24,11 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+# Both the pipeline (src/) and the backend (backend/) live in this
+# monorepo. Pipeline mcp tests under tests/mcp/ import from backend's
+# ``app.config`` (for branch-campus suppression), so put both on the
+# pythonpath when running pytest from the repo root.
+pythonpath = ["src", "backend"]
 markers = [
     "network: tests that require network access",
 ]

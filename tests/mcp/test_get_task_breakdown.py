@@ -14,6 +14,7 @@ from mcp_server.futureproof_server import (
 SAMPLE_ROW = {
     "bls_soc_code": "13-2051",
     "primary_title": "Financial Analysts",
+    "description": "Conduct quantitative analyses of investment information.",
     "hmn_score": 5,
     "hmn_score_rounded": 5,
     "burnout_score": 6,
@@ -26,6 +27,7 @@ SAMPLE_ROW = {
     "consequence_of_error": 4.1,
     "activity_importance_mean": 3.9,
     "human_activity_count": 7,
+    "multi_detail_flag": False,
 }
 
 

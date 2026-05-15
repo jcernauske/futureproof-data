@@ -41,7 +41,7 @@ class OutcomesRequest(BaseModel):
 
 
 class TierRequest(BaseModel):
-    outcomes: list[dict]
+    outcomes: list[dict[str, Any]]
     school_name: str
     program_name: str
     cipcode: str
@@ -120,7 +120,7 @@ class WrapupRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    history: list[dict] = []
+    history: list[dict[str, Any]] = []
     locale: AppLocale | None = None
 
 
@@ -690,6 +690,15 @@ class CompareRequest(BaseModel):
 
 class ProfileRerollRequest(BaseModel):
     current_name: str = Field(..., max_length=200)
+    locale: AppLocale | None = None
+
+
+class ProfileCreateRequest(BaseModel):
+    """Body for ``POST /profile``. Optional because older clients still
+    POST an empty body; when ``locale`` is omitted the generator falls
+    back to English."""
+
+    locale: AppLocale | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -806,24 +815,24 @@ class ChipResponse(BaseModel):
 
 class CheckpointRequest(BaseModel):
     screen: str
-    profile_data: dict | None = None
-    build_input_data: dict | None = None
+    profile_data: dict[str, Any] | None = None
+    build_input_data: dict[str, Any] | None = None
     build_id: str | None = None
-    gauntlet_data: dict | None = None
-    tiered_careers_data: dict | None = None
-    selected_career_data: dict | None = None
+    gauntlet_data: dict[str, Any] | None = None
+    tiered_careers_data: dict[str, Any] | None = None
+    selected_career_data: dict[str, Any] | None = None
 
 
 class SessionResponse(BaseModel):
     session_id: str
     last_screen: str
-    profile_data: dict | None = None
-    build_input_data: dict | None = None
+    profile_data: dict[str, Any] | None = None
+    build_input_data: dict[str, Any] | None = None
     build_id: str | None = None
     build: Build | None = None
-    gauntlet_data: dict | None = None
-    tiered_careers_data: dict | None = None
-    selected_career_data: dict | None = None
+    gauntlet_data: dict[str, Any] | None = None
+    tiered_careers_data: dict[str, Any] | None = None
+    selected_career_data: dict[str, Any] | None = None
     created_at: str
     updated_at: str
 
@@ -861,9 +870,14 @@ class ExportBuildPdfRequest(BaseModel):
     student_name is optional; the frontend pre-fills from build.profile_name
     but the user may clear it. Capped at 80 chars to defend the rendered
     layout (single-line at FredokaOne 14pt).
+
+    locale picks the language for all PDF static copy. When omitted, the
+    router falls back to build.locale so older clients that don't send
+    the field still get the locale the build was generated under.
     """
 
     student_name: str | None = Field(default=None, max_length=80)
+    locale: AppLocale | None = None
 
 
 
@@ -874,10 +888,14 @@ class ExportComparisonPdfRequest(BaseModel):
     the in-app CompareView selection cap (MenuScreen.tsx). Same-major
     (4-digit CIP family) check is done in the router after the builds
     load.
+
+    locale picks the language for the comparison PDF. When omitted, the
+    router falls back to the first build's locale.
     """
 
     build_ids: list[str] = Field(..., min_length=2, max_length=4)
     student_name: str | None = Field(default=None, max_length=80)
+    locale: AppLocale | None = None
 
 
 class AudienceQuestion(BaseModel):

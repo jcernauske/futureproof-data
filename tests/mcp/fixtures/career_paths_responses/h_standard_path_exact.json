@@ -114,7 +114,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "unknown"
+        "velocity_label": "unknown",
+        "wage_p10": 64740.0,
+        "wage_p25": 83660.0,
+        "wage_p75": 147150.0,
+        "wage_p90": 200010.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 48.94026974951831,
@@ -225,7 +230,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 46460.0,
+        "wage_p25": 63040.0,
+        "wage_p75": 140360.0,
+        "wage_p90": 210530.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 84.58574181117534,
@@ -336,7 +346,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "accelerating"
+        "velocity_label": "accelerating",
+        "wage_p10": 73710.0,
+        "wage_p25": 126080.0,
+        "wage_p75": 239200.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 1
       },
       {
         "adoption_percentile": 48.747591522158,
@@ -447,7 +462,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 65160.0,
+        "wage_p25": 83480.0,
+        "wage_p75": 139330.0,
+        "wage_p90": 176990.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 36.80154142581888,
@@ -558,7 +578,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "nascent"
+        "velocity_label": "nascent",
+        "wage_p10": 46330.0,
+        "wage_p25": 59830.0,
+        "wage_p75": 99630.0,
+        "wage_p90": 128640.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": null,
@@ -669,7 +694,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "unknown"
+        "velocity_label": "unknown",
+        "wage_p10": 45320.0,
+        "wage_p25": 58380.0,
+        "wage_p75": 101750.0,
+        "wage_p90": 134680.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": null,
@@ -780,7 +810,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "unknown"
+        "velocity_label": "unknown",
+        "wage_p10": 62550.0,
+        "wage_p25": 80150.0,
+        "wage_p75": 135650.0,
+        "wage_p90": 173080.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 55.298651252408476,
@@ -891,7 +926,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 47420.0,
+        "wage_p25": 67160.0,
+        "wage_p75": 164130.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 1
       },
       {
         "adoption_percentile": 39.884393063583815,
@@ -1002,7 +1042,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "nascent"
+        "velocity_label": "nascent",
+        "wage_p10": 74900.0,
+        "wage_p25": 94620.0,
+        "wage_p75": 156330.0,
+        "wage_p90": 197310.0,
+        "work_experience_code": 1
       },
       {
         "adoption_percentile": 53.371868978805395,
@@ -1113,7 +1158,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 59720.0,
+        "wage_p25": 76770.0,
+        "wage_p75": 133140.0,
+        "wage_p90": 174140.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 95.18304431599229,
@@ -1224,7 +1274,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "saturating"
+        "velocity_label": "saturating",
+        "wage_p10": 68860.0,
+        "wage_p25": 100010.0,
+        "wage_p75": 179190.0,
+        "wage_p90": 227590.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": null,
@@ -1335,7 +1390,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "unknown"
+        "velocity_label": "unknown",
+        "wage_p10": 36880.0,
+        "wage_p25": 47670.0,
+        "wage_p75": 82890.0,
+        "wage_p90": 111130.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 42.96724470134875,
@@ -1446,7 +1506,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 66910.0,
+        "wage_p25": 95910.0,
+        "wage_p75": 201490.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 39.691714836223504,
@@ -1557,7 +1622,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "nascent"
+        "velocity_label": "nascent",
+        "wage_p10": 50020.0,
+        "wage_p25": 62420.0,
+        "wage_p75": 100600.0,
+        "wage_p90": 129820.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 75.52986512524085,
@@ -1668,7 +1738,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "accelerating"
+        "velocity_label": "accelerating",
+        "wage_p10": 61200.0,
+        "wage_p25": 78360.0,
+        "wage_p75": 136050.0,
+        "wage_p90": 180590.0,
+        "work_experience_code": 1
       },
       {
         "adoption_percentile": null,
@@ -1724,7 +1799,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "unknown"
+        "velocity_label": "unknown",
+        "wage_p10": 59830.0,
+        "wage_p25": 76950.0,
+        "wage_p75": 131660.0,
+        "wage_p90": 165790.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": null,
@@ -1835,7 +1915,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "unknown"
+        "velocity_label": "unknown",
+        "wage_p10": null,
+        "wage_p25": null,
+        "wage_p75": null,
+        "wage_p90": null,
+        "work_experience_code": null
       },
       {
         "adoption_percentile": 48.94026974951831,
@@ -1946,7 +2031,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 46460.0,
+        "wage_p25": 63040.0,
+        "wage_p75": 140360.0,
+        "wage_p90": 210530.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 51.05973025048169,
@@ -2057,7 +2147,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 81660.0,
+        "wage_p25": 105210.0,
+        "wage_p75": 190890.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 1
       },
       {
         "adoption_percentile": 91.13680154142583,
@@ -2168,7 +2263,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "saturating"
+        "velocity_label": "saturating",
+        "wage_p10": 48300.0,
+        "wage_p25": 59700.0,
+        "wage_p75": 99210.0,
+        "wage_p90": 128830.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 83.42967244701349,
@@ -2279,7 +2379,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "accelerating"
+        "velocity_label": "accelerating",
+        "wage_p10": 46230.0,
+        "wage_p25": 59130.0,
+        "wage_p75": 104800.0,
+        "wage_p90": 130030.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 94.60500963391137,
@@ -2390,7 +2495,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "saturating"
+        "velocity_label": "saturating",
+        "wage_p10": 43580.0,
+        "wage_p25": 51690.0,
+        "wage_p75": 83490.0,
+        "wage_p90": 105870.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 69.94219653179191,
@@ -2501,7 +2611,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 36090.0,
+        "wage_p25": 42360.0,
+        "wage_p75": 58560.0,
+        "wage_p90": 67140.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 54.527938342967246,
@@ -2612,7 +2727,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 83790.0,
+        "wage_p25": 105590.0,
+        "wage_p75": 189960.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 1
       },
       {
         "adoption_percentile": 72.06165703275529,
@@ -2723,7 +2843,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "accelerating"
+        "velocity_label": "accelerating",
+        "wage_p10": 45440.0,
+        "wage_p25": 55870.0,
+        "wage_p75": 97270.0,
+        "wage_p90": 126540.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 48.16955684007707,
@@ -2834,7 +2959,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 49880.0,
+        "wage_p25": 67670.0,
+        "wage_p75": 123090.0,
+        "wage_p90": 153440.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 74.18111753371869,
@@ -2945,7 +3075,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "accelerating"
+        "velocity_label": "accelerating",
+        "wage_p10": 58330.0,
+        "wage_p25": 84540.0,
+        "wage_p75": 173580.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": 52.60115606936416,
@@ -3056,7 +3191,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 75810.0,
+        "wage_p25": 96110.0,
+        "wage_p75": 169310.0,
+        "wage_p90": 219990.0,
+        "work_experience_code": 1
       },
       {
         "adoption_percentile": 46.05009633911368,
@@ -3167,7 +3307,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 37510.0,
+        "wage_p25": 48900.0,
+        "wage_p75": 91550.0,
+        "wage_p90": 120190.0,
+        "work_experience_code": 2
       },
       {
         "adoption_percentile": null,
@@ -3223,7 +3368,12 @@
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
         "unitid": 151351,
-        "velocity_label": null
+        "velocity_label": null,
+        "wage_p10": 36160.0,
+        "wage_p25": 42760.0,
+        "wage_p75": 66510.0,
+        "wage_p90": 91420.0,
+        "work_experience_code": 3
       }
     ],
     "data_caveat": {

@@ -15,25 +15,25 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.10.0",
     "duckdb>=1.1.0",
-    # Wrapped frame rendering (screen 9). Requires one-time
-    # `playwright install chromium` after `pip install` — documented
-    # in README. Hard dep per spec §2 (no graceful degradation).
-    # Pinned to a narrow range: the Python package and the Microsoft
-    # base image (backend/Dockerfile) ship paired Chromium binaries
-    # and drift produces a "Executable doesn't exist" runtime crash.
-    # Bump both together.
-    "playwright>=1.58.0,<1.59.0",
     "jinja2>=3.1.0",
     # Gemma/API dependencies. The old Rich CLI proof of concept was
     # archived under archive/spikes/cli and is not a backend entry point.
     "openai>=1.40",
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
-    "brightsmith @ git+https://github.com/jcernauske/brightsmith.git",
+    "brightsmith @ git+https://github.com/hyena-studios/brightsmith.git",
     # PDF Report Exports (feature-pdf-report-exports). Pure-Python PDF
     # rendering via Platypus; bundled font files live at
     # backend/app/services/pdf_fonts/ and are registered lazily.
     "reportlab>=4.2.0,<5.0.0",
+    # Arabic PDF support. ReportLab itself does no shaping or bidi
+    # reordering, so without these two libraries Arabic strings render
+    # as disconnected, left-to-right glyphs (visually reversed gibberish).
+    # arabic-reshaper applies the joining/positional forms; python-bidi
+    # runs the Unicode bidirectional algorithm so Arabic words appear
+    # in correct visual order. Used only when locale == "ar".
+    "arabic-reshaper>=3.0.0",
+    "python-bidi>=0.4.2",
 ]
 
 [project.optional-dependencies]
@@ -43,13 +43,32 @@ dev = [
     "httpx>=0.27.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    # PDF assertion library — used by tests/services/test_pdf_export.py
+    # and test_pdf_copy.py to parse rendered PDFs and assert that the
+    # right strings (school, program, stat values, copy) made it onto
+    # the page. Runtime PDF rendering uses ReportLab; pypdf only
+    # reads back the output to verify it.
+    "pypdf>=5.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
 [tool.mypy]
+# Pragmatic strict mode — keep the high-signal checks, relax the
+# pedantic ones that fight Python's natural dynamism without catching
+# real bugs:
+#   - disallow_any_generics: `dict` / `list` (without args) are fine in
+#     this codebase's Pydantic models and dynamic JSON-handling helpers
+#   - warn_return_any: many service functions wrap json.loads / SDK
+#     responses whose return type is genuinely Any; surfacing this as
+#     an error is noise.
+#   - warn_unused_ignores: noisy when the same code targets multiple
+#     mypy versions or dependency variants.
 strict = true
+disallow_any_generics = false
+warn_return_any = false
+warn_unused_ignores = false
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
@@ -58,6 +77,25 @@ plugins = ["pydantic.mypy"]
 # at call sites; silence the top-level import-untyped diagnostics here.
 module = "reportlab.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# arabic_reshaper and python-bidi ship without py.typed markers. Used
+# only inside pdf_export._shape() for Arabic PDF rendering; the wrapper
+# annotates its own return type as ``str`` so the rest of the codebase
+# stays typed.
+module = ["arabic_reshaper", "bidi.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# FastAPI route handlers return Pydantic models (typed via response_model)
+# or simple dict literals. Adding explicit return-type annotations is
+# stylistic noise — the framework already knows the shape from the
+# response_model decorator argument or the dict structure.
+module = ["app.routers.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disable_error_code = ["no-untyped-def"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

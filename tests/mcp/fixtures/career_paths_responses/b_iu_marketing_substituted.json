@@ -110,7 +110,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 63000.0,
+        "wage_p25": 85990.0,
+        "wage_p75": 178570.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 2
       },
       {
         "boss_ai_score": 3,
@@ -216,7 +221,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 46460.0,
+        "wage_p25": 63040.0,
+        "wage_p75": 140360.0,
+        "wage_p90": 210530.0,
+        "work_experience_code": 3
       },
       {
         "boss_ai_score": 4,
@@ -322,7 +332,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 43200.0,
+        "wage_p25": 52590.0,
+        "wage_p75": 85280.0,
+        "wage_p90": 106960.0,
+        "work_experience_code": 3
       },
       {
         "boss_ai_score": 5,
@@ -428,7 +443,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 73700.0,
+        "wage_p25": 92880.0,
+        "wage_p75": 166420.0,
+        "wage_p90": 216660.0,
+        "work_experience_code": 1
       },
       {
         "boss_ai_score": 7,
@@ -534,7 +554,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 42070.0,
+        "wage_p25": 56220.0,
+        "wage_p75": 104870.0,
+        "wage_p90": 144610.0,
+        "work_experience_code": 3
       },
       {
         "boss_ai_score": 5,
@@ -640,7 +665,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 81900.0,
+        "wage_p25": 111210.0,
+        "wage_p75": 211080.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 1
       },
       {
         "boss_ai_score": 5,
@@ -746,7 +776,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 66910.0,
+        "wage_p25": 95910.0,
+        "wage_p75": 201490.0,
+        "wage_p90": 239200.0,
+        "work_experience_code": 2
       },
       {
         "boss_ai_score": 7,
@@ -852,7 +887,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 36950.0,
+        "wage_p25": 46110.0,
+        "wage_p75": 85370.0,
+        "wage_p90": 118730.0,
+        "work_experience_code": 3
       },
       {
         "boss_ai_score": 6,
@@ -958,7 +998,12 @@
         ],
         "tuition_in_state": 11790.0,
         "tuition_out_of_state": 40482.0,
-        "unitid": 151351
+        "unitid": 151351,
+        "wage_p10": 47840.0,
+        "wage_p25": 64990.0,
+        "wage_p75": 141860.0,
+        "wage_p90": 192180.0,
+        "work_experience_code": 3
       }
     ],
     "data_caveat": {

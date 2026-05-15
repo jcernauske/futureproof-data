@@ -439,7 +439,7 @@ def test_gemma_unavailable_returns_fallback_string(
     body = resp.json()
     # The exact English fallback per locale.py:_FALLBACKS["chat_unavailable"]["en"]
     assert body["response"] == (
-        "I'm having trouble reaching Gemma right now. "
+        "Having trouble reaching the Guide right now. "
         "Try the question again in a moment."
     )
     # tool_calls is the empty list — there were no tool turns.
@@ -470,7 +470,7 @@ def test_gemma_unavailable_es_locale_returns_spanish_fallback(
     assert resp.status_code == 200
     body = resp.json()
     assert body["response"] == (
-        "Tengo problemas para conectar con Gemma ahora. "
+        "Tengo problemas para conectar con el guía ahora. "
         "Intenta la pregunta de nuevo en un momento."
     )
 

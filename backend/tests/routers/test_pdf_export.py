@@ -328,7 +328,7 @@ class TestPdfExportLazyCareerDescription:
         desc = _make_career_description()
         call_count = {"value": 0}
 
-        async def fake_get_or_generate(soc_code: str, occupation_title: str):
+        async def fake_get_or_generate(soc_code: str, occupation_title: str, locale=None):
             call_count["value"] += 1
             return desc
 
@@ -361,7 +361,7 @@ class TestPdfExportLazyCareerDescription:
         """
         assert stamped_build.career_description is None
 
-        async def raising(soc_code: str, occupation_title: str):
+        async def raising(soc_code: str, occupation_title: str, locale=None):
             raise CareerDescriptionUnavailable("simulated upstream failure")
 
         monkeypatch.setattr(
@@ -394,7 +394,7 @@ class TestPdfExportLazyCareerDescription:
 
         desc = _make_career_description()
 
-        async def fake_get_or_generate(soc_code: str, occupation_title: str):
+        async def fake_get_or_generate(soc_code: str, occupation_title: str, locale=None):
             return desc
 
         monkeypatch.setattr(

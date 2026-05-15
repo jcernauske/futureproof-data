@@ -696,7 +696,7 @@ class _FanoutHarness:
         await asyncio.sleep(self.per_call_sleep_s)
         return "async guidance"
 
-    async def get_or_generate(self, soc_code: str, occupation_title: str):
+    async def get_or_generate(self, soc_code: str, occupation_title: str, locale=None):
         # Eager career-description fetch joins _gemma_fanout's gather
         # (feature-career-description-on-pdf.md). Tests that rely on the
         # fan-out harness now see a 9th coroutine in started_at; raising
@@ -872,7 +872,7 @@ class TestSpawnEagerCareerDescription:
         from app.models.career import CareerDescription
 
         class _AttachingHarness(_FanoutHarness):
-            async def get_or_generate(self, soc_code, occupation_title):
+            async def get_or_generate(self, soc_code, occupation_title, locale=None):
                 self.started_at.append(
                     ("career_description", time.perf_counter()),
                 )
@@ -930,7 +930,7 @@ class TestSpawnEagerCareerDescription:
         from the service is logged but does not block the build."""
 
         class _ExplodingHarness(_FanoutHarness):
-            async def get_or_generate(self, soc_code, occupation_title):
+            async def get_or_generate(self, soc_code, occupation_title, locale=None):
                 self.started_at.append(
                     ("career_description", time.perf_counter()),
                 )

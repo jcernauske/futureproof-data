@@ -113,7 +113,7 @@ class TestResReceiptCompositeMethod:
         lines = receipts.stats_receipt(career, effort="balanced", loan_pct=1.0)
         res_line = next(line for line in lines if line.startswith("RES "))
         assert "Karpathy AI exposure baseline" in res_line
-        assert "Gemma unavailable" in res_line
+        assert "Gemma 4 unavailable" in res_line
 
     def test_gemma_only_method_uses_gemma_only_wording(self) -> None:
         career = self._career(composite_method="gemma_only", velocity_label="unknown")

@@ -36,4 +36,14 @@ select = ["E", "F", "I"]
 
 # test_ask_gemma_explain_receipt.py: inline JSON string in a few-shot
 # fixture; same reasoning as app/services/ask_gemma.py above.
-"tests/services/test_ask_gemma_explain_receipt.py" = ["E501"]
+"tests/services/test_ask_gemma_explain_receipt.py" = ["E501", "I001"]
+
+# profile.py holds locale adjective/animal arrays where Spanish and
+# Arabic Unicode escape sequences naturally exceed the line limit.
+# Splitting them obscures the locale grouping for no readability gain.
+"app/services/profile.py" = ["E501"]
+
+# test_set_your_course.py: long inline JSON dict fixtures for CIP-SOC
+# crosswalk and intent-resolution test cases. Wrapping would obscure
+# which fields belong to which test row.
+"tests/services/test_set_your_course.py" = ["E501"]

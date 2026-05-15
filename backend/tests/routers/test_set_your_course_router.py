@@ -200,14 +200,14 @@ class TestTierEndpointIntentFields:
         forwards them to tier_careers."""
         captured: dict[str, Any] = {}
 
-        def _capture_tier_careers(outcomes, **kwargs):
+        async def _capture_tier_careers(outcomes, **kwargs):
             captured.update(kwargs)
             from collections import OrderedDict
 
             return OrderedDict({"All career paths": list(outcomes)})
 
         monkeypatch.setattr(
-            career_tiering, "tier_careers", _capture_tier_careers
+            career_tiering, "tier_careers_async", _capture_tier_careers
         )
 
         response = client.post(
@@ -234,14 +234,14 @@ class TestTierEndpointIntentFields:
         string and empty list) for backward compat."""
         captured: dict[str, Any] = {}
 
-        def _capture_tier_careers(outcomes, **kwargs):
+        async def _capture_tier_careers(outcomes, **kwargs):
             captured.update(kwargs)
             from collections import OrderedDict
 
             return OrderedDict({"All career paths": list(outcomes)})
 
         monkeypatch.setattr(
-            career_tiering, "tier_careers", _capture_tier_careers
+            career_tiering, "tier_careers_async", _capture_tier_careers
         )
 
         response = client.post(

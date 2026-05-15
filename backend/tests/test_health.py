@@ -42,6 +42,7 @@ def test_health_response_contract_fields(client: TestClient) -> None:
         "version",
         "inference_backend",
         "inference_model",
+        "model_reachable",
     }
 
 

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
@@ -81,7 +81,7 @@ async def compute_outcomes(request: OutcomesRequest):
             cipcode=request.cipcode,
             student_major=request.student_major,
             student_cip=request.student_cip,
-            effort=request.effort,
+            effort=cast(EffortLevel, request.effort),
             loan_pct=request.loan_pct,
             intent_keywords=request.intent_keywords or None,
             home_state=request.home_state,
@@ -95,7 +95,7 @@ async def tier_outcomes(request: TierRequest, raw_request: Request):
     if await raw_request.is_disconnected():
         raise HTTPException(status_code=499, detail="client_disconnected")
     outcomes = [CareerOutcome.model_validate(o) for o in request.outcomes]
-    tiers = career_tiering.tier_careers(
+    tiers = await career_tiering.tier_careers_async(
         outcomes,
         school_name=request.school_name,
         program_name=request.program_name,
@@ -134,7 +134,7 @@ async def _gemma_fanout(
         career, gauntlet, branches, locale=locale,
     )
     desc_task = career_description.get_or_generate(
-        career.soc_code, career.occupation_title,
+        career.soc_code, career.occupation_title, locale=locale,
     )
 
     results = await asyncio.gather(
@@ -250,6 +250,8 @@ async def create_build(request: BuildRequest):
     ):
         career.is_out_of_state = True
 
+    career = stat_engine.compute_ceiling_from_branches(career, branches_list)
+
     gauntlet = boss_fights.score_gauntlet(career)
 
     recs, pool, narrative, desc = await _gemma_fanout(
@@ -262,7 +264,7 @@ async def create_build(request: BuildRequest):
         major_text=request.major_text,
         cipcode=request.cipcode,
         program_name=request.cip_title,
-        effort=request.effort,
+        effort=cast(EffortLevel, request.effort),
         loan_pct=request.loan_pct,
         career=career,
         gauntlet=gauntlet,
@@ -357,6 +359,8 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
     ):
         career.is_out_of_state = True
 
+    career = stat_engine.compute_ceiling_from_branches(career, branches_list)
+
     gauntlet = boss_fights.score_gauntlet(career)
 
     skeleton = builds.build_from_parts(
@@ -365,7 +369,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
         major_text=request.major_text,
         cipcode=request.cipcode,
         program_name=request.cip_title,
-        effort=request.effort,
+        effort=cast(EffortLevel, request.effort),
         loan_pct=request.loan_pct,
         career=career,
         gauntlet=gauntlet,
@@ -429,7 +433,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
             return ("_career_description", None)
         try:
             d = await career_description.get_or_generate(
-                career.soc_code, career.occupation_title,
+                career.soc_code, career.occupation_title, locale=locale,
             )
         except career_description.CareerDescriptionUnavailable:
             return ("_career_description", None)
@@ -471,7 +475,7 @@ async def _build_stream(request: BuildRequest) -> AsyncIterator[str]:
                 pool_emitted = True
                 return sse_event(event_name, event_data)
 
-            steps = [
+            steps: list[Callable[[], Awaitable[tuple[str, Any]]]] = [
                 *[(lambda fight=f: _narrate(fight)) for f in gauntlet.fights],
                 _recs,
                 _guide,
@@ -617,7 +621,7 @@ async def rebuild_with_sliders(build_id: str, request: RebuildRequest):
         major_text=original.major_text,
         cipcode=original.cipcode,
         program_name=original.program_name,
-        effort=request.effort,
+        effort=cast(EffortLevel, request.effort),
         loan_pct=request.loan_pct,
         career=career,
         gauntlet=gauntlet,

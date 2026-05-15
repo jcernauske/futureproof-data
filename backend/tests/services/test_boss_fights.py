@@ -141,11 +141,11 @@ class TestFightCeiling:
         assert fight.result == "win"
         assert fight.raw_score == 8
 
-    def test_falls_back_to_ern(self):
+    def test_no_ern_fallback(self):
+        """ERN fallback removed by boss-ceiling-doubling spec."""
         fight = _run_one(_career(ceiling=None, ern=8), "ceiling")
-        assert fight.result == "win"
-        assert fight.raw_score == 8
-        assert "fallback" in fight.reason
+        assert fight.result == "unknown"
+        assert fight.raw_score is None
 
     def test_unknown_when_both_missing(self):
         fight = _run_one(_career(ceiling=None, ern=None), "ceiling")

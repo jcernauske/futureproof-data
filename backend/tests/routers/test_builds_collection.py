@@ -6,8 +6,8 @@ Covers:
   POST /builds/compare         → 200 with {builds, stats, bosses} on hit;
                                  404 when any build_id is unknown.
 
-Mirrors the style of test_wrapped_router.py: a fresh FastAPI app per
-test backed by an isolated DuckDB via the `isolated_builds_db` fixture.
+A fresh FastAPI app per test backed by an isolated DuckDB via the
+`isolated_builds_db` fixture.
 """
 
 from __future__ import annotations

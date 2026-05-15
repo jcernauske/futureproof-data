@@ -8,9 +8,6 @@ pollutes pipeline products.
 Build IDs are short, human-readable slugs (``iu-b-marketing-001``) so
 the compare flow can reference builds by name rather than UUID.
 
-Wrapped frames (rendered 1080×1920 PNGs) live in a sibling
-``wrapped_frames`` table as BLOBs keyed by (build_id, frame_index).
-
 Module state: a connection cache keyed by DB path so tests can swap in
 a tmp DB via ``monkeypatch.setattr(builds, "_db_path", ...)``.
 """
@@ -20,6 +17,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 import duckdb
@@ -44,7 +42,7 @@ _conns = _db._conns
 _conn_lock = _db._conn_lock
 
 
-def _db_path():  # type: ignore[override]
+def _db_path() -> Path:
     return _db._db_path()
 
 
@@ -166,17 +164,6 @@ def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
     )
     _add_column_if_missing(connection, "builds", "parent_build_id", "VARCHAR")
     _backfill_animal_emoji(connection)
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS wrapped_frames (
-            build_id VARCHAR,
-            frame_index INTEGER,
-            png_data BLOB,
-            rendered_at VARCHAR,
-            PRIMARY KEY (build_id, frame_index)
-        )
-        """
-    )
 
 
 def _slug(text: str) -> str:
@@ -307,7 +294,6 @@ def load_build(build_id: str) -> Build:
 def delete_build(build_id: str) -> None:
     with _db.get_lock():
         connection = _db.conn()
-        connection.execute("DELETE FROM wrapped_frames WHERE build_id = ?", [build_id])
         result = connection.execute("DELETE FROM builds WHERE build_id = ?", [build_id])
         if result.fetchone() is None:
             pass
@@ -526,72 +512,3 @@ def compare_builds(build_ids: list[str]) -> dict[str, Any]:
     }
 
 
-def save_wrapped_frames(build_id: str, frames: list[tuple[int, bytes]]) -> None:
-    """Persist all rendered frame PNGs as BLOBs atomically.
-
-    Wraps DELETE + INSERTs in a BEGIN/COMMIT transaction so a concurrent
-    render for the same ``build_id`` cannot observe a half-written state
-    (e.g., 3 new frames + 3 stale frames). On any error, the transaction
-    is rolled back and the prior frames remain intact.
-
-    All 6 frames share a single ``rendered_at`` timestamp so the cache
-    freshness check (`wrapped_frames_rendered_at` vs `build.created_at`)
-    is unambiguous.
-    """
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    with _db.get_lock():
-        connection = _db.conn()
-        connection.execute("BEGIN TRANSACTION")
-        try:
-            connection.execute(
-                "DELETE FROM wrapped_frames WHERE build_id = ?",
-                [build_id],
-            )
-            for idx, data in frames:
-                connection.execute(
-                    """
-                    INSERT INTO wrapped_frames
-                        (build_id, frame_index, png_data, rendered_at)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    [build_id, idx, data, now],
-                )
-            connection.execute("COMMIT")
-        except Exception:
-            connection.execute("ROLLBACK")
-            raise
-
-
-def load_wrapped_frame(build_id: str, frame_index: int) -> bytes:
-    """Fetch a single frame PNG. Raises FileNotFoundError on miss."""
-    row = _execute_one(
-        "SELECT png_data FROM wrapped_frames WHERE build_id = ? AND frame_index = ?",
-        [build_id, frame_index],
-    )
-    if row is None:
-        raise FileNotFoundError(
-            f"No frame {frame_index} for build {build_id!r}"
-        )
-    return bytes(row[0])
-
-
-def list_wrapped_frames(build_id: str) -> list[int]:
-    """Return frame indices available for a build (0–5). Empty when not rendered."""
-    rows = _execute(
-        """
-        SELECT frame_index FROM wrapped_frames
-        WHERE build_id = ?
-        ORDER BY frame_index
-        """,
-        [build_id],
-    )
-    return [r[0] for r in rows]
-
-
-def wrapped_frames_rendered_at(build_id: str) -> str | None:
-    """Latest rendered_at timestamp across a build's frames, or None."""
-    row = _execute_one(
-        "SELECT MAX(rendered_at) FROM wrapped_frames WHERE build_id = ?",
-        [build_id],
-    )
-    return row[0] if row and row[0] else None

@@ -241,6 +241,16 @@ class CareerOutcome(BaseModel):
 
     loan_pct: float = 1.0
 
+    # 15-year ceiling projection (boss-ceiling-doubling spec).
+    # Populated by stat_engine.compute_ceiling_from_branches() at
+    # request time using Stage 3 branch wages.
+    starting_wage: float | None = None
+    year_15_wage: float | None = None
+    growth_multiple: float | None = None
+    upward_share: float | None = None
+    structural_loss: bool = False
+    inflation_floor_wage: float | None = None
+
 
 class BossFightResult(BaseModel):
     boss: BossId
@@ -295,6 +305,7 @@ class CareerBranch(BaseModel):
     # the ``unlock`` display string. Added by feature-chapter-book
     # (Decision #12). Nullable; upstream row may lack the field.
     related_education_level: str | None = None
+    related_wage: float | None = None
 
 
 class SkillRec(BaseModel):
@@ -355,6 +366,13 @@ class CareerDescription(BaseModel):
     anchor_tier: AnchorTier
     generated_at: str  # ISO-8601 UTC
     model: str  # e.g. "gemma-4-26b-a4b-it" or the Ollama tag
+    # Output language Gemma was instructed to write in. When the PDF
+    # export router sees a Build whose career_description.locale differs
+    # from the requested export locale, the lazy fallback runs a fresh
+    # generation so the printed copy matches the printed-page language.
+    # Defaults to "en" so older serialized builds (pre-locale field)
+    # stay readable as English.
+    locale: AppLocale = "en"
 
 
 class Build(BaseModel):
@@ -374,7 +392,6 @@ class Build(BaseModel):
     guidance: str
     skills_crafted: list[AppliedSkill] = Field(default_factory=list)
     skill_pool: list[AppliedSkill] = Field(default_factory=list)
-    next_steps: str = ""
     profile_name: str = ""
     parent_build_id: str | None = None
     home_state: str | None = None
@@ -407,26 +424,6 @@ class BuildSummary(BaseModel):
     effort: str = "balanced"
     loan_pct: float = 1.0
     animal_emoji: str | None = None
-
-
-class WrappedFrameInfo(BaseModel):
-    """Metadata for a single rendered Wrapped frame."""
-
-    index: int = Field(..., ge=0, le=5)
-    url: str
-
-
-class WrappedResponse(BaseModel):
-    """GET /build/{build_id}/wrapped response."""
-
-    frames: list[WrappedFrameInfo]
-
-
-class RenderResponse(BaseModel):
-    """POST /build/{build_id}/wrapped/render response."""
-
-    status: Literal["ok", "cached"]
-    frame_count: int
 
 
 class IntentResult(BaseModel):

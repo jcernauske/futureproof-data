@@ -331,3 +331,159 @@ class TestResponseShape:
             result = server._handle_get_school_programs({"school_name": "Indiana"})
         for field in SCHOOL_PROGRAMS_RESPONSE_FIELDS:
             assert field in result["data"][0], f"Missing field: {field}"
+
+
+# ---------------------------------------------------------------------------
+# Normalization + acronym matching
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizationAndAcronymMatching:
+    def test_hyphen_stripped_from_query(self):
+        """User typing 'Indiana University Bloomington' (no hyphen) matches."""
+        server = _make_server()
+        rows = [
+            _make_row(
+                151351, "Indiana University-Bloomington", "52.01", "Business"
+            )
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs(
+                {"school_name": "Indiana University Bloomington"}
+            )
+        assert result["row_count"] == 1
+        assert (
+            result["data"][0]["institution_name"]
+            == "Indiana University-Bloomington"
+        )
+
+    def test_acronym_iu_matches_indiana_university_campuses(self):
+        server = _make_server()
+        rows = [
+            _make_row(
+                151351, "Indiana University-Bloomington", "52.01", "Business"
+            ),
+            _make_row(
+                151102,
+                "Indiana University-Purdue University Indianapolis",
+                "52.01",
+                "Business",
+            ),
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs({"school_name": "IU"})
+        names = {r["institution_name"] for r in result["data"]}
+        assert names == {
+            "Indiana University-Bloomington",
+            "Indiana University-Purdue University Indianapolis",
+        }
+
+    def test_acronym_iu_does_not_match_indiana_state(self):
+        """'IU' must not match 'Indiana State University' (acronym ISU)."""
+        server = _make_server()
+        rows = [
+            _make_row(151801, "Indiana State University", "52.01", "Business"),
+            _make_row(
+                151351, "Indiana University-Bloomington", "52.01", "Business"
+            ),
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs({"school_name": "IU"})
+        names = {r["institution_name"] for r in result["data"]}
+        assert names == {"Indiana University-Bloomington"}
+
+    def test_acronym_uiuc_matches_university_of_illinois(self):
+        server = _make_server()
+        rows = [
+            _make_row(
+                145637,
+                "University of Illinois at Urbana-Champaign",
+                "52.01",
+                "Business",
+            ),
+            _make_row(145600, "Illinois State University", "52.01", "Business"),
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs({"school_name": "UIUC"})
+        names = {r["institution_name"] for r in result["data"]}
+        assert names == {"University of Illinois at Urbana-Champaign"}
+
+    def test_acronym_mit_matches_mit_skipping_stopwords(self):
+        """Stopword 'of' is excluded so MIT acronym = M+I+T, not M+I+O+T."""
+        server = _make_server()
+        rows = [
+            _make_row(
+                166683,
+                "Massachusetts Institute of Technology",
+                "52.01",
+                "Business",
+            )
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs({"school_name": "MIT"})
+        assert result["row_count"] == 1
+        assert (
+            result["data"][0]["institution_name"]
+            == "Massachusetts Institute of Technology"
+        )
+
+    def test_acronym_isu_returns_multiple_state_schools(self):
+        server = _make_server()
+        rows = [
+            _make_row(151801, "Indiana State University", "52.01", "Business"),
+            _make_row(153603, "Iowa State University", "52.01", "Business"),
+            _make_row(145600, "Illinois State University", "52.01", "Business"),
+            _make_row(142115, "Idaho State University", "52.01", "Business"),
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs({"school_name": "ISU"})
+        names = {r["institution_name"] for r in result["data"]}
+        assert names == {
+            "Indiana State University",
+            "Iowa State University",
+            "Illinois State University",
+            "Idaho State University",
+        }
+
+    def test_substring_match_still_works(self):
+        """Regression guard: 'indiana' still matches everything containing it."""
+        server = _make_server()
+        rows = [
+            _make_row(
+                151351, "Indiana University-Bloomington", "52.01", "Business"
+            ),
+            _make_row(151801, "Indiana State University", "52.01", "Business"),
+            _make_row(
+                166683,
+                "Massachusetts Institute of Technology",
+                "52.01",
+                "Business",
+            ),
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs(
+                {"school_name": "indiana"}
+            )
+        names = {r["institution_name"] for r in result["data"]}
+        assert names == {
+            "Indiana University-Bloomington",
+            "Indiana State University",
+        }
+
+    def test_acronym_match_respects_confidence_filter(self):
+        """Acronym hits still get filtered by min_confidence."""
+        server = _make_server()
+        rows = [
+            _make_row(
+                166683,
+                "Massachusetts Institute of Technology",
+                "52.01",
+                "Business",
+                confidence_tier="insufficient",
+            )
+        ]
+        with patch.object(server, "query_iceberg_simple", return_value=rows):
+            result = server._handle_get_school_programs(
+                {"school_name": "MIT", "min_confidence": "high"}
+            )
+        assert result["data"] is None

@@ -21,9 +21,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.models.api import AskRequest, AskResponse
+from app.models.career import Build
 from app.services import ask_gemma, builds
 from app.services._sse import sse_event
-from app.services.builds import Build
 
 logger = logging.getLogger(__name__)
 

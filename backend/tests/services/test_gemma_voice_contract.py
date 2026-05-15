@@ -40,9 +40,6 @@ from app.services import (
     skill_pool,
     skill_recs,
 )
-from app.services import (
-    next_steps as next_steps_svc,
-)
 
 # ---------------------------------------------------------------------------
 # Banned tokens — what Gemma must never emit to the student.
@@ -74,7 +71,6 @@ SYSTEM_PROMPTS: list[tuple[str, str]] = [
     ("guidance._CHAT_SYSTEM", guidance._CHAT_SYSTEM),
     ("skill_recs._SYSTEM", skill_recs._SYSTEM),
     ("skill_pool._POOL_SYSTEM", skill_pool._POOL_SYSTEM),
-    ("next_steps._SYSTEM", next_steps_svc._SYSTEM),
     ("career_pick_qna.GEMMA_SYSTEM_PROMPT", career_pick_qna.GEMMA_SYSTEM_PROMPT),
     ("ask_gemma._SYSTEM_BASE", ask_gemma._SYSTEM_BASE),
 ]
@@ -224,26 +220,3 @@ def test_guidance_fallback_passes_voice_contract() -> None:
     _assert_voice_contract(text, context="guidance fallback")
 
 
-def test_next_steps_fallback_passes_voice_contract(monkeypatch) -> None:
-    from app.models.career import Build
-    from app.services import gemma_client
-
-    monkeypatch.setattr(gemma_client, "generate", lambda **kwargs: "")
-
-    build = Build(
-        build_id="test-build",
-        created_at="2026-04-18T00:00:00Z",
-        school_name="IU-B",
-        unitid=1,
-        major_text="Marketing",
-        cipcode="52.14",
-        program_name="Marketing",
-        effort="balanced",
-        career=_career(),
-        gauntlet=_gauntlet_with_ai_loss(),
-        branches=[],
-        skill_recs=[],
-        guidance="",
-    )
-    text = next_steps_svc.generate_next_steps(build)
-    _assert_voice_contract(text, context="next_steps fallback")

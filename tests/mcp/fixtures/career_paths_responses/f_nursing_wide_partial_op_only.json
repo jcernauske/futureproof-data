@@ -115,7 +115,12 @@
         "tuition_in_state": 16004.0,
         "tuition_out_of_state": 34501.0,
         "unitid": 145637,
-        "velocity_label": "nascent"
+        "velocity_label": "nascent",
+        "wage_p10": 37930.0,
+        "wage_p25": 44370.0,
+        "wage_p75": 63150.0,
+        "wage_p90": 78560.0,
+        "work_experience_code": 3
       },
       {
         "adoption_percentile": 59.34489402697495,
@@ -226,7 +231,12 @@
         "tuition_in_state": 16004.0,
         "tuition_out_of_state": 34501.0,
         "unitid": 145637,
-        "velocity_label": "emerging"
+        "velocity_label": "emerging",
+        "wage_p10": 42210.0,
+        "wage_p25": 49880.0,
+        "wage_p75": 84460.0,
+        "wage_p90": 112900.0,
+        "work_experience_code": 3
       }
     ],
     "row_count": 2,
