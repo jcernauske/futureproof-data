@@ -251,19 +251,33 @@ def _truthy(value: str | None) -> bool:
 def _openrouter_provider_options() -> dict[str, Any] | None:
     """Build the `provider` routing dict. Returns None when disabled.
 
-    ``quantizations`` defaults to ``bf16,fp16`` because fp8-quantized
-    providers serving gemma-4-26b were dropping required tool-call
-    arguments under load (e.g. ``get_regional_price_parity`` emitted
-    without ``state``). Restricting to bf16/fp16 keeps tool-calling
-    reliable; we still get most of the throughput win since OpenRouter
-    sorts within the quant-eligible set. Set to ``any`` to disable
-    the filter.
+    Two modes:
+
+    - **Pinned mode** (``OPENROUTER_PROVIDER_ONLY`` set): strict
+      allowlist of provider display names. ``allow_fallbacks`` defaults
+      to false — predictable but will 503 if every pinned provider is
+      at capacity. ``quantizations`` filter is dropped because the
+      pin already determines the serving stack. Use this for demos
+      where you need a single, known-good provider (e.g.
+      ``OPENROUTER_PROVIDER_ONLY=Google``).
+    - **Sorted mode** (default): ``sort: "throughput"`` plus a
+      ``quantizations`` filter defaulting to ``bf16,fp16`` because
+      fp8-quantized providers were dropping required tool-call args.
+      Set ``OPENROUTER_QUANTIZATIONS=any`` to disable the quant
+      filter.
     """
     sort = os.environ.get("OPENROUTER_PROVIDER_SORT", "throughput").strip().lower()
     if not sort or sort == "off":
         return None
+
+    only_raw = os.environ.get("OPENROUTER_PROVIDER_ONLY", "").strip()
+    only_list = [p.strip() for p in only_raw.split(",") if p.strip()]
+
+    # In pinned mode, default fallbacks OFF for predictability — the
+    # whole point of pinning is to know which provider answered.
+    fallback_default = "false" if only_list else "true"
     allow_fallbacks = _truthy(
-        os.environ.get("OPENROUTER_PROVIDER_ALLOW_FALLBACKS", "true")
+        os.environ.get("OPENROUTER_PROVIDER_ALLOW_FALLBACKS", fallback_default)
     )
     require_parameters = _truthy(
         os.environ.get("OPENROUTER_PROVIDER_REQUIRE_PARAMS", "true")
@@ -273,6 +287,11 @@ def _openrouter_provider_options() -> dict[str, Any] | None:
         "allow_fallbacks": allow_fallbacks,
         "require_parameters": require_parameters,
     }
+
+    if only_list:
+        options["only"] = only_list
+        return options
+
     quant_raw = os.environ.get("OPENROUTER_QUANTIZATIONS", "bf16,fp16").strip().lower()
     if quant_raw and quant_raw != "any":
         quantizations = [q.strip() for q in quant_raw.split(",") if q.strip()]

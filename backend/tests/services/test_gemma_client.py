@@ -76,9 +76,35 @@ def test_openrouter_routing_quantizations_any_disables_filter(monkeypatch) -> No
 
 def test_openrouter_routing_quantizations_custom_list(monkeypatch) -> None:
     monkeypatch.setenv("OPENROUTER_QUANTIZATIONS", "bf16,  fp8 ")
+    monkeypatch.delenv("OPENROUTER_PROVIDER_ONLY", raising=False)
     kwargs: dict = {"model": "x", "messages": []}
     gemma_client._apply_openrouter_routing(kwargs)
     assert kwargs["extra_body"]["provider"]["quantizations"] == ["bf16", "fp8"]
+
+
+def test_openrouter_routing_pin_to_provider(monkeypatch) -> None:
+    """OPENROUTER_PROVIDER_ONLY=Google pins to Google and drops the
+    quant filter (the pin already determines the serving stack).
+    """
+    monkeypatch.setenv("OPENROUTER_PROVIDER_ONLY", "Google")
+    monkeypatch.delenv("OPENROUTER_PROVIDER_ALLOW_FALLBACKS", raising=False)
+    kwargs: dict = {"model": "x", "messages": []}
+    gemma_client._apply_openrouter_routing(kwargs)
+    provider = kwargs["extra_body"]["provider"]
+    assert provider["only"] == ["Google"]
+    assert "quantizations" not in provider
+    # Pinned mode defaults fallbacks OFF — predictability over availability.
+    assert provider["allow_fallbacks"] is False
+
+
+def test_openrouter_routing_pin_allows_fallback_opt_in(monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_PROVIDER_ONLY", "Google,Parasail")
+    monkeypatch.setenv("OPENROUTER_PROVIDER_ALLOW_FALLBACKS", "true")
+    kwargs: dict = {"model": "x", "messages": []}
+    gemma_client._apply_openrouter_routing(kwargs)
+    provider = kwargs["extra_body"]["provider"]
+    assert provider["only"] == ["Google", "Parasail"]
+    assert provider["allow_fallbacks"] is True
 
 
 def test_openrouter_routing_off_skips_injection(monkeypatch) -> None:
