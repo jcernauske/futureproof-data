@@ -249,13 +249,7 @@ export function ProfileScreen() {
             value={locale}
             onChange={setLocale}
             activeColor="bg-accent-info"
-            ariaLabel={
-              locale === "es"
-                ? "Elegir idioma"
-                : locale === "ar"
-                  ? "اختر اللغة"
-                  : "Choose language"
-            }
+            ariaLabel={t("profile.languageAria")}
           />
         </motion.div>
 
@@ -277,7 +271,7 @@ export function ProfileScreen() {
           >
             <option value="" disabled>{t("profile.statePlaceholder")}</option>
             {US_STATES.map((s) => (
-              <option key={s.abbr} value={s.abbr}>{s.name}</option>
+              <option key={s.abbr} value={s.abbr}>{t(`state.${s.abbr}`)}</option>
             ))}
           </select>
         </motion.div>

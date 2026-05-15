@@ -452,7 +452,7 @@ export function SetYourCourseScreen() {
 
           {/* ROW 1 — School/major inputs (left) + Gemma conversation (right) */}
           {!isAdjustMode && <div className="grid grid-cols-1 desktop:grid-cols-2 gap-6 desktop:gap-8 items-start">
-            <section aria-label="Your inputs" className="flex flex-col gap-6">
+            <section aria-label={t("syc.aria.yourInputs")} className="flex flex-col gap-6">
               <div>
                 <label className="block font-body text-small font-bold text-text-secondary tracking-wide mb-2">
                   {t("syc.schoolLabel")}
@@ -506,7 +506,7 @@ export function SetYourCourseScreen() {
               )}
             </section>
 
-            <section aria-label="Gemma conversation" className="flex flex-col">
+            <section aria-label={t("syc.aria.gemmaConversation")} className="flex flex-col">
               {/* Single AnimatePresence with mode="wait" ensures the streaming
                   card fully exits before the resolution header enters — no
                   overlap, no layout shift. */}

@@ -107,15 +107,18 @@ interface GemmaChatProps {
 // which keeps the chip set varied rather than mentioning the same
 // hardcoded state across multiple chips. See the product partner's
 // review of the multi-tool demo set + feature-gemma-trace.md.
-const STARTERS = [
-  "How would my salary feel in a few different states?",
-  "Where could I live most affordably on this starting salary?",
-  "What other careers branch off this one, and which ones have better stats?",
-  "What other schools give similar results for less cost, and how does cost of living compare in those states?",
-  "What are the three highest-paying related careers, and what would I make in those roles in different cities?",
-  "What does this work look like 10 years in versus today, and which related careers pay more?",
-  "Tell me what this career pays nationally, what other careers branch off it, and how my salary would feel in a few different states.",
-];
+// i18n keys for the default starter chips. Ordered most-likely-tapped
+// first; #5 (national_pay_branches) is the cinematic 3-row mixed-icon
+// shot. Strings live in i18n/strings.ts so es/ar render natively.
+const STARTER_KEYS = [
+  "chat.starter.salary_states",
+  "chat.starter.affordable_city",
+  "chat.starter.branch_careers",
+  "chat.starter.similar_schools",
+  "chat.starter.top_paying_related",
+  "chat.starter.ten_year_outlook",
+  "chat.starter.national_pay_branches",
+] as const;
 
 export function GemmaChat({
   open,
@@ -731,7 +734,10 @@ export function GemmaChat({
                     {t("chat.tryOne")}
                   </p>
                   <div className="flex flex-col gap-2 items-start">
-                    {(startersProp && startersProp.length > 0 ? startersProp : STARTERS).map((q, i) => (
+                    {(startersProp && startersProp.length > 0
+                      ? startersProp
+                      : STARTER_KEYS.map((k) => t(k))
+                    ).map((q, i) => (
                       <motion.button
                         type="button"
                         key={q}

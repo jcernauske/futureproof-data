@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { GemmaStar } from "@/components/ui/GemmaStar";
 import { GemmaThinking } from "@/components/ui/GemmaThinking";
+import { useT } from "@/i18n/useT";
 import { chipResponseExpand } from "@/styles/motion";
 
 interface AskGemmaResponseCardProps {
@@ -60,6 +61,7 @@ export function AskGemmaResponseCard({
   onClose,
   detent = "medium",
 }: AskGemmaResponseCardProps) {
+  const t = useT();
   const reducedMotion = useReducedMotion() ?? false;
   // §3.3 + §3.5: detent-aware max-height. Mobile-first defaults; tablet+
   // applies the desktop/tablet cap per §3.5.
@@ -83,7 +85,7 @@ export function AskGemmaResponseCard({
     <motion.section
       role="region"
       aria-live="polite"
-      aria-label="The Guide's answer"
+      aria-label={t("chat.response.answerAria")}
       initial={sectionMotion.initial}
       animate={sectionMotion.animate}
       exit={sectionMotion.exit}
@@ -98,12 +100,12 @@ export function AskGemmaResponseCard({
         <div className="flex items-center gap-2 mb-3">
           <GemmaStar size={14} />
           <span className="font-body text-small font-semibold text-text-secondary">
-            The Guide
+            {t("chat.response.theGuide")}
           </span>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-4">
-            <GemmaThinking message="Answering…" />
+            <GemmaThinking message={t("chat.response.answering")} />
           </div>
         ) : (
           <p className="font-body text-body text-text-primary leading-relaxed whitespace-pre-line">
@@ -115,7 +117,7 @@ export function AskGemmaResponseCard({
             type="button"
             onClick={onRegenerate}
             disabled={loading}
-            aria-label="Regenerate answer"
+            aria-label={t("chat.response.regenerateAria")}
             className="
               inline-flex items-center gap-2
               h-10 px-4 rounded-lg
@@ -129,12 +131,12 @@ export function AskGemmaResponseCard({
             "
           >
             <RegenerateIcon />
-            Regenerate
+            {t("chat.response.regenerate")}
           </button>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close answer"
+            aria-label={t("chat.response.closeAria")}
             className="
               w-8 h-8 rounded-full
               bg-bp-surface text-text-secondary

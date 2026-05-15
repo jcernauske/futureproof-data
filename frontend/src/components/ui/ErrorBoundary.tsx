@@ -4,6 +4,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { useT } from "@/i18n/useT";
 
 interface Props {
   children: ReactNode;
@@ -36,8 +37,10 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 function ErrorFallback({ error }: { error: Error }): ReactElement {
-  // Inline Brightpath tokens only — no design-system imports, no router,
-  // no store. Anything we depend on here might be the thing that crashed.
+  // Inline Brightpath tokens only — no design-system imports, no router.
+  // The profileStore is a tiny in-memory store; if it's the crash source
+  // the error text degrades to English (default locale) which is fine.
+  const t = useT();
   const isDev = import.meta.env.DEV;
   const stack = (error.stack ?? error.message ?? "").slice(0, 2048);
 
@@ -58,42 +61,42 @@ function ErrorFallback({ error }: { error: Error }): ReactElement {
     >
       <div className="max-w-md w-full bg-bp-mid rounded-xl p-8 border border-border-subtle">
         <h1 className="text-heading font-display text-text-primary mb-3">
-          Something went sideways
+          {t("error.heading")}
         </h1>
         <p className="text-body-sm text-text-secondary mb-2">
-          The app hit a snag rendering this view.
+          {t("error.body1")}
         </p>
         <p className="text-body-sm text-text-secondary mb-6">
-          A page refresh almost always fixes it.
+          {t("error.body2")}
         </p>
         <div className="flex gap-3 mb-4">
           <button
             type="button"
             data-testid="error-boundary-refresh"
-            aria-label="Refresh the page"
+            aria-label={t("error.refreshAria")}
             autoFocus
             onClick={handleRefresh}
             className="rounded-lg font-body bg-accent-thrive text-text-inverse font-bold text-cta h-12 px-7 cursor-pointer"
           >
-            Refresh
+            {t("error.refresh")}
           </button>
           <button
             type="button"
             data-testid="error-boundary-home"
-            aria-label="Go to home page"
+            aria-label={t("error.homeAria")}
             onClick={handleHome}
             className="rounded-lg font-body bg-transparent text-accent-info border border-accent-info h-12 px-6 text-body-sm cursor-pointer"
           >
-            Back to home
+            {t("error.home")}
           </button>
         </div>
         {isDev ? (
           <details
             data-testid="error-boundary-details"
-            aria-label="Show technical details"
+            aria-label={t("error.detailsAria")}
             className="text-text-muted text-small"
           >
-            <summary className="cursor-pointer">Show technical details</summary>
+            <summary className="cursor-pointer">{t("error.detailsSummary")}</summary>
             <pre className="mt-2 whitespace-pre-wrap break-words text-xs font-mono">
               {stack}
             </pre>

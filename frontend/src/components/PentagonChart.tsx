@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useT } from "@/i18n/useT";
 import { springs } from "@/styles/motion";
 import type { PentagonStats } from "@/types/build";
 import type { StatKey } from "@/data/statExplanations";
@@ -73,12 +74,13 @@ export function PentagonChart({
   overlays,
   onHoverStat,
 }: PentagonChartProps) {
+  const t = useT();
   const isOverlayMode = overlays && overlays.length > 0;
   return (
     <motion.div
       id="svg-pentagon"
       role="img"
-      aria-label="Five-stat radar chart showing your career stats"
+      aria-label={t("pentagon.aria")}
       className="relative"
       style={{ width: size, height: size }}
       initial={animated ? { scale: 0, opacity: 0 } : undefined}
