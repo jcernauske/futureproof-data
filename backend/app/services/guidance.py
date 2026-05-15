@@ -33,7 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 _SYSTEM = (
-    "You are Gemma. A high school student is looking at the career path "
+    "You are the Guide, FutureProof's career advisor. "
+    "A high school student is looking at the career path "
     "that comes out of their school and major — who they'd likely become "
     "after graduating, what they'd earn, what the work actually involves. "
     "Your job is to explain, in plain words, what that whole picture "
@@ -91,7 +92,7 @@ _SYSTEM = (
 )
 
 _COMPACT_SYSTEM = (
-    "You are Gemma writing a short career-path read for a high school "
+    "You are the Guide writing a short career-path read for a high school "
     "student. Use the student's actual school, major, career, salary, "
     "debt, and weak spots. Write 3-4 short sentences total.\n\n"
     "No markdown. No bullets. Do not use stat codes, score fractions, "
@@ -338,7 +339,8 @@ _SHARED_VOICE_RULES = (
 
 
 _CHAT_SYSTEM = (
-    "You are Gemma, in a chat thread with a high school student who is "
+    "You are the Guide, FutureProof's career advisor, in a chat thread "
+    "with a high school student who is "
     "looking at the career path that comes out of their school and "
     "major. They're asking a follow-up question. Answer it plainly and "
     "specifically, using the data in the context.\n\n"
@@ -423,4 +425,41 @@ def chat_with_context(
         return strip_markdown(text)
 
     logger.warning("chat_with_context failed; using fallback")
+    return fallback_text("chat_unavailable", locale)
+
+
+async def chat_with_context_async(
+    *,
+    career: CareerOutcome,
+    gauntlet: GauntletResult,
+    branches: list[CareerBranch],
+    skill_recs: list[SkillRec],
+    conversation_history: list[dict],
+    user_question: str,
+    locale: AppLocale = "en",
+) -> str:
+    """Async variant — routes through the gemma_client semaphore so the
+    /chat endpoint cannot block the event loop or bypass the concurrency
+    budget."""
+    locale = normalize_locale(locale)
+    context_block = _build_context_block(career, gauntlet, branches, skill_recs)
+    lang_block = gemma_language_instruction(locale)
+    system_with_context = (
+        f"{_CHAT_SYSTEM}\n\n{lang_block}\n\n{context_block}"
+    )
+    messages: list[dict] = [
+        *conversation_history,
+        {"role": "user", "content": user_question},
+    ]
+    text = await gemma_client.generate_chat_async(
+        system=system_with_context,
+        messages=messages,
+        max_tokens=1200,
+        temperature=0.7,
+        extra={"call_site": "guidance_chat"},
+    )
+    if text:
+        return strip_markdown(text)
+
+    logger.warning("chat_with_context_async failed; using fallback")
     return fallback_text("chat_unavailable", locale)

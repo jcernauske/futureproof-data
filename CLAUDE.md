@@ -56,7 +56,7 @@ futureproof-data/
 
 ## Framework
 
-The data pipeline is built on [Brightsmith](https://github.com/jcernauske/brightsmith). For the full agent workflow, governance model, zone architecture, and pipeline conventions, see the Brightsmith CLAUDE.md at `/Users/jcernauske/code/bright/brightsmith/CLAUDE.md`.
+The data pipeline is built on [Brightsmith](https://github.com/hyena-studios/brightsmith). For the full agent workflow, governance model, zone architecture, and pipeline conventions, see the Brightsmith CLAUDE.md at `/Users/jcernauske/code/bright/brightsmith/CLAUDE.md`.
 
 ## Stack
 
@@ -173,10 +173,10 @@ uv run pytest -m network           # Include network tests
 uv run ruff check src/ tests/      # Lint pipeline code
 
 # Backend
-cd backend && pip install -e ".[dev]"  # Install backend deps
-cd backend && pytest               # Run backend tests
-cd backend && ruff check .         # Lint backend
-cd backend && mypy app/            # Type check backend
+cd backend && uv sync --extra dev      # Install backend deps
+cd backend && uv run pytest        # Run backend tests
+cd backend && uv run ruff check .  # Lint backend
+cd backend && uv run mypy app/     # Type check backend
 
 # Frontend
 cd frontend && npm install         # Install frontend deps

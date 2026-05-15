@@ -1035,12 +1035,6 @@ export function FutureScreen() {
               >
                 {t("tree.tryAgain")}
               </button>
-              <button
-                className="font-body text-cta font-bold text-text-inverse bg-accent-thrive px-6 py-2.5 rounded-lg transition-all duration-normal hover:brightness-110"
-                onClick={() => navigate("/save")}
-              >
-                {t("tree.continue")}
-              </button>
             </div>
           </motion.div>
         )}

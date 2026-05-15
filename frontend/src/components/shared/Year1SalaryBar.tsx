@@ -19,6 +19,7 @@
  * undefined and the component picks a tight scale around its own values.
  */
 import { useMemo } from "react";
+import { useT } from "@/i18n/useT";
 
 interface Year1SalaryBarProps {
   /** Optional caps over the bar (e.g. school name, "this program"). Single-
@@ -62,6 +63,7 @@ export function Year1SalaryBar({
   highlighted = true,
   testId,
 }: Year1SalaryBarProps) {
+  const t = useT();
   const hasRange = peerP25 != null && peerP75 != null;
   const markerValue = programMedian ?? careerMedian;
   const usingCareerFallback = programMedian == null && careerMedian != null;
@@ -151,11 +153,11 @@ export function Year1SalaryBar({
             style={{ paddingLeft: `${p25Pct}%`, paddingRight: `${100 - p75Pct}%` }}
           >
             <span className="flex flex-col font-data text-data-sm text-text-secondary">
-              <span className="text-[10px] uppercase tracking-widest text-text-muted">Peer 25th</span>
+              <span className="text-[10px] uppercase tracking-widest text-text-muted">{t("salaryBar.peer25")}</span>
               <span>{formatSalaryShort(peerP25)}</span>
             </span>
             <span className="flex flex-col items-end font-data text-data-sm text-text-secondary">
-              <span className="text-[10px] uppercase tracking-widest text-text-muted">Peer 75th</span>
+              <span className="text-[10px] uppercase tracking-widest text-text-muted">{t("salaryBar.peer75")}</span>
               <span>{formatSalaryShort(peerP75)}</span>
             </span>
           </div>
@@ -183,18 +185,24 @@ export function Year1SalaryBar({
                     : "text-accent-alert",
                 ].join(" ")}
               >
-                {peerBandPosition === "above" ? "Standout earnings" : "Earnings caution"}
+                {t(
+                  peerBandPosition === "above"
+                    ? "salaryBar.standoutLabel"
+                    : "salaryBar.cautionLabel",
+                )}
               </p>
               <p className="mt-1 font-display text-[16px] font-semibold leading-snug text-text-primary">
-                {peerBandPosition === "above"
-                  ? "This program beats the peer-program 75th percentile for this field."
-                  : "This program sits below the peer-program 25th percentile for this field."}
+                {t(
+                  peerBandPosition === "above"
+                    ? "salaryBar.standoutBody"
+                    : "salaryBar.cautionBody",
+                )}
               </p>
             </div>
           )}
           {usingCareerFallback && (
             <p className="mt-2 font-body text-small text-text-muted">
-              Pill is a career wage reference because program median earnings are unavailable.
+              {t("salaryBar.careerWageNote")}
             </p>
           )}
         </>

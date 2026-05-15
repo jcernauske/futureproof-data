@@ -324,10 +324,13 @@ export function HorizonFooter() {
           >
             <div className="inline-flex items-center gap-2 font-body text-small text-text-secondary">
               <GemmaStar size={14} />
-              <span>Built with Gemma 4</span>
+              <span>Powered by Gemma 4</span>
             </div>
             <div className="font-data text-micro text-text-muted leading-snug">
               Submitted to Gemma 4 Good · Kaggle / Google DeepMind · 2026
+            </div>
+            <div className="font-data text-micro text-text-muted leading-snug">
+              Gemma is a trademark of Google LLC.
             </div>
             <p className="mt-3 font-body text-small text-text-muted max-w-[420px] leading-snug horizon-disclaimer">
               AI-estimated. Not a substitute for professional career counseling.

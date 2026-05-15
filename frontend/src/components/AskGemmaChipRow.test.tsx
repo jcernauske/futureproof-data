@@ -197,7 +197,7 @@ describe("AskGemmaChipRow", () => {
       />,
     );
     const group = screen.getByRole("group", {
-      name: "Ask Gemma about this screen",
+      name: "Ask the Guide about this screen",
     });
     // The chip is inside the group, not a sibling.
     expect(

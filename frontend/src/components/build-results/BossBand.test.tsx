@@ -73,7 +73,7 @@ describe("BossBand skill pool loading", () => {
     renderBand({ skillPoolLoading: true });
 
     expect(screen.getByTestId("skill-pool-loading-loans")).toBeInTheDocument();
-    expect(screen.getByText("Gemma is researching skills to help you win...")).toBeInTheDocument();
+    expect(screen.getByText("Researching skills to help you win…")).toBeInTheDocument();
   });
 
   it("hides the loading panel once matching skills are available", () => {

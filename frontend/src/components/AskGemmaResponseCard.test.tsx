@@ -24,8 +24,8 @@ describe("AskGemmaResponseCard", () => {
       />,
     );
 
-    // GemmaThinking is role=status with "Gemma is answering…" copy.
-    expect(screen.getByText(/Gemma is answering/i)).toBeInTheDocument();
+    // GemmaThinking is role=status with "Answering…" copy.
+    expect(screen.getByText(/Answering/i)).toBeInTheDocument();
     // The answer paragraph must NOT render while loading — the production
     // component branches: loading ? <GemmaThinking /> : <p>{answer}</p>.
     expect(screen.queryByText(/biology/i)).not.toBeInTheDocument();
@@ -56,7 +56,7 @@ describe("AskGemmaResponseCard", () => {
     expect(
       screen.getByText("Biology is the standard pre-med path."),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Gemma is answering/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Answering/i)).not.toBeInTheDocument();
   });
 
   it("regenerate button fires onRegenerate callback once per click", () => {
@@ -89,7 +89,7 @@ describe("AskGemmaResponseCard", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("has role=region, aria-live=polite, and aria-label='Gemma answer'", () => {
+  it("has role=region, aria-live=polite, and aria-label='The Guide's answer'", () => {
     render(
       <AskGemmaResponseCard
         loading={false}
@@ -98,7 +98,7 @@ describe("AskGemmaResponseCard", () => {
         onClose={vi.fn()}
       />,
     );
-    const region = screen.getByRole("region", { name: "Gemma answer" });
+    const region = screen.getByRole("region", { name: "The Guide's answer" });
     expect(region).toHaveAttribute("aria-live", "polite");
   });
 

@@ -85,11 +85,4 @@ describe("AboutScreen", () => {
     expect(blsOews.getAttribute("target")).toBe("_blank");
     expect(blsOews.getAttribute("rel")).toBe("noopener noreferrer");
   });
-
-  it("renders the closing trust line", () => {
-    renderAbout();
-    expect(
-      screen.getByText("If you can read SQL, you can audit FutureProof."),
-    ).toBeInTheDocument();
-  });
 });

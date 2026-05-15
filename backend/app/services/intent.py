@@ -357,6 +357,7 @@ def _call_gemma_intent(
         max_tokens=1500,
         temperature=0.0,
         seed=_derive_intent_seed(prompt_input),
+        extra={"call_site": "intent_resolve"},
     )
     latency = time.perf_counter() - start
 
@@ -456,6 +457,7 @@ def _audit_intent_mapping(
         ),
         max_tokens=200,
         temperature=0.3,
+        extra={"call_site": "intent_audit"},
     )
     if not raw:
         return None

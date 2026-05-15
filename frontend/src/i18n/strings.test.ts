@@ -106,7 +106,7 @@ describe("getString", () => {
 
   it("returns Arabic string for known key with locale='ar'", () => {
     const result = getString("profile.meetGuide", "ar");
-    expect(result).toBe("تعرّف على مرشدك");
+    expect(result).toBe("اختر شخصيتك");
   });
 
   it("Arabic differs from English and Spanish for the same key", () => {
@@ -124,9 +124,9 @@ describe("getString", () => {
   });
 
   it("preserves Latin-script brand and acronyms inside Arabic strings", () => {
-    // Voice contract: Gemma stays in Latin script even in Arabic
-    // copy, and SOC/CIP/data acronyms must not be transliterated.
-    expect(getString("syc.gemmaThinking", "ar")).toContain("Gemma");
+    // Voice contract: model attribution and data acronyms stay in
+    // Latin script even in Arabic copy.
+    expect(getString("about.sources.gemma.title", "ar")).toContain("Gemma 4");
     expect(getString("syc.showingSoc", "ar")).toContain("SOC");
     expect(getString("syc.showingSoc", "ar")).toContain("CIP");
   });

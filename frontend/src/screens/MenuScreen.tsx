@@ -49,6 +49,12 @@ export function MenuScreen() {
   // Lock as a ref so a fast double-click can't race two getBuild calls
   // and land at /my-build with the wrong build's payload.
   const navigatingRef = useRef<string | null>(null);
+  // Set when handleCompareGo initiates a select→compare transition.
+  // React Router defers the URL update via startTransition while the
+  // local mode/compareIds updates apply urgently, so without this guard
+  // the auto-enter-select effect below sees the stale ?select=1 URL and
+  // bounces the user back into select mode with an empty selection.
+  const enteringCompareRef = useRef(false);
 
   useEffect(() => {
     if (!profileName) navigate("/set-your-course", { replace: true });
@@ -173,6 +179,12 @@ export function MenuScreen() {
   // Runs from any mode (including `compare`) so the header Compare button
   // always returns the user to the picker, even from the results view.
   useEffect(() => {
+    if (enteringCompareRef.current) {
+      if (searchParams.get("select") !== "1") {
+        enteringCompareRef.current = false;
+      }
+      return;
+    }
     if (searchParams.get("select") !== "1") return;
     if (builds.length < 2) return;
     if (mode === "select") return;
@@ -196,6 +208,7 @@ export function MenuScreen() {
 
   const handleCompareGo = useCallback(() => {
     if (selectedIds.length < 2 || selectedIds.length > 4) return;
+    enteringCompareRef.current = true;
     setCompareIds(selectedIds);
     setMode("compare");
     setSearchParams({ view: "compare" }, { replace: true });

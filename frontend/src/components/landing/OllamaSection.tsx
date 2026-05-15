@@ -46,7 +46,7 @@ export function OllamaSection() {
             <div className="space-y-5 font-body text-body tablet:text-body-lg text-text-secondary leading-relaxed">
               <p>
                 FutureProof runs on Gemma 4 through Ollama. Flip one environment
-                variable and the whole stack — stats, fights, Gemma's coaching,
+                variable and the whole stack — stats, fights, the Guide's coaching,
                 the branch tree — works on a school's own server.
               </p>
               <p>

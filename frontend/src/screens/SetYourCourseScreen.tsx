@@ -84,7 +84,9 @@ export function SetYourCourseScreen() {
       target_id: career.soc_code,
       target_label: career.occupation_title,
     });
-    setChatChipText(`Asking about: ${career.occupation_title}`);
+    setChatChipText(
+      t("build.askPrefix").replace("{label}", career.occupation_title),
+    );
     // No opener prompt — the structured "About this career" card IS the
     // answer to "what does this career do." Auto-firing the freeform
     // describe-in-detail opener was producing a duplicate description
@@ -114,7 +116,7 @@ export function SetYourCourseScreen() {
           prev === "loading" ? "error" : prev,
         );
       });
-  }, []);
+  }, [t]);
 
   const closeChat = useCallback(() => {
     setChatOpen(false);

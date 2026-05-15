@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { BuildLoadingScreen } from "./BuildLoadingScreen";
+import { useProfileStore } from "@/store/profileStore";
 
 vi.mock("@/i18n/useT", () => ({
   useT: () => (key: string) => key,
@@ -18,6 +19,12 @@ const BASE_PROPS = {
   onGoBack: vi.fn(),
 };
 
+afterEach(() => {
+  act(() => {
+    useProfileStore.setState({ locale: "en" });
+  });
+});
+
 describe("BuildLoadingScreen", () => {
   it("renders the animal emoji", () => {
     render(<BuildLoadingScreen {...BASE_PROPS} />);
@@ -28,6 +35,19 @@ describe("BuildLoadingScreen", () => {
     render(<BuildLoadingScreen {...BASE_PROPS} />);
     expect(screen.getByText("Bear_Explorer_42")).toBeInTheDocument();
     expect(screen.getByText("Finance at Indiana State University")).toBeInTheDocument();
+  });
+
+  it("localizes generated character names", () => {
+    act(() => {
+      useProfileStore.setState({ locale: "es" });
+    });
+    render(
+      <BuildLoadingScreen
+        {...BASE_PROPS}
+        profileName="fearless nimble owl"
+      />,
+    );
+    expect(screen.getByText("Intrépido Ágil Búho")).toBeInTheDocument();
   });
 
   it("renders stat name and verb-prefixed loading text at current progress", () => {

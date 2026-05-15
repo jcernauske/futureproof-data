@@ -151,7 +151,6 @@ function makeBuild(): Build {
     guidance: "Test guidance",
     skills_crafted: [],
     skill_pool: [],
-    next_steps: "",
   } as Build;
 }
 

@@ -1,1 +1,0 @@
-The file is too large to echo inline — let me write it directly.

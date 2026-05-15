@@ -1,4 +1,5 @@
 import type { CompareBuild, CompareStatRow } from "@/api/menu";
+import { useT } from "@/i18n/useT";
 
 interface CharacterCardProps {
   build: CompareBuild;
@@ -30,6 +31,7 @@ export function CharacterCard({
   onOpen,
   showStats = true,
 }: CharacterCardProps) {
+  const t = useT();
   const statMap: Record<string, number | null> = {};
   for (const row of stats) {
     statMap[row.label] = row.values[buildIndex] ?? null;
@@ -38,7 +40,7 @@ export function CharacterCard({
   return (
     <article
       data-testid={`card-character-${build.build_id}`}
-      aria-label={`${build.school_name} ${build.major_text}`}
+      aria-label={t("compare.character.cardAriaLabel", { school: build.school_name, major: build.major_text })}
       className="bg-bp-mid border border-border-subtle rounded-[20px] px-5 pt-6 pb-5 transition-all duration-200 cursor-pointer h-full flex flex-col"
       style={{
         opacity: highlighted ? 1 : 0.2,
@@ -52,7 +54,7 @@ export function CharacterCard({
         {onOpen && (
           <button
             type="button"
-            aria-label={`Open ${build.school_name} build`}
+            aria-label={t("compare.character.openAriaLabel", { school: build.school_name })}
             onClick={onOpen}
             className="shrink-0 mt-0.5 w-6 h-6 rounded-md flex items-center justify-center text-text-muted hover:text-accent-info hover:bg-accent-info/10 transition-colors"
           >
@@ -67,7 +69,7 @@ export function CharacterCard({
       {build.earnings_1yr_median != null && (
         <p className="font-data text-[13px] text-stat-ern mt-0.5 mb-4">
           {`$${build.earnings_1yr_median.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-          <span className="text-text-muted font-body text-[11px]"> starting</span>
+          <span className="text-text-muted font-body text-[11px]"> {t("compare.character.starting")}</span>
         </p>
       )}
       {build.earnings_1yr_median == null && <div className="mb-4" />}
@@ -125,10 +127,10 @@ export function CharacterCard({
       <div className="flex justify-between items-baseline pt-3">
         <span className="text-xs text-text-muted">
           {build.institution_control?.startsWith("Private")
-            ? "Tuition (4 yr)"
+            ? t("compare.character.tuition4yr")
             : build.is_out_of_state
-              ? "Out-of-state tuition (4 yr)"
-              : "In-state tuition (4 yr)"}
+              ? t("compare.character.oosTuition4yr")
+              : t("compare.character.inStateTuition4yr")}
         </span>
         <span className="font-data text-base font-bold text-accent-caution">
           {formatCost(build.tuition_annual != null ? build.tuition_annual * 4 : null)}

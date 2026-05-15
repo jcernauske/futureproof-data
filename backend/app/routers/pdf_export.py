@@ -4,13 +4,13 @@ Two endpoints (see docs/specs/feature-pdf-report-exports.md §4):
 - POST /build/{build_id}/pdf       → 2-page My Build PDF
 - POST /builds/compare/pdf         → 1-page Comparison PDF
 
-Bytes stream back via ``Response(content=bytes, media_type="application/pdf")``
-— precedent: ``backend/app/routers/wrapped.py:152``. Never streams; bytes
-are fully materialized in memory before send (PDFs are tens of KB).
+Bytes stream back via ``Response(content=bytes, media_type="application/pdf")``.
+Never streams; bytes are fully materialized in memory before send
+(PDFs are tens of KB).
 
 Render failures bubble out of pdf_export as exceptions and are caught
 here, re-raised as ``HTTPException(500)`` so they flow through
-``CORSMiddleware`` (precedent: ``wrapped.py:92-103``).
+``CORSMiddleware``.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from app.models.career import Build
 from app.services import builds as builds_service
 from app.services import career_description, pdf_export, pdf_questions
 from app.services.career_description import CareerDescriptionUnavailable
+from app.services.locale import AppLocale, normalize_locale
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,8 @@ router = APIRouter(prefix="", tags=["PDF"])
 def _load_build_or_404(build_id: str) -> Build:
     """Resolve a build_id to an in-memory Build, raising 404 if missing.
 
-    Mirrors wrapped.py's _load_build_or_404 pattern: try the in-process
-    state cache first, fall back to disk-backed builds_service.
+    Try the in-process state cache first, fall back to disk-backed
+    builds_service.
     """
     build = state.get_build(build_id)
     if build is not None:
@@ -60,6 +61,16 @@ def _load_build_or_404(build_id: str) -> Build:
 
 
 _FILENAME_SAFE = re.compile(r"[^a-z0-9]+")
+
+
+def _resolve_locale(requested: AppLocale | None, build_locale: AppLocale) -> AppLocale:
+    """Pick the effective locale for a PDF render.
+
+    Request body wins when provided (lets a user re-export under a
+    different language without rebuilding); otherwise fall back to the
+    locale the build was generated under.
+    """
+    return normalize_locale(requested if requested is not None else build_locale)
 
 
 def _slug(s: str) -> str:
@@ -86,6 +97,7 @@ async def export_build_pdf(
 ) -> Response:
     """Render the 2-page My Build PDF and return application/pdf bytes."""
     build = _load_build_or_404(build_id)
+    locale = _resolve_locale(body.locale, build.locale)
 
     # Lazy fallback: if the eager spawn-time generation didn't populate
     # career_description (older serialized build, or eager fetch failed),
@@ -93,11 +105,22 @@ async def export_build_pdf(
     # canonical state.update_build path so a subsequent export skips
     # this call entirely. Failure is non-fatal — PDF still renders, the
     # "About this career" section is silently omitted.
-    if build.career_description is None:
+    # Re-fetch if either:
+    #   (1) eager fetch didn't populate (older build or failed pipeline)
+    #   (2) the cached description was generated in a different locale
+    #       than the one requested for this export — printed copy must
+    #       match the printed-page language.
+    needs_desc = build.career_description is None or (
+        build.career_description is not None
+        and getattr(build.career_description, "locale", "en") != locale
+    )
+    if needs_desc:
         try:
             desc = await asyncio.wait_for(
                 career_description.get_or_generate(
-                    build.career.soc_code, build.career.occupation_title,
+                    build.career.soc_code,
+                    build.career.occupation_title,
+                    locale=locale,
                 ),
                 timeout=12.0,
             )
@@ -118,7 +141,9 @@ async def export_build_pdf(
     # pure-sync; Gemma calls happen here so the router's async context
     # holds them. generate_audience_questions never raises — it returns
     # a non-empty AudienceQuestions on every code path.
-    audience_questions = await pdf_questions.generate_audience_questions(build)
+    audience_questions = await pdf_questions.generate_audience_questions(
+        build, locale=locale,
+    )
 
     try:
         # ReportLab rendering is CPU-bound and synchronous. Run it in a
@@ -129,6 +154,7 @@ async def export_build_pdf(
             build,
             student_name=body.student_name,
             audience_questions=audience_questions,
+            locale=locale,
         )
     except Exception as exc:
         logger.exception("PDF render failed for build %s", build_id)
@@ -163,10 +189,11 @@ async def export_comparison_pdf(
     "Career comparison" when majors differ.
     """
     builds: list[Build] = [_load_build_or_404(bid) for bid in body.build_ids]
+    locale = _resolve_locale(body.locale, builds[0].locale)
 
     try:
         pdf_bytes = await asyncio.to_thread(
-            pdf_export.generate_comparison_pdf, builds,
+            pdf_export.generate_comparison_pdf, builds, locale,
         )
     except ValueError as exc:
         # Should be unreachable given the validation above, but kept as a

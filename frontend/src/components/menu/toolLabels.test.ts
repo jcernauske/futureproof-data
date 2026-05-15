@@ -89,7 +89,7 @@ describe("resolveToolLabel", () => {
     expect(label.label).toBe("Tool call");
     expect(label.icon).toBe("IconWrench");
     expect(label.hint({ anything: "at all" })).toBe(
-      "Gemma is consulting a tool.",
+      "Consulting a tool.",
     );
   });
 });

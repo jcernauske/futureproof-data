@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { CompareBuild } from "@/api/menu";
 import { Year1SalaryBar } from "@/components/shared/Year1SalaryBar";
+import { useT } from "@/i18n/useT";
 
 interface MoneySectionProps {
   builds: CompareBuild[];
@@ -13,6 +14,7 @@ function formatSalaryShort(val: number | null): string {
 }
 
 export function MoneySection({ builds, highlightIndex = null }: MoneySectionProps) {
+  const t = useT();
   const hasAnyRange = builds.some(
     (b) => b.earnings_1yr_p25 != null && b.earnings_1yr_p75 != null,
   );
@@ -40,21 +42,21 @@ export function MoneySection({ builds, highlightIndex = null }: MoneySectionProp
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full shrink-0 bg-stat-ern" />
             <span className="font-display font-medium text-sm text-text-primary">
-              Early Salary
+              {t("compare.money.title")}
             </span>
           </div>
           <p className="mt-1 font-body text-small text-text-secondary">
-            Band shows the middle 50% of peer programs in this field. The pill marks this school/program's reported early-earnings median when available.
+            {t("compare.money.body")}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3 font-data text-[11px] text-text-muted">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2 w-7 rounded-full bg-stat-ern/35" />
-            Peer 25th-75th
+            {t("compare.money.legend.peerBand")}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-4 w-4 rounded-full border border-stat-ern bg-stat-ern/25" />
-            This program median
+            {t("compare.money.legend.programMedian")}
           </span>
         </div>
       </div>

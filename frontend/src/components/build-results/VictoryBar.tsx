@@ -1,3 +1,5 @@
+import { useT } from "@/i18n/useT";
+
 interface VictoryBarProps {
   rawWins: number;
   equippedWins: number;
@@ -7,6 +9,7 @@ interface VictoryBarProps {
 }
 
 export function VictoryBar({ rawWins, equippedWins, draws, losses, unknowns }: VictoryBarProps) {
+  const t = useT();
   const cells: { type: string; className: string; style: React.CSSProperties }[] = [];
 
   for (let i = 0; i < rawWins; i++) {
@@ -55,11 +58,11 @@ export function VictoryBar({ rawWins, equippedWins, draws, losses, unknowns }: V
   }
 
   const legendItems: { label: string; color: string; border?: string }[] = [];
-  if (rawWins > 0) legendItems.push({ label: "Decisive", color: "var(--color-accent-thrive)" });
-  if (equippedWins > 0) legendItems.push({ label: "Skill-assisted", color: "var(--color-accent-insight)" });
-  if (draws > 0) legendItems.push({ label: "Standoff", color: "var(--color-accent-caution)" });
-  if (losses > 0) legendItems.push({ label: "Defeat", color: "var(--color-accent-alert)" });
-  if (unknowns > 0) legendItems.push({ label: "Insufficient data", color: "var(--color-text-muted)" });
+  if (rawWins > 0) legendItems.push({ label: t("build.legend.decisive"), color: "var(--color-accent-thrive)" });
+  if (equippedWins > 0) legendItems.push({ label: t("build.legend.skillAssisted"), color: "var(--color-accent-insight)" });
+  if (draws > 0) legendItems.push({ label: t("build.legend.standoff"), color: "var(--color-accent-caution)" });
+  if (losses > 0) legendItems.push({ label: t("build.legend.defeat"), color: "var(--color-accent-alert)" });
+  if (unknowns > 0) legendItems.push({ label: t("build.legend.insufficientData"), color: "var(--color-text-muted)" });
 
   return (
     <div>

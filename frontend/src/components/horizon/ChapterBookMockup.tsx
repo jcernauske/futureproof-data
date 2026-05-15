@@ -613,7 +613,7 @@ export function ChapterBookMockup() {
           <span aria-hidden="true" className="text-accent-insight">
             ✦
           </span>
-          <span>Gemma matched</span>
+          <span>Matched</span>
           <span className="font-bold text-accent-insight">
             &ldquo;biology&rdquo;
           </span>

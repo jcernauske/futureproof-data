@@ -70,7 +70,7 @@ export async function mockAskCareerPickChip(args: {
   await delay(900);
   const answer =
     MOCK_ANSWERS[args.chipId] ??
-    "Gemma couldn't load a live answer — here's the fallback.";
+    "Couldn't load a live answer — here's the fallback.";
   return {
     chip_id: args.chipId,
     answer,

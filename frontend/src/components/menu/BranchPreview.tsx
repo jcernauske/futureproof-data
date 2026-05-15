@@ -1,4 +1,5 @@
 import type { CompareBranchBuild } from "@/api/menu";
+import { useT } from "@/i18n/useT";
 
 interface BranchPreviewProps {
   branches: CompareBranchBuild[];
@@ -7,6 +8,7 @@ interface BranchPreviewProps {
 }
 
 export function BranchPreview({ branches, buildColors, highlightIndex = null }: BranchPreviewProps) {
+  const t = useT();
   const allSocs = new Map<string, string[]>();
   for (const branch of branches) {
     for (const dest of branch.destinations) {
@@ -25,7 +27,7 @@ export function BranchPreview({ branches, buildColors, highlightIndex = null }: 
             key={branch.build_id}
             data-col={idx + 1}
             data-testid={`card-branch-${branch.build_id}`}
-            aria-label={`${branch.career} branches to ${branch.destinations.length} destinations`}
+            aria-label={t("compare.branches.cardAriaLabel", { career: branch.career, n: branch.destinations.length })}
             className="bg-bp-mid border border-border-subtle rounded-xl p-5 relative overflow-hidden transition-opacity duration-200"
             style={{ opacity: highlightIndex !== null && highlightIndex !== idx ? 0.2 : 1 }}
           >
@@ -69,7 +71,7 @@ export function BranchPreview({ branches, buildColors, highlightIndex = null }: 
             })}
 
             {branch.destinations.length === 0 && (
-              <p className="text-sm text-text-muted italic">No branch data available</p>
+              <p className="text-sm text-text-muted italic">{t("compare.branches.empty")}</p>
             )}
           </article>
         );

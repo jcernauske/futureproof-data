@@ -245,16 +245,12 @@ function appendPrefetchLink(basename: string): HTMLLinkElement | null {
 }
 
 /**
- * Pure helper for non-hook callers (e.g. SaveWrappedScreen) that need a
- * one-shot draw without subscribing to the hook's mount-time effect. Reads
- * the bag, draws once, persists, and returns the pick. Use this when the
- * draw is conditional on external state (e.g. "only if horizonIndex is
- * unset") — the hook's auto-effect would otherwise fire on every mount and
- * advance the surface's bag even when the result is then discarded.
- *
- * Code review Major #2: SaveWrappedScreen now uses this instead of
- * `useHorizonPick("desktop")` so it doesn't pollute the landing-footer's
- * bag walk on every save-screen mount.
+ * Pure helper for non-hook callers that need a one-shot draw without
+ * subscribing to the hook's mount-time effect. Reads the bag, draws once,
+ * persists, and returns the pick. Use this when the draw is conditional on
+ * external state (e.g. "only if horizonIndex is unset") — the hook's auto-
+ * effect would otherwise fire on every mount and advance the surface's bag
+ * even when the result is then discarded.
  */
 export function drawAndPersist(surface: HorizonSurface): HorizonPick {
   const existing = safeReadBag(surface) ?? newBag(HORIZON_POOL_SIZE);

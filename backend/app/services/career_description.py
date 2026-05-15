@@ -36,6 +36,7 @@ from typing import Any
 
 from app.models.career import AnchorTier, CareerDescription
 from app.services import gemma_client, mcp_client
+from app.services.locale import AppLocale, normalize_locale
 from app.services.pdf_copy import (
     RPG_TERMS_FORBIDDEN_IN_PDF,
     contains_forbidden_term,
@@ -218,10 +219,12 @@ class CareerDescriptionUnavailable(RuntimeError):
 # ---------------------------------------------------------------------------
 
 
-# Concurrent misses for the same SOC fan out ONE Gemma call. After
-# completion the Future stays in the cache — its ``.result()`` is the
-# cached payload until ``clear_cache()`` or process restart.
-_cache: dict[tuple[str, str], asyncio.Future[CareerDescription]] = {}
+# Concurrent misses for the same (SOC, locale) fan out ONE Gemma call.
+# After completion the Future stays in the cache — its ``.result()`` is
+# the cached payload until ``clear_cache()`` or process restart.
+# Cache key is (soc_code, prompt_version, locale) so a re-export under
+# a different language doesn't return stale English copy.
+_cache: dict[tuple[str, str, AppLocale], asyncio.Future[CareerDescription]] = {}
 _cache_guard: asyncio.Lock | None = None
 
 
@@ -247,10 +250,14 @@ def clear_cache() -> None:
 async def get_or_generate(
     soc_code: str,
     occupation_title: str,
+    locale: AppLocale | None = None,
 ) -> CareerDescription:
     """Return a cached or freshly generated CareerDescription.
 
-    Single-flight per ``(soc_code, _PROMPT_VERSION)``. Failure cases:
+    Single-flight per ``(soc_code, _PROMPT_VERSION, locale)``. The
+    ``locale`` enters the cache key so a Spanish re-export of an existing
+    English-cached build kicks a fresh Gemma call rather than serving
+    stale English copy. Failure cases:
         - SOC fails ``^\\d{2}-\\d{4}$`` → CareerDescriptionUnavailable (Tier D)
         - mcp_client.call returns no usable data + no occupation_title →
           CareerDescriptionUnavailable (Tier D)
@@ -261,7 +268,8 @@ async def get_or_generate(
         # Tier D — never call Gemma on a malformed SOC.
         raise CareerDescriptionUnavailable(f"malformed SOC: {soc_code!r}")
 
-    key = (soc_code, _PROMPT_VERSION)
+    loc: AppLocale = normalize_locale(locale)
+    key = (soc_code, _PROMPT_VERSION, loc)
 
     # Fast-path under the lock: peek for an existing Future.
     guard = _get_cache_guard()
@@ -275,7 +283,9 @@ async def get_or_generate(
             _cache[key] = future
             # Schedule generation outside the lock so concurrent waiters
             # don't all sit on the guard waiting for the result.
-            asyncio.create_task(_resolve_future(future, soc_code, occupation_title, key))
+            asyncio.create_task(
+                _resolve_future(future, soc_code, occupation_title, key, loc),
+            )
 
     return await future
 
@@ -284,14 +294,15 @@ async def _resolve_future(
     future: asyncio.Future[CareerDescription],
     soc_code: str,
     occupation_title: str,
-    key: tuple[str, str],
+    key: tuple[str, str, AppLocale],
+    locale: AppLocale,
 ) -> None:
     """Run generation and resolve ``future`` (success → set_result;
     failure → set_exception). On failure, evict the cache entry so a
     later call can retry.
     """
     try:
-        result = await _generate(soc_code, occupation_title)
+        result = await _generate(soc_code, occupation_title, locale)
     except CareerDescriptionUnavailable as exc:
         # Don't keep a failed Future in the cache — transient transport
         # failures should be retryable on the next call.
@@ -309,13 +320,18 @@ async def _resolve_future(
 # ---------------------------------------------------------------------------
 
 
-async def _generate(soc_code: str, occupation_title: str) -> CareerDescription:
+async def _generate(
+    soc_code: str,
+    occupation_title: str,
+    locale: AppLocale = "en",
+) -> CareerDescription:
     """Pick anchor tier, prompt, and run the retry-aware Gemma call."""
     breakdown = await _fetch_breakdown(soc_code)
     anchor_tier, system_prompt, user_prompt = _build_prompt(
         soc_code=soc_code,
         occupation_title=occupation_title,
         breakdown=breakdown,
+        locale=locale,
     )
 
     # Two-call retry budget: parse-fail + voice-fail counted together.
@@ -329,6 +345,7 @@ async def _generate(soc_code: str, occupation_title: str) -> CareerDescription:
         anchor_tier=anchor_tier,
         generated_at=datetime.now(timezone.utc).isoformat(),
         model=config.model,
+        locale=locale,
     )
 
 
@@ -352,10 +369,32 @@ async def _fetch_breakdown(soc_code: str) -> dict[str, Any]:
     return data
 
 
+_LANGUAGE_DIRECTIVE: dict[AppLocale, str] = {
+    "en": "",
+    "es": (
+        "\n\nIMPORTANT: Write the summary and every task entry in natural "
+        "Spanish (es). Keep the career title and proper nouns in their "
+        "original form — do not translate them. Voice and constraints stay "
+        "the same; only the output language changes."
+    ),
+    "ar": (
+        "\n\nIMPORTANT: Write the summary and every task entry in natural "
+        "Arabic (ar), Modern Standard Arabic. Keep the career title and "
+        "proper nouns in their original form — do not translate them. "
+        "Voice and constraints stay the same; only the output language changes."
+    ),
+}
+
+
+def _apply_language_directive(prompt: str, locale: AppLocale) -> str:
+    return prompt + _LANGUAGE_DIRECTIVE.get(locale, "")
+
+
 def _build_prompt(
     soc_code: str,
     occupation_title: str,
     breakdown: dict[str, Any],
+    locale: AppLocale = "en",
 ) -> tuple[AnchorTier, str, str]:
     """Choose anchor tier and assemble (system_prompt, user_prompt).
 
@@ -391,6 +430,7 @@ def _build_prompt(
             anchor_block=anchor_block,
             multi_detail_note=multi_note,
         )
+        system = _apply_language_directive(system, locale)
         user = (
             f"Career: {occupation_title}\n"
             f"SOC code: {soc_code}\n"
@@ -404,6 +444,7 @@ def _build_prompt(
             occupation_title=occupation_title,
             anchor_block=description.strip(),
         )
+        system = _apply_language_directive(system, locale)
         user = (
             f"Career: {occupation_title}\n"
             f"SOC code: {soc_code}\n"
@@ -434,6 +475,7 @@ def _build_prompt(
         soc_major_group_name=soc_major_group,
         catchall_note=catchall_note,
     )
+    system = _apply_language_directive(system, locale)
     user = (
         f"Career: {occupation_title}\n"
         f"SOC code: {soc_code}\n"

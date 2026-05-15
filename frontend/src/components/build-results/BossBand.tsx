@@ -475,7 +475,7 @@ export function BossBand({
                 className="font-body text-text-muted"
                 style={{ fontSize: 13, animation: "narrativePulse 2s ease-in-out infinite" }}
               >
-                Gemma is analyzing...
+                Analyzing…
               </span>
             </div>
           </div>
@@ -574,7 +574,7 @@ export function BossBand({
                           }}
                           disabled={chatOpen}
                           data-testid={`btn-ask-skill-${skill.id}`}
-                          aria-label={`Ask Gemma about ${skill.title}`}
+                          aria-label={`Ask the Guide about ${skill.title}`}
                           className={[
                             "inline-flex items-center justify-center align-middle ml-1.5",
                             "w-5 h-5 rounded-full",

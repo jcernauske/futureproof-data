@@ -1,4 +1,7 @@
 import type { CompareBuild, CompareStatRow } from "@/api/menu";
+import { useT } from "@/i18n/useT";
+
+type T = (key: string, vars?: Record<string, string | number>) => string;
 
 const BUILD_COLORS = [
   "var(--color-accent-thrive)",
@@ -29,7 +32,7 @@ function fmtRatio(val: number | null): string {
 }
 
 interface AuraMetric {
-  label: string;
+  labelKey: string;
   getValue: (b: CompareBuild) => number | null;
   format: (val: number | null) => string;
   barColor: string;
@@ -38,19 +41,19 @@ interface AuraMetric {
 
 const AURA_METRICS: AuraMetric[] = [
   {
-    label: "Endowment / Student",
+    labelKey: "compare.school.endowmentPerStudent",
     getValue: (b) => b.endowment_per_fte,
     format: fmtDollar,
     barColor: "var(--color-accent-info)",
   },
   {
-    label: "Marketing Ratio",
+    labelKey: "compare.school.marketingRatio",
     getValue: (b) => b.marketing_ratio,
     format: fmtRatio,
     barColor: "var(--color-accent-caution)",
   },
   {
-    label: "Athletic $ / Student",
+    labelKey: "compare.school.athleticPerStudent",
     getValue: (b) => b.athletic_spend_per_fte,
     format: fmtDollar,
     barColor: "var(--color-accent-empathy)",
@@ -64,6 +67,7 @@ const COVERAGE_PILLS: Record<string, string> = {
 };
 
 export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareSchoolProfileProps) {
+  const t = useT();
   const auraRow = stats.find((s) => s.label === "AURA");
   const allMissing = builds.every(
     (b) => b.endowment_per_fte == null && b.marketing_ratio == null && b.athletic_spend_per_fte == null && b.fte_enrollment == null,
@@ -72,7 +76,7 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
   if (allMissing) {
     return (
       <p className="font-body text-small text-text-muted italic text-center py-6">
-        Institution profile data is not available for these schools.
+        {t("compare.school.unavailable")}
       </p>
     );
   }
@@ -102,7 +106,7 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
               </p>
               <p className="font-data text-data text-text-primary mt-1">
                 {build.fte_enrollment != null ? fmtNumber(build.fte_enrollment) : "—"}{" "}
-                <span className="text-text-muted">students</span>
+                <span className="text-text-muted">{t("compare.school.students")}</span>
               </p>
             </div>
           );
@@ -112,7 +116,7 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
       {/* Zone 2: AURA Breakdown Table */}
       <div className="mt-5 pt-4 border-t border-border-subtle">
         <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3">
-          Institutional X-Ray
+          {t("compare.school.xray")}
         </p>
 
         {/* Desktop table */}
@@ -135,8 +139,9 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
               const maxVal = metric.fixedScale ?? Math.max(...values.filter((v): v is number => v != null), 1);
               return (
                 <AuraTableRow
-                  key={metric.label}
+                  key={metric.labelKey}
                   metric={metric}
+                  t={t}
                   builds={builds}
                   values={values}
                   maxVal={maxVal}
@@ -149,7 +154,7 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
             {auraRow && (
               <>
                 <span className="font-body text-small text-text-secondary py-2.5 border-t border-border-subtle">
-                  AURA Score
+                  {t("compare.school.auraScore")}
                 </span>
                 {auraRow.values.map((val, idx) => {
                   const dimmed = highlightIndex !== null && highlightIndex !== idx;
@@ -178,12 +183,13 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
 
             {/* Coverage row */}
             <span className="font-body text-small text-text-secondary py-2.5 border-t border-border-subtle">
-              Coverage
+              {t("compare.school.coverage")}
             </span>
             {builds.map((build, idx) => {
               const dimmed = highlightIndex !== null && highlightIndex !== idx;
               const tier = build.coverage_tier;
               const pillClass = tier ? COVERAGE_PILLS[tier] ?? "" : "";
+              const tierLabel = tier ? t(`compare.school.coverageTier.${tier}`) : null;
               return (
                 <div
                   key={build.build_id}
@@ -193,7 +199,7 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
                 >
                   {tier ? (
                     <span className={`${pillClass} rounded-full px-3 py-0.5 font-data text-data-sm font-bold`}>
-                      {tier}
+                      {tierLabel}
                     </span>
                   ) : (
                     <span className="font-data text-data text-text-muted">—</span>
@@ -222,8 +228,8 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
                 {AURA_METRICS.map((metric) => {
                   const val = metric.getValue(build);
                   return (
-                    <div key={metric.label} className="flex justify-between py-1.5 border-t border-border-subtle">
-                      <span className="font-body text-small text-text-secondary">{metric.label}</span>
+                    <div key={metric.labelKey} className="flex justify-between py-1.5 border-t border-border-subtle">
+                      <span className="font-body text-small text-text-secondary">{t(metric.labelKey)}</span>
                       <span className={`font-data text-data ${val == null ? "text-text-muted" : "text-text-primary"}`}>
                         {metric.format(val)}
                       </span>
@@ -231,16 +237,16 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
                   );
                 })}
                 <div className="flex justify-between py-1.5 border-t border-border-subtle">
-                  <span className="font-body text-small text-text-secondary">AURA Score</span>
+                  <span className="font-body text-small text-text-secondary">{t("compare.school.auraScore")}</span>
                   <span className={`font-data text-data ${auraVal == null ? "text-text-muted" : "text-text-primary"}`}>
                     {auraVal != null ? auraVal.toFixed(1) : "—"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-t border-border-subtle">
-                  <span className="font-body text-small text-text-secondary">Coverage</span>
+                  <span className="font-body text-small text-text-secondary">{t("compare.school.coverage")}</span>
                   {build.coverage_tier ? (
                     <span className={`${COVERAGE_PILLS[build.coverage_tier] ?? ""} rounded-full px-3 py-0.5 font-data text-data-sm font-bold`}>
-                      {build.coverage_tier}
+                      {t(`compare.school.coverageTier.${build.coverage_tier}`)}
                     </span>
                   ) : (
                     <span className="font-data text-data text-text-muted">—</span>
@@ -255,7 +261,22 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
       {/* AURA Score Basis note */}
       {builds.some((b) => b.aura_score_basis) && (
         <p className="font-data text-data-sm text-text-muted italic mt-3">
-          AURA score basis: {builds.map((b) => b.aura_score_basis).filter(Boolean).join(" / ")}
+          {t("compare.school.auraBasis", {
+            basis: builds
+              .map((b) => b.aura_score_basis)
+              .filter((v): v is string => Boolean(v))
+              .map((raw) => {
+                // Look up a localized label for the enum; fall back to
+                // the raw backend string if no translation exists yet
+                // (better than rendering "compare.school.auraBasisLabel.X"
+                // verbatim on screen).
+                const localized = t(`compare.school.auraBasisLabel.${raw}`);
+                return localized.startsWith("compare.school.auraBasisLabel.")
+                  ? raw
+                  : localized;
+              })
+              .join(" / "),
+          })}
         </p>
       )}
     </div>
@@ -264,12 +285,14 @@ export function CompareSchoolProfile({ builds, stats, highlightIndex }: CompareS
 
 function AuraTableRow({
   metric,
+  t,
   builds,
   values,
   maxVal,
   highlightIndex,
 }: {
   metric: AuraMetric;
+  t: T;
   builds: CompareBuild[];
   values: (number | null)[];
   maxVal: number;
@@ -278,7 +301,7 @@ function AuraTableRow({
   return (
     <>
       <span className="font-body text-small text-text-secondary py-2.5 border-t border-border-subtle">
-        {metric.label}
+        {t(metric.labelKey)}
       </span>
       {values.map((val, idx) => {
         const dimmed = highlightIndex !== null && highlightIndex !== idx;

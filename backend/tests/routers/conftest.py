@@ -20,8 +20,7 @@ if str(_BACKEND_ROOT) not in sys.path:
 def isolated_builds_db(tmp_path, monkeypatch):
     """Point the builds DuckDB + in-memory state at a tmp file/dict.
 
-    Everything the wrapped router touches (state._builds, builds._conns)
-    is cleared before and after the test.
+    Clears state._builds and builds._conns before and after the test.
     """
     from app import state
     from app.services import db

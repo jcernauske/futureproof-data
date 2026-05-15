@@ -244,7 +244,7 @@ export function GemmaChat({
       } catch (e) {
         if (cancelled || sessionRef.current !== session) return;
         setError(
-          e instanceof Error ? e.message : "Gemma couldn't respond.",
+          e instanceof Error ? e.message : "Couldn't respond. Try again.",
         );
       } finally {
         if (!cancelled && sessionRef.current === session) {
@@ -329,7 +329,7 @@ export function GemmaChat({
       );
     } catch (e) {
       if (sessionRef.current !== session) return;
-      setError(e instanceof Error ? e.message : "Gemma couldn't respond.");
+      setError(e instanceof Error ? e.message : "Couldn't respond. Try again.");
     } finally {
       if (sessionRef.current === session) setSending(false);
     }
@@ -385,7 +385,7 @@ export function GemmaChat({
           data-testid="card-career-description-loading"
           role="status"
           aria-live="polite"
-          aria-label="Loading career description"
+          aria-label={t("chat.careerDescription.loadingAria")}
           className="flex items-start gap-2 mb-4"
         >
           <span
@@ -422,7 +422,8 @@ export function GemmaChat({
       return null;
     }
 
-    const occupationTitle = chipText?.replace(/^Asking about: /, "") ?? "";
+    const occupationTitle =
+      scope?.kind === "career" ? scope.target_label ?? "" : "";
     const disclaimer =
       desc.anchor_tier === "description_only"
         ? "AI-inferred from the BLS occupation summary."
@@ -441,7 +442,7 @@ export function GemmaChat({
             id="career-desc-title"
             className="font-display text-subheading text-text-primary font-bold leading-tight truncate"
           >
-            {occupationTitle || "About this career"}
+            {occupationTitle || t("chat.careerDescription.title")}
           </h2>
           {socCode ? (
             <span
@@ -457,12 +458,15 @@ export function GemmaChat({
           {desc.summary}
         </p>
         <p className="font-body text-micro font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
-          Day-to-day
+          {t("chat.careerDescription.tasks")}
         </p>
         <ul
           role="list"
           data-testid="career-desc-tasks"
-          aria-label={`Day-to-day tasks for ${occupationTitle || "this career"}`}
+          aria-label={t("chat.careerDescription.tasksAria").replace(
+            "{career}",
+            occupationTitle || t("chat.careerDescription.thisCareer"),
+          )}
           className="flex flex-col gap-2"
         >
           {desc.tasks.map((task, i) => (
@@ -547,7 +551,7 @@ export function GemmaChat({
           {!opts?.compact && skeletonHint && (
             <p
               data-testid="skel-chat-opener"
-              aria-label="Loading Gemma's read on your career path"
+              aria-label="Loading the Guide's read on your career path"
               className="font-body text-small text-text-muted mt-2 ml-9"
             >
               {skeletonHint}
@@ -562,14 +566,14 @@ export function GemmaChat({
     return (
       <section
         role="region"
-        aria-label="Career path conversation with Gemma"
+        aria-label={t("chat.regionLabel")}
         data-testid="panel-branch-chat"
         className="bg-bp-mid border border-border-subtle rounded-xl flex flex-col h-[70vh] min-h-[400px]"
       >
         <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-subtle">
           <div className="flex flex-col gap-1 min-w-0">
             <h3 className="font-display font-semibold text-subheading text-text-primary">
-              Ask Gemma
+              {t("chat.title")}
             </h3>
             {scope && chipText ? (
               <span
@@ -614,7 +618,7 @@ export function GemmaChat({
           <input
             type="text"
             data-testid="input-chat"
-            aria-label="Type a question"
+            aria-label={t("chat.inputAria")}
             placeholder={t("chat.placeholder")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -624,7 +628,7 @@ export function GemmaChat({
           <button
             type="submit"
             data-testid="btn-chat-send"
-            aria-label="Send message"
+            aria-label={t("chat.sendAria")}
             disabled={!draft.trim() || sending || (!build && !scope)}
             className={`shrink-0 w-11 h-11 rounded-md flex items-center justify-center font-body text-body-lg transition-colors duration-normal cursor-pointer disabled:cursor-not-allowed ${
               draft.trim() && !sending
@@ -657,7 +661,7 @@ export function GemmaChat({
             key="chat-panel"
             role="dialog"
             aria-modal="true"
-            aria-label="Ask Gemma about your build"
+            aria-label={t("chat.dialogAria")}
             data-testid="dialog-chat"
             className="fixed z-[150] bg-bp-mid border-border-subtle flex flex-col
               right-0 top-14 bottom-0 w-full
@@ -672,7 +676,7 @@ export function GemmaChat({
             <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-subtle">
               <div className="flex flex-col gap-1 min-w-0">
                 <h3 className="font-display font-semibold text-subheading text-text-primary">
-                  Ask Gemma
+                  {t("chat.title")}
                 </h3>
                 {scope && chipText ? (
                   <span
@@ -698,7 +702,7 @@ export function GemmaChat({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close chat"
+                aria-label={t("chat.closeAria")}
                 className="shrink-0 w-9 h-9 rounded-full bg-bp-surface hover:bg-bp-raised text-text-primary flex items-center justify-center transition-colors duration-normal cursor-pointer"
               >
                 ✕
@@ -765,7 +769,7 @@ export function GemmaChat({
               <input
                 type="text"
                 data-testid="input-chat"
-                aria-label="Type a question"
+                aria-label={t("chat.inputAria")}
                 placeholder={t("chat.placeholder")}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -775,7 +779,7 @@ export function GemmaChat({
               <button
                 type="submit"
                 data-testid="btn-chat-send"
-                aria-label="Send message"
+                aria-label={t("chat.sendAria")}
                 disabled={!draft.trim() || sending || (!build && !scope)}
                 className={`shrink-0 w-11 h-11 rounded-md flex items-center justify-center font-body text-body-lg transition-colors duration-normal cursor-pointer disabled:cursor-not-allowed ${
                   draft.trim() && !sending

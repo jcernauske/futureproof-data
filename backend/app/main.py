@@ -23,7 +23,6 @@ from app.routers import (
     sessions,
     set_your_course,
     skills,
-    wrapped,
 )
 
 DEFAULT_DEV_ORIGINS = "http://localhost:5173,http://localhost:4173"
@@ -123,7 +122,6 @@ def create_app() -> FastAPI:
     application.include_router(careers.router, tags=["Careers"])
     application.include_router(career_pick.router)
     application.include_router(skills.router, prefix="/build", tags=["Skills"])
-    application.include_router(wrapped.router, prefix="/build", tags=["Wrapped"])
     application.include_router(pdf_export.router)
     application.include_router(
         sessions.router, prefix="/session", tags=["Session"]

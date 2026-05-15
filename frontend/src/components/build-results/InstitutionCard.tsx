@@ -54,7 +54,7 @@ export function InstitutionCard({ schoolName, narrative }: InstitutionCardProps)
                 className="font-body text-text-muted"
                 style={{ fontSize: 14, animation: "guidancePulse 2s ease-in-out infinite" }}
               >
-                Gemma is writing...
+                Writing…
               </span>
             </div>
             {[85, 100, 70].map((w, i) => (

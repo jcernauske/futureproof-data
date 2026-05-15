@@ -80,7 +80,7 @@ export function StatInfoPopover({
             onClick={() => onAsk(stat)}
             disabled={chatOpen}
             data-testid={`btn-ask-stat-${stat}`}
-            aria-label={`Ask Gemma about ${info.title}`}
+            aria-label={`Ask the Guide about ${info.title}`}
             className={[
               "inline-flex items-center gap-1.5 px-2 py-1.5 -mx-2 rounded-md",
               "font-body text-small font-semibold text-accent-insight",

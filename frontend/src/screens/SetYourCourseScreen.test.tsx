@@ -249,7 +249,7 @@ describe("TestRender", () => {
 // ---------------------------------------------------------------------------
 
 describe("TestFlow", () => {
-  it("commit_navigates_to_my_build — tapping Spec my build with outcomes loaded routes to /my-build", async () => {
+  it("commit_navigates_to_my_build — tapping Build my character with outcomes loaded routes to /my-build", async () => {
     const careers = makeCareers();
     vi.mocked(getOutcomes).mockResolvedValue(careers);
     seedState({
@@ -280,10 +280,11 @@ describe("TestFlow", () => {
         confirmed_focus: null,
       },
     });
+    useBuildStore.setState({ selectedCareer: careers[0]! });
 
     renderScreen();
 
-    const commit = await screen.findByText(/Spec my build/);
+    const commit = await screen.findByText(/Build my character/);
     expect(commit).not.toBeDisabled();
 
     fireEvent.click(commit);
@@ -331,12 +332,13 @@ describe("TestLowConfidence", () => {
         confirmed_focus: null,
       },
     });
+    useBuildStore.setState({ selectedCareer: careers[0]! });
 
     renderScreen();
     const nudge = await screen.findByTestId("soft-nudge");
     expect(nudge).toBeInTheDocument();
-    expect(nudge.textContent).toMatch(/wasn't sure/i);
-    const commit = screen.getByText(/Spec my build/);
+    expect(nudge.textContent).toMatch(/close call/i);
+    const commit = screen.getByText(/Build my character/);
     expect(commit).not.toBeDisabled();
   });
 });
@@ -544,11 +546,12 @@ describe("TestSocRevealStates", () => {
     const careers = makeCareers();
     vi.mocked(getOutcomes).mockResolvedValue(careers);
     seedWithResolvedMajor();
+    useBuildStore.setState({ selectedCareer: careers[0]! });
     renderScreen();
 
     const section = await screen.findByTestId("effort-commit-section");
     expect(section).toBeInTheDocument();
-    expect(screen.getByText(/Spec my build/)).toBeInTheDocument();
+    expect(screen.getByText(/Build my character/)).toBeInTheDocument();
   });
 
   it("renders a per-career Ask Gemma sparkle button", async () => {

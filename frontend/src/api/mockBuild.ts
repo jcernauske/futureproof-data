@@ -188,7 +188,6 @@ export async function mockCreateBuild(
     guidance: `${profileName}, you picked ${career.occupation_title} — and the data says you're in strong shape. Your earning power is solid, with graduates from this program pulling in a median of $${(career.median_annual_wage ?? 0).toLocaleString()} per year. The ROI on your degree looks healthy given your loan situation. This field is growing fast, which means opportunity is expanding, not shrinking. The one area to watch is burnout — this career has real demands, but awareness is half the battle. Overall, this is a path with momentum behind it.`,
     skills_crafted: [],
     skill_pool: skillPool,
-    next_steps: "Ready to fight the bosses and see how your build holds up?",
   };
 }
 

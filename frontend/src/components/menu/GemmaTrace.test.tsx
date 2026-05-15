@@ -104,7 +104,7 @@ describe("<GemmaTrace>", () => {
     // Visible header + sr-only live region both contain the same text
     // by design; getAllByText accepts the duplication.
     expect(
-      screen.getAllByText(/Gemma checked one source/).length,
+      screen.getAllByText(/Checked one source/).length,
     ).toBeGreaterThan(0);
   });
 
@@ -121,7 +121,7 @@ describe("<GemmaTrace>", () => {
       />,
     );
     expect(
-      screen.getAllByText(/Gemma checked 2 sources/).length,
+      screen.getAllByText(/Checked 2 sources/).length,
     ).toBeGreaterThan(0);
   });
 
@@ -133,7 +133,7 @@ describe("<GemmaTrace>", () => {
       />,
     );
     expect(
-      screen.getAllByText(/Gemma is looking something up/).length,
+      screen.getAllByText(/Looking something up/).length,
     ).toBeGreaterThan(0);
   });
 
@@ -215,7 +215,7 @@ describe("<GemmaTrace>", () => {
       />,
     );
     // Default fallback hint text from toolLabels.ts.
-    expect(screen.getByText(/Gemma is consulting a tool/)).toBeTruthy();
+    expect(screen.getByText(/Consulting a tool/)).toBeTruthy();
     // Component does not crash.
     expect(screen.getByTestId("gemma-trace-row-0")).toBeTruthy();
   });
@@ -307,7 +307,7 @@ describe("<GemmaTrace>", () => {
     const { container: liveDom } = render(
       <GemmaTrace events={events} mode="complete" />,
     );
-    expect(liveDom.textContent).toContain("Gemma checked one source");
+    expect(liveDom.textContent).toContain("Checked one source");
     expect(liveDom.textContent).toContain("done");
     expect(liveDom.textContent).toContain("87 ms");
   });

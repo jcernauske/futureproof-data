@@ -1,0 +1,240 @@
+{
+  "timestamp": "2026-05-13-010406",
+  "backend": "ollama",
+  "mode": "full",
+  "surfaces": {
+    "explain_ern": {
+      "surface": "explain_ern",
+      "n_cases": 5,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 8,
+          "fail": 1,
+          "n": 9
+        }
+      },
+      "latency": {
+        "n": 10,
+        "p50_ms": 3028.0,
+        "p95_ms": 7698.45,
+        "p99_ms": 7705.29,
+        "mean_ms": 3939.4,
+        "min_ms": 2599,
+        "max_ms": 7707
+      },
+      "cases": [
+        {
+          "case_id": "explain_ern_001_happy",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 7707,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_001_happy",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_001_happy",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score_max",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_001_happy",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_002_low_wage",
+          "tags": [
+            "edge",
+            "low_wage"
+          ],
+          "latency_ms": 3028,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_002_low_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_002_low_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_003_ood_dance",
+          "tags": [
+            "ood",
+            "arts"
+          ],
+          "latency_ms": 2610,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_003_ood_dance",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_004_deaf_ed",
+          "tags": [
+            "ood",
+            "deaf_education"
+          ],
+          "latency_ms": 3763,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_004_deaf_ed",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_005_high_wage",
+          "tags": [
+            "edge",
+            "high_wage"
+          ],
+          "latency_ms": 2599,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_005_high_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_005_high_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "latency": {
+    "explain_ern": {
+      "n": 5,
+      "p50_ms": 3028.0,
+      "p95_ms": 6902.999999999999,
+      "p99_ms": 7531.0,
+      "mean_ms": 3937.4,
+      "min_ms": 2599,
+      "max_ms": 7688
+    }
+  }
+}

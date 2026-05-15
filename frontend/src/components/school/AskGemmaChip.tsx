@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { Button } from "@/components/ui/Button";
 import { GemmaStar } from "@/components/ui/GemmaStar";
+import { useT } from "@/i18n/useT";
 import type { ChipId } from "@/api/intent";
 
 const CLARIFIER_MAX = 280;
@@ -28,6 +29,7 @@ export function AskGemmaChip({
   busy,
   softNudge = false,
 }: AskGemmaChipProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [clarifier, setClarifier] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -84,7 +86,7 @@ export function AskGemmaChip({
         data-testid="chip-not-expected"
       >
         <GemmaStar size={14} />
-        Not what I expected
+        {t("askGemma.chip.notExpected")}
       </button>
 
       <AnimatePresence>
@@ -118,17 +120,17 @@ export function AskGemmaChip({
                 className="flex items-center gap-2 font-body text-small font-bold text-accent-caution"
               >
                 <GemmaStar size={14} />
-                Not what I expected
+                {t("askGemma.dialog.title")}
               </div>
               <div>
                 <label
                   htmlFor="ask-gemma-clarifier"
                   className="block font-body text-small font-bold text-text-secondary mb-1"
                 >
-                  What were you hoping to see?
+                  {t("askGemma.dialog.prompt")}
                 </label>
                 <span className="block font-body text-small text-text-muted mb-3">
-                  Name a job, a field, whatever's missing.
+                  {t("askGemma.dialog.helper")}
                 </span>
                 <textarea
                   id="ask-gemma-clarifier"
@@ -140,7 +142,7 @@ export function AskGemmaChip({
                   maxLength={CLARIFIER_MAX}
                   rows={4}
                   className="w-full min-h-12 bg-bp-deep text-text-primary font-body text-body rounded-md border border-border px-4 py-3 focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-all duration-normal placeholder:text-text-muted resize-y"
-                  placeholder="e.g. brand manager, UX designer, something with less math…"
+                  placeholder={t("askGemma.dialog.placeholder")}
                   data-testid="clarifier-textarea"
                 />
                 <div className="mt-2 text-right font-data text-micro text-text-muted">
@@ -154,7 +156,7 @@ export function AskGemmaChip({
                   disabled={busy}
                   data-testid="clarifier-cancel"
                 >
-                  Cancel
+                  {t("askGemma.dialog.cancel")}
                 </Button>
                 <Button
                   variant="primary"
@@ -167,7 +169,7 @@ export function AskGemmaChip({
                       <path d="M 20 4 C 20 14, 14 20, 4 20 C 14 20, 20 26, 20 36 C 20 26, 26 20, 36 20 C 26 20, 20 14, 20 4 Z" opacity="0.8" />
                       <path d="M 20 10 C 20 16, 16 20, 10 20 C 16 20, 20 24, 20 30 C 20 24, 24 20, 30 20 C 24 20, 20 16, 20 10 Z" />
                     </svg>
-                    Ask Gemma
+                    {t("askGemma.dialog.submit")}
                   </span>
                 </Button>
               </div>

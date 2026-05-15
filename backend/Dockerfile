@@ -1,7 +1,4 @@
-# Base image version MUST match the playwright Python package version in
-# backend/pyproject.toml. Microsoft ships paired Chromium binaries — drift
-# yields a runtime "Executable doesn't exist at /ms-playwright/..." crash.
-FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
+FROM python:3.11-slim
 
 # Iceberg metadata files store absolute paths from the host build machine
 # (e.g. /Users/jcernauske/.../data/gold/iceberg_warehouse/...). Install the
@@ -20,11 +17,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
-# Brightsmith is a private repo. Railway passes the GITHUB_TOKEN service
-# variable as a build arg whenever the Dockerfile declares a matching ARG.
-# We rewrite https://github.com URLs to embed the token via git config so
-# both the explicit pip install below AND the later `pip install -e ./backend`
-# (which re-resolves the brightsmith dep from pyproject.toml) authenticate.
+# Brightsmith is public at github.com/hyena-studios/brightsmith, so pip
+# fetches it without authentication. The GITHUB_TOKEN arg is kept for
+# Railway deployment compatibility — if the service variable is set, the
+# git config rewrite below embeds it; if unset, the rewrite is a no-op
+# and the public clone still works. Local builds can ignore it entirely.
 ARG GITHUB_TOKEN
 
 # Install backend deps first for cache reuse
@@ -32,9 +29,8 @@ COPY backend/pyproject.toml backend/pyproject.toml
 RUN git config --global "url.https://${GITHUB_TOKEN}@github.com/.insteadOf" "https://github.com/" \
     && pip install --upgrade pip \
     && pip install fastapi 'uvicorn[standard]' pydantic duckdb \
-       'playwright>=1.58.0,<1.59.0' jinja2 \
-       openai python-dotenv pyyaml \
-       'brightsmith @ git+https://github.com/jcernauske/brightsmith.git'
+       jinja2 openai python-dotenv pyyaml \
+       'brightsmith @ git+https://github.com/hyena-studios/brightsmith.git'
 
 # Copy the bits the backend actually needs at runtime
 COPY backend/ backend/

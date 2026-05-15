@@ -3,6 +3,7 @@ import { springs } from "@/styles/motion";
 import { DiscreteSlider } from "@/components/ui/DiscreteSlider";
 import type { SliderStop } from "@/components/ui/DiscreteSlider";
 import type { EffortSelection, LoanSelection } from "@/types/buildInput";
+import { useT } from "@/i18n/useT";
 
 interface EffortLoansPanelProps {
   effort: EffortSelection;
@@ -25,46 +26,45 @@ interface EffortLoansPanelProps {
   highlight?: boolean;
 }
 
-const EFFORT_STOPS: SliderStop<string>[] = [
-  { value: "working_hard", label: "Working two jobs" },
-  { value: "working", label: "Working + school" },
-  { value: "balanced", label: "Balanced" },
-  { value: "focused", label: "Strong focus" },
-  { value: "all_in", label: "All-in" },
-];
-
+// Effort + Loan stop / desc keys live in `EFFORT_MAP` and `LOAN_STOPS`.
+// `label` comes from `t(...)` at render time so the screen-reader
+// `aria-valuetext` and visible chips switch with the active locale.
 const EFFORT_MAP: Record<
   string,
-  { percentile: 10 | 25 | 50 | 75 | 90; ernShift: -2 | -1 | 0 | 1 | 2; desc: string }
+  { percentile: 10 | 25 | 50 | 75 | 90; ernShift: -2 | -1 | 0 | 1 | 2; stopKey: string; descKey: string }
 > = {
-  working_hard: { percentile: 10, ernShift: -2, desc: "Very limited focus" },
-  working: { percentile: 25, ernShift: -1, desc: "Limited focus" },
-  balanced: { percentile: 50, ernShift: 0, desc: "Balanced focus" },
-  focused: { percentile: 75, ernShift: 1, desc: "Strong academic focus" },
-  all_in: { percentile: 90, ernShift: 2, desc: "Maximum focus" },
+  working_hard: { percentile: 10, ernShift: -2, stopKey: "effortLoans.effort.stop.workingHard", descKey: "effortLoans.effort.desc.workingHard" },
+  working: { percentile: 25, ernShift: -1, stopKey: "effortLoans.effort.stop.working", descKey: "effortLoans.effort.desc.working" },
+  balanced: { percentile: 50, ernShift: 0, stopKey: "effortLoans.effort.stop.balanced", descKey: "effortLoans.effort.desc.balanced" },
+  focused: { percentile: 75, ernShift: 1, stopKey: "effortLoans.effort.stop.focused", descKey: "effortLoans.effort.desc.focused" },
+  all_in: { percentile: 90, ernShift: 2, stopKey: "effortLoans.effort.stop.allIn", descKey: "effortLoans.effort.desc.allIn" },
 };
 
-const LOAN_STOPS: SliderStop<number>[] = [
-  { value: 0, label: "No loans" },
-  { value: 25, label: "Some" },
-  { value: 50, label: "Half" },
-  { value: 75, label: "Mostly" },
-  { value: 100, label: "All loans" },
+const LOAN_STOP_KEYS: { value: number; labelKey: string }[] = [
+  { value: 0, labelKey: "effortLoans.loans.stop.none" },
+  { value: 25, labelKey: "effortLoans.loans.stop.some" },
+  { value: 50, labelKey: "effortLoans.loans.stop.half" },
+  { value: 75, labelKey: "effortLoans.loans.stop.mostly" },
+  { value: 100, labelKey: "effortLoans.loans.stop.all" },
 ];
 
 // Copy describes the Student Loans Boss impact only — ROI is cost-based
 // and does not change with loan coverage. See plan
 // ~/.claude/plans/why-are-we-still-jaunty-curry.md
-function loanImpactText(pct: number, netPriceAnnual?: number | null): string {
-  if (pct === 0) return "no debt — Fight Student Loans auto-win";
+function loanImpactText(
+  pct: number,
+  netPriceAnnual: number | null | undefined,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  if (pct === 0) return t("effortLoans.loans.impact.none");
   const hasCost = typeof netPriceAnnual === "number" && netPriceAnnual > 0;
   const total = hasCost
     ? `$${(netPriceAnnual! * 4).toLocaleString()}`
-    : "4-year cost";
+    : t("effortLoans.loans.impact.fourYearCost");
   if (pct === 100) {
-    return `financing 100% of ${total} — Fight Student Loans at full difficulty`;
+    return t("effortLoans.loans.impact.full", { total });
   }
-  return `financing ${pct}% of ${total}`;
+  return t("effortLoans.loans.impact.partial", { pct, total });
 }
 
 
@@ -76,6 +76,7 @@ export function EffortLoansPanel({
   netPriceAnnual,
   highlight = false,
 }: EffortLoansPanelProps) {
+  const t = useT();
   const sliderCardClass = [
     "bg-bp-mid border rounded-xl p-6 transition-all duration-500",
     highlight
@@ -97,6 +98,16 @@ export function EffortLoansPanel({
 
   const effortInfo = EFFORT_MAP[effort.level] ?? EFFORT_MAP.balanced!;
 
+  // Build localized slider-stop arrays at render time so they react to
+  // locale changes from the profile store.
+  const effortStops: SliderStop<string>[] = (
+    ["working_hard", "working", "balanced", "focused", "all_in"] as const
+  ).map((key) => ({ value: key, label: t(EFFORT_MAP[key]!.stopKey) }));
+  const loanStops: SliderStop<number>[] = LOAN_STOP_KEYS.map(({ value, labelKey }) => ({
+    value,
+    label: t(labelKey),
+  }));
+
   return (
     <motion.div
       className="space-y-5"
@@ -109,38 +120,38 @@ export function EffortLoansPanel({
         {/* Effort slider */}
         <div className={sliderCardClass}>
           <div className="font-display text-[20px] font-semibold text-text-primary text-center mb-6">
-            How much time will you have to focus on school?
+            {t("effortLoans.effort.heading")}
           </div>
           <DiscreteSlider
-            stops={EFFORT_STOPS}
+            stops={effortStops}
             value={effort.level}
             onChange={handleEffortChange}
-            labelLeft="Working to support myself"
-            labelRight="Full focus on school"
+            labelLeft={t("effortLoans.effort.labelLeft")}
+            labelRight={t("effortLoans.effort.labelRight")}
             fillGradient="linear-gradient(90deg, var(--color-accent-info), var(--color-accent-thrive))"
-            ariaLabel="Effort level"
+            ariaLabel={t("effortLoans.effort.aria")}
           />
           <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
-            {effortInfo!.desc}
+            {t(effortInfo!.descKey)}
           </div>
         </div>
 
         {/* Loan slider */}
         <div className={sliderCardClass}>
           <div className="font-display text-[20px] font-semibold text-text-primary text-center mb-6">
-            How much of your costs will you cover with loans?
+            {t("effortLoans.loans.heading")}
           </div>
           <DiscreteSlider
-            stops={LOAN_STOPS}
+            stops={loanStops}
             value={loans.percentage}
             onChange={handleLoanChange}
-            labelLeft="No loans"
-            labelRight="All loans"
+            labelLeft={t("effortLoans.loans.labelLeft")}
+            labelRight={t("effortLoans.loans.labelRight")}
             fillGradient="linear-gradient(90deg, var(--color-accent-thrive), var(--color-accent-alert))"
-            ariaLabel="Loan percentage"
+            ariaLabel={t("effortLoans.loans.aria")}
           />
           <div className="font-data text-[14px] font-bold text-accent-thrive text-center mt-5">
-            {loanImpactText(loans.percentage, netPriceAnnual)}
+            {loanImpactText(loans.percentage, netPriceAnnual, t)}
           </div>
           {typeof netPriceAnnual === "number" && netPriceAnnual > 0 && (
             <div
@@ -148,15 +159,18 @@ export function EffortLoansPanel({
               data-testid="loan-slider-cost-context"
             >
               <div className="font-data text-data-sm text-text-muted">
-                ${netPriceAnnual.toLocaleString()}/yr × 4 years = $
-                {(netPriceAnnual * 4).toLocaleString()} total
+                {t("effortLoans.loans.cost.totalLine", {
+                  annual: `$${netPriceAnnual.toLocaleString()}`,
+                  total: `$${(netPriceAnnual * 4).toLocaleString()}`,
+                })}
               </div>
               <div className="font-data text-data-sm text-text-secondary">
-                At {loans.percentage}%: $
-                {Math.round(
-                  netPriceAnnual * 4 * (loans.percentage / 100),
-                ).toLocaleString()}{" "}
-                in loans
+                {t("effortLoans.loans.cost.atPctLine", {
+                  pct: loans.percentage,
+                  amount: `$${Math.round(
+                    netPriceAnnual * 4 * (loans.percentage / 100),
+                  ).toLocaleString()}`,
+                })}
               </div>
             </div>
           )}

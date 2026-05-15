@@ -41,7 +41,7 @@ beforeEach(() => {
 describe("ProfileScreen", () => {
   it("renders profile name", () => {
     renderProfile();
-    expect(screen.getByText("Meet your guide")).toBeInTheDocument();
+    expect(screen.getByText("Choose your Character")).toBeInTheDocument();
     expect(screen.getByText("dancing happy bear")).toBeInTheDocument();
   });
 

@@ -1,0 +1,30 @@
+[project]
+name = "futureproof-eval"
+version = "0.1.0"
+description = "Eval harness for FutureProof Gemma surfaces"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40",
+    "openai>=1.40",
+    "pydantic>=2.6",
+    "pandas>=2.0",
+    "python-dotenv>=1.0",
+    "rich>=13.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "mypy>=1.13",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "../backend"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

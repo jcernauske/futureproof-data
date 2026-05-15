@@ -44,7 +44,7 @@ wheels = [
 [[package]]
 name = "brightsmith"
 version = "0.2.0"
-source = { git = "https://github.com/jcernauske/brightsmith.git#836e1d5f5e93b9fb4fe3fd436d3d116a7a042bab" }
+source = { git = "https://github.com/hyena-studios/brightsmith.git#6c5b120cc365e4c9b6cf0c675899111f9afe88d9" }
 dependencies = [
     { name = "duckdb" },
     { name = "httpx" },
@@ -400,7 +400,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "brightsmith", git = "https://github.com/jcernauske/brightsmith.git" },
+    { name = "brightsmith", git = "https://github.com/hyena-studios/brightsmith.git" },
     { name = "openai", specifier = ">=1.40" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "pandas", specifier = ">=3.0.2" },

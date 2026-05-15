@@ -1,0 +1,5129 @@
+{
+  "timestamp": "2026-05-13-183007",
+  "backend": "ollama",
+  "mode": "full",
+  "surfaces": {
+    "career_intent": {
+      "surface": "career_intent",
+      "n_cases": 20,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 0,
+          "fail": 21,
+          "n": 21
+        }
+      },
+      "latency": {
+        "n": 40,
+        "p50_ms": 4731.0,
+        "p95_ms": 5935.749999999986,
+        "p99_ms": 10463.98,
+        "mean_ms": 4856.45,
+        "min_ms": 3508,
+        "max_ms": 10471
+      },
+      "cases": [
+        {
+          "case_id": "intent_001_nursing",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 10471,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_001_nursing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "51.3801",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "intent_001_nursing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "confidence",
+                "expected": 0.85,
+                "actual": "high"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_002_data_science_ambiguous",
+          "tags": [
+            "happy",
+            "ambiguous"
+          ],
+          "latency_ms": 4027,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_002_data_science_ambiguous",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "27.0501",
+                  "30.7001",
+                  "11.0701"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_003_deaf_education",
+          "tags": [
+            "ood",
+            "deaf_education"
+          ],
+          "latency_ms": 4718,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_003_deaf_education",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "13.1003",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_004_typo_engineering",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 4979,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_004_typo_engineering",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "14.1001",
+                  "14.0801",
+                  "14.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_005_nonsense",
+          "tags": [
+            "adversarial",
+            "nonsense"
+          ],
+          "latency_ms": 3509,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_005_nonsense",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "confidence",
+                "expected": 0.3,
+                "actual": "low"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_006_pre_med",
+          "tags": [
+            "happy",
+            "premed_track"
+          ],
+          "latency_ms": 5698,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_006_pre_med",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "51.0000",
+                  "26.0102",
+                  "26.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_007_business",
+          "tags": [
+            "happy",
+            "broad"
+          ],
+          "latency_ms": 4970,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_007_business",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "52.0201",
+                  "52.0801",
+                  "52.1401",
+                  "52.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_008_psych",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 4903,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_008_psych",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "42.0101",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_009_marketing",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 4042,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_009_marketing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "52.1401",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_010_chem_eng_specific",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 3793,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_010_chem_eng_specific",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "14.0701",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_011_doctor_ambiguous",
+          "tags": [
+            "happy",
+            "ambiguous",
+            "premed_track"
+          ],
+          "latency_ms": 5404,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_011_doctor_ambiguous",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "51.0000",
+                  "26.0102",
+                  "26.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_012_video_games",
+          "tags": [
+            "happy",
+            "creative_tech"
+          ],
+          "latency_ms": 4030,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_012_video_games",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "50.0102",
+                  "11.0701",
+                  "50.0411"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_013_funeral_director",
+          "tags": [
+            "ood",
+            "vocational_specialty"
+          ],
+          "latency_ms": 4110,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_013_funeral_director",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "12.0301",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_014_tattoo_art",
+          "tags": [
+            "ood",
+            "creative_unconventional"
+          ],
+          "latency_ms": 5390,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_014_tattoo_art",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "50.0409",
+                  "50.0701",
+                  "50.0702"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_015_archaeologist",
+          "tags": [
+            "happy",
+            "niche"
+          ],
+          "latency_ms": 4081,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_015_archaeologist",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "30.2202",
+                  "45.0201"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_016_typo_business",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 5289,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_016_typo_business",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "52.0201",
+                  "52.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_017_empty",
+          "tags": [
+            "adversarial",
+            "low_signal"
+          ],
+          "latency_ms": 4745,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_017_empty",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "confidence",
+                "expected": 0.3,
+                "actual": "low"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_018_beekeeper",
+          "tags": [
+            "ood",
+            "agriculture_niche"
+          ],
+          "latency_ms": 4878,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_018_beekeeper",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "actual": null,
+                "accepted": [
+                  "01.0901",
+                  "26.0701",
+                  "01.1101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_019_journalism",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 3944,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_019_journalism",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "09.0401",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_020_changed_my_mind",
+          "tags": [
+            "adversarial",
+            "conversational"
+          ],
+          "latency_ms": 4162,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_020_changed_my_mind",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "cipcode",
+                "expected": "50.0703",
+                "actual": null
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    "explain_ern": {
+      "surface": "explain_ern",
+      "n_cases": 20,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 36,
+          "fail": 3,
+          "n": 39
+        }
+      },
+      "latency": {
+        "n": 40,
+        "p50_ms": 2505.5,
+        "p95_ms": 2911.0999999999985,
+        "p99_ms": 3350.0,
+        "mean_ms": 2529.975,
+        "min_ms": 2012,
+        "max_ms": 3350
+      },
+      "cases": [
+        {
+          "case_id": "explain_ern_001_happy",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2692,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_001_happy",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_001_happy",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score_max",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_001_happy",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_002_low_wage",
+          "tags": [
+            "edge",
+            "low_wage"
+          ],
+          "latency_ms": 2696,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_002_low_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_002_low_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_003_ood_dance",
+          "tags": [
+            "ood",
+            "arts"
+          ],
+          "latency_ms": 2392,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_003_ood_dance",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_004_deaf_ed",
+          "tags": [
+            "ood",
+            "deaf_education"
+          ],
+          "latency_ms": 3350,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_004_deaf_ed",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_005_high_wage",
+          "tags": [
+            "edge",
+            "high_wage"
+          ],
+          "latency_ms": 2315,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_005_high_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_005_high_wage",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_006_software",
+          "tags": [
+            "happy",
+            "high_wage"
+          ],
+          "latency_ms": 2539,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_006_software",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_006_software",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_007_pharmacist",
+          "tags": [
+            "happy",
+            "high_wage"
+          ],
+          "latency_ms": 2481,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_007_pharmacist",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_007_pharmacist",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_008_mech_eng",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2364,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_008_mech_eng",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_008_mech_eng",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_009_financial",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2888,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_009_financial",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_009_financial",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_010_pt",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2440,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_010_pt",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_010_pt",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_011_teacher",
+          "tags": [
+            "happy",
+            "mid_wage"
+          ],
+          "latency_ms": 2639,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_011_teacher",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_011_teacher",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 4,
+                "actual": 4,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_012_accountant",
+          "tags": [
+            "happy",
+            "mid_wage"
+          ],
+          "latency_ms": 2721,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_012_accountant",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_012_accountant",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 6,
+                "actual": 6,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_013_police",
+          "tags": [
+            "happy",
+            "mid_wage"
+          ],
+          "latency_ms": 2139,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_013_police",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_013_police",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 5,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_014_plumber",
+          "tags": [
+            "happy",
+            "trades"
+          ],
+          "latency_ms": 2012,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_014_plumber",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_014_plumber",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 5,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_015_social_worker",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2531,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_015_social_worker",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_015_social_worker",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 4,
+                "actual": 4,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_016_cashier",
+          "tags": [
+            "edge",
+            "low_wage"
+          ],
+          "latency_ms": 2377,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_016_cashier",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_016_cashier",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_017_cook",
+          "tags": [
+            "edge",
+            "low_wage"
+          ],
+          "latency_ms": 2417,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_017_cook",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_017_cook",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_018_surgeon",
+          "tags": [
+            "edge",
+            "high_wage"
+          ],
+          "latency_ms": 2317,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_018_surgeon",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_018_surgeon",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_019_pilot",
+          "tags": [
+            "happy",
+            "high_wage"
+          ],
+          "latency_ms": 2591,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_019_pilot",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_019_pilot",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_ern_020_sign_lang",
+          "tags": [
+            "ood",
+            "language_services"
+          ],
+          "latency_ms": 2702,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_ern_020_sign_lang",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ERN",
+                "actual": "ERN"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_ern_020_sign_lang",
+              "surface": "explain_ern",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 4,
+                "actual": 4,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    "explain_roi": {
+      "surface": "explain_roi",
+      "n_cases": 20,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 33,
+          "fail": 4,
+          "n": 37
+        },
+        "adapter": {
+          "pass": 0,
+          "fail": 1,
+          "n": 1
+        }
+      },
+      "latency": {
+        "n": 40,
+        "p50_ms": 3210.0,
+        "p95_ms": 4824.799999999949,
+        "p99_ms": 21769.61,
+        "mean_ms": 4168.4,
+        "min_ms": 2773,
+        "max_ms": 21770
+      },
+      "cases": [
+        {
+          "case_id": "explain_roi_001_iu_cs",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 3122,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_001_iu_cs",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_001_iu_cs",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_002_nyu_film",
+          "tags": [
+            "edge",
+            "negative_roi"
+          ],
+          "latency_ms": 2885,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_002_nyu_film",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_002_nyu_film",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 5,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_003_ivy_tech_dental",
+          "tags": [
+            "edge",
+            "high_roi"
+          ],
+          "latency_ms": 2789,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_003_ivy_tech_dental",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_003_ivy_tech_dental",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 9
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_004_mit_eng",
+          "tags": [
+            "happy",
+            "elite_school"
+          ],
+          "latency_ms": 2900,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_004_mit_eng",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_004_mit_eng",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_005_uiuc_eng",
+          "tags": [
+            "happy",
+            "state_flagship"
+          ],
+          "latency_ms": 3303,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_005_uiuc_eng",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_005_uiuc_eng",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_006_columbia_journalism",
+          "tags": [
+            "edge",
+            "negative_roi",
+            "elite_school"
+          ],
+          "latency_ms": 2773,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_006_columbia_journalism",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_006_columbia_journalism",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_007_chicago_state_psych",
+          "tags": [
+            "happy",
+            "regional_public"
+          ],
+          "latency_ms": 3247,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_007_chicago_state_psych",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_007_chicago_state_psych",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 6,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_008_phoenix_business",
+          "tags": [
+            "edge",
+            "online_for_profit"
+          ],
+          "latency_ms": 3899,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_008_phoenix_business",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_008_phoenix_business",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 4,
+                "actual": 6,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_009_purdue_aero",
+          "tags": [
+            "happy",
+            "state_flagship"
+          ],
+          "latency_ms": 3375,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_009_purdue_aero",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_009_purdue_aero",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_010_brown_lit",
+          "tags": [
+            "edge",
+            "negative_roi",
+            "elite_school"
+          ],
+          "latency_ms": 3189,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_010_brown_lit",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_011_uiowa_nursing",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 3686,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_011_uiowa_nursing",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_011_uiowa_nursing",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_012_oberlin_music",
+          "tags": [
+            "edge",
+            "negative_roi",
+            "arts"
+          ],
+          "latency_ms": 2813,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_012_oberlin_music",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_012_oberlin_music",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_013_smcc_welding",
+          "tags": [
+            "happy",
+            "trades",
+            "community_college"
+          ],
+          "latency_ms": 3148,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_013_smcc_welding",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_013_smcc_welding",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_014_isu_education",
+          "tags": [
+            "happy",
+            "regional_public"
+          ],
+          "latency_ms": 3766,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_014_isu_education",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_014_isu_education",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 5,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_015_yale_polisci",
+          "tags": [
+            "happy",
+            "elite_school"
+          ],
+          "latency_ms": 3136,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_015_yale_polisci",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_015_yale_polisci",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 6,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_016_morgan_state_eng",
+          "tags": [
+            "happy",
+            "hbcu"
+          ],
+          "latency_ms": 3370,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_016_morgan_state_eng",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_016_morgan_state_eng",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_017_full_sail_game_design",
+          "tags": [
+            "edge",
+            "for_profit",
+            "high_debt_default_rate"
+          ],
+          "latency_ms": 3933,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_017_full_sail_game_design",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_017_full_sail_game_design",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 3,
+                "actual": 5,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_018_uw_pharmacy",
+          "tags": [
+            "happy",
+            "professional_degree"
+          ],
+          "latency_ms": 3036,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_018_uw_pharmacy",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_018_uw_pharmacy",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_019_brown_anthro",
+          "tags": [
+            "edge",
+            "negative_roi"
+          ],
+          "latency_ms": 21770,
+          "adapter_error": "json_parse_error: Unterminated string starting at: line 1 column 109 (char 108)",
+          "scores": [
+            {
+              "case_id": "explain_roi_019_brown_anthro",
+              "surface": "explain_roi",
+              "metric": "adapter",
+              "score": 0.0,
+              "passed": false,
+              "details": {},
+              "latency_ms": 21770,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": "json_parse_error: Unterminated string starting at: line 1 column 109 (char 108)"
+            }
+          ]
+        },
+        {
+          "case_id": "explain_roi_020_lincoln_tech_hvac",
+          "tags": [
+            "happy",
+            "trades",
+            "short_program"
+          ],
+          "latency_ms": 3231,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_roi_020_lincoln_tech_hvac",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "ROI",
+                "actual": "ROI"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_roi_020_lincoln_tech_hvac",
+              "surface": "explain_roi",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    "explain_res": {
+      "surface": "explain_res",
+      "n_cases": 20,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 28,
+          "fail": 12,
+          "n": 40
+        }
+      },
+      "latency": {
+        "n": 40,
+        "p50_ms": 5337.0,
+        "p95_ms": 6010.699999999999,
+        "p99_ms": 6252.61,
+        "mean_ms": 5014.2,
+        "min_ms": 3207,
+        "max_ms": 6253
+      },
+      "cases": [
+        {
+          "case_id": "explain_res_001_nurses",
+          "tags": [
+            "happy",
+            "low_ai_exposure"
+          ],
+          "latency_ms": 5998,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_001_nurses",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_001_nurses",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_002_paralegals",
+          "tags": [
+            "edge",
+            "high_ai_exposure"
+          ],
+          "latency_ms": 5908,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_002_paralegals",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_002_paralegals",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_003_mech_eng",
+          "tags": [
+            "happy",
+            "mixed"
+          ],
+          "latency_ms": 6253,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_003_mech_eng",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_003_mech_eng",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 6,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_004_electrician",
+          "tags": [
+            "happy",
+            "trades"
+          ],
+          "latency_ms": 5300,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_004_electrician",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_004_electrician",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_005_data_entry",
+          "tags": [
+            "edge",
+            "extreme_ai_exposure"
+          ],
+          "latency_ms": 3744,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_005_data_entry",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_005_data_entry",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 2,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_006_translator",
+          "tags": [
+            "edge",
+            "high_ai_exposure"
+          ],
+          "latency_ms": 5651,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_006_translator",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_006_translator",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 3,
+                "actual": 7,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_007_pt_assistant",
+          "tags": [
+            "happy",
+            "low_ai_exposure"
+          ],
+          "latency_ms": 5528,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_007_pt_assistant",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_007_pt_assistant",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_008_accountant",
+          "tags": [
+            "edge",
+            "high_ai_exposure"
+          ],
+          "latency_ms": 5374,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_008_accountant",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_008_accountant",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 3,
+                "actual": 7,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_009_dental_hygienist",
+          "tags": [
+            "happy",
+            "low_ai_exposure"
+          ],
+          "latency_ms": 3207,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_009_dental_hygienist",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_009_dental_hygienist",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_010_market_research_analyst",
+          "tags": [
+            "edge",
+            "high_ai_exposure"
+          ],
+          "latency_ms": 3422,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_010_market_research_analyst",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_010_market_research_analyst",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_011_carpenter",
+          "tags": [
+            "happy",
+            "trades"
+          ],
+          "latency_ms": 5283,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_011_carpenter",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_011_carpenter",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_012_radiologist",
+          "tags": [
+            "edge",
+            "imaging_disruption"
+          ],
+          "latency_ms": 4814,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_012_radiologist",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_012_radiologist",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 4,
+                "actual": 7,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_013_chef",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 5449,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_013_chef",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_013_chef",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_014_customer_service_rep",
+          "tags": [
+            "edge",
+            "extreme_ai_exposure"
+          ],
+          "latency_ms": 3947,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_014_customer_service_rep",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_014_customer_service_rep",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_015_veterinarian",
+          "tags": [
+            "happy",
+            "low_ai_exposure"
+          ],
+          "latency_ms": 5970,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_015_veterinarian",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_015_veterinarian",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_016_graphic_designer",
+          "tags": [
+            "edge",
+            "creative_disruption"
+          ],
+          "latency_ms": 5458,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_016_graphic_designer",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_016_graphic_designer",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_017_firefighter",
+          "tags": [
+            "happy",
+            "first_responder"
+          ],
+          "latency_ms": 5507,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_017_firefighter",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_017_firefighter",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_018_writer",
+          "tags": [
+            "edge",
+            "creative_disruption"
+          ],
+          "latency_ms": 5218,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_018_writer",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_018_writer",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 6,
+                "tolerance": 2
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_019_marine_biologist",
+          "tags": [
+            "ood",
+            "research_science"
+          ],
+          "latency_ms": 4694,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_019_marine_biologist",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_019_marine_biologist",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_res_020_real_estate",
+          "tags": [
+            "happy",
+            "mixed"
+          ],
+          "latency_ms": 3563,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_res_020_real_estate",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "RES",
+                "actual": "RES"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_res_020_real_estate",
+              "surface": "explain_res",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 6,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    "explain_grw": {
+      "surface": "explain_grw",
+      "n_cases": 20,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 40,
+          "fail": 0,
+          "n": 40
+        }
+      },
+      "latency": {
+        "n": 40,
+        "p50_ms": 2372.5,
+        "p95_ms": 3132.8999999999996,
+        "p99_ms": 3226.0,
+        "mean_ms": 2494.55,
+        "min_ms": 2082,
+        "max_ms": 3226
+      },
+      "cases": [
+        {
+          "case_id": "explain_grw_001_nps",
+          "tags": [
+            "happy",
+            "high_growth"
+          ],
+          "latency_ms": 2310,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_001_nps",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_001_nps",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_002_word_processors",
+          "tags": [
+            "edge",
+            "declining"
+          ],
+          "latency_ms": 2342,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_002_word_processors",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_002_word_processors",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 1,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_003_teachers",
+          "tags": [
+            "happy",
+            "flat"
+          ],
+          "latency_ms": 2225,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_003_teachers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_003_teachers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 5,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_004_wind_techs",
+          "tags": [
+            "happy",
+            "high_growth"
+          ],
+          "latency_ms": 2986,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_004_wind_techs",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_004_wind_techs",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_005_secretaries",
+          "tags": [
+            "edge",
+            "declining"
+          ],
+          "latency_ms": 3226,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_005_secretaries",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_005_secretaries",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 2,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_006_data_scientists",
+          "tags": [
+            "happy",
+            "high_growth"
+          ],
+          "latency_ms": 2376,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_006_data_scientists",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_006_data_scientists",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_007_home_health_aides",
+          "tags": [
+            "happy",
+            "high_growth"
+          ],
+          "latency_ms": 2734,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_007_home_health_aides",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_007_home_health_aides",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_008_postal_clerks",
+          "tags": [
+            "edge",
+            "declining"
+          ],
+          "latency_ms": 2328,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_008_postal_clerks",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_008_postal_clerks",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 1,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_009_software_devs",
+          "tags": [
+            "happy",
+            "high_growth"
+          ],
+          "latency_ms": 2365,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_009_software_devs",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_009_software_devs",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_010_lawyers",
+          "tags": [
+            "happy",
+            "average_growth"
+          ],
+          "latency_ms": 2518,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_010_lawyers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_010_lawyers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 6,
+                "actual": 6,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_011_telephone_operators",
+          "tags": [
+            "edge",
+            "extreme_decline"
+          ],
+          "latency_ms": 2357,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_011_telephone_operators",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_011_telephone_operators",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 1,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_012_solar_installers",
+          "tags": [
+            "happy",
+            "high_growth",
+            "trades"
+          ],
+          "latency_ms": 3128,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_012_solar_installers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_012_solar_installers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_013_civil_engineers",
+          "tags": [
+            "happy",
+            "moderate_growth"
+          ],
+          "latency_ms": 2555,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_013_civil_engineers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_013_civil_engineers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 6,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_014_print_press_operators",
+          "tags": [
+            "edge",
+            "declining"
+          ],
+          "latency_ms": 2082,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_014_print_press_operators",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_014_print_press_operators",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 2,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_015_pa",
+          "tags": [
+            "happy",
+            "high_growth"
+          ],
+          "latency_ms": 2369,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_015_pa",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_015_pa",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_016_information_security",
+          "tags": [
+            "happy",
+            "high_growth"
+          ],
+          "latency_ms": 2559,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_016_information_security",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_016_information_security",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_017_jewelers",
+          "tags": [
+            "edge",
+            "declining"
+          ],
+          "latency_ms": 2082,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_017_jewelers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_017_jewelers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 2,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_018_genetic_counselors",
+          "tags": [
+            "ood",
+            "specialized_health"
+          ],
+          "latency_ms": 2453,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_018_genetic_counselors",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_018_genetic_counselors",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_019_legal_secretaries",
+          "tags": [
+            "edge",
+            "declining"
+          ],
+          "latency_ms": 2270,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_019_legal_secretaries",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_019_legal_secretaries",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 1,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_grw_020_marketing_managers",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2628,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_grw_020_marketing_managers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "GRW",
+                "actual": "GRW"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_grw_020_marketing_managers",
+              "surface": "explain_grw",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 6,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    "explain_aura": {
+      "surface": "explain_aura",
+      "n_cases": 20,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 39,
+          "fail": 1,
+          "n": 40
+        }
+      },
+      "latency": {
+        "n": 40,
+        "p50_ms": 3412.5,
+        "p95_ms": 4684.349999999998,
+        "p99_ms": 5413.0,
+        "mean_ms": 3622.625,
+        "min_ms": 2805,
+        "max_ms": 5413
+      },
+      "cases": [
+        {
+          "case_id": "explain_aura_001_mit",
+          "tags": [
+            "happy",
+            "elite"
+          ],
+          "latency_ms": 3490,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_001_mit",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_001_mit",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_002_iu_bloomington",
+          "tags": [
+            "happy",
+            "state_flagship"
+          ],
+          "latency_ms": 4216,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_002_iu_bloomington",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_002_iu_bloomington",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 6,
+                "actual": 6,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_003_ivy_tech",
+          "tags": [
+            "edge",
+            "open_enrollment"
+          ],
+          "latency_ms": 2806,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_003_ivy_tech",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_003_ivy_tech",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_004_harvard",
+          "tags": [
+            "happy",
+            "elite"
+          ],
+          "latency_ms": 3294,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_004_harvard",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_004_harvard",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_005_stanford",
+          "tags": [
+            "happy",
+            "elite"
+          ],
+          "latency_ms": 3270,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_005_stanford",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_005_stanford",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_006_uiuc",
+          "tags": [
+            "happy",
+            "state_flagship",
+            "tier1_public"
+          ],
+          "latency_ms": 3570,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_006_uiuc",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_006_uiuc",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_007_morgan_state",
+          "tags": [
+            "happy",
+            "hbcu",
+            "regional_public"
+          ],
+          "latency_ms": 3398,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_007_morgan_state",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_007_morgan_state",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 4,
+                "actual": 5,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_008_phoenix",
+          "tags": [
+            "edge",
+            "for_profit"
+          ],
+          "latency_ms": 4143,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_008_phoenix",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_008_phoenix",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 2,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_009_williams",
+          "tags": [
+            "happy",
+            "elite",
+            "liberal_arts"
+          ],
+          "latency_ms": 3425,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_009_williams",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_009_williams",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_010_csu_long_beach",
+          "tags": [
+            "happy",
+            "regional_public"
+          ],
+          "latency_ms": 3392,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_010_csu_long_beach",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_010_csu_long_beach",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 5,
+                "actual": 5,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_011_purdue",
+          "tags": [
+            "happy",
+            "state_flagship"
+          ],
+          "latency_ms": 3282,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_011_purdue",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_011_purdue",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 7,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_012_western_governors",
+          "tags": [
+            "edge",
+            "online_only"
+          ],
+          "latency_ms": 5413,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_012_western_governors",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_012_western_governors",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 3,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_013_oberlin",
+          "tags": [
+            "happy",
+            "liberal_arts"
+          ],
+          "latency_ms": 3170,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_013_oberlin",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_013_oberlin",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 8,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_014_alabama_state",
+          "tags": [
+            "happy",
+            "hbcu"
+          ],
+          "latency_ms": 3400,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_014_alabama_state",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_014_alabama_state",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 3,
+                "actual": 4,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_015_caltech",
+          "tags": [
+            "happy",
+            "elite"
+          ],
+          "latency_ms": 3367,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_015_caltech",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_015_caltech",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 10,
+                "actual": 10
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_016_southern_new_hampshire",
+          "tags": [
+            "edge",
+            "online_mass_enrollment"
+          ],
+          "latency_ms": 3489,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_016_southern_new_hampshire",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_016_southern_new_hampshire",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "field": "score",
+                "expected": 2,
+                "actual": 4,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_017_olin_engineering",
+          "tags": [
+            "ood",
+            "specialized_school"
+          ],
+          "latency_ms": 3399,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_017_olin_engineering",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_017_olin_engineering",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 9,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_018_florida_state",
+          "tags": [
+            "happy",
+            "state_flagship"
+          ],
+          "latency_ms": 4646,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_018_florida_state",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_018_florida_state",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 7,
+                "actual": 6,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_019_devry",
+          "tags": [
+            "edge",
+            "for_profit"
+          ],
+          "latency_ms": 3708,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_019_devry",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_019_devry",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 1,
+                "actual": 2,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "explain_aura_020_smith_college",
+          "tags": [
+            "happy",
+            "liberal_arts",
+            "womens_college"
+          ],
+          "latency_ms": 3577,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "explain_aura_020_smith_college",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "stat_code",
+                "expected": "AURA",
+                "actual": "AURA"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "explain_aura_020_smith_college",
+              "surface": "explain_aura",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "score",
+                "expected": 8,
+                "actual": 9,
+                "tolerance": 1
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "latency": {
+    "career_intent": {
+      "n": 20,
+      "p50_ms": 4730.5,
+      "p95_ms": 5935.750000000004,
+      "p99_ms": 9549.549999999994,
+      "mean_ms": 4855.75,
+      "min_ms": 3508,
+      "max_ms": 10453
+    },
+    "explain_ern": {
+      "n": 20,
+      "p50_ms": 2505.5,
+      "p95_ms": 2911.1000000000004,
+      "p99_ms": 3262.2199999999993,
+      "mean_ms": 2529.8,
+      "min_ms": 2012,
+      "max_ms": 3350
+    },
+    "explain_roi": {
+      "n": 20,
+      "p50_ms": 3210.0,
+      "p95_ms": 4824.800000000013,
+      "p99_ms": 18380.159999999978,
+      "mean_ms": 4168.25,
+      "min_ms": 2773,
+      "max_ms": 21769
+    },
+    "explain_res": {
+      "n": 20,
+      "p50_ms": 5337.0,
+      "p95_ms": 6009.75,
+      "p99_ms": 6203.549999999999,
+      "mean_ms": 5014.0,
+      "min_ms": 3207,
+      "max_ms": 6252
+    },
+    "explain_grw": {
+      "n": 20,
+      "p50_ms": 2372.0,
+      "p95_ms": 3132.9,
+      "p99_ms": 3207.38,
+      "mean_ms": 2494.45,
+      "min_ms": 2082,
+      "max_ms": 3226
+    },
+    "explain_aura": {
+      "n": 20,
+      "p50_ms": 3412.0,
+      "p95_ms": 4684.35,
+      "p99_ms": 5267.269999999999,
+      "mean_ms": 3622.5,
+      "min_ms": 2805,
+      "max_ms": 5413
+    }
+  }
+}

@@ -417,7 +417,7 @@ describe("useHorizonPick", () => {
 });
 
 // ---------------------------------------------------------------------------
-// drawAndPersist — non-hook helper for SaveWrappedScreen and similar callers
+// drawAndPersist — non-hook helper for one-shot draws
 // ---------------------------------------------------------------------------
 
 describe("drawAndPersist", () => {

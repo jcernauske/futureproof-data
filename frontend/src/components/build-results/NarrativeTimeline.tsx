@@ -84,7 +84,7 @@ export function NarrativeTimeline({
                       style={{ fontSize: 11, letterSpacing: "1px", color: "var(--color-accent-insight, #c49df5)" }}
                     >
                       <span>&#10022;</span>
-                      Gemma's Summary
+                      The Take
                     </span>
                     {resultChanged && (
                       <span className="font-data" style={{ fontSize: 11 }}>
@@ -209,7 +209,7 @@ export function NarrativeTimeline({
                 borderLeft: `3px solid ${bossColor}44`,
               }}
             >
-              <GemmaThinking message="Gemma is rethinking this one..." />
+              <GemmaThinking message="Rethinking this one…" />
             </div>
           </div>
         </div>

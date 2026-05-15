@@ -10,7 +10,6 @@ from __future__ import annotations
 from app.models.career import (
     AppliedSkill,
     BossFightResult,
-    Build,
     CareerOutcome,
     EffortLevel,
     GauntletResult,
@@ -160,7 +159,7 @@ def stats_receipt(
     if method in composite_methods:
         velocity = career.velocity_label or "unknown"
         ai_src_parts = [
-            f"stat_res via Option B composite ({method}) — Gemma theoretical × "
+            f"stat_res via Option B composite ({method}) — Gemma 4 theoretical × "
             f"Karpathy baseline blended by adoption percentile",
             f"velocity={velocity}",
         ]
@@ -172,18 +171,18 @@ def stats_receipt(
         ai_exposure_src = "; ".join(ai_src_parts)
     elif method == "gemma_only":
         ai_exposure_src = (
-            f"stat_res via Gemma task-level AI exposure only — no observed "
+            f"stat_res via Gemma 4 task-level AI exposure only — no observed "
             f"adoption data (SOC {career.soc_code})"
         )
     elif method == "karpathy_only":
         ai_exposure_src = (
-            f"stat_res via Karpathy AI exposure baseline — Gemma unavailable "
+            f"stat_res via Karpathy AI exposure baseline — Gemma 4 unavailable "
             f"(SOC {career.soc_code})"
         )
     elif career.scoring_model == "gemma-4":
         model_tag = career.model_tag or "gemma-4"
         ai_exposure_src = (
-            f"stat_res via Gemma task-level AI exposure ({model_tag}, "
+            f"stat_res via Gemma 4 task-level AI exposure ({model_tag}, "
             f"AI-estimated) on O*NET tasks (SOC {career.soc_code})"
         )
     else:
@@ -298,7 +297,7 @@ def tiering_receipt(
         )
     if career.overall_confidence:
         lines.append(f"Crosswalk confidence: {career.overall_confidence}")
-    lines.append("Tier assignment: Gemma grouped by school+major+education context")
+    lines.append("Tier assignment: grouped by school+major+education context")
     return lines
 
 
@@ -375,31 +374,3 @@ def _skill_delta_str(skill: AppliedSkill) -> str:
     return ", ".join(parts) or "—"
 
 
-# ---------------------------------------------------------------------------
-# Next steps receipt
-# ---------------------------------------------------------------------------
-
-
-def next_steps_receipt(build: Build) -> list[str]:
-    career = build.career
-    stats = career.stats
-    gauntlet = build.gauntlet
-    lines = [
-        f"Gemma received: school={career.institution_name}, "
-        f"major={career.program_name}, career={career.occupation_title} "
-        f"({career.soc_code})",
-        f"Stats: ERN {_stat(stats.ern)}, ROI {_stat(stats.roi)}, "
-        f"RES {_stat(stats.res)}, GRW {_stat(stats.grw)}, "
-        f"AURA {_stat(stats.aura)} | "
-        f"Gauntlet: {gauntlet.wins}W/{gauntlet.losses}L/{gauntlet.draws}D",
-        f"Skills crafted: {len(build.skills_crafted)} | "
-        f"Skill recs offered: {len(build.skill_recs)}",
-    ]
-    rerolled = [f for f in gauntlet.fights if f.rerolled]
-    if rerolled:
-        flips = ", ".join(
-            f"{f.label}: {(f.original_result or '?').upper()}→{f.result.upper()}"
-            for f in rerolled
-        )
-        lines.append(f"Rerolls: {flips}")
-    return lines

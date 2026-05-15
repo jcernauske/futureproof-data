@@ -1,0 +1,5510 @@
+{
+  "timestamp": "2026-05-13-215958",
+  "backend": "ollama",
+  "mode": "full",
+  "surfaces": {
+    "career_intent": {
+      "surface": "career_intent",
+      "n_cases": 100,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 100,
+          "fail": 0,
+          "n": 100
+        },
+        "adapter": {
+          "pass": 0,
+          "fail": 1,
+          "n": 1
+        }
+      },
+      "latency": {
+        "n": 200,
+        "p50_ms": 2769.0,
+        "p95_ms": 18520.449999999975,
+        "p99_ms": 22169.51999999976,
+        "mean_ms": 4770.495,
+        "min_ms": 695,
+        "max_ms": 48159
+      },
+      "cases": [
+        {
+          "case_id": "intent_001_nursing",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1037,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_001_nursing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "51.3801",
+                "actual": "51.3801"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "intent_001_nursing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "high",
+                "accepted": [
+                  "high",
+                  "medium"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_002_data_science_ambiguous",
+          "tags": [
+            "happy",
+            "ambiguous"
+          ],
+          "latency_ms": 17065,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_002_data_science_ambiguous",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "30.7001",
+                "accepted": [
+                  "30.7001",
+                  "11.0701",
+                  "27.0501"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_003_deaf_education",
+          "tags": [
+            "ood",
+            "deaf_education"
+          ],
+          "latency_ms": 3374,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_003_deaf_education",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "13.1003",
+                "actual": "13.1003"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_004_typo_engineering",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 2874,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_004_typo_engineering",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "14.0101",
+                "accepted": [
+                  "14.1001",
+                  "14.0101",
+                  "14.0801"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_005_nonsense",
+          "tags": [
+            "adversarial",
+            "nonsense"
+          ],
+          "latency_ms": 4395,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_005_nonsense",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "low",
+                "accepted": [
+                  "medium",
+                  "low"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_006_pre_med",
+          "tags": [
+            "happy",
+            "premed_track"
+          ],
+          "latency_ms": 3730,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_006_pre_med",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "26.0102",
+                "accepted": [
+                  "26.0102",
+                  "26.0101",
+                  "51.0000"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_007_business",
+          "tags": [
+            "happy",
+            "broad"
+          ],
+          "latency_ms": 1454,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_007_business",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "52.0201",
+                "accepted": [
+                  "52.1401",
+                  "52.0801",
+                  "52.0201",
+                  "52.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_008_psych",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 4884,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_008_psych",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "42.0101",
+                "actual": "42.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_009_marketing",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2769,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_009_marketing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "52.1401",
+                "actual": "52.1401"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_010_chem_eng_specific",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 2000,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_010_chem_eng_specific",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "14.0701",
+                "actual": "14.0701"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_011_doctor_ambiguous",
+          "tags": [
+            "happy",
+            "ambiguous",
+            "premed_track"
+          ],
+          "latency_ms": 4592,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_011_doctor_ambiguous",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.2308",
+                "accepted": [
+                  "26.0102",
+                  "26.0101",
+                  "51.2308",
+                  "51.0000"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_012_video_games",
+          "tags": [
+            "happy",
+            "creative_tech"
+          ],
+          "latency_ms": 1519,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_012_video_games",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0411",
+                "accepted": [
+                  "11.0701",
+                  "50.0411",
+                  "50.0102"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_013_funeral_director",
+          "tags": [
+            "ood",
+            "vocational_specialty"
+          ],
+          "latency_ms": 2120,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_013_funeral_director",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "12.0301",
+                "actual": "12.0301"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_014_tattoo_art",
+          "tags": [
+            "ood",
+            "creative_unconventional"
+          ],
+          "latency_ms": 5804,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_014_tattoo_art",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0702",
+                "accepted": [
+                  "50.0701",
+                  "50.0702",
+                  "50.0409"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_015_archaeologist",
+          "tags": [
+            "happy",
+            "niche"
+          ],
+          "latency_ms": 4546,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_015_archaeologist",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "45.0201",
+                "accepted": [
+                  "30.2202",
+                  "45.0201"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_016_typo_business",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 5340,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_016_typo_business",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "52.0201",
+                "accepted": [
+                  "52.0201",
+                  "52.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_017_empty",
+          "tags": [
+            "adversarial",
+            "low_signal"
+          ],
+          "latency_ms": 5061,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_017_empty",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "low",
+                "accepted": [
+                  "medium",
+                  "low"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_018_beekeeper",
+          "tags": [
+            "ood",
+            "agriculture_niche"
+          ],
+          "latency_ms": 1740,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_018_beekeeper",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "01.0901",
+                "accepted": [
+                  "26.0701",
+                  "01.1101",
+                  "01.0901"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_019_journalism",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1454,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_019_journalism",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "09.0401",
+                "actual": "09.0401"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_020_changed_my_mind",
+          "tags": [
+            "adversarial",
+            "conversational"
+          ],
+          "latency_ms": 699,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_020_changed_my_mind",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "50.0703",
+                "actual": "50.0703"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_021_chem",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2190,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_021_chem",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "40.0501",
+                "actual": "40.0501"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_022_physics",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1473,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_022_physics",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "40.0801",
+                "actual": "40.0801"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_023_math",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1142,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_023_math",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "27.0101",
+                "accepted": [
+                  "27.0101",
+                  "27.0301"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_024_econ",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 894,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_024_econ",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "45.0601",
+                "actual": "45.0601"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_025_finance",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1822,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_025_finance",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "52.0801",
+                "actual": "52.0801"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_026_accounting",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1578,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_026_accounting",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "52.0301",
+                "actual": "52.0301"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_027_history",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 5447,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_027_history",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "54.0101",
+                "actual": "54.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_028_english",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 3058,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_028_english",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "23.0101",
+                "actual": "23.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_029_polisci",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 4745,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_029_polisci",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "45.1001",
+                "actual": "45.1001"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_030_sociology",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1902,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_030_sociology",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "45.1101",
+                "actual": "45.1101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_031_philosophy",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1646,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_031_philosophy",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "38.0101",
+                "actual": "38.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_032_communications",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2266,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_032_communications",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "09.0100",
+                "accepted": [
+                  "09.0100",
+                  "09.0900",
+                  "09.0401"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_033_pre_law",
+          "tags": [
+            "happy",
+            "pre_track"
+          ],
+          "latency_ms": 827,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_033_pre_law",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "22.0001",
+                "accepted": [
+                  "38.0101",
+                  "22.0001",
+                  "54.0101",
+                  "45.1001"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_034_pre_dental",
+          "tags": [
+            "happy",
+            "pre_track"
+          ],
+          "latency_ms": 21907,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_034_pre_dental",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "26.0101",
+                "accepted": [
+                  "51.0001",
+                  "26.0101",
+                  "26.0202"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_035_pre_pharm",
+          "tags": [
+            "happy",
+            "pre_track"
+          ],
+          "latency_ms": 1620,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_035_pre_pharm",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.2001",
+                "accepted": [
+                  "40.0501",
+                  "26.0101",
+                  "26.0202",
+                  "51.2001"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_036_pre_vet",
+          "tags": [
+            "happy",
+            "pre_track"
+          ],
+          "latency_ms": 2253,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_036_pre_vet",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "01.0901",
+                "accepted": [
+                  "26.0701",
+                  "26.0101",
+                  "01.0901"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_037_aerospace",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 3169,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_037_aerospace",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "14.0201",
+                "actual": "14.0201"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_038_biomed_eng",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 2666,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_038_biomed_eng",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "14.0501",
+                "actual": "14.0501"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_039_civil_eng",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 1842,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_039_civil_eng",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "14.0801",
+                "actual": "14.0801"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_040_industrial_eng",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 1227,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_040_industrial_eng",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "14.3501",
+                "actual": "14.3501"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_041_environmental",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 1207,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_041_environmental",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "03.0104",
+                "accepted": [
+                  "03.0103",
+                  "03.0104",
+                  "26.1310"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_042_kinesiology",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 2736,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_042_kinesiology",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "26.0908",
+                "accepted": [
+                  "31.0501",
+                  "26.0908"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_043_criminal_justice",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 3003,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_043_criminal_justice",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "43.0104",
+                "accepted": [
+                  "43.0104",
+                  "43.0103"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_044_social_work",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 696,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_044_social_work",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "44.0701",
+                "actual": "44.0701"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_045_supply_chain",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 1842,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_045_supply_chain",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "52.0203",
+                "actual": "52.0203"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_046_tech",
+          "tags": [
+            "ambiguous",
+            "broad"
+          ],
+          "latency_ms": 10159,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_046_tech",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "11.0103",
+                "accepted": [
+                  "14.0101",
+                  "11.0103",
+                  "11.0701",
+                  "11.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_047_healthcare",
+          "tags": [
+            "ambiguous",
+            "broad"
+          ],
+          "latency_ms": 18449,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_047_healthcare",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.0000",
+                "accepted": [
+                  "51.3801",
+                  "51.2201",
+                  "51.0000"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_048_science",
+          "tags": [
+            "ambiguous",
+            "very_broad"
+          ],
+          "latency_ms": 21643,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_048_science",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "30.0101",
+                "accepted": [
+                  "26.0101",
+                  "40.0501",
+                  "30.0101",
+                  "40.0801"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_049_design",
+          "tags": [
+            "ambiguous"
+          ],
+          "latency_ms": 17872,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_049_design",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0404",
+                "accepted": [
+                  "50.0409",
+                  "04.0501",
+                  "50.0407",
+                  "50.0404"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_050_arts",
+          "tags": [
+            "ambiguous",
+            "broad"
+          ],
+          "latency_ms": 2304,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_050_arts",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0701",
+                "accepted": [
+                  "50.0701",
+                  "50.0702",
+                  "50.0409",
+                  "50.0703"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_051_education",
+          "tags": [
+            "ambiguous",
+            "broad"
+          ],
+          "latency_ms": 2024,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_051_education",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "13.0101",
+                "accepted": [
+                  "13.1202",
+                  "13.0101",
+                  "13.1001",
+                  "13.1305"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_052_research",
+          "tags": [
+            "ambiguous"
+          ],
+          "latency_ms": 2744,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_052_research",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "30.0101",
+                "accepted": [
+                  "26.0102",
+                  "30.7001",
+                  "26.0101",
+                  "30.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_053_law",
+          "tags": [
+            "ambiguous",
+            "broad"
+          ],
+          "latency_ms": 5617,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_053_law",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "22.0101",
+                "accepted": [
+                  "22.0001",
+                  "22.0101",
+                  "45.1001"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_054_medicine",
+          "tags": [
+            "ambiguous",
+            "broad"
+          ],
+          "latency_ms": 5647,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_054_medicine",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.2308",
+                "accepted": [
+                  "26.0102",
+                  "26.0101",
+                  "51.2308",
+                  "51.0001"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_055_writing",
+          "tags": [
+            "ambiguous"
+          ],
+          "latency_ms": 5273,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_055_writing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "23.1301",
+                "accepted": [
+                  "23.1302",
+                  "23.1301",
+                  "23.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_056_film",
+          "tags": [
+            "ambiguous"
+          ],
+          "latency_ms": 1792,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_056_film",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0601",
+                "accepted": [
+                  "50.0601",
+                  "50.0602"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_057_finance_or_econ",
+          "tags": [
+            "ambiguous",
+            "low_signal"
+          ],
+          "latency_ms": 48159,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_057_finance_or_econ",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "52.0801",
+                "accepted": [
+                  "45.0601",
+                  "52.0801",
+                  "52.0201",
+                  "52.0301"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_058_helping_people",
+          "tags": [
+            "ambiguous",
+            "very_broad"
+          ],
+          "latency_ms": 2845,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_058_helping_people",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "44.0701",
+                "accepted": [
+                  "44.0701",
+                  "13.0101",
+                  "42.0101",
+                  "51.3801"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_059_climate",
+          "tags": [
+            "ambiguous"
+          ],
+          "latency_ms": 2753,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_059_climate",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "40.0404",
+                "accepted": [
+                  "40.0601",
+                  "40.0404",
+                  "03.0104"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_060_ai",
+          "tags": [
+            "happy",
+            "trending"
+          ],
+          "latency_ms": 4570,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_060_ai",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "11.0102",
+                "accepted": [
+                  "30.7001",
+                  "11.0701",
+                  "11.0102"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_061_nursing_specialty",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 2493,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_061_nursing_specialty",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.3801",
+                "accepted": [
+                  "51.3801"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_062_data_eng",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 3531,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_062_data_eng",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "11.0802",
+                "accepted": [
+                  "30.7001",
+                  "11.0701",
+                  "11.0802"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_063_speech_path",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 2601,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_063_speech_path",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.0203",
+                "accepted": [
+                  "31.0501",
+                  "51.0203"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_064_robotics",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 4359,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_064_robotics",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "14.4201",
+                "accepted": [
+                  "14.1901",
+                  "11.0701",
+                  "14.4201"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_065_cybersecurity",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 6713,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_065_cybersecurity",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "11.1003",
+                "actual": "11.1003"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_066_actuarial",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 1861,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_066_actuarial",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "52.1304",
+                "actual": "52.1304"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_067_neuroscience",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 3332,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_067_neuroscience",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "26.1501",
+                "accepted": [
+                  "26.1501",
+                  "42.2706"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_068_animation",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 2231,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_068_animation",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0411",
+                "accepted": [
+                  "50.0402",
+                  "50.0411",
+                  "50.0602"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_069_marine_bio",
+          "tags": [
+            "happy",
+            "specialty",
+            "niche"
+          ],
+          "latency_ms": 3785,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_069_marine_bio",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "26.1302",
+                "actual": "26.1302"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_070_genetic_counsel",
+          "tags": [
+            "ood",
+            "specialty",
+            "niche"
+          ],
+          "latency_ms": 1997,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_070_genetic_counsel",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "51.1509",
+                "actual": "51.1509"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_071_signlang",
+          "tags": [
+            "ood",
+            "deaf_community"
+          ],
+          "latency_ms": 2751,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_071_signlang",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "16.1601",
+                "actual": "16.1601"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_072_beekeeping_indiana",
+          "tags": [
+            "ood",
+            "agriculture_niche"
+          ],
+          "latency_ms": 7995,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_072_beekeeping_indiana",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "01.0901",
+                "accepted": [
+                  "01.1101",
+                  "01.0901"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_073_funeral_director_again",
+          "tags": [
+            "ood",
+            "vocational_specialty"
+          ],
+          "latency_ms": 704,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_073_funeral_director_again",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "12.0301",
+                "actual": "12.0301"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_074_park_ranger",
+          "tags": [
+            "ood"
+          ],
+          "latency_ms": 19879,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_074_park_ranger",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "03.0506",
+                "accepted": [
+                  "03.0506",
+                  "03.0601",
+                  "03.0201"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_075_diplomat",
+          "tags": [
+            "happy",
+            "niche"
+          ],
+          "latency_ms": 20685,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_075_diplomat",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "45.0901",
+                "accepted": [
+                  "45.1001",
+                  "45.0901"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_076_chef",
+          "tags": [
+            "happy",
+            "vocational"
+          ],
+          "latency_ms": 3386,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_076_chef",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "12.0503",
+                "actual": "12.0503"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_077_pilot",
+          "tags": [
+            "happy",
+            "niche"
+          ],
+          "latency_ms": 1220,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_077_pilot",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "49.0102",
+                "actual": "49.0102"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_078_dental_hygienist",
+          "tags": [
+            "happy",
+            "vocational"
+          ],
+          "latency_ms": 2867,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_078_dental_hygienist",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "51.0602",
+                "actual": "51.0602"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_079_translator",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 2660,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_079_translator",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "16.0103",
+                "accepted": [
+                  "16.0103",
+                  "16.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_080_horticulture",
+          "tags": [
+            "ood",
+            "agriculture"
+          ],
+          "latency_ms": 9322,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_080_horticulture",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "01.0601",
+                "accepted": [
+                  "01.0601",
+                  "01.1101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_081_typo_psychology",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 1050,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_081_typo_psychology",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "42.0101",
+                "actual": "42.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_082_typo_accounting",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 2836,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_082_typo_accounting",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "52.0301",
+                "actual": "52.0301"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_083_caps_lock",
+          "tags": [
+            "adversarial",
+            "casing"
+          ],
+          "latency_ms": 5883,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_083_caps_lock",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "26.0101",
+                "actual": "26.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_084_excessive_punctuation",
+          "tags": [
+            "adversarial"
+          ],
+          "latency_ms": 2770,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_084_excessive_punctuation",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "26.0101",
+                "actual": "26.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_085_emoji",
+          "tags": [
+            "adversarial",
+            "emoji"
+          ],
+          "latency_ms": 3534,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_085_emoji",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "26.0101",
+                "actual": "26.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_086_extreme_typos",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 5323,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_086_extreme_typos",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "14.0101",
+                "accepted": [
+                  "14.0701",
+                  "14.0101",
+                  "14.1001",
+                  "14.0801"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_087_kid_voice",
+          "tags": [
+            "adversarial",
+            "informal_voice"
+          ],
+          "latency_ms": 2034,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_087_kid_voice",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "01.0901",
+                "accepted": [
+                  "26.0701",
+                  "26.0101",
+                  "01.0901"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_088_swearing",
+          "tags": [
+            "adversarial",
+            "nonsense"
+          ],
+          "latency_ms": 6135,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_088_swearing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "low",
+                "accepted": [
+                  "medium",
+                  "low"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_089_thinking_about",
+          "tags": [
+            "happy",
+            "conversational"
+          ],
+          "latency_ms": 7744,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_089_thinking_about",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "42.0101",
+                "actual": "42.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_090_uncertainty",
+          "tags": [
+            "happy",
+            "conversational",
+            "uncertain"
+          ],
+          "latency_ms": 6632,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_090_uncertainty",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.3801",
+                "accepted": [
+                  "26.0102",
+                  "26.0101",
+                  "51.2308",
+                  "51.3801"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_091_changed_mind_2",
+          "tags": [
+            "adversarial",
+            "conversational"
+          ],
+          "latency_ms": 1024,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_091_changed_mind_2",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "50.0409",
+                "actual": "50.0409"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_092_compound",
+          "tags": [
+            "happy",
+            "compound"
+          ],
+          "latency_ms": 3479,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_092_compound",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "26.1103",
+                "accepted": [
+                  "26.0101",
+                  "11.0701",
+                  "26.1103"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_093_just_dots",
+          "tags": [
+            "adversarial",
+            "low_signal"
+          ],
+          "latency_ms": 3088,
+          "adapter_error": "Could not parse JSON: Please provide the student's input text. You have provided the instructions and the context for Indiana University-Bloomington, but the actual student input (the string following `\"The student typed: ",
+          "scores": [
+            {
+              "case_id": "intent_093_just_dots",
+              "surface": "career_intent",
+              "metric": "adapter",
+              "score": 0.0,
+              "passed": false,
+              "details": {},
+              "latency_ms": 3088,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": "Could not parse JSON: Please provide the student's input text. You have provided the instructions and the context for Indiana University-Bloomington, but the actual student input (the string following `\"The student typed: "
+            }
+          ]
+        },
+        {
+          "case_id": "intent_094_single_letter",
+          "tags": [
+            "adversarial",
+            "low_signal"
+          ],
+          "latency_ms": 2152,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_094_single_letter",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "low",
+                "accepted": [
+                  "medium",
+                  "low"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_095_question_no_field",
+          "tags": [
+            "adversarial",
+            "low_signal",
+            "meta_question"
+          ],
+          "latency_ms": 7673,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_095_question_no_field",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "low",
+                "accepted": [
+                  "medium",
+                  "low"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_096_school_mismatch",
+          "tags": [
+            "edge",
+            "school_mismatch"
+          ],
+          "latency_ms": 4126,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_096_school_mismatch",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.0801",
+                "accepted": [
+                  "51.3902",
+                  "51.0801",
+                  "51.0904"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_097_trade",
+          "tags": [
+            "happy",
+            "trades"
+          ],
+          "latency_ms": 1014,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_097_trade",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "48.0508",
+                "actual": "48.0508"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_098_hvac",
+          "tags": [
+            "happy",
+            "trades",
+            "casual_phrasing"
+          ],
+          "latency_ms": 1494,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_098_hvac",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "47.0201",
+                "actual": "47.0201"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_099_anthropology_specific",
+          "tags": [
+            "happy",
+            "specialty"
+          ],
+          "latency_ms": 1013,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_099_anthropology_specific",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "45.0204",
+                "accepted": [
+                  "45.0201",
+                  "45.0204"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_100_creative_writing",
+          "tags": [
+            "happy",
+            "narrative_input"
+          ],
+          "latency_ms": 2251,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_100_creative_writing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "23.1302",
+                "accepted": [
+                  "23.1302",
+                  "23.1301",
+                  "23.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    "skill_pool": {
+      "surface": "skill_pool",
+      "n_cases": 15,
+      "score_counts": {
+        "skill_specific_rate": {
+          "pass": 10,
+          "fail": 5,
+          "n": 15
+        },
+        "skill_school_attributed_rate": {
+          "pass": 0,
+          "fail": 15,
+          "n": 15
+        },
+        "skill_boss_relevant_rate": {
+          "pass": 15,
+          "fail": 0,
+          "n": 15
+        },
+        "skill_voice_compliant_rate": {
+          "pass": 15,
+          "fail": 0,
+          "n": 15
+        },
+        "skill_realism_aggregate": {
+          "pass": 5,
+          "fail": 10,
+          "n": 15
+        }
+      },
+      "latency": {
+        "n": 30,
+        "p50_ms": 3440.0,
+        "p95_ms": 11198.249999999987,
+        "p99_ms": 13176.71,
+        "mean_ms": 4564.033333333334,
+        "min_ms": 1156,
+        "max_ms": 13177
+      },
+      "cases": [
+        {
+          "case_id": "skill_pool_001_iu_marketing_ai_market",
+          "tags": [
+            "happy",
+            "named_school",
+            "broad_major"
+          ],
+          "latency_ms": 1705,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_001_iu_marketing_ai_market",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_001_iu_marketing_ai_market",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_001_iu_marketing_ai_market",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_001_iu_marketing_ai_market",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_001_iu_marketing_ai_market",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.5,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "axes": {
+                  "specific": 1.0,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "ai",
+                    "title": "Marketing Analytics Coursework",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "IU Marketing Analytics Club",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Digital Marketing Certification",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Kelley School of Business Internship",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Advertising and Brand Management Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "IU Professional Sales Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+          "tags": [
+            "happy",
+            "stem",
+            "loan_burden"
+          ],
+          "latency_ms": 4558,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.3333333333333333,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 2,
+                "rate": 0.333
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.16666666666666666,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "axes": {
+                  "specific": 0.333,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "Purdue's Co-op Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "ME 477: Engineering Economics",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Purdue Undergraduate Research",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "ME 483: Mechatronics",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Purdue Formula SAE Team",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Professional Certificate in Project Management",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+          "tags": [
+            "happy",
+            "high_aura_low_roi"
+          ],
+          "latency_ms": 4546,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.4444444444444444,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 4,
+                "rate": 0.444
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.2222222222222222,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "axes": {
+                  "specific": 0.444,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "UCLA Financial Aid Office Workshops",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Psychology Department Undergraduate Research Assistantships",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "UCLA Career Center Financial Literacy Seminars",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "UCLA Psychology Club",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Psychology Department Internship Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "UCLA Counseling and Psychotherapy Volunteer Work",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "UCLA School of Medicine Clinical Research",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "UCLA Psychology Minor in Sociology",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "UCLA Professional Certificate in Addiction Studies",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+          "tags": [
+            "happy",
+            "famous_school_program",
+            "kelley"
+          ],
+          "latency_ms": 5008,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.5,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "axes": {
+                  "specific": 1.0,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "Kelley School of Business Financial Literacy Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Introduction to Personal Finance course",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Kelley Undergraduate Investment Management Club",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Introduction to Business Analytics course",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Kelley School of Business AI Certificate",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Information Systems minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+          "tags": [
+            "edge",
+            "expensive_school",
+            "creative_career",
+            "high_debt"
+          ],
+          "latency_ms": 2869,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.5555555555555556,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 5,
+                "rate": 0.556
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.1111111111111111,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 1,
+                "rate": 0.111
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.3333333333333333,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "axes": {
+                  "specific": 0.556,
+                  "school_attributed": 0.111,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "Stern School of Business minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Tisch School of the Arts internship",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "NYU Entrepreneurship workshops",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Tisch Film & TV production courses",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "NYU Media, Culture, and Communication minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "NYU Film & TV student organizations",
+                    "specific": false,
+                    "school_attributed": true,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Tisch graduate level seminars",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "NYU Tisch alumni mentorship programs",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Advanced post-production technical training",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_006_columbia_journalism_loans_market",
+          "tags": [
+            "edge",
+            "elite_school",
+            "low_roi_field",
+            "high_ai_exposure"
+          ],
+          "latency_ms": 3903,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_006_columbia_journalism_loans_market",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.3333333333333333,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 3,
+                "rate": 0.333
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_006_columbia_journalism_loans_market",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.2222222222222222,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 2,
+                "rate": 0.222
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_006_columbia_journalism_loans_market",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_006_columbia_journalism_loans_market",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_006_columbia_journalism_loans_market",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.2777777777777778,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "axes": {
+                  "specific": 0.333,
+                  "school_attributed": 0.222,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "Columbia Business School Summer Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Financial Aid Office Workshops",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Work-Study Positions in NYC",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Columbia Journalism Review Internship",
+                    "specific": true,
+                    "school_attributed": true,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Center for Digital Journalism Workshops",
+                    "specific": false,
+                    "school_attributed": true,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Columbia University Career Center Networking",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Data Journalism Coursework",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Columbia School of Advanced Studies Seminar",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Investigative Reporting Practicum",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+          "tags": [
+            "happy",
+            "community_college",
+            "trades",
+            "high_roi_low_aura"
+          ],
+          "latency_ms": 1156,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.8333333333333334,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 5,
+                "rate": 0.833
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.16666666666666666,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 1,
+                "rate": 0.167
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.5,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "axes": {
+                  "specific": 0.833,
+                  "school_attributed": 0.167,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "ceiling",
+                    "title": "Dental Hygiene Management Course",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Advanced Periodontology Course",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Dental Office Administration Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Dental Hygiene Clinical Externship",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Dental Radiography Certification",
+                    "specific": true,
+                    "school_attributed": true,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Community Health Outreach Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+          "tags": [
+            "edge",
+            "music_school",
+            "low_roi",
+            "expensive"
+          ],
+          "latency_ms": 13177,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.5833333333333334,
+              "passed": true,
+              "details": {
+                "n_skills": 12,
+                "passing": 7,
+                "rate": 0.583
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 12,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 12,
+                "passing": 12,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 12,
+                "passing": 12,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.2916666666666667,
+              "passed": false,
+              "details": {
+                "n_skills": 12,
+                "axes": {
+                  "specific": 0.583,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "Music Business Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Oberlin Conservatory Financial Literacy Workshops",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Music Industry Internship",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Music Technology Coursework",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Oberlin Chamber Music Ensemble",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Digital Media and Marketing Certificate",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Arts Administration Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Nonprofit Management Course",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Entrepreneurship for Artists Workshop",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "Oberlin Wellness and Mindfulness Programs",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "Time Management for Musicians Seminar",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "Peer Mentorship in the Conservatory",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+          "tags": [
+            "happy",
+            "stem",
+            "self_aware_ai_career"
+          ],
+          "latency_ms": 2558,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.3333333333333333,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 2,
+                "rate": 0.333
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.16666666666666666,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "axes": {
+                  "specific": 0.333,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "ai",
+                    "title": "CS 440: Artificial Intelligence",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "CS 446: Machine Learning",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "ACM UIUC Chapter",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "CS + Business Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Siebel Scholars Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "CS Undergraduate Research",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+          "tags": [
+            "happy",
+            "trades",
+            "community_college"
+          ],
+          "latency_ms": 2043,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 3,
+                "passing": 3,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 3,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 3,
+                "passing": 3,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 3,
+                "passing": 3,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.5,
+              "passed": true,
+              "details": {
+                "n_skills": 3,
+                "axes": {
+                  "specific": 1.0,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "ceiling",
+                    "title": "Advanced Welding Techniques Course",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "AWS Certified Welder Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Fabrication and Layout Course",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+          "tags": [
+            "happy",
+            "education_field",
+            "csu"
+          ],
+          "latency_ms": 2750,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.6666666666666666,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 6,
+                "rate": 0.667
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.3333333333333333,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "axes": {
+                  "specific": 0.667,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "Financial Aid Advising Workshops",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Federal Work-Study Programs",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Scholarship Search Seminar",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Educational Leadership Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Master of Arts in Teaching",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Curriculum Specialist Internship",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "Student Teaching Mentorship Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "Counseling and Wellness Workshops",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "Collaborative Teaching Practicums",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+          "tags": [
+            "happy",
+            "elite_school",
+            "stem",
+            "high_everything"
+          ],
+          "latency_ms": 8781,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.3333333333333333,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 2,
+                "rate": 0.333
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.16666666666666666,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 1,
+                "rate": 0.167
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.25,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "axes": {
+                  "specific": 0.333,
+                  "school_attributed": 0.167,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "burnout",
+                    "title": "MIT Media Lab Research",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "UROP in Human-Computer Interaction",
+                    "specific": false,
+                    "school_attributed": true,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "burnout",
+                    "title": "MIT Tai Tang Club",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "6.034 Artificial Intelligence",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "6.824 Distributed Systems",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "6.830 Machine Learning",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+          "tags": [
+            "ood",
+            "deaf_education",
+            "named_school"
+          ],
+          "latency_ms": 3355,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.7777777777777778,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 7,
+                "rate": 0.778
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.3888888888888889,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "axes": {
+                  "specific": 0.778,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "IU Student Employment Office",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "IU Federal Work-Study Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "IU Financial Aid Scholarship Search",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "American Sign Language Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Special Education Internship",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "ASL/English Bilingual Certification",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "School Administration Certificate",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "IEP Coordination Workshop",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Educational Leadership Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+          "tags": [
+            "happy",
+            "ivy_league",
+            "pre_vet"
+          ],
+          "latency_ms": 3440,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 6,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "passing": 6,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.5,
+              "passed": true,
+              "details": {
+                "n_skills": 6,
+                "axes": {
+                  "specific": 1.0,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "Cornell Pre-Vet Club",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Animal Science Minor in Business",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "Cornell Undergraduate Research Program",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Cornell Veterinary Medicine Clinical Rotation",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Cornell Agribusiness Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ceiling",
+                    "title": "Cornell Pre-Vet Society Leadership",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+          "tags": [
+            "happy",
+            "large_state_school",
+            "broad_career"
+          ],
+          "latency_ms": 8617,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+              "surface": "skill_pool",
+              "metric": "skill_specific_rate",
+              "score": 0.8888888888888888,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 8,
+                "rate": 0.889
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+              "surface": "skill_pool",
+              "metric": "skill_school_attributed_rate",
+              "score": 0.0,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "passing": 0,
+                "rate": 0.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+              "surface": "skill_pool",
+              "metric": "skill_boss_relevant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+              "surface": "skill_pool",
+              "metric": "skill_voice_compliant_rate",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "n_skills": 9,
+                "passing": 9,
+                "rate": 1.0
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+              "surface": "skill_pool",
+              "metric": "skill_realism_aggregate",
+              "score": 0.4444444444444444,
+              "passed": false,
+              "details": {
+                "n_skills": 9,
+                "axes": {
+                  "specific": 0.889,
+                  "school_attributed": 0.0,
+                  "boss_relevant": 1.0,
+                  "voice_compliant": 1.0
+                },
+                "voice_violations": {},
+                "per_skill": [
+                  {
+                    "boss": "loans",
+                    "title": "W. P. Carey Scholarship Programs",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "ASU Financial Aid Workshops",
+                    "specific": false,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "loans",
+                    "title": "W. P. Carey Business Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "W. P. Carey AI in Business Certificate",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Business Analytics Coursework",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "ai",
+                    "title": "Supply Chain Management Minor",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "W. P. Carey Business Internship",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "ASU Entrepreneurship Club",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  },
+                  {
+                    "boss": "market",
+                    "title": "Professional Sales Certificate",
+                    "specific": true,
+                    "school_attributed": false,
+                    "boss_relevant": true,
+                    "voice_compliant": true,
+                    "voice_violations": []
+                  }
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "latency": {
+    "ask_gemma_chat": {
+      "n": 1,
+      "p50_ms": 8119.0,
+      "p95_ms": 8119.0,
+      "p99_ms": 8119.0,
+      "mean_ms": 8119.0,
+      "min_ms": 8119,
+      "max_ms": 8119
+    },
+    "career_intent": {
+      "n": 100,
+      "p50_ms": 2769.0,
+      "p95_ms": 18519.499999999996,
+      "p99_ms": 22168.530000000133,
+      "mean_ms": 4770.06,
+      "min_ms": 695,
+      "max_ms": 48159
+    },
+    "skill_pool": {
+      "n": 15,
+      "p50_ms": 3440.0,
+      "p95_ms": 10098.799999999996,
+      "p99_ms": 12560.559999999998,
+      "mean_ms": 4563.666666666667,
+      "min_ms": 1156,
+      "max_ms": 13176
+    }
+  }
+}

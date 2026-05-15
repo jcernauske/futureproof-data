@@ -2,6 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/Button";
 import { useT } from "@/i18n/useT";
+import { localizeProfileName } from "@/i18n/profileName";
+import { useProfileStore } from "@/store/profileStore";
 import { springs } from "@/styles/motion";
 import { EMOJI_BG } from "@/components/build-results/bossData";
 
@@ -55,9 +57,11 @@ export function BuildLoadingScreen({
   onGoBack,
 }: BuildLoadingScreenProps) {
   const t = useT();
+  const locale = useProfileStore((s) => s.locale);
   const isIndeterminate = buildingTotal === 0;
   const pct = isIndeterminate ? 0 : Math.min(buildingStage / buildingTotal, 1);
   const emojiBg = EMOJI_BG[animalEmoji] ?? "var(--color-accent-info)";
+  const displayName = localizeProfileName(profileName, locale);
 
   const activeEdgeIndex = pct > 0 ? Math.min(Math.floor(pct * 5), 4) : -1;
   const edgePct = activeEdgeIndex >= 0 ? Math.min((pct * 5) - activeEdgeIndex, 1) : 0;
@@ -105,7 +109,7 @@ export function BuildLoadingScreen({
           transition={{ delay: 0.4, ...springs.smooth }}
         >
           <p className="font-display font-semibold text-text-primary" style={{ fontSize: 24 }}>
-            {profileName}
+            <bdi dir="auto">{displayName}</bdi>
           </p>
           <motion.p
             className="font-body text-text-secondary mt-1"

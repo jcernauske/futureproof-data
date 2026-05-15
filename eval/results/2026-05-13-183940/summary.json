@@ -1,0 +1,642 @@
+{
+  "timestamp": "2026-05-13-183940",
+  "backend": "ollama",
+  "mode": "full",
+  "surfaces": {
+    "career_intent": {
+      "surface": "career_intent",
+      "n_cases": 20,
+      "score_counts": {
+        "field_accuracy": {
+          "pass": 21,
+          "fail": 0,
+          "n": 21
+        }
+      },
+      "latency": {
+        "n": 40,
+        "p50_ms": 5065.0,
+        "p95_ms": 6054.7,
+        "p99_ms": 6087.61,
+        "mean_ms": 4940.225,
+        "min_ms": 3718,
+        "max_ms": 6088
+      },
+      "cases": [
+        {
+          "case_id": "intent_001_nursing",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 5663,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_001_nursing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "51.3801",
+                "actual": "51.3801"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            },
+            {
+              "case_id": "intent_001_nursing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "high",
+                "accepted": [
+                  "high",
+                  "medium"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_002_data_science_ambiguous",
+          "tags": [
+            "happy",
+            "ambiguous"
+          ],
+          "latency_ms": 4185,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_002_data_science_ambiguous",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "30.7001",
+                "accepted": [
+                  "30.7001",
+                  "11.0701",
+                  "27.0501"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_003_deaf_education",
+          "tags": [
+            "ood",
+            "deaf_education"
+          ],
+          "latency_ms": 5005,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_003_deaf_education",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "13.1003",
+                "actual": "13.1003"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_004_typo_engineering",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 5301,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_004_typo_engineering",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "14.0101",
+                "accepted": [
+                  "14.0801",
+                  "14.1001",
+                  "14.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_005_nonsense",
+          "tags": [
+            "adversarial",
+            "nonsense"
+          ],
+          "latency_ms": 3719,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_005_nonsense",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "low",
+                "accepted": [
+                  "medium",
+                  "low"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_006_pre_med",
+          "tags": [
+            "happy",
+            "premed_track"
+          ],
+          "latency_ms": 6053,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_006_pre_med",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "26.0102",
+                "accepted": [
+                  "26.0102",
+                  "26.0101",
+                  "51.0000"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_007_business",
+          "tags": [
+            "happy",
+            "broad"
+          ],
+          "latency_ms": 5256,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_007_business",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "52.0201",
+                "accepted": [
+                  "52.1401",
+                  "52.0201",
+                  "52.0801",
+                  "52.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_008_psych",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 5207,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_008_psych",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "42.0101",
+                "actual": "42.0101"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_009_marketing",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 4287,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_009_marketing",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "52.1401",
+                "actual": "52.1401"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_010_chem_eng_specific",
+          "tags": [
+            "happy",
+            "specific"
+          ],
+          "latency_ms": 4045,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_010_chem_eng_specific",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "14.0701",
+                "actual": "14.0701"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_011_doctor_ambiguous",
+          "tags": [
+            "happy",
+            "ambiguous",
+            "premed_track"
+          ],
+          "latency_ms": 6088,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_011_doctor_ambiguous",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "51.2308",
+                "accepted": [
+                  "51.2308",
+                  "26.0102",
+                  "26.0101",
+                  "51.0000"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_012_video_games",
+          "tags": [
+            "happy",
+            "creative_tech"
+          ],
+          "latency_ms": 4346,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_012_video_games",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0411",
+                "accepted": [
+                  "50.0411",
+                  "11.0701",
+                  "50.0102"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_013_funeral_director",
+          "tags": [
+            "ood",
+            "vocational_specialty"
+          ],
+          "latency_ms": 4411,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_013_funeral_director",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "12.0301",
+                "actual": "12.0301"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_014_tattoo_art",
+          "tags": [
+            "ood",
+            "creative_unconventional"
+          ],
+          "latency_ms": 5804,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_014_tattoo_art",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "50.0702",
+                "accepted": [
+                  "50.0702",
+                  "50.0701",
+                  "50.0409"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_015_archaeologist",
+          "tags": [
+            "happy",
+            "niche"
+          ],
+          "latency_ms": 4425,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_015_archaeologist",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "45.0201",
+                "accepted": [
+                  "45.0201",
+                  "30.2202"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_016_typo_business",
+          "tags": [
+            "adversarial",
+            "typo"
+          ],
+          "latency_ms": 5723,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_016_typo_business",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "52.0201",
+                "accepted": [
+                  "52.0201",
+                  "52.0101"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_017_empty",
+          "tags": [
+            "adversarial",
+            "low_signal"
+          ],
+          "latency_ms": 5126,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_017_empty",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "confidence",
+                "actual": "low",
+                "accepted": [
+                  "medium",
+                  "low"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_018_beekeeper",
+          "tags": [
+            "ood",
+            "agriculture_niche"
+          ],
+          "latency_ms": 5324,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_018_beekeeper",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "actual": "01.0901",
+                "accepted": [
+                  "26.0701",
+                  "01.1101",
+                  "01.0901"
+                ]
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_019_journalism",
+          "tags": [
+            "happy"
+          ],
+          "latency_ms": 4267,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_019_journalism",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "09.0401",
+                "actual": "09.0401"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "case_id": "intent_020_changed_my_mind",
+          "tags": [
+            "adversarial",
+            "conversational"
+          ],
+          "latency_ms": 4585,
+          "adapter_error": null,
+          "scores": [
+            {
+              "case_id": "intent_020_changed_my_mind",
+              "surface": "career_intent",
+              "metric": "field_accuracy",
+              "score": 1.0,
+              "passed": true,
+              "details": {
+                "field": "matched_cip",
+                "expected": "50.0703",
+                "actual": "50.0703"
+              },
+              "latency_ms": null,
+              "tokens_input": null,
+              "tokens_output": null,
+              "error": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "latency": {
+    "career_intent": {
+      "n": 20,
+      "p50_ms": 5064.5,
+      "p95_ms": 6053.75,
+      "p99_ms": 6080.35,
+      "mean_ms": 4939.45,
+      "min_ms": 3718,
+      "max_ms": 6087
+    }
+  }
+}

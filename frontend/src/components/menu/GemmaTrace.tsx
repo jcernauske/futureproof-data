@@ -104,13 +104,13 @@ function headerCopy(rows: Row[], mode: TraceMode): string {
   const isStreaming = mode === "live" && anyUnresolved;
   if (isStreaming) {
     return total === 1
-      ? "Gemma is looking something up…"
-      : "Gemma is looking things up…";
+      ? "Looking something up…"
+      : "Looking things up…";
   }
   // Complete or fallback — past tense.
   return total === 1
-    ? "Gemma checked one source."
-    : `Gemma checked ${total} sources.`;
+    ? "Checked one source."
+    : `Checked ${total} sources.`;
 }
 
 export function GemmaTrace({ events, mode }: GemmaTraceProps) {
@@ -136,7 +136,7 @@ export function GemmaTrace({ events, mode }: GemmaTraceProps) {
     <section
       data-testid="gemma-trace"
       role="region"
-      aria-label="Gemma's reasoning steps for this answer"
+      aria-label="Reasoning steps for this answer"
       className="bg-bp-recessed border border-border-subtle rounded-lg overflow-hidden"
       style={{
         // 3px accent-insight left stripe — the Gemma-voice signature.

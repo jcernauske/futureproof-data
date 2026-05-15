@@ -26,6 +26,7 @@ from app.models.api import (
 )
 from app.models.career import Build
 from app.services import gemma_client
+from app.services.locale import AppLocale, normalize_locale
 from app.services.pdf_copy import (
     BOSS_ORDER,
     FORBIDDEN_IN_GEMMA_OUTPUT,
@@ -65,6 +66,87 @@ STATIC_YOURSELF_FALLBACK: tuple[str, ...] = (
     "Am I picking this major because it interests me, or because it's "
     "familiar — and would I know the difference yet?",
 )
+
+
+# Locale-keyed static fallbacks. Spanish + Arabic mirror the English
+# voice (candid, concrete, action-verb-first for audience-facing rows,
+# "Will I" / "Am I" first-person for ask_yourself). When Gemma is
+# unavailable / off / malformed for an ar or es render, these are
+# what prints — so they need to read like an advisor actually wrote
+# them in that language, not like a machine-translated tooltip.
+_STATIC_COLLEGE_MANDATORY_BY_LOCALE: dict[AppLocale, tuple[str, str]] = {
+    "en": STATIC_COLLEGE_MANDATORY,
+    "es": (
+        "¿Qué carreras de {school} llevan con más frecuencia a sus graduados a {career}?",
+        "¿Cómo puedo complementar esta carrera con las habilidades sugeridas arriba — "
+        "mediante cursos, clubes o prácticas que ya ofrecen?",
+    ),
+    "ar": (
+        "ما التخصصات في {school} التي تقود خريجيها في الغالب إلى {career}؟",
+        "كيف يمكنني تعزيز هذا التخصص بالمهارات المقترحة أعلاه — من خلال "
+        "المواد الدراسية أو النوادي أو التدريب الذي توفّرونه حالياً؟",
+    ),
+}
+
+_STATIC_COLLEGE_FALLBACK_BY_LOCALE: dict[AppLocale, str] = {
+    "en": STATIC_COLLEGE_FALLBACK,
+    "es": (
+        "¿Qué datos de resultados publican para este programa — ingresos medianos "
+        "un año después de graduarse, tasa de empleo, deuda promedio al graduarse?"
+    ),
+    "ar": (
+        "ما بيانات النتائج التي تنشرونها لهذا البرنامج — متوسط الدخل بعد سنة "
+        "من التخرج، ومعدّل التوظيف، ومتوسط الديون عند التخرج؟"
+    ),
+}
+
+_STATIC_PARENTS_FALLBACK_BY_LOCALE: dict[AppLocale, tuple[str, ...]] = {
+    "en": STATIC_PARENTS_FALLBACK,
+    "es": (
+        "Si los números del préstamo en la página 1 son correctos, ¿puede nuestra "
+        "familia cubrir ese pago mensual junto con todo lo demás después de que me gradúe?",
+        "¿Qué carrera viste de cerca al crecer — y qué de ella querrías para mí, "
+        "o querrías evitarme?",
+    ),
+    "ar": (
+        "إذا كانت أرقام القرض في الصفحة 1 دقيقة، فهل تستطيع عائلتنا تحمّل "
+        "هذا القسط الشهري إلى جانب باقي النفقات بعد تخرّجي؟",
+        "أي مسيرة مهنية رأيتموها عن قرب أثناء نشأتكم — وما الذي تتمنّوْنه لي منها، "
+        "أو ما الذي تتمنّوْن أن أتجنّبه؟",
+    ),
+}
+
+_STATIC_YOURSELF_FALLBACK_BY_LOCALE: dict[AppLocale, tuple[str, ...]] = {
+    "en": STATIC_YOURSELF_FALLBACK,
+    "es": (
+        "¿Seguiré queriendo hacer este trabajo dentro de 10 años si el día a día "
+        "se parece al perfil de tareas de O*NET en la página 1?",
+        "¿Estoy eligiendo esta carrera porque me interesa, o porque me resulta "
+        "familiar — y sabría notar la diferencia todavía?",
+    ),
+    "ar": (
+        "هل سأظلّ أرغب في القيام بهذا العمل بعد 10 سنوات إذا كان اليوم "
+        "اليومي يشبه ملف مهام O*NET في الصفحة 1؟",
+        "هل أختار هذا التخصص لأنه يثير اهتمامي، أم لأنه مألوف لي — "
+        "وهل أعرف الفرق بعد؟",
+    ),
+}
+
+
+_LANGUAGE_DIRECTIVE: dict[AppLocale, str] = {
+    "en": "",
+    "es": (
+        "\n\nIMPORTANT: Write every question in natural Spanish (es). "
+        "Keep proper nouns (school name, career title, acronyms like O*NET / BLS) "
+        "in their original form — do not translate them."
+    ),
+    "ar": (
+        "\n\nIMPORTANT: Write every question in natural Arabic (ar). "
+        "Keep proper nouns (school name, career title, acronyms like O*NET / BLS) "
+        "in their original form — do not translate them. "
+        "Use Modern Standard Arabic; the audience is a high-school student."
+    ),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -200,40 +282,50 @@ def _user_prompt(build: Build) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _static_college_questions(build: Build) -> list[AudienceQuestion]:
+def _static_college_questions(
+    build: Build, locale: AppLocale = "en",
+) -> list[AudienceQuestion]:
     """The 2 mandatory + 1 fallback static college questions (§3.11.4)."""
     school = build.school_name
     career = build.career.occupation_title
+    mandatory = _STATIC_COLLEGE_MANDATORY_BY_LOCALE[locale]
+    fallback = _STATIC_COLLEGE_FALLBACK_BY_LOCALE[locale]
     return [
         AudienceQuestion(
-            text=STATIC_COLLEGE_MANDATORY[0].format(school=school, career=career),
+            text=mandatory[0].format(school=school, career=career),
             is_static_mandatory=True,
         ),
         AudienceQuestion(
-            text=STATIC_COLLEGE_MANDATORY[1],
+            text=mandatory[1],
             is_static_mandatory=True,
         ),
-        AudienceQuestion(text=STATIC_COLLEGE_FALLBACK),
+        AudienceQuestion(text=fallback),
     ]
 
 
-def _static_parents_questions() -> list[AudienceQuestion]:
-    return [AudienceQuestion(text=q) for q in STATIC_PARENTS_FALLBACK]
+def _static_parents_questions(locale: AppLocale = "en") -> list[AudienceQuestion]:
+    return [
+        AudienceQuestion(text=q)
+        for q in _STATIC_PARENTS_FALLBACK_BY_LOCALE[locale]
+    ]
 
 
-def _static_yourself_questions() -> list[AudienceQuestion]:
-    return [AudienceQuestion(text=q) for q in STATIC_YOURSELF_FALLBACK]
+def _static_yourself_questions(locale: AppLocale = "en") -> list[AudienceQuestion]:
+    return [
+        AudienceQuestion(text=q)
+        for q in _STATIC_YOURSELF_FALLBACK_BY_LOCALE[locale]
+    ]
 
 
-def _all_static(build: Build) -> tuple[
+def _all_static(build: Build, locale: AppLocale = "en") -> tuple[
     list[AudienceQuestion],
     list[AudienceQuestion],
     list[AudienceQuestion],
 ]:
     return (
-        _static_college_questions(build),
-        _static_parents_questions(),
-        _static_yourself_questions(),
+        _static_college_questions(build, locale),
+        _static_parents_questions(locale),
+        _static_yourself_questions(locale),
     )
 
 
@@ -316,33 +408,36 @@ def _assemble(
 def _live_assemble(
     build: Build,
     parsed: dict[str, list[str]],
+    locale: AppLocale = "en",
 ) -> AudienceQuestions:
     """Successful Gemma path: 2 mandatory college Qs + Gemma's additions.
 
     Static fallbacks fill the floor of 1 for parents/yourself when Gemma
     returns an empty array for that audience.
     """
-    college = _static_college_questions(build)[:2]  # 2 mandatory only
+    college = _static_college_questions(build, locale)[:2]  # 2 mandatory only
     college += [AudienceQuestion(text=t) for t in parsed["ask_the_college"][:3]]
 
     parents_live = parsed["ask_your_parents"]
     if parents_live:
         parents = [AudienceQuestion(text=t) for t in parents_live]
     else:
-        parents = _static_parents_questions()
+        parents = _static_parents_questions(locale)
 
     yourself_live = parsed["ask_yourself"]
     if yourself_live:
         yourself = [AudienceQuestion(text=t) for t in yourself_live]
     else:
-        yourself = _static_yourself_questions()
+        yourself = _static_yourself_questions(locale)
 
     return _assemble(college, parents, yourself, gemma_path="live")
 
 
-def _fallback(build: Build, path: GemmaPath) -> AudienceQuestions:
+def _fallback(
+    build: Build, path: GemmaPath, locale: AppLocale = "en",
+) -> AudienceQuestions:
     """Static-only assembly — guaranteed non-empty per spec contract."""
-    college, parents, yourself = _all_static(build)
+    college, parents, yourself = _all_static(build, locale)
     return _assemble(college, parents, yourself, gemma_path=path)
 
 
@@ -350,20 +445,28 @@ async def generate_audience_questions(
     build: Build,
     *,
     timeout_s: float = 6.0,
+    locale: AppLocale | None = None,
 ) -> AudienceQuestions:
     """Generate the 3-audience question set via a single scoped Gemma call.
 
     Always returns a non-empty AudienceQuestions. Every code path emits
     exactly one ``logs/gemma.jsonl`` record. See module docstring + spec
     §4 ``pdf_questions.py`` for the full contract.
+
+    ``locale`` controls both the Gemma "respond in this language" directive
+    and the static fallback strings used when Gemma is unavailable. When
+    omitted, falls back to the build's own locale so a re-export under a
+    different language is opt-in.
     """
+    loc: AppLocale = normalize_locale(locale if locale is not None else build.locale)
     extra = {"call_site": "pdf_questions"}
     user_msg = _user_prompt(build)
+    system_prompt = _SYSTEM + _LANGUAGE_DIRECTIVE.get(loc, "")
 
     try:
         raw = await asyncio.wait_for(
             gemma_client.generate_chat_async(
-                system=_SYSTEM,
+                system=system_prompt,
                 messages=[{"role": "user", "content": user_msg}],
                 max_tokens=400,
                 temperature=0.3,
@@ -379,7 +482,7 @@ async def generate_audience_questions(
             event="fallback_timeout",
             extra={"reason": "asyncio.TimeoutError"},
         )
-        return _fallback(build, "fallback_timeout")
+        return _fallback(build, "fallback_timeout", loc)
     except Exception as exc:
         # The gemma_client itself catches and returns "" on transport
         # error — but if this path raises (e.g. cold env, missing config)
@@ -390,14 +493,14 @@ async def generate_audience_questions(
             extra={"reason": f"{type(exc).__name__}: {exc}"},
         )
         logger.warning("pdf_questions: gemma client unavailable: %s", exc)
-        return _fallback(build, "fallback_disabled")
+        return _fallback(build, "fallback_disabled", loc)
 
     if not raw:
         gemma_client.log_synthetic_event(
             call_site="pdf_questions",
             event="fallback_empty",
         )
-        return _fallback(build, "fallback_empty")
+        return _fallback(build, "fallback_empty", loc)
 
     parsed = _parse_response(raw)
     if parsed is None:
@@ -406,6 +509,6 @@ async def generate_audience_questions(
             event="fallback_malformed",
             extra={"raw_preview": raw[:300]},
         )
-        return _fallback(build, "fallback_malformed")
+        return _fallback(build, "fallback_malformed", loc)
 
-    return _live_assemble(build, parsed)
+    return _live_assemble(build, parsed, loc)

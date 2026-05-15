@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useT } from "@/i18n/useT";
 import { springs } from "@/styles/motion";
 
 interface CompareAccordionProps {
@@ -19,6 +20,7 @@ export function CompareAccordion({
   children,
   defaultOpen = false,
 }: CompareAccordionProps) {
+  const t = useT();
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -31,7 +33,7 @@ export function CompareAccordion({
         type="button"
         data-testid={`btn-toggle-${testId}`}
         aria-expanded={open}
-        aria-label={open ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
+        aria-label={t(open ? "compare.accordion.collapse" : "compare.accordion.expand", { title })}
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-bp-mid transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bp-deep"
       >

@@ -83,7 +83,7 @@ export function AskGemmaResponseCard({
     <motion.section
       role="region"
       aria-live="polite"
-      aria-label="Gemma answer"
+      aria-label="The Guide's answer"
       initial={sectionMotion.initial}
       animate={sectionMotion.animate}
       exit={sectionMotion.exit}
@@ -98,12 +98,12 @@ export function AskGemmaResponseCard({
         <div className="flex items-center gap-2 mb-3">
           <GemmaStar size={14} />
           <span className="font-body text-small font-semibold text-text-secondary">
-            Gemma
+            The Guide
           </span>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-4">
-            <GemmaThinking message="Gemma is answering…" />
+            <GemmaThinking message="Answering…" />
           </div>
         ) : (
           <p className="font-body text-body text-text-primary leading-relaxed whitespace-pre-line">

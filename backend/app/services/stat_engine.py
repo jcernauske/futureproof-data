@@ -32,6 +32,7 @@ from mcp_server.residency import (
 
 from app.models.career import (
     BossScores,
+    CareerBranch,
     CareerOutcome,
     EffortLevel,
     PentagonStats,
@@ -842,4 +843,131 @@ def compute_one(
             return outcome
     raise LookupError(
         f"SOC {soc_code} not found for unitid={unitid}, cipcode={cipcode}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 15-year ceiling projection (boss-ceiling-doubling spec)
+# ---------------------------------------------------------------------------
+
+CEILING_CONFIG = {
+    "annual_rate": 0.02,
+    "horizon_years": 15,
+    "source": "Federal Reserve long-run target",
+    "source_url": (
+        "https://www.federalreserve.gov/monetarypolicy/"
+        "review-of-monetary-policy-strategy-tools-and-"
+        "communications-statement-on-longer-run-goals-"
+        "monetary-policy-strategy.htm"
+    ),
+}
+
+_COL_GROWTH_RATE: float = 0.02
+_HORIZON_YEARS: int = 15
+_INFLATION_MULTIPLE: float = (1 + _COL_GROWTH_RATE) ** _HORIZON_YEARS  # ~1.346
+
+
+def _scale(
+    value: float, in_lo: float, in_hi: float, out_lo: float, out_hi: float,
+) -> float:
+    """Linear interpolation from [in_lo, in_hi] to [out_lo, out_hi], clamped."""
+    if in_hi == in_lo:
+        return out_lo
+    t = (value - in_lo) / (in_hi - in_lo)
+    t = max(0.0, min(1.0, t))
+    return out_lo + t * (out_hi - out_lo)
+
+
+def _compute_ceiling_score(growth_multiple: float) -> tuple[int, bool]:
+    """Map growth_multiple to a 1-10 boss ceiling score.
+
+    Returns ``(score, structural_loss)``.
+    """
+    if growth_multiple < _INFLATION_MULTIPLE:
+        return 1, True
+    if growth_multiple < 1.7:
+        return _round_half_up(
+            _scale(growth_multiple, _INFLATION_MULTIPLE, 1.7, 2, 6),
+        ), False
+    if growth_multiple < 2.0:
+        return _round_half_up(
+            _scale(growth_multiple, 1.7, 2.0, 6, 9),
+        ), False
+    return 10, False
+
+
+def compute_ceiling_from_branches(
+    career: CareerOutcome,
+    branches: list[CareerBranch],
+) -> CareerOutcome:
+    """Compute the 15-year ceiling projection from Stage 3 branch wages.
+
+    Updates ``bosses.ceiling`` and the ceiling narrative metadata fields
+    on the returned copy. The Gold-zone ``boss_ceiling_score`` is
+    superseded by this request-time computation.
+    """
+    starting_wage = (
+        career.earnings_1yr_median
+        if career.earnings_1yr_median is not None
+        else career.median_annual_wage
+    )
+    if starting_wage is None or starting_wage <= 0:
+        starting_wage = career.wage_p25
+    if starting_wage is None or starting_wage <= 0:
+        return career
+
+    starting_wage = float(starting_wage)
+    inflation_floor_wage = starting_wage * _INFLATION_MULTIPLE
+
+    branch_wages = [
+        b.related_wage for b in branches if b.related_wage is not None
+    ]
+
+    year_15_wage: float
+    growth_multiple: float
+    upward_share: float | None
+
+    if branch_wages:
+        upward_wages = [w for w in branch_wages if w > starting_wage]
+        total_nodes = len(branch_wages)
+        upward_share = len(upward_wages) / total_nodes if total_nodes > 0 else 0.0
+
+        if not upward_wages:
+            year_15_wage = starting_wage
+            growth_multiple = 1.0
+        else:
+            upward_wages_sorted = sorted(upward_wages)
+            mid = len(upward_wages_sorted) // 2
+            if len(upward_wages_sorted) % 2 == 0 and len(upward_wages_sorted) > 1:
+                year_15_wage = (
+                    upward_wages_sorted[mid - 1] + upward_wages_sorted[mid]
+                ) / 2
+            else:
+                year_15_wage = upward_wages_sorted[mid]
+            growth_multiple = year_15_wage / starting_wage
+    elif career.wage_p75 is not None and career.wage_p75 > 0:
+        year_15_wage = float(career.wage_p75)
+        growth_multiple = year_15_wage / starting_wage
+        upward_share = None
+    else:
+        return career
+
+    score, structural_loss = _compute_ceiling_score(growth_multiple)
+
+    return career.model_copy(
+        update={
+            "bosses": BossScores(
+                ai=career.bosses.ai,
+                loans=career.bosses.loans,
+                market=career.bosses.market,
+                burnout=career.bosses.burnout,
+                ceiling=score,
+            ),
+            "starting_wage": starting_wage,
+            "year_15_wage": year_15_wage,
+            "growth_multiple": growth_multiple,
+            "upward_share": upward_share,
+            "structural_loss": structural_loss,
+            "inflation_floor_wage": inflation_floor_wage,
+        },
     )

@@ -11,7 +11,7 @@ async def get_skill_recs(build_id: str):
     build = state.get_build(build_id)
     if build is None:
         raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
-    return skill_recs.generate_recs(build.career, build.gauntlet)
+    return await skill_recs.generate_recs_async(build.career, build.gauntlet)
 
 
 @router.get("/{build_id}/skill-pool")
@@ -19,4 +19,4 @@ async def get_skill_pool(build_id: str):
     build = state.get_build(build_id)
     if build is None:
         raise HTTPException(status_code=404, detail=f"Build {build_id} not found")
-    return skill_pool.generate_pool(build.career, build.gauntlet)
+    return await skill_pool.generate_pool_async(build.career, build.gauntlet)

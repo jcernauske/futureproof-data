@@ -85,7 +85,7 @@ describe("HorizonFooter — layout and structure", () => {
     expect(footer.querySelector("#horizon-identity")).not.toBeNull();
     expect(footer.querySelector("#horizon-studio")).not.toBeNull();
     // Center column has no id by spec (semantic-only); assert via copy.
-    expect(footer.textContent).toContain("Built with Gemma 4");
+    expect(footer.textContent).toContain("Powered by Gemma 4");
   });
 
   it("renders the live-app link with correct href", () => {

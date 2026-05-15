@@ -308,8 +308,7 @@ export interface Build {
   guidance: string;
   skills_crafted: AppliedSkill[];
   skill_pool: AppliedSkill[];
-  next_steps: string;
-  horizonIndex?: number;    // 0..47 inclusive, locked at first /app/save view
+  horizonIndex?: number;    // 0..47 inclusive, locked per build
   profile_name?: string;
   parent_build_id?: string | null;
   home_state?: string | null;

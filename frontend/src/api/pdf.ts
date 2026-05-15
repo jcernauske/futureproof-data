@@ -12,12 +12,14 @@
  */
 
 import { formatErrorDetail } from "@/api/client";
+import type { AppLocale } from "@/i18n/locales";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 export interface ExportBuildPdfOptions {
   studentName?: string | null;
+  locale?: AppLocale | null;
 }
 
 export async function exportBuildPdf(
@@ -29,6 +31,7 @@ export async function exportBuildPdf(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       student_name: opts.studentName ?? null,
+      locale: opts.locale ?? null,
     }),
   });
   if (!res.ok) {
@@ -40,6 +43,7 @@ export async function exportBuildPdf(
 
 export interface ExportComparisonPdfOptions {
   studentName?: string | null;
+  locale?: AppLocale | null;
 }
 
 export async function exportComparisonPdf(
@@ -52,6 +56,7 @@ export async function exportComparisonPdf(
     body: JSON.stringify({
       build_ids: buildIds,
       student_name: opts.studentName ?? null,
+      locale: opts.locale ?? null,
     }),
   });
   if (!res.ok) {

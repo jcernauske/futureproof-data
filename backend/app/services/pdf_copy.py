@@ -8,6 +8,14 @@ school pulls ahead" sentences, the data-coverage caveat, and the per-boss
 advisory labels all live here. Forbidden vocabulary is enforced by two
 frozensets — see RPG_TERMS_FORBIDDEN_IN_PDF (full PDF text) and
 FORBIDDEN_IN_GEMMA_OUTPUT (Gemma question strings).
+
+Localization: every public string-returning function takes a ``locale``
+argument that defaults to "en" so legacy callers (pdf_questions.py builds
+its Gemma context in English regardless of the student's UI language)
+keep working unchanged. The PDF render path passes the build's locale
+through explicitly. ``locale.py`` glossary rules apply: dollar amounts,
+percentages, source acronyms (BLS, O*NET, IPEDS, BEA), school names,
+and SOC codes are preserved verbatim across all locales.
 """
 
 from __future__ import annotations
@@ -21,6 +29,7 @@ from typing import TYPE_CHECKING
 from app.models.api import RiskLevel
 from app.models.career import BossId, BossOutcome, Build
 from app.services.boss_fights import BOSS_SPECS
+from app.services.locale import AppLocale, normalize_locale
 
 if TYPE_CHECKING:
     from app.models.career import CareerOutcome
@@ -92,20 +101,43 @@ def contains_forbidden_term(text: str, terms: frozenset[str]) -> bool:
 # Centralized here so pdf_export.py and pdf_questions.py cannot drift.
 # ---------------------------------------------------------------------------
 
-_BOSS_ADVISORY_LABEL: dict[BossId, str] = {
-    "ai": "AI displacement risk",
-    "loans": "Debt burden",
-    "market": "Job market outlook",
-    "burnout": "Burnout risk",
-    "ceiling": "Earnings ceiling",
+_BOSS_ADVISORY_LABEL_BY_LOCALE: dict[AppLocale, dict[BossId, str]] = {
+    "en": {
+        "ai": "AI displacement risk",
+        "loans": "Debt burden",
+        "market": "Job market outlook",
+        "burnout": "Burnout risk",
+        "ceiling": "Earnings ceiling",
+    },
+    "es": {
+        "ai": "Riesgo de desplazamiento por IA",
+        "loans": "Carga de deuda",
+        "market": "Perspectiva del mercado laboral",
+        "burnout": "Riesgo de agotamiento",
+        "ceiling": "Tope de ingresos",
+    },
+    "ar": {
+        "ai": "مخاطر الإزاحة بسبب الذكاء الاصطناعي",
+        "loans": "عبء الديون",
+        "market": "آفاق سوق العمل",
+        "burnout": "مخاطر الإرهاق",
+        "ceiling": "سقف الأرباح",
+    },
 }
 
 BOSS_ORDER: tuple[BossId, ...] = ("ai", "loans", "market", "burnout", "ceiling")
 
 
-def boss_advisory_label(boss_id: BossId) -> str:
-    """Decision #4 advisory label for a boss. Stable + import-safe."""
-    return _BOSS_ADVISORY_LABEL[boss_id]
+def boss_advisory_label(boss_id: BossId, locale: AppLocale = "en") -> str:
+    """Decision #4 advisory label for a boss. Stable + import-safe.
+
+    ``locale`` defaults to "en" so legacy callers (pdf_questions.py uses
+    these labels to construct the *Gemma context* — Gemma sees English
+    regardless of student locale because the system prompt's language
+    instruction handles the output language separately) keep working.
+    The PDF render path explicitly passes the student's locale.
+    """
+    return _BOSS_ADVISORY_LABEL_BY_LOCALE[normalize_locale(locale)][boss_id]
 
 
 # ---------------------------------------------------------------------------
@@ -164,51 +196,115 @@ def _risk_level_counts(build: Build) -> dict[RiskLevel, int]:
     return counts
 
 
-def _risk_summary(counts: dict[RiskLevel, int]) -> str:
+_RISK_SUMMARY_BY_LOCALE: dict[AppLocale, dict[str, str]] = {
+    "en": {
+        "insufficient": "the data is partial — read the risk profile below before drawing conclusions",
+        "steady_clean": "the data shows steady fundamentals",
+        "steady_one_or_two": "the data shows steady fundamentals with one or two factors to watch",
+        "multiple_high": "the data flags multiple risk factors worth a closer look",
+        "two_or_more": "the data shows two or more risk factors worth weighing",
+    },
+    "es": {
+        "insufficient": "los datos son parciales — revisa el perfil de riesgo a continuación antes de sacar conclusiones",
+        "steady_clean": "los datos muestran fundamentos sólidos",
+        "steady_one_or_two": "los datos muestran fundamentos sólidos con uno o dos factores a observar",
+        "multiple_high": "los datos señalan varios factores de riesgo que merecen un análisis más detenido",
+        "two_or_more": "los datos muestran dos o más factores de riesgo que vale la pena considerar",
+    },
+    "ar": {
+        "insufficient": "البيانات جزئية — راجع ملف المخاطر أدناه قبل استخلاص النتائج",
+        "steady_clean": "تُظهر البيانات أساسيات ثابتة",
+        "steady_one_or_two": "تُظهر البيانات أساسيات ثابتة مع عامل أو عاملين يستحقان المتابعة",
+        "multiple_high": "تُشير البيانات إلى عدة عوامل خطر تستحق نظرة أعمق",
+        "two_or_more": "تُظهر البيانات عاملي خطر أو أكثر تستحق الموازنة",
+    },
+}
+
+
+def _risk_summary(counts: dict[RiskLevel, int], locale: AppLocale = "en") -> str:
     """First-match-wins risk-summary bucket selection (§3.11.1)."""
+    table = _RISK_SUMMARY_BY_LOCALE[normalize_locale(locale)]
     # "insufficient" wins over any other bucket when 3+ rows are unknown —
     # the PDF refuses to summarize what it cannot honestly observe.
     if counts["Insufficient"] >= 3:
-        return "the data is partial — read the risk profile below before drawing conclusions"
+        return table["insufficient"]
     if counts["Low"] >= 4 and counts["High"] == 0:
-        return "the data shows steady fundamentals"
+        return table["steady_clean"]
     if counts["High"] == 0 and counts["Elevated"] <= 1 and counts["Low"] >= 2:
-        return "the data shows steady fundamentals with one or two factors to watch"
+        return table["steady_one_or_two"]
     if counts["High"] >= 2:
-        return "the data flags multiple risk factors worth a closer look"
-    return "the data shows two or more risk factors worth weighing"
+        return table["multiple_high"]
+    return table["two_or_more"]
 
 
-def _roi_summary(dte: float | None) -> str:
+_ROI_SUMMARY_BY_LOCALE: dict[AppLocale, dict[str, str]] = {
+    "en": {
+        "unavailable": "Cost-to-earnings is unavailable for this program",
+        "strong": "Cost recovery looks strong against year-1 earnings",
+        "in_line": "Cost is in line with year-1 earnings",
+        "sizable": "Cost is sizable against year-1 earnings",
+        "high": "Cost is high relative to year-1 earnings",
+    },
+    "es": {
+        "unavailable": "La relación costo-ingresos no está disponible para este programa",
+        "strong": "La recuperación del costo se ve sólida frente a los ingresos del primer año",
+        "in_line": "El costo está en línea con los ingresos del primer año",
+        "sizable": "El costo es considerable frente a los ingresos del primer año",
+        "high": "El costo es alto en relación con los ingresos del primer año",
+    },
+    "ar": {
+        "unavailable": "نسبة التكلفة إلى الدخل غير متاحة لهذا البرنامج",
+        "strong": "يبدو استرداد التكلفة قوياً مقابل دخل السنة الأولى",
+        "in_line": "التكلفة متوازنة مع دخل السنة الأولى",
+        "sizable": "التكلفة كبيرة مقابل دخل السنة الأولى",
+        "high": "التكلفة مرتفعة مقارنةً بدخل السنة الأولى",
+    },
+}
+
+
+def _roi_summary(dte: float | None, locale: AppLocale = "en") -> str:
     """ROI-summary bucket on debt_to_earnings_annual (§3.11.1).
 
     Thresholds mirror roiLabelKey() bins in FinancesCard.tsx (8/18/30%) so
     the PDF and on-screen ROI label cannot disagree.
     """
+    table = _ROI_SUMMARY_BY_LOCALE[normalize_locale(locale)]
     if dte is None:
-        return "Cost-to-earnings is unavailable for this program"
+        return table["unavailable"]
     if dte < 0.08:
-        return "Cost recovery looks strong against year-1 earnings"
+        return table["strong"]
     if dte < 0.18:
-        return "Cost is in line with year-1 earnings"
+        return table["in_line"]
     if dte < 0.30:
-        return "Cost is sizable against year-1 earnings"
-    return "Cost is high relative to year-1 earnings"
+        return table["sizable"]
+    return table["high"]
 
 
-def verdict_line(build: Build) -> str:
+# Verdict template uses a locale-specific connector: "at" in English,
+# "en" in Spanish, "في" in Arabic. Kept as a sentence template so
+# punctuation conventions (period, colon) stay consistent.
+_VERDICT_CONNECTOR_BY_LOCALE: dict[AppLocale, str] = {
+    "en": "at",
+    "es": "en",
+    "ar": "في",
+}
+
+
+def verdict_line(build: Build, locale: AppLocale = "en") -> str:
     """One-line display verdict for the My Build PDF page-1 hero.
 
-    Format: "{Major} at {School}: {risk_summary}. {roi_summary}."
+    Format: "{Major} {connector} {School}: {risk_summary}. {roi_summary}."
     Capitalization: lowercase after the colon, sentence-case after the
     period. Max 200 chars (P2 budget test).
     """
+    loc = normalize_locale(locale)
     major = build.career.program_name or build.major_text or "Program"
     school = build.school_name
     counts = _risk_level_counts(build)
-    risk = _risk_summary(counts)
-    roi = _roi_summary(build.career.debt_to_earnings_annual)
-    return f"{major} at {school}: {risk}. {roi}."
+    risk = _risk_summary(counts, loc)
+    roi = _roi_summary(build.career.debt_to_earnings_annual, loc)
+    connector = _VERDICT_CONNECTOR_BY_LOCALE[loc]
+    return f"{major} {connector} {school}: {risk}. {roi}."
 
 
 # ---------------------------------------------------------------------------
@@ -216,85 +312,242 @@ def verdict_line(build: Build) -> str:
 # ---------------------------------------------------------------------------
 
 
-_RISK_ANCHOR_TEMPLATES: dict[BossId, dict[RiskLevel, str]] = {
-    "ai": {
-        "Low": "AI exposure for this occupation sits at the {p:.0f}th percentile — most core tasks remain human-led.",
-        "Moderate": "AI exposure for this occupation sits at the {p:.0f}th percentile — some routine tasks are increasingly automatable.",
-        "Elevated": "AI exposure sits at the {p:.0f}th percentile — a meaningful share of tasks could shift to AI within a decade.",
-        "High": "AI exposure sits at the {p:.0f}th percentile — most routine tasks could be performed by AI within a decade.",
-        "Insufficient": "Data unavailable for this program.",
+_RISK_ANCHOR_TEMPLATES_BY_LOCALE: dict[AppLocale, dict[BossId, dict[RiskLevel, str]]] = {
+    "en": {
+        "ai": {
+            "Low": "AI exposure for this occupation sits at the {p:.0f}th percentile — most core tasks remain human-led.",
+            "Moderate": "AI exposure for this occupation sits at the {p:.0f}th percentile — some routine tasks are increasingly automatable.",
+            "Elevated": "AI exposure sits at the {p:.0f}th percentile — a meaningful share of tasks could shift to AI within a decade.",
+            "High": "AI exposure sits at the {p:.0f}th percentile — most routine tasks could be performed by AI within a decade.",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "loans": {
+            "Low": "Modeled year-1 debt service is {v:.0f}% of starting earnings — comfortably below the 10% guideline.",
+            "Moderate": "Modeled year-1 debt service is {v:.0f}% of starting earnings — within the standard manageable range.",
+            "Elevated": "Modeled year-1 debt service is {v:.0f}% of starting earnings — above the recommended ceiling for new graduates.",
+            "High": "Modeled year-1 debt service is {v:.0f}% of starting earnings — well above what early-career income typically supports.",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "market": {
+            "Low": "BLS classifies this as a growing field ({label}).",
+            "Moderate": "BLS classifies this as roughly steady demand ({label}).",
+            "Elevated": "BLS projects slower-than-average growth ({label}).",
+            "High": "BLS classifies this as a contracting field ({label}).",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "burnout": {
+            "Low": "O*NET task profile shows {driver} — within typical workload patterns.",
+            "Moderate": "O*NET task profile shows {driver} — a real demand worth understanding before committing.",
+            "Elevated": "O*NET task profile shows {driver} — a known burnout driver in this occupation.",
+            "High": "O*NET task profile shows {driver} — a leading burnout factor in this occupation.",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "ceiling": {
+            "Low": "Year-1 75th-percentile wage is ${v:,.0f} — meaningful upside above the median.",
+            "Moderate": "Year-1 75th-percentile wage is ${v:,.0f} — modest upside above the median.",
+            "Elevated": "Year-1 75th-percentile wage is ${v:,.0f} — limited room to grow above the median.",
+            "High": "Year-1 75th-percentile wage is ${v:,.0f} — earnings plateau early in this occupation.",
+            "Insufficient": "Data unavailable for this program.",
+        },
     },
-    "loans": {
-        "Low": "Modeled year-1 debt service is {v:.0f}% of starting earnings — comfortably below the 10% guideline.",
-        "Moderate": "Modeled year-1 debt service is {v:.0f}% of starting earnings — within the standard manageable range.",
-        "Elevated": "Modeled year-1 debt service is {v:.0f}% of starting earnings — above the recommended ceiling for new graduates.",
-        "High": "Modeled year-1 debt service is {v:.0f}% of starting earnings — well above what early-career income typically supports.",
-        "Insufficient": "Data unavailable for this program.",
+    "es": {
+        "ai": {
+            "Low": "La exposición a la IA para esta ocupación se sitúa en el percentil {p:.0f} — la mayoría de las tareas centrales siguen siendo humanas.",
+            "Moderate": "La exposición a la IA para esta ocupación se sitúa en el percentil {p:.0f} — algunas tareas rutinarias son cada vez más automatizables.",
+            "Elevated": "La exposición a la IA se sitúa en el percentil {p:.0f} — una parte significativa de las tareas podría pasar a la IA en una década.",
+            "High": "La exposición a la IA se sitúa en el percentil {p:.0f} — la mayoría de las tareas rutinarias podrían ser realizadas por IA en una década.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "loans": {
+            "Low": "El servicio de la deuda modelado para el primer año es el {v:.0f}% de los ingresos iniciales — cómodamente por debajo de la guía del 10%.",
+            "Moderate": "El servicio de la deuda modelado para el primer año es el {v:.0f}% de los ingresos iniciales — dentro del rango manejable estándar.",
+            "Elevated": "El servicio de la deuda modelado para el primer año es el {v:.0f}% de los ingresos iniciales — por encima del tope recomendado para nuevos graduados.",
+            "High": "El servicio de la deuda modelado para el primer año es el {v:.0f}% de los ingresos iniciales — muy por encima de lo que los ingresos al inicio de la carrera suelen soportar.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "market": {
+            "Low": "BLS clasifica este campo como en crecimiento ({label}).",
+            "Moderate": "BLS clasifica esto como una demanda aproximadamente estable ({label}).",
+            "Elevated": "BLS proyecta un crecimiento más lento que el promedio ({label}).",
+            "High": "BLS clasifica este campo como en contracción ({label}).",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "burnout": {
+            "Low": "El perfil de tareas de O*NET muestra {driver} — dentro de los patrones típicos de carga de trabajo.",
+            "Moderate": "El perfil de tareas de O*NET muestra {driver} — una demanda real que vale la pena entender antes de comprometerse.",
+            "Elevated": "El perfil de tareas de O*NET muestra {driver} — un factor conocido de agotamiento en esta ocupación.",
+            "High": "El perfil de tareas de O*NET muestra {driver} — un factor principal de agotamiento en esta ocupación.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "ceiling": {
+            "Low": "El salario del percentil 75 en el primer año es ${v:,.0f} — un margen significativo por encima de la mediana.",
+            "Moderate": "El salario del percentil 75 en el primer año es ${v:,.0f} — un margen modesto por encima de la mediana.",
+            "Elevated": "El salario del percentil 75 en el primer año es ${v:,.0f} — espacio limitado para crecer por encima de la mediana.",
+            "High": "El salario del percentil 75 en el primer año es ${v:,.0f} — los ingresos se estancan temprano en esta ocupación.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
     },
-    "market": {
-        # numeric anchor often unavailable on CareerOutcome — see
-        # _market_anchor() below; we substitute growth_category when a
-        # numeric pct is missing and otherwise fall back to level-only.
-        "Low": "BLS classifies this as a growing field ({label}).",
-        "Moderate": "BLS classifies this as roughly steady demand ({label}).",
-        "Elevated": "BLS projects slower-than-average growth ({label}).",
-        "High": "BLS classifies this as a contracting field ({label}).",
-        "Insufficient": "Data unavailable for this program.",
-    },
-    "burnout": {
-        "Low": "O*NET task profile shows {driver} — within typical workload patterns.",
-        "Moderate": "O*NET task profile shows {driver} — a real demand worth understanding before committing.",
-        "Elevated": "O*NET task profile shows {driver} — a known burnout driver in this occupation.",
-        "High": "O*NET task profile shows {driver} — a leading burnout factor in this occupation.",
-        "Insufficient": "Data unavailable for this program.",
-    },
-    "ceiling": {
-        "Low": "Year-1 75th-percentile wage is ${v:,.0f} — meaningful upside above the median.",
-        "Moderate": "Year-1 75th-percentile wage is ${v:,.0f} — modest upside above the median.",
-        "Elevated": "Year-1 75th-percentile wage is ${v:,.0f} — limited room to grow above the median.",
-        "High": "Year-1 75th-percentile wage is ${v:,.0f} — earnings plateau early in this occupation.",
-        "Insufficient": "Data unavailable for this program.",
+    "ar": {
+        "ai": {
+            "Low": "التعرض للذكاء الاصطناعي لهذه المهنة يقع في النسبة المئوية {p:.0f} — لا تزال معظم المهام الأساسية يقودها البشر.",
+            "Moderate": "التعرض للذكاء الاصطناعي لهذه المهنة يقع في النسبة المئوية {p:.0f} — بعض المهام الروتينية أصبحت قابلة للأتمتة بشكل متزايد.",
+            "Elevated": "التعرض للذكاء الاصطناعي يقع في النسبة المئوية {p:.0f} — نسبة مهمة من المهام قد تنتقل إلى الذكاء الاصطناعي خلال عقد.",
+            "High": "التعرض للذكاء الاصطناعي يقع في النسبة المئوية {p:.0f} — يمكن للذكاء الاصطناعي أداء معظم المهام الروتينية خلال عقد.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "loans": {
+            "Low": "خدمة الدين المتوقعة في السنة الأولى تبلغ {v:.0f}% من الدخل الابتدائي — أدنى بكثير من الإرشاد البالغ 10%.",
+            "Moderate": "خدمة الدين المتوقعة في السنة الأولى تبلغ {v:.0f}% من الدخل الابتدائي — ضمن النطاق القياسي القابل للإدارة.",
+            "Elevated": "خدمة الدين المتوقعة في السنة الأولى تبلغ {v:.0f}% من الدخل الابتدائي — فوق السقف الموصى به للخريجين الجدد.",
+            "High": "خدمة الدين المتوقعة في السنة الأولى تبلغ {v:.0f}% من الدخل الابتدائي — أعلى بكثير مما يدعمه الدخل في بداية المهنة عادةً.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "market": {
+            "Low": "تُصنّف BLS هذا المجال على أنه متنامٍ ({label}).",
+            "Moderate": "تُصنّف BLS هذا الطلب على أنه ثابت تقريباً ({label}).",
+            "Elevated": "تتوقع BLS نمواً أبطأ من المتوسط ({label}).",
+            "High": "تُصنّف BLS هذا المجال على أنه في انكماش ({label}).",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "burnout": {
+            "Low": "يُظهر ملف مهام O*NET {driver} — ضمن الأنماط النموذجية لأعباء العمل.",
+            "Moderate": "يُظهر ملف مهام O*NET {driver} — متطلب حقيقي يستحق الفهم قبل الالتزام.",
+            "Elevated": "يُظهر ملف مهام O*NET {driver} — محرّك معروف للإرهاق في هذه المهنة.",
+            "High": "يُظهر ملف مهام O*NET {driver} — عامل رئيسي للإرهاق في هذه المهنة.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "ceiling": {
+            "Low": "أجر السنة الأولى عند النسبة المئوية 75 يبلغ ${v:,.0f} — هامش مهم فوق الوسيط.",
+            "Moderate": "أجر السنة الأولى عند النسبة المئوية 75 يبلغ ${v:,.0f} — هامش متواضع فوق الوسيط.",
+            "Elevated": "أجر السنة الأولى عند النسبة المئوية 75 يبلغ ${v:,.0f} — مجال محدود للنمو فوق الوسيط.",
+            "High": "أجر السنة الأولى عند النسبة المئوية 75 يبلغ ${v:,.0f} — تستقر الأرباح مبكراً في هذه المهنة.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
     },
 }
 
 # Level-only fallback when anchor data is missing but level is known.
 # Drops the data clause cleanly so no "None%" strings ever leak.
-_RISK_LEVEL_ONLY: dict[BossId, dict[RiskLevel, str]] = {
-    "ai": {
-        "Low": "AI displacement risk is low for this occupation.",
-        "Moderate": "AI displacement risk is moderate for this occupation.",
-        "Elevated": "AI displacement risk is elevated for this occupation.",
-        "High": "AI displacement risk is high for this occupation.",
-        "Insufficient": "Data unavailable for this program.",
+_RISK_LEVEL_ONLY_BY_LOCALE: dict[AppLocale, dict[BossId, dict[RiskLevel, str]]] = {
+    "en": {
+        "ai": {
+            "Low": "AI displacement risk is low for this occupation.",
+            "Moderate": "AI displacement risk is moderate for this occupation.",
+            "Elevated": "AI displacement risk is elevated for this occupation.",
+            "High": "AI displacement risk is high for this occupation.",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "loans": {
+            "Low": "Modeled debt is comfortable against starting earnings.",
+            "Moderate": "Modeled debt is within the standard manageable range.",
+            "Elevated": "Modeled debt is above the recommended ceiling for new graduates.",
+            "High": "Modeled debt is well above what early-career income typically supports.",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "market": {
+            "Low": "BLS outlook for this occupation is favorable.",
+            "Moderate": "BLS outlook for this occupation is roughly steady.",
+            "Elevated": "BLS outlook is slower than the all-occupations average.",
+            "High": "BLS outlook is contracting for this occupation.",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "burnout": {
+            "Low": "Workload patterns for this occupation fall within typical ranges.",
+            "Moderate": "This occupation has at least one demand worth understanding.",
+            "Elevated": "This occupation has known burnout drivers.",
+            "High": "This occupation is a leading source of burnout.",
+            "Insufficient": "Data unavailable for this program.",
+        },
+        "ceiling": {
+            "Low": "Earnings ceiling sits well above the median for this occupation.",
+            "Moderate": "Earnings ceiling shows modest upside above the median.",
+            "Elevated": "Earnings ceiling shows limited room to grow above the median.",
+            "High": "Earnings plateau early in this occupation.",
+            "Insufficient": "Data unavailable for this program.",
+        },
     },
-    "loans": {
-        "Low": "Modeled debt is comfortable against starting earnings.",
-        "Moderate": "Modeled debt is within the standard manageable range.",
-        "Elevated": "Modeled debt is above the recommended ceiling for new graduates.",
-        "High": "Modeled debt is well above what early-career income typically supports.",
-        "Insufficient": "Data unavailable for this program.",
+    "es": {
+        "ai": {
+            "Low": "El riesgo de desplazamiento por IA es bajo para esta ocupación.",
+            "Moderate": "El riesgo de desplazamiento por IA es moderado para esta ocupación.",
+            "Elevated": "El riesgo de desplazamiento por IA es elevado para esta ocupación.",
+            "High": "El riesgo de desplazamiento por IA es alto para esta ocupación.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "loans": {
+            "Low": "La deuda modelada es cómoda frente a los ingresos iniciales.",
+            "Moderate": "La deuda modelada está dentro del rango manejable estándar.",
+            "Elevated": "La deuda modelada está por encima del tope recomendado para nuevos graduados.",
+            "High": "La deuda modelada está muy por encima de lo que los ingresos al inicio de la carrera suelen soportar.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "market": {
+            "Low": "La perspectiva de BLS para esta ocupación es favorable.",
+            "Moderate": "La perspectiva de BLS para esta ocupación es aproximadamente estable.",
+            "Elevated": "La perspectiva de BLS es más lenta que el promedio de todas las ocupaciones.",
+            "High": "La perspectiva de BLS es de contracción para esta ocupación.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "burnout": {
+            "Low": "Los patrones de carga de trabajo para esta ocupación caen dentro de rangos típicos.",
+            "Moderate": "Esta ocupación tiene al menos una demanda que vale la pena entender.",
+            "Elevated": "Esta ocupación tiene factores conocidos de agotamiento.",
+            "High": "Esta ocupación es una fuente principal de agotamiento.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
+        "ceiling": {
+            "Low": "El tope de ingresos se sitúa muy por encima de la mediana para esta ocupación.",
+            "Moderate": "El tope de ingresos muestra un margen modesto por encima de la mediana.",
+            "Elevated": "El tope de ingresos muestra espacio limitado para crecer por encima de la mediana.",
+            "High": "Los ingresos se estancan temprano en esta ocupación.",
+            "Insufficient": "Datos no disponibles para este programa.",
+        },
     },
-    "market": {
-        "Low": "BLS outlook for this occupation is favorable.",
-        "Moderate": "BLS outlook for this occupation is roughly steady.",
-        "Elevated": "BLS outlook is slower than the all-occupations average.",
-        "High": "BLS outlook is contracting for this occupation.",
-        "Insufficient": "Data unavailable for this program.",
+    "ar": {
+        "ai": {
+            "Low": "مخاطر الإزاحة بسبب الذكاء الاصطناعي منخفضة لهذه المهنة.",
+            "Moderate": "مخاطر الإزاحة بسبب الذكاء الاصطناعي متوسطة لهذه المهنة.",
+            "Elevated": "مخاطر الإزاحة بسبب الذكاء الاصطناعي مرتفعة نسبياً لهذه المهنة.",
+            "High": "مخاطر الإزاحة بسبب الذكاء الاصطناعي عالية لهذه المهنة.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "loans": {
+            "Low": "الدين المتوقع مريح مقابل الدخل الابتدائي.",
+            "Moderate": "الدين المتوقع ضمن النطاق القياسي القابل للإدارة.",
+            "Elevated": "الدين المتوقع فوق السقف الموصى به للخريجين الجدد.",
+            "High": "الدين المتوقع أعلى بكثير مما يدعمه الدخل في بداية المهنة عادةً.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "market": {
+            "Low": "آفاق BLS لهذه المهنة مواتية.",
+            "Moderate": "آفاق BLS لهذه المهنة ثابتة تقريباً.",
+            "Elevated": "آفاق BLS أبطأ من متوسط جميع المهن.",
+            "High": "آفاق BLS تشير إلى انكماش لهذه المهنة.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "burnout": {
+            "Low": "أنماط أعباء العمل لهذه المهنة تقع ضمن النطاقات النموذجية.",
+            "Moderate": "هذه المهنة لديها متطلب واحد على الأقل يستحق الفهم.",
+            "Elevated": "هذه المهنة لديها محركات معروفة للإرهاق.",
+            "High": "هذه المهنة مصدر رئيسي للإرهاق.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
+        "ceiling": {
+            "Low": "سقف الأرباح يقع فوق الوسيط بشكل ملحوظ لهذه المهنة.",
+            "Moderate": "سقف الأرباح يُظهر هامشاً متواضعاً فوق الوسيط.",
+            "Elevated": "سقف الأرباح يُظهر مجالاً محدوداً للنمو فوق الوسيط.",
+            "High": "تستقر الأرباح مبكراً في هذه المهنة.",
+            "Insufficient": "البيانات غير متاحة لهذا البرنامج.",
+        },
     },
-    "burnout": {
-        "Low": "Workload patterns for this occupation fall within typical ranges.",
-        "Moderate": "This occupation has at least one demand worth understanding.",
-        "Elevated": "This occupation has known burnout drivers.",
-        "High": "This occupation is a leading source of burnout.",
-        "Insufficient": "Data unavailable for this program.",
-    },
-    "ceiling": {
-        "Low": "Earnings ceiling sits well above the median for this occupation.",
-        "Moderate": "Earnings ceiling shows modest upside above the median.",
-        "Elevated": "Earnings ceiling shows limited room to grow above the median.",
-        "High": "Earnings plateau early in this occupation.",
-        "Insufficient": "Data unavailable for this program.",
-    },
+}
+
+
+# Insufficient-bucket sentence shared by all 5 bosses (counselor-scanning aid).
+_INSUFFICIENT_BY_LOCALE: dict[AppLocale, str] = {
+    "en": "Data unavailable for this program.",
+    "es": "Datos no disponibles para este programa.",
+    "ar": "البيانات غير متاحة لهذا البرنامج.",
 }
 
 
@@ -308,14 +561,60 @@ def _ai_anchor(career: CareerOutcome) -> float | None:
     return p * 100 if p <= 1.0 else p
 
 
-def _market_anchor(career: CareerOutcome) -> str | None:
-    """Growth_category or None. We don't have a numeric pct on CareerOutcome."""
+# BLS growth-outlook category names are a small fixed vocabulary. Map
+# them to the active locale so the Arabic / Spanish market-risk one-liner
+# doesn't leak the raw English category in parentheses. Unknown labels
+# pass through untranslated — the level-only fallback covers the case
+# where the data source emits something we haven't enumerated yet.
+_GROWTH_CATEGORY_BY_LOCALE: dict[AppLocale, dict[str, str]] = {
+    "en": {},  # passthrough
+    "es": {
+        "Much faster than average": "mucho más rápido que el promedio",
+        "Faster than average": "más rápido que el promedio",
+        "As fast as average": "al ritmo del promedio",
+        "Slower than average": "más lento que el promedio",
+        "Little or no change": "poco o ningún cambio",
+        "Decline": "en declive",
+    },
+    "ar": {
+        "Much faster than average": "أسرع بكثير من المتوسط",
+        "Faster than average": "أسرع من المتوسط",
+        "As fast as average": "بنفس سرعة المتوسط",
+        "Slower than average": "أبطأ من المتوسط",
+        "Little or no change": "تغيّر طفيف أو معدوم",
+        "Decline": "في تراجع",
+    },
+}
+
+
+def _market_anchor(career: CareerOutcome, locale: AppLocale = "en") -> str | None:
+    """Growth_category translated to ``locale``, or None.
+
+    Backend data ships English BLS category names; we look up the active
+    locale's translation so the rendered one-liner doesn't pin an English
+    fragment inside Arabic / Spanish prose. Unknown categories pass
+    through unchanged — the level-only fallback would already have fired
+    if the column were blank.
+    """
     label = career.growth_category
-    return label if label else None
+    if not label:
+        return None
+    mapping = _GROWTH_CATEGORY_BY_LOCALE.get(locale, {})
+    return mapping.get(label, label)
 
 
-def _burnout_anchor(career: CareerOutcome) -> str | None:
-    """First burnout driver from the O*NET list, or None."""
+def _burnout_anchor(career: CareerOutcome, locale: AppLocale = "en") -> str | None:
+    """First burnout driver from the O*NET list, or None.
+
+    Returns None for non-English locales — burnout drivers are
+    free-form O*NET schedule-irregularity strings ("long irregular hours
+    during product launch cycles", "high-pressure decision deadlines",
+    etc.) with no pre-translated lookup table. Returning None forces the
+    caller into the level-only fallback so we don't leak an English
+    sentence fragment into Arabic / Spanish prose.
+    """
+    if locale != "en":
+        return None
     drivers = career.burnout_drivers
     if not drivers:
         return None
@@ -331,20 +630,26 @@ def _burnout_anchor(career: CareerOutcome) -> str | None:
     return None
 
 
-def risk_one_liner(boss_id: BossId, level: RiskLevel, build: Build) -> str:
+def risk_one_liner(
+    boss_id: BossId,
+    level: RiskLevel,
+    build: Build,
+    locale: AppLocale = "en",
+) -> str:
     """One-sentence advisory copy for a (boss_id, level) pair.
 
     Anchors are read from build.career, never recomputed. When the named
     anchor is None, falls back to the level-only template so no "None%"
     or "${None}" strings can ever leak.
     """
+    loc = normalize_locale(locale)
     career = build.career
     if level == "Insufficient":
         # Same string for all 5 bosses — counselor-scanning aid (§3.11.2).
-        return "Data unavailable for this program."
+        return _INSUFFICIENT_BY_LOCALE[loc]
 
-    template = _RISK_ANCHOR_TEMPLATES[boss_id][level]
-    fallback = _RISK_LEVEL_ONLY[boss_id][level]
+    template = _RISK_ANCHOR_TEMPLATES_BY_LOCALE[loc][boss_id][level]
+    fallback = _RISK_LEVEL_ONLY_BY_LOCALE[loc][boss_id][level]
 
     if boss_id == "ai":
         p = _ai_anchor(career)
@@ -355,10 +660,10 @@ def risk_one_liner(boss_id: BossId, level: RiskLevel, build: Build) -> str:
             return fallback
         return template.format(v=dte * 100)
     if boss_id == "market":
-        label = _market_anchor(career)
+        label = _market_anchor(career, loc)
         return template.format(label=label) if label else fallback
     if boss_id == "burnout":
-        driver = _burnout_anchor(career)
+        driver = _burnout_anchor(career, loc)
         return template.format(driver=driver) if driver else fallback
     if boss_id == "ceiling":
         v = career.earnings_1yr_p75
@@ -370,13 +675,66 @@ def risk_one_liner(boss_id: BossId, level: RiskLevel, build: Build) -> str:
 # "Where each school pulls ahead" template (Comparison PDF, §3.11.6).
 # ---------------------------------------------------------------------------
 
-# Stat-priority order for picking the top-2 leading factors.
+# Internal canonical keys (English-stable) for sort priority. The keys
+# never reach the rendered PDF — they're translated through
+# _LEADING_FACTOR_LABEL_BY_LOCALE at output time.
 _LEADING_PRIORITY: tuple[str, ...] = (
-    "Earnings", "ROI", "AI Resilience", "Growth", "Brand Gravity",
-    "4-year cost", "Modeled debt", "Year-1 earnings", "Debt-to-earnings ratio",
-    "AI displacement risk", "Debt burden", "Job market outlook",
-    "Burnout risk", "Earnings ceiling",
+    "earnings", "roi", "ai_resilience", "growth", "brand_gravity",
+    "cost_4yr", "modeled_debt", "year1_earnings", "dte_ratio",
+    "boss_ai", "boss_loans", "boss_market", "boss_burnout", "boss_ceiling",
 )
+
+
+_LEADING_FACTOR_LABEL_BY_LOCALE: dict[AppLocale, dict[str, str]] = {
+    "en": {
+        "earnings": "Earnings",
+        "roi": "ROI",
+        "ai_resilience": "AI Resilience",
+        "growth": "Growth",
+        "brand_gravity": "Brand Gravity",
+        "cost_4yr": "4-year cost",
+        "modeled_debt": "Modeled debt",
+        "year1_earnings": "Year-1 earnings",
+        "dte_ratio": "Debt-to-earnings ratio",
+        "boss_ai": "AI displacement risk",
+        "boss_loans": "Debt burden",
+        "boss_market": "Job market outlook",
+        "boss_burnout": "Burnout risk",
+        "boss_ceiling": "Earnings ceiling",
+    },
+    "es": {
+        "earnings": "Ingresos",
+        "roi": "ROI",
+        "ai_resilience": "Resiliencia ante la IA",
+        "growth": "Crecimiento",
+        "brand_gravity": "Gravedad de marca",
+        "cost_4yr": "Costo de 4 años",
+        "modeled_debt": "Deuda modelada",
+        "year1_earnings": "Ingresos del primer año",
+        "dte_ratio": "Relación deuda-ingresos",
+        "boss_ai": "Riesgo de desplazamiento por IA",
+        "boss_loans": "Carga de deuda",
+        "boss_market": "Perspectiva del mercado laboral",
+        "boss_burnout": "Riesgo de agotamiento",
+        "boss_ceiling": "Tope de ingresos",
+    },
+    "ar": {
+        "earnings": "الدخل",
+        "roi": "ROI",
+        "ai_resilience": "المقاومة للذكاء الاصطناعي",
+        "growth": "النمو",
+        "brand_gravity": "جاذبية العلامة",
+        "cost_4yr": "تكلفة 4 سنوات",
+        "modeled_debt": "الدين المتوقع",
+        "year1_earnings": "دخل السنة الأولى",
+        "dte_ratio": "نسبة الدين إلى الدخل",
+        "boss_ai": "مخاطر الإزاحة بسبب الذكاء الاصطناعي",
+        "boss_loans": "عبء الديون",
+        "boss_market": "آفاق سوق العمل",
+        "boss_burnout": "مخاطر الإرهاق",
+        "boss_ceiling": "سقف الأرباح",
+    },
+}
 
 
 def _stat_value(build: Build, key: str) -> int | None:
@@ -384,7 +742,7 @@ def _stat_value(build: Build, key: str) -> int | None:
 
 
 def _leading_factors_for(build: Build, others: Sequence[Build]) -> list[str]:
-    """Return the human-labeled factors this build leads on vs the others.
+    """Return the canonical factor keys this build leads on vs the others.
 
     "Lead" semantics per @fp-data-reviewer §5 leading-direction table:
     - higher wins for ERN/ROI/RES/GRW/AURA + year-1 earnings
@@ -392,33 +750,37 @@ def _leading_factors_for(build: Build, others: Sequence[Build]) -> list[str]:
     - ties → no one leads on that row (the build doesn't get credit).
     - all peers None → no one leads (the build doesn't get a free win
       against missing data; staff-engineer A4 fix).
+
+    Returns canonical English keys (e.g. "earnings", "roi") rather than
+    rendered labels so the priority sort and the locale lookup stay
+    decoupled.
     """
     leaders: list[str] = []
     stat_dirs = (
-        ("Earnings", "ern", "high"),
-        ("ROI", "roi", "high"),
-        ("AI Resilience", "res", "high"),
-        ("Growth", "grw", "high"),
-        ("Brand Gravity", "aura", "high"),
+        ("earnings", "ern", "high"),
+        ("roi", "roi", "high"),
+        ("ai_resilience", "res", "high"),
+        ("growth", "grw", "high"),
+        ("brand_gravity", "aura", "high"),
     )
-    for label, key, _direction in stat_dirs:
-        my = _stat_value(build, key)
+    for key, attr, _direction in stat_dirs:
+        my = _stat_value(build, attr)
         if my is None:
             continue
-        peer_values = [_stat_value(o, key) for o in others]
+        peer_values = [_stat_value(o, attr) for o in others]
         peer_real = [v for v in peer_values if v is not None]
         if not peer_real:
             continue  # No comparison possible — don't claim leadership.
         if all(my > v for v in peer_real):
-            leaders.append(label)
+            leaders.append(key)
 
     cost_dirs = (
-        ("4-year cost", "published_cost_4yr", "low"),
-        ("Modeled debt", "modeled_total_debt", "low"),
-        ("Year-1 earnings", "earnings_1yr_median", "high"),
-        ("Debt-to-earnings ratio", "debt_to_earnings_annual", "low"),
+        ("cost_4yr", "published_cost_4yr", "low"),
+        ("modeled_debt", "modeled_total_debt", "low"),
+        ("year1_earnings", "earnings_1yr_median", "high"),
+        ("dte_ratio", "debt_to_earnings_annual", "low"),
     )
-    for label, attr, direction in cost_dirs:
+    for key, attr, direction in cost_dirs:
         my = getattr(build.career, attr, None)
         if my is None:
             continue
@@ -432,30 +794,61 @@ def _leading_factors_for(build: Build, others: Sequence[Build]) -> list[str]:
             else (lambda a, b: a > b)
         )
         if all(cmp(my, v) for v in peer_real):  # type: ignore[no-untyped-call]
-            leaders.append(label)
+            leaders.append(key)
 
     return leaders
 
 
-def where_each_pulls_ahead(builds: list[Build]) -> list[str]:
+# Locale-specific sentence shells for "where each school pulls ahead".
+# Two-leader: "{school} — leads on {a} and {b}."
+# One-leader: "{school} — leads on {a}."
+# None:       "{school} — no clear leader on these factors; trade-offs are even."
+_PULL_AHEAD_BY_LOCALE: dict[AppLocale, dict[str, str]] = {
+    "en": {
+        "two": "{school} — leads on {a} and {b}.",
+        "one": "{school} — leads on {a}.",
+        "none": "{school} — no clear leader on these factors; trade-offs are even.",
+    },
+    "es": {
+        "two": "{school} — destaca en {a} y {b}.",
+        "one": "{school} — destaca en {a}.",
+        "none": "{school} — no hay un líder claro en estos factores; las contrapartidas están equilibradas.",
+    },
+    "ar": {
+        "two": "{school} — تتقدّم في {a} و{b}.",
+        "one": "{school} — تتقدّم في {a}.",
+        "none": "{school} — لا يوجد متقدّم واضح في هذه العوامل؛ المقايضات متعادلة.",
+    },
+}
+
+
+def where_each_pulls_ahead(builds: list[Build], locale: AppLocale = "en") -> list[str]:
     """One sentence per build identifying its top-2 leading factors.
 
     Output length == len(builds). Order matches input order.
     """
+    loc = normalize_locale(locale)
+    labels = _LEADING_FACTOR_LABEL_BY_LOCALE[loc]
+    shells = _PULL_AHEAD_BY_LOCALE[loc]
+
     output: list[str] = []
     for i, build in enumerate(builds):
         others = [b for j, b in enumerate(builds) if j != i]
         leaders = _leading_factors_for(build, others)
         # Apply priority ordering: the two leading factors a counselor
         # cares about most, named first.
-        leaders.sort(key=lambda f: _LEADING_PRIORITY.index(f) if f in _LEADING_PRIORITY else 99)
+        leaders.sort(
+            key=lambda k: _LEADING_PRIORITY.index(k) if k in _LEADING_PRIORITY else 99,
+        )
         school = build.school_name
         if len(leaders) >= 2:
-            output.append(f"{school} — leads on {leaders[0]} and {leaders[1]}.")
+            output.append(shells["two"].format(
+                school=school, a=labels[leaders[0]], b=labels[leaders[1]],
+            ))
         elif len(leaders) == 1:
-            output.append(f"{school} — leads on {leaders[0]}.")
+            output.append(shells["one"].format(school=school, a=labels[leaders[0]]))
         else:
-            output.append(f"{school} — no clear leader on these factors; trade-offs are even.")
+            output.append(shells["none"].format(school=school))
     return output
 
 
@@ -464,19 +857,41 @@ def where_each_pulls_ahead(builds: list[Build]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-_COVERAGE_CAVEATS: dict[str, str] = {
-    "scorecard_only": (
-        "Note: occupational task data is partial for this program. "
-        "Earnings, cost, and debt figures are full coverage."
-    ),
-    "partial_no_onet": (
-        "Note: O*NET task detail is unavailable for this occupation. "
-        "Earnings, cost, and debt figures are full coverage."
-    ),
+_COVERAGE_CAVEATS_BY_LOCALE: dict[AppLocale, dict[str, str]] = {
+    "en": {
+        "scorecard_only": (
+            "Note: occupational task data is partial for this program. "
+            "Earnings, cost, and debt figures are full coverage."
+        ),
+        "partial_no_onet": (
+            "Note: O*NET task detail is unavailable for this occupation. "
+            "Earnings, cost, and debt figures are full coverage."
+        ),
+    },
+    "es": {
+        "scorecard_only": (
+            "Nota: los datos de tareas ocupacionales son parciales para este programa. "
+            "Las cifras de ingresos, costos y deuda tienen cobertura completa."
+        ),
+        "partial_no_onet": (
+            "Nota: el detalle de tareas de O*NET no está disponible para esta ocupación. "
+            "Las cifras de ingresos, costos y deuda tienen cobertura completa."
+        ),
+    },
+    "ar": {
+        "scorecard_only": (
+            "ملاحظة: بيانات المهام المهنية جزئية لهذا البرنامج. "
+            "أرقام الدخل والتكلفة والديون بتغطية كاملة."
+        ),
+        "partial_no_onet": (
+            "ملاحظة: تفاصيل مهام O*NET غير متاحة لهذه المهنة. "
+            "أرقام الدخل والتكلفة والديون بتغطية كاملة."
+        ),
+    },
 }
 
 
-def data_coverage_caveat(build: Build) -> str | None:
+def data_coverage_caveat(build: Build, locale: AppLocale = "en") -> str | None:
     """Conditional one-line caveat for the page-1 header strip.
 
     Returns None when match_quality is "full" (no caveat rendered) or
@@ -486,4 +901,4 @@ def data_coverage_caveat(build: Build) -> str | None:
     mq = build.career.match_quality
     if mq is None or mq == "full":
         return None
-    return _COVERAGE_CAVEATS.get(mq)
+    return _COVERAGE_CAVEATS_BY_LOCALE[normalize_locale(locale)].get(mq)

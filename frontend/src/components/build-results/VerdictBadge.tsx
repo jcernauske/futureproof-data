@@ -17,28 +17,34 @@ function getVerdict(totalWins: number) {
   return VERDICT_TIERS[VERDICT_TIERS.length - 1]!;
 }
 
-function getNarrative(rawWins: number, equippedWins: number, draws: number, losses: number, unknowns: number, t: (key: string) => string): string {
+function getNarrative(
+  rawWins: number,
+  equippedWins: number,
+  draws: number,
+  losses: number,
+  unknowns: number,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
   const total = rawWins + equippedWins;
 
-  const standoffNote = draws > 0
-    ? t("build.noteStandoff")
-        .replace("{count}", draws === 1 ? "One" : String(draws))
-        .replace("{fights}", draws === 1 ? "fight" : "fights")
-    : "";
-  const defeatNote = losses > 0
-    ? t("build.noteDefeat")
-        .replace("{count}", losses === 1 ? "One" : String(losses))
-        .replace("{challenges}", losses === 1 ? "challenge" : "challenges")
-        .replace("{es}", losses === 1 ? "" : "es")
-        .replace("{remains}", losses === 1 ? "remains" : "remain")
-        .replace("{them}", losses === 1 ? "it" : "them")
-        .replace("{verlos}", losses === 1 ? "verlo" : "verlos")
-    : "";
-  const unknownNote = unknowns > 0
-    ? t("build.noteUnknown")
-        .replace("{count}", unknowns === 1 ? "One" : String(unknowns))
-        .replace("{fights}", unknowns === 1 ? "fight" : "fights")
-    : "";
+  const standoffNote =
+    draws > 0
+      ? draws === 1
+        ? t("build.noteStandoffOne")
+        : t("build.noteStandoffMany", { count: draws })
+      : "";
+  const defeatNote =
+    losses > 0
+      ? losses === 1
+        ? t("build.noteDefeatOne")
+        : t("build.noteDefeatMany", { count: losses })
+      : "";
+  const unknownNote =
+    unknowns > 0
+      ? unknowns === 1
+        ? t("build.noteUnknownOne")
+        : t("build.noteUnknownMany", { count: unknowns })
+      : "";
 
   if (total === 5 && equippedWins === 0) {
     return t("build.narrativeAllDecisive");
@@ -111,7 +117,7 @@ export function VerdictBadge({ rawWins, equippedWins, losses, draws, unknowns }:
 
       {/* Tally */}
       <div className="font-data text-text-secondary" style={{ fontSize: 13, marginTop: 16 }}>
-        <span className="text-accent-thrive">{totalWins}</span> of {5 - unknowns} {t("build.victories")}
+        <span className="text-accent-thrive">{totalWins}</span> {t("build.of")} {5 - unknowns} {t("build.victories")}
         {equippedWins > 0 && (
           <span>
             {" "}({rawWins} {t("build.decisive").replace("{s}", "")} + <span className="text-accent-insight">{equippedWins}</span> {t("build.skillAssisted")})

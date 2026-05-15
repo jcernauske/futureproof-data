@@ -247,3 +247,47 @@ def tier_careers(
 
     # Prune empty tiers.
     return OrderedDict((k, v) for k, v in tiers.items() if v)
+
+
+async def tier_careers_async(
+    outcomes: list[CareerOutcome],
+    school_name: str,
+    program_name: str,
+    cipcode: str,
+    *,
+    student_major_text: str = "",
+    intent_keywords: list[str] | None = None,
+) -> OrderedDict[str, list[CareerOutcome]]:
+    """Async variant — routes through the gemma_client semaphore so the
+    /tier endpoint cannot block the event loop or bypass the concurrency
+    budget."""
+    if len(outcomes) <= 5:
+        return _fallback_tiers(outcomes)
+
+    soc_lookup: dict[str, CareerOutcome] = {o.soc_code: o for o in outcomes}
+
+    text = await gemma_client.generate_async(
+        system=_SYSTEM,
+        user=_prompt(
+            outcomes,
+            school_name,
+            program_name,
+            cipcode,
+            student_major_text=student_major_text,
+            intent_keywords=intent_keywords,
+        ),
+        max_tokens=1500,
+        temperature=0.2,
+        extra={"call_site": "career_tiering"},
+    )
+    if not text:
+        logger.warning("career tiering gen returned empty; using fallback")
+        return _fallback_tiers(outcomes)
+
+    tiers = _parse_tiers(text, soc_lookup)
+    total_placed = sum(len(v) for v in tiers.values())
+    if total_placed == 0:
+        logger.warning("career tiering parsed 0 placements; using fallback")
+        return _fallback_tiers(outcomes)
+
+    return OrderedDict((k, v) for k, v in tiers.items() if v)

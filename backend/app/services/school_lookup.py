@@ -28,9 +28,11 @@ def search_schools(query: str) -> list[SchoolMatch]:
     """Fuzzy-match schools by institution name.
 
     Returns up to 10 distinct ``(unitid, institution_name)`` rows. The
-    underlying MCP handler scans ``consumable.career_outcomes`` and
-    filters by case-insensitive substring, so "iu" returns every
-    Indiana University campus.
+    underlying MCP handler normalizes punctuation (hyphens, commas,
+    apostrophes) before substring matching, and additionally tests
+    short queries as first-letter acronyms — so "Indiana University
+    Bloomington" matches the hyphenated canonical name, and "IU",
+    "UIUC", "MIT", and "ISU" all resolve to their schools.
     """
     query = (query or "").strip()
     if not query:

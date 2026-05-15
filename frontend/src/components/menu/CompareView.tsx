@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { GemmaSpinner } from "@/components/ui/GemmaSpinner";
 import { GemmaChat } from "@/components/menu/GemmaChat";
 import { useT } from "@/i18n/useT";
+import { useProfileStore } from "@/store/profileStore";
 import { exportComparisonPdf, downloadBlobAs } from "@/api/pdf";
 
 interface CompareViewProps {
@@ -31,11 +32,11 @@ interface CompareViewProps {
 
 type Phase = "loading" | "ready" | "error";
 
-const COMPARE_STARTERS = [
-  "Which one would you pick?",
-  "Where does the cheaper one catch up?",
-  "What's the real cost difference?",
-  "Which career is safer long-term?",
+const COMPARE_STARTER_KEYS = [
+  "compare.starter.whichOne",
+  "compare.starter.cheapestCatchUp",
+  "compare.starter.realCost",
+  "compare.starter.saferLongTerm",
 ];
 
 const BUILD_COLORS = [
@@ -45,12 +46,12 @@ const BUILD_COLORS = [
   "var(--color-accent-empathy)",
 ];
 
-const STAT_LABELS: Record<string, string> = {
-  ERN: "Earnings",
-  ROI: "ROI",
-  RES: "AI resilience",
-  GRW: "Growth",
-  AURA: "Brand gravity",
+const STAT_LABEL_KEYS: Record<string, string> = {
+  ERN: "compare.stat.ern",
+  ROI: "compare.stat.roi",
+  RES: "compare.stat.res",
+  GRW: "compare.stat.grw",
+  AURA: "compare.stat.aura",
 };
 
 const STAT_COLORS: Record<string, string> = {
@@ -125,11 +126,13 @@ function heroHeadline({
   lowestCostIndex,
   highestUpsideIndex,
   strongestResilienceIndex,
+  t,
 }: {
   builds: CompareResult["builds"];
   lowestCostIndex: number | null;
   highestUpsideIndex: number | null;
   strongestResilienceIndex: number | null;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 }): string {
   const cost = lowestCostIndex !== null ? builds[lowestCostIndex] : null;
   const upside = highestUpsideIndex !== null ? builds[highestUpsideIndex] : null;
@@ -137,21 +140,28 @@ function heroHeadline({
     strongestResilienceIndex !== null ? builds[strongestResilienceIndex] : null;
 
   if (cost && upside && cost.build_id !== upside.build_id) {
-    return `${cost.school_name} lowers pressure. ${upside.school_name} raises upside.`;
+    return t("compare.hero.costVsUpside", {
+      costSchool: cost.school_name,
+      upsideSchool: upside.school_name,
+    });
   }
   if (upside && resilience && upside.build_id !== resilience.build_id) {
-    return `${upside.school_name} has the upside. ${resilience.school_name} has the cushion.`;
+    return t("compare.hero.upsideVsResilience", {
+      upsideSchool: upside.school_name,
+      resilienceSchool: resilience.school_name,
+    });
   }
-  if (upside) return `${upside.school_name} is setting the pace.`;
-  return "Compare pressure, risk, and upside before you choose.";
+  if (upside) return t("compare.hero.upsideOnly", { upsideSchool: upside.school_name });
+  return t("compare.hero.fallback");
 }
 
 function BigChoiceLoading() {
+  const t = useT();
   return (
-    <div className="flex items-center gap-3 py-2" role="status" aria-label="Loading Big Choice">
+    <div className="flex items-center gap-3 py-2" role="status" aria-label={t("compare.loadingBigChoice")}>
       <GemmaSpinner size={34} className="shrink-0" />
       <span className="font-display text-[28px] font-bold leading-tight text-text-muted animate-gemma-shimmer-loop tablet:text-[36px]">
-        Reading the tradeoffs
+        {t("compare.readingTradeoffs")}
       </span>
     </div>
   );
@@ -168,6 +178,7 @@ function SummaryCallout({
   value: string;
   color?: string;
 }) {
+  const t = useT();
   return (
     <div
       className="rounded-md border border-border-subtle bg-bp-void/50 px-4 py-3"
@@ -177,7 +188,7 @@ function SummaryCallout({
         {label}
       </p>
       <p className="mt-1 truncate font-display text-[18px] font-semibold text-text-primary">
-        {build ? shortName(build.school_name, 24) : "Insufficient data"}
+        {build ? shortName(build.school_name, 24) : t("compare.callout.insufficient")}
       </p>
       <p className="font-data text-data-sm text-text-secondary">{value}</p>
     </div>
@@ -191,19 +202,21 @@ function TopRailStats({
   result: CompareResult;
   buildIndex: number;
 }) {
+  const t = useT();
   return (
-    <div className="mt-3 flex flex-col gap-1.5" aria-label="Build stat bars">
-      {Object.keys(STAT_LABELS).map((label) => {
+    <div className="mt-3 flex flex-col gap-1.5" aria-label={t("compare.rail.statBars")}>
+      {Object.keys(STAT_LABEL_KEYS).map((label) => {
         const raw = statValue(result, label, buildIndex);
         const isAbsent = raw == null;
         const value = isAbsent ? 0 : Math.max(0, Math.min(10, raw));
         const color = STAT_COLORS[label] ?? "var(--color-text-muted)";
+        const tipValue = isAbsent ? t("compare.rail.statUnavailable") : String(value);
         return (
           <div
             key={label}
             className="grid min-w-0 items-center gap-2"
             style={{ gridTemplateColumns: "34px minmax(72px, 1fr) 22px" }}
-            title={`${STAT_LABELS[label]}: ${isAbsent ? "unavailable" : value}`}
+            title={t("compare.rail.statTooltip", { label: t(STAT_LABEL_KEYS[label]!), value: tipValue })}
           >
             <span
               className="font-data text-[10px] font-bold uppercase tracking-wider"
@@ -257,6 +270,7 @@ function TradeoffMap({
   highlightIndex: number | null;
   maxCost: number;
 }) {
+  const t = useT();
   const mapPoints: MapPoint[] = result.builds.map((build, idx) => {
     const x =
       costValues[idx] == null
@@ -273,7 +287,9 @@ function TradeoffMap({
       y,
       color: buildColors[idx] ?? "var(--color-accent-info)",
       costText: formatMoney(costValues[idx] ?? null, true),
-      upsideText: upsideValues[idx] == null ? "n/a" : `${upsideValues[idx]!.toFixed(1)} up`,
+      upsideText: upsideValues[idx] == null
+        ? t("compare.callout.na")
+        : `${upsideValues[idx]!.toFixed(1)} ${t("compare.tradeoff.upSuffix")}`,
     };
   });
 
@@ -282,19 +298,19 @@ function TradeoffMap({
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <p className="font-data text-[11px] font-bold uppercase tracking-widest text-text-muted">
-            Cost x Upside Map
+            {t("compare.section.costUpsideMap")}
           </p>
           <h2 className="mt-1 font-display text-subheading font-semibold text-text-primary">
-            Which tradeoff can you live with?
+            {t("compare.tradeoff.subtitle")}
           </h2>
           <p className="mt-2 max-w-[620px] font-body text-small leading-relaxed text-text-secondary">
-            Pressure combines estimated four-year net price and modeled debt. Low pressure means less money at risk; high pressure means the path costs more upfront or leaves more debt to carry. Upside averages earnings, ROI, and growth.
+            {t("compare.tradeoff.body")}
           </p>
         </div>
         <div className="hidden tablet:flex items-center gap-2 font-data text-data-sm text-text-muted">
-          <span>Lower cost</span>
+          <span>{t("compare.tradeoff.lowerCost")}</span>
           <span className="h-px w-8 bg-border" />
-          <span>Higher cost</span>
+          <span>{t("compare.tradeoff.higherCost")}</span>
         </div>
       </div>
 
@@ -302,10 +318,10 @@ function TradeoffMap({
         <div className="absolute inset-x-6 top-1/2 h-px bg-border-subtle" />
         <div className="absolute inset-y-6 left-1/2 w-px bg-border-subtle" />
         <div className="absolute left-4 top-3 font-data text-[10px] font-bold uppercase tracking-widest text-text-muted">
-          Higher upside
+          {t("compare.tradeoff.higherUpside")}
         </div>
         <div className="absolute bottom-3 right-4 font-data text-[10px] font-bold uppercase tracking-widest text-text-muted">
-          Higher pressure
+          {t("compare.tradeoff.higherPressure")}
         </div>
 
         {mapPoints.map((point) => {
@@ -354,7 +370,7 @@ function TradeoffMap({
                   {shortName(point.build.school_name, 28)}
                 </span>
                 <span className="block font-data text-[11px] text-text-muted">
-                  {point.costText} pressure / {point.upsideText}
+                  {point.costText} {t("compare.tradeoff.legendPressureSuffix")} / {point.upsideText}
                 </span>
               </span>
             </button>
@@ -472,14 +488,15 @@ function RiskMatrix({
   buildColors: string[];
   highlightIndex: number | null;
 }) {
+  const t = useT();
   return (
     <article className="rounded-lg border border-border-subtle bg-bp-deep p-4">
       <header className="mb-4 flex items-center justify-between gap-3">
         <h2 className="font-display text-[18px] font-semibold text-text-primary">
-          Risk Exposure
+          {t("compare.section.riskExposure")}
         </h2>
         <p className="font-data text-[10px] font-bold uppercase tracking-widest text-text-muted">
-          Boss outcomes
+          {t("compare.section.bossOutcomes")}
         </p>
       </header>
       <div
@@ -534,22 +551,23 @@ function StatMatrix({
   buildColors: string[];
   highlightIndex: number | null;
 }) {
+  const t = useT();
   return (
     <article className="rounded-lg border border-border-subtle bg-bp-deep p-4">
       <header className="mb-4 flex items-center justify-between gap-3">
         <h2 className="font-display text-[18px] font-semibold text-text-primary">
-          Career Upside
+          {t("compare.section.careerUpside")}
         </h2>
         <p className="font-data text-[10px] font-bold uppercase tracking-widest text-text-muted">
-          Stat strength
+          {t("compare.section.statStrength")}
         </p>
       </header>
       <div className="flex flex-col gap-3">
-        {result.stats.filter((row) => STAT_LABELS[row.label]).map((row) => (
+        {result.stats.filter((row) => STAT_LABEL_KEYS[row.label]).map((row) => (
           <div key={row.label}>
             <div className="mb-1 flex items-center justify-between">
               <p className="font-body text-small text-text-secondary">
-                {STAT_LABELS[row.label]}
+                {t(STAT_LABEL_KEYS[row.label]!)}
               </p>
               <p className="font-data text-[10px] text-text-muted">{row.label}</p>
             </div>
@@ -604,6 +622,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
   const navigate = useNavigate();
   const setBuild = useBuildStore((s) => s.setBuild);
   const t = useT();
+  const locale = useProfileStore((s) => s.locale);
   const [phase, setPhase] = useState<Phase>("loading");
   const [result, setResult] = useState<CompareResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -670,7 +689,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     setPdfState("loading");
     setPdfErrorMsg(null);
     try {
-      const blob = await exportComparisonPdf(buildIds);
+      const blob = await exportComparisonPdf(buildIds, { locale });
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const major = (result?.builds[0]?.major_text || "compare")
         .toLowerCase()
@@ -700,13 +719,13 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       setBuild(full);
       navigate("/my-build");
     } catch {
-      setError("Couldn't load that build.");
+      setError(t("compare.errorBuild"));
     }
-  }, [navigate, setBuild]);
+  }, [navigate, setBuild, t]);
 
   useEffect(() => {
     if (buildIds.length === 0) {
-      setError("No builds selected to compare.");
+      setError(t("compare.errorNoBuildsSelected"));
       setPhase("error");
       return;
     }
@@ -721,7 +740,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         setPhase("ready");
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Failed to compare builds");
+        setError(e instanceof Error ? e.message : t("compare.errorCompareFailed"));
         setPhase("error");
       }
     })();
@@ -729,7 +748,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [buildIds]);
+  }, [buildIds, t]);
 
   if (phase === "loading") {
     return (
@@ -747,7 +766,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           }}
         />
         <p className="font-body text-body text-text-secondary">
-          Loading comparison…
+          {t("compare.loading")}
         </p>
       </div>
     );
@@ -757,13 +776,13 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     return (
       <div className="flex flex-col items-center gap-4 py-12 text-center">
         <p className="font-display text-heading text-accent-alert">
-          Couldn't load the comparison.
+          {t("compare.errorTitle")}
         </p>
         <p className="font-body text-body text-text-secondary">
-          {error ?? "The comparison didn't load. Try again, or head back to your builds."}
+          {error ?? t("compare.errorDefault")}
         </p>
         <Button variant="ghost" onClick={onBack} data-testid="btn-back-builds">
-          ← Back to builds
+          {t("compare.backToBuilds")}
         </Button>
       </div>
     );
@@ -793,6 +812,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     lowestCostIndex,
     highestUpsideIndex,
     strongestResilienceIndex,
+    t,
   });
   const heroTradeoff = fallbackHeroTradeoff;
 
@@ -800,7 +820,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
     <motion.article
       ref={containerRef}
       data-testid="region-compare"
-      aria-label={`Comparison of ${buildCount} builds`}
+      aria-label={t("compare.regionLabel", { n: buildCount })}
       initial={{ y: 12 }}
       animate={{ y: 0 }}
       transition={springs.smooth}
@@ -856,7 +876,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
                   style={{ borderTop: `3px solid ${buildColors[idx]}` }}
                 >
                   <p className="font-body text-[10px] font-bold uppercase tracking-widest text-text-muted">
-                    Path {idx + 1}
+                    {t("compare.rail.path", { n: idx + 1 })}
                   </p>
                   <p className="mt-1 truncate font-display text-[16px] font-semibold text-text-primary">
                     {build.school_name}
@@ -874,7 +894,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         <div className="grid gap-5 desktop:grid-cols-[minmax(0,0.95fr)_minmax(460px,1.05fr)] desktop:items-stretch">
           <div className="rounded-lg border border-border-subtle bg-bp-deep p-5 tablet:p-6 shadow-lg">
             <p className="font-data text-[11px] font-bold uppercase tracking-widest text-accent-info">
-              Big Choice
+              {t("compare.section.bigChoice")}
             </p>
             <div className="mt-3 min-h-[82px] tablet:min-h-[108px]">
               {heroTradeoff ? (
@@ -887,21 +907,21 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
             </div>
             <div className="mt-6 grid grid-cols-1 gap-3 tablet:grid-cols-3 desktop:grid-cols-1">
               <SummaryCallout
-                label="Lowest pressure"
+                label={t("compare.callout.lowestPressure")}
                 build={lowestCostIndex !== null ? result.builds[lowestCostIndex] ?? null : null}
-                value={lowestCostIndex !== null ? formatMoney(costValues[lowestCostIndex] ?? null, true) : "n/a"}
+                value={lowestCostIndex !== null ? formatMoney(costValues[lowestCostIndex] ?? null, true) : t("compare.callout.na")}
                 color={lowestCostIndex !== null ? buildColors[lowestCostIndex] : undefined}
               />
               <SummaryCallout
-                label="Highest upside"
+                label={t("compare.callout.highestUpside")}
                 build={highestUpsideIndex !== null ? result.builds[highestUpsideIndex] ?? null : null}
-                value={highestUpsideIndex !== null && upsideValues[highestUpsideIndex] !== null ? `${upsideValues[highestUpsideIndex]!.toFixed(1)}/10` : "n/a"}
+                value={highestUpsideIndex !== null && upsideValues[highestUpsideIndex] !== null ? t("compare.unitOf10", { value: upsideValues[highestUpsideIndex]!.toFixed(1) }) : t("compare.callout.na")}
                 color={highestUpsideIndex !== null ? buildColors[highestUpsideIndex] : undefined}
               />
               <SummaryCallout
-                label="Most resilient"
+                label={t("compare.callout.mostResilient")}
                 build={strongestResilienceIndex !== null ? result.builds[strongestResilienceIndex] ?? null : null}
-                value={strongestResilienceIndex !== null && resilienceValues[strongestResilienceIndex] !== null ? `${resilienceValues[strongestResilienceIndex]!.toFixed(1)}/10` : "n/a"}
+                value={strongestResilienceIndex !== null && resilienceValues[strongestResilienceIndex] !== null ? t("compare.unitOf10", { value: resilienceValues[strongestResilienceIndex]!.toFixed(1) }) : t("compare.callout.na")}
                 color={strongestResilienceIndex !== null ? buildColors[strongestResilienceIndex] : undefined}
               />
             </div>
@@ -918,11 +938,11 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         </div>
       </section>
 
-      <section className="mb-8 grid gap-4 desktop:grid-cols-3" aria-label="Decision rows">
+      <section className="mb-8 grid gap-4 desktop:grid-cols-3" aria-label={t("compare.section.moneyPressure")}>
         <DecisionRow
-          title="Money Pressure"
-          labelLeft="Cost"
-          labelRight="Early pay"
+          title={t("compare.section.moneyPressure")}
+          labelLeft={t("compare.section.cost")}
+          labelRight={t("compare.section.earlyPay")}
           builds={result.builds}
           buildColors={buildColors}
           highlightIndex={null}
@@ -951,14 +971,14 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       <section
         className="mb-8"
         data-testid="region-compare-winners"
-        aria-label="Where they win — dimension comparison"
+        aria-label={t("compare.winners.regionLabel")}
       >
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <p className="font-body text-[11px] font-bold uppercase tracking-widest text-text-muted">
-            Where Each Path Wins
+            {t("compare.section.whereEachWins")}
           </p>
           <p className="hidden tablet:block font-body text-small text-text-muted">
-            Click a path in the rail to pin focus.
+            {t("compare.winners.pinFocusHint")}
           </p>
         </div>
         <CompareWinners result={result} highlightIndex={null} />
@@ -972,7 +992,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       >
         <div>
           <p className="font-body text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3 pl-1">
-            Builds
+            {t("compare.section.builds")}
           </p>
           <motion.div
             className="grid grid-cols-1 gap-4"
@@ -1008,7 +1028,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         <div className="flex flex-col gap-5">
           <section>
             <p className="font-body text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3 pl-1">
-              Pentagon Detail
+              {t("compare.section.pentagonDetail")}
             </p>
             <div className="flex justify-center rounded-lg border border-border-subtle bg-bp-deep py-5">
               <PentagonOverlay result={result} highlightIndex={highlightIndex} size={320} />
@@ -1017,7 +1037,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
 
           <section>
             <p className="font-body text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3 pl-1">
-              Boss Gauntlet
+              {t("compare.section.bossGauntlet")}
             </p>
             <RiskHeadlineGrid
               bosses={result.bosses}
@@ -1029,7 +1049,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
 
           <section>
             <p className="font-body text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3 pl-1">
-              Early Salary
+              {t("compare.section.earlySalary")}
             </p>
             <MoneySection builds={result.builds} highlightIndex={null} />
           </section>
@@ -1039,10 +1059,10 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       {/* Cost Breakdown accordion */}
       <section className="mb-8">
         <CompareAccordion
-          title="Cost Breakdown"
+          title={t("compare.accordion.costBreakdown")}
           icon={<span aria-hidden className="font-data text-data-sm text-accent-caution">$</span>}
           testId="accordion-cost-breakdown"
-          ariaLabel="Cost breakdown comparison"
+          ariaLabel={t("compare.accordion.costAriaLabel")}
         >
           <CompareCostBreakdown builds={result.builds} highlightIndex={null} />
         </CompareAccordion>
@@ -1051,10 +1071,10 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       {/* School Profile accordion */}
       <section className="mb-8">
         <CompareAccordion
-          title="School Profile"
+          title={t("compare.accordion.schoolProfile")}
           icon={<span aria-hidden className="font-data text-data-sm text-accent-info">ID</span>}
           testId="accordion-school-profile"
-          ariaLabel="School profile comparison"
+          ariaLabel={t("compare.accordion.schoolAriaLabel")}
         >
           <CompareSchoolProfile
             builds={result.builds}
@@ -1068,7 +1088,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
       {result.branches.some((b) => b.destinations.length > 0) && (
         <section className="mb-16">
           <p className="font-body text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3 pl-1">
-            Career Branches
+            {t("compare.section.careerBranches")}
           </p>
           <BranchPreview
             branches={result.branches}
@@ -1124,7 +1144,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
         build={null}
         scope={compareScope}
         chipText={compareChipText}
-        starters={COMPARE_STARTERS}
+        starters={COMPARE_STARTER_KEYS.map((k) => t(k))}
         onClose={() => setChatOpen(false)}
       />
     </motion.article>

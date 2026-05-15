@@ -18,6 +18,7 @@ import { useState } from "react";
 
 import { exportBuildPdf, downloadBlobAs } from "@/api/pdf";
 import { useT } from "@/i18n/useT";
+import { useProfileStore } from "@/store/profileStore";
 
 interface ExportPdfButtonProps {
   buildId: string;
@@ -31,6 +32,7 @@ export function ExportPdfButton({
   programName,
 }: ExportPdfButtonProps) {
   const t = useT();
+  const locale = useProfileStore((s) => s.locale);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -39,7 +41,7 @@ export function ExportPdfButton({
     setState("loading");
     setErrorMsg(null);
     try {
-      const blob = await exportBuildPdf(buildId);
+      const blob = await exportBuildPdf(buildId, { locale });
       const safe = (s: string) =>
         s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");

@@ -207,37 +207,44 @@ def _boss_context(career: CareerOutcome, boss_id: str) -> str:
     bosses that don't need dollar amounts or when data is unavailable.
     """
     if boss_id == "ceiling":
-        parts = []
-        if career.median_annual_wage is not None:
+        parts: list[str] = []
+        if career.starting_wage is not None:
+            parts.append(f"Starting salary: {fmt_dollars(career.starting_wage)}/yr.")
+        if career.year_15_wage is not None:
             parts.append(
-                f"Occupation median wage: {fmt_dollars(career.median_annual_wage)}/yr"
+                f"Typical salary 15 years in: "
+                f"{fmt_dollars(career.year_15_wage)}/yr."
             )
-        if career.earnings_1yr_median is not None:
+        if career.growth_multiple is not None:
             parts.append(
-                f"Program graduate median: {fmt_dollars(career.earnings_1yr_median)}/yr"
+                f"That's a {career.growth_multiple:.2f}x change over 15 years."
             )
-        if (career.earnings_1yr_p25 is not None
-                and career.earnings_1yr_p75 is not None):
-            p25 = career.earnings_1yr_p25
-            p75 = career.earnings_1yr_p75
-            band = p75 - p25
+        if career.inflation_floor_wage is not None:
             parts.append(
-                f"Graduate earnings range: {fmt_dollars(p25)} (25th pct) to "
-                f"{fmt_dollars(p75)} (75th pct)"
+                f"Just to keep pace with inflation (2%/yr), the year-15 salary "
+                f"would need to reach {fmt_dollars(career.inflation_floor_wage)}."
             )
-            if band < 15_000:
+        if career.structural_loss:
+            parts.append(
+                "The typical 15-year path on this career does NOT beat "
+                "inflation — this is a structural ceiling, not a tactical gap."
+            )
+        if career.upward_share is not None:
+            if career.upward_share >= 0.7:
+                parts.append("Most realistic next-step roles from this start pay more.")
+            elif career.upward_share >= 0.3:
                 parts.append(
-                    f"The 25th-to-75th range is only {fmt_dollars(band)} wide — "
-                    f"this is a narrow earnings band. There is a real ceiling."
+                    "Some realistic next-step roles pay more; others stay flat or "
+                    "drop. The upward paths exist but aren't the default."
                 )
             else:
                 parts.append(
-                    f"The 25th-to-75th range spans {fmt_dollars(band)} — "
-                    f"there is meaningful room to grow within this career."
+                    "Most realistic next-step roles from this start stay flat or "
+                    "pay less. Upward paths exist but require deliberate choices."
                 )
         if not parts:
             return ""
-        return "Earnings context: " + " ".join(parts)
+        return "Ceiling context: " + " ".join(parts)
 
     if boss_id == "ai":
         # Option B composite provenance (S4 v4). Surfaces real-world
@@ -420,12 +427,15 @@ _GENERIC_INSTRUCTIONS = (
 
 _BOSS_INSTRUCTIONS: dict[str, str] = {
     "ceiling": (
-        "Explain how high pay can go on this career path. Name the "
-        "actual salary range graduates reach — what people earn at the "
-        "low end and what people earn at the high end. If the range is "
-        "narrow, say so plainly: there's a real limit, not that they "
-        "will get rich. If the range is wide, say there's room to grow "
-        "inside this career. Use the dollar figures provided."
+        "Explain where pay lands 15 years after graduation compared to "
+        "where it starts. Name the actual starting salary and the typical "
+        "year-15 salary from the data provided. If the year-15 number "
+        "doesn't beat inflation — meaning the student's real buying power "
+        "barely changes — say so plainly using the inflation floor figure. "
+        "If it roughly doubles, say the real purchasing power genuinely "
+        "grows. If most realistic next-step roles stay flat, name that as "
+        "the structural problem it is. Do not promise growth that the "
+        "data does not show."
     ),
     "loans": (
         "Explain what taking on this much debt would feel like month to "
@@ -581,13 +591,17 @@ def _score_burnout(career: CareerOutcome) -> tuple[int | None, str]:
 
 
 def _score_ceiling(career: CareerOutcome) -> tuple[int | None, str]:
-    """Earnings ceiling — drawn from the pre-computed boss score if
-    present, else falls back to the ERN stat as a proxy."""
+    """15-year doubling projection. Score is set at request time by
+    stat_engine.compute_ceiling_from_branches(); the ERN fallback
+    is removed (boss-ceiling-doubling spec)."""
     raw = career.bosses.ceiling
     if isinstance(raw, int):
-        return raw, f"ceiling_score {raw}"
-    if career.stats.ern is not None:
-        return career.stats.ern, f"fallback ERN {career.stats.ern}"
+        mult = (
+            f" ({career.growth_multiple:.2f}x)"
+            if career.growth_multiple is not None
+            else ""
+        )
+        return raw, f"ceiling_score {raw}{mult}"
     return None, "ceiling score unavailable"
 
 
@@ -615,7 +629,8 @@ def _classify(score: int | None, spec: BossSpec) -> BossOutcome:
 # ---------------------------------------------------------------------------
 
 _NARRATIVE_SYSTEM = (
-    "You are Gemma. A high school student is looking at one real piece "
+    "You are the Guide, FutureProof's career advisor. "
+    "A high school student is looking at one real piece "
     "of data about a career path they're considering — the school, the "
     "major, and what graduates actually earn or experience in that "
     "job. Your job is to explain, in plain words, what that piece of "
@@ -680,7 +695,7 @@ _NARRATIVE_SYSTEM = (
 )
 
 _COMPACT_NARRATIVE_SYSTEM = (
-    "You are Gemma writing one short note for a high school student. "
+    "You are the Guide writing one short note for a high school student. "
     "Explain what one career-path risk means in real life.\n\n"
     "Rules: write 2 sentences only. Use plain English. No markdown. "
     "Do not use stat codes, score fractions, outcome labels, or game "
@@ -714,10 +729,14 @@ _BOSS_LEVER_HINT: dict[str, str] = {
         "intense specializations can shift it."
     ),
     "ceiling": (
-        "This score reflects how high earnings can go in this career — "
-        "the gap between entry-level and experienced pay. Advanced "
-        "credentials, leadership skills, or specializing in high-value "
-        "niches can raise the ceiling."
+        "This score compares the typical year-15 salary to the starting "
+        "salary, with a floor for inflation (2% per year, ~1.35x over 15 "
+        "years). A low score means the realistic upward paths from this "
+        "start either don't go high enough or don't exist. Levers: a "
+        "different specialization with stronger upward roles, advanced "
+        "credentials that unlock the next tier, or moving into a field "
+        "where the typical 15-year path has more headroom. Skills alone "
+        "rarely close a structural ceiling — the path itself matters."
     ),
 }
 
@@ -1017,9 +1036,9 @@ async def generate_wrapup_async(
 # normally sits.
 _UNKNOWN_FALLBACKS: dict[str, str] = {
     "ceiling": (
-        "There isn't enough earnings data for this career path yet to "
-        "say how high pay can go. When the numbers fill in, this part "
-        "of your read will update."
+        "There isn't enough data on where pay lands 15 years into this "
+        "career path. When the numbers fill in, this part of your read "
+        "will update."
     ),
     "ai": (
         "There isn't enough data yet on how much AI is being used in "

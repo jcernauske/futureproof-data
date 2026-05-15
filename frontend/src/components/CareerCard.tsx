@@ -108,7 +108,7 @@ export function CareerCard({
                     onAskGemma(career);
                   }}
                   data-testid={`btn-ask-career-${career.soc_code}`}
-                  aria-label={`Ask Gemma about ${career.occupation_title}`}
+                  aria-label={`Ask the Guide about ${career.occupation_title}`}
                   className={[
                     "shrink-0 mt-0.5 inline-flex items-center justify-center",
                     "w-5 h-5 rounded-full",

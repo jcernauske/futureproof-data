@@ -165,6 +165,52 @@ SCHOOL_PROGRAMS_MAX_ROWS = 500
 # match. The table is ~60-80k rows; 200k is the ceiling.
 SCHOOL_PROGRAMS_SCAN_LIMIT = 200_000
 
+# Punctuation that should be treated as a word break when comparing school
+# names — so "Indiana University Bloomington" matches "Indiana University-
+# Bloomington" and "St. John's University" yields the acronym "SJU".
+_SCHOOL_NAME_PUNCT_TRANS = str.maketrans({c: " " for c in "-–—,.'’&/()"})
+
+# Stopwords filtered from acronym computation so MIT matches "Massachusetts
+# Institute of Technology" and UIUC matches "University of Illinois at
+# Urbana-Champaign".
+_SCHOOL_NAME_STOPWORDS = frozenset(
+    {"of", "the", "at", "for", "and", "in", "on"}
+)
+
+
+def _normalize_for_school_search(value: str) -> str:
+    """Lowercase, replace punctuation with spaces, collapse whitespace."""
+    if not value:
+        return ""
+    lowered = value.lower().translate(_SCHOOL_NAME_PUNCT_TRANS)
+    return " ".join(lowered.split())
+
+
+def _school_acronym(value: str) -> str:
+    """First-letter acronym of significant words in a school name.
+
+    Skips stopwords ('of', 'the', 'at', ...) and single-character tokens
+    so "University of California-Los Angeles" yields "ucla" and
+    "St. John's University" yields "sju".
+    """
+    if not value:
+        return ""
+    normalized = _normalize_for_school_search(value)
+    return "".join(
+        token[0]
+        for token in normalized.split()
+        if len(token) > 1 and token not in _SCHOOL_NAME_STOPWORDS
+    )
+
+
+def _looks_like_acronym_query(needle_norm: str) -> bool:
+    """Whether the normalized query is short enough to try as an acronym."""
+    return (
+        2 <= len(needle_norm) <= 6
+        and needle_norm.isalpha()
+        and " " not in needle_norm
+    )
+
 # ---------------------------------------------------------------------------
 # get_career_paths constants
 # ---------------------------------------------------------------------------
@@ -1941,9 +1987,20 @@ class FutureProofMCPServer(BaseMCPServer):
     def _handle_get_school_programs(self, input_dict: dict) -> dict:
         """Query consumable.career_outcomes by school name or unitid.
 
-        Supports numeric unitid exact match and case-insensitive
-        substring match on institution_name. Filters by min_confidence
-        tier, sorts by program_name, and caps at 500 rows.
+        Three lookup modes:
+
+        * **Numeric unitid** — exact match via query_iceberg_simple.
+        * **Normalized substring** — lowercases and replaces punctuation
+          (hyphens, commas, periods, apostrophes, ``&``) with spaces on
+          both sides, so "Indiana University Bloomington" matches
+          "Indiana University-Bloomington".
+        * **Acronym prefix** — short (2–6 char) all-letter queries are
+          also tested against each institution's first-letter acronym
+          (stopwords ``of/the/at/for/and/in/on`` skipped), so "MIT",
+          "UIUC", "IU", and "ISU" all resolve.
+
+        Filters by min_confidence tier, sorts by program_name, caps at
+        500 rows.
         """
         raw_name = input_dict.get("school_name")
         if raw_name is None or not str(raw_name).strip():
@@ -2023,13 +2080,23 @@ class FutureProofMCPServer(BaseMCPServer):
                 SCHOOL_PROGRAMS_TABLE,
             )
 
-        needle_lower = needle.lower()
-        filtered = [
-            r
-            for r in rows
-            if str(r.get("institution_name") or "").lower().find(needle_lower) >= 0
-            and self._confidence_tier_allowed(r.get("confidence_tier"), min_confidence)
-        ]
+        needle_norm = _normalize_for_school_search(needle)
+        try_acronym = _looks_like_acronym_query(needle_norm)
+        filtered: list[dict] = []
+        for r in rows:
+            if not self._confidence_tier_allowed(
+                r.get("confidence_tier"), min_confidence
+            ):
+                continue
+            name = str(r.get("institution_name") or "")
+            name_norm = _normalize_for_school_search(name)
+            if needle_norm and needle_norm in name_norm:
+                filtered.append(r)
+                continue
+            if try_acronym:
+                acronym = _school_acronym(name)
+                if acronym and acronym.startswith(needle_norm):
+                    filtered.append(r)
 
         if not filtered:
             return self.attach_governance(

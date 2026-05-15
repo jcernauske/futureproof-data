@@ -108,6 +108,7 @@ def get_branches(
                     if row.get("related_education_level") is not None
                     else None
                 ),
+                related_wage=as_float(row.get("related_wage")),
             )
         )
 

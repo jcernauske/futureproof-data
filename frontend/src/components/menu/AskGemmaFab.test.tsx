@@ -30,14 +30,13 @@ describe("AskGemmaFab (P1)", () => {
     const button = screen.getByTestId("btn-ask-build");
     expect(button).toBeInTheDocument();
     // The aria-label is the i18n string `chat.askAboutBuild`. The
-    // localized English value is "Ask Gemma about your whole build"
-    // (frontend/src/i18n/strings.ts:195). Locking it here means a
-    // future copy change to the UI string forces a paired update to
-    // the test — which is exactly the behavior we want for an
-    // accessibility-critical label.
+    // localized English value is "Ask the Guide about your whole build".
+    // Locking it here means a future copy change to the UI string
+    // forces a paired update to the test — which is exactly the
+    // behavior we want for an accessibility-critical label.
     expect(button).toHaveAttribute(
       "aria-label",
-      "Ask Gemma about your whole build",
+      "Ask the Guide about your whole build",
     );
   });
 

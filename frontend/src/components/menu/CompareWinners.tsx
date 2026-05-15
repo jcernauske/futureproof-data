@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import type { CompareResult } from "@/api/menu";
+import { useT } from "@/i18n/useT";
 import { springs, staggerContainer, staggerItem } from "@/styles/motion";
+
+type T = (key: string, vars?: Record<string, string | number>) => string;
 
 /* ------------------------------------------------------------------ */
 /*  Build Colors — one per compared build (max 4)                     */
@@ -104,12 +107,12 @@ const FALLBACK_STYLE: DimStyle = {
   glowClass: "shadow-glow-caution",
 };
 
-const STAT_LABELS: Record<string, string> = {
-  ERN: "Earnings",
-  ROI: "ROI",
-  RES: "AI Resilience",
-  GRW: "Growth",
-  AURA: "Brand Gravity",
+const STAT_LABEL_KEYS: Record<string, string> = {
+  ERN: "compare.stat.ern",
+  ROI: "compare.stat.roi",
+  RES: "compare.stat.res",
+  GRW: "compare.stat.grw",
+  AURA: "compare.stat.aura",
 };
 
 /* ------------------------------------------------------------------ */
@@ -138,6 +141,7 @@ function isTied(values: (number | null)[]): boolean {
 }
 
 function tiedPhrase(
+  t: T,
   tiedCount: number,
   finiteCount: number,
   formattedValue: string,
@@ -145,9 +149,11 @@ function tiedPhrase(
   // 2-way tie → familiar "Both at X". 3+ way tie → "All N at X" when
   // every finite-valued build is part of the tie; otherwise an
   // explicit "N-way tie at X" so the reader knows it's not unanimous.
-  if (tiedCount <= 2) return `Both at ${formattedValue}`;
-  if (tiedCount === finiteCount) return `All ${tiedCount} at ${formattedValue}`;
-  return `${tiedCount}-way tie at ${formattedValue}`;
+  if (tiedCount <= 2) return t("compare.winners.bothAt", { value: formattedValue });
+  if (tiedCount === finiteCount) {
+    return t("compare.winners.allAt", { n: tiedCount, value: formattedValue });
+  }
+  return t("compare.winners.nWayTie", { n: tiedCount, value: formattedValue });
 }
 
 
@@ -165,15 +171,15 @@ function tieCounts(
   return { tiedCount, finiteCount: finite.length };
 }
 
-function buildDimensions(result: CompareResult): Dimension[] {
+function buildDimensions(result: CompareResult, t: T): Dimension[] {
   const dims: Dimension[] = [];
 
   for (const row of result.stats) {
-    const label = STAT_LABELS[row.label];
-    if (!label) continue;
+    const labelKey = STAT_LABEL_KEYS[row.label];
+    if (!labelKey) continue;
     dims.push({
       code: row.label,
-      label,
+      label: t(labelKey),
       direction: "max",
       values: row.values,
       format: (v) => v.toFixed(0),
@@ -186,7 +192,7 @@ function buildDimensions(result: CompareResult): Dimension[] {
   if (costValues.some((v) => v !== null)) {
     dims.push({
       code: "COST",
-      label: "Lower 4-yr cost",
+      label: t("compare.winners.lower4yr"),
       direction: "min",
       values: costValues,
       format: (v) => `$${Math.round(v / 1000).toLocaleString()}k`,
@@ -216,8 +222,9 @@ export function CompareWinners({
   highlightIndex,
   onSelectWinner,
 }: CompareWinnersProps) {
+  const t = useT();
   const outcomes = useMemo<WinnerOutcome[]>(() => {
-    const dims = buildDimensions(result);
+    const dims = buildDimensions(result, t);
     return dims.map((dim) => {
       const winnerIndex = pickWinner(dim.values, dim.direction);
       const tied = isTied(dim.values);
@@ -246,7 +253,7 @@ export function CompareWinners({
         runnerUpValue,
       };
     });
-  }, [result]);
+  }, [result, t]);
 
   if (outcomes.length === 0) return null;
 
@@ -337,17 +344,17 @@ export function CompareWinners({
             {dimUnavailable ? (
               /* ---- UNAVAILABLE STATE ---- */
               <p className="font-body text-body-sm text-text-muted">
-                Insufficient data
+                {t("compare.callout.insufficient")}
               </p>
             ) : tied ? (
               /* ---- TIED STATE ---- */
               <div>
                 <p className="font-body text-body-lg font-bold text-text-primary mb-1">
-                  Tied
+                  {t("compare.winners.tied")}
                 </p>
                 {winnerValue !== null && (
                   <p className="font-data text-data-sm text-text-secondary">
-                    {tiedPhrase(tiedCount, finiteCount, dim.format(winnerValue))}
+                    {tiedPhrase(t, tiedCount, finiteCount, dim.format(winnerValue))}
                   </p>
                 )}
               </div>
@@ -381,7 +388,7 @@ export function CompareWinners({
                   </span>
                   {delta !== null && delta > 0.5 && (
                     <span className="font-data text-data-sm text-text-secondary">
-                      +{dim.format(delta)} ahead
+                      {t("compare.winners.aheadBy", { value: dim.format(delta) })}
                     </span>
                   )}
                 </div>

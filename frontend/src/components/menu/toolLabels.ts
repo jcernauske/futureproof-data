@@ -143,7 +143,7 @@ export const TOOL_LABEL_MAP: Record<string, ToolLabel> = {
 export const DEFAULT_TOOL_LABEL: ToolLabel = {
   label: "Tool call",
   icon: "IconWrench",
-  hint: () => "Gemma is consulting a tool.",
+  hint: () => "Consulting a tool.",
 };
 
 export function resolveToolLabel(toolName: string): ToolLabel {

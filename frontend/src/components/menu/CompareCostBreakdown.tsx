@@ -1,4 +1,7 @@
 import type { CompareBuild } from "@/api/menu";
+import { useT } from "@/i18n/useT";
+
+type T = (key: string, vars?: Record<string, string | number>) => string;
 
 interface CompareCostBreakdownProps {
   builds: CompareBuild[];
@@ -10,22 +13,23 @@ function fmt(val: number | null): string {
   return val.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
-function controlLabel(build: CompareBuild): string {
-  if (build.is_out_of_state) return "Out-of-State";
-  if (build.institution_control?.toLowerCase().includes("private")) return "Private";
-  return "In-State";
+function controlLabel(t: T, build: CompareBuild): string {
+  if (build.is_out_of_state) return t("compare.cost.controlOutOfState");
+  if (build.institution_control?.toLowerCase().includes("private")) return t("compare.cost.controlPrivate");
+  return t("compare.cost.controlInState");
 }
 
-const COST_ROWS: { label: string; key: keyof CompareBuild; emphasize?: "alert" | "thrive" }[] = [
-  { label: "Tuition (annual)", key: "tuition_annual" },
-  { label: "Room & Board", key: "room_board_on_campus" },
-  { label: "COA (annual)", key: "cost_of_attendance_annual" },
-  { label: "COA (4-year)", key: "published_cost_4yr", emphasize: "alert" },
-  { label: "Avg Net Price (annual)", key: "net_price_annual", emphasize: "thrive" },
-  { label: "Total Debt", key: "modeled_total_debt" },
+const COST_ROW_KEYS: { labelKey: string; key: keyof CompareBuild; emphasize?: "alert" | "thrive" }[] = [
+  { labelKey: "compare.cost.row.tuition", key: "tuition_annual" },
+  { labelKey: "compare.cost.row.roomBoard", key: "room_board_on_campus" },
+  { labelKey: "compare.cost.row.coaAnnual", key: "cost_of_attendance_annual" },
+  { labelKey: "compare.cost.row.coa4yr", key: "published_cost_4yr", emphasize: "alert" },
+  { labelKey: "compare.cost.row.netPrice", key: "net_price_annual", emphasize: "thrive" },
+  { labelKey: "compare.cost.row.totalDebt", key: "modeled_total_debt" },
 ];
 
 export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBreakdownProps) {
+  const t = useT();
   const maxSticker = Math.max(...builds.map((b) => b.published_cost_4yr ?? 0), 1);
 
   return (
@@ -34,11 +38,10 @@ export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBrea
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted">
-            Sticker Price vs Avg After-Aid Cost
+            {t("compare.cost.stickerVsAfterAid")}
           </p>
           <p className="max-w-[720px] font-body text-small leading-relaxed text-text-secondary">
-            Avg after-aid cost uses the school's reported average annual net price for eligible aid-recipient
-            undergraduates, multiplied by four. It is not personalized to your aid package.
+            {t("compare.cost.stickerVsAfterAidBody")}
           </p>
         </div>
 
@@ -59,7 +62,7 @@ export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBrea
               <p className="font-body text-[11px] font-bold uppercase tracking-widest text-text-muted mb-1.5">
                 {build.school_name}{" "}
                 <span className="font-data text-data-sm text-text-muted normal-case font-normal">
-                  ({controlLabel(build)})
+                  ({controlLabel(t, build)})
                 </span>
               </p>
 
@@ -93,7 +96,7 @@ export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBrea
                   )}
                 </div>
               ) : (
-                <p className="font-body text-small text-text-muted italic">Cost data unavailable</p>
+                <p className="font-body text-small text-text-muted italic">{t("compare.cost.unavailable")}</p>
               )}
             </div>
           );
@@ -103,11 +106,11 @@ export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBrea
         <div className="flex items-center gap-4 mt-1">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full" style={{ background: "rgba(244, 169, 126, 0.50)" }} />
-            <span className="font-data text-data-sm text-text-muted">Sticker (Published COA)</span>
+            <span className="font-data text-data-sm text-text-muted">{t("compare.cost.legend.sticker")}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full" style={{ background: "rgba(125, 212, 163, 0.55)" }} />
-            <span className="font-data text-data-sm text-text-muted">Avg After-Aid Cost (Avg Net Price × 4)</span>
+            <span className="font-data text-data-sm text-text-muted">{t("compare.cost.legend.afterAid")}</span>
           </div>
         </div>
       </div>
@@ -115,7 +118,7 @@ export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBrea
       {/* Zone 2: Cost Line-Item Table */}
       <div className="mt-5 pt-4 border-t border-border-subtle">
         <p className="font-data text-[11px] font-bold tracking-widest uppercase text-text-muted mb-3">
-          Cost Detail
+          {t("compare.cost.detail")}
         </p>
 
         {/* Desktop table */}
@@ -132,8 +135,8 @@ export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBrea
               </p>
             ))}
 
-            {COST_ROWS.map((row) => (
-              <CostTableRow key={row.key} row={row} builds={builds} highlightIndex={highlightIndex} />
+            {COST_ROW_KEYS.map((row) => (
+              <CostTableRow key={row.key} row={{ ...row, label: t(row.labelKey) }} builds={builds} highlightIndex={highlightIndex} />
             ))}
           </div>
         </div>
@@ -150,12 +153,12 @@ export function CompareCostBreakdown({ builds, highlightIndex }: CompareCostBrea
               <p className="font-display font-semibold text-[14px] text-text-primary mb-2">
                 {build.school_name}
               </p>
-              {COST_ROWS.map((row) => {
+              {COST_ROW_KEYS.map((row) => {
                 const val = build[row.key] as number | null;
                 const colorClass = row.emphasize === "alert" ? "text-accent-alert" : row.emphasize === "thrive" ? "text-accent-thrive" : "text-text-primary";
                 return (
                   <div key={row.key} className="flex justify-between py-1.5 border-t border-border-subtle">
-                    <span className="font-body text-small text-text-secondary">{row.label}</span>
+                    <span className="font-body text-small text-text-secondary">{t(row.labelKey)}</span>
                     <span className={`font-data text-data ${val == null ? "text-text-muted" : colorClass}`}>
                       {fmt(val)}
                     </span>
@@ -175,7 +178,7 @@ function CostTableRow({
   builds,
   highlightIndex,
 }: {
-  row: (typeof COST_ROWS)[number];
+  row: { label: string; key: keyof CompareBuild; emphasize?: "alert" | "thrive" };
   builds: CompareBuild[];
   highlightIndex: number | null;
 }) {

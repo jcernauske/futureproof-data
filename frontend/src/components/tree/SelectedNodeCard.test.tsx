@@ -66,7 +66,6 @@ function makeBuild(): Build {
     guidance: "",
     skills_crafted: [],
     skill_pool: [],
-    next_steps: "",
   } as Build;
 }
 

@@ -150,7 +150,6 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
     guidance: "",
     skills_crafted: [],
     skill_pool: [],
-    next_steps: "",
     profile_name: "Wandering Otter",
     ...overrides,
   } as Build;
@@ -420,6 +419,32 @@ describe("MenuScreen", () => {
     // Now build-e can be selected.
     fireEvent.click(screen.getByTestId("card-build-build-e"));
     expect(compareBtn).toHaveTextContent("Compare 4/4");
+  });
+
+  it("clicking Compare with 2 selections enters compare view without dropping selection (P1 regression)", async () => {
+    mockListBuilds.mockResolvedValue([
+      makeSummary({ build_id: "build-a", school_name: "School A" }),
+      makeSummary({ build_id: "build-b", school_name: "School B" }),
+    ]);
+    renderScreen(["/builds?select=1"]);
+
+    await screen.findByTestId("card-build-build-a");
+    await waitFor(() => {
+      expect(screen.getByTestId("builds-action-bar")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("card-build-build-a"));
+    fireEvent.click(screen.getByTestId("card-build-build-b"));
+
+    const compareBtn = screen.getByTestId("btn-compare");
+    expect(compareBtn).toHaveTextContent("Compare 2/4");
+
+    fireEvent.click(compareBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("region-compare")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("builds-action-bar")).not.toBeInTheDocument();
   });
 
   it("empty-state CTA also routes to /profile via resetInputs (saboteur: zero-builds path)", async () => {

@@ -136,7 +136,7 @@ export function AskGemmaChipRow({
   activeChipId,
   onChipClick,
   elevationHintId,
-  ariaLabel = "Ask Gemma about this screen",
+  ariaLabel = "Ask the Guide about this screen",
   className = "py-1 px-6 tablet:px-8",
 }: AskGemmaChipRowProps) {
   const reducedMotion = useReducedMotion() ?? false;

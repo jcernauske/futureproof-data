@@ -92,7 +92,7 @@ describe("OllamaSection", () => {
     render(<OllamaSection />);
     expect(
       screen.getByText(
-        /FutureProof runs on Gemma 4 through Ollama\. Flip one environment variable and the whole stack — stats, fights, Gemma's coaching, the branch tree — works on a school's own server\./,
+        /FutureProof runs on Gemma 4 through Ollama\. Flip one environment variable and the whole stack — stats, fights, the Guide's coaching, the branch tree — works on a school's own server\./,
       ),
     ).toBeInTheDocument();
   });
