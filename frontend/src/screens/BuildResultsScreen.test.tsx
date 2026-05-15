@@ -659,7 +659,7 @@ describe("BuildResultsScreen -- boss bands (P1)", () => {
             {
               target: burnoutBand!,
               isIntersecting: true,
-            } as IntersectionObserverEntry,
+            } as unknown as IntersectionObserverEntry,
           ],
           {} as IntersectionObserver,
         );

@@ -388,36 +388,39 @@ class TestPartialMatchQualityCaveat:
 
 
 # ---------------------------------------------------------------------------
-# Suggested Skills layout — descriptions sourced from skill_pool, no
-# empty worksheet table, no "Ask:" prefix on the rationale line.
+# Suggested Skills layout — sourced from skill_pool (matches on-screen
+# Equip Skills cards), grouped per boss. skill_recs is NOT read.
 # ---------------------------------------------------------------------------
 
 
-class TestSuggestedSkillsDescription:
-    def test_skill_description_pulled_from_skill_pool_when_title_matches(
+class TestSuggestedSkillsFromSkillPool:
+    def test_pdf_renders_skills_from_skill_pool_not_skill_recs(
         self, fixture_build
     ):
-        """When a SkillRec title matches an AppliedSkill in skill_pool,
-        the AppliedSkill.rationale is what prints — it's the same
-        descriptive copy the student saw on the boss-fight card."""
+        """Skills in the PDF must come from skill_pool (the on-screen
+        Equip Skills data), not skill_recs (a separate Gemma generation
+        that's not displayed on screen)."""
         from app.models.career import AppliedSkill, SkillRec
 
         fixture_build.skill_recs = [
             SkillRec(
-                title="Marketing Analytics Course",
-                stat_impact="ERN+1",
-                rationale="fallback rationale, should NOT appear",
+                title="Shadow a school resource officer",
+                stat_impact="ROI+1",
+                rationale="This came from skill_recs and must NOT appear.",
             )
         ]
+        # Wire up a clearly-named pool entry for a non-victory boss.
         fixture_build.skill_pool = [
             AppliedSkill(
-                id="marketing_analytics",
-                title="Marketing Analytics course",  # case + trailing word differ
-                rationale=(
-                    "This course helps you use data to guide AI tools "
-                    "rather than being replaced by them."
-                ),
+                id="fin_lit",
+                title="Financial Literacy Workshop",
+                rationale="Helps you plan repayment before signing loans.",
+                targets=["loans"],
+                delta_loans_raw=-1,
             )
+        ]
+        fixture_build.gauntlet.fights[1].applied_skill_titles = [
+            "Financial Literacy Workshop"
         ]
         out = pdf_export.generate_build_pdf(
             fixture_build,
@@ -425,30 +428,91 @@ class TestSuggestedSkillsDescription:
             audience_questions=_aq(),
         )
         text = _extract_pdf_text(out)
-        assert "use data to guide AI tools" in text
-        assert "fallback rationale" not in text
+        assert "Financial Literacy Workshop" in text
+        assert "Helps you plan repayment" in text
+        assert "Shadow a school resource officer" not in text
+        assert "came from skill_recs" not in text
 
-    def test_skill_description_falls_back_to_skill_rec_rationale(
+    def test_applied_skill_titles_render_under_their_boss(
         self, fixture_build
     ):
-        """No skill_pool match → render the SkillRec.rationale instead."""
-        from app.models.career import SkillRec
+        """When a fight has applied_skill_titles, those titles render
+        under that boss's subsection in the SUGGESTED SKILLS section."""
+        from app.models.career import AppliedSkill
 
-        fixture_build.skill_recs = [
-            SkillRec(
-                title="A Title With No Pool Match",
-                stat_impact="ROI+1",
-                rationale="Render this fallback sentence.",
+        fixture_build.skill_pool = [
+            AppliedSkill(
+                id="mentor",
+                title="Mentor Program",
+                rationale="Speeds your path past the ceiling.",
+                targets=["ceiling"],
+                delta_ceiling_raw=1,
             )
         ]
-        fixture_build.skill_pool = []
+        # ceiling fight is the last in BOSS_ORDER; mark it as having
+        # consumed the Mentor Program skill.
+        for f in fixture_build.gauntlet.fights:
+            if f.boss == "ceiling":
+                f.applied_skill_titles = ["Mentor Program"]
         out = pdf_export.generate_build_pdf(
             fixture_build,
             student_name=None,
             audience_questions=_aq(),
         )
         text = _extract_pdf_text(out)
-        assert "Render this fallback sentence." in text
+        assert "Mentor Program" in text
+        assert "Speeds your path past the ceiling" in text
+
+    def test_non_victory_boss_renders_targeted_skill_pool(
+        self, fixture_build
+    ):
+        """For a boss the student didn't win (no applied_skill_titles
+        either), the PDF renders every skill in skill_pool that targets
+        that boss — mirrors the on-screen Equip Skills card filter."""
+        from app.models.career import AppliedSkill
+
+        fixture_build.skill_pool = [
+            AppliedSkill(
+                id="emerging_tech",
+                title="Emerging Tech Certificate",
+                rationale="Hands-on AI tools build the resilience to use them.",
+                targets=["ai"],
+                delta_res=1,
+            )
+        ]
+        # Force the AI boss into a non-victory state with no applied skills.
+        for f in fixture_build.gauntlet.fights:
+            if f.boss == "ai":
+                f.result = "unknown"
+                f.raw_score = None
+                f.applied_skill_titles = []
+        out = pdf_export.generate_build_pdf(
+            fixture_build,
+            student_name=None,
+            audience_questions=_aq(),
+        )
+        text = _extract_pdf_text(out)
+        assert "Emerging Tech Certificate" in text
+
+    def test_skills_section_suppressed_when_nothing_to_render(
+        self, fixture_build
+    ):
+        """Clean 5/5 victories with no applied_skill_titles and an empty
+        skill_pool → suppress the SUGGESTED SKILLS section entirely
+        rather than render an empty header."""
+        fixture_build.skill_pool = []
+        for f in fixture_build.gauntlet.fights:
+            f.applied_skill_titles = []
+            # Ensure every fight is a victory.
+            f.result = "win"
+        out = pdf_export.generate_build_pdf(
+            fixture_build,
+            student_name=None,
+            audience_questions=_aq(),
+        )
+        text = _extract_pdf_text(out)
+        # The English section header is "SUGGESTED SKILLS".
+        assert "SUGGESTED SKILLS" not in text
 
     def test_no_empty_coursework_worksheet_table_in_skills_section(
         self, fixture_build
@@ -461,8 +525,6 @@ class TestSuggestedSkillsDescription:
             audience_questions=_aq(),
         )
         text = _extract_pdf_text(out)
-        # These headers were the only place these exact strings ever
-        # appeared in the PDF — their absence confirms the table is gone.
         assert "Coursework" not in text
         assert "Clubs / orgs" not in text
         assert "Internship / cert" not in text
@@ -521,21 +583,36 @@ class TestXmlEscapeUserControlledStrings:
         assert out.startswith(b"%PDF")
 
     def test_lt_in_skill_rationale_does_not_crash_render(self, fixture_build):
-        """Gemma-emitted '<5%' or '<Python>' in skill_recs must not crash."""
-        from app.models.career import SkillRec
+        """Gemma-emitted '<5%' or '<Python>' in an AppliedSkill must not
+        crash the PDF render — skill_pool titles and rationales flow
+        through ReportLab's mini-XML parser exactly like skill_recs did
+        before, so the XML-escape guard still applies."""
+        from app.models.career import AppliedSkill
 
-        fixture_build.skill_recs = [
-            SkillRec(
+        fixture_build.skill_pool = [
+            AppliedSkill(
+                id="py311",
                 title="Python <3.11 features",
-                stat_impact="Boosts <ai resilience> for <5% of tasks",
                 rationale="Does Purdue offer Python <3.11 in core curriculum?",
+                targets=["loans"],
+                delta_res=1,
             ),
-            SkillRec(
+            AppliedSkill(
+                id="stats_viz",
                 title="Statistics & data <visualization>",
-                stat_impact="Lifts roi & growth",
                 rationale="What's the <internship> placement rate?",
+                targets=["loans"],
+                delta_roi=1,
             ),
         ]
+        # Force the loans fight to surface these skills via the
+        # applied_skill_titles path.
+        for f in fixture_build.gauntlet.fights:
+            if f.boss == "loans":
+                f.applied_skill_titles = [
+                    "Python <3.11 features",
+                    "Statistics & data <visualization>",
+                ]
         out = pdf_export.generate_build_pdf(
             fixture_build,
             student_name=None,

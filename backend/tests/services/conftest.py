@@ -160,6 +160,12 @@ def make_fixture_build(
     for boss, label, score, win, draw in fight_specs:
         raw = None if boss == null_boss_id else score
         result = "win" if raw is not None and raw >= win else "unknown"
+        # Default fixture: the loans fight closed with one applied skill,
+        # so the PDF SUGGESTED SKILLS section has at least one boss with
+        # content regardless of whether other bosses are wins. Tests that
+        # need a different topology pass null_boss_id or override fields
+        # on the returned Build.
+        applied = ["Skill 1"] if boss == "loans" else []
         fights.append(BossFightResult(
             boss=boss,  # type: ignore[arg-type]
             label=label,
@@ -168,6 +174,7 @@ def make_fixture_build(
             threshold_win=win,
             threshold_draw=draw,
             reason="fixture",
+            applied_skill_titles=applied,
         ))
     wins = sum(1 for f in fights if f.result == "win")
     unknowns = sum(1 for f in fights if f.result == "unknown")
@@ -201,9 +208,23 @@ def make_fixture_build(
         for i in range(6)
     ]
 
+    # Each skill_pool entry targets a distinct boss so the PDF tests
+    # can exercise the per-boss SUGGESTED SKILLS rendering. Targets are
+    # populated for every boss; whether a skill renders depends on the
+    # fight outcome (non-victory) or applied_skill_titles (any outcome).
     skill_pool = [
-        AppliedSkill(id=f"sk_{i}", title=f"Skill {i}", rationale="r")
-        for i in range(3)
+        AppliedSkill(
+            id="sk_ai", title="Skill 0", rationale="Resilience rationale.",
+            targets=["ai"], delta_res=1,
+        ),
+        AppliedSkill(
+            id="sk_loans", title="Skill 1", rationale="Debt rationale.",
+            targets=["loans"], delta_loans_raw=-1,
+        ),
+        AppliedSkill(
+            id="sk_market", title="Skill 2", rationale="Market rationale.",
+            targets=["market"], delta_grw=1,
+        ),
     ]
 
     return Build(

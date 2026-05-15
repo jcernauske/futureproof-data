@@ -64,7 +64,7 @@ from app.models.api import (
     AudienceQuestions,
     RiskLevel,
 )
-from app.models.career import AppliedSkill, Build, CareerBranch, SkillRec
+from app.models.career import AppliedSkill, BossFightResult, BossId, Build, CareerBranch
 from app.services.career_description import (
     CAREER_DESC_FORBIDDEN_TERMS,
     DISCLAIMER_TIER_B,
@@ -561,9 +561,6 @@ _PAGE_COPY: dict[AppLocale, dict[str, str]] = {
             "Bring this list to your admissions counselor — these are the skills "
             "that may lift your outcomes."
         ),
-        "skills.bucket.ai_resilience": "AI-RESILIENCE SKILLS",
-        "skills.bucket.career_launch": "CAREER-LAUNCH SKILLS",
-        "skills.bucket.earnings_ceiling": "EARNINGS-CEILING SKILLS",
         "section.questions": "QUESTIONS & FOLLOW-UPS",
         "questions.ask_college": "ASK THE COLLEGE",
         "questions.ask_parents": "ASK YOUR GUARDIAN",
@@ -686,9 +683,6 @@ _PAGE_COPY: dict[AppLocale, dict[str, str]] = {
             "Lleva esta lista a tu consejero de admisiones — estas son las "
             "habilidades que pueden mejorar tus resultados."
         ),
-        "skills.bucket.ai_resilience": "HABILIDADES DE RESILIENCIA ANTE LA IA",
-        "skills.bucket.career_launch": "HABILIDADES DE LANZAMIENTO PROFESIONAL",
-        "skills.bucket.earnings_ceiling": "HABILIDADES DE TOPE DE INGRESOS",
         "section.questions": "PREGUNTAS Y SEGUIMIENTO",
         "questions.ask_college": "PREGÚNTALE A LA UNIVERSIDAD",
         "questions.ask_parents": "PREGÚNTALE A TU TUTOR",
@@ -805,9 +799,6 @@ _PAGE_COPY: dict[AppLocale, dict[str, str]] = {
         "skills.intro": (
             "خذ هذه القائمة إلى مرشد القبول — هذه هي المهارات التي قد ترفع نتائجك."
         ),
-        "skills.bucket.ai_resilience": "مهارات المقاومة للذكاء الاصطناعي",
-        "skills.bucket.career_launch": "مهارات إطلاق المسار المهني",
-        "skills.bucket.earnings_ceiling": "مهارات سقف الأرباح",
         "section.questions": "الأسئلة والمتابعة",
         "questions.ask_college": "اسأل الجامعة",
         "questions.ask_parents": "اسأل وليّ أمرك",
@@ -1714,40 +1705,80 @@ def _build_page1(build: Build, student_name: str | None, locale: AppLocale = "en
 # ---------------------------------------------------------------------------
 
 
-_BUCKET_HINTS = (
-    ("AI-Resilience", STAT_RES, ("ai", "automation", "resilience")),
-    ("Career-Launch", STAT_ROI, ("internship", "launch", "career")),
-    ("Earnings-Ceiling", STAT_ERN, ("ceiling", "earnings", "salary")),
+# Boss → stat color used for the SUGGESTED SKILLS subsection headers.
+# Mirrors the on-screen Equip Skills layout — each boss has a color
+# tied to the stat the fight primarily threatens.
+_BOSS_HEADER_COLOR: dict[BossId, Color] = {
+    "ai": STAT_RES,
+    "loans": STAT_ROI,
+    "market": STAT_GRW,
+    "burnout": STAT_RES,
+    "ceiling": STAT_ERN,
+}
+
+# Stat deltas surfaced after a skill title. Mirrors STAT_DELTAS in
+# frontend/src/components/build-results/BossBand.tsx — same fields,
+# same sign multipliers, so the "+1" the student saw on the equip
+# card prints with the same sign on the PDF.
+_PDF_STAT_DELTAS: tuple[tuple[str, str, int], ...] = (
+    ("ERN", "delta_ern", 1),
+    ("ROI", "delta_roi", 1),
+    ("RES", "delta_res", 1),
+    ("GRW", "delta_grw", 1),
+    ("BRN", "delta_burnout_raw", -1),
+    ("CEIL", "delta_ceiling_raw", 1),
+    ("LOANS", "delta_loans_raw", -1),
 )
-
-
-def _classify_skill_bucket(rec: SkillRec) -> str:
-    """Coarse-bucket a SkillRec by stat_impact keywords. Falls back evenly."""
-    text = (rec.stat_impact or "").lower() + " " + (rec.title or "").lower()
-    for bucket, _color, hints in _BUCKET_HINTS:
-        if any(h in text for h in hints):
-            return bucket
-    return "Career-Launch"
 
 
 def _normalize_skill_title(s: str) -> str:
     return " ".join((s or "").lower().split())
 
 
-def _skill_description(rec: SkillRec, pool: list[AppliedSkill]) -> str:
-    """Return the richest description sentence available for a SkillRec.
+def _format_skill_deltas(skill: AppliedSkill) -> str:
+    """Render a skill's non-zero stat deltas as ``ERN +1, RES +1``."""
+    parts: list[str] = []
+    for label, field, sign in _PDF_STAT_DELTAS:
+        raw = int(getattr(skill, field, 0) or 0)
+        if raw == 0:
+            continue
+        val = raw * sign
+        sign_char = "+" if val > 0 else "−"
+        parts.append(f"{label} {sign_char}{abs(val)}")
+    return ", ".join(parts)
 
-    Prefers an ``AppliedSkill`` from the build's ``skill_pool`` matched by
-    normalized title — its rationale is the same descriptive copy the
-    student saw on the boss-fight cards. Falls back to the SkillRec's
-    own rationale when no match exists.
+
+def _skills_for_boss(
+    boss_id: BossId,
+    fight: BossFightResult,
+    pool: list[AppliedSkill],
+) -> list[tuple[AppliedSkill | None, str]]:
+    """Decide which skills render under a boss subsection.
+
+    Returns ``(AppliedSkill | None, display_title)`` pairs:
+
+    - If ``fight.applied_skill_titles`` is non-empty (any outcome —
+      student equipped skills and rerolled), render those titles in
+      order. Pair each with the matching AppliedSkill from the pool
+      via case-insensitive title match so rationale + stat deltas
+      print; if no match, the AppliedSkill is ``None`` and only the
+      title is shown.
+    - Otherwise, for non-victory bosses, render every AppliedSkill
+      whose ``targets`` include this boss — same filter the on-screen
+      Equip Skills card uses.
+    - Clean victories with no applied skills return ``[]`` (no
+      subsection rendered).
     """
-    target = _normalize_skill_title(rec.title)
-    if target:
-        for s in pool:
-            if _normalize_skill_title(s.title) == target:
-                return s.rationale
-    return rec.rationale
+    if fight.applied_skill_titles:
+        by_norm_title = {_normalize_skill_title(s.title): s for s in pool}
+        out: list[tuple[AppliedSkill | None, str]] = []
+        for title in fight.applied_skill_titles:
+            match = by_norm_title.get(_normalize_skill_title(title))
+            out.append((match, match.title if match else title))
+        return out
+    if fight.result == "win":
+        return []
+    return [(s, s.title) for s in pool if boss_id in s.targets]
 
 
 def _build_page2(
@@ -1759,83 +1790,64 @@ def _build_page2(
     story: list[object] = []
 
     # "About this career" section (feature-career-description-on-pdf.md).
-    # Originally placed on page 1 between verdict and pentagon (per the
-    # design vision), but the section's ~150pt height pushed the 5-row
-    # risk profile across the page boundary, leaving SUGGESTED SKILLS
-    # stranded on page 3. Relocating to the top of page 2 — the natural
-    # "context" lead-in before the skills/questions block — keeps the
-    # PDF at a clean 2 pages. Silently skipped when no description is
-    # attached or when defensive voice/length checks fail.
+    # Placed at the top of page 2 — the natural "context" lead-in
+    # before the skills/questions block. Silently skipped when no
+    # description is attached or when defensive voice/length checks
+    # fail.
     story.extend(_about_this_career_section(build, loc))
 
-    # SUGGESTED SKILLS
-    story.extend(_section_header(_t(loc, "section.suggested_skills")))
-    intro_style = _style("intro", fontName=_font("Nunito"), fontSize=8, leading=11,
-                         textColor=INK_SECONDARY, spaceAfter=2)
-    story.append(_para(
-        _t(loc, "skills.intro"),
-        intro_style,
-    ))
-
-    bucket_color_map = {
-        "AI-Resilience": STAT_RES,
-        "Career-Launch": STAT_ROI,
-        "Earnings-Ceiling": STAT_ERN,
+    # SUGGESTED SKILLS — sourced from skill_pool (the same data the
+    # on-screen Equip Skills cards render). Grouped per boss in
+    # BOSS_ORDER, with subsection contents driven by _skills_for_boss():
+    # already-applied skills under any boss the student rerolled (any
+    # outcome), all candidate skills under a boss the student didn't
+    # win, nothing under a clean first-try victory. The whole section
+    # is suppressed when no boss contributes any skills.
+    fights_by_boss: dict[BossId, BossFightResult] = {
+        f.boss: f for f in build.gauntlet.fights
     }
+    skills_per_boss: list[tuple[BossId, list[tuple[AppliedSkill | None, str]]]] = []
+    for boss_id in BOSS_ORDER:
+        fight = fights_by_boss.get(boss_id)
+        if not fight:
+            continue
+        skills = _skills_for_boss(boss_id, fight, build.skill_pool)
+        if skills:
+            skills_per_boss.append((boss_id, skills))
 
-    # Group up to 6 skills into 3 buckets.
-    grouped: dict[str, list[SkillRec]] = {b: [] for b, _, _ in _BUCKET_HINTS}
-    for rec in build.skill_recs[:12]:  # consider a few more, cap at 6 below
-        grouped[_classify_skill_bucket(rec)].append(rec)
-    flat_capped: list[tuple[str, SkillRec]] = []
-    for bucket_name in ("AI-Resilience", "Career-Launch", "Earnings-Ceiling"):
-        for rec in grouped[bucket_name][:2]:
-            flat_capped.append((bucket_name, rec))
-    # Bring count up to 6 if buckets had fewer than 2 — fill from any leftovers.
-    if len(flat_capped) < 6:
-        leftovers = [
-            (b, r) for b in ("AI-Resilience", "Career-Launch", "Earnings-Ceiling")
-            for r in grouped[b][2:]
-        ]
-        for item in leftovers:
-            if len(flat_capped) >= 6:
-                break
-            flat_capped.append(item)
-
-    bucket_label_keys = {
-        "AI-Resilience": "skills.bucket.ai_resilience",
-        "Career-Launch": "skills.bucket.career_launch",
-        "Earnings-Ceiling": "skills.bucket.earnings_ceiling",
-    }
-    last_bucket: str | None = None
-    for bucket_name, rec in flat_capped:
-        if bucket_name != last_bucket:
-            color = bucket_color_map.get(bucket_name, INK_SECONDARY)
-            label = _t(loc, bucket_label_keys.get(bucket_name, "skills.bucket.career_launch"))
-            story.append(_subsec_header(label, color=color, spacer=4))
-            last_bucket = bucket_name
+    if skills_per_boss:
+        story.extend(_section_header(_t(loc, "section.suggested_skills")))
+        intro_style = _style(
+            "intro", fontName=_font("Nunito"), fontSize=8, leading=11,
+            textColor=INK_SECONDARY, spaceAfter=2,
+        )
+        story.append(_para(_t(loc, "skills.intro"), intro_style))
 
         title_style = _style(
-            "skill_title", fontName=_font("NunitoBold"), fontSize=8.5, leading=11,
-            textColor=INK_PRIMARY,
+            "skill_title", fontName=_font("NunitoBold"), fontSize=8.5,
+            leading=11, textColor=INK_PRIMARY,
         )
-        stat_suffix = f" ({_safe(rec.stat_impact)})" if rec.stat_impact else ""
-        story.append(_para(f"• {_safe(rec.title)}{stat_suffix}", title_style))
+        desc_style = _style(
+            "skill_desc", fontName=_font("Nunito"), fontSize=8, leading=11,
+            textColor=INK_SECONDARY, leftIndent=10, spaceAfter=1,
+        )
 
-        # Description sentence — matches what the student saw on the
-        # boss-fight card when an AppliedSkill from skill_pool aligns by
-        # title; otherwise falls back to the SkillRec's own rationale.
-        description = _skill_description(rec, build.skill_pool)
-        if description:
-            desc_style = _style(
-                "skill_desc", fontName=_font("Nunito"), fontSize=8, leading=11,
-                textColor=INK_SECONDARY, leftIndent=10, spaceAfter=1,
-            )
-            story.append(_para(_safe(description), desc_style))
-        story.append(Spacer(1, 3))
+        for boss_id, skills in skills_per_boss:
+            color = _BOSS_HEADER_COLOR.get(boss_id, INK_SECONDARY)
+            label = boss_advisory_label(boss_id, loc).upper()
+            story.append(_subsec_header(label, color=color, spacer=4))
 
-    story.append(HRFlowable(width="100%", thickness=1.0, color=INK_PRIMARY,
-                            spaceBefore=2, spaceAfter=2))
+            for applied, display_title in skills:
+                deltas = _format_skill_deltas(applied) if applied else ""
+                tag = f" ({deltas})" if deltas else ""
+                story.append(_para(f"• {_safe(display_title)}{tag}", title_style))
+                rationale = applied.rationale if applied else ""
+                if rationale:
+                    story.append(_para(_safe(rationale), desc_style))
+                story.append(Spacer(1, 3))
+
+        story.append(HRFlowable(width="100%", thickness=1.0, color=INK_PRIMARY,
+                                spaceBefore=2, spaceAfter=2))
 
     # QUESTIONS & FOLLOW-UPS
     story.extend(_section_header(_t(loc, "section.questions")))
