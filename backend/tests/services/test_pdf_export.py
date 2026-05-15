@@ -388,6 +388,100 @@ class TestPartialMatchQualityCaveat:
 
 
 # ---------------------------------------------------------------------------
+# Suggested Skills layout — descriptions sourced from skill_pool, no
+# empty worksheet table, no "Ask:" prefix on the rationale line.
+# ---------------------------------------------------------------------------
+
+
+class TestSuggestedSkillsDescription:
+    def test_skill_description_pulled_from_skill_pool_when_title_matches(
+        self, fixture_build
+    ):
+        """When a SkillRec title matches an AppliedSkill in skill_pool,
+        the AppliedSkill.rationale is what prints — it's the same
+        descriptive copy the student saw on the boss-fight card."""
+        from app.models.career import AppliedSkill, SkillRec
+
+        fixture_build.skill_recs = [
+            SkillRec(
+                title="Marketing Analytics Course",
+                stat_impact="ERN+1",
+                rationale="fallback rationale, should NOT appear",
+            )
+        ]
+        fixture_build.skill_pool = [
+            AppliedSkill(
+                id="marketing_analytics",
+                title="Marketing Analytics course",  # case + trailing word differ
+                rationale=(
+                    "This course helps you use data to guide AI tools "
+                    "rather than being replaced by them."
+                ),
+            )
+        ]
+        out = pdf_export.generate_build_pdf(
+            fixture_build,
+            student_name=None,
+            audience_questions=_aq(),
+        )
+        text = _extract_pdf_text(out)
+        assert "use data to guide AI tools" in text
+        assert "fallback rationale" not in text
+
+    def test_skill_description_falls_back_to_skill_rec_rationale(
+        self, fixture_build
+    ):
+        """No skill_pool match → render the SkillRec.rationale instead."""
+        from app.models.career import SkillRec
+
+        fixture_build.skill_recs = [
+            SkillRec(
+                title="A Title With No Pool Match",
+                stat_impact="ROI+1",
+                rationale="Render this fallback sentence.",
+            )
+        ]
+        fixture_build.skill_pool = []
+        out = pdf_export.generate_build_pdf(
+            fixture_build,
+            student_name=None,
+            audience_questions=_aq(),
+        )
+        text = _extract_pdf_text(out)
+        assert "Render this fallback sentence." in text
+
+    def test_no_empty_coursework_worksheet_table_in_skills_section(
+        self, fixture_build
+    ):
+        """The Coursework / Clubs / Internship worksheet table was
+        rendering empty under every skill — it's gone now."""
+        out = pdf_export.generate_build_pdf(
+            fixture_build,
+            student_name=None,
+            audience_questions=_aq(),
+        )
+        text = _extract_pdf_text(out)
+        # These headers were the only place these exact strings ever
+        # appeared in the PDF — their absence confirms the table is gone.
+        assert "Coursework" not in text
+        assert "Clubs / orgs" not in text
+        assert "Internship / cert" not in text
+
+    def test_skill_rationale_not_wrapped_with_ask_prefix(
+        self, fixture_build
+    ):
+        """The 'Ask: "..."' wrapper around the rationale line is gone —
+        the sentence renders as a plain description now."""
+        out = pdf_export.generate_build_pdf(
+            fixture_build,
+            student_name=None,
+            audience_questions=_aq(),
+        )
+        text = _extract_pdf_text(out)
+        assert 'Ask: "' not in text
+
+
+# ---------------------------------------------------------------------------
 # P1: pentagon vertices render numeric labels.
 # ---------------------------------------------------------------------------
 

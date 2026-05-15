@@ -640,3 +640,44 @@ async def test_voice_student_first_for_ask_yourself_passes(
     assert any(
         t.startswith("Will I") or t.startswith("Am I") for t in yourself_texts
     )
+
+
+# ---------------------------------------------------------------------------
+# Strength/risk framing — past failures here produced contradictory
+# questions like "Will I be satisfied with a low earnings ceiling?" when
+# the student had actually cleared the Ceiling fight. The user prompt
+# now strips the raw "Low"/"High" labels from boss names and uses
+# "cleared" / "needs attention" phrasing that cannot be parsed as a
+# noun-modifier. The system prompt also forbids framing cleared
+# outcomes as problems.
+# ---------------------------------------------------------------------------
+
+
+def test_user_prompt_uses_cleared_phrasing_for_strengths(fixture_build):
+    """Strengths render as ``<label> — cleared`` so a positive-direction
+    noun like 'Earnings ceiling' can't be misread as 'low earnings
+    ceiling'. Raw risk-level labels must not appear next to boss names.
+    """
+    prompt = pdf_questions._user_prompt(fixture_build)
+    assert "cleared" in prompt.lower()
+    # The label-as-adjective inversions we saw in production:
+    assert "Earnings ceiling: Low" not in prompt
+    assert "Earnings ceiling: High" not in prompt
+    assert "Job market outlook: Low" not in prompt
+    assert "Job market outlook: High" not in prompt
+
+
+def test_user_prompt_uses_needs_attention_for_risks(fixture_build):
+    """Risks render with descriptive phrasing rather than a raw level
+    label so the prompt is unambiguous in both directions."""
+    prompt = pdf_questions._user_prompt(fixture_build)
+    assert "needs attention" in prompt.lower() or "(none ranked)" in prompt
+
+
+def test_system_prompt_forbids_framing_strengths_as_problems():
+    """The system prompt must explicitly tell Gemma that cleared
+    outcomes are CONFIRMED GOOD and must never be described as
+    problems — this is the safety net behind the user-prompt rewrite.
+    """
+    assert "CLEARED" in pdf_questions._SYSTEM
+    assert "low earnings ceiling" in pdf_questions._SYSTEM.lower()

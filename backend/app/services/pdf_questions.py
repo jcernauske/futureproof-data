@@ -54,8 +54,8 @@ STATIC_COLLEGE_FALLBACK: str = (
 )
 
 STATIC_PARENTS_FALLBACK: tuple[str, ...] = (
-    "If the loan numbers on page 1 are accurate, can our family carry that "
-    "monthly payment alongside everything else after I graduate?",
+    "If the loan numbers on page 1 are accurate, can the family adult "
+    "carry that monthly payment alongside everything else after I graduate?",
     "Whose career did you watch up close growing up — and what about it "
     "would you want for me, or want to spare me from?",
 )
@@ -103,13 +103,14 @@ _STATIC_COLLEGE_FALLBACK_BY_LOCALE: dict[AppLocale, str] = {
 _STATIC_PARENTS_FALLBACK_BY_LOCALE: dict[AppLocale, tuple[str, ...]] = {
     "en": STATIC_PARENTS_FALLBACK,
     "es": (
-        "Si los números del préstamo en la página 1 son correctos, ¿puede nuestra "
-        "familia cubrir ese pago mensual junto con todo lo demás después de que me gradúe?",
+        "Si los números del préstamo en la página 1 son correctos, ¿puede la "
+        "persona adulta a cargo cubrir ese pago mensual junto con todo lo demás "
+        "después de que me gradúe?",
         "¿Qué carrera viste de cerca al crecer — y qué de ella querrías para mí, "
         "o querrías evitarme?",
     ),
     "ar": (
-        "إذا كانت أرقام القرض في الصفحة 1 دقيقة، فهل تستطيع عائلتنا تحمّل "
+        "إذا كانت أرقام القرض في الصفحة 1 دقيقة، فهل يستطيع وليّ الأمر تحمّل "
         "هذا القسط الشهري إلى جانب باقي النفقات بعد تخرّجي؟",
         "أي مسيرة مهنية رأيتموها عن قرب أثناء نشأتكم — وما الذي تتمنّوْنه لي منها، "
         "أو ما الذي تتمنّوْن أن أتجنّبه؟",
@@ -172,8 +173,10 @@ _SYSTEM = (
     "  'show', 'connect', 'tour') and refer to the school by name. NEVER "
     "  start with 'Will I' or 'Am I'.\n"
     "- ask_your_parents: audience-first. The student is at the kitchen "
-    "  table. Reference family ('our family', 'you'), use shared verbs "
-    "  ('carry', 'cover', 'spare'). NEVER start with 'Will I' or 'Am I'.\n"
+    "table with a parent, guardian, or other family adult — do NOT "
+    "assume the audience is a biological parent. Use neutral references "
+    "('the family adult', 'you'), use shared verbs ('carry', 'cover', "
+    "'spare'). NEVER start with 'Will I' or 'Am I'.\n"
     "- ask_yourself: student-first. The student is asking themselves. "
     "  Start with 'Will I', 'Am I', 'Do I', or 'Would I'. Present-future "
     "  tense. NEVER address an external audience.\n\n"
@@ -181,6 +184,20 @@ _SYSTEM = (
     "risk is debt burden, write a debt question. If the top risk is AI "
     "displacement, write an AI question. Don't write the same question "
     "twice across audiences in different words.\n\n"
+    "Outcome direction (strict — past failures here have produced "
+    "contradictory questions):\n"
+    "- Items listed as CLEARED in the user message are CONFIRMED GOOD "
+    "outcomes. Never write a question that implies the student failed "
+    "at them. A cleared 'Earnings ceiling' means wages grow strongly "
+    "over 15 years — do NOT ask 'will I be satisfied with a low "
+    "earnings ceiling?'. A cleared 'Job market outlook' means demand "
+    "is healthy — do NOT ask if the student is okay with weak demand.\n"
+    "- Items listed as NEEDS ATTENTION are the unresolved risks. These "
+    "are the only places it is appropriate to write a coping or "
+    "trade-off question.\n"
+    "- If you have nothing useful to add for ask_yourself beyond the "
+    "needs-attention list, return an empty array. Static fallbacks "
+    "fill any gap.\n\n"
     "FORBIDDEN VOCABULARY — these terms appear in the in-app product but "
     "MUST NOT appear in any output you produce here. The output is for a "
     "printed advisory report and these terms read as unserious in print:\n"
@@ -202,7 +219,7 @@ _SYSTEM = (
     "question strings. Example shape (illustrative only — do not echo "
     "these exact strings):\n"
     '{"ask_the_college": ["Question for the college?"], '
-    '"ask_your_parents": ["Question for the parents?"], '
+    '"ask_your_parents": ["Question for the family adult?"], '
     '"ask_yourself": ["Will I question for myself?"]}\n'
     "If you cannot write a question for an audience, return an empty "
     "array for that audience. Do not write 'N/A', do not apologize, do "
@@ -258,20 +275,34 @@ def _user_prompt(build: Build) -> str:
     Per feedback_scoped_llm_contexts.md, only fields Gemma needs:
     school, major, career, top-2 risks, top-2 strengths. No PII, no raw
     scores, no internal IDs.
+
+    Risk-level vocabulary ("Low"/"High") is intentionally NOT exposed
+    alongside the boss labels here because some boss labels are
+    direction-flipped from their risk levels — e.g., "Earnings ceiling"
+    and "Job market outlook" are positive-direction nouns where "Low
+    risk" means a GOOD outcome. Pasting "Earnings ceiling: Low" caused
+    Gemma to produce contradictory questions like "Will I be satisfied
+    with a low earnings ceiling?" when the student actually cleared the
+    fight. Strengths render as ``cleared`` and risks render as
+    ``needs attention`` so no label can be parsed as a noun-modifier.
     """
     risks = _top_two_risks(build)
     strengths = _top_two_strengths(build)
-    risks_str = "; ".join(f"{lbl}: {lvl}" for lbl, lvl in risks) or "(none ranked)"
+    risks_str = (
+        "; ".join(f"{lbl} — needs attention" for lbl, _ in risks)
+        or "(none ranked)"
+    )
     strengths_str = (
-        "; ".join(f"{lbl}: {lvl}" for lbl, lvl in strengths) or "(none ranked)"
+        "; ".join(f"{lbl} — cleared" for lbl, _ in strengths) or "(none ranked)"
     )
     major = build.career.program_name or build.major_text or "this program"
     return (
         f"School: {build.school_name}\n"
         f"Major: {major}\n"
         f"Career: {build.career.occupation_title}\n"
-        f"Top risk factors: {risks_str}\n"
-        f"Strongest factors: {strengths_str}\n"
+        f"Risk factors that NEED ATTENTION: {risks_str}\n"
+        f"Outcomes the student CLEARED (do not describe these as "
+        f"problems): {strengths_str}\n"
         "\n"
         "Write the JSON object now."
     )

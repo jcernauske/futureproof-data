@@ -64,7 +64,7 @@ from app.models.api import (
     AudienceQuestions,
     RiskLevel,
 )
-from app.models.career import Build, CareerBranch, SkillRec
+from app.models.career import AppliedSkill, Build, CareerBranch, SkillRec
 from app.services.career_description import (
     CAREER_DESC_FORBIDDEN_TERMS,
     DISCLAIMER_TIER_B,
@@ -559,18 +559,14 @@ _PAGE_COPY: dict[AppLocale, dict[str, str]] = {
         "section.suggested_skills": "SUGGESTED SKILLS",
         "skills.intro": (
             "Bring this list to your admissions counselor — these are the skills "
-            "the data says will lift your outcomes."
+            "that may lift your outcomes."
         ),
         "skills.bucket.ai_resilience": "AI-RESILIENCE SKILLS",
         "skills.bucket.career_launch": "CAREER-LAUNCH SKILLS",
         "skills.bucket.earnings_ceiling": "EARNINGS-CEILING SKILLS",
-        "skills.cell.coursework": "Coursework",
-        "skills.cell.clubs": "Clubs / orgs",
-        "skills.cell.internship": "Internship / cert",
-        "skills.ask_prefix": "Ask:",
         "section.questions": "QUESTIONS & FOLLOW-UPS",
         "questions.ask_college": "ASK THE COLLEGE",
-        "questions.ask_parents": "ASK YOUR PARENTS",
+        "questions.ask_parents": "ASK YOUR GUARDIAN",
         "questions.ask_yourself": "ASK YOURSELF",
 
         # --- Glossary (8 entries) ---
@@ -688,18 +684,14 @@ _PAGE_COPY: dict[AppLocale, dict[str, str]] = {
         "section.suggested_skills": "HABILIDADES SUGERIDAS",
         "skills.intro": (
             "Lleva esta lista a tu consejero de admisiones — estas son las "
-            "habilidades que, según los datos, mejorarán tus resultados."
+            "habilidades que pueden mejorar tus resultados."
         ),
         "skills.bucket.ai_resilience": "HABILIDADES DE RESILIENCIA ANTE LA IA",
         "skills.bucket.career_launch": "HABILIDADES DE LANZAMIENTO PROFESIONAL",
         "skills.bucket.earnings_ceiling": "HABILIDADES DE TOPE DE INGRESOS",
-        "skills.cell.coursework": "Cursos",
-        "skills.cell.clubs": "Clubes / organizaciones",
-        "skills.cell.internship": "Pasantía / certificación",
-        "skills.ask_prefix": "Pregunta:",
         "section.questions": "PREGUNTAS Y SEGUIMIENTO",
         "questions.ask_college": "PREGÚNTALE A LA UNIVERSIDAD",
-        "questions.ask_parents": "PREGÚNTALES A TUS PADRES",
+        "questions.ask_parents": "PREGÚNTALE A TU TUTOR",
         "questions.ask_yourself": "PREGÚNTATE A TI MISMO",
 
         "section.glossary": "GLOSARIO",
@@ -811,19 +803,14 @@ _PAGE_COPY: dict[AppLocale, dict[str, str]] = {
 
         "section.suggested_skills": "المهارات المقترحة",
         "skills.intro": (
-            "خذ هذه القائمة إلى مرشد القبول — هذه هي المهارات التي تشير البيانات "
-            "إلى أنها سترفع نتائجك."
+            "خذ هذه القائمة إلى مرشد القبول — هذه هي المهارات التي قد ترفع نتائجك."
         ),
         "skills.bucket.ai_resilience": "مهارات المقاومة للذكاء الاصطناعي",
         "skills.bucket.career_launch": "مهارات إطلاق المسار المهني",
         "skills.bucket.earnings_ceiling": "مهارات سقف الأرباح",
-        "skills.cell.coursework": "المواد الدراسية",
-        "skills.cell.clubs": "النوادي / الجمعيات",
-        "skills.cell.internship": "تدريب / شهادة",
-        "skills.ask_prefix": "اسأل:",
         "section.questions": "الأسئلة والمتابعة",
         "questions.ask_college": "اسأل الجامعة",
-        "questions.ask_parents": "اسأل والديك",
+        "questions.ask_parents": "اسأل وليّ أمرك",
         "questions.ask_yourself": "اسأل نفسك",
 
         "section.glossary": "المصطلحات",
@@ -1743,6 +1730,26 @@ def _classify_skill_bucket(rec: SkillRec) -> str:
     return "Career-Launch"
 
 
+def _normalize_skill_title(s: str) -> str:
+    return " ".join((s or "").lower().split())
+
+
+def _skill_description(rec: SkillRec, pool: list[AppliedSkill]) -> str:
+    """Return the richest description sentence available for a SkillRec.
+
+    Prefers an ``AppliedSkill`` from the build's ``skill_pool`` matched by
+    normalized title — its rationale is the same descriptive copy the
+    student saw on the boss-fight cards. Falls back to the SkillRec's
+    own rationale when no match exists.
+    """
+    target = _normalize_skill_title(rec.title)
+    if target:
+        for s in pool:
+            if _normalize_skill_title(s.title) == target:
+                return s.rationale
+    return rec.rationale
+
+
 def _build_page2(
     build: Build,
     audience_questions: AudienceQuestions,
@@ -1812,59 +1819,20 @@ def _build_page2(
             "skill_title", fontName=_font("NunitoBold"), fontSize=8.5, leading=11,
             textColor=INK_PRIMARY,
         )
-        story.append(_para(f"• {_safe(rec.title)}", title_style))
+        stat_suffix = f" ({_safe(rec.stat_impact)})" if rec.stat_impact else ""
+        story.append(_para(f"• {_safe(rec.title)}{stat_suffix}", title_style))
 
-        rationale_style = _style(
-            "skill_rat", fontName=_font("Nunito"), fontSize=7.5, leading=10,
-            textColor=INK_MUTED, leftIndent=10,
-        )
-        if rec.stat_impact:
-            story.append(_para(_safe(rec.stat_impact), rationale_style))
-
-        # Blank-line table: Coursework | Clubs/orgs | Internship/cert.
-        blank_hdr_style = _style(
-            "blank_hdr", fontName=_font("Nunito"), fontSize=7, leading=9,
-            textColor=INK_MUTED, alignment=TA_CENTER,
-        )
-        blank_data = [
-            [
-                _para(_t(loc, "skills.cell.coursework"), blank_hdr_style),
-                _para(_t(loc, "skills.cell.clubs"), blank_hdr_style),
-                _para(_t(loc, "skills.cell.internship"), blank_hdr_style),
-            ],
-            [
-                _para("", blank_hdr_style),
-                _para("", blank_hdr_style),
-                _para("", blank_hdr_style),
-            ],
-        ]
-        blank_cw = (LIVE_W - 10) / 3
-        blank_table = Table(blank_data, colWidths=[blank_cw] * 3, rowHeights=[9, 12])
-        blank_table.setStyle(TableStyle([
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-            ("BACKGROUND", (0, 0), (-1, -1), BG_ROW_ALT),
-            ("LINEBELOW", (0, 1), (-1, 1), 1.2, INK_SECONDARY),
-            ("LINEBEFORE", (1, 0), (2, -1), 0.4, RULE_LIGHT),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-        ]))
-        story.append(Spacer(1, 2))
-        story.append(blank_table)
-
-        # Counselor question (rationale fallback if empty).
-        if rec.rationale:
-            ask_style = _style(
-                "ask_prompt", fontName=_font("Nunito"), fontSize=7, leading=9,
-                textColor=STAT_GRW, leftIndent=10,
+        # Description sentence — matches what the student saw on the
+        # boss-fight card when an AppliedSkill from skill_pool aligns by
+        # title; otherwise falls back to the SkillRec's own rationale.
+        description = _skill_description(rec, build.skill_pool)
+        if description:
+            desc_style = _style(
+                "skill_desc", fontName=_font("Nunito"), fontSize=8, leading=11,
+                textColor=INK_SECONDARY, leftIndent=10, spaceAfter=1,
             )
-            story.append(_para(
-                f'{_t(loc, "skills.ask_prefix")} "{_safe(rec.rationale)}"',
-                ask_style,
-            ))
-        story.append(Spacer(1, 2))
+            story.append(_para(_safe(description), desc_style))
+        story.append(Spacer(1, 3))
 
     story.append(HRFlowable(width="100%", thickness=1.0, color=INK_PRIMARY,
                             spaceBefore=2, spaceAfter=2))
