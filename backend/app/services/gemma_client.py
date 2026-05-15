@@ -223,6 +223,65 @@ def _get_semaphore() -> asyncio.Semaphore:
 
 
 # ---------------------------------------------------------------------------
+# OpenRouter provider routing
+# ---------------------------------------------------------------------------
+#
+# By default OpenRouter rotates requests across every provider serving a
+# model slug. For google/gemma-4-26b-a4b-it that's 10 providers with
+# tok/s variance up to ~50× — the slow tail is what makes /build feel
+# broken in prod. We inject a `provider` object into the request body so
+# OpenRouter ranks providers by current measured throughput and biases
+# us toward the fast ones.
+#
+# Tunable at deploy time via env vars (no redeploy needed):
+#   OPENROUTER_PROVIDER_SORT              "throughput" | "latency" | "price" | "off"
+#   OPENROUTER_PROVIDER_ALLOW_FALLBACKS   "true" | "false"
+#   OPENROUTER_PROVIDER_REQUIRE_PARAMS    "true" | "false"
+#
+# The OpenAI SDK forwards anything in ``extra_body`` to the request JSON,
+# which is how OpenRouter receives the field.
+
+
+def _truthy(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _openrouter_provider_options() -> dict[str, Any] | None:
+    """Build the `provider` routing dict. Returns None when disabled."""
+    sort = os.environ.get("OPENROUTER_PROVIDER_SORT", "throughput").strip().lower()
+    if not sort or sort == "off":
+        return None
+    allow_fallbacks = _truthy(
+        os.environ.get("OPENROUTER_PROVIDER_ALLOW_FALLBACKS", "true")
+    )
+    require_parameters = _truthy(
+        os.environ.get("OPENROUTER_PROVIDER_REQUIRE_PARAMS", "true")
+    )
+    return {
+        "sort": sort,
+        "allow_fallbacks": allow_fallbacks,
+        "require_parameters": require_parameters,
+    }
+
+
+def _apply_openrouter_routing(completion_kwargs: dict[str, Any]) -> None:
+    """Inject the provider routing dict into completion_kwargs in place.
+
+    No-op when sort is disabled or when the caller already set a
+    ``provider`` field in ``extra_body`` (explicit caller wins).
+    """
+    provider_opts = _openrouter_provider_options()
+    if provider_opts is None:
+        return
+    existing = completion_kwargs.get("extra_body") or {}
+    if "provider" in existing:
+        return
+    completion_kwargs["extra_body"] = {**existing, "provider": provider_opts}
+
+
+# ---------------------------------------------------------------------------
 # Native Ollama API helpers (think: false)
 # ---------------------------------------------------------------------------
 #
@@ -587,6 +646,7 @@ def generate_chat(
             completion_kwargs["response_format"] = response_format
     if timeout_s is not None:
         completion_kwargs["timeout"] = timeout_s
+    _apply_openrouter_routing(completion_kwargs)
 
     try:
         response = client.chat.completions.create(**completion_kwargs)
@@ -646,27 +706,26 @@ async def generate_async(
 ) -> str:
     """Async variant of :func:`generate`.
 
-    Acquires the module semaphore, then runs the sync ``generate`` inside
-    a worker thread via :func:`asyncio.to_thread`. Preserves the
-    empty-string-on-failure contract so callers never see exceptions
-    from the transport layer.
+    Delegates to :func:`generate_chat_async` so single-message callers
+    get the same async-native OpenRouter path (with tail-latency
+    hedging) as multi-turn callers. The previous shape that ran sync
+    ``generate`` in a worker thread bypassed ``_hedged_completion``
+    entirely on OpenRouter, leaving boss-commentary, career-description,
+    and set-your-course calls exposed to provider tail latency.
 
-    ``extra`` is merged into the JSONL log record.
+    Preserves the empty-string-on-failure contract.
     """
-    sem = _get_semaphore()
-    async with sem:
-        return await asyncio.to_thread(
-            generate,
-            system=system,
-            user=user,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            seed=seed,
-            model=model,
-            extra=extra,
-            timeout_s=timeout_s,
-            response_format=response_format,
-        )
+    return await generate_chat_async(
+        system=system,
+        messages=[{"role": "user", "content": user}],
+        max_tokens=max_tokens,
+        temperature=temperature,
+        seed=seed,
+        model=model,
+        extra=extra,
+        timeout_s=timeout_s,
+        response_format=response_format,
+    )
 
 
 async def generate_chat_async(
@@ -683,16 +742,35 @@ async def generate_chat_async(
 ) -> str:
     """Async variant of :func:`generate_chat` — same semaphore discipline.
 
+    On OpenRouter we route through an async-native path so the call
+    benefits from ``_hedged_completion`` (tail-latency hedging) — the
+    same guard the tool-loop already uses. On Ollama we keep the
+    sync-in-thread bridge: hedging against a single local model
+    instance only queues calls behind each other.
+
     ``extra`` is merged into the JSONL log record — matches
     :func:`generate_async` so call sites (e.g. set-your-course chip
     dispatcher) can stamp ``call_site`` and correlation fields.
 
-    ``timeout_s`` and ``response_format`` are forwarded to
-    :func:`generate_chat` (see its docstring for shape and per-backend
-    translation).
+    ``timeout_s`` and ``response_format`` are forwarded (see
+    :func:`generate_chat` for shape and per-backend translation).
     """
     sem = _get_semaphore()
     async with sem:
+        _client, config = _cached_client()
+        if config.backend == "openrouter":
+            return await _openrouter_chat_async(
+                config=config,
+                system=system,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                seed=seed,
+                model=model,
+                extra=extra,
+                timeout_s=timeout_s,
+                response_format=response_format,
+            )
         return await asyncio.to_thread(
             generate_chat,
             system=system,
@@ -705,6 +783,99 @@ async def generate_chat_async(
             timeout_s=timeout_s,
             response_format=response_format,
         )
+
+
+async def _openrouter_chat_async(
+    *,
+    config: InferenceConfig,
+    system: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+    seed: int | None,
+    model: str | None,
+    extra: dict[str, Any] | None,
+    timeout_s: float | None,
+    response_format: str | dict[str, Any] | None,
+) -> str:
+    """OpenRouter non-streaming chat with tail-latency hedging.
+
+    Mirrors the OpenRouter branch of :func:`generate_chat` but issues
+    the API call through :func:`_hedged_completion` so a stalled
+    provider can be raced against a backup after ``GEMMA_HEDGE_DELAY_S``.
+    Caller (``generate_chat_async``) holds the module semaphore.
+    """
+    resolved_model = model or config.model
+    full_messages = [{"role": "system", "content": system}, *messages]
+    record: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "backend": config.backend,
+        "model": resolved_model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "seed": seed,
+        "messages": full_messages,
+    }
+    if extra:
+        record = {**extra, **record}
+    started = time.perf_counter()
+
+    completion_kwargs: dict[str, Any] = {
+        "model": resolved_model,
+        "messages": full_messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if seed is not None:
+        completion_kwargs["seed"] = seed
+    if response_format is not None:
+        if response_format == "json":
+            completion_kwargs["response_format"] = {"type": "json_object"}
+        else:
+            completion_kwargs["response_format"] = response_format
+    if timeout_s is not None:
+        completion_kwargs["timeout"] = timeout_s
+    _apply_openrouter_routing(completion_kwargs)
+
+    response = await _hedged_completion(completion_kwargs, turn_number=0)
+    record["duration_ms"] = int((time.perf_counter() - started) * 1000)
+
+    if response is None:
+        record["error"] = "transport_error"
+        _log_exchange(record)
+        return ""
+
+    choices = getattr(response, "choices", None) or []
+    if not choices:
+        record["error"] = "no_choices"
+        _log_exchange(record)
+        return ""
+
+    choice = choices[0]
+    finish_reason = getattr(choice, "finish_reason", None)
+    content = getattr(choice.message, "content", None) or ""
+    content = content.strip()
+    truncated = finish_reason == "length"
+    if truncated:
+        logger.warning(
+            "gemma response truncated at max_tokens=%d (backend=%s). "
+            "Trimming to last complete sentence.",
+            max_tokens, config.backend,
+        )
+        content = _trim_to_last_sentence(content)
+
+    usage = getattr(response, "usage", None)
+    record["finish_reason"] = finish_reason
+    record["truncated"] = truncated
+    record["response"] = content
+    if usage is not None:
+        record["usage"] = {
+            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+            "completion_tokens": getattr(usage, "completion_tokens", None),
+            "total_tokens": getattr(usage, "total_tokens", None),
+        }
+    _log_exchange(record)
+    return content
 
 
 async def generate_stream_async(
@@ -779,6 +950,7 @@ async def generate_stream_async(
                     }
                     if seed is not None:
                         completion_kwargs["seed"] = seed
+                    _apply_openrouter_routing(completion_kwargs)
                     stream = client.chat.completions.create(**completion_kwargs)
                     stream_holder.append(stream)
                     for chunk in stream:
@@ -995,6 +1167,7 @@ def generate_with_tools(
         "tools": tools,
         "tool_choice": tool_choice,
     }
+    _apply_openrouter_routing(completion_kwargs)
 
     try:
         response = client.chat.completions.create(**completion_kwargs)
@@ -1743,6 +1916,7 @@ async def _one_tool_turn(
     if response_format is not None:
         # OpenAI-compat: pass verbatim (e.g. {"type": "json_object"}).
         completion_kwargs["response_format"] = response_format
+    _apply_openrouter_routing(completion_kwargs)
 
     response = await _hedged_completion(completion_kwargs, turn_number)
     if response is None:

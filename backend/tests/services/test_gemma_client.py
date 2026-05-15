@@ -52,6 +52,49 @@ def test_runtime_profile_uses_compact_guardrails_for_e4b() -> None:
     assert profile.intent_fallback_max_tokens > 200
 
 
+def test_openrouter_routing_defaults_to_throughput(monkeypatch) -> None:
+    monkeypatch.delenv("OPENROUTER_PROVIDER_SORT", raising=False)
+    monkeypatch.delenv("OPENROUTER_PROVIDER_ALLOW_FALLBACKS", raising=False)
+    monkeypatch.delenv("OPENROUTER_PROVIDER_REQUIRE_PARAMS", raising=False)
+    kwargs: dict = {"model": "x", "messages": []}
+    gemma_client._apply_openrouter_routing(kwargs)
+    assert kwargs["extra_body"]["provider"] == {
+        "sort": "throughput",
+        "allow_fallbacks": True,
+        "require_parameters": True,
+    }
+
+
+def test_openrouter_routing_off_skips_injection(monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_PROVIDER_SORT", "off")
+    kwargs: dict = {"model": "x", "messages": []}
+    gemma_client._apply_openrouter_routing(kwargs)
+    assert "extra_body" not in kwargs
+
+
+def test_openrouter_routing_respects_caller_provider(monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_PROVIDER_SORT", "throughput")
+    kwargs: dict = {
+        "model": "x",
+        "messages": [],
+        "extra_body": {"provider": {"order": ["Together"]}},
+    }
+    gemma_client._apply_openrouter_routing(kwargs)
+    assert kwargs["extra_body"]["provider"] == {"order": ["Together"]}
+
+
+def test_openrouter_routing_preserves_other_extra_body(monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_PROVIDER_SORT", "latency")
+    kwargs: dict = {
+        "model": "x",
+        "messages": [],
+        "extra_body": {"transforms": ["middle-out"]},
+    }
+    gemma_client._apply_openrouter_routing(kwargs)
+    assert kwargs["extra_body"]["transforms"] == ["middle-out"]
+    assert kwargs["extra_body"]["provider"]["sort"] == "latency"
+
+
 @pytest.mark.asyncio
 async def test_generate_async_respects_semaphore(monkeypatch, tmp_path):
     """Cap concurrency at 2 and fire 6 slow requests — no more than 2 in-flight at once.
@@ -73,6 +116,10 @@ async def test_generate_async_respects_semaphore(monkeypatch, tmp_path):
     # with the patched env on the next acquire.
     monkeypatch.setenv("GEMMA_MAX_CONCURRENCY", "2")
     monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")  # no disk I/O
+    # Pin to ollama so the test isn't sensitive to a dev .env that points
+    # at openrouter (which would also require an API key). The async path
+    # delegates to generate_chat under asyncio.to_thread for ollama.
+    monkeypatch.setenv("INFERENCE_BACKEND", "ollama")
     gemma_client.reset_cache()
 
     loop = asyncio.get_running_loop()
@@ -85,10 +132,11 @@ async def test_generate_async_respects_semaphore(monkeypatch, tmp_path):
     in_flight = 0
     peak_in_flight = 0
 
-    def slow_generate(**kwargs):
-        # ``generate_async`` calls this inside asyncio.to_thread, so we're
-        # on a worker thread. Use a threading.Lock + plain counters — no
-        # need to bounce through the event loop.
+    def slow_generate_chat(**kwargs):
+        # ``generate_chat_async`` calls this inside asyncio.to_thread on
+        # the ollama backend, so we're on a worker thread. Use a
+        # threading.Lock + plain counters — no need to bounce through the
+        # event loop.
         nonlocal in_flight, peak_in_flight
         with state_lock:
             in_flight += 1
@@ -101,7 +149,7 @@ async def test_generate_async_respects_semaphore(monkeypatch, tmp_path):
                 in_flight -= 1
         return "ok"
 
-    monkeypatch.setattr(gemma_client, "generate", slow_generate)
+    monkeypatch.setattr(gemma_client, "generate_chat", slow_generate_chat)
 
     try:
         async def _one(i: int) -> str:
