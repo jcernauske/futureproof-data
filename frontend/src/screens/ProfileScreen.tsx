@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { apiPost } from "@/api/client";
 import { useProfileStore } from "@/store/profileStore";
+import { useInferenceStore } from "@/store/inferenceStore";
 import { Button } from "@/components/ui/Button";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -79,13 +80,22 @@ export function ProfileScreen() {
   const [rerollError, setRerollError] = useState<string | null>(null);
   const [nameKey, setNameKey] = useState(0);
 
-  // Warm up Gemma model weights while the student picks their profile.
-  useEffect(() => {
+  const modelReachable = useInferenceStore((s) => s.modelReachable);
+  const prevReachable = useRef(modelReachable);
+
+  const fireWarmup = () =>
     fetch(
       `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}/health/warmup`,
       { method: "POST" },
     ).catch(() => {});
-  }, []);
+
+  // Warm up Gemma model weights while the student picks their profile.
+  // Also re-fires if Ollama wasn't running on mount but comes online later.
+  useEffect(() => { fireWarmup(); }, []);
+  useEffect(() => {
+    if (modelReachable && !prevReachable.current) fireWarmup();
+    prevReachable.current = modelReachable;
+  }, [modelReachable]);
 
   useEffect(() => {
     if (profileName) return;

@@ -32,7 +32,7 @@ export function InferenceBadge({ className = "" }: InferenceBadgeProps) {
 
   useEffect(() => {
     refresh();
-    const id = setInterval(refresh, 15_000);
+    const id = setInterval(refresh, 1_000);
     return () => clearInterval(id);
   }, [refresh]);
 

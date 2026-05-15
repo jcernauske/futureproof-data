@@ -18,15 +18,22 @@ async def _probe_model(backend: str) -> bool:
         config = gemma_client.current_config()
         base = config.base_url.rstrip("/v1").rstrip("/")
         if backend == "ollama":
-            url = f"{base}/api/tags"
+            # /api/ps returns only models currently loaded in memory.
+            # Badge is green only when a model is actually warm and ready.
+            url = f"{base}/api/ps"
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get(url)
+                if resp.status_code != 200:
+                    return False
+                return bool(resp.json().get("models"))
         else:
             url = f"{config.base_url}/models"
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(
-                url,
-                headers={"Authorization": f"Bearer {config.api_key}"},
-            )
-            return resp.status_code == 200
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get(
+                    url,
+                    headers={"Authorization": f"Bearer {config.api_key}"},
+                )
+                return resp.status_code == 200
     except Exception:
         return False
 
