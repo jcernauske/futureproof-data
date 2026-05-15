@@ -271,6 +271,7 @@ def generate_guidance(
         user=_prompt(career, gauntlet, branches),
         max_tokens=1200,
         temperature=0.7,
+        extra={"call_site": "guidance_sync", "soc": career.soc_code},
     )
     if text:
         return strip_markdown(text)
@@ -420,6 +421,11 @@ def chat_with_context(
         messages=messages,
         max_tokens=1200,
         temperature=0.7,
+        extra={
+            "call_site": "guidance_chat_sync",
+            "soc": career.soc_code,
+            "history_len": len(conversation_history),
+        },
     )
     if text:
         return strip_markdown(text)

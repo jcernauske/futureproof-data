@@ -922,6 +922,7 @@ def generate_reroll_commentary(
             ),
             max_tokens=800,
             temperature=0.7,
+            extra={"call_site": "boss_reroll_sync", "soc": career.soc_code},
         )
     except Exception as exc:
         logger.warning("reroll commentary gen failed: %s", exc)
@@ -949,6 +950,7 @@ async def generate_reroll_commentary_async(
             ),
             max_tokens=800,
             temperature=0.7,
+            extra={"call_site": "boss_reroll", "soc": career.soc_code},
         )
     except Exception as exc:
         logger.warning("reroll commentary gen failed: %s", exc)
@@ -1022,6 +1024,7 @@ async def generate_wrapup_async(
             ),
             max_tokens=800,
             temperature=0.7,
+            extra={"call_site": "boss_wrapup", "soc": career.soc_code},
         )
     except Exception as exc:
         logger.warning("wrapup commentary gen failed: %s", exc)
@@ -1223,6 +1226,11 @@ def run_gauntlet(
                     user=_narrative_prompt(career, fight),
                     max_tokens=800,
                     temperature=0.7,
+                    extra={
+                        "call_site": "boss_narrative_sync",
+                        "soc": career.soc_code,
+                        "boss": fight.boss,
+                    },
                 )
             except Exception as exc:
                 logger.warning("boss narrative gen failed: %s", exc)

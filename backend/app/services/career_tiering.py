@@ -231,6 +231,11 @@ def tier_careers(
         ),
         max_tokens=1500,
         temperature=0.2,
+        extra={
+            "call_site": "career_tiering",
+            "outcome_count": len(outcomes),
+            "cipcode": cipcode,
+        },
     )
     if not text:
         logger.warning("career tiering gen returned empty; using fallback")

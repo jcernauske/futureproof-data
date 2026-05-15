@@ -205,6 +205,7 @@ def generate_recs(
         # Gemma preamble; 800 keeps every rec intact.
         max_tokens=800,
         temperature=0.6,
+        extra={"call_site": "skill_recs_sync", "soc": career.soc_code},
     )
     return _parse_recs(text, career)
 

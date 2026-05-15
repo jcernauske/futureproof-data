@@ -26,6 +26,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
@@ -351,17 +352,62 @@ def _log_path() -> Path:
     return _LOG_PATH_CACHED
 
 
+# Fields kept when mirroring records to stdout. Excludes ``messages`` and
+# ``response`` so prod log shippers don't capture full prompts / outputs —
+# the local jsonl file still has everything for deep triage.
+_STDOUT_MIRROR_FIELDS = (
+    "ts",
+    "backend",
+    "model",
+    "call_site",
+    "duration_ms",
+    "error",
+    "truncated",
+    "finish_reason",
+    "usage",
+    "max_tokens",
+    "temperature",
+    "tool_calling",
+    "tool_call_made",
+    "tool_choice_honored",
+    "tool_name",
+    "tool_called",
+    "turn_number",
+    "tool_result_size",
+    "fallback",
+    "streamed",
+    "synthetic",
+    "event",
+    "retry_class",
+    "profile_tier",
+)
+
+
 def _log_exchange(record: dict[str, Any]) -> None:
-    """Append a single JSONL record. Never raises — logging must not crash callers."""
+    """Append a single JSONL record. Never raises — logging must not crash callers.
+
+    With ``GEMMA_LOG_STDOUT=1`` (default in the prod Dockerfile), a slim
+    one-line JSON record is also mirrored to stdout so Railway / any log
+    shipper captures one line per Gemma call without disk-write access.
+    """
     if os.environ.get("GEMMA_LOG_DISABLED"):
         return
     try:
-        path = _log_path()
         line = json.dumps(record, ensure_ascii=False, default=str)
+        path = _log_path()
         with _log_lock, path.open("a", encoding="utf-8") as fh:
             fh.write(line + "\n")
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("gemma jsonl log write failed: %s", exc)
+
+    if os.environ.get("GEMMA_LOG_STDOUT") == "1":
+        try:
+            slim = {k: record[k] for k in _STDOUT_MIRROR_FIELDS if k in record}
+            slim["src"] = "gemma"
+            sys.stdout.write(json.dumps(slim, ensure_ascii=False, default=str) + "\n")
+            sys.stdout.flush()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("gemma stdout mirror failed: %s", exc)
 
 
 def log_synthetic_event(

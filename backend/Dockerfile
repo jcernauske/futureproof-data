@@ -49,7 +49,8 @@ RUN mkdir -p ${APP_DIR}/backend/data
 
 ENV INFERENCE_BACKEND=openrouter \
     FUTUREPROOF_CATALOG_PATH=${APP_DIR}/data/catalog/catalog.db \
-    FUTUREPROOF_WAREHOUSE_PATH=${APP_DIR}/data/warehouse
+    FUTUREPROOF_WAREHOUSE_PATH=${APP_DIR}/data/warehouse \
+    GEMMA_LOG_STDOUT=1
 
 # Railway injects $PORT
 EXPOSE 8000

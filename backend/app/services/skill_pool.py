@@ -729,6 +729,7 @@ def generate_pool(
         # safe ceiling.
         max_tokens=2000,
         temperature=0.5,
+        extra={"call_site": "skill_pool_sync", "soc": career.soc_code},
     )
     return _finalize_pool(text, rerollable)
 
