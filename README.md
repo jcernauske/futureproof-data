@@ -11,9 +11,9 @@
   <img alt="Runs on Ollama" src="https://img.shields.io/badge/runs_on-Ollama-black">
 </p>
 
-![FutureProof landing screen — pentagon stat radar with the headline "A college degree isn't a destination. It's a starting position."](docs/img/hero.png)
+![Same five stats, twelve honest reads — twelve example pentagons showing how to interpret the shape of a build](docs/img/hero-archetypes.png)
 
-> Submission to the [Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) — Tracks: **Main**, **Future of Education**, **Digital Equity & Inclusivity**, and the **Ollama** special track.
+> Submission to the [Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon).
 
 ---
 
@@ -38,8 +38,8 @@ The same codebase runs on a school's own hardware via Ollama. No per-query cost.
 
 | | |
 |---|---|
-| ![Build cards — career options from a selected school and major](docs/screenshots/build-cards.png) | ![Receipts — every stat opens a tappable data-provenance card](docs/screenshots/receipts.png) |
-| Career paths split into direct undergraduate paths and postgraduate paths. | Receipts: every stat opens a panel showing inputs, thresholds, and the public dataset it came from. |
+| ![Set Your Course screen — career paths grouped by experience requirement with the Ask the Guide panel open](docs/screenshots/set-your-course.png) | ![Gauntlet Fight AI boss screen showing a "Standoff" verdict with three skill-card suggestions](docs/screenshots/gauntlet-fight-ai.png) |
+| Career picker grouped by experience requirement, with Ask the Guide explaining each path. | Fight AI boss: deterministic score + Gemma-generated narrative + 3 skill plans to close the gap. |
 
 ---
 
@@ -97,7 +97,7 @@ flowchart LR
   class GC,G4E,G4H,AIEX gemma
 ```
 
-**Why this stack.** Career data is public, but the right answers require joining seven federal datasets (College Scorecard, BLS, O\*NET, NCES CIP↔SOC, BEA RPP, IPEDS finance, EADA) with two external AI-exposure datasets (Karpathy + Anthropic Economic Index) — nine ingested datasets in total — plus a Gemma-scored occupation-level signal that re-reads the underlying O\*NET task list, all stitched through a CIP↔SOC crosswalk and explained in language a 17-year-old will read. The first half is deterministic — DuckDB on the Brightsmith Gold zone gives reproducible scores with full data lineage. The second half is generative — Gemma 4 resolves intent, explains career paths, narrates fights, and crafts skills. Splitting the work this way means scores never hallucinate and narratives stay grounded. Pointing the same `gemma_client` at Ollama instead of OpenRouter swaps the entire model layer in one config change, so a school district can run the product offline on its own hardware with no per-query cost and no student data leaving the building.
+**Why this stack.** Career data is public, but the right answers require joining seven federal datasets (College Scorecard, BLS, O\*NET, NCES CIP↔SOC, BEA RPP, IPEDS finance, EADA) with two external AI-exposure datasets (Karpathy + Anthropic Economic Index) — nine ingested datasets in total — plus a Gemma-scored occupation-level signal that re-reads the underlying O\*NET task list, all stitched through a CIP↔SOC crosswalk and explained in language a 17-year-old will read. The first half is deterministic — Iceberg via DuckDB on the Brightsmith Gold zone gives reproducible scores with full data lineage. The second half is generative — Gemma 4 resolves intent, explains career paths, narrates fights, and crafts skills. Splitting the work this way means scores never hallucinate and narratives stay grounded. Pointing the same `gemma_client` at Ollama instead of OpenRouter swaps the entire model layer in one config change, so a school district can run the product offline on its own hardware with no per-query cost and no student data leaving the building.
 
 ### Iceberg tables by zone
 
@@ -146,6 +146,26 @@ The Brightsmith pipeline produces **66 Iceberg tables across 10 namespaces**. Th
 | `consumable.ipeds_finance_profile` | ipeds_finance (shaping only) | Tuition, endowment lineage |
 | `consumable.regional_price_parities` | bea_rpp | Cost-of-living adjustment by state |
 
+### Data quality and lineage
+
+Every Iceberg table is governed by a data contract and a set of executable DQ rules. The framework is [Brightsmith](https://github.com/hyena-studios/brightsmith); the artifacts live in `governance/`:
+
+| Artifact | Count | Path |
+|---|--:|---|
+| Data contracts (one per product-surface table) | 42 | `governance/data-contracts/` |
+| DQ rule files (each contains many rules) | 41 | `governance/dq-rules/` |
+| Chaos tests (manifests + runners) | 48 files | `governance/chaos-manifests/` |
+| DQ execution results (run history) | 254 | `governance/dq-results/` |
+| Golden datasets | 10 | `governance/golden-datasets/` |
+
+Contracts cover the **42 product-surface tables** — raw ingestion, silver normalization, Gold consumable, and the MCP exposure layer. The other ~24 tables in the catalog (dev shadows, legacy namespaces, internal governance metadata) don't carry contracts because they're not part of what the app reads.
+
+Each rule carries a SQL check, a priority (**P0** blocks promote, **P1** blocks release, **P2** is tracked completeness), a rationale tied to the EDA findings for that source, and a human-approval audit trail. Chaos runners verify the rules actually catch what they claim to: for each source, a Python script intentionally corrupts the data in specific ways and asserts the rule fires.
+
+This is Brightsmith's stance: every datum in the Gold zone has lineage back to a raw ingest, every transformation has a logical model, every model has a contract, every contract has rules, every rule has been run and has results on disk.
+
+**How to verify.** Result JSONs in `governance/dq-results/` are the run-history record — each carries a snapshot ID, row count, rule-pass-by-priority breakdown, executor, and timestamp. To re-run rules against a specific source, per-source executors live at `scripts/dq_execute_<source>.py` (one per zone-level table; no unified runner today). Chaos runners in `governance/chaos-manifests/*_chaos_runner.py` exercise the negative tests.
+
 ---
 
 ## Tech stack
@@ -163,24 +183,6 @@ The Brightsmith pipeline produces **66 Iceberg tables across 10 namespaces**. Th
 | Public data sources | College Scorecard, BLS OOH, O\*NET, NCES CIP↔SOC crosswalk, BEA Regional Price Parities, IPEDS finance, EADA |
 | AI exposure signals | Karpathy AI Exposure Index, Anthropic Economic Index, Gemma occupation-level exposure scores (`gemma4:26b-a4b` at pipeline time — one 0–10 score per SOC, with the automatable/human-essential task split stored as receipts) |
 | Test | pytest (backend + pipeline), vitest (frontend), ruff, mypy |
-
----
-
-## Methodology: How We Score Programs
-
-### The 15-year window
-
-FutureProof's ROI score uses a fixed 15-year earnings window for every program in the database. This is a deliberate choice. The federal standard repayment plan is 10 years, but in reality the median bachelor's-degree borrower takes 17–21 years to pay off their loans (Education Data Initiative, The College Investor 2026, ELFI). Fifteen years splits the difference between contractual ideal and lived experience. It also matches the OBBBA Tiered Standard term for a typical $25–50K debt load and captures the years when career trajectory becomes clear — by year 15, lawyers make partner, doctors finish residency, and engineers reach senior IC. Long-horizon outcomes beyond this window — late-career earnings, market projections, full lifetime trajectory — are captured by the GRW stat and the Stage 3 career tree, not by ROI. Keeping ROI focused on a fixed comparison window is what makes the compare screen actually useful for picking between schools.
-
-### The ROI formula
-
-ROI is computed as a payback multiplier: cumulative 15-year earnings (starting from each program's actual year-one median salary, applied at a flat 3% nominal annual growth — the long-run U.S. wage-growth average) divided by the program's 4-year sticker cost (residency-aware for public schools). A multiplier of 5x means a graduate of this program will earn 5x the cost of the degree over the typical 15-year repayment window. The multiplier is mapped to a 1–10 stat using calibrated thresholds. ROI is **financing-agnostic**: it doesn't matter whether the student pays cash, takes loans, or has a full scholarship — the question "is this program priced fairly relative to what it produces?" has the same answer regardless of who's paying. Financing realities show up in two other places: Boss Debt (where the loan slider scales the boss's power based on actual interest paid) and the First Home Race visualization.
-
-### What ROI does and doesn't model
-
-ROI projects 15 years of earnings starting from the program's actual year-one median salary, applied at flat 3% annual nominal growth. **It does not model career progression, promotions, or the gap between entry-level and senior pay.** Those depend on what graduates do after they're hired — certifications, performance, switching employers, going to grad school — none of which are properties of the program itself. ROI is a measure of what the *degree* delivers, which is the first job. What students do with that first job is up to them. We chose this conservative approach deliberately: modeling career progression we can't honestly project would mean the stat measures graduate effort instead of program quality. If you want to understand long-horizon outcomes, look at the Stage 3 career tree, which explicitly branches on grad-school and career-pivot decisions.
-
-For the full technical specification including formula derivation, threshold calibration, and migration notes, see [`docs/specs/completed/roi-net-lifetime-value.md`](docs/specs/completed/roi-net-lifetime-value.md).
 
 ---
 
@@ -332,7 +334,7 @@ Gemma 4 is not a chat layer pasted on top of a search engine. It drives the prod
 
 If a model call fails, FutureProof degrades gracefully with deterministic copy or validated defaults. Those paths are safeguards, not the intended product experience.
 
-**Variant.** `gemma4:e4b` (4.5B effective parameters, 128K context window) is the default for local inference because it keeps the product offline, zero-cost per query, and realistic on school-owned hardware. Per-surface E4B latencies are in the [Evaluation](#evaluation) section's baseline table (single source of truth). The hosted demo uses `google/gemma-4-26b-a4b-it` (26B MoE, 256K context) for higher-quality narrative work and lower demo latency.
+**Variant.** `gemma4:e4b` (4.5B effective parameters, 128K context window) is the default for local inference because it keeps the product offline, zero-cost per query, and realistic on school-owned hardware. Per-surface E4B latencies are in the [Evaluation](#evaluation) section's baseline table (single source of truth). The hosted demo uses `google/gemma-4-26b-a4b-it` (26B MoE, 256K context) due to OpenRouter availability.
 
 **Inference path.** Local: Ollama on `localhost:11434` via native `/api/chat` with `think:false`, because Ollama's OpenAI-compatible endpoint does not reliably disable Gemma 4 thinking tokens for the non-streaming chat path. Cloud: OpenRouter on `openrouter.ai/api/v1` via the OpenAI-compatible API. The single abstraction lives in [`backend/app/services/gemma_client.py`](backend/app/services/gemma_client.py); switching backends is a `.env` edit, not a code change.
 
@@ -417,7 +419,7 @@ FutureProof instruments **21 distinct Gemma call sites** in production (canonica
 - **Narrative quality** — a five-axis rubric (relevance, specificity, voice, accuracy, length) scored 1–5 by **Claude Opus 4.7** as an external judge. We use Claude, not Gemma-as-judge, to avoid the "grading your own homework" critique.
 - **Latency** — p50 / p95 / p99 from existing production instrumentation in `logs/gemma.jsonl`, per surface (each record carries `model_tag` so `gemma4:e4b` and `google/gemma-4-26b-a4b-it` latencies stay separable).
 
-### Baseline — 215 hand-labeled cases, Ollama + `gemma4:e4b`
+### Baseline — 215 labeled cases, Ollama + `gemma4:e4b`
 
 The eval measures what Gemma **actually decides** at each surface. For the five `explain_*` surfaces, the pentagon stat scores are computed deterministically in `stat_engine.py` from precomputed Gold-zone data; Gemma's job is the prose explanation. For `career_intent` Gemma picks the CIP code from a candidate list. For `skill_pool` Gemma generates concrete skills the student could take at their named school.
 
@@ -436,8 +438,6 @@ The eval measures what Gemma **actually decides** at each surface. For the five 
 1. **`career_intent` is rock-solid.** 100/100 across 100 cases including OOD inputs ("deaf education" → `13.1003`; "sign language interpreter" → `16.1601`; "mortuary science" → `12.0301`), typos, conversational input, and intentional nonsense. The single failure (`"..."` input) gracefully returns a clarification request — not a fabricated CIP. **Confidence calibration is correct**: the 5 deliberately low-signal cases all returned "low" or "medium" confidence, never "high".
 2. **Skill_pool: structural integrity is bulletproof, prose discipline is partial.** Across 111 generated skills: 100% boss-delta alignment, 100% voice compliance (no stat codes, no game framing). The model demonstrably knows real school-specific programs and uses them (Kelley@IU, Stern@NYU, Tisch@NYU, Purdue ME course codes, Formula SAE) — but only in titles, not rationales. The production prompt explicitly asks for school-attributed rationales; Gemma follows that 5% of the time. Real prompt-tuning finding.
 3. **explain_* surfaces: structural metrics are 100%.** 100% schema validity, 100% stat_code identification, 100% prose-length compliance across all 100 explain_* runs. *Prose quality* itself is not yet scored — the Claude-Opus-4.7 rubric scorer is built but not run (requires Anthropic API spend).
-
-**What we corrected along the way:** v1 surfaced two findings ("score-3 floor" and "RES regression-to-mean") that turned out to be measuring `score` — a field the production server overwrites before the user sees it. Walked back in v2. v2's "0% school attribution" on skill_pool turned out to be partly scorer narrowness (my anchor missed abbreviations like "IU" and brand programs like "Kelley"). v3 reports both the strict 5% rationale-only number AND the 42% title-or-rationale number.
 
 **Are the generated skills real?** A Claude-Opus-4.7-as-judge fact-check pass on all 111 skill_pool outputs rated them **4.50/5 on realism** (mean of "plausible existence at this school" + "factual accuracy"): **87% very likely to exist** at the named school, **91% factually accurate**, **5 confident fabrications flagged** (~4.5%) — including a fake school name ("Columbia School of Advanced Studies"), a credential-type error (a "minor" at a community college), and a course-content mis-attribution ("MIT 6.830 Machine Learning" — 6.830 is actually Database Systems). Pattern: famous-school confidence cuts both ways — Gemma correctly cites Kelley/Stern/Tisch/UROP/6.034/6.824/Siebel Scholars, and confidently invents at the same kinds of famous schools. Full fact-check section + per-skill judgments: see the v3 report linked below.
 
@@ -479,14 +479,17 @@ A `Dockerfile` for the backend lives in [`backend/Dockerfile`](backend/Dockerfil
 
 - **AI exposure is a three-signal composite — receipts disclose which signals were available.** Every RES score is computed from up to three sources: Karpathy's published index, Anthropic's Economic Index (observed Claude usage), and a Gemma occupation-level exposure score (0–10 per SOC, produced at pipeline time by reasoning over each role's O\*NET task list). The receipt names the exact method used per row (`gemma_plus_anthropic`, `karpathy_only`, `gemma`, `two_signal_no_anthropic`, or a Karpathy + O\*NET fallback) so a student can see which signals the score rests on. Where Anthropic or Gemma data is missing for a given SOC, the receipt says so.
 - **Multimodal is not used.** Gemma 4 supports image and audio input; the shipped product is text-only. A future build could let a student photograph a course catalog page and ask "what does this mean."
-- **Latency depends on variant, hardware, and prompt path.** The local `gemma4:e4b` path is built for offline school hardware, not raw speed. Cloud `google/gemma-4-26b-a4b-it` is built for narrative quality and smoother public-demo latency. Tok/s figures will be measured on the demo machine and added to the Kaggle writeup before submission.
+- **Localized in three languages today.** English, Spanish, and Arabic — the top three home languages among U.S. public-school English learners. Additional locales (notably Mandarin, Vietnamese, and Tagalog, which round out the top six) are post-hackathon work; the Gemma language-instruction layer is parameterized on locale, so adding one is data and interface work, not engineering.
+- **`gemma4:e4b` needs variant-specific accommodations under Ollama.** The compact local model has two known weaknesses we work around in `backend/app/services/gemma_client.py`. **(1) Function calling is unreliable** — E4B frequently embeds JSON in the assistant content field instead of producing a real tool-call object. Every Gemma-callable surface runs through a three-tier fallback: native tool calling → content-JSON extraction (parse the assistant content as the tool-call payload) → re-prompt with a more structural instruction. Each fallback firing is logged to `logs/gemma.jsonl` for analysis. On the hosted 26B model via OpenRouter the native path almost never falls through; on E4B locally, the second tier fires routinely. **(2) Compressed prompts.** System prompts on the E4B path are abbreviated relative to the 26B path — same product semantics, fewer tokens — to keep latency tolerable on consumer hardware. Both variant-specific decisions are isolated in the `runtime_profile` layer so the rest of the codebase stays model-agnostic.
+- **Latency depends on variant, hardware, and prompt path.** Local `gemma4:e4b` is built for offline school hardware; hosted `google/gemma-4-26b-a4b-it` (via OpenRouter) is built for narrative quality and smoother public-demo latency. Reference benchmark on a MacBook Pro M4 with 24 GB unified memory: `gemma4:e4b` via Ollama generates at **~29 tokens/sec** with prompt eval at **~217 tokens/sec** (warm cache) — a typical 250-token stat receipt completes in ~9 seconds end-to-end. Full per-surface p50/p99 distribution from production logs is in the [Evaluation](#evaluation) section.
 - **Career tree depth is bounded at three hops.** Beyond three hops the O\*NET transition graph fans out faster than the UI can render usefully.
+- **No accounts, no rate limiting.** The live demo is deliberately friction-free so judges can land, click, and use the product without a signup wall — and so the "no PII collected" privacy posture in the Model Card stays true. Production auth, per-IP throttling, and abuse protection are post-hackathon work; for the Ollama local-first path the question is moot, since inference and storage never leave the school's hardware.
 
 ---
 
 ## Team
 
-- **Jeff Cernauske** — solo build for the Gemma 4 Good Hackathon — [github.com/jcernauske](https://github.com/jcernauske)
+- **Jeff Cernauske** — solo build for the Gemma 4 Good Hackathon — [github.com/jcernauske](https://github.com/jcernauske) with additional support by Claude, Codex, Gemini and Gemma. 
 
 ---
 
@@ -506,9 +509,7 @@ Public data sources powering the pentagon and the boss fights: [U.S. Department 
 
 The RES stat is a three-signal composite: Andrej Karpathy's published [AI exposure scores from `karpathy/jobs`](https://github.com/karpathy/jobs), the [Anthropic Economic Index](https://www.anthropic.com/economic-index) (observed Claude usage at occupation level), and a Gemma occupation-level exposure score (0–10 per SOC, produced at pipeline time by `gemma4:26b-a4b` reasoning over each role's O\*NET task list).
 
-Data pipeline built on [Brightsmith](https://github.com/hyena-studios/brightsmith).
-
-The previous data-pipeline-focused README is preserved at [`README-DEPRECATED.md`](README-DEPRECATED.md) for operators and data engineers.
+Data pipeline built on [Brightsmith](https://github.com/hyena-studios/brightsmith), also by Jeff Cernauske / Hyena Studios, LLC. 
 
 ---
 
