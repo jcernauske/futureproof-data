@@ -40,6 +40,11 @@ PATHS=(
   "reports/hackathon-chances-review-2026-04-21.md"
   "reports/gemma-usage-and-hackathon-review-2026-04-25.md"
   "reports/hackathon-ship-plan-2026-04-17.md"
+  # Kaggle judge personality dossiers — name 5 Google judges by name
+  # and predict their scoring behavior. Categorically worse than the
+  # reports above; must not survive in history.
+  ".claude/agents/kaggle-judge.md"
+  ".claude/agents/kaggle-writeup.md"
 )
 
 # --- Safety checks ---------------------------------------------------------
