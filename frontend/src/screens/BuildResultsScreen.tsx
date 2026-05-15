@@ -599,15 +599,14 @@ export function BuildResultsScreen() {
       window.innerHeight || document.documentElement.clientHeight || 0;
     if (viewportHeight <= 0) return;
 
-    const revealTop = viewportHeight * 0.95;
-    const revealBottom = viewportHeight * 0.05;
+    const revealLine = viewportHeight * 0.5;
 
     bandRefs.current.forEach((el, bossId) => {
       if (revealedBandsRef.current.has(bossId)) return;
       const rect = el.getBoundingClientRect();
       const hasHeight = rect.height > 0 || rect.bottom > rect.top;
       if (!hasHeight) return;
-      if (rect.top < revealTop && rect.bottom > revealBottom) {
+      if (rect.top < revealLine) {
         setVisibleBands((p) => new Set(p).add(bossId));
         triggerReveal(bossId);
       }
@@ -629,7 +628,7 @@ export function BuildResultsScreen() {
           }
         });
       },
-      { threshold: 0.1 },
+      { threshold: 0, rootMargin: "0px 0px -50% 0px" },
     );
 
     const centerObserver = new IntersectionObserver(
@@ -652,7 +651,7 @@ export function BuildResultsScreen() {
           }
         });
       },
-      { threshold: 0.15, rootMargin: "-20% 0px -20% 0px" },
+      { threshold: 0, rootMargin: "0px 0px -50% 0px" },
     );
 
     bandRefs.current.forEach((el) => {
