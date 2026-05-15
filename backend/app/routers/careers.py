@@ -20,6 +20,7 @@ from app.models.career import (
 )
 from app.services import career_description as career_description_service
 from app.services.career_description import CareerDescriptionUnavailable
+from app.services.locale import AppLocale, normalize_locale
 from app.services.schools_for_career import rank_schools_for_career
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,12 @@ async def get_career_description(
         description="Display title for the occupation; required for the Tier C "
         "fallback prompt when O*NET coverage is missing.",
     ),
+    locale: str | None = Query(
+        default=None,
+        description="Two-letter app locale (en / es / ar). Selects the Gemma "
+        "output language and participates in the cache key so a new language "
+        "fetches fresh copy.",
+    ),
 ) -> CareerDescription:
     """Return a plain-English career description for a SOC code.
 
@@ -120,9 +127,10 @@ async def get_career_description(
         ``CareerDescriptionUnavailable`` → 502 ``career_description_unavailable``
         Path regex failure (malformed SOC) → 422 (FastAPI built-in)
     """
+    resolved: AppLocale = normalize_locale(locale)
     try:
         return await career_description_service.get_or_generate(
-            soc_code, occupation_title,
+            soc_code, occupation_title, locale=resolved,
         )
     except CareerDescriptionUnavailable as exc:
         logger.info(

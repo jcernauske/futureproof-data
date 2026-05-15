@@ -165,6 +165,29 @@ class TestGemmaLanguageInstruction:
         assert "Spanish" not in ar
         assert "deuda estudiantil" not in ar
 
+    def test_spanish_mandates_first_reference_gloss(self):
+        """Spanish prompt must require an inline Spanish gloss on the first
+        mention of occupation/program/branch titles. Pinned because losing
+        this rule reintroduces the half-translated seam (English titles
+        dropped mid-Spanish-prose with no inline explanation)."""
+        inst = gemma_language_instruction("es")
+        assert "FIRST mention" in inst
+        assert "Software Developer" in inst
+        assert "desarrollador de software" in inst
+        # Institution names are explicitly excluded from the gloss rule.
+        assert "Indiana University" in inst
+
+    def test_arabic_mandates_first_reference_gloss(self):
+        """Arabic prompt must require an Arabic gloss on the first mention
+        of occupation/program/branch titles. Latin-script title is kept;
+        the gloss follows in parentheses."""
+        inst = gemma_language_instruction("ar")
+        assert "FIRST mention" in inst
+        assert "Software Developer" in inst
+        assert "مطوّر برمجيات" in inst
+        # Institution names are explicitly excluded.
+        assert "Indiana University" in inst
+
 
 # ---------------------------------------------------------------------------
 # fallback_text
@@ -206,7 +229,6 @@ class TestFallbackText:
         [
             "gemma_unreachable",
             "guidance_unavailable",
-            "next_steps_unavailable",
             "boss_unknown_ai",
             "boss_unknown_loans",
             "chat_unavailable",
@@ -226,4 +248,8 @@ class TestFallbackText:
 
     def test_gemma_unreachable_arabic(self):
         text = fallback_text("gemma_unreachable", "ar")
-        assert "Gemma" in text  # brand name preserved
+        # Voice contract: persona name (the Guide) localizes to Arabic;
+        # the Gemma brand name only appears in factual attribution
+        # contexts (About card, README, PDF disclaimer), not in
+        # transient unreachable copy.
+        assert "المرشد" in text

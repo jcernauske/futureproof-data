@@ -5,7 +5,6 @@ import { springs } from "@/styles/motion";
 import { useProfileStore } from "@/store/profileStore";
 import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
-import { useGauntletStore } from "@/store/gauntletStore";
 import { useBuildsCountStore } from "@/store/buildsCountStore";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { InferenceBadge } from "@/components/ui/InferenceBadge";
@@ -17,15 +16,13 @@ function getPhaseAccent(pathname: string): string {
     return "bg-accent-info";
   if (pathname.startsWith("/my-build"))
     return "bg-accent-thrive";
-  if (pathname.startsWith("/gauntlet") || pathname.startsWith("/bosses"))
-    return "bg-accent-alert";
   if (pathname.startsWith("/future"))
     return "bg-accent-insight";
-  if (pathname.startsWith("/save"))
-    return "bg-accent-empathy";
   if (pathname.startsWith("/builds"))
     return "bg-accent-info";
   if (pathname.startsWith("/about"))
+    return "bg-accent-info";
+  if (pathname.startsWith("/help"))
     return "bg-accent-info";
   return "";
 }
@@ -40,7 +37,6 @@ export function AppHeader() {
   const buildsCount = useBuildsCountStore((s) => s.count);
   const buildsCountLoading = useBuildsCountStore((s) => s.loading);
   const refreshBuildsCount = useBuildsCountStore((s) => s.refresh);
-  const gauntletPhase = useGauntletStore((s) => s.phase);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Re-entrancy guard for the New Build / Try Another button. Resets on
   // every navigation so the next screen can use the button again.
@@ -50,13 +46,6 @@ export function AppHeader() {
   }, [location.pathname]);
 
   const isMarketing = false;
-  const isGauntlet = location.pathname === "/gauntlet";
-  // Active-fight tunnel-vision rule: hide right-zone CTAs only while a fight
-  // is mid-animation. The header bar itself stays at 0.55 opacity for the
-  // entire /gauntlet route per the existing rule.
-  const isGauntletFight =
-    isGauntlet &&
-    (gauntletPhase === "fighting" || gauntletPhase === "final_boss");
   const phaseAccent = getPhaseAccent(location.pathname);
   const hasContext = Boolean(school || major || selectedCareer);
 
@@ -96,10 +85,11 @@ export function AppHeader() {
 
   if (isMarketing) return null;
 
-  const showMyBuilds = !isGauntletFight;
-  const showCompare = !isGauntletFight;
-  const showAbout = !isGauntletFight;
-  const showNewBuild = !isGauntletFight;
+  const showMyBuilds = true;
+  const showCompare = true;
+  const showAbout = true;
+  const showHelp = true;
+  const showNewBuild = true;
   const compareDisabled = (buildsCount ?? 0) < 2;
 
   const myBuildsAriaLabel =
@@ -115,7 +105,7 @@ export function AppHeader() {
         key="app-header"
         className="fixed top-0 left-0 right-0 z-[100] flex flex-col"
         initial={false}
-        animate={{ opacity: isGauntlet ? 0.55 : 1, y: 0 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={springs.smooth}
       >
         <div
@@ -214,6 +204,24 @@ export function AppHeader() {
                 </svg>
                 <span className="hidden desktop:inline">
                   {t("header.aboutLabel")}
+                </span>
+              </motion.button>
+            )}
+            {showHelp && (
+              <motion.button
+                data-testid="header-help"
+                className="font-body text-small text-text-muted px-3 py-1.5 rounded-full cursor-pointer transition-all duration-normal hover:text-text-primary hover:bg-bp-surface inline-flex items-center gap-1.5"
+                initial={false}
+                onClick={() => navigate("/help")}
+                aria-label={t("header.helpAria")}
+                title={t("header.helpAria")}
+              >
+                {/* Pentagon glyph — the page is "read what your shape means". */}
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="block shrink-0">
+                  <polygon points="7,1.5 12.5,5.7 10.4,12 3.6,12 1.5,5.7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                </svg>
+                <span className="hidden desktop:inline">
+                  {t("header.helpLabel")}
                 </span>
               </motion.button>
             )}

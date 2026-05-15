@@ -20,7 +20,6 @@ from __future__ import annotations
 import pytest
 
 from app.services.prose_sanitize import (
-    strip_inline_markdown_preserving_h2,
     strip_markdown,
     strip_markdown_streaming,
 )
@@ -263,52 +262,3 @@ def test_streaming_cumulative_matches_nonstreaming() -> None:
     assert "**" not in streamed_full
 
 
-# --------------------------------------------------------------------------
-# strip_inline_markdown_preserving_h2
-# --------------------------------------------------------------------------
-
-
-def test_h2_preserved_inline_stripped() -> None:
-    raw = (
-        "## Apply\n"
-        "Look into **early action** dates.\n\n"
-        "## Visit\n"
-        "Tour the *campus* in fall."
-    )
-    out = strip_inline_markdown_preserving_h2(raw)
-    assert "## Apply" in out
-    assert "## Visit" in out
-    assert "**" not in out
-    assert "*campus*" not in out
-    assert "early action" in out
-    assert "campus" in out
-
-
-def test_h2_preserving_keeps_numbered_lists() -> None:
-    """The next_steps contract uses numbered items inside each
-    section. Those markers must survive."""
-    raw = (
-        "## Questions to Ask\n"
-        "1. Ask about **scholarships**.\n"
-        "2. Ask about *internships*.\n"
-    )
-    out = strip_inline_markdown_preserving_h2(raw)
-    assert "## Questions to Ask" in out
-    assert "1. Ask about scholarships." in out
-    assert "2. Ask about internships." in out
-    assert "**" not in out
-    assert "*internships*" not in out
-
-
-def test_h2_preserving_does_not_strip_h1_lines() -> None:
-    """Only ``## `` markers are special; ``#`` and ``###`` lines pass
-    through the inline-only stripper unchanged (they don't appear in
-    the next_steps contract anyway, but if they did, we wouldn't
-    silently rewrite them)."""
-    raw = "# Big title\n## Keep me\n### Sub"
-    out = strip_inline_markdown_preserving_h2(raw)
-    assert "## Keep me" in out
-    # ``# Big title`` and ``### Sub`` are not H2; the inline-only
-    # stripper leaves their leading ``#`` markers intact.
-    assert "# Big title" in out
-    assert "### Sub" in out

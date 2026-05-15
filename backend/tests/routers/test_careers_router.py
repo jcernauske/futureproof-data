@@ -401,7 +401,7 @@ class TestCareerDescriptionEndpoint:
         """
         captured: dict = {}
 
-        async def fake_service(soc_code: str, occupation_title: str):
+        async def fake_service(soc_code: str, occupation_title: str, locale=None):
             captured["soc"] = soc_code
             captured["title"] = occupation_title
             return _career_description(soc=soc_code)
@@ -432,7 +432,7 @@ class TestCareerDescriptionEndpoint:
     ):
         """Service raises CareerDescriptionUnavailable → endpoint maps to 502."""
 
-        async def raising_service(soc_code: str, occupation_title: str):
+        async def raising_service(soc_code: str, occupation_title: str, locale=None):
             raise CareerDescriptionUnavailable(
                 "two consecutive Gemma failures",
             )
@@ -459,7 +459,7 @@ class TestCareerDescriptionEndpoint:
         """
         called = {"value": False}
 
-        async def trap(soc_code: str, occupation_title: str):
+        async def trap(soc_code: str, occupation_title: str, locale=None):
             called["value"] = True
             raise AssertionError("service called despite 422")
 
@@ -482,7 +482,7 @@ class TestCareerDescriptionEndpoint:
         """occupation_title is required (Tier C fallback needs it). FastAPI
         returns 422 when it's absent.
         """
-        async def trap(soc_code: str, occupation_title: str):
+        async def trap(soc_code: str, occupation_title: str, locale=None):
             raise AssertionError("service called despite 422")
 
         monkeypatch.setattr(

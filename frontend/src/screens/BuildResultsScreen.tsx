@@ -24,7 +24,6 @@ import { GemmaChat } from "@/components/menu/GemmaChat";
 import { AnimatePresence, motion } from "framer-motion";
 import { springs } from "@/styles/motion";
 import { PageContainer } from "@/components/ui/PageContainer";
-import { renderWrapped } from "@/api/wrapped";
 import { ExportPdfButton } from "@/components/build-results/ExportPdfButton";
 import { CompareSchoolsPanel } from "@/components/CompareSchoolsPanel";
 import { fetchSchoolsByCipAndSoc, fetchSchoolsBySoc } from "@/api/careers";
@@ -70,53 +69,58 @@ const BOSS_CHIP_PREFIX_KEY: Record<BossOutcome, string> = {
   unknown: "build.askBoss.draw",
 };
 
-const STAT_STARTERS = [
-  "How can I improve this?",
-  "How does this compare nationally?",
+// i18n keys for Ask-Gemma scope-chip text. Resolved through `t(...)` at
+// render time so the chips follow the active locale. Keep the lookups
+// shallow — these are tiny maps that change rarely.
+const STAT_STARTER_KEYS = [
+  "build.askGemma.stat.improve",
+  "build.askGemma.stat.compare",
 ];
 
-const BOSS_LOSS_CHIPS: Record<BossId, string> = {
-  ai: "What skills would help me beat AI?",
-  loans: "How can I lower this debt burden?",
-  market: "What specializations are growing?",
-  burnout: "What makes this career so demanding?",
-  ceiling: "How do I raise my earning ceiling?",
+const BOSS_LOSS_CHIP_KEYS: Record<BossId, string> = {
+  ai: "build.askGemma.boss.lose.ai",
+  loans: "build.askGemma.boss.lose.loans",
+  market: "build.askGemma.boss.lose.market",
+  burnout: "build.askGemma.boss.lose.burnout",
+  ceiling: "build.askGemma.boss.lose.ceiling",
 };
 
-const BOSS_WIN_CHIPS: Record<BossId, string> = {
-  ai: "What makes this career AI-proof?",
-  loans: "What keeps my debt manageable?",
-  market: "Why is this field growing?",
-  burnout: "What keeps burnout low here?",
-  ceiling: "What drives the high earning potential?",
+const BOSS_WIN_CHIP_KEYS: Record<BossId, string> = {
+  ai: "build.askGemma.boss.win.ai",
+  loans: "build.askGemma.boss.win.loans",
+  market: "build.askGemma.boss.win.market",
+  burnout: "build.askGemma.boss.win.burnout",
+  ceiling: "build.askGemma.boss.win.ceiling",
 };
 
-const BOSS_DRAW_CHIPS: Record<BossId, string> = {
-  ai: "How close am I to beating AI?",
-  loans: "What would tip the debt balance?",
-  market: "What would push growth higher?",
-  burnout: "What's driving the burnout risk?",
-  ceiling: "What would raise the ceiling?",
+const BOSS_DRAW_CHIP_KEYS: Record<BossId, string> = {
+  ai: "build.askGemma.boss.draw.ai",
+  loans: "build.askGemma.boss.draw.loans",
+  market: "build.askGemma.boss.draw.market",
+  burnout: "build.askGemma.boss.draw.burnout",
+  ceiling: "build.askGemma.boss.draw.ceiling",
 };
 
-function bossStarters(outcome: BossOutcome, bossId: BossId): string[] {
+function bossStarters(
+  outcome: BossOutcome,
+  bossId: BossId,
+  t: (key: string) => string,
+): string[] {
   const chips: string[] = [];
   if (outcome === "win") {
-    chips.push(BOSS_WIN_CHIPS[bossId]);
+    chips.push(t(BOSS_WIN_CHIP_KEYS[bossId]));
   } else if (outcome === "lose") {
-    chips.push(BOSS_LOSS_CHIPS[bossId]);
+    chips.push(t(BOSS_LOSS_CHIP_KEYS[bossId]));
   } else {
-    chips.push(BOSS_DRAW_CHIPS[bossId]);
+    chips.push(t(BOSS_DRAW_CHIP_KEYS[bossId]));
   }
   if (outcome !== "win") {
-    chips.push("What skills should I pick to win?");
+    chips.push(t("build.askGemma.skill.pickToWin"));
   }
   return chips;
 }
 
-const SKILL_STARTERS = [
-  "Where do I learn this?",
-];
+const SKILL_STARTER_KEYS = ["build.askGemma.skill.where"];
 
 // Build-scope chips when running on Ollama (E4B). Tool calling on
 // gemma4:e4b is unreliable; the cloud STARTERS in GemmaChat were
@@ -255,7 +259,7 @@ export function BuildResultsScreen() {
         { kind: "stat", build_ids: [build.build_id], target_id: target },
         t("build.askPrefix").replace("{label}", label),
         undefined,
-        STAT_STARTERS,
+        STAT_STARTER_KEYS.map((k) => t(k)),
       );
     },
     [build, openChat, t],
@@ -272,7 +276,7 @@ export function BuildResultsScreen() {
         { kind: "boss", build_ids: [build.build_id], target_id: bossId },
         `${prefix}: ${t(meta.shortNameKey)}`,
         undefined,
-        bossStarters(result, bossId),
+        bossStarters(result, bossId, t),
       );
     },
     [build, fights, openChat, t],
@@ -297,7 +301,7 @@ export function BuildResultsScreen() {
         { kind: "skill", build_ids: [build.build_id], target_id: skillId },
         t("build.askPrefix").replace("{label}", truncated),
         `Where can I learn ${title}, and how would it help my career?`,
-        SKILL_STARTERS,
+        SKILL_STARTER_KEYS.map((k) => t(k)),
       );
     },
     [build, openChat, t],
@@ -315,9 +319,9 @@ export function BuildResultsScreen() {
     );
   }, [build, inferenceBackend, openChat, t]);
 
-  // Save state for the in-place Save button on the action bar.
-  // renderWrapped is the persistence trigger today (it also pre-renders
-  // the Wrapped frames, which is fine — caches them so Share is fast).
+  // Save button is pure UX feedback — the build is already autosaved
+  // server-side when the SSE build flow finishes. The spinner exists to
+  // give the user a tactile "I saved it" moment.
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const savedResetTimerRef = useRef<number | null>(null);
   const handleSave = useCallback(async () => {
@@ -328,16 +332,12 @@ export function BuildResultsScreen() {
       savedResetTimerRef.current = null;
     }
     setSaveState("saving");
-    try {
-      await renderWrapped(build.build_id);
-      setSaveState("saved");
-      savedResetTimerRef.current = window.setTimeout(() => {
-        setSaveState("idle");
-        savedResetTimerRef.current = null;
-      }, 1500);
-    } catch {
-      setSaveState("error");
-    }
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    setSaveState("saved");
+    savedResetTimerRef.current = window.setTimeout(() => {
+      setSaveState("idle");
+      savedResetTimerRef.current = null;
+    }, 1500);
   }, [build, saveState]);
   useEffect(() => {
     return () => {
@@ -1007,13 +1007,13 @@ export function BuildResultsScreen() {
                               type="button"
                               onClick={() => handleExplainStat(key)}
                               data-testid={`btn-explain-${key}`}
-                              aria-label={`Explain ${STAT_INFO[key]?.title ?? key.toUpperCase()} to me`}
+                              aria-label={t("build.statHover.explainAria", { label: STAT_INFO[key]?.title ?? key.toUpperCase() })}
                               disabled={chatOpen}
                               className="inline-flex items-center gap-1.5 mt-2 px-2 py-1 -mx-2 rounded-md font-body font-semibold transition-colors duration-fast cursor-pointer hover:bg-state-loading active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                               style={{ fontSize: 12, color: colors?.text }}
                             >
                               <span aria-hidden>✦</span>
-                              Explain this to me
+                              {t("build.statHover.explainAffordance")}
                             </button>
                           )}
                         </div>

@@ -1,11 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SetYourCourseScreen } from "@/screens/SetYourCourseScreen";
-import { GauntletScreen } from "@/screens/GauntletScreen";
 import { FutureScreen } from "@/screens/FutureScreen";
-import { SaveWrappedScreen } from "@/screens/SaveWrappedScreen";
 import { MenuScreen } from "@/screens/MenuScreen";
 import { MockupsShowcase } from "@/screens/MockupsShowcase";
+import { ArchetypesShowcase } from "@/screens/ArchetypesShowcase";
 import { BuildResultsScreen } from "@/screens/BuildResultsScreen";
 import { AboutScreen } from "@/screens/AboutScreen";
 import { AppHeader } from "@/components/ui/AppHeader";
@@ -24,7 +23,6 @@ export function AppRoutes() {
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/set-your-course" element={<SetYourCourseScreen />} />
         <Route path="/my-build" element={<BuildResultsScreen />} />
-        <Route path="/gauntlet" element={<GauntletScreen />} />
         {/* /future is the canonical career-tree route. "Branches"
             doesn't read to students; "future" is the framing the
             product actually owns. The old lane-style BranchHorizonMap
@@ -32,11 +30,19 @@ export function AppRoutes() {
             for any in-flight bookmarks. */}
         <Route path="/future" element={<FutureScreen />} />
         <Route path="/branches" element={<Navigate to="/future" replace />} />
-        <Route path="/save" element={<SaveWrappedScreen />} />
         <Route path="/menu" element={<Navigate to="/builds" replace />} />
         <Route path="/builds" element={<MenuScreen />} />
         <Route path="/about" element={<AboutScreen />} />
+        {/* /help is the in-app "read the shape" page — twelve pentagons:
+            nine real-build archetypes plus three illustrative missing-data
+            shapes. /mockups/archetypes stays at the original nine so
+            scripts/_archetype_screenshot.py (Kaggle writeup) keeps working. */}
+        <Route path="/help" element={<ArchetypesShowcase />} />
         <Route path="/mockups/horizon" element={<MockupsShowcase />} />
+        <Route
+          path="/mockups/archetypes"
+          element={<ArchetypesShowcase showMissingData={false} />}
+        />
       </Routes>
     </>
   );

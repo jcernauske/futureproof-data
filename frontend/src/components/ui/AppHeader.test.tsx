@@ -119,37 +119,6 @@ describe("AppHeader — right-zone visibility rules", () => {
     expect(document.querySelector("header")).toBeInTheDocument();
   });
 
-  it("hides all right-zone CTAs during active gauntlet fight", () => {
-    useBuildInputStore.setState({ school: SCHOOL, major: MAJOR });
-    useBuildStore.setState({ selectedCareer: CAREER });
-    useBuildsCountStore.setState({ count: 3, loading: false, error: null });
-    useGauntletStore.setState({ phase: "fighting" });
-    renderHeader("/gauntlet");
-    expect(screen.queryByTestId("header-my-builds")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("header-new-build")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("header-compare")).not.toBeInTheDocument();
-  });
-
-  it("still hides during final-boss phase of the gauntlet", () => {
-    useBuildInputStore.setState({ school: SCHOOL, major: MAJOR });
-    useBuildsCountStore.setState({ count: 3, loading: false, error: null });
-    useGauntletStore.setState({ phase: "final_boss" });
-    renderHeader("/gauntlet");
-    expect(screen.queryByTestId("header-my-builds")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("header-new-build")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("header-compare")).not.toBeInTheDocument();
-  });
-
-  it("shows persistent CTAs on /gauntlet when phase is not active fight", () => {
-    useBuildInputStore.setState({ school: SCHOOL, major: MAJOR });
-    useBuildsCountStore.setState({ count: 3, loading: false, error: null });
-    useGauntletStore.setState({ phase: "intro" });
-    renderHeader("/gauntlet");
-    expect(screen.getByTestId("header-my-builds")).toBeInTheDocument();
-    expect(screen.getByTestId("header-new-build")).toBeInTheDocument();
-    expect(screen.getByTestId("header-compare")).toBeInTheDocument();
-  });
-
   it("always renders 'New Build' label (no Try Another flex)", () => {
     useBuildsCountStore.setState({ count: 1, loading: false, error: null });
     const { unmount } = renderHeader("/builds");
@@ -248,6 +217,19 @@ describe("AppHeader — right-zone visibility rules", () => {
     renderHeader("/my-build");
     const button = screen.getByTestId("header-my-builds");
     expect(button).toHaveAttribute("aria-label", "My Builds (9 or more)");
+  });
+
+  it("Help button is visible in-app and navigates to /help", () => {
+    useBuildsCountStore.setState({ count: 0, loading: false, error: null });
+    renderHeader("/my-build");
+    const help = screen.getByTestId("header-help");
+    expect(help).toBeInTheDocument();
+    expect(help).toHaveAttribute(
+      "aria-label",
+      "Help — read what each pentagon shape means",
+    );
+    fireEvent.click(help);
+    expect(screen.getByTestId("current-path")).toHaveTextContent("/help");
   });
 
   it("aria-label on New Build is consistent across routes", () => {

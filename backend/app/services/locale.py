@@ -35,8 +35,20 @@ _ES_INSTRUCTION = (
     "Preserve official school names, occupation titles, source names and "
     "their acronyms (BLS, O*NET, IPEDS, BEA, College Scorecard), program "
     "names, dollar amounts, percentages, codes, and JSON keys exactly.\n"
-    "You may explain what an official English title means in Spanish after "
-    "naming it, but do not replace the canonical title.\n"
+    "On the FIRST mention of an occupation title, program/major name, or "
+    "career branch role in a response, you MUST follow the English term "
+    "with a Spanish gloss in parentheses. After that first mention, use "
+    "the English term alone — do not repeat the gloss.\n"
+    "Example: \"La carrera de Software Developer (desarrollador de "
+    "software) tiene una proyección de crecimiento del 17 por ciento. "
+    "Un Software Developer típico trabaja en equipos de ingeniería...\"\n"
+    "This gloss rule applies to: occupation titles (e.g., Software "
+    "Developer, Registered Nurse), program/major names (e.g., Computer "
+    "Science, Business Administration), and Stage 3 branch role titles "
+    "(e.g., Engineering Manager). It does NOT apply to institution names "
+    "(e.g., Indiana University) or to source acronyms (BLS, O*NET, "
+    "IPEDS, BEA, College Scorecard) — those stay in English with no "
+    "gloss.\n"
     "After the first reference to a data source, use only its English "
     "acronym (BLS, O*NET, IPEDS, BEA). Do not translate these acronyms.\n\n"
     "If your response includes a JSON section or structured output, keep "
@@ -71,8 +83,20 @@ _AR_INSTRUCTION = (
     "names, dollar amounts, percentages, codes, and JSON keys exactly — "
     "render them as-is in the original Latin script, do not transliterate "
     "into Arabic letters.\n"
-    "You may explain what an official English title means in Arabic after "
-    "naming it, but do not replace the canonical title.\n"
+    "On the FIRST mention of an occupation title, program/major name, or "
+    "career branch role in a response, you MUST follow the Latin-script "
+    "English term with an Arabic gloss in parentheses. After that first "
+    "mention, use the English term alone — do not repeat the gloss.\n"
+    "Example: \"مهنة Software Developer (مطوّر برمجيات) لديها نمو "
+    "متوقع بنسبة 17 بالمئة. يعمل Software Developer عادةً في "
+    "فرق هندسية...\"\n"
+    "This gloss rule applies to: occupation titles (e.g., Software "
+    "Developer, Registered Nurse), program/major names (e.g., Computer "
+    "Science, Business Administration), and Stage 3 branch role titles "
+    "(e.g., Engineering Manager). It does NOT apply to institution names "
+    "(e.g., Indiana University) or to source acronyms (BLS, O*NET, "
+    "IPEDS, BEA, College Scorecard) — those stay in English with no "
+    "gloss.\n"
     "After the first reference to a data source, use only its English "
     "acronym (BLS, O*NET, IPEDS, BEA). Do not translate these acronyms.\n"
     "Use Western Arabic numerals (0-9), not Eastern Arabic numerals "
@@ -118,15 +142,15 @@ def gemma_language_instruction(locale: AppLocale) -> str:
 _FALLBACKS: dict[str, dict[AppLocale, str]] = {
     "gemma_unreachable": {
         "en": (
-            "Gemma is unavailable right now. "
+            "The Guide is unavailable right now. "
             "Your data is still loaded — try again in a moment."
         ),
         "es": (
-            "Gemma no está disponible en este momento. "
+            "El guía no está disponible en este momento. "
             "Tus datos siguen cargados — inténtalo de nuevo."
         ),
         "ar": (
-            "Gemma غير متاح في الوقت الحالي. "
+            "المرشد غير متاح في الوقت الحالي. "
             "بياناتك لا تزال محمّلة — حاول مرة أخرى بعد قليل."
         ),
     },
@@ -142,20 +166,6 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
         "ar": (
             "لم يتم تحميل التحليل الكامل هذه المرة "
             "— يمكنك العودة إليه لاحقاً."
-        ),
-    },
-    "next_steps_unavailable": {
-        "en": (
-            "Your action plan didn't load this time "
-            "— try again in a moment."
-        ),
-        "es": (
-            "Tu plan de acción no se cargó esta vez "
-            "— inténtalo de nuevo en un momento."
-        ),
-        "ar": (
-            "لم يتم تحميل خطة العمل هذه المرة "
-            "— حاول مرة أخرى بعد قليل."
         ),
     },
     "boss_unknown_ai": {
@@ -188,15 +198,15 @@ _FALLBACKS: dict[str, dict[AppLocale, str]] = {
     },
     "chat_unavailable": {
         "en": (
-            "I'm having trouble reaching Gemma right now. "
+            "Having trouble reaching the Guide right now. "
             "Try the question again in a moment."
         ),
         "es": (
-            "Tengo problemas para conectar con Gemma ahora. "
+            "Tengo problemas para conectar con el guía ahora. "
             "Intenta la pregunta de nuevo en un momento."
         ),
         "ar": (
-            "أواجه صعوبة في الاتصال بـ Gemma الآن. "
+            "أواجه صعوبة في الاتصال بالمرشد الآن. "
             "حاول طرح السؤال مرة أخرى بعد قليل."
         ),
     },

@@ -15,11 +15,6 @@ Two entry points:
       the cleanly-stripped prefix that's safe to flush given a holdback
       window for unfinished markers.
 
-A third helper, ``strip_inline_markdown_preserving_h2``, is for the
-``next_steps`` surface where ``## Section`` headers are part of the
-contract that the frontend parser depends on; only inline markdown
-inside section bodies is stripped.
-
 Idempotent: ``strip_markdown(strip_markdown(x)) == strip_markdown(x)``.
 """
 
@@ -220,73 +215,3 @@ def _strip_markdown_monotonic(text: str) -> str:
     return out.strip()
 
 
-# --------------------------------------------------------------------------
-# next_steps surface — preserve ``## Section`` markers, strip the rest.
-# --------------------------------------------------------------------------
-
-
-_H2_LINE = re.compile(r"^[ \t]{0,3}##[ \t]+", flags=re.MULTILINE)
-
-
-_NUMBERED_LIST_MARKER = re.compile(
-    r"^[ \t]*\d+[.)][ \t]+",
-    flags=re.MULTILINE,
-)
-
-
-def strip_inline_markdown_preserving_h2(text: str) -> str:
-    """Strip inline markdown but keep ``## Section`` H2 headers and
-    numbered-list markers intact.
-
-    The Next Steps frontend parser splits on ``## `` headers to break
-    the response into sections, and the prompt contract asks for
-    numbered items (``1. ...``) within each section. Stripping either
-    would corrupt rendering. So inside section bodies we run a
-    targeted inline cleanup (bold/italic/inline-code/horizontal-rule
-    /numeric-code stripping) but leave the H2 markers and numbered
-    bullets in place.
-    """
-    if not text:
-        return text
-
-    # Split into segments around H2 markers, preserving them as
-    # captured groups.
-    parts = re.split(r"(?m)(^[ \t]{0,3}##[ \t]+[^\n]*$)", text)
-    cleaned_parts: list[str] = []
-    for part in parts:
-        if _H2_LINE.match(part):
-            cleaned_parts.append(part.rstrip())
-        else:
-            cleaned_parts.append(_strip_inline_only(part))
-
-    joined = "\n".join(p for p in cleaned_parts if p)
-    return _RUN_OF_NEWLINES.sub("\n\n", joined).strip()
-
-
-def _strip_inline_only(text: str) -> str:
-    """Strip emphasis, inline code, fences, HRs, and numeric codes,
-    but keep numbered-list and bullet markers (next_steps content)."""
-    if not text:
-        return text
-    out = text
-    out = _TRIPLE_BACKTICK_FENCE.sub("", out)
-    out = _HORIZONTAL_RULE_LINE.sub("", out)
-    # No header strip and no bullet strip here.
-    prev = ""
-    iterations = 0
-    while prev != out and iterations < 4:
-        prev = out
-        out = _BOLD_DOUBLE_STAR.sub(r"\1", out)
-        out = _BOLD_DOUBLE_UNDER.sub(r"\1", out)
-        out = _ITALIC_SINGLE_STAR.sub(r"\1", out)
-        out = _ITALIC_SINGLE_UNDER.sub(r"\1", out)
-        out = _INLINE_CODE.sub(r"\1", out)
-        iterations += 1
-    out = _TRAILING_ASTERISK_RUN.sub("", out)
-    out = _TRAILING_UNDERSCORE_RUN.sub("", out)
-    out = _STRAY_BACKTICK.sub("", out)
-    out = _NUMERIC_CODE_PARENTHETICAL.sub("", out)
-    out = _INLINE_NUMERIC_CODE.sub("", out)
-    out = _RUN_OF_NEWLINES.sub("\n\n", out)
-    out = "\n".join(line.rstrip() for line in out.split("\n"))
-    return out.strip()

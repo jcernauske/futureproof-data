@@ -46,13 +46,6 @@ vi.mock("@/api/gauntlet", () => ({
   rerollFight: (...args: unknown[]) => mockRerollFight(...args),
 }));
 
-// renderWrapped is the persistence trigger fired by the in-place Save
-// button on the /my-build action bar. Default to immediate success.
-const mockRenderWrapped = vi.fn().mockResolvedValue({ status: "ok", frame_count: 6 });
-vi.mock("@/api/wrapped", () => ({
-  renderWrapped: (...args: unknown[]) => mockRenderWrapped(...args),
-}));
-
 // Ask Gemma — patch the askGemma client at the module boundary so we
 // can assert which scope payload reaches the API when the user clicks
 // each entry point. Other @/api/menu exports remain real.
@@ -234,7 +227,6 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
         delta_loans_raw: 0,
       },
     ],
-    next_steps: "",
     profile_name: "dancing happy bear",
     ...overrides,
   };
@@ -345,9 +337,9 @@ describe("BuildResultsScreen -- loading state (P0)", () => {
 
     renderScreen();
 
-    // The loading text is rendered while the build is in flight.
+    // The loading screen renders the profile identity (name + major at school).
     await waitFor(() => {
-      expect(screen.getByText(/Gemma is analyzing your build/)).toBeInTheDocument();
+      expect(screen.getByText("dancing happy bear")).toBeInTheDocument();
     });
 
     // The animal emoji is used as a loading avatar.
@@ -630,7 +622,7 @@ describe("BuildResultsScreen -- boss bands (P1)", () => {
 });
 
 describe("BuildResultsScreen -- save button (P1)", () => {
-  it("save_button_calls_renderWrapped_in_place -- clicking Save fires renderWrapped without navigating", async () => {
+  it("save_button_stays_in_place -- clicking Save does not navigate (build is autosaved)", async () => {
     seedWithBuild();
     renderScreen();
 
@@ -639,9 +631,8 @@ describe("BuildResultsScreen -- save button (P1)", () => {
       fireEvent.click(saveButton);
     });
 
-    const seededBuildId = useBuildStore.getState().build?.build_id;
-    expect(mockRenderWrapped).toHaveBeenCalledWith(seededBuildId);
     expect(mockNavigate).not.toHaveBeenCalledWith("/save");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/future");
   });
 
   it("future_tree_link_navigates -- clicking future tree link navigates to /future", () => {
@@ -1165,8 +1156,8 @@ describe("BuildResultsScreen -- institution card", () => {
       screen.getByText(/UC Berkeley has strong alignment/),
     ).toBeInTheDocument();
 
-    // The "Written by Gemma" attribution is present.
-    expect(screen.getByText(/Written by Gemma/)).toBeInTheDocument();
+    // The "Written by the Guide" attribution is present.
+    expect(screen.getByText(/Written by the Guide/)).toBeInTheDocument();
   });
 
   it("shows placeholder when guidance is empty (streaming skeleton)", () => {
