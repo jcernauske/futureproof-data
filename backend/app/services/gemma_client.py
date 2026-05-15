@@ -134,7 +134,7 @@ def runtime_profile(config: InferenceConfig | None = None) -> ModelRuntimeProfil
         build_guidance_max_tokens=1200,
         eager_career_description=True,
         sequential_build_stream=False,
-        ask_tool_wall_time_s=45.0,
+        ask_tool_wall_time_s=60.0,
         ask_max_tokens=1200,
         ask_skip_tool_calling=False,
     )
@@ -1306,6 +1306,7 @@ async def generate_with_tools_loop(
     on_turn_start: TurnStartCallback | None = None,
     on_turn_event: TurnEventCallback | None = None,
     final_turn_response_format: dict[str, Any] | None = None,
+    synthesize_on_turn_cap: bool = False,
 ) -> tuple[str, list[ToolCallTurn]]:
     """Multi-turn Gemma tool-calling loop.
 
@@ -1353,6 +1354,7 @@ async def generate_with_tools_loop(
             on_turn_start=on_turn_start,
             on_turn_event=on_turn_event,
             final_turn_response_format=final_turn_response_format,
+            synthesize_on_turn_cap=synthesize_on_turn_cap,
         )
 
 
@@ -1370,6 +1372,7 @@ async def _tools_loop_inner(
     on_turn_start: TurnStartCallback | None = None,
     on_turn_event: TurnEventCallback | None = None,
     final_turn_response_format: dict[str, Any] | None = None,
+    synthesize_on_turn_cap: bool = False,
 ) -> tuple[str, list[ToolCallTurn]]:
     """Core loop logic, runs inside the semaphore."""
     _client, config = _cached_client()
@@ -1574,6 +1577,48 @@ async def _tools_loop_inner(
         logger.warning(
             "generate_with_tools_loop: turn cap reached (%d turns)", max_turns
         )
+
+    # Forced-synthesis fallback (opt-in): we burned all turns on tool
+    # calls but never produced text. Fire one tools=[] call so the model
+    # has to synthesize from the tool results we already collected.
+    # Off by default — callers that treat empty text as a deliberate
+    # signal (e.g. set_your_course chip dispatch's tail-marker contract)
+    # keep current behavior.
+    if synthesize_on_turn_cap and tool_call_log and not final_text:
+        remaining = max_wall_time_s - (time.perf_counter() - wall_start)
+        if remaining > 1.0:
+            synth_start = time.perf_counter()
+            try:
+                synth_text, _ = await asyncio.wait_for(
+                    _one_tool_turn(
+                        messages=messages,
+                        tools=[],  # force text emission, no more tool calls
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        turn_number=max_turns,
+                        extra=extra,
+                        response_format=final_turn_response_format,
+                    ),
+                    timeout=remaining,
+                )
+                if synth_text:
+                    _log_tool_turn(
+                        turn_number=max_turns,
+                        tools_offered=[],
+                        tool_called=None,
+                        tool_result_size=0,
+                        duration_ms=int(
+                            (time.perf_counter() - synth_start) * 1000
+                        ),
+                        error=None,
+                        extra={**(extra or {}), "forced_synthesis": True},
+                    )
+                    return synth_text, tool_call_log
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "generate_with_tools_loop: forced synthesis timed out"
+                )
+
     return final_text, tool_call_log
 
 

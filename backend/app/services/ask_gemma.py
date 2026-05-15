@@ -4117,7 +4117,7 @@ async def chat_ask(
             user=user_msg,
             tools=tool_schemas,
             dispatch=_dispatch,
-            max_turns=5,
+            max_turns=6,
             max_wall_time_s=profile.ask_tool_wall_time_s,
             temperature=_EXPLAIN_TEMPERATURE if explain_config else _TEMPERATURE,
             max_tokens=_EXPLAIN_MAX_TOKENS if explain_config else profile.ask_max_tokens,
@@ -4125,6 +4125,7 @@ async def chat_ask(
             final_turn_response_format=(
                 _EXPLAIN_RESPONSE_FORMAT if explain_config else None
             ),
+            synthesize_on_turn_cap=True,
         )
 
     # Explain-receipt post-processing via registry. On success the
@@ -4177,6 +4178,7 @@ async def chat_ask(
             temperature=_EXPLAIN_TEMPERATURE,
             max_tokens=_EXPLAIN_MAX_TOKENS,
             extra={**extra, "fallback_after_json_parse_failure": True},
+            synthesize_on_turn_cap=True,
         )
 
     if not text:
@@ -4473,7 +4475,7 @@ async def chat_ask_stream(
                 user=user_msg,
                 tools=tool_schemas,
                 dispatch=_dispatch,
-                max_turns=5,
+                max_turns=6,
                 max_wall_time_s=profile.ask_tool_wall_time_s,
                 temperature=(
                     _EXPLAIN_TEMPERATURE if explain_config else _TEMPERATURE
@@ -4489,6 +4491,7 @@ async def chat_ask_stream(
                 final_turn_response_format=(
                     _EXPLAIN_RESPONSE_FORMAT if explain_config else None
                 ),
+                synthesize_on_turn_cap=True,
             )
         )
     )
@@ -4556,6 +4559,7 @@ async def chat_ask_stream(
                         **extra,
                         "fallback_after_json_parse_failure": True,
                     },
+                    synthesize_on_turn_cap=True,
                 )
             )
             try:

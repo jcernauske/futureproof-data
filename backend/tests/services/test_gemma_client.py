@@ -1053,6 +1053,159 @@ async def test_generate_with_tools_loop_turn_cap(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_generate_with_tools_loop_synthesize_on_turn_cap_fires(
+    monkeypatch, tmp_path,
+):
+    """When ``synthesize_on_turn_cap=True`` and the loop exhausts every
+    turn on tool calls without ever producing text, the loop fires one
+    final ``tools=[]`` synthesis call and returns its text.
+
+    Sequence: 3 tool-call responses (one per turn, max_turns=3) +
+    1 synthesis response (the forced extra call). The forced call is
+    the recovery path that the chat surfaces use to avoid the
+    ``chat_unavailable`` fallback when a complex multi-tool question
+    naturally fans out to ``max_turns`` calls before any synthesis turn
+    fires.
+    """
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args, "c1"),
+        _ToolCallResponse("get_career_paths", _args, "c2"),
+        _ToolCallResponse("get_career_paths", _args, "c3"),
+        _PlainTextResponse("Synthesized answer from collected tool data."),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        max_turns=3,
+        synthesize_on_turn_cap=True,
+    )
+
+    assert text == "Synthesized answer from collected tool data."
+    # tool_call_log only contains the actual tool dispatches, not the
+    # forced synthesis call (which had tools=[] and emitted text directly).
+    assert len(log) == 3
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_synthesize_default_off(
+    monkeypatch, tmp_path,
+):
+    """Default ``synthesize_on_turn_cap=False`` preserves byte-for-byte
+    legacy behavior — empty text on turn-cap exhaustion. This is the
+    contract that ``set_your_course.py:1256`` (chip dispatch) relies on:
+    empty ``raw`` is the ``_TRANSPORT_FAILURE_MESSAGE`` signal, and
+    non-empty ``raw`` MUST contain tail markers.
+    """
+    _args = '{"unitid": 1, "cipcode": "52.14"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _args, "c1"),
+        _ToolCallResponse("get_career_paths", _args, "c2"),
+        _ToolCallResponse("get_career_paths", _args, "c3"),
+        # If the forced-synthesis branch wrongly fires, this would be
+        # consumed and the test would still pass on text — so use a
+        # response that would mask the bug if the branch fires:
+        _PlainTextResponse("LEAKED forced synthesis text."),
+    ])
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        return {"data": []}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        max_turns=3,
+        # synthesize_on_turn_cap omitted — defaults to False.
+    )
+
+    assert text == ""
+    assert len(log) == 3
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_synthesize_skipped_when_no_tool_calls(
+    monkeypatch, tmp_path,
+):
+    """``synthesize_on_turn_cap`` is gated on ``tool_call_log`` being
+    non-empty. If a transport error or empty-text response exits the
+    loop before any tool was dispatched, forced synthesis must NOT
+    fire — there's nothing to synthesize from, and firing would burn
+    an extra OpenRouter call for no reason.
+
+    Sequence: one transport failure (None response) → loop exits
+    immediately at ``response_tool_calls is None`` branch with empty
+    ``tool_call_log``. Forced synthesis must not be attempted.
+    """
+    monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
+    monkeypatch.setenv("GEMMA_MAX_CONCURRENCY", "8")
+    gemma_client.reset_cache()
+
+    create_call_count = [0]
+
+    class _Completions:
+        def create(self, **kwargs):
+            create_call_count[0] += 1
+            raise ConnectionError("Backend down")
+
+    class _Chat:
+        def __init__(self):
+            self.completions = _Completions()
+
+    class _StubClient:
+        def __init__(self):
+            self.chat = _Chat()
+
+    cfg = gemma_client.InferenceConfig(
+        backend="openrouter",
+        base_url="http://stub",
+        api_key="stub",
+        model="gemma4:stub",
+    )
+
+    from functools import lru_cache
+
+    stub_client = _StubClient()
+
+    @lru_cache(maxsize=1)
+    def _stub_cached_client():
+        return stub_client, cfg
+
+    monkeypatch.setattr(gemma_client, "_cached_client", _stub_cached_client)
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        raise AssertionError("dispatch must not be called")
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        max_turns=3,
+        synthesize_on_turn_cap=True,
+    )
+
+    assert text == ""
+    assert log == []
+    # Only the one (failed) primary call. If forced synthesis had
+    # fired, we'd see a second call attempt here.
+    # Note: hedging may schedule a second backup call after 8s; this
+    # test runs well under that window so create() is invoked exactly
+    # once.
+    assert create_call_count[0] == 1
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
 async def test_generate_with_tools_loop_transport_error(monkeypatch, tmp_path):
     """When the client raises on turn 1, returns empty text."""
     monkeypatch.setenv("GEMMA_LOG_DISABLED", "1")
