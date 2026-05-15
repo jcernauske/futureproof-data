@@ -62,6 +62,14 @@ describe("BuildLoadingScreen", () => {
     expect(container.textContent).toContain("forge.stat.roi.loading");
   });
 
+  it("gives the pentagon labels enough left padding", () => {
+    render(<BuildLoadingScreen {...BASE_PROPS} />);
+    expect(screen.getByTestId("build-loading-pentagon")).toHaveAttribute(
+      "viewBox",
+      "-54 -28 304 280",
+    );
+  });
+
   it("shows error overlay with retry and go-back buttons", () => {
     const onRetry = vi.fn();
     const onGoBack = vi.fn();

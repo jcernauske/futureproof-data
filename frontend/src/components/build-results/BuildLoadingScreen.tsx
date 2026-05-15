@@ -130,7 +130,12 @@ export function BuildLoadingScreen({
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 1.0, ...springs.smooth }}
         >
-          <svg viewBox="-30 -28 280 280" width={280} height={280}>
+          <svg
+            viewBox="-54 -28 304 280"
+            width={280}
+            height={280}
+            data-testid="build-loading-pentagon"
+          >
             {/* Ghost pentagon wireframe */}
             <polygon
               points={PENTAGON_POINTS}

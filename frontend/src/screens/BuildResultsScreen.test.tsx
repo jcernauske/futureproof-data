@@ -619,6 +619,107 @@ describe("BuildResultsScreen -- boss bands (P1)", () => {
 
     expect(await screen.findByTestId("btn-ask-boss-burnout")).toBeInTheDocument();
   });
+
+  it("sealed_boss_band_scroll_reveals -- entering viewport reveals the band", async () => {
+    const originalIntersectionObserver = globalThis.IntersectionObserver;
+    let visibilityCallback: IntersectionObserverCallback | undefined;
+
+    class MockIntersectionObserver implements IntersectionObserver {
+      readonly root: Element | Document | null = null;
+      readonly rootMargin = "";
+      readonly thresholds: ReadonlyArray<number> = [];
+
+      constructor(callback: IntersectionObserverCallback) {
+        visibilityCallback ??= callback;
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+    }
+
+    globalThis.IntersectionObserver =
+      MockIntersectionObserver as unknown as typeof IntersectionObserver;
+
+    try {
+      seedWithBuild();
+      renderScreen();
+
+      const burnoutBand = screen
+        .getAllByRole("button", { name: "Reveal Burnout fight" })
+        .find((el) => el.dataset.boss === "burnout");
+      expect(burnoutBand).toBeDefined();
+
+      await act(async () => {
+        visibilityCallback?.(
+          [
+            {
+              target: burnoutBand!,
+              isIntersecting: true,
+            } as IntersectionObserverEntry,
+          ],
+          {} as IntersectionObserver,
+        );
+        await vi.advanceTimersByTimeAsync(1500);
+      });
+
+      expect(await screen.findByTestId("btn-ask-boss-burnout")).toBeInTheDocument();
+    } finally {
+      globalThis.IntersectionObserver = originalIntersectionObserver;
+    }
+  });
+
+  it("sealed_boss_band_scroll_fallback_reveals -- scroll rect check reveals without observer events", async () => {
+    const originalIntersectionObserver = globalThis.IntersectionObserver;
+
+    class NoopIntersectionObserver implements IntersectionObserver {
+      readonly root: Element | Document | null = null;
+      readonly rootMargin = "";
+      readonly thresholds: ReadonlyArray<number> = [];
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+    }
+
+    globalThis.IntersectionObserver =
+      NoopIntersectionObserver as unknown as typeof IntersectionObserver;
+
+    try {
+      seedWithBuild();
+      renderScreen();
+
+      const burnoutBand = screen
+        .getAllByRole("button", { name: "Reveal Burnout fight" })
+        .find((el) => el.dataset.boss === "burnout");
+      expect(burnoutBand).toBeDefined();
+      vi.spyOn(burnoutBand!, "getBoundingClientRect").mockReturnValue({
+        top: 120,
+        bottom: 280,
+        left: 0,
+        right: 600,
+        width: 600,
+        height: 160,
+        x: 0,
+        y: 120,
+        toJSON: () => ({}),
+      });
+
+      await act(async () => {
+        fireEvent.scroll(window);
+        await vi.advanceTimersByTimeAsync(1500);
+      });
+
+      expect(await screen.findByTestId("btn-ask-boss-burnout")).toBeInTheDocument();
+    } finally {
+      globalThis.IntersectionObserver = originalIntersectionObserver;
+    }
+  });
 });
 
 describe("BuildResultsScreen -- save button (P1)", () => {

@@ -594,6 +594,26 @@ export function BuildResultsScreen() {
     }
   }, [processNext]);
 
+  const triggerVisibleBossBands = useCallback(() => {
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight || 0;
+    if (viewportHeight <= 0) return;
+
+    const revealTop = viewportHeight * 0.95;
+    const revealBottom = viewportHeight * 0.05;
+
+    bandRefs.current.forEach((el, bossId) => {
+      if (revealedBandsRef.current.has(bossId)) return;
+      const rect = el.getBoundingClientRect();
+      const hasHeight = rect.height > 0 || rect.bottom > rect.top;
+      if (!hasHeight) return;
+      if (rect.top < revealTop && rect.bottom > revealBottom) {
+        setVisibleBands((p) => new Set(p).add(bossId));
+        triggerReveal(bossId);
+      }
+    });
+  }, [triggerReveal]);
+
   // IntersectionObserver setup
   useEffect(() => {
     if (!build || fights.length === 0) return;
@@ -605,6 +625,7 @@ export function BuildResultsScreen() {
           if (!bossId) return;
           if (entry.isIntersecting) {
             setVisibleBands((p) => new Set(p).add(bossId));
+            triggerReveal(bossId);
           }
         });
       },
@@ -639,14 +660,20 @@ export function BuildResultsScreen() {
       centerObserver.observe(el);
     });
 
+    triggerVisibleBossBands();
+    window.addEventListener("scroll", triggerVisibleBossBands, { passive: true });
+    window.addEventListener("resize", triggerVisibleBossBands);
+
     return () => {
       visibilityObserver.disconnect();
       centerObserver.disconnect();
+      window.removeEventListener("scroll", triggerVisibleBossBands);
+      window.removeEventListener("resize", triggerVisibleBossBands);
     };
   // `isBuilding` is included so the observer re-runs when the loading
   // screen unmounts and boss-band refs become available.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [build, fights, isBuilding, triggerReveal, skipToRevealed]);
+  }, [build, fights, isBuilding, triggerReveal, skipToRevealed, triggerVisibleBossBands]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
