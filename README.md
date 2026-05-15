@@ -89,7 +89,7 @@ flowchart LR
   OL -->|loads| G4E[(Gemma 4 E4B<br/>4.5B params, 128K ctx)]
   OR -->|hosted| G4H[(Gemma 4 26B MoE<br/>256K ctx)]
   BE -->|MCP tool calls| MCP[MCP server: 11 tools, 10 in active use]
-  MCP -->|reads| GOLD[(DuckDB Gold zone<br/>10 consumable tables)]
+  MCP -->|reads via PyIceberg + DuckDB| GOLD[(Apache Iceberg Gold zone<br/>10 consumable tables)]
   GOLD -.->|sourced from| SRC[College Scorecard · BLS · O*NET · BEA · IPEDS · EADA]
   GOLD -.->|3-signal AI exposure| AIEX[Karpathy · Anthropic Economic Index · Gemma-rescored]
 
@@ -178,7 +178,7 @@ This is Brightsmith's stance: every datum in the Gold zone has lineage back to a
 | Model runtime (cloud) | [OpenRouter](https://openrouter.ai) via OpenAI-compatible chat completions |
 | Default model (local) | `gemma4:e4b` — 4.5B effective params, 128K context |
 | Default model (cloud) | `google/gemma-4-26b-a4b-it` — 26B MoE, 256K context |
-| Data store | DuckDB 1.1 (Gold zone) over Apache Iceberg-style Bronze/Silver lake |
+| Data layer | Apache Iceberg (Bronze / Silver / Gold, 66 tables), queried via PyIceberg + DuckDB 1.1 |
 | Data pipeline | [Brightsmith](https://github.com/hyena-studios/brightsmith) — Bronze → Silver → Gold → MCP |
 | Public data sources | College Scorecard, BLS OOH, O\*NET, NCES CIP↔SOC crosswalk, BEA Regional Price Parities, IPEDS finance, EADA |
 | AI exposure signals | Karpathy AI Exposure Index, Anthropic Economic Index, Gemma occupation-level exposure scores (`gemma4:26b-a4b` at pipeline time — one 0–10 score per SOC, with the automatable/human-essential task split stored as receipts) |
@@ -260,7 +260,7 @@ A complete annotated reference lives at [`docs/env-template.txt`](docs/env-templ
 │       ├── components/  # menu/, build-results/, landing/, …
 │       ├── api/         # Typed fetchers
 │       └── lib/         # Hooks, formatters, design tokens
-├── data/                # DuckDB Gold zone (gitignored)
+├── data/                # Apache Iceberg lake (Bronze/Silver/Gold) + catalog, shipped in-repo
 ├── domain/              # Brightsmith domain config
 ├── glossaries/          # Business glossary terms
 ├── governance/          # Data contracts, DQ rules, chaos manifests
