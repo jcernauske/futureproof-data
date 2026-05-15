@@ -249,7 +249,16 @@ def _truthy(value: str | None) -> bool:
 
 
 def _openrouter_provider_options() -> dict[str, Any] | None:
-    """Build the `provider` routing dict. Returns None when disabled."""
+    """Build the `provider` routing dict. Returns None when disabled.
+
+    ``quantizations`` defaults to ``bf16,fp16`` because fp8-quantized
+    providers serving gemma-4-26b were dropping required tool-call
+    arguments under load (e.g. ``get_regional_price_parity`` emitted
+    without ``state``). Restricting to bf16/fp16 keeps tool-calling
+    reliable; we still get most of the throughput win since OpenRouter
+    sorts within the quant-eligible set. Set to ``any`` to disable
+    the filter.
+    """
     sort = os.environ.get("OPENROUTER_PROVIDER_SORT", "throughput").strip().lower()
     if not sort or sort == "off":
         return None
@@ -259,11 +268,17 @@ def _openrouter_provider_options() -> dict[str, Any] | None:
     require_parameters = _truthy(
         os.environ.get("OPENROUTER_PROVIDER_REQUIRE_PARAMS", "true")
     )
-    return {
+    options: dict[str, Any] = {
         "sort": sort,
         "allow_fallbacks": allow_fallbacks,
         "require_parameters": require_parameters,
     }
+    quant_raw = os.environ.get("OPENROUTER_QUANTIZATIONS", "bf16,fp16").strip().lower()
+    if quant_raw and quant_raw != "any":
+        quantizations = [q.strip() for q in quant_raw.split(",") if q.strip()]
+        if quantizations:
+            options["quantizations"] = quantizations
+    return options
 
 
 def _apply_openrouter_routing(completion_kwargs: dict[str, Any]) -> None:

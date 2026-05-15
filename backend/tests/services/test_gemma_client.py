@@ -56,13 +56,29 @@ def test_openrouter_routing_defaults_to_throughput(monkeypatch) -> None:
     monkeypatch.delenv("OPENROUTER_PROVIDER_SORT", raising=False)
     monkeypatch.delenv("OPENROUTER_PROVIDER_ALLOW_FALLBACKS", raising=False)
     monkeypatch.delenv("OPENROUTER_PROVIDER_REQUIRE_PARAMS", raising=False)
+    monkeypatch.delenv("OPENROUTER_QUANTIZATIONS", raising=False)
     kwargs: dict = {"model": "x", "messages": []}
     gemma_client._apply_openrouter_routing(kwargs)
     assert kwargs["extra_body"]["provider"] == {
         "sort": "throughput",
         "allow_fallbacks": True,
         "require_parameters": True,
+        "quantizations": ["bf16", "fp16"],
     }
+
+
+def test_openrouter_routing_quantizations_any_disables_filter(monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_QUANTIZATIONS", "any")
+    kwargs: dict = {"model": "x", "messages": []}
+    gemma_client._apply_openrouter_routing(kwargs)
+    assert "quantizations" not in kwargs["extra_body"]["provider"]
+
+
+def test_openrouter_routing_quantizations_custom_list(monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_QUANTIZATIONS", "bf16,  fp8 ")
+    kwargs: dict = {"model": "x", "messages": []}
+    gemma_client._apply_openrouter_routing(kwargs)
+    assert kwargs["extra_body"]["provider"]["quantizations"] == ["bf16", "fp8"]
 
 
 def test_openrouter_routing_off_skips_injection(monkeypatch) -> None:
