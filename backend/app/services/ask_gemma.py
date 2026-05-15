@@ -96,6 +96,7 @@ _TOOLS: tuple[str, ...] = (
     "get_occupation_data",
     "get_regional_price_parity",
     "compare_purchasing_power",
+    "rank_states_by_purchasing_power",
     "get_career_branches",
     # School-comparison leaderboard. Powers chat questions like
     # "what other schools lead to this career for less money" and
@@ -172,9 +173,14 @@ _SYSTEM_BASE = (
     "their notation in your reply. Read what's inside the brackets, "
     "translate it to plain English, and write the plain-English "
     "version.\n\n"
-    "You have five tools available — get_career_paths, "
+    "You have six tools available — get_career_paths, "
     "get_occupation_data, get_regional_price_parity, "
-    "compare_purchasing_power, get_career_branches. Use them generously "
+    "compare_purchasing_power, rank_states_by_purchasing_power, "
+    "get_career_branches. Use rank_states_by_purchasing_power when the "
+    "student asks where they could live most affordably, which states "
+    "stretch the salary furthest, or any other 'rank states' question — "
+    "it returns all 51 states sorted by adjusted purchasing power without "
+    "needing a state input. Use them generously "
     "any time fresh data would make your answer more accurate, more "
     "specific, or more verifiable than what you can pull from the "
     "loaded context. The student values seeing you check sources rather "

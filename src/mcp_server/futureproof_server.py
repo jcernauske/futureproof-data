@@ -975,6 +975,64 @@ class FutureProofMCPServer(BaseMCPServer):
                 handler=self._handle_compare_purchasing_power,
             ),
             ToolDef(
+                name="rank_states_by_purchasing_power",
+                description=(
+                    "Rank all 51 US states (50 + DC) by adjusted purchasing "
+                    "power of a national salary, using BEA Regional Price "
+                    "Parity. Answers questions like 'where could I live most "
+                    "affordably on this salary' without needing the caller to "
+                    "specify a state. Returns a sorted list with state_name, "
+                    "state_abbr, adjusted_salary, cost_tier, "
+                    "purchasing_power_multiplier (full precision), and "
+                    "data_source for each row. Use top_n to cap the response; "
+                    "omit it (or pass null) to get all 51. Use order='cheapest_first' "
+                    "for highest purchasing power first (most affordable), "
+                    "'expensive_first' for lowest first."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "salary": {
+                            "type": "number",
+                            "description": (
+                                "National salary in US dollars (e.g., 65000). "
+                                "Must be positive and less than 10,000,000."
+                            ),
+                        },
+                        "top_n": {
+                            "type": ["integer", "null"],
+                            "description": (
+                                "Maximum number of states to return. Omit or "
+                                "pass null to get all 51. Useful values: 5 "
+                                "(for top picks), 10 (for a comparison set)."
+                            ),
+                            "default": None,
+                        },
+                        "order": {
+                            "type": "string",
+                            "enum": ["cheapest_first", "expensive_first"],
+                            "description": (
+                                "Sort direction. 'cheapest_first' (default) "
+                                "ranks by highest purchasing_power_multiplier "
+                                "first — most affordable for the salary. "
+                                "'expensive_first' inverts."
+                            ),
+                            "default": "cheapest_first",
+                        },
+                        "verified_only": {
+                            "type": "boolean",
+                            "description": (
+                                "If true, exclude rows where data_source="
+                                "'estimate'. Defaults to false."
+                            ),
+                            "default": False,
+                        },
+                    },
+                    "required": ["salary"],
+                },
+                handler=self._handle_rank_states_by_purchasing_power,
+            ),
+            ToolDef(
                 name="get_school_programs",
                 description=(
                     "Look up all programs (majors) offered at a US school, "
@@ -1952,6 +2010,126 @@ class FutureProofMCPServer(BaseMCPServer):
 
         return self.enrich_response(
             {"data": payload, "row_count": 2},
+            RPP_TABLE_NAME,
+        )
+
+    # ------------------------------------------------------------------
+    # Tool handler: rank_states_by_purchasing_power
+    # ------------------------------------------------------------------
+
+    def _handle_rank_states_by_purchasing_power(self, input_dict: dict) -> dict:
+        """Rank all 51 states by adjusted purchasing power of a salary.
+
+        Pipeline:
+            1. Validate salary (type, sign, range, NaN/inf, bool)
+            2. Validate top_n (positive int or None) and order (enum)
+            3. Fetch all RPP rows (limit=100 covers 51 states)
+            4. Optionally drop estimate rows if verified_only=true
+            5. Compute adjusted_salary per row, sort by purchasing power
+            6. Truncate to top_n if specified
+        """
+        salary, msg = self._validate_salary(input_dict.get("salary"))
+        if salary is None:
+            return self.attach_governance(
+                {"data": None, "message": msg},
+                RPP_TABLE_NAME,
+            )
+
+        raw_top_n = input_dict.get("top_n")
+        top_n: int | None
+        if raw_top_n is None:
+            top_n = None
+        elif isinstance(raw_top_n, bool) or not isinstance(raw_top_n, int):
+            return self.attach_governance(
+                {
+                    "data": None,
+                    "message": (
+                        f"top_n must be a positive integer or null; got "
+                        f"{raw_top_n!r}"
+                    ),
+                },
+                RPP_TABLE_NAME,
+            )
+        elif raw_top_n <= 0:
+            return self.attach_governance(
+                {
+                    "data": None,
+                    "message": (
+                        f"top_n must be a positive integer or null; got "
+                        f"{raw_top_n!r}"
+                    ),
+                },
+                RPP_TABLE_NAME,
+            )
+        else:
+            top_n = raw_top_n
+
+        order = str(input_dict.get("order", "cheapest_first") or "cheapest_first")
+        if order not in {"cheapest_first", "expensive_first"}:
+            return self.attach_governance(
+                {
+                    "data": None,
+                    "message": (
+                        f"order must be 'cheapest_first' or 'expensive_first'; "
+                        f"got {order!r}"
+                    ),
+                },
+                RPP_TABLE_NAME,
+            )
+
+        verified_only = bool(input_dict.get("verified_only", False))
+
+        rows = self.query_iceberg_simple(
+            RPP_TABLE_NAME,
+            filters=None,
+            columns=RPP_QUERY_FIELDS,
+            limit=100,
+        )
+        if not rows or (rows and "error" in rows[0]):
+            return self.attach_governance(
+                {
+                    "data": None,
+                    "message": "No regional price parity data available.",
+                },
+                RPP_TABLE_NAME,
+            )
+
+        if verified_only:
+            rows = [r for r in rows if r.get("verification_status") != "estimate"]
+            if not rows:
+                return self.attach_governance(
+                    {
+                        "data": None,
+                        "message": (
+                            "All regional price parity rows are estimates and "
+                            "strict mode is enabled."
+                        ),
+                    },
+                    RPP_TABLE_NAME,
+                )
+
+        ranked = [
+            self._compact_side(
+                row,
+                round(salary * float(row["purchasing_power_multiplier"]), 2),
+            )
+            for row in rows
+        ]
+        ranked.sort(
+            key=lambda r: r["purchasing_power_multiplier"],
+            reverse=(order == "cheapest_first"),
+        )
+
+        if top_n is not None:
+            ranked = ranked[:top_n]
+
+        payload = {
+            "salary": salary,
+            "order": order,
+            "states": ranked,
+        }
+        return self.enrich_response(
+            {"data": payload, "row_count": len(ranked)},
             RPP_TABLE_NAME,
         )
 

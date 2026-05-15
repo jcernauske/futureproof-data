@@ -1737,7 +1737,14 @@ async def _tools_loop_inner(
                 extra=extra,
             )
 
-            if dispatch_error:
+            # On a wall-time timeout we cannot afford another turn — bail
+            # so the caller gets the partial trace. Other dispatch errors
+            # (bad args, MCP schema failure, transient handler raise) are
+            # surfaced to Gemma as the tool result so it can self-correct
+            # on the next turn — e.g. fix a missing required argument or
+            # pick a different tool entirely. Without this, a single
+            # malformed tool call collapses the whole chat turn.
+            if dispatch_error and "TimeoutError" in dispatch_error:
                 return "", tool_call_log
 
             # Append assistant tool-call + tool result to history so the

@@ -37,3 +37,42 @@ INFERENCE_BACKEND=ollama
 # Hosted Gemma 4 model. Override only if OpenRouter changes the slug or you
 # intentionally choose a different Gemma 4 variant.
 # OPENROUTER_MODEL=google/gemma-4-26b-a4b-it
+
+# --------------------------------------------------------------------------
+# OpenRouter provider routing — used when INFERENCE_BACKEND=openrouter
+# --------------------------------------------------------------------------
+# OpenRouter rotates each model slug across ~10 underlying providers with
+# wildly different throughput, quantization, and parameter-honoring quality.
+# The hosted demo pins to Google (first-party host) for predictability;
+# override these if you're running your own deployment.
+
+# Strict provider allowlist. Comma-separated provider display names exactly
+# as they appear on the OpenRouter model page. When set, every request is
+# pinned and ALLOW_FALLBACKS defaults to false (predictable but will 503 if
+# pinned providers are at capacity). Leave unset to use sort+quant mode.
+# OPENROUTER_PROVIDER_ONLY=Google
+
+# Provider ranking strategy when not pinned. throughput | latency | price | off
+# OPENROUTER_PROVIDER_SORT=throughput
+
+# Whether OpenRouter may fall back to non-preferred providers if the top
+# choice is at capacity. Defaults: true in sort mode, false in pinned mode.
+# OPENROUTER_PROVIDER_ALLOW_FALLBACKS=true
+
+# When true, only providers that advertise support for every request
+# parameter (tools, response_format, seed) are eligible.
+# OPENROUTER_PROVIDER_REQUIRE_PARAMS=true
+
+# Comma-separated quantization allowlist when not pinned. Defaults exclude
+# fp8 because fp8 Gemma 4 26B providers were observed dropping required
+# tool-call arguments. Set to "any" to disable the filter.
+# OPENROUTER_QUANTIZATIONS=bf16,fp16
+
+# Tail-latency hedge: if the primary OpenRouter call hasn't returned within
+# this many seconds, fire a backup in parallel. First response wins. Set to
+# 0 to disable hedging entirely.
+# GEMMA_HEDGE_DELAY_S=8.0
+
+# Module-wide cap on simultaneous Gemma calls. Prevents /build fan-out from
+# tripping per-key RPM limits.
+# GEMMA_MAX_CONCURRENCY=8

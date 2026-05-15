@@ -1092,11 +1092,17 @@ async def test_generate_with_tools_loop_two_turn(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_generate_with_tools_loop_dispatch_error(monkeypatch, tmp_path):
-    """When dispatch raises, loop returns empty text with error in log."""
+async def test_generate_with_tools_loop_dispatch_error_feeds_back_to_model(
+    monkeypatch, tmp_path,
+):
+    """When dispatch fails, the loop feeds the error back as a tool result
+    so Gemma can self-correct on the next turn — instead of bailing and
+    surfacing the raw exception to the UI.
+    """
     _career_args = '{"unitid": 151351, "cipcode": "52.1401"}'
     _make_tool_loop_stub(monkeypatch, tmp_path, [
         _ToolCallResponse("get_career_paths", _career_args),
+        _PlainTextResponse("Sorry, I couldn't pull that data — try another angle?"),
     ])
 
     async def _dispatch(name: str, args: dict) -> dict:
@@ -1109,10 +1115,44 @@ async def test_generate_with_tools_loop_dispatch_error(monkeypatch, tmp_path):
         dispatch=_dispatch,
     )
 
-    assert text == ""
+    # Loop continued past the dispatch error: turn 1 returns plain text.
+    assert text == "Sorry, I couldn't pull that data — try another angle?"
     assert len(log) == 1
     assert log[0].error is not None
     assert "DB unavailable" in log[0].error
+    gemma_client.reset_cache()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_tools_loop_dispatch_timeout_still_bails(
+    monkeypatch, tmp_path,
+):
+    """Wall-time timeout during dispatch DOES exit immediately — we can't
+    afford another turn when the budget is already gone.
+    """
+    _career_args = '{"unitid": 151351, "cipcode": "52.1401"}'
+    _make_tool_loop_stub(monkeypatch, tmp_path, [
+        _ToolCallResponse("get_career_paths", _career_args),
+    ])
+
+    import asyncio as _asyncio
+
+    async def _dispatch(name: str, args: dict) -> dict:
+        await _asyncio.sleep(10)
+        return {}
+
+    text, log = await gemma_client.generate_with_tools_loop(
+        system="sys",
+        user="usr",
+        tools=[{"type": "function", "function": {"name": "get_career_paths"}}],
+        dispatch=_dispatch,
+        max_wall_time_s=0.05,
+    )
+
+    assert text == ""
+    assert len(log) == 1
+    assert log[0].error is not None
+    assert "TimeoutError" in log[0].error
     gemma_client.reset_cache()
 
 
