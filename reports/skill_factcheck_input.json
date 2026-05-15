@@ -1,0 +1,890 @@
+[
+  {
+    "i": 1,
+    "case_id": "skill_pool_001_iu_marketing_ai_market",
+    "school": "Indiana University-Bloomington",
+    "boss": "ai",
+    "title": "Marketing Analytics Coursework",
+    "rationale": "Learning to interpret data helps you make better human decisions than a machine can."
+  },
+  {
+    "i": 2,
+    "case_id": "skill_pool_001_iu_marketing_ai_market",
+    "school": "Indiana University-Bloomington",
+    "boss": "ai",
+    "title": "IU Marketing Analytics Club",
+    "rationale": "Working with real datasets teaches you to direct AI tools instead of competing with them."
+  },
+  {
+    "i": 3,
+    "case_id": "skill_pool_001_iu_marketing_ai_market",
+    "school": "Indiana University-Bloomington",
+    "boss": "ai",
+    "title": "Digital Marketing Certification",
+    "rationale": "Understanding how algorithms work allows you to manage automated campaigns more effectively."
+  },
+  {
+    "i": 4,
+    "case_id": "skill_pool_001_iu_marketing_ai_market",
+    "school": "Indiana University-Bloomington",
+    "boss": "market",
+    "title": "Kelley School of Business Internship",
+    "rationale": "Getting hands-on experience at a real company helps you stay relevant as the industry changes."
+  },
+  {
+    "i": 5,
+    "case_id": "skill_pool_001_iu_marketing_ai_market",
+    "school": "Indiana University-Bloomington",
+    "boss": "market",
+    "title": "Advertising and Brand Management Minor",
+    "rationale": "Studying brand strategy helps you move into high-level management roles."
+  },
+  {
+    "i": 6,
+    "case_id": "skill_pool_001_iu_marketing_ai_market",
+    "school": "Indiana University-Bloomington",
+    "boss": "market",
+    "title": "IU Professional Sales Program",
+    "rationale": "Building strong client relationships is a skill that keeps your career growing even when markets shift."
+  },
+  {
+    "i": 7,
+    "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+    "school": "Purdue University-Main Campus",
+    "boss": "loans",
+    "title": "Purdue's Co-op Program",
+    "rationale": "Working in industry through a co-op helps you earn money to pay for your degree while gaining experience."
+  },
+  {
+    "i": 8,
+    "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+    "school": "Purdue University-Main Campus",
+    "boss": "loans",
+    "title": "ME 477: Engineering Economics",
+    "rationale": "This course teaches you how to manage project budgets and understand the financial side of engineering."
+  },
+  {
+    "i": 9,
+    "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+    "school": "Purdue University-Main Campus",
+    "boss": "loans",
+    "title": "Purdue Undergraduate Research",
+    "rationale": "Research positions can provide stipends and help you qualify for high-paying graduate fellowships."
+  },
+  {
+    "i": 10,
+    "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+    "school": "Purdue University-Main Campus",
+    "boss": "ceiling",
+    "title": "ME 483: Mechatronics",
+    "rationale": "Learning to combine mechanical systems with electronics helps you move into higher-level design roles."
+  },
+  {
+    "i": 11,
+    "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+    "school": "Purdue University-Main Campus",
+    "boss": "ceiling",
+    "title": "Purdue Formula SAE Team",
+    "rationale": "Building racing vehicles with a team shows employers you can handle complex, high-level technical projects."
+  },
+  {
+    "i": 12,
+    "case_id": "skill_pool_002_purdue_mech_eng_loans_ceiling",
+    "school": "Purdue University-Main Campus",
+    "boss": "ceiling",
+    "title": "Professional Certificate in Project Management",
+    "rationale": "Getting certified in management prepares you to lead large engineering teams instead of just doing technical tasks."
+  },
+  {
+    "i": 13,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "loans",
+    "title": "UCLA Financial Aid Office Workshops",
+    "rationale": "Learning how to manage grants and scholarships helps you graduate with less debt."
+  },
+  {
+    "i": 14,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "loans",
+    "title": "Psychology Department Undergraduate Research Assistantships",
+    "rationale": "Getting paid to assist professors can help cover your living expenses while you study."
+  },
+  {
+    "i": 15,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "loans",
+    "title": "UCLA Career Center Financial Literacy Seminars",
+    "rationale": "Understanding how to budget your future counselor salary makes managing student debt easier."
+  },
+  {
+    "i": 16,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "market",
+    "title": "UCLA Psychology Club",
+    "rationale": "Connecting with other students helps you find job openings in local mental health clinics."
+  },
+  {
+    "i": 17,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "market",
+    "title": "Psychology Department Internship Program",
+    "rationale": "Hands-on experience in a clinic makes your resume stand out to future employers."
+  },
+  {
+    "i": 18,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "market",
+    "title": "UCLA Counseling and Psychotherapy Volunteer Work",
+    "rationale": "Building real-world experience early helps you secure a job faster after graduation."
+  },
+  {
+    "i": 19,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "ceiling",
+    "title": "UCLA School of Medicine Clinical Research",
+    "rationale": "Learning the science behind addiction can lead to higher-paying roles in medical research."
+  },
+  {
+    "i": 20,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "ceiling",
+    "title": "UCLA Psychology Minor in Sociology",
+    "rationale": "Studying how society affects behavior helps you move into leadership or policy roles."
+  },
+  {
+    "i": 21,
+    "case_id": "skill_pool_003_ucla_psych_loans_market_ceiling",
+    "school": "University of California-Los Angeles",
+    "boss": "ceiling",
+    "title": "UCLA Professional Certificate in Addiction Studies",
+    "rationale": "Specialized training allows you to take on more responsibility and earn a higher salary."
+  },
+  {
+    "i": 22,
+    "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+    "school": "Indiana University-Bloomington",
+    "boss": "loans",
+    "title": "Kelley School of Business Financial Literacy Program",
+    "rationale": "Learning to manage personal finances helps you handle the debt you take on for your business degree."
+  },
+  {
+    "i": 23,
+    "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+    "school": "Indiana University-Bloomington",
+    "boss": "loans",
+    "title": "Introduction to Personal Finance course",
+    "rationale": "This course teaches you how to structure your own money management early in your career."
+  },
+  {
+    "i": 24,
+    "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+    "school": "Indiana University-Bloomington",
+    "boss": "loans",
+    "title": "Kelley Undergraduate Investment Management Club",
+    "rationale": "Managing real money through this club helps you understand how to grow assets and pay down debt faster."
+  },
+  {
+    "i": 25,
+    "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+    "school": "Indiana University-Bloomington",
+    "boss": "ai",
+    "title": "Introduction to Business Analytics course",
+    "rationale": "Learning to use data tools helps you work alongside technology rather than being replaced by it."
+  },
+  {
+    "i": 26,
+    "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+    "school": "Indiana University-Bloomington",
+    "boss": "ai",
+    "title": "Kelley School of Business AI Certificate",
+    "rationale": "This certification teaches you how to direct automated systems to perform complex financial analysis."
+  },
+  {
+    "i": 27,
+    "case_id": "skill_pool_004_iu_kelley_business_loans_ai",
+    "school": "Indiana University-Bloomington",
+    "boss": "ai",
+    "title": "Information Systems minor",
+    "rationale": "Studying systems gives you the technical foundation to oversee the software used in modern finance."
+  },
+  {
+    "i": 28,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "loans",
+    "title": "Stern School of Business minor",
+    "rationale": "Learning business fundamentals helps you manage production budgets and personal finances more effectively."
+  },
+  {
+    "i": 29,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "loans",
+    "title": "Tisch School of the Arts internship",
+    "rationale": "Gaining professional experience early helps you secure higher-paying production roles after graduation."
+  },
+  {
+    "i": 30,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "loans",
+    "title": "NYU Entrepreneurship workshops",
+    "rationale": "Understanding how to fund your own projects can help you build a more stable income."
+  },
+  {
+    "i": 31,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "market",
+    "title": "Tisch Film & TV production courses",
+    "rationale": "Mastering technical production skills makes you more employable in a competitive media market."
+  },
+  {
+    "i": 32,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "market",
+    "title": "NYU Media, Culture, and Communication minor",
+    "rationale": "Studying media trends helps you adapt as digital platforms and viewing habits change."
+  },
+  {
+    "i": 33,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "market",
+    "title": "NYU Film & TV student organizations",
+    "rationale": "Building a network of peers at NYU helps you find new job opportunities in the industry."
+  },
+  {
+    "i": 34,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "ceiling",
+    "title": "Tisch graduate level seminars",
+    "rationale": "Exposure to advanced theory and high-level production prepares you for director or executive roles."
+  },
+  {
+    "i": 35,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "ceiling",
+    "title": "NYU Tisch alumni mentorship programs",
+    "rationale": "Connecting with established producers can help you navigate the path to leadership positions."
+  },
+  {
+    "i": 36,
+    "case_id": "skill_pool_005_nyu_film_loans_market_ceiling",
+    "school": "New York University",
+    "boss": "ceiling",
+    "title": "Advanced post-production technical training",
+    "rationale": "Learning complex editing and visual effects skills increases your value for high-budget studio projects."
+  },
+  {
+    "i": 37,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "loans",
+    "title": "Columbia Business School Summer Program",
+    "rationale": "Learning business fundamentals helps you manage your personal finances and understand the economics of media companies."
+  },
+  {
+    "i": 38,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "loans",
+    "title": "Financial Aid Office Workshops",
+    "rationale": "Attending these sessions helps you find grants and scholarships to reduce the amount you need to borrow."
+  },
+  {
+    "i": 39,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "loans",
+    "title": "Work-Study Positions in NYC",
+    "rationale": "Earning money through campus jobs helps cover your daily expenses without taking out more loans."
+  },
+  {
+    "i": 40,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "market",
+    "title": "Columbia Journalism Review Internship",
+    "rationale": "Working with a major publication builds the professional connections you need to find stable news jobs."
+  },
+  {
+    "i": 41,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "market",
+    "title": "Center for Digital Journalism Workshops",
+    "rationale": "Learning modern digital distribution methods makes you more useful to newsrooms looking for versatile reporters."
+  },
+  {
+    "i": 42,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "market",
+    "title": "Columbia University Career Center Networking",
+    "rationale": "Meeting alumni in the media industry helps you find job openings that are not posted publicly."
+  },
+  {
+    "i": 43,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "ai",
+    "title": "Data Journalism Coursework",
+    "rationale": "Learning to analyze large datasets allows you to find stories that automated tools cannot detect on their own."
+  },
+  {
+    "i": 44,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "ai",
+    "title": "Columbia School of Advanced Studies Seminar",
+    "rationale": "Studying deep ethics helps you make the complex human judgments that artificial intelligence cannot replicate."
+  },
+  {
+    "i": 45,
+    "case_id": "skill_pool_006_columbia_journalism_loans_market",
+    "school": "Columbia University in the City of New York",
+    "boss": "ai",
+    "title": "Investigative Reporting Practicum",
+    "rationale": "Building real relationships with human sources gives you information that AI cannot scrape from the internet."
+  },
+  {
+    "i": 46,
+    "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+    "school": "Ivy Tech Community College",
+    "boss": "ceiling",
+    "title": "Dental Hygiene Management Course",
+    "rationale": "Learning the business side of a clinic helps you move into office management roles."
+  },
+  {
+    "i": 47,
+    "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+    "school": "Ivy Tech Community College",
+    "boss": "ceiling",
+    "title": "Advanced Periodontology Course",
+    "rationale": "Specializing in deep gum disease care allows you to command higher pay in specialty offices."
+  },
+  {
+    "i": 48,
+    "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+    "school": "Ivy Tech Community College",
+    "boss": "ceiling",
+    "title": "Dental Office Administration Minor",
+    "rationale": "Studying administration prepares you to run your own practice or manage a large team."
+  },
+  {
+    "i": 49,
+    "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+    "school": "Ivy Tech Community College",
+    "boss": "market",
+    "title": "Dental Hygiene Clinical Externship",
+    "rationale": "Real-world practice at local clinics helps you build a network for immediate job placement."
+  },
+  {
+    "i": 50,
+    "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+    "school": "Ivy Tech Community College",
+    "boss": "market",
+    "title": "Dental Radiography Certification",
+    "rationale": "Mastering X-ray technology makes you more valuable to busy dental offices."
+  },
+  {
+    "i": 51,
+    "case_id": "skill_pool_007_ivy_tech_dental_market_ceiling",
+    "school": "Ivy Tech Community College",
+    "boss": "market",
+    "title": "Community Health Outreach Program",
+    "rationale": "Working in public health settings expands your options beyond private dental practices."
+  },
+  {
+    "i": 52,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "loans",
+    "title": "Music Business Minor",
+    "rationale": "Learning the business side of music helps you manage your own income and professional expenses."
+  },
+  {
+    "i": 53,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "loans",
+    "title": "Oberlin Conservatory Financial Literacy Workshops",
+    "rationale": "These sessions teach you how to handle the costs of a professional music career."
+  },
+  {
+    "i": 54,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "loans",
+    "title": "Music Industry Internship",
+    "rationale": "Practical experience in the industry helps you find paid roles more quickly after graduation."
+  },
+  {
+    "i": 55,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "market",
+    "title": "Music Technology Coursework",
+    "rationale": "Learning digital tools helps you stay relevant as the music industry moves online."
+  },
+  {
+    "i": 56,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "market",
+    "title": "Oberlin Chamber Music Ensemble",
+    "rationale": "Playing in groups builds the collaborative skills needed for steady ensemble work."
+  },
+  {
+    "i": 57,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "market",
+    "title": "Digital Media and Marketing Certificate",
+    "rationale": "Understanding how to promote yourself online helps you find more consistent work."
+  },
+  {
+    "i": 58,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "ceiling",
+    "title": "Arts Administration Minor",
+    "rationale": "Studying management prepares you for higher-paying leadership roles in arts organizations."
+  },
+  {
+    "i": 59,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "ceiling",
+    "title": "Nonprofit Management Course",
+    "rationale": "Learning how organizations run allows you to move into director-level positions."
+  },
+  {
+    "i": 60,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "ceiling",
+    "title": "Entrepreneurship for Artists Workshop",
+    "rationale": "Building your own brand helps you move beyond standard performance roles."
+  },
+  {
+    "i": 61,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "burnout",
+    "title": "Oberlin Wellness and Mindfulness Programs",
+    "rationale": "Learning stress management helps you maintain a long and steady performing career."
+  },
+  {
+    "i": 62,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "burnout",
+    "title": "Time Management for Musicians Seminar",
+    "rationale": "Organizing your practice and performance schedule prevents physical and mental exhaustion."
+  },
+  {
+    "i": 63,
+    "case_id": "skill_pool_008_oberlin_music_loans_market_ceiling_burnout",
+    "school": "Oberlin College",
+    "boss": "burnout",
+    "title": "Peer Mentorship in the Conservatory",
+    "rationale": "Connecting with other students provides a support system during intense rehearsal periods."
+  },
+  {
+    "i": 64,
+    "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+    "school": "University of Illinois Urbana-Champaign",
+    "boss": "ai",
+    "title": "CS 440: Artificial Intelligence",
+    "rationale": "This course helps you understand how AI models work so you can better debug them."
+  },
+  {
+    "i": 65,
+    "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+    "school": "University of Illinois Urbana-Champaign",
+    "boss": "ai",
+    "title": "CS 446: Machine Learning",
+    "rationale": "Learning the math behind these models helps you design better software architecture."
+  },
+  {
+    "i": 66,
+    "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+    "school": "University of Illinois Urbana-Champaign",
+    "boss": "ai",
+    "title": "ACM UIUC Chapter",
+    "rationale": "Joining this club connects you with peers who are building tools to manage AI."
+  },
+  {
+    "i": 67,
+    "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+    "school": "University of Illinois Urbana-Champaign",
+    "boss": "loans",
+    "title": "CS + Business Minor",
+    "rationale": "Adding business knowledge helps you understand the economic value of the software you build."
+  },
+  {
+    "i": 68,
+    "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+    "school": "University of Illinois Urbana-Champaign",
+    "boss": "loans",
+    "title": "Siebel Scholars Program",
+    "rationale": "This program provides access to high-level networking and potential scholarship opportunities."
+  },
+  {
+    "i": 69,
+    "case_id": "skill_pool_009_uiuc_cs_ai_loans",
+    "school": "University of Illinois Urbana-Champaign",
+    "boss": "loans",
+    "title": "CS Undergraduate Research",
+    "rationale": "Doing research can lead to specialized roles that pay more than standard entry-level jobs."
+  },
+  {
+    "i": 70,
+    "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+    "school": "Southern Maine Community College",
+    "boss": "ceiling",
+    "title": "Advanced Welding Techniques Course",
+    "rationale": "Learning complex welding methods helps you move into higher-paying specialized roles."
+  },
+  {
+    "i": 71,
+    "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+    "school": "Southern Maine Community College",
+    "boss": "ceiling",
+    "title": "AWS Certified Welder Program",
+    "rationale": "Getting this professional certification proves you have the skills needed for senior positions."
+  },
+  {
+    "i": 72,
+    "case_id": "skill_pool_010_smcc_welding_ceiling_market",
+    "school": "Southern Maine Community College",
+    "boss": "ceiling",
+    "title": "Fabrication and Layout Course",
+    "rationale": "Understanding how to read blueprints allows you to lead larger construction projects."
+  },
+  {
+    "i": 73,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "loans",
+    "title": "Financial Aid Advising Workshops",
+    "rationale": "Learning how to manage grants and scholarships early helps you graduate with less debt."
+  },
+  {
+    "i": 74,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "loans",
+    "title": "Federal Work-Study Programs",
+    "rationale": "Working on campus provides steady income that can help cover your daily living costs."
+  },
+  {
+    "i": 75,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "loans",
+    "title": "Scholarship Search Seminar",
+    "rationale": "Finding specialized education scholarships reduces the amount you need to borrow for your degree."
+  },
+  {
+    "i": 76,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "ceiling",
+    "title": "Educational Leadership Minor",
+    "rationale": "Studying leadership prepares you to move from the classroom into school administration roles."
+  },
+  {
+    "i": 77,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "ceiling",
+    "title": "Master of Arts in Teaching",
+    "rationale": "Earning an advanced degree at CSULB can lead to higher pay scales and specialized positions."
+  },
+  {
+    "i": 78,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "ceiling",
+    "title": "Curriculum Specialist Internship",
+    "rationale": "Gaining experience in curriculum design opens doors to roles outside of direct classroom instruction."
+  },
+  {
+    "i": 79,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "burnout",
+    "title": "Student Teaching Mentorship Program",
+    "rationale": "Having a seasoned mentor at CSULB helps you navigate the stress of managing a real classroom."
+  },
+  {
+    "i": 80,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "burnout",
+    "title": "Counseling and Wellness Workshops",
+    "rationale": "Learning stress management techniques helps you maintain your energy throughout the school year."
+  },
+  {
+    "i": 81,
+    "case_id": "skill_pool_011_csulb_education_ern_ceiling",
+    "school": "California State University-Long Beach",
+    "boss": "burnout",
+    "title": "Collaborative Teaching Practicums",
+    "rationale": "Working closely with other educators teaches you how to share the workload of lesson planning."
+  },
+  {
+    "i": 82,
+    "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+    "school": "Massachusetts Institute of Technology",
+    "boss": "burnout",
+    "title": "MIT Media Lab Research",
+    "rationale": "Working on creative projects helps you find meaning beyond just writing code."
+  },
+  {
+    "i": 83,
+    "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+    "school": "Massachusetts Institute of Technology",
+    "boss": "burnout",
+    "title": "UROP in Human-Computer Interaction",
+    "rationale": "Studying how people use technology makes your engineering work feel more connected to real life."
+  },
+  {
+    "i": 84,
+    "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+    "school": "Massachusetts Institute of Technology",
+    "boss": "burnout",
+    "title": "MIT Tai Tang Club",
+    "rationale": "Joining a community of makers provides a social outlet away from your computer screen."
+  },
+  {
+    "i": 85,
+    "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+    "school": "Massachusetts Institute of Technology",
+    "boss": "ai",
+    "title": "6.034 Artificial Intelligence",
+    "rationale": "Learning the math behind the models helps you understand how to direct them."
+  },
+  {
+    "i": 86,
+    "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+    "school": "Massachusetts Institute of Technology",
+    "boss": "ai",
+    "title": "6.824 Distributed Systems",
+    "rationale": "Mastering how large networks function allows you to design systems that AI cannot easily replicate."
+  },
+  {
+    "i": 87,
+    "case_id": "skill_pool_012_mit_eecs_loans_burnout",
+    "school": "Massachusetts Institute of Technology",
+    "boss": "ai",
+    "title": "6.830 Machine Learning",
+    "rationale": "Studying the logic of learning algorithms helps you build the next generation of software."
+  },
+  {
+    "i": 88,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "loans",
+    "title": "IU Student Employment Office",
+    "rationale": "Working a campus job helps you pay for school as you earn your degree."
+  },
+  {
+    "i": 89,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "loans",
+    "title": "IU Federal Work-Study Program",
+    "rationale": "These specific jobs help cover your living costs while you study teaching."
+  },
+  {
+    "i": 90,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "loans",
+    "title": "IU Financial Aid Scholarship Search",
+    "rationale": "Finding university grants reduces the amount you need to borrow for your major."
+  },
+  {
+    "i": 91,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "market",
+    "title": "American Sign Language Minor",
+    "rationale": "Learning ASL makes you a more valuable candidate for specialized teaching roles."
+  },
+  {
+    "i": 92,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "market",
+    "title": "Special Education Internship",
+    "rationale": "Hands-on classroom experience helps you find a job immediately after graduation."
+  },
+  {
+    "i": 93,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "market",
+    "title": "ASL/English Bilingual Certification",
+    "rationale": "Being able to teach in two languages increases the number of schools that will hire you."
+  },
+  {
+    "i": 94,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "ceiling",
+    "title": "School Administration Certificate",
+    "rationale": "Learning how to lead a school department helps you move into higher-paying roles."
+  },
+  {
+    "i": 95,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "ceiling",
+    "title": "IEP Coordination Workshop",
+    "rationale": "Mastering legal documentation prepares you for leadership positions in special education."
+  },
+  {
+    "i": 96,
+    "case_id": "skill_pool_013_iu_deaf_ed_loans_market_ceiling",
+    "school": "Indiana University-Bloomington",
+    "boss": "ceiling",
+    "title": "Educational Leadership Minor",
+    "rationale": "This extra study helps you transition from the classroom to managing school programs."
+  },
+  {
+    "i": 97,
+    "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+    "school": "Cornell University",
+    "boss": "loans",
+    "title": "Cornell Pre-Vet Club",
+    "rationale": "Joining this group helps you find scholarships and financial planning resources early."
+  },
+  {
+    "i": 98,
+    "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+    "school": "Cornell University",
+    "boss": "loans",
+    "title": "Animal Science Minor in Business",
+    "rationale": "Learning business basics helps you manage a practice and increase your income."
+  },
+  {
+    "i": 99,
+    "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+    "school": "Cornell University",
+    "boss": "loans",
+    "title": "Cornell Undergraduate Research Program",
+    "rationale": "Research experience can lead to paid assistantships that help cover your costs."
+  },
+  {
+    "i": 100,
+    "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+    "school": "Cornell University",
+    "boss": "ceiling",
+    "title": "Cornell Veterinary Medicine Clinical Rotation",
+    "rationale": "Hands-on clinical time builds the advanced surgical skills needed for higher-paying specialties."
+  },
+  {
+    "i": 101,
+    "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+    "school": "Cornell University",
+    "boss": "ceiling",
+    "title": "Cornell Agribusiness Minor",
+    "rationale": "Understanding the business side of agriculture allows you to move into high-level management roles."
+  },
+  {
+    "i": 102,
+    "case_id": "skill_pool_014_cornell_animal_sci_loans_ceiling",
+    "school": "Cornell University",
+    "boss": "ceiling",
+    "title": "Cornell Pre-Vet Society Leadership",
+    "rationale": "Leading a large student organization builds the management skills required to run your own clinic."
+  },
+  {
+    "i": 103,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "loans",
+    "title": "W. P. Carey Scholarship Programs",
+    "rationale": "Applying for school-specific scholarships helps reduce your total debt before you graduate."
+  },
+  {
+    "i": 104,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "loans",
+    "title": "ASU Financial Aid Workshops",
+    "rationale": "Learning how to manage your student debt early makes your post-grad finances more stable."
+  },
+  {
+    "i": 105,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "loans",
+    "title": "W. P. Carey Business Minor",
+    "rationale": "Adding a specialized minor can help you qualify for higher-paying roles faster."
+  },
+  {
+    "i": 106,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "ai",
+    "title": "W. P. Carey AI in Business Certificate",
+    "rationale": "This certificate teaches you to manage AI tools rather than being replaced by them."
+  },
+  {
+    "i": 107,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "ai",
+    "title": "Business Analytics Coursework",
+    "rationale": "Learning data analysis helps you make better decisions when automated systems provide conflicting information."
+  },
+  {
+    "i": 108,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "ai",
+    "title": "Supply Chain Management Minor",
+    "rationale": "Understanding complex logistics helps you oversee automated systems that others cannot manage."
+  },
+  {
+    "i": 109,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "market",
+    "title": "W. P. Carey Business Internship",
+    "rationale": "Real-world experience at a local company makes your resume stand out to future employers."
+  },
+  {
+    "i": 110,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "market",
+    "title": "ASU Entrepreneurship Club",
+    "rationale": "Joining this club helps you understand how to build and scale new business operations."
+  },
+  {
+    "i": 111,
+    "case_id": "skill_pool_015_arizona_state_business_loans_market_ai",
+    "school": "Arizona State University-Tempe",
+    "boss": "market",
+    "title": "Professional Sales Certificate",
+    "rationale": "Learning how to persuade stakeholders is a skill that remains in high demand across all industries."
+  }
+]
