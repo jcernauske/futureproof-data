@@ -57,6 +57,11 @@ EXPOSE 8000
 # --proxy-headers + --forwarded-allow-ips so uvicorn trusts X-Forwarded-Proto
 # from Railway's edge. Without this, FastAPI's trailing-slash 307 redirects
 # go to http:// and browsers refuse to follow https→http downgrades.
-# --workers 2 sized for ~10 concurrent users; each worker reaches its own
-# semaphore (GEMMA_MAX_CONCURRENCY) and shares the OpenRouter rate limit.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend --workers 2 --proxy-headers --forwarded-allow-ips='*'"]
+#
+# Single worker by design: the build/session store at
+# backend/data/futureproof.duckdb is a DuckDB file, and DuckDB only allows
+# one writer per file (see app/services/db.py:4-7). Adding workers will
+# cause every build write to fail with _duckdb.IOException on whichever
+# worker loses the file-lock race. Multi-worker requires migrating the
+# build store to Postgres or SQLite WAL — out of scope pre-demo.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend --proxy-headers --forwarded-allow-ips='*'"]
