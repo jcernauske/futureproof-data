@@ -3,7 +3,7 @@
 <p align="center"><i>An RPG-style career planning tool that shows high schoolers where a college degree actually leads — powered by Gemma 4, runnable on a school's own laptop.</i></p>
 
 <p align="center">
-  <a href="https://youtu.be/ekmOs2eLHnA"><img alt="Demo video" src="https://img.shields.io/badge/%E2%96%B6-demo_video-red"></a>
+  <a href="https://youtu.be/ekmOs2eLHnA"><img alt="Demo video" src="https://img.shields.io/static/v1?label=%E2%96%B6&message=demo+video&color=red"></a>
   <a href="https://futureproof.hyenastudios.com"><img alt="Live demo" src="https://img.shields.io/badge/%F0%9F%8C%90-live_demo-20BEFF"></a>
   <img alt="License" src="https://img.shields.io/badge/license-Apache_2.0-green">
   <img alt="Built with" src="https://img.shields.io/badge/built_with-Gemma_4-orange">
