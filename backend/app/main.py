@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -63,29 +65,40 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:
         log.warning("profile preload failed: %s", exc, exc_info=True)
 
-    # Warm the Iceberg catalog so the first /build/outcomes request
-    # doesn't pay metadata-load latency that can exceed Railway's
-    # liveness window. Each load_table() reads only metadata.json,
-    # not data files — cheap.
-    warm_tables = [
-        "consumable.program_career_paths",
-        "consumable.career_outcomes",
-        "consumable.occupation_profiles",
-        "consumable.onet_work_profiles",
-        "consumable.ai_exposure",
-        "consumable.career_branches",
-        "consumable.regional_price_parities",
-    ]
+    # Warm the QueryEngine so the first /build request doesn't pay
+    # cold-start cost: duckdb.connect() + install/load iceberg extension
+    # + CREATE VIEW for every registered table. catalog.load_table()
+    # alone only touches metadata.json — it does NOT trigger the
+    # extension load or view registration, both of which run lazily
+    # on first query through _query_engine._ensure_initialized.
+    #
+    # One small query forces all of that. After this returns, every
+    # subsequent request hits a hot engine. Doubles as a fail-fast:
+    # if the catalog is empty or unreachable, the error surfaces here
+    # at boot, not silently on every user request.
     try:
         server = get_server()
-        for table_name in warm_tables:
-            try:
-                server.catalog.load_table(table_name)
-                log.info("warmed iceberg metadata: %s", table_name)
-            except Exception as exc:
-                log.warning("warmup skipped %s: %s", table_name, exc)
+        started = time.perf_counter()
+        rows = await asyncio.to_thread(
+            server.query_iceberg_simple,
+            "consumable.occupation_profiles",
+            limit=1,
+        )
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        if rows and isinstance(rows[0], dict) and "error" in rows[0]:
+            log.error(
+                "MCP warmup query returned error in %d ms — catalog or "
+                "view registration may be broken: %s",
+                elapsed_ms, rows[0]["error"],
+            )
+        else:
+            view_count = len(getattr(server._get_query_engine(), "_views", {}))
+            log.info(
+                "MCP warmup OK in %d ms (%d iceberg views registered)",
+                elapsed_ms, view_count,
+            )
     except Exception as exc:
-        log.warning("MCP server warmup failed: %s", exc)
+        log.warning("MCP server warmup failed: %s", exc, exc_info=True)
 
     yield
 
