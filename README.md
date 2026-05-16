@@ -193,8 +193,7 @@ Two commands once prerequisites are installed. Total time is dominated by the fi
 ### Prerequisites
 
 - Node.js ≥ 20
-- Python ≥ 3.11
-- [`uv`](https://docs.astral.sh/uv/) (pipeline + backend)
+- [`uv`](https://docs.astral.sh/uv/) (manages the pinned Python 3.11 automatically — no system Python needed)
 - [Ollama](https://ollama.com) running on `localhost:11434`
 - Several GB free disk for `gemma4:e4b` weights, 8 GB RAM minimum
 

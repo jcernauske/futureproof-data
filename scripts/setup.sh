@@ -43,24 +43,40 @@ else
   failures=$((failures + 1))
 fi
 
-if command -v python3 >/dev/null 2>&1; then
+if command -v uv >/dev/null 2>&1; then
+  ok "uv $(uv --version | awk '{print $2}')"
+  uv_present=1
+else
+  fail "uv not found — install via 'curl -LsSf https://astral.sh/uv/install.sh | sh'"
+  failures=$((failures + 1))
+  uv_present=0
+fi
+
+# Python: pinned in .python-version. uv manages Python — we don't need a
+# system Python at all when uv is present. uv sync auto-installs the
+# pinned version on first run, so this check is informational, not
+# blocking. Only fall back to checking system python3 when uv is missing,
+# since without uv the user has to install Python themselves.
+pinned="3.11"
+[ -f .python-version ] && pinned=$(tr -d '[:space:]' < .python-version)
+
+if [ "$uv_present" -eq 1 ]; then
+  if uv python list --only-installed 2>/dev/null | grep -q "cpython-${pinned}\."; then
+    ok "Python ${pinned} available via uv"
+  else
+    ok "Python ${pinned} will be installed by uv on first sync"
+  fi
+elif command -v python3 >/dev/null 2>&1; then
   py_major=$(python3 -c 'import sys; print(sys.version_info[0])')
   py_minor=$(python3 -c 'import sys; print(sys.version_info[1])')
   if [ "$py_major" -ge 3 ] && [ "$py_minor" -ge 11 ]; then
     ok "Python $(python3 --version | awk '{print $2}')"
   else
-    fail "Python $(python3 --version | awk '{print $2}') is too old (need ≥3.11)"
+    fail "Python $(python3 --version | awk '{print $2}') is too old (need ≥${pinned}) — install uv and it'll handle Python automatically"
     failures=$((failures + 1))
   fi
 else
-  fail "Python 3 not found — install Python 3.11+ (https://www.python.org)"
-  failures=$((failures + 1))
-fi
-
-if command -v uv >/dev/null 2>&1; then
-  ok "uv $(uv --version | awk '{print $2}')"
-else
-  fail "uv not found — install via 'curl -LsSf https://astral.sh/uv/install.sh | sh'"
+  fail "Python 3 not found — install uv and it'll handle Python automatically"
   failures=$((failures + 1))
 fi
 
