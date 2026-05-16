@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 
-# Iceberg metadata files store absolute paths from the host build machine
-# (e.g. /Users/jcernauske/.../data/gold/iceberg_warehouse/...). Install the
-# repo at that exact path in the container so the catalog resolves without
-# any path rewrite.
-ENV APP_DIR=/Users/jcernauske/code/bright/futureproof-data
+# Iceberg metadata stores manifest/data-file references as repo-root-
+# relative paths (data/<zone>/iceberg_warehouse/...), so any WORKDIR is
+# fine as long as the backend resolves them against the repo root. The
+# app pins CWD to the project root on startup in mcp_client.get_server(),
+# so this WORKDIR is purely conventional.
+ENV APP_DIR=/app
 WORKDIR ${APP_DIR}
 
 ENV PYTHONUNBUFFERED=1 \

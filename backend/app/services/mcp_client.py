@@ -47,12 +47,23 @@ def project_root() -> Path:
 def get_server() -> FutureProofMCPServer:
     """Return the shared MCP server instance, constructing it on first call.
 
-    ``warehouse_path`` is kept for framework compatibility but reads are
-    satisfied by the Iceberg catalog which carries absolute metadata
-    paths, so an empty ``data/warehouse`` directory is fine.
+    Iceberg metadata stores manifest/data-file references as repo-root-
+    relative paths (e.g. ``data/bronze/iceberg_warehouse/...``), so both
+    pyiceberg's catalog loader and DuckDB's ``iceberg_scan`` resolve them
+    against the process CWD. We pin CWD to the project root here so the
+    backend reads the catalog correctly regardless of how it was launched
+    (``uvicorn`` from ``backend/``, ``uv run`` from the repo root, Docker
+    with whatever WORKDIR, etc.). ``warehouse_path`` is kept for framework
+    compatibility; an empty ``data/warehouse`` directory is fine.
     """
     global _server
     if _server is None:
+        if Path.cwd() != _PROJECT_ROOT:
+            logger.info(
+                "pinning CWD to project root for Iceberg path resolution: %s",
+                _PROJECT_ROOT,
+            )
+            os.chdir(_PROJECT_ROOT)
         catalog_path = os.environ.get(
             "FUTUREPROOF_CATALOG_PATH",
             str(_PROJECT_ROOT / "data" / "catalog" / "catalog.db"),
