@@ -3,7 +3,7 @@
 <p align="center"><i>An RPG-style career planning tool that shows high schoolers where a college degree actually leads — powered by Gemma 4, runnable on a school's own laptop.</i></p>
 
 <p align="center">
-  <a href="https://youtu.be/ekmOs2eLHnA"><img alt="Demo video" src="https://img.shields.io/static/v1?label=%E2%96%B6&message=demo+video&color=red"></a>
+  <a href="https://youtu.be/8g5cm3v2oTQ"><img alt="Demo video" src="https://img.shields.io/static/v1?label=%E2%96%B6&message=demo+video&color=red"></a>
   <a href="https://futureproof.hyenastudios.com"><img alt="Live demo" src="https://img.shields.io/badge/%F0%9F%8C%90-live_demo-20BEFF"></a>
   <img alt="License" src="https://img.shields.io/badge/license-Apache_2.0-green">
   <img alt="Built with" src="https://img.shields.io/badge/built_with-Gemma_4-orange">
@@ -31,7 +31,7 @@ The same codebase runs on a school's own hardware via Ollama. No per-query cost.
 
 ## Demo
 
-- **3-minute walkthrough video:** [Watch on YouTube](https://youtu.be/ekmOs2eLHnA)
+- **3-minute walkthrough video:** [Watch on YouTube](https://youtu.be/8g5cm3v2oTQ)
 - **Live web demo:** [futureproof.hyenastudios.com](https://futureproof.hyenastudios.com) — hosted frontend + cloud backend running Gemma 4 on managed inference.
 - **Local Gemma 4 demo:** Follow [Quickstart](#quickstart) — same product, runs entirely on your laptop with Ollama.
 - **Screenshots:** [`docs/screenshots/`](docs/screenshots/)
@@ -88,7 +88,7 @@ flowchart LR
   GC -->|OpenAI-compatible API| OR[OpenRouter google/gemma-4-26b-a4b-it]
   OL -->|loads| G4E[(Gemma 4 E4B<br/>4.5B params, 128K ctx)]
   OR -->|hosted| G4H[(Gemma 4 26B MoE<br/>256K ctx)]
-  BE -->|MCP tool calls| MCP[MCP server: 11 tools, 10 in active use]
+  BE -->|MCP tool calls| MCP[MCP server: 12 tools, 11 in active use]
   MCP -->|reads via PyIceberg + DuckDB| GOLD[(Apache Iceberg Gold zone<br/>10 consumable tables)]
   GOLD -.->|sourced from| SRC[College Scorecard · BLS · O*NET · BEA · IPEDS · EADA]
   GOLD -.->|3-signal AI exposure| AIEX[Karpathy · Anthropic Economic Index · Gemma-rescored]
@@ -256,7 +256,7 @@ A complete annotated reference lives at [`docs/env-template.txt`](docs/env-templ
 │   ├── raw/             # Brightsmith Bronze zone — raw ingestors
 │   ├── silver/          # Silver zone — normalization
 │   ├── gold/            # Gold zone — consumable tables
-│   └── mcp_server/      # MCP server: 11 tools registered, 10 in active product use
+│   └── mcp_server/      # MCP server: 12 tools registered, 11 in active product use
 ├── backend/
 │   └── app/
 │       ├── routers/     # FastAPI routes (builds, gauntlet, ask_gemma, …)
@@ -310,7 +310,7 @@ FutureProof is built as a grounded Gemma 4 system, not a prompt-only demo.
 | Area | Implementation | Why it matters |
 |---|---|---|
 | Grounded scoring | Deterministic SQL over governed Gold tables computes ERN, ROI, RES, GRW, AURA, and boss outcomes | Gemma explains scores; it does not invent them |
-| Tool use | The MCP server registers 11 governed tools; 10 are in active use across deterministic backend services and Gemma tool-calling flows | Answers are grounded in public data rather than model memory |
+| Tool use | The MCP server registers 12 governed tools; 11 are in active use across deterministic backend services and Gemma tool-calling flows | Answers are grounded in public data rather than model memory |
 | Structured outputs | Intent, tool arguments, skill deltas, and JSON-like model outputs are parsed and validated | Model output can safely drive the UI |
 | Local inference | One `gemma_client` supports Ollama `gemma4:e4b` and OpenRouter `google/gemma-4-26b-a4b-it` | The same product path supports school-local and hosted demos |
 | Privacy and cost | Ollama mode runs on school hardware | Schools avoid per-token bills, and private student context can stay inside the building |
@@ -347,7 +347,7 @@ If a model call fails, FutureProof degrades gracefully with deterministic copy o
 
 **OpenRouter provider routing.** OpenRouter rotates each model slug across roughly 10 underlying GPU providers, and provider quality varies on three independent axes: raw throughput (some providers ran us at 2 tok/s, others at 100 tok/s on the same slug), quantization (fp8 vs. bf16 — fp8 providers were observed dropping required tool-call arguments under load), and parameter-honoring strictness (some providers advertise `response_format: json_object` support but treat it as a hint). Three layers of control in [`backend/app/services/gemma_client.py`](backend/app/services/gemma_client.py) keep this manageable: (1) a `provider` object on every request that defaults to `sort: "throughput"` with a `quantizations: ["bf16", "fp16"]` filter so we avoid fp8 nodes; (2) tail-latency **hedging** — if a chat completion hasn't returned within `GEMMA_HEDGE_DELAY_S` seconds (default 8), a backup request fires in parallel and first response wins; (3) optional **strict provider pinning** via `OPENROUTER_PROVIDER_ONLY` for demos that need a single known-good provider. The hosted demo at [futureproof.hyenastudios.com](https://futureproof.hyenastudios.com) is pinned to Google (first-party host of `google/gemma-4-26b-a4b-it`) so every Gemma call has the same parameter-honoring behavior — strict JSON-mode enforcement, reliable tool-call argument generation, no provider-rotation surprises. The trade is some raw tok/s and graceful degradation if Google is at capacity; the demo prioritizes predictability over peak throughput. All four levers are env vars — no code change to switch providers, disable pinning, change quant filter, or tune the hedge.
 
-**Function calling.** A Model Context Protocol (MCP) server in [`src/mcp_server/`](src/mcp_server/) registers **12 tools** over the Brightsmith Gold zone. **11 are in active product use**; the 12th (`get_ai_exposure`) is registered and queryable but not yet wired into a product flow — RES is currently computed from the AI-exposure Gold table via direct SQL in the stat engine. Tools serve two patterns: **deterministic backend calls** (the stat engine, school search, career tree, and branch tree call the MCP layer directly) and **Gemma-callable tool flows** (Ask the Guide chat and the Set Your Course CIP resolution loop). Most tools serve both patterns. This split is what keeps every score reproducible — Gemma routes and explains, the deterministic Gold tables score.
+**Function calling.** A Model Context Protocol (MCP) server in [`src/mcp_server/`](src/mcp_server/) registers **12 tools** over the Brightsmith Gold zone. **11 are in active product use**; the 12th (`get_ai_exposure`) is registered and queryable but not yet wired into a product flow. Tools serve two patterns: **deterministic backend calls** (stat engine, school search, career and branch trees call the MCP layer directly — on both backends) and **Gemma-routed tool flows** (free-form Ask the Guide chat and the Set Your Course CIP resolution loop). On the hosted 26B path the Gemma-routed flows run end-to-end as designed. On the local `gemma4:e4b` path we make a deliberate engineering call: free-form Ask the Guide skips the tool loop and answers from the build context already loaded into the prompt, while every structured Gemma surface (CIP resolution, the five explain-stat receipts, boss narratives, skill pools, The Take) continues to issue real tool calls and parse structured outputs. Small-model tool-call adherence is an open research problem across the industry; rather than ship a degraded chat experience on local hardware, we route free-form Q&A through the same grounded build context that powers the rest of the product. The deterministic-vs-Gemma split — and the reproducibility it gives every score — holds on both runtimes.
 
 | Tool | Status | How it's used |
 |---|---|---|
@@ -490,7 +490,7 @@ A `Dockerfile` for the backend lives in [`backend/Dockerfile`](backend/Dockerfil
 - **AI exposure is a three-signal composite — receipts disclose which signals were available.** Every RES score is computed from up to three sources: Karpathy's published index, Anthropic's Economic Index (observed Claude usage), and a Gemma occupation-level exposure score (0–10 per SOC, produced at pipeline time by reasoning over each role's O\*NET task list). The receipt names the exact method used per row (`gemma_plus_anthropic`, `karpathy_only`, `gemma`, `two_signal_no_anthropic`, or a Karpathy + O\*NET fallback) so a student can see which signals the score rests on. Where Anthropic or Gemma data is missing for a given SOC, the receipt says so.
 - **Multimodal is not used.** Gemma 4 supports image and audio input; the shipped product is text-only. A future build could let a student photograph a course catalog page and ask "what does this mean."
 - **Localized in three languages today.** English, Spanish, and Arabic — the top three home languages among U.S. public-school English learners. Additional locales (notably Mandarin, Vietnamese, and Tagalog, which round out the top six) are post-hackathon work; the Gemma language-instruction layer is parameterized on locale, so adding one is data and interface work, not engineering.
-- **`gemma4:e4b` needs variant-specific accommodations under Ollama.** The compact local model has two known weaknesses we work around in `backend/app/services/gemma_client.py`. **(1) Function calling is unreliable** — E4B frequently embeds JSON in the assistant content field instead of producing a real tool-call object. Every Gemma-callable surface runs through a three-tier fallback: native tool calling → content-JSON extraction (parse the assistant content as the tool-call payload) → re-prompt with a more structural instruction. Each fallback firing is logged to `logs/gemma.jsonl` for analysis. On the hosted 26B model via OpenRouter the native path almost never falls through; on E4B locally, the second tier fires routinely. **(2) Compressed prompts.** System prompts on the E4B path are abbreviated relative to the 26B path — same product semantics, fewer tokens — to keep latency tolerable on consumer hardware. Both variant-specific decisions are isolated in the `runtime_profile` layer so the rest of the codebase stays model-agnostic.
+- **`gemma4:e4b` runs with variant-specific accommodations.** Two runtime decisions live in `backend/app/services/gemma_client.py`, both isolated in the `runtime_profile` layer so the rest of the codebase stays model-agnostic. **(1) Free-form Ask the Guide answers from the loaded build context instead of issuing live tool calls.** Structured Gemma surfaces — CIP resolution, explain-stat receipts, boss narratives, skill pools — still issue real tool calls and parse structured outputs, backed by a three-tier resilience path (native tool call → content-JSON extraction → structural re-prompt), with every fallback logged to `logs/gemma.jsonl`. Open-ended chat is the one surface where the tool loop is intentionally skipped on E4B; the alternative — an unpredictable chat that sometimes calls tools and sometimes hallucinates one — was the worse product. **(2) Compressed prompts.** System prompts on the E4B path are abbreviated relative to the 26B path — same product semantics, fewer tokens — to keep latency tolerable on consumer hardware.
 - **Latency depends on variant, hardware, and prompt path.** Local `gemma4:e4b` is built for offline school hardware; hosted `google/gemma-4-26b-a4b-it` (via OpenRouter) is built for narrative quality and smoother public-demo latency. Reference benchmark on a MacBook Pro M4 with 24 GB unified memory: `gemma4:e4b` via Ollama generates at **~29 tokens/sec** with prompt eval at **~217 tokens/sec** (warm cache) — a typical 250-token stat receipt completes in ~9 seconds end-to-end. Full per-surface p50/p99 distribution from production logs is in the [Evaluation](#evaluation) section.
 - **Caching is intentionally minimal.** Aggressively caching Gemma outputs would have been the obvious way to shave latency, but minimizing Gemma calls at a Gemma hackathon didn't seem like a smart move — the point is to show what the model actually does on every surface. Performance is on the edge of acceptable today; a production deployment could push it further with a real caching layer (school-level pre-warmed receipts for the most-searched programs) or an asynchronous build pattern (submit a build, keep working on the next one, get a notification when it's ready) to make local `gemma4:e4b` feel snappier without giving up the live model trace.
 - **Career tree depth is bounded at three hops.** Beyond three hops the O\*NET transition graph fans out faster than the UI can render usefully.
@@ -524,4 +524,4 @@ Data pipeline built on [Brightsmith](https://github.com/hyena-studios/brightsmit
 
 ---
 
-*Hackathon submission. Not an official Google product.*
+*Hackathon submission. Not an official Google product, and not endorsed by or affiliated with Google. Gemma is a trademark of Google LLC.*
