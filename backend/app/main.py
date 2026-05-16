@@ -29,6 +29,20 @@ from app.routers import (
 
 DEFAULT_DEV_ORIGINS = "http://localhost:5173,http://localhost:4173"
 
+
+class _HealthAccessLogFilter(logging.Filter):
+    """Drop uvicorn access log lines for /health.
+
+    The frontend's InferenceBadge polls /health every 1s to drive the
+    Gemma status indicator, which floods stdout and buries real request
+    logs. /health itself stays logged at the application level; this
+    only silences the uvicorn access-log echo.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        return "GET /health " not in msg and "GET /health?" not in msg
+
 # The 10 Gold consumable tables every product surface reads from. If any
 # are missing from QueryEngine._views after warmup, the catalog or
 # metadata chain is broken — almost certainly absolute paths embedded in
@@ -136,6 +150,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    access_logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _HealthAccessLogFilter) for f in access_logger.filters):
+        access_logger.addFilter(_HealthAccessLogFilter())
+
     application = FastAPI(
         title="FutureProof API",
         version=__version__,
