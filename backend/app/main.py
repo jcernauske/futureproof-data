@@ -29,6 +29,25 @@ from app.routers import (
 
 DEFAULT_DEV_ORIGINS = "http://localhost:5173,http://localhost:4173"
 
+# The 10 Gold consumable tables every product surface reads from. If any
+# are missing from QueryEngine._views after warmup, the catalog or
+# metadata chain is broken — almost certainly absolute paths embedded in
+# Iceberg metadata pointing at a path that doesn't exist on this host.
+# We log loudly so it surfaces at boot rather than as silent empty
+# results one route at a time.
+EXPECTED_CONSUMABLE_TABLES = (
+    "ai_exposure",
+    "career_branches",
+    "career_outcomes",
+    "career_transitions",
+    "institution_aura",
+    "ipeds_finance_profile",
+    "occupation_profiles",
+    "onet_work_profiles",
+    "program_career_paths",
+    "regional_price_parities",
+)
+
 
 def _parse_cors_origins() -> list[str]:
     """Parse the CORS allowlist env var. Empty/whitespace-only values fall
@@ -92,11 +111,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 elapsed_ms, rows[0]["error"],
             )
         else:
-            view_count = len(getattr(server._get_query_engine(), "_views", {}))
+            views = getattr(server._get_query_engine(), "_views", {})
+            view_count = len(views)
             log.info(
                 "MCP warmup OK in %d ms (%d iceberg views registered)",
                 elapsed_ms, view_count,
             )
+            missing = [
+                t for t in EXPECTED_CONSUMABLE_TABLES
+                if f"consumable_{t}" not in views
+            ]
+            if missing:
+                log.error(
+                    "MCP warmup: %d expected consumable tables NOT "
+                    "registered: %s. Routes that read these tables "
+                    "will return empty results. Check Iceberg metadata "
+                    "paths and catalog reachability.",
+                    len(missing), missing,
+                )
     except Exception as exc:
         log.warning("MCP server warmup failed: %s", exc, exc_info=True)
 

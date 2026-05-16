@@ -576,7 +576,7 @@ async def stream_initial_resolution(
                 }
                 emitted_clean_len = len(clean_prefix)
     except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("stream_initial_resolution gemma error: %s", exc)
+        logger.exception("stream_initial_resolution gemma error: %s", exc)
 
     full = "".join(assembled)
     raw_prose, tail = _split_at_delim(full)

@@ -110,10 +110,11 @@ class QueryEngine:
                             metadata_location=metadata_path,
                         )
                     except Exception as exc:
-                        logger.debug(
+                        logger.warning(
                             "skipping %s during view registration: %s",
                             full_id,
                             exc,
+                            exc_info=True,
                         )
             self._con = con
             return con
