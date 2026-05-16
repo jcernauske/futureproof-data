@@ -88,16 +88,36 @@ cleanup() {
   echo ""
   echo "Shutting down..."
   # Kill the whole process group for each pipeline so child processes
-  # (uvicorn, vite, their workers) terminate too.
-  kill -TERM "$BE_PID" "$FE_PID" 2>/dev/null || true
+  # (uvicorn, vite, their workers) terminate too. READY_PID may not exist
+  # yet if cleanup fires before we reach the poller.
+  kill -TERM "$BE_PID" "$FE_PID" ${READY_PID:+"$READY_PID"} 2>/dev/null || true
   wait 2>/dev/null || true
   exit 0
 }
 trap cleanup INT TERM
 
 echo "Backend:  http://localhost:8000"
-echo "Frontend: http://localhost:5173"
+echo "Frontend: http://localhost:5173 (booting...)"
 echo "Ctrl-C to stop both."
 echo ""
 
-wait
+# Poll the frontend in the background; once vite is serving, print a
+# prominent banner so the "open this URL" line lands AFTER the noisy
+# startup logs instead of being scrolled off-screen by them.
+(
+  if [ -t 1 ] && [ "${TERM:-}" != "dumb" ]; then
+    BOLD=$'\033[1m'; GREEN=$'\033[32m'; RESET=$'\033[0m'
+  else
+    BOLD=""; GREEN=""; RESET=""
+  fi
+  for _ in $(seq 1 60); do
+    if curl -fsS http://localhost:5173 >/dev/null 2>&1; then
+      printf "\n%s%s→ OPEN: http://localhost:5173%s  (frontend is ready)\n\n" "$BOLD" "$GREEN" "$RESET"
+      exit 0
+    fi
+    sleep 1
+  done
+) &
+READY_PID=$!
+
+wait "$BE_PID" "$FE_PID"
