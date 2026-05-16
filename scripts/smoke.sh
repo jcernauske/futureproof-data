@@ -24,6 +24,14 @@ warn() { printf "  %s!%s %s\n" "$Y" "$X" "$1"; }
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# uv installs to $HOME/.local/bin by default but doesn't touch PATH for new
+# shells. Probe that location so this script works without the user having
+# to first edit their shell rc — setup.sh already warned about the PATH
+# fix for new terminals.
+if ! command -v uv >/dev/null 2>&1 && [ -x "$HOME/.local/bin/uv" ]; then
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
 failures=0
 
 # --- .env ------------------------------------------------------------------
@@ -46,10 +54,14 @@ else
   failures=$((failures + 1))
 fi
 
-if (cd backend && uv run python -c "from app.main import create_app; create_app()" >/dev/null 2>&1); then
+backend_import_log=$(mktemp)
+if (cd backend && uv run python -c "from app.main import create_app; create_app()") >"$backend_import_log" 2>&1; then
   ok "Backend imports cleanly (FastAPI app constructs)"
+  rm -f "$backend_import_log"
 else
-  fail "Backend import failed — try (cd backend && uv run python -c 'from app.main import create_app; create_app()')"
+  fail "Backend import failed — error below:"
+  sed 's/^/      /' "$backend_import_log"
+  rm -f "$backend_import_log"
   failures=$((failures + 1))
 fi
 
@@ -72,16 +84,25 @@ fi
 # --- Ollama (only when INFERENCE_BACKEND=ollama or unset) ------------------
 
 if [ -z "$inference_backend" ] || [ "$inference_backend" = "ollama" ]; then
+  daemon_up=0
   if curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; then
+    daemon_up=1
     ok "Ollama daemon reachable"
-    if ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -q '^gemma4:e4b$'; then
+  fi
+
+  # Always try `ollama list` — it can succeed even when our curl probe
+  # doesn't (different port, IPv6-only bind, etc.), so we can still report
+  # the more actionable "model not pulled" message instead of a misleading
+  # "daemon not reachable" warning.
+  if ollama_models=$(ollama list 2>/dev/null) && [ -n "$ollama_models" ]; then
+    if echo "$ollama_models" | awk 'NR>1 {print $1}' | grep -q '^gemma4:e4b$'; then
       ok "gemma4:e4b is pulled"
     else
       fail "gemma4:e4b not pulled — run 'ollama pull gemma4:e4b'"
       failures=$((failures + 1))
     fi
-  else
-    warn "Ollama daemon not reachable — start it before running ./scripts/dev.sh"
+  elif [ "$daemon_up" -eq 0 ]; then
+    warn "Ollama not responding on localhost:11434 — open the Ollama app (or run 'ollama serve'), then 'ollama pull gemma4:e4b' if you haven't yet."
   fi
 elif [ "$inference_backend" = "openrouter" ]; then
   if grep -qE '^OPENROUTER_API_KEY=sk-or-' .env; then

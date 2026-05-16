@@ -43,11 +43,19 @@ else
   failures=$((failures + 1))
 fi
 
+# uv installs to $HOME/.local/bin by default but doesn't touch the current
+# shell's PATH. Probe that location as a fallback so a fresh install works
+# without the user having to restart their shell or source the env file.
+if ! command -v uv >/dev/null 2>&1 && [ -x "$HOME/.local/bin/uv" ]; then
+  export PATH="$HOME/.local/bin:$PATH"
+  warn "Found uv at \$HOME/.local/bin/uv — add 'export PATH=\"\$HOME/.local/bin:\$PATH\"' to your shell rc (or 'source \$HOME/.local/bin/env') so it's on PATH in new terminals."
+fi
+
 if command -v uv >/dev/null 2>&1; then
   ok "uv $(uv --version | awk '{print $2}')"
   uv_present=1
 else
-  fail "uv not found — install via 'curl -LsSf https://astral.sh/uv/install.sh | sh'"
+  fail "uv not found — install via 'curl -LsSf https://astral.sh/uv/install.sh | sh', then 'source \$HOME/.local/bin/env' (or open a new terminal) and re-run this script"
   failures=$((failures + 1))
   uv_present=0
 fi
@@ -123,6 +131,13 @@ else
   cp docs/env-template.txt .env
   ok ".env created from docs/env-template.txt (defaults to Ollama + gemma4:e4b)"
 fi
+
+printf "  %sTo use OpenRouter (cloud) instead of local Ollama:%s\n" "$B" "$X"
+printf "    1. Get a key at https://openrouter.ai/keys\n"
+printf "    2. Edit .env and set:\n"
+printf "         INFERENCE_BACKEND=openrouter\n"
+printf "         OPENROUTER_API_KEY=sk-or-v1-...   %s(uncomment the line)%s\n" "$Y" "$X"
+printf "    3. Restart ./scripts/dev.sh\n"
 
 # --- Gemma model -----------------------------------------------------------
 
