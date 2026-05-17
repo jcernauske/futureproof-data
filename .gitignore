@@ -20,6 +20,10 @@ data/builds/
 
 # Gemma call logs (JSONL, one record per API call)
 logs/
+
+# Video collateral — source video files and extracted frames are large
+# and live alongside the README link to YouTube. Not tracked in git.
+docs/video/
 backend/.venv/
 __pycache__/
 *.pyc
@@ -59,3 +63,9 @@ Midjourney/
 
 # Agent runtime state
 .claude/*.lock
+
+# Internal review notes — not for the competition-facing repo
+reports/reviews/
+
+# Kaggle writeup drafts — submission text is on Kaggle, not in the public repo
+docs/kaggle/
