@@ -67,5 +67,7 @@ Midjourney/
 # Internal review notes — not for the competition-facing repo
 reports/reviews/
 
-# Kaggle writeup drafts — submission text is on Kaggle, not in the public repo
-docs/kaggle/
+# Kaggle writeup drafts — submission text is on Kaggle, not in the public repo.
+# The final submission writeup (v4) is tracked so judges can browse it from the repo.
+docs/kaggle/*
+!docs/kaggle/FutureProof-kaggle-finalv4.md
