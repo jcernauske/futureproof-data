@@ -22,6 +22,8 @@ You pick a school and major. Gemma resolves your free-text input ("Marketing, De
 
 After that come the boss fights. Five threats every career faces (AI automation, student loan debt, market saturation, burnout, and the earnings ceiling) are scored and rendered as WIN/DRAW/LOSE with Gemma-generated narratives. When a student loses, Gemma generates a personalized skill pool of certifications, tools, and experiences. Equip a skill, reroll, and the stats change. Telling a 17-year-old AI is coming for her career is the easy part. Telling her what to learn to stay ahead of it is the product.
 
+The RPG framing is deliberate. A pentagon stat sheet resonates with students who grew up on Pokemon Go, and "Fight AI" with a LOSE lands differently than "82% AI exposure score." Applying skills before rematches forces students to face the work, and surfaces questions they didn't know to ask.
+
 ### Why Gemma 4
 
 FutureProof could not work with a closed-model API.
@@ -54,11 +56,11 @@ Full methodology, per-surface latency, and per-skill fact-check judgments are in
 
 The CIP-SOC crosswalk is the hardest table in education data. Mapping "what you study" to "what you become" requires a government crosswalk designed for statisticians. "Pre-med" returns biology-adjacent SOCs but not physician, because becoming a doctor requires post-graduate education the crosswalk doesn't model. "Deaf education" maps to "Special Education" and stops. I built Gemma-driven SOC expansion: when intent signals suggest missing occupations, Gemma receives a candidate pool from `occupation_profiles` and uses tool calling to select missing SOCs, capped at five additions. The alternative was asking a 17-year-old to know which of 1,949 CIP classifications matched her intent.
 
-Function calling adherence scales with model size. The 26B path chains live tool calls inside free-form "Ask the Guide"; on E4B I answer from the build context already in the prompt, because a chat that sometimes calls tools and sometimes hallucinates one was the worse product. Both paths share the MCP server and the deterministic Gold-zone scoring.
+Function calling adherence scales with model size. The 26B path chains live tool calls inside free-form "Ask the Guide"; on E4B I answer from the build context already in the prompt, because a chat that sometimes calls tools and sometimes hallucinates would penalize schools with less memory. Both paths share the MCP server and the deterministic Gold-zone scoring.
+
+Product experience scales with the variant that can be run locally. E4B on a Mac Mini delivers reliable English and Spanish offline; Arabic and the chained agent-loop chat require 26B. I deployed 26B via OpenRouter today only because my hardware can't host it. If a school has more capable hardware (32 GB memory) then the full stack can run locally without concessions.
 
 Grounding Gemma took most of the prompt work. Every surface receives the student's actual numbers, and a shared voice-contract module enforces strict rules with tests asserting forbidden tokens never appear in output.
-
-The RPG framing is deliberate. A pentagon stat sheet resonates with students who grew up on Pokemon Go, and "Fight AI" with a LOSE lands differently than "82% AI exposure score." Applying skills before rematches forces students to face the work, and surfaces questions they didn't know to ask.
 
 ### For Every Student
 

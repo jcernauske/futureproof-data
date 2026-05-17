@@ -1,0 +1,768 @@
+{
+  "ollama_native_url": "http://127.0.0.1:11434",
+  "repeats": 2,
+  "models": [
+    "gemma4:e2b",
+    "gemma4:e4b"
+  ],
+  "results": [
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_current_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 29489,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1229",
+        "29-1242"
+      ],
+      "raw_args": {
+        "rationale": "These SOCs represent various physician and medical specialist roles that align with the intent of becoming a doctor.",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1229",
+          "29-1242"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_short_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 7518,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1242"
+      ],
+      "raw_args": {
+        "rationale": "These SOC codes directly represent physician and surgeon careers as requested.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1242"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_short_8",
+      "mode": "tool",
+      "candidate_count": 8,
+      "duration_ms": 4329,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "These SOC codes directly represent physician and surgeon careers as requested.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_short_3",
+      "mode": "tool",
+      "candidate_count": 3,
+      "duration_ms": 2716,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "These SOC codes directly represent physician or surgeon careers as requested.",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "json_short_26",
+      "mode": "json",
+      "candidate_count": 26,
+      "duration_ms": 5644,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1249"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1249"
+        ],
+        "rationale": "These codes represent various physician and surgeon specialties."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1249\"],\"rationale\":\"These codes represent various physician and surgeon specialties.\"}",
+      "has_native_tool_call": false
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "json_short_8",
+      "mode": "json",
+      "candidate_count": 8,
+      "duration_ms": 3189,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        "rationale": "These codes represent various physician specialties and general medical practitioners."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1229\"],\"rationale\":\"These codes represent various physician specialties and general medical practitioners.\"}",
+      "has_native_tool_call": false
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_current_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 7766,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1229",
+        "29-1242"
+      ],
+      "raw_args": {
+        "rationale": "These SOCs represent various physician and medical specialist roles that align with the intent of becoming a doctor.",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1229",
+          "29-1242"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_short_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 6363,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1242"
+      ],
+      "raw_args": {
+        "rationale": "These SOC codes directly represent physician and surgeon careers as requested.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1242"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_short_8",
+      "mode": "tool",
+      "candidate_count": 8,
+      "duration_ms": 4547,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "These SOC codes directly represent physician and surgeon careers as requested.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "tool_short_3",
+      "mode": "tool",
+      "candidate_count": 3,
+      "duration_ms": 8331,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "These SOC codes directly represent physician or surgeon careers as requested.",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "json_short_26",
+      "mode": "json",
+      "candidate_count": 26,
+      "duration_ms": 7318,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1249"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1249"
+        ],
+        "rationale": "These codes represent various physician and surgeon specialties."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1249\"],\"rationale\":\"These codes represent various physician and surgeon specialties.\"}",
+      "has_native_tool_call": false
+    },
+    {
+      "model": "gemma4:e2b",
+      "label": "json_short_8",
+      "mode": "json",
+      "candidate_count": 8,
+      "duration_ms": 8966,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        "rationale": "These codes represent various physician specialties and general medical practitioners."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1229\"],\"rationale\":\"These codes represent various physician specialties and general medical practitioners.\"}",
+      "has_native_tool_call": false
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_current_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 44132,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student's intent to be a doctor suggests a preference for roles requiring a doctoral or professional degree, making the listed physician and surgeon roles the most relevant additions.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_short_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 18576,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The student intent of \"doctor\" strongly suggests physician or surgeon roles, which are directly represented by several codes in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1222",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_short_8",
+      "mode": "tool",
+      "candidate_count": 8,
+      "duration_ms": 15009,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student stated \"doctor,\" which directly corresponds to physician and surgeon roles listed in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_short_3",
+      "mode": "tool",
+      "candidate_count": 3,
+      "duration_ms": 15215,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The candidate pool contains specific SOC codes for different types of physicians (Emergency medicine, Family medicine, and all other physicians) which directly match the student's intent of \"doctor.\"",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "json_short_26",
+      "mode": "json",
+      "candidate_count": 26,
+      "duration_ms": 23785,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        "rationale": "The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specific SOC codes."
+      },
+      "content_preview": "{\"soc_codes\": [\"29-1022\", \"29-1214\", \"29-1215\", \"29-1216\", \"29-1222\"], \"rationale\": \"The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specifi",
+      "has_native_tool_call": false
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "json_short_8",
+      "mode": "json",
+      "candidate_count": 8,
+      "duration_ms": 15988,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        "rationale": "The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicians and medical specialists from the candidate pool."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1229\"],\"rationale\":\"The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicia",
+      "has_native_tool_call": false
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_current_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 14649,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student's intent to be a doctor suggests a preference for roles requiring a doctoral or professional degree, making the listed physician and surgeon roles the most relevant additions.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_short_26",
+      "mode": "tool",
+      "candidate_count": 26,
+      "duration_ms": 12759,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The student intent of \"doctor\" strongly suggests physician or surgeon roles, which are directly represented by several codes in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1222",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_short_8",
+      "mode": "tool",
+      "candidate_count": 8,
+      "duration_ms": 16774,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "rationale": "The student stated \"doctor,\" which directly corresponds to physician and surgeon roles listed in the candidate pool.",
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "tool_short_3",
+      "mode": "tool",
+      "candidate_count": 3,
+      "duration_ms": 37432,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1229"
+      ],
+      "raw_args": {
+        "rationale": "The candidate pool contains specific SOC codes for different types of physicians (Emergency medicine, Family medicine, and all other physicians) which directly match the student's intent of \"doctor.\"",
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1229"
+        ]
+      },
+      "content_preview": "",
+      "has_native_tool_call": true
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "json_short_26",
+      "mode": "json",
+      "candidate_count": 26,
+      "duration_ms": 18078,
+      "ok": true,
+      "selected": [
+        "29-1022",
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1022",
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222"
+        ],
+        "rationale": "The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specific SOC codes."
+      },
+      "content_preview": "{\"soc_codes\": [\"29-1022\", \"29-1214\", \"29-1215\", \"29-1216\", \"29-1222\"], \"rationale\": \"The student's intent to be a 'doctor' points to physician and surgeon roles, which are represented by these specifi",
+      "has_native_tool_call": false
+    },
+    {
+      "model": "gemma4:e4b",
+      "label": "json_short_8",
+      "mode": "json",
+      "candidate_count": 8,
+      "duration_ms": 12971,
+      "ok": true,
+      "selected": [
+        "29-1214",
+        "29-1215",
+        "29-1216",
+        "29-1222",
+        "29-1229"
+      ],
+      "raw_args": {
+        "soc_codes": [
+          "29-1214",
+          "29-1215",
+          "29-1216",
+          "29-1222",
+          "29-1229"
+        ],
+        "rationale": "The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicians and medical specialists from the candidate pool."
+      },
+      "content_preview": "{\"soc_codes\":[\"29-1214\",\"29-1215\",\"29-1216\",\"29-1222\",\"29-1229\"],\"rationale\":\"The student's intent to be a 'doctor' suggests physician roles, and the selected codes represent various types of physicia",
+      "has_native_tool_call": false
+    }
+  ],
+  "summary_by_model": {
+    "gemma4:e2b": [
+      {
+        "model": "gemma4:e2b",
+        "label": "tool_current_26",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 18627,
+        "avg_ms": 18627
+      },
+      {
+        "model": "gemma4:e2b",
+        "label": "tool_short_26",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 6940,
+        "avg_ms": 6940
+      },
+      {
+        "model": "gemma4:e2b",
+        "label": "tool_short_8",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 4438,
+        "avg_ms": 4438
+      },
+      {
+        "model": "gemma4:e2b",
+        "label": "tool_short_3",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 5523,
+        "avg_ms": 5523
+      },
+      {
+        "model": "gemma4:e2b",
+        "label": "json_short_26",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 0,
+        "p50_ms": 6481,
+        "avg_ms": 6481
+      },
+      {
+        "model": "gemma4:e2b",
+        "label": "json_short_8",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 0,
+        "p50_ms": 6077,
+        "avg_ms": 6077
+      }
+    ],
+    "gemma4:e4b": [
+      {
+        "model": "gemma4:e4b",
+        "label": "tool_current_26",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 29390,
+        "avg_ms": 29390
+      },
+      {
+        "model": "gemma4:e4b",
+        "label": "tool_short_26",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 15667,
+        "avg_ms": 15667
+      },
+      {
+        "model": "gemma4:e4b",
+        "label": "tool_short_8",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 15891,
+        "avg_ms": 15891
+      },
+      {
+        "model": "gemma4:e4b",
+        "label": "tool_short_3",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 2,
+        "p50_ms": 26323,
+        "avg_ms": 26323
+      },
+      {
+        "model": "gemma4:e4b",
+        "label": "json_short_26",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 0,
+        "p50_ms": 20931,
+        "avg_ms": 20931
+      },
+      {
+        "model": "gemma4:e4b",
+        "label": "json_short_8",
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "native_tool_calls": 0,
+        "p50_ms": 14479,
+        "avg_ms": 14479
+      }
+    ]
+  }
+}

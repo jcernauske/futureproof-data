@@ -1,0 +1,96 @@
+[
+  {
+    "lang": "es",
+    "call_site": "set_your_course_resolve",
+    "original_backend": "openrouter",
+    "original_model": "google/gemma-4-26b-a4b-it",
+    "original_response": "Parece que te refieres a Educación Instruccional o programas relacionados con la enseñanza. Tu entrada sugiere un interés en la formación de docentes o pedagogía.\n\n---INTENT_JSON---\n{\"matched_cip\": \"13.0101\", \"matched_title\": \"Education, General\", \"confidence\": \"low\", \"parent_cip\": \"13.10\", \"alternatives\": [{\"cip\": \"13.1200\", \"title\": \"Teacher Education and Professional Development, Specific Levels and Methods\", \"why\": \"Es una opción cercana si buscas métodos de enseñanza específicos\", \"parent_cip\": \"13.12\"}, {\"cip\": \"13.1300\", \"title\": \"Teacher Education and Professional Development, Specific Subject Areas\", \"why\": \"Es una opción cercana si buscas enseñar una materia específica\", \"parent_cip\": \"13.13\"}], \"remaining_count\": 0, \"narrowing_hint\": \"Por favor, especifica si te interesa la educación general o una especialidad como educación especial o enseñanza de una materia concreta.\", \"intent_keywords\": [\"instrucción\", \"educación\", \"enseñanza\"]}",
+    "e2b_ok": true,
+    "e2b_duration_ms": 29517,
+    "e2b_response": "{\n  \"score\": 0.1,\n  \"reason\": \"The input 'instrututututututututututututututututututututututututututututututut",
+    "e2b_error": null,
+    "e2b_lang_purity": 0.0,
+    "e2b_voice_violations": [],
+    "e2b_response_length": 109,
+    "original_response_length": 957
+  },
+  {
+    "lang": "es",
+    "call_site": "guidance",
+    "original_backend": "openrouter",
+    "original_model": "google/gemma-4-26b-a4b-it",
+    "original_response": "El Massachusetts Institute of Technology fue fundado en el año 1861 y se encuentra en Cambridge, Massachusetts. Esta institución es conocida por su enfoque en la ciencia y la ingeniería, contando con edificios icónicos como el Great Dome. Sus estudiantes suelen identificarse con el espíritu de los Engineers y la universidad tiene una de las dotaciones financieras más grandes del mundo. Muchos líderes de la industria tecnológica y premios Nobel han pasado por sus aulas. El campus integra laboratorios de investigación avanzada con una comunidad académica muy competitiva.\n\nAl graduarte en Computer occupations, all other (SOC 15-1299), podrías empezar ganando unos $118,191 al año según los datos. El salario medio es de $108,970, lo cual es una cifra alta, pero el costo de asistencia de $319,400 es muy grande. Si pides préstamos estudiantiles por la mitad de ese costo, terminarás con una deuda de $159,700 que será difícil de pagar rápido. Además, la inteligencia artificial puede realizar muchas de las tareas básicas de este trabajo, lo que aumenta el riesgo de automatización. Para protegerte, puedes buscar pasantías en áreas de seguridad informática o gestión de proyectos mientras estudias. También te ayudará aprender a trabajar junto con la IA en lugar de solo escribir código básico.",
+    "e2b_ok": true,
+    "e2b_duration_ms": 25409,
+    "e2b_response": "El Massachusetts Institute of Technology fue fundado en 1861 y es conocido por su enfoque práctico en la ingeniería. El campus incluye edificios icónicos como el Great Dome y está ubicado en Cambridge. La institución tiene una reputación muy fuerte en campos técnicos y científicos. Sus exalumnos han trabajado en empresas que cambian la forma en que vivimos hoy. La escuela mantiene un compromiso histórico con la investigación de vanguardia.\n\nDespués de graduarte con un título de Ciencias de la Computación, puedes esperar empezar ganando cerca de $118,191 al año, lo cual es bastante bueno en comparación con otros puestos. El costo total de la matrícula es alto, llegando a $319,400 por cuatro años, por lo que tener un buen plan para pagar la deuda estudiantil es muy importante. El campo de la tecnología está creciendo, así que hay muchas empresas buscando gente como tú. Sin embargo, hay cosas que la inteligencia artificial ya hace bien, así que es bueno enfocarse en áreas donde se necesite pensar mucho en cómo usar la tecnología, como la seguridad de la información. Mientras estás en la escuela, intenta hacer prácticas en el área de ciberseguridad y busca proyectos que involucren diseño de sistemas, eso te ayudará mucho.",
+    "e2b_error": null,
+    "e2b_lang_purity": 1.0,
+    "e2b_voice_violations": [],
+    "e2b_response_length": 1237,
+    "original_response_length": 1300
+  },
+  {
+    "lang": "es",
+    "call_site": "skill_recs",
+    "original_backend": "openrouter",
+    "original_model": "google/gemma-4-26b-a4b-it",
+    "original_response": "Philosophy Minor | ERN+2 | Aprenderás a tomar decisiones éticas complejas que las máquinas no pueden replicar por sí solas.\nTeaching Assistantship | RES+2 | Enseñar conceptos técnicos a otros refuerza tu propia comprensión y desarrolla habilidades de comunicación.\nEntrepreneurship Club | ROI+1 | Entender cómo funcionan los negocios te ayudará a convertir tu código en productos con valor real.\nHuman-Computer Interaction Course | GRW+1 | Esta especialización te prepara para diseñar sistemas que se adapten mejor a las necesidades de las personas.",
+    "e2b_ok": true,
+    "e2b_duration_ms": 14701,
+    "e2b_response": "Club de Robótica | GRW+2 | Participar en este club le ayudará a mejorar sus habilidades para resolver problemas en entornos de equipo.\nAsistente de Laboratorio de Ciencias de la Computación | ERN+1 | Trabajar en un laboratorio le dará experiencia práctica en el manejo de equipos y metodologías de investigación.\nCurso Electivo de Ética de la IA | RES+1 | Estudiar la ética de la IA le ayudará a considerar las implicaciones sociales de su programación.\nPrácticas de Desarrollo de Software en una Startup Local | ROI+2 | Hacer prácticas le proporcionará experiencia directa en el ciclo completo de desarrollo de software que los empleadores buscan.",
+    "e2b_error": null,
+    "e2b_lang_purity": 1.0,
+    "e2b_voice_violations": [
+      "stat_code"
+    ],
+    "e2b_response_length": 648,
+    "original_response_length": 549
+  },
+  {
+    "lang": "ar",
+    "call_site": "set_your_course_resolve",
+    "original_backend": "openrouter",
+    "original_model": "google/gemma-4-26b-a4b-it",
+    "original_response": "يبدو أنك مهتم بمجال علوم الأغذية. يرتبط هذا المصطلح بشكل وثيق ببرنامج Food Science and Technology نظراً لطبيعة دراسة تصنيع وتطوير المنتجات الغذائية.\n\n---INTENT_JSON---\n{\"matched_cip\": \"01.1000\", \"matched_title\": \"Food Science and Technology\", \"confidence\": \"low\", \"parent_cip\": \"01.10\", \"alternatives\": [], \"remaining_count\": 0, \"narrowing_hint\": \"\", \"intent_keywords\": [\"cheese\"]}",
+    "e2b_ok": true,
+    "e2b_duration_ms": 37566,
+    "e2b_response": "{\n  \"reasoning\": \"The user input 'cheese' is a common noun and does not relate to any academic field, career path, or educational program. Therefore, no specific program can be recommended. The response should acknowledge the input while guiding the user to provide relevant academic or career-related keywords.\",\n  \"recommendation\": \"Please provide a keyword related to a field of study, career interest, or academic subject so I can assist you with program recommendations.\",\n  \"programs\": []\n}",
+    "e2b_error": null,
+    "e2b_lang_purity": 0.0,
+    "e2b_voice_violations": [],
+    "e2b_response_length": 496,
+    "original_response_length": 381
+  },
+  {
+    "lang": "ar",
+    "call_site": "guidance",
+    "original_backend": "openrouter",
+    "original_model": "google/gemma-4-26b-a4b-it",
+    "original_response": "تأسست Illinois State University في عام 1857 وهي تقدم تعليمًا عريقًا في ولاية إلينوي. يطلق على طلاب الجامعة لقب Redbirds ويشاركون في المنافسات الرياضية ضمن مؤتمر Missouri Valley Conference. تضم الحرم الجامعي مباني تاريخية مثل Bone Student Center الذي يعد مركزًا حيويًا للأنشطة الطلابية. تستقبل الجامعة آلاف الطلاب سنويًا وتشتهر ببرامجها الأكاديمية القوية في مجالات العلوم والتربية. تقع الجامعة في مدينة Normal التي توفر بيئة دراسية هادئة ومخصصة للتركيز الأكاديمي.\n\nيبدأ الراتب لمهنة Registered nurses (SOC 29-1141) عند حوالي $63,829 سنويًا، بينما يصل الراتب الوسيط حسب بيانات BLS إلى $93,600. قد تجد صعوبة في سداد الديون الطلابية لأن تكلفة الدراسة البالغة $129,832 مرتفعة مقارنة بالراتب في البداية. من الجيد أن هذا العمل يتطلب مهارات بشرية قوية يصعب على الذكاء الاصطناعي القيام بها، كما أن آفاق التوظيف مستقرة. لتقليل الضغط المالي، يمكنك البحث عن منح دراسية مخصصة للتمريض أو العمل في وظائف جزئية داخل المستشفيات أثناء الدراسة. يمكنك أيضًا البدء في التدريب العملي مبكرًا لزيادة فرصك في الحصول على وظائف برواتب أعلى فور التخرج.",
+    "e2b_ok": true,
+    "e2b_duration_ms": 30414,
+    "e2b_response": "Illinois State University was established in 1867 and its mascot is the Redbirds. The campus features the historic Illinois State Capitol building, which dates back to the mid-19th century. The university has specific academic strengths noted in its College Scorecard data. Students can see that many of its alumni have gone into various professional fields. The town surrounding the campus has a mix of historical architecture and modern retail centers.\n\nWhen you graduate with a Bachelor's degree in Nursing, you can expect to start making money around $63,829 per year as a Registered Nurse (SOC 29-1141). The total cost to get this degree is shown as $129,832 over 4 years, which is quite high compared to what you start earning. The job market for nurses is steady, meaning there will always be jobs, but it won't be exploding right now. Because the work involves complex patient care, it is hard for computers to take over what you do, which is good. To make your financial situation better, consider getting certifications beyond your degree, like those for Nurse Practitioners. Also, look into volunteering at local hospitals to build your real-world experience.",
+    "e2b_error": null,
+    "e2b_lang_purity": 0.0,
+    "e2b_voice_violations": [],
+    "e2b_response_length": 1170,
+    "original_response_length": 1024
+  },
+  {
+    "lang": "ar",
+    "call_site": "skill_recs",
+    "original_backend": "openrouter",
+    "original_model": "google/gemma-4-26b-a4b-it",
+    "original_response": "Leadership in Nursing Club | ERN+1 | Helps you practice making decisions and managing teams before you enter the workforce.\nStatistics Course | RES+1 | Teaches you how to read and use medical research to improve patient care.\nHealthcare Management Minor | ROI+2 | Prepares you for higher-paying roles in nursing administration.\nClinical Internship | GRW+1 | Provides hands-on experience that makes it easier to find a job after graduation.",
+    "e2b_ok": true,
+    "e2b_duration_ms": 14608,
+    "e2b_response": "Volunteering at a local clinic | ERN+1 | This will give you hands-on experience caring for people, which is key for registered nurses.\nTaking a psychology elective | ROI+1 | Understanding human behavior will help you better care for patients and manage relationships.\nJoining the Student Nurses' Association | RES+1 | Being involved in a student group will help you learn how to work with other healthcare professionals.\nShadowing a Nurse Practitioner | GRW+1 | Observing a nurse practitioner in practice will give you insight into advanced clinical roles.",
+    "e2b_error": null,
+    "e2b_lang_purity": 0.0,
+    "e2b_voice_violations": [
+      "stat_code"
+    ],
+    "e2b_response_length": 556,
+    "original_response_length": 439
+  }
+]
