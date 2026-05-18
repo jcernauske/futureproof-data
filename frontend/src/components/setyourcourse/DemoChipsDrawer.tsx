@@ -57,6 +57,15 @@ export function DemoChipsDrawer({
   const reducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
 
+  // Collapse the drawer after a chip is picked so the school/major inputs
+  // the chip just populated come back into view. The intent stream + build
+  // play out on the right panel; keeping the drawer open just buries the
+  // confirmed selection under a tall list of unchosen options.
+  const handleChipClick = (chip: DemoChip) => {
+    onPick(chip);
+    setExpanded(false);
+  };
+
   return (
     <section
       aria-labelledby="demo-chips-trigger"
@@ -153,7 +162,7 @@ export function DemoChipsDrawer({
                     type="button"
                     data-testid={chipTestId(chip, "single")}
                     disabled={disabled}
-                    onClick={() => onPick(chip)}
+                    onClick={() => handleChipClick(chip)}
                     className={`${CHIP_BASE} ${CHIP_NEUTRAL}`}
                   >
                     {chip.label}
@@ -188,7 +197,7 @@ export function DemoChipsDrawer({
                         type="button"
                         data-testid={chipTestId(pair.better, "compare")}
                         disabled={disabled}
-                        onClick={() => onPick(pair.better)}
+                        onClick={() => handleChipClick(pair.better)}
                         className={`${CHIP_BASE} ${CHIP_NEUTRAL}`}
                       >
                         {pair.better.label}
@@ -197,7 +206,7 @@ export function DemoChipsDrawer({
                         type="button"
                         data-testid={chipTestId(pair.worse, "compare")}
                         disabled={disabled}
-                        onClick={() => onPick(pair.worse)}
+                        onClick={() => handleChipClick(pair.worse)}
                         className={`${CHIP_BASE} ${CHIP_NEUTRAL}`}
                       >
                         {pair.worse.label}
