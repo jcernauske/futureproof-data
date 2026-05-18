@@ -425,13 +425,32 @@ export function SetYourCourseScreen() {
 
   const loadedOutcomes = socReveal.kind === "outcomes-loaded" ? socReveal.outcomes : [];
 
+  // Dedupe by soc_code before partitioning into tiers. The gold table's
+  // consumable.program_career_paths can carry multiple rows per
+  // (unitid, cipcode, soc_code) — typically when the same SOC reaches
+  // the school through more than one crosswalk source. Without this
+  // dedupe, CareerTierSection renders <CareerCard key={career.soc_code}
+  // ...> and React collapses the duplicates into the first, silently
+  // dropping the second card while emitting a "Encountered two children
+  // with the same key" console warning. Keep first occurrence because
+  // upstream rows are already sorted by stats_available_count DESC, so
+  // "first" is also "best-attested."
+  const uniqueOutcomes = useMemo<CareerOutcome[]>(() => {
+    const seen = new Set<string>();
+    return loadedOutcomes.filter((c) => {
+      if (seen.has(c.soc_code)) return false;
+      seen.add(c.soc_code);
+      return true;
+    });
+  }, [loadedOutcomes]);
+
   const careerPaths = useMemo<CareerOutcome[]>(
-    () => loadedOutcomes.filter((c) => !isPostgrad(c)),
-    [loadedOutcomes],
+    () => uniqueOutcomes.filter((c) => !isPostgrad(c)),
+    [uniqueOutcomes],
   );
   const postgradCareers = useMemo<CareerOutcome[]>(
-    () => loadedOutcomes.filter(isPostgrad),
-    [loadedOutcomes],
+    () => uniqueOutcomes.filter(isPostgrad),
+    [uniqueOutcomes],
   );
   // Experience-based grouping (BLS OOH work_experience_code):
   //   3 → "Likely first jobs" (no related experience required)

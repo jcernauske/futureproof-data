@@ -457,6 +457,76 @@ describe("TestSocRevealStates", () => {
     expect(screen.getByText("Early-career roles")).toBeInTheDocument();
   });
 
+  it("dedupes outcomes by soc_code — gold-table duplicate rows render once", async () => {
+    // Northwestern Marketing repro: consumable.program_career_paths can
+    // emit multiple rows per (unitid, cipcode, soc_code) when the same
+    // SOC reaches the school via more than one crosswalk source. Without
+    // the dedupe useMemo in SetYourCourseScreen, CareerTierSection's
+    // `key={career.soc_code}` collapses duplicates into a silent React
+    // warning + dropped cards. Seed the worst-case row shape and prove
+    // each unique SOC renders exactly once.
+    const withDuplicates: CareerOutcome[] = [
+      makeCareer({
+        soc_code: "11-9199",
+        occupation_title: "Managers, all other",
+        work_experience_code: 2,
+      }),
+      makeCareer({
+        soc_code: "11-9199",
+        occupation_title: "Managers, all other",
+        work_experience_code: 2,
+      }),
+      makeCareer({
+        soc_code: "11-9179",
+        occupation_title: "Personal service managers, all other",
+        work_experience_code: 2,
+      }),
+      makeCareer({
+        soc_code: "11-9179",
+        occupation_title: "Personal service managers, all other",
+        work_experience_code: 2,
+      }),
+      makeCareer({
+        soc_code: "13-1111",
+        occupation_title: "Management analysts",
+        work_experience_code: 2,
+      }),
+    ];
+    vi.mocked(getOutcomes).mockResolvedValue(withDuplicates);
+    seedWithResolvedMajor();
+
+    // Capture React's key-collision warning so we can assert it is NOT
+    // emitted after the dedupe. Pre-dedupe behavior surfaces this:
+    //   "Encountered two children with the same key, `11-9199`."
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    renderScreen();
+
+    // Wait for outcomes to land.
+    await screen.findByText("Management analysts");
+
+    // Each duplicated title appears EXACTLY ONCE post-dedupe.
+    expect(screen.getAllByText("Managers, all other")).toHaveLength(1);
+    expect(
+      screen.getAllByText("Personal service managers, all other"),
+    ).toHaveLength(1);
+    // The unique title also renders.
+    expect(screen.getAllByText("Management analysts")).toHaveLength(1);
+
+    // No React "same key" warnings — that's the user-visible noise the
+    // dedupe was added to silence.
+    const sameKeyWarnings = consoleErrorSpy.mock.calls.filter((args) =>
+      args.some(
+        (a) => typeof a === "string" && a.includes("same key"),
+      ),
+    );
+    expect(sameKeyWarnings).toHaveLength(0);
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it("groups careers into first-jobs / early-career / long-term sections in order", async () => {
     // Mixed work_experience_code values exercise all three buckets.
     const mixed: CareerOutcome[] = [
