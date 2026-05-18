@@ -10,6 +10,7 @@ Start with: python -m brightsmith.serve
 from __future__ import annotations
 
 import collections
+import functools
 import json
 import logging
 import os
@@ -210,6 +211,60 @@ def _looks_like_acronym_query(needle_norm: str) -> bool:
         and needle_norm.isalpha()
         and " " not in needle_norm
     )
+
+
+def _tokens_for_search(query_norm: str) -> list[str]:
+    """Split a normalized query into 3+ char alphanumeric tokens.
+
+    Used by the token-overlap matcher. Lower-bound of 3 chars filters out
+    tiny words ("of", "at", "uc") that would over-match. Order-independent —
+    "UC Berkeley" tokenizes the same as "Berkeley UC".
+    """
+    return [t for t in query_norm.split() if len(t) >= 3 and t.isalnum()]
+
+
+@functools.lru_cache(maxsize=1)
+def _load_school_aliases() -> dict[str, dict[str, Any]]:
+    """Load {normalized_alias: {alias, canonical_unitid, canonical_name}}.
+
+    One-shot read from data/reference/school_aliases.yaml. Pre-warmed on
+    first call; tests can use _load_school_aliases.cache_clear() to force
+    a reload. Returns {} silently if the file is missing — the caller
+    falls back to substring + acronym + token-overlap matching.
+
+    Entries with `canonical_unitid: null` are dropped (no-op aliases).
+    """
+    path = Path(__file__).resolve().parents[2] / "data" / "reference" / "school_aliases.yaml"
+    if not path.exists():
+        logger.info(
+            "school_aliases.yaml not found at %s; alias matching disabled",
+            path,
+        )
+        return {}
+    try:
+        raw = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError:
+        logger.warning(
+            "school_aliases.yaml is malformed; alias matching disabled",
+            exc_info=True,
+        )
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for entry in raw.get("aliases", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        alias = entry.get("alias")
+        canonical_unitid = entry.get("canonical_unitid")
+        if not isinstance(alias, str) or not isinstance(canonical_unitid, int):
+            continue
+        key = _normalize_for_school_search(alias)
+        if key:
+            out[key] = {
+                "alias": alias,
+                "canonical_unitid": canonical_unitid,
+                "canonical_name": entry.get("canonical_name", ""),
+            }
+    return out
 
 # ---------------------------------------------------------------------------
 # get_career_paths constants
@@ -2260,7 +2315,22 @@ class FutureProofMCPServer(BaseMCPServer):
 
         needle_norm = _normalize_for_school_search(needle)
         try_acronym = _looks_like_acronym_query(needle_norm)
+        query_tokens = _tokens_for_search(needle_norm)
+        aliases = _load_school_aliases()
+        alias_hit = aliases.get(needle_norm) if needle_norm else None
+        alias_target_unitid: int | None = (
+            int(alias_hit["canonical_unitid"]) if alias_hit else None
+        )
+
         filtered: list[dict] = []
+        seen_unitids: set[int] = set()
+
+        def _add(row: dict) -> None:
+            uid = row.get("unitid")
+            if isinstance(uid, int) and uid not in seen_unitids:
+                seen_unitids.add(uid)
+                filtered.append(row)
+
         for r in rows:
             if not self._confidence_tier_allowed(
                 r.get("confidence_tier"), min_confidence
@@ -2268,13 +2338,31 @@ class FutureProofMCPServer(BaseMCPServer):
                 continue
             name = str(r.get("institution_name") or "")
             name_norm = _normalize_for_school_search(name)
-            if needle_norm and needle_norm in name_norm:
-                filtered.append(r)
+            # 1. Alias match — highest priority. If a curated alias resolves
+            #    to this unitid, surface it regardless of substring match.
+            if alias_target_unitid is not None and r.get("unitid") == alias_target_unitid:
+                _add(r)
                 continue
+            # 2. Substring (existing behavior).
+            if needle_norm and needle_norm in name_norm:
+                _add(r)
+                continue
+            # 3. Acronym (existing behavior).
             if try_acronym:
                 acronym = _school_acronym(name)
                 if acronym and acronym.startswith(needle_norm):
-                    filtered.append(r)
+                    _add(r)
+                    continue
+            # 4. Token-overlap. ALL query tokens must appear in name tokens
+            #    (substring or prefix match). Only fires for multi-token
+            #    queries — single-token queries already had a substring shot.
+            if len(query_tokens) >= 2:
+                name_tokens = set(_tokens_for_search(name_norm))
+                if all(
+                    any(qt in nt or nt.startswith(qt) for nt in name_tokens)
+                    for qt in query_tokens
+                ):
+                    _add(r)
 
         if not filtered:
             return self.attach_governance(

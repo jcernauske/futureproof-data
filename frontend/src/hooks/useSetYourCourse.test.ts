@@ -528,6 +528,56 @@ describe("TestCommit", () => {
     );
     expect(mockNavigate).toHaveBeenCalledWith("/my-build");
   });
+
+  it("commit_falls_back_to_liveMajorText_when_major_store_is_null — regression guard for backend CommitRequest.major_text min_length=1", async () => {
+    // The first commit fires BEFORE the major store is written
+    // (setMajor runs after commitResolution returns), so major?.rawText
+    // is null at the moment commit is called. Before the fix, that
+    // produced inputNormalized="", which the backend now rejects with
+    // 422 (`major_text: String should have at least 1 character`). The
+    // hook must fall back to the liveMajorText parameter so commit
+    // always sends a non-empty payload when the student has typed
+    // something.
+    useBuildInputStore.setState({
+      initialResolution: makeResolution({ matched_cip: "52.0201" }),
+      currentResolution: makeResolution({ matched_cip: "52.1401" }),
+      // major store is intentionally NOT set — null at this point.
+      major: null,
+    });
+    vi.mocked(commitResolution).mockResolvedValue({
+      committed: true,
+      logged: true,
+    });
+
+    // Pass liveMajorText through the hook the same way SetYourCourseScreen
+    // does — useSetYourCourse(majorText).
+    const { result } = renderHook(
+      () => useSetYourCourse("Mortuary Science"),
+      { wrapper },
+    );
+    await act(async () => {
+      await result.current.commit();
+    });
+
+    expect(commitResolution).toHaveBeenCalledTimes(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const args = vi.mocked(commitResolution).mock.calls[0]![0];
+    // inputNormalized is the lowercased + collapsed-whitespace form of
+    // liveMajorText, since major store was null.
+    expect(args.inputNormalized).toBe("mortuary science");
+    expect(args.inputNormalized.length).toBeGreaterThan(0);
+
+    // After commit, setMajor also writes rawText into the major store
+    // for downstream screens (BuildResultsScreen.runBuild reads from
+    // major.rawText to populate the /build POST). Same fallback rule:
+    // when major was null, the raw text must come from liveMajorText
+    // — otherwise /build receives an empty major_text and 422s
+    // against the BuildRequest min_length=1 validator.
+    const majorAfter = useBuildInputStore.getState().major;
+    expect(majorAfter).not.toBeNull();
+    expect(majorAfter?.rawText).toBe("Mortuary Science");
+    expect(majorAfter?.rawText.length).toBeGreaterThan(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

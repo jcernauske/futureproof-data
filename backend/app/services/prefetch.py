@@ -102,6 +102,27 @@ async def _run_prefetch(
                 intent_keywords=intent_keywords,
                 home_state=home_state,
             )
+        except stat_engine.SOCNotInGold as exc:
+            # Benign cache-miss: the (unitid, cipcode, soc) triple isn't in
+            # gold for this build (typical when a branch-campus unitid is
+            # picked and its catalog doesn't carry the requested SOC). The
+            # build stream computes from scratch — prefetch is best-effort.
+            # Log at INFO with structured context so we can audit without
+            # crying wolf at WARNING. Code review F3: catch the specific
+            # SOCNotInGold sentinel, not bare LookupError — otherwise a
+            # KeyError/IndexError from a malformed gold row would also fall
+            # through this branch and silently miss the WARNING signal.
+            logger.info(
+                "prefetch compute_one cache-miss",
+                extra={
+                    "call_site": "prefetch_compute_one",
+                    "unitid": unitid,
+                    "cipcode": cipcode,
+                    "soc_code": soc_code,
+                    "reason": "soc_not_in_gold",
+                },
+            )
+            result.error = str(exc)
         except Exception as exc:
             logger.warning("prefetch compute_one failed: %r", exc)
             result.error = str(exc)

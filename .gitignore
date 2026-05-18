@@ -67,6 +67,10 @@ Midjourney/
 # Internal review notes — not for the competition-facing repo
 reports/reviews/
 
+# Chrome / Playwright test artifacts — diagnostic-only, not part of the shipped product
+reports/chrome-agent-real-*/
+scripts/chrome_agent_e2e/
+
 # Kaggle writeup drafts — submission text is on Kaggle, not in the public repo.
 # The final submission writeup (v4) is tracked so judges can browse it from the repo.
 docs/kaggle/*

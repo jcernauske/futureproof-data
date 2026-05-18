@@ -203,6 +203,142 @@ async def test_two_static_college_questions_always_present(
 
 
 # ---------------------------------------------------------------------------
+# Missing-earnings 3rd-mandatory question — mirrors InsufficientDataBanner.
+# When build.career.stats.ern and stats.roi are both None, the static
+# college questions get a 3rd mandatory entry pointing the student at the
+# missing data with the program name interpolated.
+# ---------------------------------------------------------------------------
+
+
+def test_missing_earnings_question_appended_when_both_stats_null():
+    """Build with null ERN+ROI: 3rd mandatory question appears with the
+    program name interpolated.
+    """
+    from tests.services.conftest import make_fixture_build
+
+    build = make_fixture_build(
+        program_name="Finance",
+        stats_override={"ern": None, "roi": None},
+    )
+
+    questions = pdf_questions._static_college_questions(build, locale="en")
+
+    # 2 original mandatory + 1 missing-earnings mandatory + 1 fallback.
+    assert len(questions) == 4
+    assert questions[0].is_static_mandatory is True
+    assert questions[1].is_static_mandatory is True
+    assert questions[2].is_static_mandatory is True
+    assert questions[3].is_static_mandatory is False
+
+    # The new mandatory entry mentions the missing data and interpolates
+    # the program name so the student walks into the conversation knowing
+    # exactly what they're asking about.
+    missing_q = questions[2].text
+    assert "Federal earnings data isn't published" in missing_q
+    assert "Finance" in missing_q
+    assert "federal loans" in missing_q
+
+
+def test_missing_earnings_question_omitted_when_stats_populated(fixture_build):
+    """Build with non-null stats: only the original 2 mandatory + 1
+    fallback. No 3rd mandatory question.
+    """
+    questions = pdf_questions._static_college_questions(fixture_build, locale="en")
+    assert len(questions) == 3
+    assert questions[0].is_static_mandatory is True
+    assert questions[1].is_static_mandatory is True
+    assert questions[2].is_static_mandatory is False
+
+
+def test_missing_earnings_question_omitted_when_only_ern_is_null():
+    """Predicate is AND, not OR — matches the screen-level banner gate."""
+    from tests.services.conftest import make_fixture_build
+
+    build = make_fixture_build(stats_override={"ern": None})  # roi stays 7
+    questions = pdf_questions._static_college_questions(build, locale="en")
+    assert len(questions) == 3  # no 3rd mandatory entry
+
+
+@pytest.mark.asyncio
+async def test_missing_earnings_question_survives_live_gemma_path(
+    monkeypatch, patched_jsonl,
+):
+    """Regression guard against the _live_assemble [:2] slice bug.
+
+    When ERN+ROI are both null AND Gemma returns valid JSON, the live
+    path used to drop the 3rd mandatory question because the slice took
+    only the first 2 entries. The fix preserves every mandatory entry.
+    """
+    from tests.services.conftest import make_fixture_build
+
+    build = make_fixture_build(
+        program_name="Finance",
+        stats_override={"ern": None, "roi": None},
+    )
+    monkeypatch.setattr(
+        gemma_client,
+        "generate_chat_async",
+        AsyncMock(return_value=_valid_gemma_json()),
+    )
+
+    result = await pdf_questions.generate_audience_questions(build)
+
+    assert result.gemma_path == "live"
+    mandatory_qs = [
+        q for q in result.ask_the_college if q.is_static_mandatory
+    ]
+    assert len(mandatory_qs) == 3, (
+        "live Gemma path dropped the missing-earnings mandatory question — "
+        "the _live_assemble [:2] slice regressed"
+    )
+    # The new mandatory carries the missing-earnings copy + program name.
+    missing_q_text = mandatory_qs[2].text
+    assert "Federal earnings data isn't published" in missing_q_text
+    assert "Finance" in missing_q_text
+
+
+def test_missing_earnings_question_truncates_long_program_across_locales():
+    """50-char CIP names (real example: Harvard's matched program for
+    'Finance' resolves to 'Business Administration, Management and
+    Operations') must not blow the AudienceQuestion 240-char cap in any
+    locale — Spanish has the tightest budget.
+    """
+    from tests.services.conftest import make_fixture_build
+
+    long_program = "Business Administration, Management and Operations"
+    assert len(long_program) > 40  # sanity: actually long
+    build = make_fixture_build(
+        program_name=long_program,
+        stats_override={"ern": None, "roi": None},
+    )
+    for locale in ("en", "es", "ar"):
+        questions = pdf_questions._static_college_questions(build, locale=locale)
+        assert len(questions) == 4
+        missing = questions[2]
+        # Pydantic enforces max_length=240 on construction — if this
+        # line builds without ValidationError, the cap was respected.
+        assert len(missing.text) <= 240, (
+            f"locale={locale!r} produced {len(missing.text)} chars (>240)"
+        )
+        assert missing.is_static_mandatory is True
+
+
+def test_fit_program_to_template_truncates_with_ellipsis():
+    """Direct unit test on the helper — short names pass through,
+    long names get truncated + ellipsis, all within budget.
+    """
+    template = "Federal earnings data isn't published for your {program}."
+    # Short — pass through unchanged.
+    assert pdf_questions._fit_program_to_template(template, "Nursing") == "Nursing"
+    # Long — truncated with ellipsis suffix.
+    long_name = "x" * 500
+    fitted = pdf_questions._fit_program_to_template(template, long_name)
+    formatted = template.format(program=fitted)
+    assert len(formatted) <= 240
+    assert fitted.endswith("…")
+
+
+# ---------------------------------------------------------------------------
 # P0: audience_caps_enforced — Gemma 4-5 accepted; 6+ clipped or rejected.
 # ---------------------------------------------------------------------------
 

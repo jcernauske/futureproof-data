@@ -6,6 +6,7 @@ through the MCP server's ``get_school_programs`` handler.
 
 from __future__ import annotations
 
+import functools
 import logging
 from typing import Any
 
@@ -15,6 +16,60 @@ from app.services import mcp_client
 logger = logging.getLogger(__name__)
 
 _SCHOOL_SEARCH_LIMIT = 10
+
+
+@functools.lru_cache(maxsize=1)
+def _program_counts_by_unitid() -> dict[int, int]:
+    """One-shot load of {unitid: distinct_cipcode_count}.
+
+    Pre-warmed at module load via the first sort call. ~80 KB resident for
+    ~6800 institutions. The program count is a reasonable proxy for "is this
+    the main campus or a branch" — main campuses report many programs,
+    branches usually report 1-2. Used as a sort tiebreaker so "Ohio State"
+    surfaces Main Campus before Lima Campus.
+
+    Tests call _program_counts_by_unitid.cache_clear() to force reload.
+    """
+    try:
+        server = mcp_client.get_server()
+        rows = server.query_iceberg(
+            "SELECT unitid, COUNT(DISTINCT cipcode) AS n "
+            "FROM consumable_career_outcomes "
+            "GROUP BY unitid"
+        )
+    except Exception:
+        logger.warning(
+            "school_lookup: _program_counts_by_unitid query failed; "
+            "sort will degrade to alpha tiebreak only",
+            exc_info=True,
+        )
+        return {}
+    if rows and isinstance(rows[0], dict) and "error" in rows[0]:
+        return {}
+    return {
+        int(r["unitid"]): int(r["n"])
+        for r in rows
+        if r.get("unitid") is not None and r.get("n") is not None
+    }
+
+
+def _rank_key(s: SchoolMatch, query: str) -> tuple:
+    """Sort key for school search results.
+
+    Order: exact-name match > prefix match > anything else; then by program
+    count desc (main campus over branch); then by name length asc; then by
+    alpha for a stable final tiebreak.
+    """
+    q = query.lower().strip()
+    name_lower = s.institution_name.lower()
+    if name_lower == q:
+        bucket = 0
+    elif name_lower.startswith(q):
+        bucket = 1
+    else:
+        bucket = 2
+    program_count = _program_counts_by_unitid().get(s.unitid, 0)
+    return (bucket, -program_count, len(s.institution_name), s.institution_name)
 
 
 def _rows(result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -64,7 +119,7 @@ def search_schools(query: str) -> list[SchoolMatch]:
         if len(seen) >= _SCHOOL_SEARCH_LIMIT:
             break
 
-    return sorted(seen.values(), key=lambda s: s.institution_name)
+    return sorted(seen.values(), key=lambda s: _rank_key(s, query))
 
 
 def get_programs(

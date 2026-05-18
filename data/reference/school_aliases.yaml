@@ -1,0 +1,52 @@
+# School aliases — colloquial → canonical IPEDS mapping.
+#
+# When the substring + acronym matchers in _handle_get_school_programs miss
+# a school the student typed colloquially (e.g. "Penn State" → no substring
+# in "Pennsylvania State University-Main Campus"), this file fills the gap.
+#
+# Loaded once at MCP server boot via _load_school_aliases (@lru_cache).
+#
+# When you add an entry: verify canonical_unitid by querying
+# `consumable_career_outcomes` (or `base_college_scorecard_institution`).
+# Spec: docs/specs/bugfix-post-100-build-test-fixes-bundle.md Bundle 3.
+
+aliases:
+  - alias: "Penn State"
+    canonical_unitid: 495767
+    canonical_name: "The Pennsylvania State University"
+  - alias: "Georgia Tech"
+    canonical_unitid: 139755
+    canonical_name: "Georgia Institute of Technology-Main Campus"
+  - alias: "UNC Chapel Hill"
+    canonical_unitid: 199120
+    canonical_name: "University of North Carolina at Chapel Hill"
+  - alias: "UT San Antonio"
+    canonical_unitid: 229027
+    canonical_name: "The University of Texas at San Antonio"
+  - alias: "Cal State Long Beach"
+    canonical_unitid: 110583
+    canonical_name: "California State University-Long Beach"
+  - alias: "West Point"
+    canonical_unitid: 197036
+    canonical_name: "United States Military Academy"
+  - alias: "UC Berkeley"
+    canonical_unitid: 110635
+    canonical_name: "University of California-Berkeley"
+  - alias: "UC Davis"
+    canonical_unitid: 110644
+    canonical_name: "University of California-Davis"
+  - alias: "Cal Poly SLO"
+    canonical_unitid: 110422
+    canonical_name: "California Polytechnic State University-San Luis Obispo"
+  - alias: "Florida A&M"
+    canonical_unitid: 133650
+    canonical_name: "Florida Agricultural and Mechanical University"
+  - alias: "SUNY Cobleskill"
+    canonical_unitid: 196033
+    canonical_name: "SUNY College of Agriculture and Technology at Cobleskill"
+  # Le Cordon Bleu intentionally omitted — not in IPEDS; null-unitid entries
+  # behave identically to "no match", so adding one provides no value. A
+  # future "school not in our dataset" UX spec can address this gap properly.
+  - alias: "Purdue Univeristy"  # intentional typo from the 2026-05-17 test run
+    canonical_unitid: 243780
+    canonical_name: "Purdue University-Main Campus"

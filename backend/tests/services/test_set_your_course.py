@@ -2210,3 +2210,507 @@ class TestFallbackResolveParentCip:
             f"parent_cip should be '' because ISU reports 52.14 directly, "
             f"got {result.parent_cip!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Bundle 1: Template-leak gate (post-100-build-test-fixes-bundle §4)
+#
+# Gemma (especially e4b) intermittently echoes the resolver prompt's
+# "matched_cip": "XX.XXXX" / "matched_title": "Program Title" template
+# values instead of substituting real ones. _is_placeholder_resolution
+# detects these and the callers reject them rather than surfacing
+# 'Matched "X" to CIP XX.XXXX' to the UI.
+# ---------------------------------------------------------------------------
+
+
+class TestPlaceholderRejectionFallbackResolve:
+    """``_fallback_resolve`` returns None when Gemma echoes a placeholder.
+
+    Returning None routes the caller (``_build_intent_result_from_tail``)
+    into the low-confidence fallback IntentResult with ``matched_cip=""``
+    and ``needs_clarification=True`` — the clarifier UX takes over instead
+    of the leaked template values reaching the user.
+    """
+
+    def test_fallback_resolve_rejects_placeholder_cip(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """matched_cip='XX.XXXX' is a known prompt-template echo. Reject."""
+        monkeypatch.setattr(
+            intent, "_get_crosswalk_cips_for_families",
+            lambda fams: [{"cipcode": "52.1401", "cip_title": "Marketing"}],
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate",
+            lambda **kw: (
+                '{"matched_cip": "XX.XXXX", "matched_title": "Marketing", '
+                '"confidence": "high", "parent_cip": "52.14", '
+                '"alternatives": []}'
+            ),
+        )
+
+        result = set_your_course._fallback_resolve(
+            major_text="marketing",
+            school_cips=[{"cipcode": "52.1401", "cip_title": "Marketing"}],
+            programs=[],
+            school_name="Indiana University",
+        )
+
+        assert result is None, (
+            "Placeholder matched_cip='XX.XXXX' must trigger rejection so the "
+            "caller falls through to the low-confidence clarifier IntentResult"
+        )
+
+    def test_fallback_resolve_rejects_placeholder_title(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Partial leak: real cipcode + placeholder title still rejects."""
+        monkeypatch.setattr(
+            intent, "_get_crosswalk_cips_for_families",
+            lambda fams: [{"cipcode": "13.1001", "cip_title": "Special Ed"}],
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate",
+            lambda **kw: (
+                '{"matched_cip": "13.1001", "matched_title": "Program Title", '
+                '"confidence": "high", "parent_cip": "13.10", '
+                '"alternatives": []}'
+            ),
+        )
+
+        result = set_your_course._fallback_resolve(
+            major_text="deaf ed",
+            school_cips=[{"cipcode": "13.1001", "cip_title": "Special Ed"}],
+            programs=[],
+            school_name="Indiana University",
+        )
+
+        assert result is None, (
+            "Even with a real matched_cip, a placeholder matched_title must "
+            "still trigger rejection — partial leaks are still leaks"
+        )
+
+    def test_fallback_resolve_rejects_na_variant(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """N/A in both fields — the 'I don't know' echo. Reject."""
+        monkeypatch.setattr(
+            intent, "_get_crosswalk_cips_for_families",
+            lambda fams: [{"cipcode": "52.1401", "cip_title": "Marketing"}],
+        )
+        monkeypatch.setattr(
+            gemma_client,
+            "generate",
+            lambda **kw: (
+                '{"matched_cip": "N/A", "matched_title": "N/A", '
+                '"confidence": "low", "parent_cip": "", '
+                '"alternatives": []}'
+            ),
+        )
+
+        result = set_your_course._fallback_resolve(
+            major_text="zzzzz",
+            school_cips=[{"cipcode": "52.1401", "cip_title": "Marketing"}],
+            programs=[],
+            school_name="Indiana University",
+        )
+
+        assert result is None
+
+
+class TestBuildIntentResultPlaceholderBlanking:
+    """``_build_intent_result_from_tail`` blanks placeholder titles.
+
+    Even when the matched_cip regex fails (unparseable code), the
+    matched_title must never carry a known placeholder like 'Program
+    Title' through to the IntentResult — it'd render as
+    ``Matched 'X' to CIP — / Program Title``.
+
+    Two layers test here:
+      (a) ``test_build_intent_result_blanks_placeholder_title_when_cip_invalid``
+          — the final regex-failure gate.
+      (b) ``test_build_intent_result_blanks_placeholder_title_when_program_not_at_school``
+          — the not_in_school_universe branch which used to use a
+          truthy-or that preserved 'Program Title' (truthy → kept).
+    """
+
+    def test_build_intent_result_blanks_placeholder_title_when_cip_invalid(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """matched_cip='NOTACIP' + matched_title='Program Title' → both
+        blanked in the final regex-failure gate."""
+        monkeypatch.setattr(intent, "_get_crosswalk_cips_for_families", lambda fams: [])
+        monkeypatch.setattr(intent, "_derive_parent_cip", lambda cip4, progs: "")
+        monkeypatch.setattr(intent, "_get_career_titles_for_cip", lambda cip: [])
+        monkeypatch.setattr(intent, "_promote_to_leaf_cip", lambda cip, p, sc: cip)
+        monkeypatch.setattr(
+            intent, "_sanitize_alternatives",
+            lambda alts, cip, max_alts=2: None,
+        )
+
+        parsed = {
+            "matched_cip": "NOTACIP",
+            "matched_title": "Program Title",
+            "confidence": "high",
+            "parent_cip": "",
+            "alternatives": [],
+            "intent_keywords": [],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="biology",
+            prose="",
+            parsed=parsed,
+            school_cips=[],
+            programs=[],
+        )
+
+        # cip blanked because regex fails AND because placeholder gate fires.
+        assert result.matched_cip == ""
+        # The placeholder title must be blanked too — never surface
+        # "Program Title" verbatim to the UI.
+        assert result.matched_title == "", (
+            "Placeholder matched_title 'Program Title' must be blanked, "
+            f"got {result.matched_title!r}"
+        )
+        assert result.confidence == "low"
+        assert result.needs_clarification is True
+
+    def test_build_intent_result_blanks_placeholder_title_when_program_not_at_school(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The not_in_school_universe branch must filter placeholder titles.
+
+        Architect's Pass-2 B2 carry-over: matched_cip is a real cipcode
+        (passes regex + present in national crosswalk) but NOT in the
+        school's universe; matched_title is the placeholder 'Program
+        Title'. The branch's truthy-or used to preserve 'Program Title'
+        verbatim. Verify the placeholder filter blanks it to
+        'Program not offered here' instead.
+        """
+        # School universe contains 52.1401 (Marketing); the request is for
+        # 13.1001 (Special Ed) which is NOT in school's universe.
+        school_cips = [{"cipcode": "52.1401", "cip_title": "Marketing"}]
+
+        def _crosswalk(fams: list[str]) -> list[dict[str, str]]:
+            # The school-level crosswalk: validate that 13.1001 is NOT in
+            # this set (so not_in_school_universe = True).
+            if "13" in fams:
+                # Should NOT be called for this prefix from the school's
+                # families ('52'), but defensive.
+                return [{"cipcode": "13.1001", "cip_title": "Special Ed"}]
+            return [{"cipcode": "52.1401", "cip_title": "Marketing"}]
+
+        monkeypatch.setattr(
+            intent, "_get_crosswalk_cips_for_families", _crosswalk
+        )
+        monkeypatch.setattr(intent, "_derive_parent_cip", lambda cip4, progs: "")
+        monkeypatch.setattr(intent, "_get_career_titles_for_cip", lambda cip: [])
+        monkeypatch.setattr(intent, "_promote_to_leaf_cip", lambda cip, p, sc: cip)
+        monkeypatch.setattr(
+            intent, "_sanitize_alternatives",
+            lambda alts, cip, max_alts=2: None,
+        )
+
+        parsed = {
+            "matched_cip": "13.1001",
+            "matched_title": "Program Title",  # the leak
+            "confidence": "high",
+            "parent_cip": "",
+            "alternatives": [],
+            "intent_keywords": [],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="deaf ed",
+            prose="",
+            parsed=parsed,
+            school_cips=school_cips,
+            programs=[],
+        )
+
+        # The matched_title must NOT be the placeholder 'Program Title'.
+        # The not_in_school_universe branch substitutes 'Program not offered
+        # here' when matched_title is placeholder/empty.
+        assert result.matched_title != "Program Title", (
+            f"Placeholder 'Program Title' must be filtered out of the "
+            f"not_in_school_universe branch, got {result.matched_title!r}"
+        )
+        # And it must not have leaked through any other branch either.
+        assert "Program Title" not in (result.matched_title or "")
+        # Stronger assertion: the not_in_school_universe / program_not_at_school
+        # branch fired (national crosswalk has 13.1001), so the title gets the
+        # specific 'Program not offered here' substitution per Bundle 1's (B2).
+        # If a future refactor adds an early return here, this assertion is
+        # what catches the regression.
+        assert result.matched_title == "Program not offered here", (
+            f"Expected Bundle 1's B2 substitution 'Program not offered here', "
+            f"got {result.matched_title!r}"
+        )
+        assert result.program_not_at_school is True, (
+            "The not_in_school_universe → national-crosswalk-hit branch sets "
+            "program_not_at_school=True; if this flag is False the test isn't "
+            "exercising the intended layer (a) branch from spec §4 Bundle 1"
+        )
+
+    def test_build_intent_result_preserves_real_title_when_program_not_at_school(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Companion test to the previous one — F1 regression guard.
+
+        Code review (F1) caught that ``_is_placeholder_resolution("", title)``
+        always returns True (the empty cip short-circuits OR over
+        _PLACEHOLDER_CIPS which includes ``""``). Net effect was that any
+        real matched_title flowing through the not_in_school_universe
+        branch — e.g. "Biology" when the student typed Biology at a school
+        that doesn't offer it — got stomped to "Program not offered here".
+
+        Fix splits ``_is_placeholder_resolution`` into a title-only helper
+        ``_is_placeholder_title`` that doesn't OR with the cip side. This
+        test asserts that legitimate titles survive the branch.
+        """
+        school_cips = [{"cipcode": "52.1401", "cip_title": "Marketing"}]
+
+        def _crosswalk(fams: list[str]) -> list[dict[str, str]]:
+            if "26" in fams:
+                return [{"cipcode": "26.0101", "cip_title": "Biology"}]
+            return [{"cipcode": "52.1401", "cip_title": "Marketing"}]
+
+        monkeypatch.setattr(
+            intent, "_get_crosswalk_cips_for_families", _crosswalk
+        )
+        monkeypatch.setattr(intent, "_derive_parent_cip", lambda cip4, progs: "")
+        monkeypatch.setattr(intent, "_get_career_titles_for_cip", lambda cip: [])
+        monkeypatch.setattr(intent, "_promote_to_leaf_cip", lambda cip, p, sc: cip)
+        monkeypatch.setattr(
+            intent, "_sanitize_alternatives",
+            lambda alts, cip, max_alts=2: None,
+        )
+
+        parsed = {
+            "matched_cip": "26.0101",
+            "matched_title": "Biology",  # legitimate, NOT a placeholder
+            "confidence": "high",
+            "parent_cip": "",
+            "alternatives": [],
+            "intent_keywords": [],
+        }
+        result = set_your_course._build_intent_result_from_tail(
+            major_text="biology",
+            prose="",
+            parsed=parsed,
+            school_cips=school_cips,
+            programs=[],
+        )
+
+        # The real title "Biology" must survive the branch — it must NOT be
+        # stomped to "Program not offered here" by an over-broad placeholder
+        # check. The branch should hand the student-facing message a real
+        # program name they typed.
+        assert result.matched_title == "Biology", (
+            f"Real matched_title 'Biology' was stomped by the placeholder "
+            f"filter — F1 regression. Got {result.matched_title!r}. The "
+            f"not_in_school_universe branch must only blank PLACEHOLDER "
+            f"titles, not real ones."
+        )
+        assert result.program_not_at_school is True, (
+            "The branch fired (cip is in national crosswalk but not school "
+            "catalog), so program_not_at_school must be True."
+        )
+
+
+class TestHtmlPrefilter:
+    """Bundle 4d: HTML-shaped input pre-filter.
+
+    Catches paste accidents and adversarial payloads like
+    ``<script>alert(1)</script>`` BEFORE any Gemma call so e4b's
+    non-deterministic classification of HTML payloads can't reach the UI.
+    """
+
+    @pytest.mark.asyncio
+    async def test_html_prefilter_short_circuits(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_intent_helpers: None,
+    ) -> None:
+        """HTML-shaped input short-circuits the streaming path: no Gemma
+        call, returns a low-confidence IntentResult with the
+        plain-English nudge reasoning."""
+        # If Gemma's streaming or sync generate is reached, fail the test.
+        async def _unexpected_stream(**_kwargs: Any) -> AsyncIterator[str]:
+            raise AssertionError(
+                "HTML pre-filter must short-circuit BEFORE any Gemma call"
+            )
+            yield ""  # pragma: no cover — async-generator protocol
+
+        monkeypatch.setattr(
+            gemma_client, "generate_stream_async", _unexpected_stream
+        )
+
+        def _unexpected_generate(**_kwargs: Any) -> str:
+            raise AssertionError(
+                "HTML pre-filter must short-circuit BEFORE any Gemma call"
+            )
+
+        monkeypatch.setattr(gemma_client, "generate", _unexpected_generate)
+
+        # Capture the synthetic log so we can prove the audit record fires.
+        captured_log: list[dict[str, Any]] = []
+
+        def _capture(
+            *, call_site: str, event: str, extra: dict[str, Any] | None = None
+        ) -> None:
+            captured_log.append(
+                {"call_site": call_site, "event": event, "extra": extra or {}}
+            )
+
+        monkeypatch.setattr(gemma_client, "log_synthetic_event", _capture)
+
+        events: list[dict[str, Any]] = []
+        async for ev in set_your_course.stream_initial_resolution(
+            major_text="<script>alert(1)</script>",
+            school_name="Indiana University",
+            unitid=151351,
+            programs=[],
+        ):
+            events.append(ev)
+
+        # Stream still emits the trailing events the frontend awaits.
+        names = [e["event"] for e in events]
+        assert "structured" in names
+        assert names[-1] == "done"
+
+        structured = next(e for e in events if e["event"] == "structured")
+        # Per spec §4 / Bundle 4d:
+        #   matched_cip="", matched_title="", confidence="low",
+        #   reasoning starts with "That input looks like code."
+        assert structured["data"]["matched_cip"] == ""
+        assert structured["data"]["matched_title"] == ""
+        assert structured["data"]["confidence"] == "low"
+        assert structured["data"]["needs_clarification"] is True
+        reasoning = structured["data"]["reasoning"] or ""
+        assert "looks like code" in reasoning, (
+            f"Expected the plain-English nudge in reasoning, got {reasoning!r}"
+        )
+        # The same nudge must also live in narrowing_hint so the frontend's
+        # inline-advisory render path persists it after the stream ends —
+        # without this, the UI would go dead-quiet once the streaming bubble
+        # exits, leaving the student with just the echoed input.
+        narrowing_hint = structured["data"]["narrowing_hint"] or ""
+        assert "looks like code" in narrowing_hint, (
+            f"Expected the plain-English nudge in narrowing_hint (so it "
+            f"persists in the resolved render), got {narrowing_hint!r}"
+        )
+
+        # Audit record was logged with the right call_site.
+        assert any(
+            r["call_site"] == "set_your_course_html_prefilter"
+            for r in captured_log
+        ), (
+            f"Expected at least one synthetic log with call_site="
+            f"'set_your_course_html_prefilter', got {captured_log}"
+        )
+
+
+class TestAugmentIntentKeywordsFromMajorText:
+    """Bundle 5 post-Gemma intent_keyword injection.
+
+    e4b's compact fallback prompt doesn't teach the intent_keywords field,
+    so the model reliably emits ``[]``. The Python-side augmenter detects
+    credential-implying terms in the raw major_text and injects the
+    keywords downstream soc_expansion needs to surface the right SOCs
+    (Pharmacists, SLPs, PTs, Librarians, Music Therapists, Morticians)
+    regardless of model behavior.
+    """
+
+    def test_mortuary_science_injects_mortician_keywords(self) -> None:
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "mortuary science", []
+        )
+        assert "mortician" in result, f"got {result!r}"
+        assert "funeral director" in result, f"got {result!r}"
+
+    def test_pharmacy_injects_pharmacist_keywords(self) -> None:
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Pharmacy", []
+        )
+        assert "pharmacist" in result, f"got {result!r}"
+        assert "pre-pharm" in result, f"got {result!r}"
+
+    def test_pre_pharm_injects_pharmacist_keywords(self) -> None:
+        # Both the long and short forms should trigger the same intent.
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "pre-pharm chemistry", []
+        )
+        assert "pharmacist" in result, f"got {result!r}"
+
+    def test_veterinary_medicine_injects_vet_keywords(self) -> None:
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Veterinary Medicine", []
+        )
+        assert "veterinarian" in result, f"got {result!r}"
+        assert "pre-vet" in result, f"got {result!r}"
+
+    def test_speech_language_pathology_injects_slp_keywords(self) -> None:
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Speech-Language Pathology", []
+        )
+        assert "slp" in result, f"got {result!r}"
+        assert "speech pathologist" in result, f"got {result!r}"
+
+    def test_physical_therapy_injects_pt_keywords(self) -> None:
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Physical Therapy", []
+        )
+        assert "physical therapist" in result, f"got {result!r}"
+        assert "dpt" in result, f"got {result!r}"
+
+    def test_library_science_injects_librarian_keywords(self) -> None:
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Library Science", []
+        )
+        assert "librarian" in result, f"got {result!r}"
+
+    def test_music_therapy_injects_music_therapist_keywords(self) -> None:
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Music Therapy", []
+        )
+        assert "music therapist" in result, f"got {result!r}"
+
+    def test_combines_with_gemma_keywords_no_duplicates(self) -> None:
+        # If Gemma DOES emit intent_keywords (which it sometimes does on the
+        # streaming path), the augmenter merges without duplicating.
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Pharmacy", ["pharmacist", "career-focused"]
+        )
+        # Existing keyword preserved, no double-add
+        assert result.count("pharmacist") == 1, f"got {result!r}"
+        # Gemma's extra keyword preserved
+        assert "career-focused" in result
+        # Augmenter still adds the missing one
+        assert "pre-pharm" in result
+
+    def test_unrelated_major_leaves_keywords_unchanged(self) -> None:
+        # Triggers are narrow — "music" alone (without "therapy") must not
+        # pull in Music Therapist intent.
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Music Performance", []
+        )
+        assert result == [], f"got {result!r}"
+
+    def test_bare_library_does_not_trigger(self) -> None:
+        # "Library and Information Science" should trigger; bare "library"
+        # in an unrelated context should not.
+        result = set_your_course._augment_intent_keywords_from_major_text(
+            "Library Studies", []
+        )
+        # "library" alone is NOT in the trigger map — only "library science"
+        # and "library and information" are. This test guards against
+        # accidental loosening that would over-trigger.
+        assert "librarian" not in result, f"got {result!r}"
+
+    def test_empty_major_text_is_safe(self) -> None:
+        assert set_your_course._augment_intent_keywords_from_major_text("", []) == []
+        assert set_your_course._augment_intent_keywords_from_major_text(
+            "", ["existing"]
+        ) == ["existing"]

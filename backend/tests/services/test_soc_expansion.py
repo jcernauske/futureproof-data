@@ -643,3 +643,271 @@ class TestTokenExtraction:
 
     def test_tokens_from_program_name_empty(self):
         assert _tokens_from_program_name("") == []
+
+
+# ---------------------------------------------------------------------------
+# Bundle 5: Postgrad-intent extension (post-100-build-test-fixes-bundle §4)
+#
+# Group A: pharmacist/pre-pharm, slp/speech pathologist, physical
+# therapist/pre-pt/dpt — all advanced-degree credentials. They ride the
+# SYSTEM_PROMPT's doctoral-preference clause.
+#
+# Group B: librarian/mlis (master's), music therapist/mt-bc (bachelor's
+# + cert), mortician/funeral director (associate's). They surface in
+# the candidate pool but the SYSTEM_PROMPT explicitly tells Gemma NOT
+# to apply doctoral-preference to them.
+#
+# These tests focus on the candidate pool — proving that the synonym
+# bridging routes each intent keyword to the right BLS SOC. The
+# doctoral-preference clause is a prompt-level concern (Gemma's
+# behavior), so the negative tests assert that Group B SOCs surface
+# at their REAL education tier, not over-promoted.
+# ---------------------------------------------------------------------------
+
+
+# Realistic occupation_profiles rows for the Group A + Group B SOCs.
+_POSTGRAD_OCCUPATION_ROWS = [
+    # Group A — advanced-degree credentials
+    {
+        "soc_code": "29-1051",
+        "occupation_title": "Pharmacists",
+        "soc_major_group_name": "Healthcare Practitioners and Technical",
+        "education_level_name": "Doctoral or professional degree",
+    },
+    {
+        "soc_code": "29-1127",
+        "occupation_title": "Speech-Language Pathologists",
+        "soc_major_group_name": "Healthcare Practitioners and Technical",
+        "education_level_name": "Master's degree",
+    },
+    {
+        "soc_code": "29-1123",
+        "occupation_title": "Physical Therapists",
+        "soc_major_group_name": "Healthcare Practitioners and Technical",
+        "education_level_name": "Doctoral or professional degree",
+    },
+    # Group B — non-doctoral credentials
+    {
+        "soc_code": "25-4022",
+        "occupation_title": "Librarians and Media Collections Specialists",
+        "soc_major_group_name": "Educational Instruction and Library",
+        "education_level_name": "Master's degree",
+    },
+    {
+        "soc_code": "29-1129",
+        "occupation_title": "Therapists, All Other",
+        "soc_major_group_name": "Healthcare Practitioners and Technical",
+        "education_level_name": "Bachelor's degree",
+    },
+    {
+        "soc_code": "39-4031",
+        "occupation_title": "Morticians, Undertakers, and Funeral Arrangers",
+        "soc_major_group_name": "Personal Care and Service",
+        "education_level_name": "Associate's degree",
+    },
+    # Decoys — doctoral SOCs that should NOT be preferred for Group B
+    {
+        "soc_code": "29-1228",
+        "occupation_title": "Physicians, All Other",
+        "soc_major_group_name": "Healthcare Practitioners and Technical",
+        "education_level_name": "Doctoral or professional degree",
+    },
+    {
+        "soc_code": "25-1011",
+        "occupation_title": "Business Teachers, Postsecondary",
+        "soc_major_group_name": "Educational Instruction and Library",
+        "education_level_name": "Doctoral or professional degree",
+    },
+]
+
+
+def _make_postgrad_query_fn():
+    return _make_query_fn(_POSTGRAD_OCCUPATION_ROWS)
+
+
+class TestGroupAPostgradIntents:
+    """Group A intents must surface their target SOC in the candidate pool.
+
+    The synonym map routes 'pharmacy' → 'pharmac', 'slp' →
+    'speech'/'language pathologist'/'audiolog', etc. The candidate-pool
+    builder does a case-insensitive substring match against
+    occupation_title + soc_major_group_name.
+    """
+
+    def test_pharmacy_intent_surfaces_pharmacist_soc(self):
+        """intent_keywords=['pharmacy'] → 29-1051 (Pharmacists) is in
+        the candidate pool. Confirms the synonym 'pharmacy' → 'pharmac'
+        bridging fires."""
+        pool = _build_candidate_pool(
+            ["pharmacy"],
+            base_socs=[],
+            cip_family="51",
+            query_fn=_make_postgrad_query_fn(),
+        )
+        assert "29-1051" in pool, (
+            f"Pharmacists SOC 29-1051 must surface for the 'pharmacy' "
+            f"intent; got pool {sorted(pool.keys())}"
+        )
+        assert pool["29-1051"]["education_level"] == (
+            "Doctoral or professional degree"
+        )
+
+    def test_pharmacy_intent_pre_pharm_alias_surfaces_same_soc(self):
+        """The 'pre-pharm' alias rides the same synonym entry."""
+        pool = _build_candidate_pool(
+            ["pre-pharm"],
+            base_socs=[],
+            cip_family="26",
+            query_fn=_make_postgrad_query_fn(),
+        )
+        assert "29-1051" in pool
+
+    def test_slp_intent_surfaces_slp_soc(self):
+        """intent_keywords=['slp'] → 29-1127 (Speech-Language
+        Pathologists) is in the candidate pool."""
+        pool = _build_candidate_pool(
+            ["slp"],
+            base_socs=[],
+            cip_family="51",
+            query_fn=_make_postgrad_query_fn(),
+        )
+        assert "29-1127" in pool, (
+            f"SLP SOC 29-1127 must surface for the 'slp' intent; got "
+            f"pool {sorted(pool.keys())}"
+        )
+
+    def test_slp_intent_speech_pathologist_synonym_surfaces_same_soc(self):
+        """'speech pathologist' is the full-name alias for the same SOC."""
+        pool = _build_candidate_pool(
+            ["speech pathologist"],
+            base_socs=[],
+            cip_family="51",
+            query_fn=_make_postgrad_query_fn(),
+        )
+        assert "29-1127" in pool
+
+    def test_physical_therapy_intent_surfaces_pt_soc(self):
+        """intent_keywords=['physical therapy'] → 29-1123 (Physical
+        Therapists) is in the candidate pool."""
+        pool = _build_candidate_pool(
+            ["physical therapy"],
+            base_socs=[],
+            cip_family="51",
+            query_fn=_make_postgrad_query_fn(),
+        )
+        assert "29-1123" in pool, (
+            f"Physical Therapists SOC 29-1123 must surface; got pool "
+            f"{sorted(pool.keys())}"
+        )
+
+    def test_physical_therapy_intent_dpt_alias_surfaces_same_soc(self):
+        """'dpt' (Doctor of Physical Therapy) is the credential alias."""
+        pool = _build_candidate_pool(
+            ["dpt"],
+            base_socs=[],
+            cip_family="51",
+            query_fn=_make_postgrad_query_fn(),
+        )
+        assert "29-1123" in pool
+
+
+class TestGroupBNonDoctoralIntents:
+    """Group B intents surface their target SOC at the real education tier.
+
+    Per the SYSTEM_PROMPT rule 3, Gemma must NOT apply doctoral
+    preference to these. The candidate pool tests check that:
+      1. The Group B SOC actually surfaces (synonym bridging works).
+      2. Its education_level reflects the BLS reality (not over-promoted).
+    The "doesn't prefer doctoral SOCs" assertion is encoded as: the
+    Group B SOC is in the pool with its correct non-doctoral
+    education_level, alongside any doctoral decoys that happen to share
+    the synonym keyword.
+    """
+
+    def test_librarian_intent_surfaces_librarian_soc(self):
+        """intent_keywords=['librarian'] → 25-4022 in the candidate pool.
+        The synonym map: 'librarian' → 'librar'."""
+        pool = _build_candidate_pool(
+            ["librarian"],
+            base_socs=[],
+            cip_family="25",
+            query_fn=_make_postgrad_query_fn(),
+        )
+        assert "25-4022" in pool, (
+            f"Librarians SOC 25-4022 must surface for 'librarian' "
+            f"intent; got pool {sorted(pool.keys())}"
+        )
+        # Per BLS: Librarians require a Master's, not a doctoral.
+        assert pool["25-4022"]["education_level"] == "Master's degree"
+
+    def test_mortician_intent_does_not_prefer_doctoral_socs(self):
+        """Group B negative test: 'mortician' intent surfaces 39-4031
+        (Morticians) but does NOT silently promote doctoral SOCs as the
+        primary pick.
+
+        The candidate pool surfaces ONLY SOCs whose title/major-group
+        contains 'morticia' or 'funeral' (the synonyms). A doctoral SOC
+        like 29-1228 (Physicians) doesn't match either keyword, so it
+        must NOT be in the pool — this proves the synonym mapping
+        doesn't accidentally pull in doctoral decoys."""
+        pool = _build_candidate_pool(
+            ["mortician"],
+            base_socs=[],
+            cip_family="12",  # Personal/Culinary Services
+            query_fn=_make_postgrad_query_fn(),
+        )
+
+        # The Group B SOC surfaces with its real associate's tier.
+        assert "39-4031" in pool, (
+            f"Morticians SOC 39-4031 must surface; got pool "
+            f"{sorted(pool.keys())}"
+        )
+        assert pool["39-4031"]["education_level"] == "Associate's degree"
+
+        # Doctoral decoys MUST NOT surface — neither 'morticia' nor
+        # 'funeral' is in their titles. If a doctoral SOC leaked into
+        # the pool here, the doctoral-preference clause might
+        # over-promote it past 39-4031 at the Gemma pick stage.
+        doctoral_decoys = {"29-1228", "25-1011"}
+        leaked = doctoral_decoys & set(pool.keys())
+        assert leaked == set(), (
+            f"Doctoral SOCs must not appear in the mortician pool — "
+            f"would over-promote past the associate's-tier target. "
+            f"Leaked: {leaked}"
+        )
+
+    def test_music_therapist_intent_does_not_prefer_doctoral_socs(self):
+        """Same negative-test pattern for 'music therapist' / 'mt-bc'.
+
+        Music therapy is a bachelor's + certification credential
+        (29-1129 → 'Therapists, All Other'). Doctoral decoys must not
+        sneak into the candidate pool via the 'therapist' synonym
+        without explicit 'music therap' context."""
+        pool = _build_candidate_pool(
+            ["music therapist"],
+            base_socs=[],
+            cip_family="50",  # Visual and Performing Arts
+            query_fn=_make_postgrad_query_fn(),
+        )
+
+        # The Group B SOC surfaces at the bachelor's tier.
+        assert "29-1129" in pool, (
+            f"'Therapists, All Other' SOC 29-1129 must surface for "
+            f"music therapist intent; got pool {sorted(pool.keys())}"
+        )
+        assert pool["29-1129"]["education_level"] == "Bachelor's degree"
+
+        # Doctoral decoys whose titles don't match 'music therap' or the
+        # generic 'therapist' must not leak in. NB: the synonym map for
+        # 'music therapist' is ["music therap", "therapist"]; the broad
+        # 'therapist' keyword could pull doctoral therapy SOCs if they
+        # existed in the pool. The decoys we seeded (29-1228 Physicians,
+        # 25-1011 Business Teachers) don't match 'therapist', so they
+        # must stay out — confirming Gemma's candidate pool isn't
+        # leaking doctoral roles unrelated to music therapy.
+        doctoral_decoys = {"29-1228", "25-1011"}
+        leaked = doctoral_decoys & set(pool.keys())
+        assert leaked == set(), (
+            f"Unrelated doctoral SOCs must not appear in the music "
+            f"therapist pool. Leaked: {leaked}"
+        )

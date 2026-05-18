@@ -804,6 +804,17 @@ def compute_pentagon(
     return outcomes
 
 
+class SOCNotInGold(LookupError):
+    """The requested (unitid, cipcode, soc_code) triple isn't in gold.
+
+    Distinct from generic LookupError so callers can catch this specific
+    "benign cache miss" condition without accidentally swallowing
+    KeyError/IndexError from row-shape bugs. Used by prefetch.compute_one
+    to treat the miss as INFO-level rather than WARNING — see prefetch.py
+    and code review F3 in spec bugfix-post-100-build-test-fixes-bundle.
+    """
+
+
 def compute_one(
     *,
     unitid: int,
@@ -841,7 +852,7 @@ def compute_one(
     for outcome in outcomes:
         if outcome.soc_code == soc_code:
             return outcome
-    raise LookupError(
+    raise SOCNotInGold(
         f"SOC {soc_code} not found for unitid={unitid}, cipcode={cipcode}"
     )
 
