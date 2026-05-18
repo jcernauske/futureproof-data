@@ -53,6 +53,16 @@ STATIC_COLLEGE_FALLBACK: str = (
     "one year out, employment rate, average debt at graduation?"
 )
 
+# Conditional 3rd mandatory question — only appended when the build's
+# ERN and ROI both came back null. Mirrors the InsufficientDataBanner the
+# student saw on the build screen, so they walk into the college conversation
+# already knowing why they're asking.
+STATIC_COLLEGE_MISSING_EARNINGS: str = (
+    "Federal earnings data isn't published for your {program} program. "
+    "How many students graduate from it each year, and what share take "
+    "federal loans? Do you track post-graduation outcomes internally?"
+)
+
 STATIC_PARENTS_FALLBACK: tuple[str, ...] = (
     "If the loan numbers on page 1 are accurate, can the family adult "
     "carry that monthly payment alongside everything else after I graduate?",
@@ -97,6 +107,21 @@ _STATIC_COLLEGE_FALLBACK_BY_LOCALE: dict[AppLocale, str] = {
     "ar": (
         "ما بيانات النتائج التي تنشرونها لهذا البرنامج — متوسط الدخل بعد سنة "
         "من التخرج، ومعدّل التوظيف، ومتوسط الديون عند التخرج؟"
+    ),
+}
+
+_STATIC_COLLEGE_MISSING_EARNINGS_BY_LOCALE: dict[AppLocale, str] = {
+    "en": STATIC_COLLEGE_MISSING_EARNINGS,
+    "es": (
+        "No se publican datos federales de ingresos para su programa de "
+        "{program}. ¿Cuántos estudiantes se gradúan cada año y qué porcentaje "
+        "toma préstamos federales? ¿Hacen seguimiento interno de los "
+        "resultados tras la graduación?"
+    ),
+    "ar": (
+        "لا تُنشر بيانات الأجور الفيدرالية لبرنامج {program} لديكم. "
+        "كم عدد الخريجين سنوياً، وما نسبة من يأخذون قروضاً فيدرالية؟ "
+        "وهل تتابعون داخلياً نتائج ما بعد التخرج؟"
     ),
 }
 
@@ -313,15 +338,44 @@ def _user_prompt(build: Build) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _fit_program_to_template(template: str, program: str) -> str:
+    """Truncate ``program`` so ``template.format(program=...)`` fits the
+    240-char ``AudienceQuestion.text`` cap across every locale.
+
+    The Spanish missing-earnings template eats ~214 chars of the budget
+    before substitution, so a 50-char CIP name like
+    "Business Administration, Management and Operations" would crash
+    Pydantic validation. This helper measures the actual template at
+    runtime so it stays correct across all 3 locales without per-locale
+    hardcoded budgets.
+    """
+    placeholder = "{program}"
+    template_overhead = len(template) - len(placeholder)
+    budget = 240 - template_overhead - 1  # -1 for safety margin
+    if budget < 5:
+        # Template alone is already too long — caller should be rewritten.
+        return program[:4] + "…"
+    if len(program) <= budget:
+        return program
+    return program[: budget - 1].rstrip() + "…"
+
+
 def _static_college_questions(
     build: Build, locale: AppLocale = "en",
 ) -> list[AudienceQuestion]:
-    """The 2 mandatory + 1 fallback static college questions (§3.11.4)."""
+    """The 2 mandatory + 1 fallback static college questions (§3.11.4).
+
+    When the build's program-level earnings are suppressed (both ERN and ROI
+    are null on the career), a 3rd mandatory question is inserted pointing
+    the student at the missing data. Mirrors the InsufficientDataBanner the
+    student sees on the build screen.
+    """
     school = build.school_name
     career = build.career.occupation_title
+    program = build.program_name or build.career.program_name or career
     mandatory = _STATIC_COLLEGE_MANDATORY_BY_LOCALE[locale]
     fallback = _STATIC_COLLEGE_FALLBACK_BY_LOCALE[locale]
-    return [
+    questions: list[AudienceQuestion] = [
         AudienceQuestion(
             text=mandatory[0].format(school=school, career=career),
             is_static_mandatory=True,
@@ -330,8 +384,18 @@ def _static_college_questions(
             text=mandatory[1],
             is_static_mandatory=True,
         ),
-        AudienceQuestion(text=fallback),
     ]
+    if build.career.stats.ern is None and build.career.stats.roi is None:
+        missing_template = _STATIC_COLLEGE_MISSING_EARNINGS_BY_LOCALE[locale]
+        fitted_program = _fit_program_to_template(missing_template, program)
+        questions.append(
+            AudienceQuestion(
+                text=missing_template.format(program=fitted_program),
+                is_static_mandatory=True,
+            )
+        )
+    questions.append(AudienceQuestion(text=fallback))
+    return questions
 
 
 def _static_parents_questions(locale: AppLocale = "en") -> list[AudienceQuestion]:
@@ -446,8 +510,17 @@ def _live_assemble(
     Static fallbacks fill the floor of 1 for parents/yourself when Gemma
     returns an empty array for that audience.
     """
-    college = _static_college_questions(build, locale)[:2]  # 2 mandatory only
-    college += [AudienceQuestion(text=t) for t in parsed["ask_the_college"][:3]]
+    # Preserve every mandatory entry — there are 2 by default and 3 when
+    # the build's earnings stats are suppressed (the new missing-earnings
+    # question). Drop only the non-mandatory fallback so Gemma can fill
+    # the remaining slots. The college audience caps at 5 in _assemble.
+    all_static = _static_college_questions(build, locale)
+    mandatory = [q for q in all_static if q.is_static_mandatory]
+    gemma_slots = max(0, 5 - len(mandatory))
+    college = mandatory + [
+        AudienceQuestion(text=t)
+        for t in parsed["ask_the_college"][:gemma_slots]
+    ]
 
     parents_live = parsed["ask_your_parents"]
     if parents_live:
