@@ -808,10 +808,32 @@ export function SetYourCourseScreen() {
               aria-label={t("syc.aria.careerPaths")}
               className="flex flex-col gap-6"
             >
-              {currentResolution.matched_cip && (
+              {currentResolution.matched_cip ? (
                 <p className="font-body text-small italic text-text-muted">
                   {t("syc.showingSoc")} {currentResolution.matched_cip.slice(0, 5)}.
                 </p>
+              ) : (
+                // No-match path: Gemma resolved but the matched_cip was
+                // not a real CIP at this school (coerced to "" in
+                // useSetYourCourse). Give the student a concrete next
+                // step instead of leaving the page blank.
+                <div
+                  data-testid="syc-no-match-hint"
+                  role="status"
+                  className={[
+                    "rounded-xl",
+                    "border border-border-subtle",
+                    "border-l-[3px] border-l-accent-caution",
+                    "bg-bp-mid/60 p-4",
+                  ].join(" ")}
+                >
+                  <p className="font-body text-small text-text-secondary leading-relaxed">
+                    {t("syc.noMatch.body", {
+                      majorText: majorText || "",
+                      schoolName: school?.name ?? "",
+                    })}
+                  </p>
+                </div>
               )}
               {/* GradCredentialNotice render slot — fires when chip dispatch
                   or pre-flag short-circuit detects a grad-school requirement.

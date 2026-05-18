@@ -355,7 +355,33 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
             if (event.type === "delta") {
               setStreamingText((prev) => prev + event.text);
             } else if (event.type === "structured") {
-              structured = { ...event.result, confirmed_focus: null };
+              let raw = event.result;
+              // Gemma sometimes returns matched_cip="none" (or another
+              // non-CIP string) when the student's input doesn't fit any
+              // of the school's reported programs. Without this guard,
+              // the bogus value flows into /build/outcomes and surfaces
+              // a raw "cipcode must be in XX.XX or XX.XXXX format"
+              // validation error. Coerce the cip + title fields to empty
+              // so every render path that gates on truthy matched_cip
+              // (the CIP chip, the SOC caption, the careers fetch) skips
+              // cleanly. parent_cip gets the same defense because
+              // lookupCip falls back to it (line 187). The reasoning
+              // prose stays visible — Gemma's explanation IS the
+              // user-facing message for this case.
+              const cipShape = /^\d{2}\.\d{2,4}$/;
+              const matchedBad =
+                !!raw.matched_cip && !cipShape.test(raw.matched_cip);
+              const parentBad =
+                !!raw.parent_cip && !cipShape.test(raw.parent_cip);
+              if (matchedBad || parentBad) {
+                raw = {
+                  ...raw,
+                  matched_cip: matchedBad ? "" : raw.matched_cip,
+                  matched_title: matchedBad ? "" : raw.matched_title,
+                  parent_cip: parentBad ? "" : raw.parent_cip,
+                };
+              }
+              structured = { ...raw, confirmed_focus: null };
               setInitialResolution(structured);
               setCurrentResolution(structured);
               // Clear grad notice unless the pre-flag path fills it.

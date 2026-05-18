@@ -968,3 +968,108 @@ describe("TestMultiCipPick", () => {
     expect(useBuildInputStore.getState().currentResolution?.matched_title).toBe("Computer Engineering");
   });
 });
+
+// ---------------------------------------------------------------------------
+// TestBadCipCoercion — defensive intercept for Gemma returning a non-CIP
+// matched_cip (e.g. "none" when no school program fits). Without this
+// guard the bogus value flowed into /build/outcomes and surfaced a raw
+// "cipcode must be in XX.XX or XX.XXXX format" validation error.
+// ---------------------------------------------------------------------------
+
+describe("TestBadCipCoercion", () => {
+  it("coerces_matched_cip_none_to_empty — no-match sentinel stays out of downstream calls", async () => {
+    vi.useFakeTimers();
+    const mock = stubStream([
+      { type: "delta", text: "Reasoning..." },
+      {
+        type: "structured",
+        result: makeResolution({
+          matched_cip: "none",
+          matched_title: "none",
+          parent_cip: "",
+          reasoning: "No engineering technology program here matches mortuary science.",
+        }),
+      },
+      { type: "suggestions", suggestions: [] },
+      { type: "done" },
+    ]);
+    vi.mocked(streamIntent).mockImplementation(mock);
+
+    const { result } = renderHook(() => useSetYourCourse(), { wrapper });
+    act(() => { result.current.resolve("mortician"); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(305); });
+
+    const stored = useBuildInputStore.getState().currentResolution;
+    expect(stored?.matched_cip).toBe("");
+    expect(stored?.matched_title).toBe("");
+    // Reasoning prose preserved — that's the user-facing message.
+    expect(stored?.reasoning).toContain("mortuary science");
+
+    // getOutcomes must NOT have been called — the empty cip should
+    // short-circuit the careers fetch effect at line 289.
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(getOutcomes).not.toHaveBeenCalled();
+  });
+
+  it("coerces_parent_cip_when_non_cip — defensive even though Gemma rarely sets this", async () => {
+    vi.useFakeTimers();
+    const mock = stubStream([
+      { type: "delta", text: "..." },
+      {
+        type: "structured",
+        result: makeResolution({
+          matched_cip: "none",
+          matched_title: "none",
+          parent_cip: "bogus",
+        }),
+      },
+      { type: "done" },
+    ]);
+    vi.mocked(streamIntent).mockImplementation(mock);
+
+    const { result } = renderHook(() => useSetYourCourse(), { wrapper });
+    act(() => { result.current.resolve("mortician"); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(305); });
+
+    const stored = useBuildInputStore.getState().currentResolution;
+    expect(stored?.matched_cip).toBe("");
+    expect(stored?.parent_cip).toBe("");
+  });
+
+  it("leaves_valid_cip_untouched — happy path doesn't regress", async () => {
+    vi.useFakeTimers();
+    const mock = stubStream([
+      { type: "delta", text: "..." },
+      {
+        type: "structured",
+        result: makeResolution({
+          matched_cip: "11.0701",
+          matched_title: "Computer Science",
+        }),
+      },
+      { type: "done" },
+    ]);
+    vi.mocked(streamIntent).mockImplementation(mock);
+
+    const { result } = renderHook(() => useSetYourCourse(), { wrapper });
+    act(() => { result.current.resolve("computer science"); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(305); });
+
+    const stored = useBuildInputStore.getState().currentResolution;
+    expect(stored?.matched_cip).toBe("11.0701");
+    expect(stored?.matched_title).toBe("Computer Science");
+  });
+
+  it("accepts_4_digit_family_cip — XX.XX is also valid per the regex", async () => {
+    vi.useFakeTimers();
+    const mock = stubStream([
+      { type: "structured", result: makeResolution({ matched_cip: "11.07" }) },
+      { type: "done" },
+    ]);
+    vi.mocked(streamIntent).mockImplementation(mock);
+    const { result } = renderHook(() => useSetYourCourse(), { wrapper });
+    act(() => { result.current.resolve("computer science"); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(305); });
+    expect(useBuildInputStore.getState().currentResolution?.matched_cip).toBe("11.07");
+  });
+});

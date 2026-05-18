@@ -1208,6 +1208,58 @@ describe("SetYourCourseScreen — DemoChipsDrawer integration (P0)", () => {
     expect(nursing_at_berkeley).toBeUndefined();
   });
 
+  it("no_match_state_renders_helpful_hint_instead_of_raw_validation_error — defends against Gemma 'none' leak", async () => {
+    // Mirror the post-coercion state: currentResolution exists (Gemma
+    // responded) but matched_cip + matched_title are empty (coerced
+    // in useSetYourCourse when Gemma's matched_cip was "none" or any
+    // other non-CIP string). The SOC caption MUST NOT render (would
+    // crash on .slice on empty); the friendly hint MUST render
+    // interpolating the school name + the typed major text.
+    seedState({
+      currentResolution: {
+        matched_cip: "",
+        matched_title: "",
+        confidence: "low",
+        reasoning: "None of the school's programs match mortuary science.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [],
+        parent_cip: "",
+        confirmed_focus: null,
+      },
+      initialResolution: {
+        matched_cip: "",
+        matched_title: "",
+        confidence: "low",
+        reasoning: "None of the school's programs match mortuary science.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [],
+        parent_cip: "",
+        confirmed_focus: null,
+      },
+    });
+    renderScreen();
+
+    // The no-match hint renders.
+    const hint = await screen.findByTestId("syc-no-match-hint");
+    expect(hint).toBeInTheDocument();
+    expect(hint.textContent).toMatch(/couldn't find a program/i);
+    expect(hint.textContent).toMatch(/Indiana University/);
+    expect(hint.textContent).toMatch(/Try different search terms/i);
+
+    // The raw validation error caption MUST NOT render (would say
+    // "Showing Standard Occupational Classification (SOC) codes
+    // related to CIP ." with an empty slice).
+    expect(
+      screen.queryByText(/Showing Standard Occupational Classification/i),
+    ).toBeNull();
+  });
+
   it("drawer_chip_disabled_while_streaming_or_busy_does_not_fire_onPick — gating contract", async () => {
     // The screen passes `disabled={streaming || busy}` to the drawer.
     // Seed a state where streaming would be true by initiating a chip
