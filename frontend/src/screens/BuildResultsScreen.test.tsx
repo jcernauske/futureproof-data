@@ -1628,6 +1628,108 @@ describe("BuildResultsScreen -- Ask-build chip set switches on inference backend
   });
 });
 
+// ===========================================================================
+// InsufficientDataBanner gating (P0)
+// Banner mounts above the Pentagon only when career.stats.ern == null AND
+// career.stats.roi == null. New dual-interpretation copy + optional BLS
+// anchor surface a real number for the student instead of the (false)
+// "DoE doesn't publish" claim the old copy used to make.
+// ===========================================================================
+
+describe("BuildResultsScreen -- InsufficientDataBanner (P0)", () => {
+  it("shows_dual_interpretation_banner_with_bls_anchor -- banner visible above Pentagon with concrete BLS wage", () => {
+    seedWithBuild({
+      career: makeCareer({
+        program_name: "Finance",
+        occupation_title: "Financial Analysts",
+        median_annual_wage: 96220,
+        stats: { ern: null, roi: null, res: 7, grw: 9, aura: 5 },
+      }),
+      school_name: "Harvard University",
+      program_name: "Finance",
+    });
+    useBuildInputStore.setState({
+      school: {
+        unitid: 166027,
+        name: "Harvard University",
+        institutionControl: "Private",
+        stateAbbr: "MA",
+        netPriceAnnual: null,
+        costOfAttendanceAnnual: null,
+        tuitionInState: null,
+        tuitionOutOfState: null,
+      },
+    });
+    renderScreen();
+
+    const banner = screen.getByTestId("insufficient-data-banner");
+    expect(banner).toBeInTheDocument();
+
+    // Cause-agnostic title.
+    expect(
+      screen.getByText(/limited earnings data for this program/i),
+    ).toBeInTheDocument();
+
+    // Lede interpolates school + program.
+    const lede = screen.getByText(/doesn't publish program-level earnings/i);
+    expect(lede.textContent).toContain("Harvard University");
+    expect(lede.textContent).toContain("Finance");
+
+    // Both interpretations present.
+    expect(
+      screen.getByText(/selective enough that few graduates take federal loans/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/very few students from this specific program/i),
+    ).toBeInTheDocument();
+
+    // BLS anchor renders with formatted wage + career title.
+    const bls = screen.getByText(/bureau of labor statistics/i);
+    expect(bls.textContent).toContain("$96,220");
+    expect(bls.textContent).toContain("Financial Analysts");
+
+    // Banner sits above the Pentagon.
+    const buildStatsHeader = screen.getByText("Build Stats");
+    expect(
+      banner.compareDocumentPosition(buildStatsHeader) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("omits_bls_anchor_when_wage_null -- banner still renders, BLS sentence drops out", () => {
+    seedWithBuild({
+      career: makeCareer({
+        program_name: "Architecture",
+        occupation_title: "Architects",
+        median_annual_wage: null,
+        stats: { ern: null, roi: null, res: 7, grw: 9, aura: 5 },
+      }),
+      school_name: "Howard University",
+      program_name: "Architecture",
+    });
+    renderScreen();
+
+    expect(screen.getByTestId("insufficient-data-banner")).toBeInTheDocument();
+    expect(screen.queryByText(/bureau of labor statistics/i)).toBeNull();
+  });
+
+  it("does_not_show_banner_when_stats_present -- regression guard for the populated path", () => {
+    seedWithBuild();
+    renderScreen();
+    expect(screen.queryByTestId("insufficient-data-banner")).toBeNull();
+  });
+
+  it("does_not_show_banner_when_only_ern_is_null -- predicate is AND, not OR", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: null, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.queryByTestId("insufficient-data-banner")).toBeNull();
+  });
+});
+
 describe("BuildResultsScreen -- Compare schools sheet trigger (P0)", () => {
   it("renders_compare_schools_trigger -- single trigger opens the in-sheet filterable leaderboard", () => {
     seedWithBuild();

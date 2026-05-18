@@ -1,89 +1,109 @@
 /**
  * InsufficientDataBanner.test.tsx
  *
- * Bundle 2 (post-100-build-test-fixes-bundle §4): the banner that
- * surfaces College Scorecard PrivacySuppression when ERN + ROI are
- * suppressed for a program. The component renders unconditionally when
- * mounted — its gating ("only when stats.ern == null && stats.roi ==
- * null") lives in BuildResultsScreen, so the gating test is in
- * BuildResultsScreen.test.tsx.
- *
- * What these tests cover:
- *   - renders_when_both_stats_null: banner displays title + body with
- *     program/school interpolated, plus the data-testid hook the parent
- *     screen test queries.
- *   - does_not_render_when_either_stat_present: documents the gating
- *     contract — when callers wrap the banner with `stats.ern != null
- *     || stats.roi != null`, the banner must not appear. Tested against
- *     the conditional wrapper pattern used in BuildResultsScreen so the
- *     spec's P0 row maps cleanly to a passing test.
+ * Covers:
+ *   - renders_dual_interpretation: title + both bullet interpretations +
+ *     ask-the-report outro, with program/school/career interpolation.
+ *   - renders_bls_anchor_when_wage_present: BLS sentence appears with
+ *     formatted wage when blsWage is non-null.
+ *   - omits_bls_anchor_when_wage_null: BLS sentence does NOT render when
+ *     blsWage is null.
+ *   - gating contract: parent screen's `ern == null && roi == null` guard
+ *     keeps the banner from mounting otherwise.
  */
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { InsufficientDataBanner } from "./InsufficientDataBanner";
 
-// ---------------------------------------------------------------------------
-// renders_when_both_stats_null
-// ---------------------------------------------------------------------------
-
-describe("InsufficientDataBanner — renders with title + body", () => {
-  it("renders_when_both_stats_null — displays the suppression notice with program + school interpolated", () => {
+describe("InsufficientDataBanner — content", () => {
+  it("renders_dual_interpretation — title + both interpretations + outro with interpolation", () => {
     render(
       <InsufficientDataBanner
-        programTitle="Architecture"
-        schoolName="Howard University"
+        programTitle="Finance"
+        schoolName="Harvard University"
+        careerTitle="Financial Analysts"
+        blsWage={96220}
       />,
     );
 
-    // The banner mounts (testid hook for the screen-level integration test).
+    expect(screen.getByTestId("insufficient-data-banner")).toBeInTheDocument();
+
+    // Title — short, cause-agnostic.
     expect(
-      screen.getByTestId("insufficient-data-banner"),
+      screen.getByText(/limited earnings data for this program/i),
     ).toBeInTheDocument();
 
-    // The title from build.insufficientData.title fires.
-    // (English locale is the default in useProfileStore.)
+    // Lede interpolates school + program.
+    const lede = screen.getByText(
+      /doesn't publish program-level earnings/i,
+    );
+    expect(lede.textContent).toContain("Harvard University");
+    expect(lede.textContent).toContain("Finance");
+
+    // Both interpretations render.
     expect(
-      screen.getByTestId("insufficient-data-banner-title"),
+      screen.getByText(/selective enough that few graduates take federal loans/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/earnings data isn't published for this program/i),
+      screen.getByText(/very few students from this specific program/i),
     ).toBeInTheDocument();
 
-    // The body interpolates programTitle + schoolName via the {var}
-    // substitution in useT(). This proves both placeholders resolve —
-    // a copy-edit regression that drops one would surface here.
-    const body = screen.getByText(/department of education/i);
-    expect(body.textContent).toContain("Architecture");
-    expect(body.textContent).toContain("Howard University");
+    // Outro references the report and the career title.
+    const outro = screen.getByText(
+      /added a question to your downloadable report/i,
+    );
+    expect(outro.textContent).toContain("Financial Analysts");
+  });
+
+  it("renders_bls_anchor_when_wage_present — BLS sentence appears with formatted wage", () => {
+    render(
+      <InsufficientDataBanner
+        programTitle="Finance"
+        schoolName="Harvard University"
+        careerTitle="Financial Analysts"
+        blsWage={96220}
+      />,
+    );
+
+    const bls = screen.getByText(/bureau of labor statistics/i);
+    expect(bls.textContent).toContain("$96,220");
+    expect(bls.textContent).toContain("Financial Analysts");
+  });
+
+  it("omits_bls_anchor_when_wage_null — BLS sentence does NOT render", () => {
+    render(
+      <InsufficientDataBanner
+        programTitle="Finance"
+        schoolName="Harvard University"
+        careerTitle="Financial Analysts"
+        blsWage={null}
+      />,
+    );
+
+    expect(screen.queryByText(/bureau of labor statistics/i)).toBeNull();
+    // Outro still renders without the BLS tail.
+    expect(
+      screen.getByText(/added a question to your downloadable report/i),
+    ).toBeInTheDocument();
   });
 
   it("renders with the caution-amber left stripe accent (Brightpath cue)", () => {
     render(
       <InsufficientDataBanner
-        programTitle="Architecture"
-        schoolName="Howard University"
+        programTitle="Finance"
+        schoolName="Harvard University"
+        careerTitle="Financial Analysts"
+        blsWage={96220}
       />,
     );
-
-    // The component's className carries the left-stripe accent that
-    // signals "this is informational caution, not a critical error".
     const banner = screen.getByTestId("insufficient-data-banner");
     expect(banner.className).toContain("border-l-accent-caution");
   });
 });
 
-// ---------------------------------------------------------------------------
-// does_not_render_when_either_stat_present
-// ---------------------------------------------------------------------------
-
 describe("InsufficientDataBanner — gating contract", () => {
   it("does_not_render_when_either_stat_present — wrapper guard suppresses the banner when stats.ern or stats.roi is non-null", () => {
-    // Mirror the BuildResultsScreen gating predicate:
-    //   {career.stats.ern == null && career.stats.roi == null && <Banner ... />}
-    // Verify all three "either present" branches: ern present, roi
-    // present, both present. None of them mount the banner.
-
     function GatedBanner({
       ern,
       roi,
@@ -91,27 +111,25 @@ describe("InsufficientDataBanner — gating contract", () => {
       if (ern == null && roi == null) {
         return (
           <InsufficientDataBanner
-            programTitle="Architecture"
-            schoolName="Howard University"
+            programTitle="Finance"
+            schoolName="Harvard University"
+            careerTitle="Financial Analysts"
+            blsWage={96220}
           />
         );
       }
       return null;
     }
 
-    // Case 1: ern present, roi null
     const { rerender } = render(<GatedBanner ern={8} roi={null} />);
     expect(screen.queryByTestId("insufficient-data-banner")).toBeNull();
 
-    // Case 2: ern null, roi present
     rerender(<GatedBanner ern={null} roi={6} />);
     expect(screen.queryByTestId("insufficient-data-banner")).toBeNull();
 
-    // Case 3: both present
     rerender(<GatedBanner ern={8} roi={6} />);
     expect(screen.queryByTestId("insufficient-data-banner")).toBeNull();
 
-    // Sanity: both null DOES mount it (proves the gate isn't always false).
     rerender(<GatedBanner ern={null} roi={null} />);
     expect(
       screen.getByTestId("insufficient-data-banner"),

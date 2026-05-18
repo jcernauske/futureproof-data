@@ -9,6 +9,8 @@ import { useBuildInputStore } from "@/store/buildInputStore";
 import { useBuildStore } from "@/store/buildStore";
 import { useSetYourCourse } from "@/hooks/useSetYourCourse";
 import { SchoolSearch } from "@/components/school/SchoolSearch";
+import { DemoChipsDrawer } from "@/components/setyourcourse/DemoChipsDrawer";
+import type { DemoChip } from "@/data/demoChips";
 import { EffortLoansPanel } from "@/components/school/EffortLoansPanel";
 import { AskGemmaChip } from "@/components/school/AskGemmaChip";
 import { CareerListSkeleton } from "@/components/school/CareerListSkeleton";
@@ -157,6 +159,18 @@ export function SetYourCourseScreen() {
   const slidersRef = useRef<HTMLDivElement>(null);
   const [highlightSliders, setHighlightSliders] = useState(false);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Holds a chip-selected major text until React has committed the
+  // school + majorText state updates triggered by the chip click. The
+  // effect below then fires `resolve` with a fresh closure that sees the
+  // newly-set school. See handleDemoChipPick for the why.
+  const pendingChipMajorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!school || !majorText) return;
+    if (pendingChipMajorRef.current !== majorText) return;
+    pendingChipMajorRef.current = null;
+    resolve(majorText);
+  }, [school, majorText, resolve]);
 
   useEffect(() => {
     if (isAdjustMode) {
@@ -257,6 +271,22 @@ export function SetYourCourseScreen() {
       setPrograms(progs);
     } catch {
       setPrograms([]);
+    }
+  }
+
+  // Demo-chip handler — seeds school + major. We can't call `resolve`
+  // here directly because `resolve` short-circuits on `if (!school)` and
+  // it captures `school` via closure; the closure is from the render
+  // before this chip click, so it still sees the prior null. Stash the
+  // chip's major in a ref instead and let the effect below fire `resolve`
+  // once school + majorText have both propagated to a fresh render.
+  async function handleDemoChipPick(chip: DemoChip) {
+    pendingChipMajorRef.current = chip.majorText;
+    try {
+      await handleSchoolSelect(chip.school);
+      setMajorText(chip.majorText);
+    } catch {
+      pendingChipMajorRef.current = null;
     }
   }
 
@@ -460,6 +490,10 @@ export function SetYourCourseScreen() {
           {/* ROW 1 — School/major inputs (left) + Gemma conversation (right) */}
           {!isAdjustMode && <div className="grid grid-cols-1 desktop:grid-cols-2 gap-6 desktop:gap-8 items-start">
             <section aria-label={t("syc.aria.yourInputs")} className="flex flex-col gap-6">
+              <DemoChipsDrawer
+                disabled={streaming || busy}
+                onPick={handleDemoChipPick}
+              />
               <div>
                 <label className="block font-body text-small font-bold text-text-secondary tracking-wide mb-2">
                   {t("syc.schoolLabel")}
@@ -470,6 +504,12 @@ export function SetYourCourseScreen() {
                   onClear={() => {
                     clearSchool();
                     setMajorText("");
+                    // If the user clears the school WHILE a chip-driven
+                    // resolve is still pending (the effect hasn't fired
+                    // yet because school was just nulled), drop the
+                    // pending major. Otherwise the next school they pick
+                    // would silently trigger an unrelated chip's resolve.
+                    pendingChipMajorRef.current = null;
                   }}
                 />
               </div>

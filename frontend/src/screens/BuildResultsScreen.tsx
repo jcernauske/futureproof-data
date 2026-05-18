@@ -18,6 +18,7 @@ import { InstitutionCard } from "@/components/build-results/InstitutionCard";
 import { StatInfoPopover } from "@/components/build-results/StatInfoPopover";
 import { BossBand } from "@/components/build-results/BossBand";
 import { BuildLoadingScreen } from "@/components/build-results/BuildLoadingScreen";
+import { InsufficientDataBanner } from "@/components/build-results/InsufficientDataBanner";
 import { VerdictBadge } from "@/components/build-results/VerdictBadge";
 import { BOSS_META, STAT_COLORS, STAT_INFO } from "@/components/build-results/bossData";
 import { GemmaChat } from "@/components/menu/GemmaChat";
@@ -937,6 +938,23 @@ export function BuildResultsScreen() {
             }}
           />
         </div>
+
+        {/* Banner: surfaces missing program-level earnings when ERN and ROI
+            are both null. Predicate matches the stat-engine output the
+            Pentagon below also reads (career.stats), so the banner and the
+            two blank pentagon slices appear together. */}
+        {career.stats.ern == null && career.stats.roi == null && (
+          <div className="mt-12">
+            <InsufficientDataBanner
+              programTitle={
+                career.program_name || build.program_name || career.occupation_title
+              }
+              schoolName={school?.name ?? build.school_name}
+              careerTitle={career.occupation_title}
+              blsWage={career.median_annual_wage}
+            />
+          </div>
+        )}
 
         {/* Section 3: Build Stats (Pentagon + Legend) */}
         <div style={{ marginTop: 48, animation: "sectionFadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) 0.4s both" }}>
