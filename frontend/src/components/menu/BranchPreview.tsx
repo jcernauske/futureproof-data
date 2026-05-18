@@ -1,13 +1,17 @@
-import type { CompareBranchBuild } from "@/api/menu";
+import type { CompareBranchBuild, CompareBuild } from "@/api/menu";
 import { useT } from "@/i18n/useT";
 
 interface BranchPreviewProps {
   branches: CompareBranchBuild[];
   buildColors: string[];
+  /** Full build payloads — used to surface school + major on each card
+   *  so the student can tell which build is which without scrolling
+   *  back to the page header. Indexed by build_id. */
+  builds?: CompareBuild[];
   highlightIndex?: number | null;
 }
 
-export function BranchPreview({ branches, buildColors, highlightIndex = null }: BranchPreviewProps) {
+export function BranchPreview({ branches, buildColors, builds, highlightIndex = null }: BranchPreviewProps) {
   const t = useT();
   const allSocs = new Map<string, string[]>();
   for (const branch of branches) {
@@ -17,6 +21,9 @@ export function BranchPreview({ branches, buildColors, highlightIndex = null }: 
       allSocs.set(dest.to_soc, list);
     }
   }
+  const buildById = new Map<string, CompareBuild>(
+    (builds ?? []).map((b) => [b.build_id, b]),
+  );
 
   return (
     <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-4 gap-3">
@@ -35,6 +42,18 @@ export function BranchPreview({ branches, buildColors, highlightIndex = null }: 
               className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
               style={{ background: `linear-gradient(180deg, ${color}, transparent)` }}
             />
+
+            {(() => {
+              const meta = buildById.get(branch.build_id);
+              if (!meta || (!meta.school_name && !meta.major_text)) return null;
+              return (
+                <p className="font-body text-[11px] text-text-muted mb-1 leading-tight">
+                  {meta.school_name}
+                  {meta.school_name && meta.major_text ? " · " : ""}
+                  {meta.major_text}
+                </p>
+              );
+            })()}
 
             <p className="font-display font-semibold text-sm mb-3" style={{ color }}>
               {branch.career}

@@ -1093,6 +1093,7 @@ export function CompareView({ buildIds, onBack }: CompareViewProps) {
           <BranchPreview
             branches={result.branches}
             buildColors={buildColors}
+            builds={result.builds}
             highlightIndex={null}
           />
         </section>

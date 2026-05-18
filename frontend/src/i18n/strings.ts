@@ -979,9 +979,9 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "salaryBar.peer75": "Peer 75th",
 
     // School profile — coverage tier + AURA basis
-    "compare.school.coverageTier.full": "FULL",
-    "compare.school.coverageTier.partial": "PARTIAL",
-    "compare.school.coverageTier.minimal": "MINIMAL",
+    "compare.school.coverageTier.both": "FULL",
+    "compare.school.coverageTier.finance_only": "PARTIAL",
+    "compare.school.coverageTier.athletics_only": "MINIMAL",
     "compare.school.auraBasisLabel.three_term": "three-factor",
     "compare.school.auraBasisLabel.one_term_marketing_only": "marketing only",
     "compare.school.auraBasisLabel.ipeds_finance+eada": "IPEDS finance + EADA",
@@ -1945,9 +1945,9 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "salaryBar.peer75": "Par 75°",
 
     // School profile — coverage tier + AURA basis
-    "compare.school.coverageTier.full": "COMPLETA",
-    "compare.school.coverageTier.partial": "PARCIAL",
-    "compare.school.coverageTier.minimal": "MÍNIMA",
+    "compare.school.coverageTier.both": "COMPLETA",
+    "compare.school.coverageTier.finance_only": "PARCIAL",
+    "compare.school.coverageTier.athletics_only": "MÍNIMA",
     "compare.school.auraBasisLabel.three_term": "tres factores",
     "compare.school.auraBasisLabel.one_term_marketing_only": "solo marketing",
     "compare.school.auraBasisLabel.ipeds_finance+eada": "IPEDS finanzas + EADA",
@@ -2915,9 +2915,9 @@ export const STRINGS: Record<AppLocale, Record<string, string>> = {
     "salaryBar.peer75": "الأقران 75",
 
     // School profile — coverage tier + AURA basis
-    "compare.school.coverageTier.full": "كاملة",
-    "compare.school.coverageTier.partial": "جزئية",
-    "compare.school.coverageTier.minimal": "محدودة",
+    "compare.school.coverageTier.both": "كاملة",
+    "compare.school.coverageTier.finance_only": "جزئية",
+    "compare.school.coverageTier.athletics_only": "محدودة",
     "compare.school.auraBasisLabel.three_term": "ثلاثة عوامل",
     "compare.school.auraBasisLabel.one_term_marketing_only": "تسويق فقط",
     "compare.school.auraBasisLabel.ipeds_finance+eada": "IPEDS مالية + EADA",
