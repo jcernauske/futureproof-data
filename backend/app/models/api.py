@@ -45,7 +45,7 @@ class TierRequest(BaseModel):
     school_name: str
     program_name: str
     cipcode: str
-    student_major_text: str | None = None
+    student_major_text: str | None = Field(default=None, max_length=200)
     intent_keywords: list[str] = Field(default_factory=list)
 
 
@@ -55,7 +55,7 @@ class BuildRequest(BaseModel):
     unitid: int
     cipcode: str
     cip_title: str
-    major_text: str
+    major_text: str = Field(..., min_length=1, max_length=200)
     effort: str
     loan_pct: float
     selected_soc: str
@@ -731,7 +731,7 @@ ChipBucket = Literal[
 class IntentStreamRequest(BaseModel):
     """POST /intent/stream — initial resolution with streaming prose."""
 
-    major_text: str
+    major_text: str = Field(..., min_length=1, max_length=200)
     school_name: str
     unitid: int
     programs: list[dict[str, Any]] = Field(default_factory=list)
@@ -847,7 +847,7 @@ class CommitRequest(BaseModel):
 
     school_name: str
     unitid: int
-    major_text: str
+    major_text: str = Field(..., min_length=1, max_length=200)
     initial_resolution: IntentResult
     current_resolution: IntentResult
     chips_tapped: list[ChipId] = Field(default_factory=list)

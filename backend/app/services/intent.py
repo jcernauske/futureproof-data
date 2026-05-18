@@ -143,10 +143,12 @@ Name the program and the tell that anchored the match. Direct, \
 confident, no hedging. Do not say "based on" or "as an AI" or "I'm \
 not certain" — state the call.
 
-{{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
+ILLUSTRATIVE example (do NOT echo these codes/titles — substitute the \
+actual match):
+{{"matched_cip": "11.0701", "matched_title": "Computer Science", \
 "confidence": "high|medium|low", \
 "reasoning": "One or two sentences naming the program and why it fits.", \
-"parent_cip": "XX.XX (4-digit family code, may equal matched_cip[:5] \
+"parent_cip": "11.07 (4-digit family code, may equal matched_cip[:5] \
 when matched_cip is already a leaf in this family)", \
 "alternatives": []}}\
 """

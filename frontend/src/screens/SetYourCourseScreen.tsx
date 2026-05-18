@@ -323,7 +323,14 @@ export function SetYourCourseScreen() {
     }
   }
 
-  const lowConfidence = currentResolution?.confidence === "low";
+  // Bundle 4: softNudge also fires on medium confidence. Gemma's
+  // narrowing_hint is most actionable for medium-confidence resolutions
+  // (e.g. "money" → Mathematics with a hint suggesting economics/finance);
+  // surfacing the nudge color + chip row at medium gives the student a
+  // visible affordance to course-correct.
+  const lowConfidence =
+    currentResolution?.confidence === "low" ||
+    currentResolution?.confidence === "medium";
   const softNudge = lowConfidence ? t("syc.softNudge") : null;
 
   const normalizedInput = useMemo(
@@ -489,6 +496,7 @@ export function SetYourCourseScreen() {
                       onChange={handleMajorChange}
                       placeholder={t("syc.majorPlaceholder")}
                       autoComplete="off"
+                      maxLength={200}
                       data-testid="major-input"
                       className="w-full h-14 bg-bp-deep text-text-primary font-body text-body rounded-lg border border-border px-5 focus:border-accent-info focus:shadow-[0_0_0_3px_var(--color-focus-ring)] focus:outline-none transition-all duration-normal placeholder:text-text-muted placeholder:italic"
                     />
@@ -597,6 +605,21 @@ export function SetYourCourseScreen() {
                         onPick={onPickAlternative}
                       />
                     )}
+                    {/* Bundle 4: render Gemma's narrowing_hint inline when
+                        there are NO alternatives (otherwise CipPicker shows
+                        it). Common for medium-confidence one-word inputs
+                        like "money" → Mathematics with a real suggestion
+                        the student should see. */}
+                    {currentResolution.narrowing_hint &&
+                      (!initialResolution?.alternatives ||
+                        initialResolution.alternatives.length === 0) && (
+                        <p
+                          className="pl-[22px] mt-2 font-body text-small text-text-secondary leading-relaxed"
+                          data-testid="narrowing-hint-inline"
+                        >
+                          {currentResolution.narrowing_hint}
+                        </p>
+                      )}
                   </motion.div>
                 )}
               </AnimatePresence>

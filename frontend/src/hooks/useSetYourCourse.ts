@@ -526,7 +526,16 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
         // Normalize the raw student text for cache key stability — lower
         // + collapse whitespace. Keeps the hackathon threshold meaningful
         // without getting into stemming territory.
-        inputNormalized: (major?.rawText ?? "")
+        //
+        // Fallback chain: prefer the major store (if a previous commit
+        // wrote one), else the live input (`liveMajorText` from the
+        // SetYourCourseScreen state) which IS populated at this point.
+        // The major store isn't written until AFTER commitResolution
+        // returns (line 544+), so on the first commit `major?.rawText`
+        // is null and `liveMajorText` is the only non-empty source.
+        // Without this fallback the commit hits the backend's
+        // min_length=1 validator on major_text → 422.
+        inputNormalized: (major?.rawText || liveMajorText || "")
           .trim()
           .toLowerCase()
           .replace(/\s+/g, " "),
@@ -544,7 +553,13 @@ export function useSetYourCourse(liveMajorText: string = ""): UseSetYourCourseAp
       setMajor({
         cipCode: currentResolution.matched_cip,
         cipTitle: currentResolution.matched_title,
-        rawText: major?.rawText ?? "",
+        // Same fallback chain as the commitResolution call above — on the
+        // first commit `major` is null because setMajor hasn't run yet,
+        // so the only source of the raw text is the live input from
+        // SetYourCourseScreen (passed in as `liveMajorText`).
+        // Downstream `/build` POST validates major_text min_length=1
+        // and 422s if this stays empty.
+        rawText: major?.rawText || liveMajorText || "",
         careersPreview: currentResolution.careers_preview ?? [],
         substitutionApplied: Boolean(currentResolution.parent_cip),
         parentCip: currentResolution.parent_cip ?? "",

@@ -1628,6 +1628,86 @@ describe("BuildResultsScreen -- Ask-build chip set switches on inference backend
   });
 });
 
+// ===========================================================================
+// Bundle 2: InsufficientDataBanner gating (P0)
+// post-100-build-test-fixes-bundle §4 — banner renders above the Pentagon
+// only when career.stats.ern == null AND career.stats.roi == null. Existing
+// fixtures use full stats so the banner does NOT fire on prior tests; this
+// pair pins the new behavior to the {ern: null, roi: null} contract.
+// ===========================================================================
+
+describe("BuildResultsScreen -- InsufficientDataBanner (P0)", () => {
+  it("shows_insufficient_data_banner_for_null_stats_career -- banner visible above Pentagon when ERN+ROI suppressed", () => {
+    seedWithBuild({
+      // Mirror an HBCU-Architecture-style suppression: program-level
+      // ERN + ROI are null because the federal-loan-recipient cohort is
+      // too small. The other three stats are still populated.
+      career: makeCareer({
+        program_name: "Architecture",
+        stats: { ern: null, roi: null, res: 4, grw: 7, aura: 8 },
+      }),
+      school_name: "Howard University",
+      program_name: "Architecture",
+    });
+    // Override the buildInputStore's school.name to match (BuildResultsScreen
+    // reads `school?.name ?? build.school_name` for the banner's schoolName).
+    useBuildInputStore.setState({
+      school: {
+        unitid: 110635,
+        name: "Howard University",
+        institutionControl: "Private",
+        stateAbbr: "DC",
+        netPriceAnnual: null,
+        costOfAttendanceAnnual: null,
+        tuitionInState: null,
+        tuitionOutOfState: null,
+      },
+    });
+    renderScreen();
+
+    // The banner mounts.
+    const banner = screen.getByTestId("insufficient-data-banner");
+    expect(banner).toBeInTheDocument();
+
+    // Title text confirms the i18n key resolved.
+    expect(
+      screen.getByText(/earnings data isn't published for this program/i),
+    ).toBeInTheDocument();
+
+    // Body interpolates the program (Architecture) and school
+    // (Howard University) — proves the gating wiring passes the right
+    // strings down from BuildResultsScreen state.
+    const body = screen.getByText(/department of education/i);
+    expect(body.textContent).toContain("Architecture");
+    expect(body.textContent).toContain("Howard University");
+
+    // Banner sits above the Pentagon: scan the DOM order of the banner
+    // and the Build Stats header.
+    const buildStatsHeader = screen.getByText("Build Stats");
+    expect(
+      banner.compareDocumentPosition(buildStatsHeader) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("does_not_show_banner_when_stats_present -- regression guard for existing fixtures", () => {
+    // The default seedWithBuild uses full stats; the banner must NOT fire.
+    seedWithBuild();
+    renderScreen();
+    expect(screen.queryByTestId("insufficient-data-banner")).toBeNull();
+  });
+
+  it("does_not_show_banner_when_only_ern_is_null -- predicate is AND, not OR", () => {
+    seedWithBuild({
+      career: makeCareer({
+        stats: { ern: null, roi: 6, res: 7, grw: 9, aura: 5 },
+      }),
+    });
+    renderScreen();
+    expect(screen.queryByTestId("insufficient-data-banner")).toBeNull();
+  });
+});
+
 describe("BuildResultsScreen -- Compare schools sheet trigger (P0)", () => {
   it("renders_compare_schools_trigger -- single trigger opens the in-sheet filterable leaderboard", () => {
     seedWithBuild();

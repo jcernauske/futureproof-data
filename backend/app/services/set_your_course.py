@@ -210,8 +210,10 @@ have tool-verified it is a real sub-area of the resolved program.
 
 If you're changing the resolution, append (on its own lines):
   ---UPDATED_RESOLUTION---
-  {{"matched_cip": "XX.XXXX", "matched_title": "...",
+  {{"matched_cip": "11.0701", "matched_title": "Computer Science",
     "confidence": "high|medium|low", "reasoning": "..."}}
+  (replace `11.0701` and `Computer Science` with the ACTUAL matched code
+  and title — these are illustrative, not template values)
 
 The matched_cip you emit MUST be a real CIP code that exists in the
 pre-fetched data block above. Do NOT invent codes that look plausible
@@ -284,13 +286,15 @@ phrase "CIP" or "SOC" or "crosswalk".
 # Part 2: JSON tail (parsed by the backend)
 After the two sentences, emit EXACTLY this delimiter on its own line:
 ---INTENT_JSON---
-Then on the next line emit a single JSON object and nothing after it:
-{{"matched_cip": "XX.XXXX", "matched_title": "Program Title", \
+Then on the next line emit a single JSON object and nothing after it.
+ILLUSTRATIVE example (substitute the actual matched values — do NOT echo
+the example codes/titles verbatim):
+{{"matched_cip": "11.0701", "matched_title": "Computer Science", \
 "confidence": "high|medium|low", \
-"parent_cip": "XX.XX (4-digit family code; may equal matched_cip[:5] \
+"parent_cip": "11.07 (4-digit family code; may equal matched_cip[:5] \
 when matched_cip is already a leaf)", \
-"alternatives": [{{"cip": "XX.XXXX", "title": "Second Match", \
-"why": "Also matches because...", "parent_cip": "XX.XX"}}], \
+"alternatives": [{{"cip": "11.0101", "title": "Computer and Information Sciences", \
+"why": "Also matches because...", "parent_cip": "11.01"}}], \
 "remaining_count": 0, \
 "narrowing_hint": "", \
 "intent_keywords": []}}
@@ -333,9 +337,26 @@ Rules for the JSON tail:
 "parent_cip": "XX.XX"}}.
 - "intent_keywords" is a list of 0–6 lowercase tokens that capture the \
 student's stated career direction, including sub-specialties INSIDE \
-the matched program. Extract these whenever the student's text is more \
-specific than the program title alone. Examples:
+the matched program, AND postgrad-credential paths the student named \
+even when the school doesn't directly report the postgrad CIP. \
+Extract these whenever the student's text is more specific than the \
+program title alone OR names a credential that lives downstream of \
+the undergrad CIP. Examples:
     * "pre-med" matched to Biology → ["pre-med", "doctor", "physician"]
+    * "Pharmacy" or "pre-pharm" matched to a science / health CIP → \
+["pharmacist", "pre-pharm"] (PharmD is postgrad — emit so soc_expansion \
+can surface Pharmacists)
+    * "Veterinary Medicine" matched to Animal Sciences → \
+["pre-vet", "veterinarian"] (DVM is postgrad)
+    * "Speech-Language Pathology" or "SLP" matched to Communication \
+Sciences → ["slp", "speech pathologist"] (master's-required)
+    * "Physical Therapy" / "Kinesiology" with intent toward PT → \
+["physical therapist", "pre-pt", "dpt"]
+    * "Library Science" / "MLIS" → ["librarian", "mlis"] (master's, but \
+NOT a doctoral preference — keyword is just for SOC matching)
+    * "Mortuary Science" → ["mortician", "funeral director"] \
+(associate's-level — keyword for SOC match only)
+    * "Music Therapy" → ["music therapist", "mt-bc"]
     * "deaf ed" matched to "Special Education and Teaching, Specific \
 Subject Areas" → ["deaf education", "special education", "teacher"] \
 (the program IS the intent — emit them anyway)
@@ -344,9 +365,9 @@ program → ["game design", "video games"]
     * Plain "marketing" matched to Marketing CIP → [] (no signal beyond \
 the program name itself)
     * Plain "biology" matched to Biology CIP → [] (same)
-  The rule: if the student named a role, target career, or sub-specialty, \
-those tokens go in. If they only named the program at the same granularity \
-as the matched CIP, leave it empty.
+  The rule: if the student named a role, target career, postgrad \
+credential, or sub-specialty, those tokens go in. If they only named \
+the program at the same granularity as the matched CIP, leave it empty.
 
 Context:
 The student typed: "{student_input}"
@@ -374,6 +395,102 @@ MUST appear in one of them.
 _JSON_DELIM = "---INTENT_JSON---"
 _CIP_PATTERN = re.compile(r"^\d{2}\.\d{4}$")
 # _NUMERIC_CODE_PARENTHETICAL is re-exported from app.services.prose_sanitize.
+
+# Placeholder strings that small models (e4b) sometimes echo verbatim from
+# the resolver prompt's JSON-format example instead of substituting real
+# values. The fallback path used to surface these directly to the UI as
+# `Matched "X" to CIP XX.XXXX / Program Title`. Bundle 1 of the
+# post-100-build-test-fixes spec gates against this at two sites in
+# _build_intent_result_from_tail and at the entry of _fallback_resolve.
+_PLACEHOLDER_CIPS: frozenset[str] = frozenset({"XX.XXXX", "XX.XX", "N/A", "n/a", ""})
+_PLACEHOLDER_TITLES: frozenset[str] = frozenset(
+    {"Program Title", "Second Match", "...", "N/A", "n/a", ""}
+)
+
+
+def _is_placeholder_resolution(
+    matched_cip: str | None, matched_title: str | None
+) -> bool:
+    """True when Gemma echoed a prompt placeholder instead of substituting.
+
+    Detects the literal "XX.XXXX" / "Program Title" / "N/A" values that
+    leak through under e4b's intermittent prompt-obedience failures. Both
+    sides of the resolution (cip + title) are checked so a partial leak
+    (one field substituted, the other echoed) still trips the gate.
+
+    NOTE: Both _PLACEHOLDER_CIPS and _PLACEHOLDER_TITLES include the empty
+    string ``""``. So if you call this with ``cip=""`` to "title-only check"
+    it always returns True regardless of the title (the OR short-circuits
+    on the empty cip side). Use ``_is_placeholder_title`` for title-only.
+    """
+    cip = (matched_cip or "").strip()
+    title = (matched_title or "").strip()
+    return cip in _PLACEHOLDER_CIPS or title in _PLACEHOLDER_TITLES
+
+
+def _is_placeholder_title(matched_title: str | None) -> bool:
+    """Title-only placeholder check.
+
+    Use at sites where ``matched_cip`` has already been blanked to "" but
+    we still need to defend against ``matched_title`` carrying a leaked
+    placeholder like "Program Title". Companion to
+    ``_is_placeholder_resolution`` — see that helper's NOTE for why we
+    can't reuse it for title-only checks.
+    """
+    return (matched_title or "").strip() in _PLACEHOLDER_TITLES
+
+
+# HTML / markup-shaped input pre-filter (Bundle 4d). Catches paste accidents
+# and adversarial payloads like `<script>alert(1)</script>`. The regex matches
+# what looks like an HTML/XML tag — a `<` followed by an alpha tag name and
+# either whitespace, `>`, or a closing slash. We also catch `<script` and
+# bare event-handler-like fragments. Conservative on purpose; the goal is to
+# stop obvious markup, not normalize every weird character.
+_HTML_INPUT_RE = re.compile(
+    r"<\s*/?[a-zA-Z][a-zA-Z0-9]*(\s|/?>|\s+[a-zA-Z]+=)",
+)
+
+
+def _looks_like_html_input(text: str) -> bool:
+    """True when the major-text input contains markup-shaped content.
+
+    Used to short-circuit before any Gemma call so e4b's non-deterministic
+    classification of HTML payloads as "Computer Science, high confidence"
+    can't reach the UI. The frontend already escapes the rendered text, so
+    this is about UX and inference cost, not security.
+    """
+    if not text:
+        return False
+    return bool(_HTML_INPUT_RE.search(text))
+
+
+def _html_input_intent_result(major_text: str) -> IntentResult:
+    """The fixed low-confidence IntentResult returned for HTML-shaped input.
+
+    The student-facing message goes in ``narrowing_hint`` (not ``reasoning``)
+    because the frontend renders ``narrowing_hint`` inline under the
+    resolution summary when ``alternatives`` is empty — and that render
+    path persists after the SSE stream ends. ``reasoning`` only shows up
+    in the transient streaming bubble and disappears once the structured
+    event arrives, leaving the student with a blank screen.
+    """
+    nudge = (
+        "That input looks like code. Try typing the name of your major "
+        "in plain English."
+    )
+    return IntentResult(
+        matched_cip="",
+        matched_title="",
+        confidence="low",
+        reasoning=nudge,
+        careers_preview=[],
+        needs_clarification=True,
+        alternatives=None,
+        parent_cip="",
+        student_major_text=major_text,
+        intent_keywords=[],
+        narrowing_hint=nudge,
+    )
 
 
 async def stream_initial_resolution(
@@ -405,6 +522,27 @@ async def stream_initial_resolution(
     render rather than hanging.
     """
     input_normalized = community_suggestions.normalize_input(major_text)
+
+    # HTML pre-filter (Bundle 4d). Catches markup-shaped inputs like
+    # `<script>alert(1)</script>` BEFORE any Gemma call so e4b's
+    # non-deterministic classification can't reach the UI. Logs one
+    # synthetic record to logs/gemma.jsonl for audit.
+    if _looks_like_html_input(major_text):
+        gemma_client.log_synthetic_event(
+            call_site="set_your_course_html_prefilter",
+            event="short_circuit",
+            extra={
+                "major_text_truncated": major_text[:80],
+                "school_name": school_name,
+                "unitid": unitid,
+                "reason": "html_shaped_input",
+            },
+        )
+        result = _html_input_intent_result(major_text)
+        yield {"event": "delta", "data": {"text": result.reasoning}}
+        yield {"event": "structured", "data": result.model_dump()}
+        yield {"event": "done", "data": {}}
+        return
 
     # Pre-flag short-circuit: if the student typed a pre-X pattern, skip
     # Gemma entirely and show a GradCredentialNotice immediately.
@@ -650,6 +788,73 @@ def _parse_intent_keywords(raw: Any) -> list[str]:
     return [str(k).lower().strip() for k in raw if isinstance(k, str) and k.strip()]
 
 
+# Deterministic intent-keyword injection map. The compact fallback prompt
+# (_FALLBACK_JSON_SYSTEM) lists `intent_keywords` only in the example shape
+# without explaining how to populate it, so e4b reliably emits `[]`. The
+# streaming intent prompt teaches it via examples, but only larger models
+# (rich_intent_streaming=True) take that path. This map fills the gap by
+# injecting credential-implying intents at the Python layer, regardless of
+# what Gemma did.
+#
+# Keys are lowercase substrings to look for in the student's major_text;
+# values are the intent_keywords to inject when the key matches. The synonym
+# map in soc_expansion.SYNONYM_MAP then expands these into the actual
+# substring patterns that filter consumable_occupation_profiles.
+#
+# Triggers are intentionally narrow (no bare "library" or "music") to avoid
+# pulling in irrelevant SOCs when a student types a tangentially related
+# major.
+_INTENT_KEYWORD_TRIGGERS: dict[str, list[str]] = {
+    # Group A — postgrad credentials with doctoral/professional preference
+    "pharmacy": ["pharmacist", "pre-pharm"],
+    "pre-pharm": ["pharmacist", "pre-pharm"],
+    "pharmaceutical": ["pharmacist", "pre-pharm"],
+    "veterinary": ["veterinarian", "pre-vet"],
+    "veterinary medicine": ["veterinarian", "pre-vet"],
+    "pre-vet": ["veterinarian", "pre-vet"],
+    "speech-language pathology": ["slp", "speech pathologist"],
+    "speech language pathology": ["slp", "speech pathologist"],
+    "speech pathology": ["slp", "speech pathologist"],
+    "physical therapy": ["physical therapist", "pre-pt", "dpt"],
+    "pre-pt": ["physical therapist", "pre-pt", "dpt"],
+    # Group B — standalone credentials, NOT doctoral preference (soc_expansion
+    # SYSTEM_PROMPT rule 3 handles the no-doctoral-preference branch)
+    "library science": ["librarian", "mlis"],
+    "library and information": ["librarian", "mlis"],
+    "music therapy": ["music therapist", "mt-bc"],
+    "mortuary science": ["mortician", "funeral director"],
+    "mortuary": ["mortician", "funeral director"],
+    "funeral service": ["mortician", "funeral director"],
+    "funeral director": ["mortician", "funeral director"],
+}
+
+
+def _augment_intent_keywords_from_major_text(
+    major_text: str, gemma_keywords: list[str]
+) -> list[str]:
+    """Inject deterministic intent_keywords for known credential paths.
+
+    e4b's fallback prompt doesn't reliably extract intent_keywords (the
+    compact prompt shape doesn't teach the field). This post-processor
+    catches the common postgrad / standalone-credential intents at the
+    Python layer so downstream soc_expansion can surface the right SOCs
+    regardless of model behavior. Combines with Gemma-emitted keywords
+    rather than replacing them — both sources contribute.
+
+    De-duplicates case-insensitively while preserving first-seen order.
+    """
+    text = (major_text or "").lower().strip()
+    out = list(gemma_keywords)
+    seen = {k.lower() for k in out}
+    for trigger, keywords in _INTENT_KEYWORD_TRIGGERS.items():
+        if trigger in text:
+            for kw in keywords:
+                if kw.lower() not in seen:
+                    out.append(kw)
+                    seen.add(kw.lower())
+    return out
+
+
 def _merge_confirmed_focus_into_keywords(ir: IntentResult) -> IntentResult:
     """Append lowercased confirmed_focus to intent_keywords if not already present."""
     if not ir.confirmed_focus:
@@ -668,9 +873,11 @@ Choose the best program for the student's input.
 Student input: {student_input}
 School: {school_name}
 
-Return ONLY this JSON object:
-{{"matched_cip":"XX.XXXX","matched_title":"Program Title",\
-"confidence":"high|medium|low","parent_cip":"XX.XX",\
+Return ONLY a JSON object in this shape (the codes and titles below are
+ILLUSTRATIVE — substitute the actual matched candidate, do NOT echo these
+example values verbatim):
+{{"matched_cip":"11.0701","matched_title":"Computer Science",\
+"confidence":"high|medium|low","parent_cip":"11.07",\
 "alternatives":[],"remaining_count":0,"narrowing_hint":"",\
 "intent_keywords":[]}}
 
@@ -678,7 +885,8 @@ Candidate programs:
 {candidate_list}
 
 Rules:
-- matched_cip MUST be one candidate code.
+- matched_cip MUST be one candidate code (NOT the example "11.0701" unless
+  it actually appears in the candidate list).
 - parent_cip MUST use that candidate's parent value.
 - If the student named a specific program, prefer a specific crosswalk
   candidate over a broad school-reported family.
@@ -922,6 +1130,20 @@ def _fallback_resolve(
     tail (common with smaller models like e4b that can't follow the
     two-part prose+delimiter+JSON format).
     """
+    # HTML pre-filter (Bundle 4d). Defense in depth — the streaming path
+    # already short-circuits, but if a caller reaches this function with
+    # HTML-shaped input we still refuse to send it to Gemma.
+    if _looks_like_html_input(major_text):
+        gemma_client.log_synthetic_event(
+            call_site="set_your_course_html_prefilter",
+            event="short_circuit_fallback",
+            extra={
+                "major_text_truncated": major_text[:80],
+                "school_name": school_name,
+                "reason": "html_shaped_input",
+            },
+        )
+        return _html_input_intent_result(major_text)
     family_prefixes = list({
         c.get("cipcode", "")[:2] for c in school_cips if c.get("cipcode")
     })
@@ -959,6 +1181,21 @@ def _fallback_resolve(
 
         matched_cip = str(parsed["matched_cip"]).strip()
         matched_title = str(parsed.get("matched_title", "")).strip()
+        # Bundle 1: reject the prompt-placeholder echo before it reaches the
+        # IntentResult builder. Returning None routes the caller through the
+        # _build_intent_result_from_tail fallback IntentResult (low confidence,
+        # blank cip, needs_clarification=True).
+        if _is_placeholder_resolution(matched_cip, matched_title):
+            logger.info(
+                "set_your_course: placeholder leak detected and rejected",
+                extra={
+                    "call_site": "set_your_course_fallback_resolve",
+                    "matched_cip": matched_cip,
+                    "matched_title": matched_title,
+                    "major_text": major_text,
+                },
+            )
+            return None
         confidence = str(parsed.get("confidence", "medium")).strip()
         raw_parent = str(parsed.get("parent_cip", "")).strip()
         matched_cip = intent._promote_to_leaf_cip(
@@ -987,8 +1224,9 @@ def _fallback_resolve(
             alternatives=alternatives,
             parent_cip=parent_cip,
             student_major_text=major_text,
-            intent_keywords=_parse_intent_keywords(
-                parsed.get("intent_keywords")
+            intent_keywords=_augment_intent_keywords_from_major_text(
+                major_text,
+                _parse_intent_keywords(parsed.get("intent_keywords")),
             ),
             remaining_count=remaining_count,
             narrowing_hint=narrowing_hint,
@@ -1094,7 +1332,15 @@ def _build_intent_result_from_tail(
             program_not_at_school = True
             confidence = "low"
             matched_cip = ""
-            matched_title = matched_title or "Program not offered here"
+            # Bundle 1 / B2: defense in depth — the truthy-or used to preserve
+            # placeholder titles like "Program Title" (truthy → kept). Filter
+            # placeholders out here so a future refactor that adds an early
+            # return at this branch can't reopen the leak.
+            matched_title = (
+                "Program not offered here"
+                if not matched_title or _is_placeholder_title(matched_title)
+                else matched_title
+            )
         else:
             logger.warning(
                 "set_your_course: Gemma returned matched_cip=%s for %r at "
@@ -1105,7 +1351,12 @@ def _build_intent_result_from_tail(
             )
             confidence = "low"
             matched_cip = ""
-            matched_title = matched_title or "Couldn't confirm a program"
+            # Bundle 1 / B2: same placeholder filter (see above branch).
+            matched_title = (
+                "Couldn't confirm a program"
+                if not matched_title or _is_placeholder_title(matched_title)
+                else matched_title
+            )
 
     # Always derive parent_cip from the school's programs so the frontend
     # substitution signal stays correct regardless of what Gemma emitted.
@@ -1116,12 +1367,25 @@ def _build_intent_result_from_tail(
         else ""
     )
 
-    intent_keywords = _parse_intent_keywords(parsed.get("intent_keywords") or [])
+    intent_keywords = _augment_intent_keywords_from_major_text(
+        major_text,
+        _parse_intent_keywords(parsed.get("intent_keywords") or []),
+    )
 
-    if not _CIP_PATTERN.match(matched_cip):
+    # Bundle 1: final gate. Blank cip if regex fails OR if either field is a
+    # known placeholder. Also blank matched_title when it equals a placeholder
+    # so "Program Title" never reaches the UI even if it slipped through the
+    # earlier branches.
+    if (
+        not _CIP_PATTERN.match(matched_cip)
+        or _is_placeholder_resolution(matched_cip, matched_title)
+    ):
+        safe_title = (
+            "" if matched_title.strip() in _PLACEHOLDER_TITLES else matched_title
+        )
         return IntentResult(
             matched_cip="",
-            matched_title=matched_title,
+            matched_title=safe_title,
             confidence="low",
             reasoning=prose.strip() or "No program code resolved.",
             careers_preview=[],

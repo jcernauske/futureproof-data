@@ -57,11 +57,38 @@ SYNONYM_MAP: dict[str, list[str]] = {
     "engineering": ["engineer"],
     "pharmacist": ["pharmac"],
     "pharmacy": ["pharmac"],
+    "pre-pharm": ["pharmac"],
+    "prepharm": ["pharmac"],
     "architect": ["architect"],
     "psychologist": ["psycholog"],
     "psychology": ["psycholog"],
     "accountant": ["account", "auditor", "financial"],
     "accounting": ["account", "auditor", "financial"],
+    # Group A — advanced-degree intents (ride the doctoral-preference rule)
+    "slp": ["speech", "language pathologist", "audiolog"],
+    "speech pathologist": ["speech", "language pathologist", "audiolog"],
+    "speech-language pathologist": ["speech", "language pathologist", "audiolog"],
+    "speech language pathologist": ["speech", "language pathologist", "audiolog"],
+    "speech therapy": ["speech", "language pathologist", "audiolog"],
+    "physical therapist": ["physical therap"],
+    "physical therapy": ["physical therap"],
+    "pre-pt": ["physical therap"],
+    "prept": ["physical therap"],
+    "dpt": ["physical therap"],
+    # Group B — recognized intents that map to non-doctoral credentials.
+    # Listed in SYNONYM_MAP so the candidate pool surfaces them, but the
+    # SYSTEM_PROMPT rule 3 explicitly tells Gemma NOT to apply the
+    # doctoral-preference clause to these.
+    "librarian": ["librar"],
+    "library science": ["librar"],
+    "mlis": ["librar"],
+    "music therapist": ["music therap", "therapist"],
+    "music therapy": ["music therap", "therapist"],
+    "mt-bc": ["music therap", "therapist"],
+    "mortician": ["morticia", "funeral"],
+    "funeral director": ["morticia", "funeral"],
+    "mortuary": ["morticia", "funeral"],
+    "mortuary science": ["morticia", "funeral"],
 }
 
 EXPAND_SOCS_TOOL: dict[str, Any] = {
@@ -117,11 +144,20 @@ Selection rules:
 1. Only pick SOCs from the candidate pool. Never invent codes.
 2. If the student's intent implies an advanced degree — keywords like \
 "pre-med", "doctor", "physician", "pre-vet", "veterinarian", \
-"dentist", "pre-law", "attorney" — prefer SOCs requiring a doctoral \
-or professional degree over associate's or bachelor's-level SOCs.
-3. If no candidate SOC genuinely matches the intent, return an empty \
+"dentist", "pre-law", "attorney", "pharmacist", "pre-pharm", \
+"speech pathologist", "slp", "physical therapist", "pre-pt", "dpt" \
+— prefer SOCs requiring a doctoral or professional degree over \
+associate's or bachelor's-level SOCs.
+3. Some intent keywords map to non-doctoral standalone credentials. \
+For these — "librarian", "mlis", "music therapist", "mt-bc", \
+"mortician", "funeral director" — pick the candidate SOC matching \
+the profession but do NOT prefer doctoral-level SOCs. Morticians \
+(39-4031) require an associate's; librarians (25-4022) require a \
+master's; music therapists (29-1129) typically a bachelor's plus \
+certification. Match the candidate at its real education level.
+4. If no candidate SOC genuinely matches the intent, return an empty \
 soc_codes array (do not force picks to fill the cap).
-4. Do not pick SOCs that are semantically redundant with those already \
+5. Do not pick SOCs that are semantically redundant with those already \
 in the existing list (same role at a different level is fine; \
 exact duplicates are not).\
 """

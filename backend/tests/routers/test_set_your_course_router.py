@@ -51,6 +51,107 @@ def _current_resolution_dict() -> dict[str, Any]:
     }
 
 
+class TestStreamMajorTextValidation:
+    """Bundle 6b: IntentStreamRequest.major_text has Field(max_length=200).
+
+    Defense against tokenization explosion + pathologically long inputs
+    (sometimes pasted accidentally, sometimes adversarial). Pydantic
+    catches the violation at the model layer so the handler never runs.
+    """
+
+    def test_intent_stream_rejects_oversize_major_text(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """major_text >200 chars → 422 at the validator. Handler is NOT
+        called; no Gemma traffic happens."""
+        handler_calls: list[Any] = []
+
+        async def _fail_if_called(*args: Any, **kwargs: Any) -> Any:
+            handler_calls.append((args, kwargs))
+            raise AssertionError(
+                "stream_initial_resolution must NOT be called when "
+                "Pydantic rejects an oversize major_text"
+            )
+            yield {}  # pragma: no cover — async-gen protocol
+
+        monkeypatch.setattr(
+            set_your_course, "stream_initial_resolution", _fail_if_called
+        )
+
+        # 201 chars — one over the cap.
+        oversize = "a" * 201
+        response = client.post(
+            "/intent/stream",
+            json={
+                "major_text": oversize,
+                "school_name": "Indiana University",
+                "unitid": 151351,
+                "programs": [],
+            },
+        )
+
+        assert response.status_code == 422, (
+            f"oversize major_text must be rejected at validation; "
+            f"got {response.status_code} with body {response.text!r}"
+        )
+        assert handler_calls == [], (
+            "Handler must not be reached when the Pydantic validator "
+            "rejects the request"
+        )
+        # Best-effort assertion that the error body mentions the field.
+        body = response.json()
+        body_str = str(body).lower()
+        assert "major_text" in body_str, (
+            f"Expected 422 body to mention 'major_text'; got {body!r}"
+        )
+
+    def test_intent_stream_accepts_exactly_200_chars(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """200 chars (the boundary) is accepted — confirms the cap is
+        inclusive, not off-by-one."""
+
+        async def _fake_events(**_kwargs: Any):
+            yield {"event": "structured", "data": {
+                "matched_cip": "",
+                "matched_title": "",
+                "confidence": "low",
+                "reasoning": "",
+                "careers_preview": [],
+                "audit_flag": None,
+                "audit_message": None,
+                "needs_clarification": True,
+                "alternatives": None,
+                "parent_cip": "",
+                "confirmed_focus": None,
+            }}
+            yield {"event": "done", "data": {}}
+
+        monkeypatch.setattr(
+            set_your_course, "stream_initial_resolution", _fake_events
+        )
+
+        at_cap = "a" * 200
+        response = client.post(
+            "/intent/stream",
+            json={
+                "major_text": at_cap,
+                "school_name": "Indiana University",
+                "unitid": 151351,
+                "programs": [],
+            },
+        )
+
+        assert response.status_code == 200, (
+            f"200-char major_text should pass validation; got "
+            f"{response.status_code}: {response.text!r}"
+        )
+
+
 class TestStream:
     def test_streams_to_client(
         self,

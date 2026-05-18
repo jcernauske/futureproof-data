@@ -886,3 +886,163 @@ describe("TestPrefetch", () => {
     expect(mockRequestPrefetch).not.toHaveBeenCalled();
   });
 });
+
+
+// ===========================================================================
+// Bundle 4: narrowing_hint inline + softNudge medium-confidence (P0)
+// post-100-build-test-fixes-bundle §4 — when there are NO alternatives but
+// Gemma still emits a narrowing_hint (common for medium-confidence one-word
+// inputs like "money" → Mathematics), render the hint inline. And extend
+// softNudge to fire on confidence === "medium" as well as "low".
+// ===========================================================================
+
+describe("TestBundle4NarrowingHintInline", () => {
+  it("renders_narrowing_hint_when_no_alternatives — inline narrowing hint surfaces when alternatives are empty", () => {
+    // The contract: hint visible inline iff:
+    //   currentResolution.narrowing_hint is non-empty
+    //   AND initialResolution.alternatives is empty/absent.
+    seedState({
+      initialResolution: {
+        matched_cip: "27.0101",
+        matched_title: "Mathematics, General",
+        confidence: "medium",
+        reasoning: "Mathematics is the closest fit for 'money'.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        // Empty alternatives — this is what triggers the inline render.
+        // CipPicker would otherwise own the narrowing_hint rendering.
+        alternatives: [],
+        parent_cip: "27.01",
+        confirmed_focus: null,
+        remaining_count: 0,
+        narrowing_hint: "Try 'finance' or 'economics' if you want money-focused programs.",
+      },
+      currentResolution: {
+        matched_cip: "27.0101",
+        matched_title: "Mathematics, General",
+        confidence: "medium",
+        reasoning: "Mathematics is the closest fit for 'money'.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [],
+        parent_cip: "27.01",
+        confirmed_focus: null,
+        remaining_count: 0,
+        narrowing_hint: "Try 'finance' or 'economics' if you want money-focused programs.",
+      },
+    });
+
+    renderScreen();
+
+    const hint = screen.getByTestId("narrowing-hint-inline");
+    expect(hint).toBeInTheDocument();
+    expect(hint.textContent).toContain("'finance' or 'economics'");
+
+    // CipPicker must NOT render (no alternatives) — otherwise we'd
+    // get a duplicate hint.
+    expect(screen.queryByTestId("cip-picker")).not.toBeInTheDocument();
+  });
+
+  it("does_not_render_inline_narrowing_hint_when_alternatives_present — CipPicker owns the hint when alts exist", () => {
+    // Mutual-exclusion guard: the inline render must hide when
+    // CipPicker is mounted (because the hint moves into the picker).
+    seedState({
+      initialResolution: {
+        matched_cip: "14.0901",
+        matched_title: "Computer Engineering",
+        confidence: "high",
+        reasoning: "Closest match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [
+          { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+        ],
+        parent_cip: "14.09",
+        confirmed_focus: null,
+        remaining_count: 5,
+        narrowing_hint: "Try civil engineering",
+      },
+      currentResolution: {
+        matched_cip: "14.0901",
+        matched_title: "Computer Engineering",
+        confidence: "high",
+        reasoning: "Closest match.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [
+          { cip: "14.1001", title: "Electrical Engineering", why: "Circuits", parent_cip: "14.10" },
+        ],
+        parent_cip: "14.09",
+        confirmed_focus: null,
+        remaining_count: 5,
+        narrowing_hint: "Try civil engineering",
+      },
+    });
+
+    renderScreen();
+
+    // CipPicker mounts → inline hint must NOT render.
+    expect(screen.getByTestId("cip-picker")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("narrowing-hint-inline"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+
+describe("TestBundle4SoftNudgeMedium", () => {
+  it("extends_softnudge_to_medium_confidence — medium-confidence resolution surfaces soft-nudge + caution color", async () => {
+    const careers = makeCareers();
+    vi.mocked(getOutcomes).mockResolvedValue(careers);
+
+    seedState({
+      initialResolution: {
+        matched_cip: "27.0101",
+        matched_title: "Mathematics, General",
+        confidence: "medium",  // the new path — Bundle 4 flips this on.
+        reasoning: "Mathematics is the closest fit.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [],
+        parent_cip: "27.01",
+        confirmed_focus: null,
+      },
+      currentResolution: {
+        matched_cip: "27.0101",
+        matched_title: "Mathematics, General",
+        confidence: "medium",
+        reasoning: "Mathematics is the closest fit.",
+        careers_preview: [],
+        audit_flag: null,
+        audit_message: null,
+        needs_clarification: false,
+        alternatives: [],
+        parent_cip: "27.01",
+        confirmed_focus: null,
+      },
+    });
+    useBuildStore.setState({ selectedCareer: careers[0]! });
+
+    renderScreen();
+
+    // softNudge surfaces — same testid as the low-confidence path, but
+    // the trigger is now confidence === "medium".
+    const nudge = await screen.findByTestId("soft-nudge");
+    expect(nudge).toBeInTheDocument();
+    expect(nudge.textContent).toMatch(/close call/i);
+
+    // Commit stays enabled — the nudge is informational, not a gate.
+    const commit = screen.getByText(/Build my character/);
+    expect(commit).not.toBeDisabled();
+  });
+});
