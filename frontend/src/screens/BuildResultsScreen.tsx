@@ -18,7 +18,6 @@ import { InstitutionCard } from "@/components/build-results/InstitutionCard";
 import { StatInfoPopover } from "@/components/build-results/StatInfoPopover";
 import { BossBand } from "@/components/build-results/BossBand";
 import { BuildLoadingScreen } from "@/components/build-results/BuildLoadingScreen";
-import { InsufficientDataBanner } from "@/components/build-results/InsufficientDataBanner";
 import { VerdictBadge } from "@/components/build-results/VerdictBadge";
 import { BOSS_META, STAT_COLORS, STAT_INFO } from "@/components/build-results/bossData";
 import { GemmaChat } from "@/components/menu/GemmaChat";
@@ -938,23 +937,6 @@ export function BuildResultsScreen() {
             }}
           />
         </div>
-
-        {/* InsufficientDataBanner — surfaces College Scorecard
-            PrivacySuppression when ERN and ROI are both null. Per spec
-            bugfix-post-100-build-test-fixes-bundle §3 Bundle 2, the banner
-            uses the in-build career's stats.ern/stats.roi as the trigger
-            (same source as PentagonChart below). Mentions the program by
-            name because suppression is per-program, not school-wide. */}
-        {career.stats.ern == null && career.stats.roi == null && (
-          <div className="mt-12">
-            <InsufficientDataBanner
-              programTitle={
-                career.program_name || build.program_name || career.occupation_title
-              }
-              schoolName={school?.name ?? build.school_name}
-            />
-          </div>
-        )}
 
         {/* Section 3: Build Stats (Pentagon + Legend) */}
         <div style={{ marginTop: 48, animation: "sectionFadeIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) 0.4s both" }}>
