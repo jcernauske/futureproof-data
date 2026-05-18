@@ -442,12 +442,12 @@ def _is_placeholder_title(matched_title: str | None) -> bool:
 
 # HTML / markup-shaped input pre-filter (Bundle 4d). Catches paste accidents
 # and adversarial payloads like `<script>alert(1)</script>`. The regex matches
-# what looks like an HTML/XML tag — a `<` followed by an alpha tag name and
-# either whitespace, `>`, or a closing slash. We also catch `<script` and
-# bare event-handler-like fragments. Conservative on purpose; the goal is to
-# stop obvious markup, not normalize every weird character.
+# what looks like an HTML/XML tag — `<` + alpha tag name followed by `>`, `/>`,
+# or an attribute (`attr=`). Prose with bare `<` ("engineering < finance pivot")
+# is left alone: a real tag needs a closing bracket or attribute, not just
+# whitespace.
 _HTML_INPUT_RE = re.compile(
-    r"<\s*/?[a-zA-Z][a-zA-Z0-9]*(\s|/?>|\s+[a-zA-Z]+=)",
+    r"<\s*/?[a-zA-Z][a-zA-Z0-9]*(/?>|\s+[a-zA-Z]+\s*=)",
 )
 
 

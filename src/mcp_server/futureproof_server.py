@@ -234,7 +234,7 @@ def _load_school_aliases() -> dict[str, dict[str, Any]]:
 
     Entries with `canonical_unitid: null` are dropped (no-op aliases).
     """
-    path = Path("data/reference/school_aliases.yaml")
+    path = Path(__file__).resolve().parents[2] / "data" / "reference" / "school_aliases.yaml"
     if not path.exists():
         logger.info(
             "school_aliases.yaml not found at %s; alias matching disabled",
